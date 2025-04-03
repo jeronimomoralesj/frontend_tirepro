@@ -55,7 +55,7 @@ const EventosPage: React.FC = () => {
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(
               searchTerm.trim()
             )}`
-          : `http://localhost:6001/api/vehicles/placa?placa=${encodeURIComponent(
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/placa?placa=${encodeURIComponent(
               searchTerm.trim()
             )}`
       );
@@ -69,7 +69,7 @@ const EventosPage: React.FC = () => {
       const tiresRes = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-          : `http://localhost:6001/api/tires/vehicle?vehicleId=${vehicleData.id}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/vehicle?vehicleId=${vehicleData.id}`
       );
       if (!tiresRes.ok) {
         throw new Error("Error al obtener los neumáticos");

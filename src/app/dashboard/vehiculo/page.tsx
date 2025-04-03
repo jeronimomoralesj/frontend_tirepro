@@ -2,7 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Truck, Database, FileText, Trash2 } from "lucide-react";
+import { Plus, Database, Trash2 } from "lucide-react";
 
 type Vehicle = {
   id: string;

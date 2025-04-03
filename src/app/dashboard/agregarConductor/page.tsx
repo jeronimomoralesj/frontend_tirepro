@@ -56,7 +56,7 @@ export default function AgregarInspeccion() {
     setSuccess(null);
     
     try {
-      const response = await fetch(`http://localhost:6001/api/tires/placa/${placa}`, {
+      const response = await fetch(`http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/placa/${placa}`, {
         headers: {
           "Authorization": `Bearer ${auth?.token}`,
           "Content-Type": "application/json"
@@ -150,7 +150,7 @@ export default function AgregarInspeccion() {
             hasImage: !!imageFile
           });
   
-          const response = await fetch(`http://localhost:6001/api/tires/${tire.id}/inspeccion`, {
+          const response = await fetch(`http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/${tire.id}/inspeccion`, {
             method: 'POST',
             headers: {
               "Authorization": `Bearer ${auth.token}`,

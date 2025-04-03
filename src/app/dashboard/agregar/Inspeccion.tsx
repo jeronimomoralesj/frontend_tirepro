@@ -67,7 +67,7 @@ export default function InspeccionPage() {
       const vehicleRes = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim())}`
-          : `http://localhost:6001/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim())}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim())}`
       );
       if (!vehicleRes.ok) {
         throw new Error("Vehículo no encontrado");
@@ -80,7 +80,7 @@ export default function InspeccionPage() {
       const tiresRes = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-          : `http://localhost:6001/api/tires/vehicle?vehicleId=${vehicleData.id}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/vehicle?vehicleId=${vehicleData.id}`
       );
       if (!tiresRes.ok) {
         throw new Error("Error al obtener los neumáticos");

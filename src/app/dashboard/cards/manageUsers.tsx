@@ -38,7 +38,7 @@ export default function ManageUsers() {
 
     async function fetchUsers() {
       try {
-        const res = await fetch(`http://localhost:6001/api/users/company/${auth.user.companyId}`, {
+        const res = await fetch(`http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/company/${auth.user.companyId}`, {
           headers: { Authorization: `Bearer ${auth.token}` },
         });
         
@@ -89,7 +89,7 @@ export default function ManageUsers() {
     if (!newPlaca) return;
   
     try {
-      const res = await fetch(`http://localhost:6001/api/users/${userId}/add-placa`, {
+      const res = await fetch(`http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/${userId}/add-placa`, {
         method: "PATCH",  // ✅ Ensure method is PATCH (not POST)
         headers: {
           Authorization: `Bearer ${auth.token}`,
