@@ -3,18 +3,18 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 type AuthContextType = {
-  user: any;
+  user: User | null;
   token: string | null;
-  // Instead of performing the fetch, these functions now simply set the auth state.
-  login: (user: any, token: string) => void;
-  register: (user: any, token: string) => void;
+  login: (email: string, password: string) => Promise<void>;
+  register: (user: User, token: string) => void;
   logout: () => void;
 };
+
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -24,8 +24,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedCompanyId = localStorage.getItem("companyId");
 
       if (storedUser && storedToken) {
-        const parsedUser = JSON.parse(storedUser);
-        setUser({ ...parsedUser, companyId: storedCompanyId });
+        const parsedUser: User = JSON.parse(storedUser);
+setUser({ ...parsedUser, companyId: storedCompanyId as string });
         setToken(storedToken);
       }
     }
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
 
   // Updated register: simply set the user and token in state and localStorage.
-  function register(user: any, token: string) {
+  function register(user: User, token: string) {
     setUser(user);
     setToken(token);
     localStorage.setItem("token", token);

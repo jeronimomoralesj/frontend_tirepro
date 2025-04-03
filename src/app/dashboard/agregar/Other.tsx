@@ -76,8 +76,12 @@ const EventosPage: React.FC = () => {
       }
       const tiresData: Tire[] = await tiresRes.json();
       setTires(tiresData);
-    } catch (err: any) {
-      setError(err.message || "Error inesperado");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Error inesperado");
+      }
     } finally {
       setLoading(false);
     }
@@ -130,9 +134,13 @@ const EventosPage: React.FC = () => {
         )
       );
       closeModal();
-    } catch (err: any) {
-      setModalError(err.message || "Error al agregar el evento");
-    } finally {
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setModalError(err.message);
+      } else {
+        setModalError("Error inesperado");
+      }
+    }finally {
       setLoading(false);
     }
   }

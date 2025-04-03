@@ -5,16 +5,13 @@ import { useAuth } from "../../context/AuthProvider";
 import { useRouter } from "next/navigation";
 import { 
   UserPlus, 
-  Briefcase, 
   User, 
   Mail, 
   Lock, 
   AlertCircle, 
   Check, 
-  CreditCard,
   Building2,
   Shield,
-  ArrowLeft
 } from "lucide-react";
 
 export default function AddUser() {
@@ -44,10 +41,10 @@ export default function AddUser() {
         if (!res.ok) throw new Error("Empresa no encontrada");
         const data = await res.json();
         setCompanyInfo(data);
-      } catch (err) {
+      } catch {
         setError("No se pudo obtener información de la empresa.");
         setCompanyInfo(null);
-      }
+      }      
     }    
 
     fetchCompanyInfo();

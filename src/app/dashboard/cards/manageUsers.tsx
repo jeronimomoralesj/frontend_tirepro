@@ -44,7 +44,7 @@ export default function ManageUsers() {
         
         const data: User[] = await res.json();
         setUsers(data.map(user => ({ ...user, placas: user.placas || [] })));          
-      } catch (error) {
+      } catch{
         setError("Failed to load users");
       } finally {
         setLoading(false);

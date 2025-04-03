@@ -32,7 +32,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
     dias30: 0,
     cambioInmediato: 0,
   });
-  const [isAnimating, setIsAnimating] = useState(false);
+ // const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     const counts = { buenEstado: 0, dias60: 0, dias30: 0, cambioInmediato: 0 };
@@ -57,8 +57,13 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
   const conditionLabels = ["Óptimo", "60 Días", "30 Días", "Urgente"];
   const backgroundColors = ["#22c55e", "#2D95FF", "#f97316", "#ef4444"];
   const lightColors = ["#bbf7d0", "#bfdbfe", "#fed7aa", "#fecaca"];
-  const icons = [<CheckCircle2 size={20} />, <Timer size={20} />, <AlertOctagon size={20} />, <RotateCcw size={20} />];
-
+  const icons = [
+    <CheckCircle2 size={20} key="check" />,
+    <Timer size={20} key="timer" />,
+    <AlertOctagon size={20} key="alert" />,
+    <RotateCcw size={20} key="rotate" />
+  ];
+  
   const values = conditions.map((c) => (selectedCondition && c !== selectedCondition ? 0 : tireCounts[c]));
   const total = Object.values(tireCounts).reduce((a, b) => a + b, 0);
   const activeIndices = values.map((v, i) => (v > 0 ? i : -1)).filter((i) => i !== -1);
@@ -94,7 +99,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
         borderColor: "#e2e8f0",
         borderWidth: 1,
         callbacks: {
-          label: (context: any) => {
+          label: (context: { raw: number; label: string }) => {
             const value = context.raw;
             const percent = total ? Math.round((value / total) * 100) : 0;
             return `${context.label}: ${value} llantas · ${percent}%`;
@@ -102,7 +107,10 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
         },
       },
     },
-    onClick: (_: any, elements: any[]) => {
+    onClick: (
+      _: React.MouseEvent<HTMLCanvasElement>,
+      elements: { index: number }[]
+    ) => {
       if (elements.length > 0) {
         setIsAnimating(true);
         setTimeout(() => setIsAnimating(false), 500);

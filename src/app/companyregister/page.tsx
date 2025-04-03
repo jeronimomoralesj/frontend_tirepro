@@ -47,9 +47,14 @@ export default function CompanyRegisterPage() {
 
       // Assuming the backend returns the new company object with an "id" field.
       setCompanyId(data.id);
-    } catch (err: any) {
-      setError(err.message || "Ocurrió un error inesperado");
-    } finally {
+    }catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Ocurrió un error inesperado");
+      }
+    }
+     finally {
       setLoading(false);
     }
   };

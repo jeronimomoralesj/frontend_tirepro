@@ -12,6 +12,7 @@ import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle } from "lucide-react";
 
 ChartJS.register(ArcElement, Tooltip, Legend, ChartDataLabels);
+const COLORS = ["#173D68", "#1E76B6", "#348CCB", "#173D68", "#1E76B6"];
 
 export interface VidaEntry {
   valor: string;
@@ -28,9 +29,6 @@ interface PorVidaProps {
 }
 
 const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
-  // Define your color palette using only your chosen colors.
-  const COLORS = ["#173D68", "#1E76B6", "#348CCB", "#173D68", "#1E76B6"];
-
   // Group tires by the latest vida entry.
   // For each tire, if there is at least one vida entry, we take the last one.
   const grouping = useMemo(() => {
@@ -46,6 +44,7 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
 
   // Prepare chart data.
   const chartData = useMemo(() => {
+    const COLORS = ["#173D68", "#1E76B6", "#348CCB", "#173D68", "#1E76B6"];
     const labels = Object.keys(grouping);
     const values = labels.map((label) => grouping[label]);
     const backgroundColors = labels.map((_, index) => COLORS[index % COLORS.length]);
@@ -82,7 +81,7 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
         cornerRadius: 8,
         displayColors: false,
         callbacks: {
-          label: (context: any) => {
+          label: (context: { raw: number; label: string }) => {
             const value = context.raw;
             const total = chartData.datasets[0].data.reduce(
               (sum: number, val: number) => sum + val,

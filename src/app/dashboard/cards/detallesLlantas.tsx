@@ -71,14 +71,19 @@ const DetallesLlantasPage: React.FC = () => {
 
         // Attach vehicle placa to each tire
         const tiresWithVehicle = data.map((t) => {
-          const v = vehicles.find((veh: any) => veh.id === t.vehicleId);
+          const v = (vehicles as { id: string; placa: string }[]).find((veh) => veh.id === (t as any).vehicleId);
           return { ...t, vehicle: v ? { placa: v.placa } : undefined };
         });
 
         setTires(tiresWithVehicle);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Ocurrió un error inesperado");
+        }
+      }
+       finally {
         setLoading(false);
       }
     };

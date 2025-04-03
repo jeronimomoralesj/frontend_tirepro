@@ -13,7 +13,7 @@ import {
   Legend,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
-import { HelpCircle, Info } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 
 ChartJS.register(
   CategoryScale,
@@ -145,8 +145,8 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         cornerRadius: 8,
         displayColors: false,
         callbacks: {
-          title: (tooltipItems: any[]) => `Fecha: ${tooltipItems[0].label}`,
-          label: (tooltipItem: any) =>
+          title: (tooltipItems: { label: string }[]) => `Fecha: ${tooltipItems[0].label}`,
+          label: (tooltipItem: { raw: number }) =>          
             `${selectedVariable}: ${tooltipItem.raw.toFixed(2)}`,
         },
         borderColor: "#e2e8f0",
@@ -158,7 +158,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         align: "top",
         offset: 0,
         font: { family: "'Inter', sans-serif", size: 11, weight: "500" },
-        formatter: (value: any) => `${value}`,
+        formatter: (value: number) => `${value}`,
         padding: { top: 4 },
       },
     },
@@ -182,7 +182,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         border: { display: false },
       },
     },
-    onClick: (event: any, elements: any) => {
+    onClick: () => {
       // Optionally add an onClick handler if needed.
     },
   };

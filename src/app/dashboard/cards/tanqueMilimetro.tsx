@@ -46,9 +46,6 @@ const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({ tires }) => {
   
   // Convert to percentage and round to two decimal places
   const progressPercentage = (averageProgress * 100).toFixed(2);
-  const initialDepth = tires.length > 0 
-    ? tires[0].profundidadInicial.toFixed(2) 
-    : '0.00';
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">

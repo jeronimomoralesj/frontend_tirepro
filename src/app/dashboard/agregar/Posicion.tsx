@@ -10,13 +10,6 @@ const ItemTypes = {
   TIRE: "tire"
 };
 
-// Updated color scheme to match the second code
-const COLORS = {
-  primary: "#0A183A",
-  secondary: "#173D68",
-  tertiary: "#1E76B6",
-  light: "#348CCB"
-};
 
 // Draggable Tire Component
 const DraggableTire = ({ tire }) => {
@@ -211,7 +204,7 @@ const VehicleVisualization = ({ config, assignedTires, positions, moveTire }) =>
 };
 
 const Posicion = () => {
-  const router = useRouter ? useRouter() : { back: () => window.history.back() };
+  const router = useRouter();
   const [placa, setPlaca] = useState("");
   const [vehicle, setVehicle] = useState(null);
   const [tires, setTires] = useState([]);
@@ -219,7 +212,6 @@ const Posicion = () => {
   const [availableTires, setAvailableTires] = useState([]);
   const [inventoryTires, setInventoryTires] = useState([]);
   const [vehicleConfig, setVehicleConfig] = useState(null);
-  const [positions, setPositions] = useState([]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -344,7 +336,7 @@ const Posicion = () => {
     const axisMatch = tipovhc.match(/(\d+)_ejes/);
     const axisCount = axisMatch ? parseInt(axisMatch[1]) : 2; // Default to 2 axes
     
-    let config = {
+    const config = {
       axisCount,
       layout: []
     };

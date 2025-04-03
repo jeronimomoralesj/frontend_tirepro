@@ -6,7 +6,26 @@ import Link from "next/link";
 
 const AnalisisPage: React.FC = () => {
   const [placa, setPlaca] = useState("");
-  const [analysis, setAnalysis] = useState<any>(null);
+  type TireAnalysis = {
+    id: string;
+    placa: string;
+    posicion: number;
+    profundidadActual: number | null;
+    recomendaciones: string[];
+    inspecciones: {
+      fecha: string;
+      profundidadInt: number;
+      profundidadCen: number;
+      profundidadExt: number;
+    }[];
+  };
+  
+  type AnalysisResponse = {
+    tires: TireAnalysis[];
+  };
+  
+  const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
+  
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -32,9 +51,14 @@ const AnalisisPage: React.FC = () => {
       }
       const data = await res.json();
       setAnalysis(data);
-    } catch (err: any) {
-      setError(err.message || "Error inesperado");
-    } finally {
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Error inesperado");
+      }
+    }
+     finally {
       setLoading(false);
     }
   };
@@ -122,7 +146,7 @@ const AnalisisPage: React.FC = () => {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {analysis.tires.map((tireAnalysis: any, index: number) => (
+              {analysis.tires.map((tireAnalysis, index) => (
                   <div
                     key={`${tireAnalysis.placa}-${index}`}
                     className="p-6 bg-white rounded-lg shadow-md border-l-4 border-[#1E76B6] hover:shadow-lg transition-shadow"
@@ -179,7 +203,7 @@ const AnalisisPage: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {tireAnalysis.inspecciones.map((insp: any, idx: number) => (
+                            {tireAnalysis.inspecciones.map((insp, idx: number) => (
                                 <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                                   <td className="py-1 px-2">
                                     {new Date(insp.fecha).toLocaleDateString()}

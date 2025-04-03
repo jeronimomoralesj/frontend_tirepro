@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { 
   Search, 
   Timer, 
@@ -11,15 +10,29 @@ import {
 } from "lucide-react";
 
 export default function InspeccionPage() {
-  const router = useRouter();
   
   // Input states
   const [placaInput, setPlacaInput] = useState("");
   const [newKilometraje, setNewKilometraje] = useState<number>(0);
   
   // Data states
-  const [vehicle, setVehicle] = useState<any>(null);
-  const [tires, setTires] = useState<any[]>([]);
+  type Vehicle = {
+    id: string;
+    placa: string;
+    tipovhc: string;
+    tireCount: number;
+    kilometrajeActual: number;
+  };
+  
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  type Tire = {
+    id: string;
+    placa: string;
+    marca: string;
+    posicion: number;
+  };
+  
+  const [tires, setTires] = useState<Tire[]>([]);
   const [tireUpdates, setTireUpdates] = useState<{
     [id: string]: { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null }
   }>({});
@@ -72,14 +85,14 @@ export default function InspeccionPage() {
       if (!tiresRes.ok) {
         throw new Error("Error al obtener los neumáticos");
       }
-      let tiresData = await tiresRes.json();
+      const tiresData: Tire[] = await tiresRes.json();
       // Sort tires by posicion
-      tiresData.sort((a: any, b: any) => a.posicion - b.posicion);
+      tiresData.sort((a, b) => a.posicion - b.posicion);
       setTires(tiresData);
 
       // Initialize tireUpdates state with default values.
       const initialUpdates: { [id: string]: { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null } } = {};
-      tiresData.forEach((tire: any) => {
+      tiresData.forEach((tire) => {
         initialUpdates[tire.id] = {
           profundidadInt: 0,
           profundidadCen: 0,
@@ -88,9 +101,14 @@ export default function InspeccionPage() {
         };
       });
       setTireUpdates(initialUpdates);
-    } catch (err: any) {
-      setError(err.message || "Error inesperado");
-    } finally {
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Error inesperado");
+      }
+    }
+    finally {
       setLoading(false);
     }
   }
@@ -186,10 +204,15 @@ export default function InspeccionPage() {
       
       await Promise.all(updatePromises);
       alert("Inspecciones actualizadas exitosamente");
-    } catch (err: any) {
-      console.error("Full error:", err);
-      setError(err.message || "Error al actualizar inspecciones");
-    } finally {
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error("Full error:", err);
+        setError(err.message);
+      } else {
+        setError("Error desconocido");
+      }
+    }
+     finally {
       setLoading(false);
     }
   }
@@ -323,7 +346,11 @@ export default function InspeccionPage() {
                               max={30}
                               value={tireUpdates[tire.id]?.[field as keyof typeof tireUpdates[string]] || 0}
                               onChange={(e) =>
-                                handleInputChange(tire.id, field as any, Number(e.target.value))
+                                handleInputChange(
+                                  tire.id,
+                                  field as "profundidadInt" | "profundidadCen" | "profundidadExt" | "image",
+                                  Number(e.target.value)
+                                )
                               }
                               className="w-full px-3 py-2 border-2 border-[#1E76B6]/30 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
                             />

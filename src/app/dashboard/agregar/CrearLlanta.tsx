@@ -65,9 +65,13 @@ export default function TirePage() {
       }
       const data = await res.json();
       setUserVehicles(data);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error");
-    }
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Unexpected error");
+      }
+    }    
   }
 
   function generateRandomString(length: number): string {
@@ -136,9 +140,14 @@ export default function TirePage() {
       setVida("");
       setPosicion("");
       setSelectedVehicleId("");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Error desconocido");
+      }
+    }
+     finally {
       setLoading(false);
     }
   }

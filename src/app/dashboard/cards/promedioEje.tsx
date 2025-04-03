@@ -11,7 +11,7 @@ import {
   Legend,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
-import { BarChart3, HelpCircle } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 
 // Register ChartJS components and plugins
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
@@ -90,7 +90,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
         cornerRadius: 8,
         displayColors: false,
         callbacks: {
-          label: (context: any) => {
+          label: (context: { raw: number }) => {
             const value = context.raw;
             const total = chartData.datasets[0].data.reduce(
               (sum: number, val: number) => sum + val,
@@ -99,7 +99,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
             const percentage = Math.round((value / total) * 100);
             return `Profundidad: ${value} mm · ${percentage}%`;
           },
-          title: (tooltipItems: any[]) =>
+          title: (tooltipItems: { label: string }[]) =>
             `Eje ${tooltipItems[0].label}`,
         },
         borderColor: "#e2e8f0",
@@ -115,7 +115,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
           size: 11,
           weight: "500",
         },
-        formatter: (value: any) => `${value} mm`,
+        formatter: (value: number) => `${value} mm`,
         padding: { top: 4 },
       },
     },

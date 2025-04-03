@@ -58,7 +58,7 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
         cornerRadius: 8,
         displayColors: false,
         callbacks: {
-          label: (context: any) => {
+          label: (context: { raw: number }) => {
             const value = context.raw;
             const total = chartData.datasets[0].data.reduce(
               (sum: number, val: number) => sum + val,
@@ -67,7 +67,7 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
             const percentage = Math.round((value / total) * 100);
             return `Cantidad: ${value} · ${percentage}%`;
           },
-          title: (tooltipItems: any[]) =>
+          title: (tooltipItems: { label: string }[]) =>
             `Marca ${tooltipItems[0].label}`,
         },
         borderColor: "#e2e8f0",
@@ -83,7 +83,7 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
           size: 11,
           weight: "500",
         },
-        formatter: (value: any) => `${value}`,
+        formatter: (value: number) => `${value}`,
         padding: { top: 4 },
       },
     },

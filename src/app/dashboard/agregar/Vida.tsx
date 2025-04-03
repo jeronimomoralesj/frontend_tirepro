@@ -82,9 +82,14 @@ const VidaPage: React.FC = () => {
       const tiresData: Tire[] = await tiresRes.json();
       // Optionally sort by a field (e.g. posicion)
       setTires(tiresData);
-    } catch (err: any) {
-      setError(err.message || "Error inesperado");
-    } finally {
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Error inesperado");
+      } else {
+        setError("Error inesperado");
+      }
+    }
+     finally {
       setLoading(false);
     }
   }
@@ -149,9 +154,14 @@ const VidaPage: React.FC = () => {
       setShowModal(false);
       setSelectedTire(null);
       setSelectedVida("");
-    } catch (err: any) {
-      setModalError(err.message || "Error al actualizar vida");
-    } finally {
+    } catch (err) {
+      if (err instanceof Error) {
+        setModalError(err.message || "Error al actualizar vida");
+      } else {
+        setModalError("Error al actualizar vida");
+      }
+    }
+     finally {
       setLoading(false);
     }
   }

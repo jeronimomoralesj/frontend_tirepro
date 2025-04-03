@@ -44,9 +44,14 @@ const InspeccionVencidaPage: React.FC = () => {
         if (!res.ok) throw new Error("Error al obtener los datos de llantas");
         const data: Tire[] = await res.json();
         setTires(data);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Error desconocido");
+        }
+      }
+       finally {
         setLoading(false);
       }
     };

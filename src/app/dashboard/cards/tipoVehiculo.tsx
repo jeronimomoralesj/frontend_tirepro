@@ -53,7 +53,7 @@ const TipoVehiculo: React.FC<TipoVehiculoProps> = ({ vehicles }) => {
         },
       ],
     };
-  }, [grouping]);
+  }, [grouping, PALETTE]);
 
   // Chart options (keep it simple)
   const chartOptions = {
@@ -72,7 +72,7 @@ const TipoVehiculo: React.FC<TipoVehiculoProps> = ({ vehicles }) => {
         cornerRadius: 8,
         displayColors: false,
         callbacks: {
-          label: (context: any) => {
+          label: (context: { raw: number; label: string }) => {
             const value = context.raw;
             const total = chartData.datasets[0].data.reduce(
               (sum: number, val: number) => sum + val,
@@ -81,7 +81,7 @@ const TipoVehiculo: React.FC<TipoVehiculoProps> = ({ vehicles }) => {
             const percentage = Math.round((value / total) * 100);
             return `Cantidad: ${value} · ${percentage}%`;
           },
-          title: (tooltipItems: any[]) => `Tipo ${tooltipItems[0].label}`,
+          title: (tooltipItems: { label: string }[]) => `Tipo ${tooltipItems[0].label}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,

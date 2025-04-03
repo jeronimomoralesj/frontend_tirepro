@@ -60,7 +60,7 @@ const AjustesPage: React.FC = () => {
     role: "regular",
   });
   const [plateInputs, setPlateInputs] = useState<{ [userId: string]: string }>({});
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Notification function (simple alert for now)
   function showNotification(message: string, type: "success" | "error") {
@@ -93,14 +93,18 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
-          : `http://localhost:6001/api/companies/${companyId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/companies/${companyId}`
       );
       if (!res.ok) throw new Error("Failed to fetch company data");
       const data = await res.json();
       setCompany(data);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error while fetching company data");
-    }
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Mensaje de error desconocido");
+      } else {
+        setError("Ocurrió un error inesperado");
+      }
+    }    
   }
 
   async function fetchUsers(companyId: string) {
@@ -108,14 +112,18 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users?companyId=${companyId}`
-          : `http://localhost:6001/api/users?companyId=${companyId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users?companyId=${companyId}`
       );
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
       setUsers(data);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error while fetching users");
-    }
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Mensaje de error desconocido");
+      } else {
+        setError("Ocurrió un error inesperado");
+      }
+    }    
   }
 
   async function handleAddUser(e: React.FormEvent) {
@@ -134,7 +142,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
-          : `http://localhost:6001/api/users/register`,
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/register`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -149,8 +157,12 @@ const AjustesPage: React.FC = () => {
       // Refresh the users list
       fetchUsers(user.companyId);
       setNewUserData({ name: "", email: "", password: "", role: "regular" });
-    } catch (err: any) {
-      showNotification(err.message || "Error al crear el usuario", "error");
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Mensaje de error desconocido");
+      } else {
+        setError("Ocurrió un error inesperado");
+      }
     } finally {
       setLoading(false);
     }
@@ -167,7 +179,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/add-plate/${userId}`
-          : `http://localhost:6001/api/users/add-plate/${userId}`,
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/add-plate/${userId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -185,8 +197,12 @@ const AjustesPage: React.FC = () => {
       );
       setPlateInputs((prev) => ({ ...prev, [userId]: "" }));
       showNotification("Placa agregada exitosamente", "success");
-    } catch (err: any) {
-      showNotification(err.message || "Error al agregar la placa", "error");
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Mensaje de error desconocido");
+      } else {
+        setError("Ocurrió un error inesperado");
+      }
     } finally {
       setLoading(false);
     }
@@ -198,7 +214,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/remove-plate/${userId}`
-          : `http://localhost:6001/api/users/remove-plate/${userId}`,
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/remove-plate/${userId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -215,8 +231,12 @@ const AjustesPage: React.FC = () => {
         )
       );
       showNotification("Placa removida exitosamente", "success");
-    } catch (err: any) {
-      showNotification(err.message || "Error al remover la placa", "error");
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Mensaje de error desconocido");
+      } else {
+        setError("Ocurrió un error inesperado");
+      }
     } finally {
       setLoading(false);
     }
@@ -228,7 +248,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}`
-          : `http://localhost:6001/api/users/${userId}`,
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/${userId}`,
         {
           method: "DELETE",
         }
@@ -239,8 +259,12 @@ const AjustesPage: React.FC = () => {
       showNotification("Usuario eliminado exitosamente", "success");
       if (user) fetchUsers(user.companyId);
       setConfirmDelete(null);
-    } catch (err: any) {
-      showNotification(err.message || "Error al eliminar el usuario", "error");
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Mensaje de error desconocido");
+      } else {
+        setError("Ocurrió un error inesperado");
+      }
     } finally {
       setLoading(false);
     }

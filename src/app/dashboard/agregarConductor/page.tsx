@@ -81,10 +81,15 @@ export default function AgregarInspeccion() {
         };
       });
       setInspectionData(newInspectionData);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Error inesperado");
+      }
       setTires([]);
-    } finally {
+    }
+     finally {
       setLoading(false);
     }
   };
@@ -171,10 +176,15 @@ export default function AgregarInspeccion() {
       setInspectionData({});
       setVehicleKilometraje("");
       setInspectionImages({});
-    } catch (error: any) {
-      console.error("Error submitting inspections:", error);
-      setError(error.message);
-    } finally {
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Error submitting inspections:", error);
+        setError(error.message);
+      } else {
+        setError("Error desconocido");
+      }
+    }
+     finally {
       setSubmitting(false);
     }
   };

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { 
   Search, 
   Car, 
@@ -14,6 +13,7 @@ import {
   Calendar,
   Ruler
 } from "lucide-react";
+import Image from "next/image";
 
 export type Inspection = {
   profundidadInt: number;
@@ -49,7 +49,6 @@ export type Vehicle = {
 };
 
 const BuscarPage: React.FC = () => {
-  const router = useRouter();
   const [searchMode, setSearchMode] = useState<"vehicle" | "tire">("vehicle");
   const [searchTerm, setSearchTerm] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
@@ -85,7 +84,7 @@ const BuscarPage: React.FC = () => {
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(
                 searchTerm.trim()
               )}`
-            : `http://localhost:6001/api/vehicles/placa?placa=${encodeURIComponent(
+            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/placa?placa=${encodeURIComponent(
                 searchTerm.trim()
               )}`
         );
@@ -120,9 +119,14 @@ const BuscarPage: React.FC = () => {
         const tiresData: Tire[] = await tiresRes.json();
         setTires(tiresData);
       }
-    } catch (err: any) {
-      setError(err.message || "Error inesperado");
-    } finally {
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Error inesperado");
+      }
+    }
+     finally {
       setLoading(false);
     }
   }
@@ -486,11 +490,13 @@ const BuscarPage: React.FC = () => {
                             <td className="px-4 py-3">{insp.cpkProyectado ?? "N/A"}</td>
                             <td className="px-4 py-3">
                               {insp.imageUrl ? (
-                                <img
-                                  src={insp.imageUrl}
-                                  alt="Inspección"
-                                  className="w-16 h-16 object-cover rounded-md shadow-sm border border-gray-200"
-                                />
+                                <Image
+                                src={insp.imageUrl}
+                                alt="Inspección"
+                                width={64}
+                                height={64}
+                                className="rounded-md shadow-sm border border-gray-200 object-cover"
+                              />
                               ) : (
                                 <span className="text-gray-400">No disponible</span>
                               )}

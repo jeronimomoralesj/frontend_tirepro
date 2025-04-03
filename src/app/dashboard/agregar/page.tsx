@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PlusCircle, Search, Calendar, ArrowLeft } from "lucide-react";
+import { PlusCircle, Search, Calendar } from "lucide-react";
 import CrearLlanta from "./CrearLlanta";
 import Inspeccion from "./Inspeccion";
 import Evento from "./Evento";
