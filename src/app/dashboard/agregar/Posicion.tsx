@@ -10,9 +10,17 @@ const ItemTypes = {
   TIRE: "tire"
 };
 
+interface Tire {
+  id: string;
+  marca: string;
+  posicion?: number | null;
+}
 
-// Draggable Tire Component
-const DraggableTire = ({ tire }) => {
+interface DraggableTireProps {
+  tire: Tire;
+}
+
+const DraggableTire: React.FC<DraggableTireProps> = ({ tire }) => {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.TIRE,
     item: { id: tire.id },
