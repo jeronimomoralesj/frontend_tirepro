@@ -11,6 +11,15 @@ type AuthContextType = {
 };
 
 
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  companyId: string;
+  placas?: string[];
+};
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
