@@ -39,7 +39,7 @@ const InspeccionVencidaPage: React.FC = () => {
         const res = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-            : `http://localhost:6001/api/tires?companyId=${companyId}`
+            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}`
         );
         if (!res.ok) throw new Error("Error al obtener los datos de llantas");
         const data: Tire[] = await res.json();

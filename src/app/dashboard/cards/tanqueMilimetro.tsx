@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { BarChart3, HelpCircle } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 
 // Define the structure of an inspection entry.
 export type Inspection = {

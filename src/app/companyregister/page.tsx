@@ -26,7 +26,7 @@ export default function CompanyRegisterPage() {
       const response = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/register`
-          : "http://localhost:6001/api/companies/register",
+          : "http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/companies/register",
         {
           method: "POST",
           headers: {

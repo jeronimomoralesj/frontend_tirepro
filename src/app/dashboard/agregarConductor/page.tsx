@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Loader2, Search, AlertCircle, CheckCircle, Activity, Truck, Ruler, Car, ArrowRight, Gauge, Camera } from "lucide-react";
+import { Loader2, Search, AlertCircle, CheckCircle, Activity, Truck, Ruler, Car, Gauge, Camera } from "lucide-react";
 import { useAuth } from "../../context/AuthProvider";
 
 interface Tire {

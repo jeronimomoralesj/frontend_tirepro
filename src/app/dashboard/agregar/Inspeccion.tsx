@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Search, 
-  Car, 
   Timer, 
   FileText, 
   Camera, 
@@ -134,7 +133,7 @@ export default function InspeccionPage() {
         const vehicleRes = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/${vehicle.id}/kilometraje`
-            : `http://localhost:6001/api/vehicles/${vehicle.id}/kilometraje`,
+            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/${vehicle.id}/kilometraje`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -166,7 +165,7 @@ export default function InspeccionPage() {
         const res = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/${tire.id}/inspection`
-            : `http://localhost:6001/api/tires/${tire.id}/inspection`,
+            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/${tire.id}/inspection`,
           {
             method: "PATCH",
             headers: { 

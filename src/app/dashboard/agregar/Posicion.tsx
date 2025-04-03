@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Truck, Package, Search, ArrowLeft, Clock, AlertTriangle } from "lucide-react";
+import { Package, Search, ArrowLeft, Clock, AlertTriangle } from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useRouter } from "next/navigation";
@@ -252,7 +252,7 @@ const Posicion = () => {
 
       // Updated to use the new endpoint for fetching vehicle by placa
       const vehicleResponse = await axios.get(
-        `http://localhost:6001/api/vehicles/placa`,
+        `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/placa`,
         { 
           params: { placa },
           headers: { Authorization: `Bearer ${token}` } 
@@ -270,7 +270,7 @@ const Posicion = () => {
       // Fetch tires by vehicle ID rather than placa now
       const vehicleId = vehicleResponse.data.id;
       const tiresResponse = await axios.get(
-        `http://localhost:6001/api/tires/vehicle`,
+        `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/vehicle`,
         { 
           params: { vehicleId },
           headers: { Authorization: `Bearer ${token}` } 
@@ -526,7 +526,7 @@ const Posicion = () => {
       });
 
       await axios.post(
-        "http://localhost:6001/api/tires/update-positions",
+        "http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/update-positions",
         { 
           placa,
           updates

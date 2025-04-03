@@ -25,7 +25,7 @@ const TopConductores = () => {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`http://localhost:6001/api/users/company/${auth.user.companyId}`, {
+        const response = await fetch(`http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/company/${auth.user.companyId}`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${auth.token}`,

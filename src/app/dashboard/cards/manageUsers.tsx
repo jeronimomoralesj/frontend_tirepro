@@ -10,8 +10,6 @@ import {
   Shield, 
   Search, 
   Filter, 
-  Download, 
-  MoreHorizontal,
   CheckCircle,
   XCircle,
   UserPlus 
@@ -62,7 +60,7 @@ export default function ManageUsers() {
     setDeleting(userId);
   
     try {
-      const res = await fetch(`http://localhost:6001/api/users/${userId}`, {
+      const res = await fetch(`http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/${userId}`, {
         method: "DELETE",
         headers: { 
           Authorization: `Bearer ${auth.token}`,

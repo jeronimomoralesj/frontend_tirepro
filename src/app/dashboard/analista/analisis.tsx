@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, AlertCircle, Home, TrendingUp, ArrowLeft } from "lucide-react";
+import { Search, AlertCircle, TrendingUp, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 const AnalisisPage: React.FC = () => {

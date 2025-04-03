@@ -2,17 +2,11 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  TrendingUp, 
-  BarChart, 
+import {  
   DollarSign,
   Calendar,
   Download,
-  Activity,
   Bell,
-  Info, 
-  Layers, 
-  Clock, 
   Truck,
   Filter,
   ChevronDown

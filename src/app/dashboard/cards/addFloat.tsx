@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Wand, Bot, Mail, Forward, Plus } from 'lucide-react';
+import { X, Bot, Forward, Plus } from 'lucide-react';
 
 const Addfloat = () => {
   const [isOpen, setIsOpen] = useState(false);

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Inspeccion from "./Inspeccion";
 import Vida from "./Vida";
 import Posicion from "./Posicion";
 import OtherEvent from "./Other";

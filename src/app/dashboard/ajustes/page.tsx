@@ -5,14 +5,9 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Plus,
   Settings,
-  Search,
   Car,
-  ChartPie,
   LogOut,
-  Glasses,
-  LifeBuoy,
   User,
   Menu,
   X,
@@ -23,7 +18,6 @@ import {
   Tag,
   Mail,
   Shield,
-  Bell,
   Users,
   PlusCircle
 } from "lucide-react";
