@@ -153,30 +153,39 @@ export default function TirePage() {
   }
 
   // Custom input component for consistent styling
-  const InputField = ({ 
-    label, 
-    type = "text", 
-    value, 
-    onChange, 
-    required = false, 
-    placeholder = "",
-    min
-  }) => (
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        required={required}
-        placeholder={placeholder}
-        min={min}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-        focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent 
-        bg-white text-[#0A183A] placeholder-gray-400"
-      />
-    </div>
-  );
+// Custom input component for consistent styling
+const InputField = ({ 
+  label, 
+  type = "text", 
+  value, 
+  onChange, 
+  required = false, 
+  placeholder = "",
+  min
+}: {
+  label: string;
+  type?: string;
+  value: string | number;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  required?: boolean;
+  placeholder?: string;
+  min?: number;
+}) => (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      required={required}
+      placeholder={placeholder}
+      min={min}
+      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
+      focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent 
+      bg-white text-[#0A183A] placeholder-gray-400"
+    />
+  </div>
+);
 
   return (
     <div className="min-h-screen bg-white text-[#0A183A]">
