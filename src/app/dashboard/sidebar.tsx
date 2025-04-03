@@ -19,8 +19,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import Chatbot from "./cards/chatBot";
-import Addfloat from "./cards/addFloat";
 
 export default function Sidebar({ 
   collapsed, 

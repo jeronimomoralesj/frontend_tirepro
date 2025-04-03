@@ -36,7 +36,7 @@ export type Tire = {
   costo: { valor: number; fecha: string }[];
   posicion: number;
   inspecciones?: Inspection[];
-  primeraVida?: any;
+  primeraVida?: string[];
   kilometrosRecorridos: number;
   eventos?: { valor: string; fecha: string }[];
   tipovhc?: string;

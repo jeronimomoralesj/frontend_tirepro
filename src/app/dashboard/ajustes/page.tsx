@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Settings,
@@ -21,6 +21,7 @@ import {
   Users,
   PlusCircle
 } from "lucide-react";
+import Image from "next/image";
 
 // Define the types for User and Company
 export type UserData = {
@@ -45,7 +46,6 @@ export type CompanyData = {
 
 const AjustesPage: React.FC = () => {
   const router = useRouter();
-  const pathname = usePathname();
   const [user, setUser] = useState<UserData | null>(null);
   const [company, setCompany] = useState<CompanyData | null>(null);
   const [users, setUsers] = useState<UserData[]>([]);
@@ -242,33 +242,6 @@ const AjustesPage: React.FC = () => {
     }
   }
 
-  async function handleDeleteUser(userId: string) {
-    try {
-      setLoading(true);
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/${userId}`,
-        {
-          method: "DELETE",
-        }
-      );
-      if (!res.ok) {
-        throw new Error("Error al eliminar el usuario");
-      }
-      showNotification("Usuario eliminado exitosamente", "success");
-      if (user) fetchUsers(user.companyId);
-      setConfirmDelete(null);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message || "Mensaje de error desconocido");
-      } else {
-        setError("Ocurrió un error inesperado");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function handleLogout() {
     localStorage.clear();
@@ -528,7 +501,7 @@ const AjustesPage: React.FC = () => {
                   </div>
                   <div className="flex flex-col sm:flex-row items-center mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#1E76B6] mb-4 sm:mb-0 sm:mr-6 flex-shrink-0">
-                      <img
+                      <Image
                         src={company.profileImage}
                         alt={`${company.name} Logo`}
                         className="w-full h-full object-cover"

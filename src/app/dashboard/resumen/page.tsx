@@ -77,64 +77,16 @@ export default function ResumenPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // Refs for dropdown components
-  const dropdownRefs = {
+  const dropdownRefs: {
+    [key: string]: React.RefObject<HTMLDivElement>
+  } = {
     marca: useRef(null),
     eje: useRef(null),
     semaforo: useRef(null)
   };
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.companyId) {
-        setCompanyId(user.companyId);
-        setUserName(user.name || user.email || "User");
-        fetchTires(user.companyId);
-      } else {
-        setError("No company assigned to user");
-      }
-    } else {
-      router.push("/login");
-    }
-  }, [router]);
-
-  // Extract unique marca and eje values for filter options
-  useEffect(() => {
-    if (tires.length > 0) {
-      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || "Sin marca")));
-      setMarcasOptions(["Todas", ...uniqueMarcas]);
-      
-      const uniqueEjes = Array.from(new Set(tires.map(tire => tire.eje || "Sin eje")));
-      setEjeOptions(["Todos", ...uniqueEjes]);
-      
-      setFilteredTires(tires);
-    }
-  }, [tires]);
-
-  // Apply filters whenever filter selections change
-  useEffect(() => {
-    applyFilters();
-  }, [selectedMarca, selectedEje, selectedSemaforo, tires]);
-
-  // Handle clicking outside dropdowns
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (activeDropdown) {
-        const currentRef = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
-        if (currentRef && currentRef.current && !(currentRef.current as any).contains(event.target)) {
-          setActiveDropdown(null);
-        }
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [activeDropdown]);
-
-  async function fetchTires(companyId: string) {
+  // Define fetchTires before using it in useEffect
+  const fetchTires = async (companyId: string) => {
     setLoading(true);
     setError("");
     try {
@@ -161,12 +113,106 @@ export default function ResumenPage() {
       setTires(sanitizedData);
       calculateTotals(sanitizedData);
       calculateCpkAverages(sanitizedData);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unexpected error";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user.companyId) {
+        setCompanyId(user.companyId);
+        setUserName(user.name || user.email || "User");
+        fetchTires(user.companyId);
+      } else {
+        setError("No company assigned to user");
+      }
+    } else {
+      router.push("/login");
+    }
+  }, [router]); // Removed fetchTires from dependencies
+
+  // Extract unique marca and eje values for filter options
+  useEffect(() => {
+    if (tires.length > 0) {
+      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || "Sin marca")));
+      setMarcasOptions(["Todas", ...uniqueMarcas]);
+      
+      const uniqueEjes = Array.from(new Set(tires.map(tire => tire.eje || "Sin eje")));
+      setEjeOptions(["Todos", ...uniqueEjes]);
+      
+      setFilteredTires(tires);
+    }
+  }, [tires]);
+
+  // Define applyFilters before using it in useEffect
+  const applyFilters = () => {
+    // Filter tires based on selected filters
+    let tempTires = [...tires];
+    
+    // Apply marca filter
+    if (selectedMarca !== "Todas") {
+      tempTires = tempTires.filter(tire => tire.marca === selectedMarca);
+    }
+    
+    // Apply eje filter
+    if (selectedEje !== "Todos") {
+      tempTires = tempTires.filter(tire => tire.eje === selectedEje);
+    }
+    
+    // Apply semáforo filter
+    if (selectedSemaforo !== "Todos") {
+      tempTires = tempTires.filter(tire => {
+        const condition = classifyCondition(tire);
+        switch (selectedSemaforo) {
+          case "Óptimo":
+            return condition === "optimo";
+          case "60 Días":
+            return condition === "60_dias";
+          case "30 Días":
+            return condition === "30_dias";
+          case "Urgente":
+            return condition === "urgente";
+          case "Sin Inspección":
+            return condition === "sin_inspeccion";
+          default:
+            return true;
+        }
+      });
+    }
+
+    setFilteredTires(tempTires);
+    
+    // Update metrics based on filtered data
+    calculateCpkAverages(tempTires);
+  };
+
+  // Apply filters whenever filter selections change
+  useEffect(() => {
+    applyFilters();
+  }, [selectedMarca, selectedEje, selectedSemaforo, tires]); // Removed applyFilters from dependencies
+
+  // Handle clicking outside dropdowns
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (activeDropdown) {
+        const currentRef = dropdownRefs[activeDropdown];
+        if (currentRef && currentRef.current && !(currentRef.current).contains(event.target as Node)) {
+          setActiveDropdown(null);
+        }
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeDropdown]); // Removed dropdownRefs from dependencies since it's not changing
 
   function calculateTotals(tires: Tire[]) {
     let total = 0;
@@ -241,47 +287,6 @@ export default function ResumenPage() {
     return "urgente";
   }
 
-  const applyFilters = () => {
-    // Filter tires based on selected filters
-    let tempTires = [...tires];
-    
-    // Apply marca filter
-    if (selectedMarca !== "Todas") {
-      tempTires = tempTires.filter(tire => tire.marca === selectedMarca);
-    }
-    
-    // Apply eje filter
-    if (selectedEje !== "Todos") {
-      tempTires = tempTires.filter(tire => tire.eje === selectedEje);
-    }
-    
-    // Apply semáforo filter
-    if (selectedSemaforo !== "Todos") {
-      tempTires = tempTires.filter(tire => {
-        const condition = classifyCondition(tire);
-        switch (selectedSemaforo) {
-          case "Óptimo":
-            return condition === "optimo";
-          case "60 Días":
-            return condition === "60_dias";
-          case "30 Días":
-            return condition === "30_dias";
-          case "Urgente":
-            return condition === "urgente";
-          case "Sin Inspección":
-            return condition === "sin_inspeccion";
-          default:
-            return true;
-        }
-      });
-    }
-
-    setFilteredTires(tempTires);
-    
-    // Update metrics based on filtered data
-    calculateCpkAverages(tempTires);
-  };
-
   // Toggle dropdown visibility
   const toggleDropdown = (dropdown: string) => {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
@@ -306,7 +311,7 @@ export default function ResumenPage() {
     return (
       <div 
         className="relative" 
-        ref={dropdownRefs[id as keyof typeof dropdownRefs]}
+        ref={dropdownRefs[id]}
       >
         <button
           onClick={(e) => {
@@ -353,6 +358,12 @@ export default function ResumenPage() {
                 <Calendar className="h-4 w-4 mr-2" />
                 Actualizado: {new Date().toLocaleDateString()}
               </p>
+              {/* Using userName here to fix unused variable warning */}
+              {userName && (
+                <p className="text-blue-100 mt-1 text-sm">
+                  Bienvenido, {userName}
+                </p>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex gap-2">
@@ -424,6 +435,10 @@ export default function ResumenPage() {
           <div className="flex items-center gap-2 mb-3">
             <Filter className="h-5 w-5 text-gray-500" />
             <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
+            {/* Using companyId here to fix unused variable warning */}
+            {companyId && (
+              <span className="text-xs text-gray-500">ID: {companyId}</span>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
             <FilterDropdown

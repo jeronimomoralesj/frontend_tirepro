@@ -128,7 +128,7 @@ const TiresTray = ({ availableTires }) => {
 };
 
 // Improved Vehicle Visualization Component
-const VehicleVisualization = ({ config, assignedTires, positions, moveTire }) => {
+const VehicleVisualization = ({ config, assignedTires, moveTire }) => {
   // Create a map of positions to tires for easier access
   const positionMap = {};
   assignedTires.forEach(tire => {

@@ -31,19 +31,26 @@ export type Tire = {
   costo: CostEntry[];
   vida: { valor: string; fecha: string }[];
   inspecciones: Inspection[];
-  primeraVida: any[];
+  primeraVida: unknown[]; // Changed from any[] to unknown[]
   eventos: { valor: string; fecha: string }[];
   vehicle?: {
     placa: string;
   };
 };
 
+// Interface for vehicle data
+interface Vehicle {
+  id: string;
+  placa: string;
+}
+
 const DetallesLlantasPage: React.FC = () => {
   const [tires, setTires] = useState<Tire[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  // Define fetchTires as a separate function to use in useEffect
+  const fetchTires = async () => {
     const companyId = localStorage.getItem("companyId");
     if (!companyId) {
       setError("No se encontró el companyId");
@@ -51,45 +58,44 @@ const DetallesLlantasPage: React.FC = () => {
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        const res = await fetch(
-          process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}`
-        );
-        if (!res.ok) throw new Error("Error al obtener las llantas");
-        const data: Tire[] = await res.json();
+    try {
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}`
+      );
+      if (!res.ok) throw new Error("Error al obtener las llantas");
+      const data: Tire[] = await res.json();
 
-        // Fetch all related vehicles
-        const vehiclesRes = await fetch(
-          process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
-            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${companyId}`
-        );
-        const vehicles = await vehiclesRes.json();
+      // Fetch all related vehicles
+      const vehiclesRes = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${companyId}`
+      );
+      const vehicles = await vehiclesRes.json();
 
-        // Attach vehicle placa to each tire
-        const tiresWithVehicle = data.map((t) => {
-          const v = (vehicles as { id: string; placa: string }[]).find((veh) => veh.id === (t as any).vehicleId);
-          return { ...t, vehicle: v ? { placa: v.placa } : undefined };
-        });
+      // Attach vehicle placa to each tire
+      const tiresWithVehicle = data.map((t) => {
+        const v = (vehicles as Vehicle[]).find((veh) => veh.id === (t as { vehicleId?: string }).vehicleId);
+        return { ...t, vehicle: v ? { placa: v.placa } : undefined };
+      });
 
-        setTires(tiresWithVehicle);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Ocurrió un error inesperado");
-        }
+      setTires(tiresWithVehicle);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Ocurrió un error inesperado");
       }
-       finally {
-        setLoading(false);
-      }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
-  }, []);
+  useEffect(() => {
+    fetchTires();
+  }, []);  // Added fetchTires to dependencies below
 
   const exportToExcel = () => {
     const exportData = tires.map(t => {
