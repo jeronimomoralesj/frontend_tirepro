@@ -60,7 +60,6 @@ const AjustesPage: React.FC = () => {
     role: "regular",
   });
   const [plateInputs, setPlateInputs] = useState<{ [userId: string]: string }>({});
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Notification function (simple alert for now)
   function showNotification(message: string, type: "success" | "error") {
@@ -88,6 +87,30 @@ const AjustesPage: React.FC = () => {
     setLoading(false);
   }, [router]);
 
+  async function handleDeleteUser(userId: string) {
+    try {
+      setLoading(true);
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/${userId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!res.ok) {
+        throw new Error("Error al eliminar el usuario");
+      }
+      showNotification("Usuario eliminado exitosamente", "success");
+      if (user) fetchUsers(user.companyId); // Refresh user list
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  
   async function fetchCompany(companyId: string) {
     try {
       const res = await fetch(
@@ -612,11 +635,12 @@ const AjustesPage: React.FC = () => {
                                 {u.role === "admin" ? "Administrador" : "Usuario Regular"}
                               </span>
                               <button
-                                onClick={() => setConfirmDelete(u.id)}
-                                className="ml-4 text-red-600 hover:text-red-800 focus:outline-none"
-                              >
-                                <Trash2 className="w-6 h-6" />
-                              </button>
+  onClick={() => handleDeleteUser(u.id)} // you need this function defined
+  className="ml-4 text-red-600 hover:text-red-800 focus:outline-none"
+>
+  <Trash2 className="w-6 h-6" />
+</button>
+
                             </div>
                           </div>
                           <div className="p-4">

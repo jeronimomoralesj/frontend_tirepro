@@ -13,7 +13,11 @@ import {
   Building2,
   Shield,
 } from "lucide-react";
-
+type CompanyInfo = {
+  name: string;
+  plan: "Basic" | "Pro" | string;
+  userCount: number;
+};
 export default function AddUser() {
   const router = useRouter();
   const { user, token } = useAuth();
@@ -28,8 +32,9 @@ export default function AddUser() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const [companyInfo, setCompanyInfo] = useState(null);
-
+  
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  
   useEffect(() => {
     if (!user?.companyId) return;
 
@@ -50,11 +55,11 @@ export default function AddUser() {
     fetchCompanyInfo();
   }, [user?.companyId, token]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -101,8 +106,13 @@ export default function AddUser() {
       }, 2000);
       
     } catch (err) {
-      setError(err.message);
-    } finally {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Error inesperado");
+      }
+    }
+     finally {
       setLoading(false);
     }
   };

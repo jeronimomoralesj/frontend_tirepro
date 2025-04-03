@@ -46,6 +46,7 @@ export type Vehicle = {
   id: string;
   placa: string;
   tipovhc?: string;
+  carga: string;
 };
 
 const BuscarPage: React.FC = () => {
