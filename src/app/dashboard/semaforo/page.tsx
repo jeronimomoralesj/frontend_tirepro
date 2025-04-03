@@ -11,9 +11,6 @@ import {
 } from "lucide-react";
 import SemaforoPie from "../cards/semaforoPie";
 import PromedioEje from "../cards/promedioEje";
-import ReencaucheHistorico from "../cards/reencaucheHistorico";
-import TanqueMilimetro from "../cards/tanqueMilimetro";
-import HistoricChart from "../cards/historicChart";
 import SemaforoTabla from "../cards/semaforoTabla";
 import PorVida from "../cards/porVida";
 import DetallesLlantas from "../cards/detallesLlantas";

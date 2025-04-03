@@ -39,7 +39,7 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20">
             <div className="flex-shrink-0 flex items-center">
-            <img
+            <Image
   src="https://tirepro.com.co/static/media/logo_text.2391efedce2e8af16a32.png"
   alt="TirePro Logo"
   className="h-10 w-auto"
@@ -321,7 +321,7 @@ const Home = () => {
       {/* Right Image Section */}
       <div className="md:w-1/2 relative">
         <div className="absolute -top-6 -right-6 w-72 h-72 bg-gradient-to-br from-[#1E76B6] to-[#348CCB] rounded-full opacity-10"></div>
-        <img
+        <Image
           src="https://tirepro.com.co/static/media/app.e7a330a1d91499ba0c49.png"
           alt="TirePro App"
           className="relative w-full max-w-sm mx-auto rounded-3xl shadow-xl transition-transform duration-500 hover:scale-105"
@@ -360,7 +360,7 @@ const Home = () => {
                 <div className="relative p-8 rounded-2xl bg-gradient-to-b from-[#173D68]/50 to-[#1E76B6]/20 backdrop-blur-sm border border-[#1E76B6]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20">
                   <div className="absolute inset-0 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
                   <div className="relative">
-                    <img 
+                    <Image 
                       src={member.image}
                       alt={member.name}
                       className="w-32 h-32 rounded-full mx-auto mb-6 object-cover border-4 border-[#1E76B6]/30 group-hover:border-[#348CCB] transition-colors"
@@ -464,54 +464,5 @@ const Home = () => {
     </div>
   );
 };
-
-// Add keyframe animations
-const styles = `
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.6s ease-out forwards;
-}
-
-.animate-fade-in-delayed {
-  animation: fade-in 0.6s ease-out 0.2s forwards;
-  opacity: 0;
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-`;
 
 export default Home;

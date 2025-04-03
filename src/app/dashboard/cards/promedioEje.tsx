@@ -16,8 +16,20 @@ import { HelpCircle } from "lucide-react";
 // Register ChartJS components and plugins
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
+// Define proper types for tire and inspection
+interface Inspeccion {
+  profundidadInt: number;
+  profundidadCen: number;
+  profundidadExt: number;
+}
+
+interface Tire {
+  eje?: string;
+  inspecciones?: Inspeccion[];
+}
+
 interface PromedioEjeProps {
-  tires: any[]; // Array of tire objects
+  tires: Tire[]; // Replaced any[] with Tire[]
   onSelectEje: (eje: string | null) => void;
   selectedEje: string | null;
 }
@@ -72,6 +84,21 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
       },
     ],
   };
+
+  // Define proper types for Chart.js events and elements
+  interface ChartClickEvent {
+    native?: Event;
+    type: string;
+    chart: ChartJS;
+    x: number;
+    y: number;
+  }
+
+  interface ChartElement {
+    datasetIndex: number;
+    index: number;
+    element: any; // This is from Chart.js internals, hard to type precisely
+  }
 
   const options = {
     indexAxis: "y" as const,
@@ -145,7 +172,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
         border: { display: false },
       },
     },
-    onClick: (event: any, elements: any) => {
+    onClick: (event: ChartClickEvent, elements: ChartElement[]) => {
       if (elements.length > 0) {
         const index = elements[0].index;
         const eje = chartData.labels[index];
@@ -157,28 +184,28 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-  <h2 className="text-xl font-bold">Profundidad Media por Eje</h2>
-  <div className="group relative cursor-pointer">
-    <HelpCircle
-      className="text-white hover:text-gray-200 transition-colors"
-      size={24}
-    />
-    <div className="
-      absolute z-10 -top-2 right-full 
-      bg-[#0A183A] text-white 
-      text-xs p-3 rounded-lg 
-      opacity-0 group-hover:opacity-100 
-      transition-opacity duration-300 
-      w-64 pointer-events-none
-    ">
-      <p>
-        Este gráfico muestra el promedio de la menor profundidad de banda
-        de rodamiento por eje. Ayuda a detectar desgaste irregular
-        o ejes con mayor deterioro.
-      </p>
-    </div>
-  </div>
-</div>
+        <h2 className="text-xl font-bold">Profundidad Media por Eje</h2>
+        <div className="group relative cursor-pointer">
+          <HelpCircle
+            className="text-white hover:text-gray-200 transition-colors"
+            size={24}
+          />
+          <div className="
+            absolute z-10 -top-2 right-full 
+            bg-[#0A183A] text-white 
+            text-xs p-3 rounded-lg 
+            opacity-0 group-hover:opacity-100 
+            transition-opacity duration-300 
+            w-64 pointer-events-none
+          ">
+            <p>
+              Este gráfico muestra el promedio de la menor profundidad de banda
+              de rodamiento por eje. Ayuda a detectar desgaste irregular
+              o ejes con mayor deterioro.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="p-6">
         <div className="h-64 mb-4">

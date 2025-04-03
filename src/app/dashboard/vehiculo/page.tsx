@@ -15,6 +15,12 @@ type Vehicle = {
   tireCount: number;
 };
 
+// Define error interface
+interface ApiError {
+  message: string;
+  [key: string]: any; // For any additional error properties
+}
+
 export default function VehiculoPage() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -59,8 +65,12 @@ export default function VehiculoPage() {
       }
       const data = await res.json();
       setVehicles(data);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Unexpected error");
+      }
     } finally {
       setLoadingVehicles(false);
     }
@@ -88,7 +98,7 @@ export default function VehiculoPage() {
         }
       );
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json() as ApiError;
         throw new Error(errorData.message || "Failed to create vehicle");
       }
       const newVehicleResponse = await res.json();
@@ -102,8 +112,12 @@ export default function VehiculoPage() {
       setPesoCarga(0);
       setTipovhc("");
       setIsFormOpen(false);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Unexpected error");
+      }
     }
   }
 
@@ -119,13 +133,17 @@ export default function VehiculoPage() {
         }
       );
       if (!res.ok) {
-        const errorData = await res.json();
+        const errorData = await res.json() as ApiError;
         throw new Error(errorData.message || "Failed to delete vehicle");
       }
       // Remove the deleted vehicle from the state
       setVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Unexpected error");
+      }
     }
   }
 
