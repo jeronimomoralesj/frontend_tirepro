@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {  
   DollarSign,
@@ -60,67 +60,9 @@ export default function SemaforoPage() {
   const [brandFilter, setBrandFilter] = useState<string>("");
   const [ejeFilter, setEjeFilter] = useState<string>("");
 
-  // Placeholder value for extra bubble
-  const inspeccionVencida = 5;
+  // Function definitions first, before they are used in useEffect
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.companyId) {
-        setCompanyId(user.companyId);
-        setUserName(user.name || user.email || "User");
-        fetchTires(user.companyId);
-        fetchVehicles(user.companyId);
-      } else {
-        setError("No company assigned to user");
-      }
-    } else {
-      router.push("/login");
-    }
-  }, [router]);
-
-  async function fetchTires(companyId: string) {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch tires");
-      }
-      const data: Tire[] = await res.json();
-      setTires(data);
-      calculateTotals(data);
-      calculateCpkAverages(data);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function fetchVehicles(companyId: string) {
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${companyId}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch vehicles");
-      }
-      const data: Vehicle[] = await res.json();
-      setVehicles(data);
-    } catch (err: any) {
-      console.error(err);
-    }
-  }
-
-  function calculateTotals(tires: Tire[]) {
+  const calculateTotals = useCallback((tires: Tire[]) => {
     let total = 0;
     let totalMes = 0;
     const now = new Date();
@@ -139,9 +81,9 @@ export default function SemaforoPage() {
 
     setGastoTotal(total);
     setGastoMes(totalMes);
-  }
+  }, []);
 
-  function calculateCpkAverages(tires: Tire[]) {
+  const calculateCpkAverages = useCallback((tires: Tire[]) => {
     let totalCpk = 0;
     let totalCpkProyectado = 0;
     let validTireCount = 0;
@@ -171,7 +113,66 @@ export default function SemaforoPage() {
       setCpkPromedio(0);
       setCpkProyectado(0);
     }
-  }
+  }, []);
+
+  const fetchTires = useCallback(async (cId: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${cId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${cId}`
+      );
+      if (!res.ok) {
+        throw new Error("Failed to fetch tires");
+      }
+      const data: Tire[] = await res.json();
+      setTires(data);
+      calculateTotals(data);
+      calculateCpkAverages(data);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unexpected error";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [calculateTotals, calculateCpkAverages]);
+
+  const fetchVehicles = useCallback(async (cId: string) => {
+    try {
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${cId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${cId}`
+      );
+      if (!res.ok) {
+        throw new Error("Failed to fetch vehicles");
+      }
+      const data: Vehicle[] = await res.json();
+      setVehicles(data);
+    } catch (err: unknown) {
+      console.error(err);
+    }
+  }, []);
+
+  // Now that functions are defined, we can use them in useEffect
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user.companyId) {
+        setCompanyId(user.companyId);
+        setUserName(user.name || user.email || "User");
+        fetchTires(user.companyId);
+        fetchVehicles(user.companyId);
+      } else {
+        setError("No company assigned to user");
+      }
+    } else {
+      router.push("/login");
+    }
+  }, [router, fetchTires, fetchVehicles]);
 
   // Filtered tires based on brand and eje filters.
   const filteredTires = useMemo(() => {
@@ -191,7 +192,7 @@ export default function SemaforoPage() {
     if (filteredTires.length > 0) {
       calculateCpkAverages(filteredTires);
     }
-  }, [filteredTires]);
+  }, [filteredTires, calculateCpkAverages]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -205,6 +206,8 @@ export default function SemaforoPage() {
                 <Calendar className="h-4 w-4 mr-2" />
                 Actualizado: {new Date().toLocaleDateString()}
               </p>
+              {/* Using userName state to display the user's name */}
+              {userName && <p className="text-blue-100 mt-1 text-sm">Usuario: {userName}</p>}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex gap-2">
@@ -276,8 +279,8 @@ export default function SemaforoPage() {
         </div>
         <br />
 
-                {/* Filter Section */}
-                <div className="mb-6 bg-white rounded-xl shadow-md p-4 border border-gray-200">
+        {/* Filter Section */}
+        <div className="mb-6 bg-white rounded-xl shadow-md p-4 border border-gray-200">
           <h3 className="text-lg font-bold text-[#0A183A] mb-2">Filtrar Datos</h3>
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
@@ -300,6 +303,15 @@ export default function SemaforoPage() {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
+            {/* Using companyId in the filter section */}
+            {companyId && (
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700">ID de Compañía</label>
+                <div className="mt-1 block w-full text-sm text-gray-500 truncate px-2 py-1.5 border border-gray-300 rounded-md bg-gray-50">
+                  {companyId}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -320,7 +332,6 @@ export default function SemaforoPage() {
             <DetallesLlantas tires={tires} />
           </div>
           <br />
-
 
           {/* Loading & Error states */}
           {loading && (

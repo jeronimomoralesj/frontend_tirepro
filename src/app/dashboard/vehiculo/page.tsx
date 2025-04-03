@@ -18,7 +18,7 @@ type Vehicle = {
 // Define error interface
 interface ApiError {
   message: string;
-  [key: string]: any; // For any additional error properties
+  [key: string]: unknown;
 }
 
 export default function VehiculoPage() {

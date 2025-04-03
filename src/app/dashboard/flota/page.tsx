@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Calendar,
@@ -47,12 +47,18 @@ export type Tire = {
   eje?: string;
 };
 
+type Vehicle = {
+  id: string;
+  tipo: string;
+  [key: string]: any;
+};
+
 export default function ResumenPage() {
   const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
   const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState<any[]>([]);
-  const [filteredVehicles, setFilteredVehicles] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [vehiculosCount, setVehiculosCount] = useState<number>(0);
   const [llantasCount, setLlantasCount] = useState<number>(0);
   const [error, setError] = useState("");
@@ -88,16 +94,75 @@ export default function ResumenPage() {
 
   // Refs for dropdown components
   const dropdownRefs = {
-    marca: useRef(null),
-    tipoVehiculo: useRef(null),
-    periodo: useRef(null),
-    cpkRange: useRef(null),
-    vida: useRef(null),
-    eje: useRef(null)
+    marca: useRef<HTMLDivElement>(null),
+    tipoVehiculo: useRef<HTMLDivElement>(null),
+    periodo: useRef<HTMLDivElement>(null),
+    cpkRange: useRef<HTMLDivElement>(null),
+    vida: useRef<HTMLDivElement>(null),
+    eje: useRef<HTMLDivElement>(null)
   };
 
   // For tracking expired inspections
   const [inspeccionVencida, setInspeccionVencida] = useState(0);
+
+  const fetchTires = useCallback(async (companyId: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}`
+      );
+      if (!res.ok) {
+        throw new Error("Failed to fetch tires");
+      }
+      const data: Tire[] = await res.json();
+      
+      // Ensure all necessary properties exist and are in the correct format
+      const sanitizedData = data.map(tire => ({
+        ...tire,
+        inspecciones: Array.isArray(tire.inspecciones) ? tire.inspecciones : [],
+        costo: Array.isArray(tire.costo) ? tire.costo.map(c => ({
+          valor: typeof c.valor === 'number' ? c.valor : 0,
+          fecha: typeof c.fecha === 'string' ? c.fecha : new Date().toISOString()
+        })) : []
+      }));
+      
+      setTires(sanitizedData);
+      setLlantasCount(sanitizedData.length);
+      calculateTotals(sanitizedData);
+      calculateCpkAverages(sanitizedData);
+      calculateExpiredInspections(sanitizedData);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unexpected error";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchVehicles = useCallback(async (companyId: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
+          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${companyId}`
+      );
+      if (!res.ok) {
+        throw new Error("Failed to fetch vehicles");
+      }
+      const data = await res.json();
+      setVehicles(data);
+      setVehiculosCount(data.length);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unexpected error";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     // Get user from localStorage
@@ -115,7 +180,7 @@ export default function ResumenPage() {
     } else {
       router.push("/login");
     }
-  }, [router]);
+  }, [router, fetchTires, fetchVehicles]);
 
   // Extract unique marca values for filter options
   useEffect(() => {
@@ -170,34 +235,7 @@ export default function ResumenPage() {
     }
   }, [vehicles]);
 
-  // Apply filters whenever filter selections change
-  useEffect(() => {
-    applyFilters();
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedVida, selectedEje, tires, vehicles]);
-
-  // Calculate expired inspections
-  useEffect(() => {
-    calculateExpiredInspections(filteredTires);
-  }, [filteredTires]);
-
-  // Handle clicking outside dropdowns
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (activeDropdown) {
-        const currentRef = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
-        if (currentRef && currentRef.current && !(currentRef.current as any).contains(event.target)) {
-          setActiveDropdown(null);
-        }
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [activeDropdown]);
-
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     // Filter tires based on selected filters
     let tempTires = [...tires];
     
@@ -269,7 +307,7 @@ export default function ResumenPage() {
     // Apply period filter to both tires and vehicles
     if (selectedPeriodo !== "Todo") {
       const currentDate = new Date();
-      let compareDate = new Date();
+      const compareDate = new Date();
       
       switch (selectedPeriodo) {
         case "Último mes":
@@ -309,64 +347,34 @@ export default function ResumenPage() {
     // Update metrics based on filtered data
     calculateTotals(tempTires);
     calculateCpkAverages(tempTires);
-  };
+  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedVida, selectedEje, tires, vehicles]);
 
-  async function fetchTires(companyId: string) {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch tires");
-      }
-      const data: Tire[] = await res.json();
-      
-      // Ensure all necessary properties exist and are in the correct format
-      const sanitizedData = data.map(tire => ({
-        ...tire,
-        inspecciones: Array.isArray(tire.inspecciones) ? tire.inspecciones : [],
-        costo: Array.isArray(tire.costo) ? tire.costo.map(c => ({
-          valor: typeof c.valor === 'number' ? c.valor : 0,
-          fecha: typeof c.fecha === 'string' ? c.fecha : new Date().toISOString()
-        })) : []
-      }));
-      
-      setTires(sanitizedData);
-      setLlantasCount(sanitizedData.length);
-      calculateTotals(sanitizedData);
-      calculateCpkAverages(sanitizedData);
-      calculateExpiredInspections(sanitizedData);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error");
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Apply filters whenever filter selections change
+  useEffect(() => {
+    applyFilters();
+  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedVida, selectedEje, tires, vehicles, applyFilters]);
 
-  async function fetchVehicles(companyId: string) {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${companyId}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch vehicles");
+  // Calculate expired inspections
+  useEffect(() => {
+    calculateExpiredInspections(filteredTires);
+  }, [filteredTires]);
+
+  // Handle clicking outside dropdowns
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (activeDropdown) {
+        const currentRef = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
+        if (currentRef && currentRef.current && !(currentRef.current as HTMLElement).contains(event.target as Node)) {
+          setActiveDropdown(null);
+        }
       }
-      const data = await res.json();
-      setVehicles(data);
-      setVehiculosCount(data.length);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error");
-    } finally {
-      setLoading(false);
     }
-  }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeDropdown, dropdownRefs]);
 
   function calculateTotals(tires: Tire[]) {
     let total = 0;
