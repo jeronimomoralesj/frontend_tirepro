@@ -87,7 +87,7 @@ const InventoryDropZone = ({ moveTire, inventoryTires, onRemoveTire }) => {
   return (
     <div 
       ref={drop}
-      className={`p-4 rounded-lg border-2 border-dashed transition-all duration-200 min-h-40
+      className={`p-4 rounded-lg border-2 border-dashed transition-all duration-200 min-h-[10rem]
         ${isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : "border-gray-300 bg-gray-50"}`}
     >
       <div className="flex items-center mb-3">
@@ -140,7 +140,9 @@ const VehicleVisualization = ({ config, assignedTires, moveTire }) => {
   // Create a map of positions to tires for easier access
   const positionMap = {};
   assignedTires.forEach(tire => {
-    positionMap[tire.position] = tire;
+    if (tire.position) {
+      positionMap[tire.position] = tire;
+    }
   });
 
   return (
@@ -220,6 +222,7 @@ const Posicion = () => {
   const [availableTires, setAvailableTires] = useState([]);
   const [inventoryTires, setInventoryTires] = useState([]);
   const [vehicleConfig, setVehicleConfig] = useState(null);
+  const [positions, setPositions] = useState([]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -649,7 +652,6 @@ const Posicion = () => {
             <VehicleVisualization 
               config={vehicleConfig} 
               assignedTires={assignedTires}
-              positions={positions}
               moveTire={moveTire} 
             />
           )}
