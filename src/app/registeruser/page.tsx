@@ -39,9 +39,14 @@ export default function RegisterUserPage() {
 
       // Assuming the backend returns an object with a "user" property
       setUserId(data.user.id);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Unexpected error");
+      }
+    }
+     finally {
       setLoading(false);
     }
   };

@@ -13,7 +13,7 @@ import {
   Filter,
   ChevronDown
 } from "lucide-react";
-import SemaforoPie from "../cards/semaforoPie";
+// Removed SemaforoPie since it's not used
 import PorMarca from "../cards/porMarca";
 import TipoVehiculo from "../cards/tipoVehiculo";
 import PorVida from "../cards/porVida";
@@ -50,15 +50,18 @@ export type Tire = {
 type Vehicle = {
   id: string;
   tipo: string;
-  [key: string]: any;
+  // Use Record<string, unknown> instead of any
+  [key: string]: string | number | boolean | object | undefined;
 };
 
-export default function ResumenPage() {
+export default function FlotaPage() {
   const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
   const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
+  
+  // These variables are assigned but not used, but we'll keep them for potential future use
   const [vehiculosCount, setVehiculosCount] = useState<number>(0);
   const [llantasCount, setLlantasCount] = useState<number>(0);
   const [error, setError] = useState("");
@@ -68,12 +71,15 @@ export default function ResumenPage() {
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
 
+  // These are assigned but not used, keeping for potential future use
   const [companyId, setCompanyId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
 
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
+  
+  // Not used but keeping for potential future use
   const [tipoVehiculoOptions, setTipoVehiculoOptions] = useState<string[]>([]);
   const [selectedTipoVehiculo, setSelectedTipoVehiculo] = useState<string>("Todos");
   const [periodoOptions] = useState<string[]>(["Último mes", "Últimos 3 meses", "Últimos 6 meses", "Último año", "Todo"]);
@@ -95,7 +101,7 @@ export default function ResumenPage() {
   // For tracking expired inspections
   const [inspeccionVencida, setInspeccionVencida] = useState(0);
 
-  // Refs for dropdown components - IMPORTANT: Initialize all refs here in the same order every render
+  // Refs for dropdown components
   const marcaRef = useRef<HTMLDivElement>(null);
   const tipoVehiculoRef = useRef<HTMLDivElement>(null);
   const periodoRef = useRef<HTMLDivElement>(null);
@@ -103,7 +109,7 @@ export default function ResumenPage() {
   const vidaRef = useRef<HTMLDivElement>(null);
   const ejeRef = useRef<HTMLDivElement>(null);
   
-  // Create dropdownRefs object after all the useRef calls
+  // Create dropdownRefs object
   const dropdownRefs = {
     marca: marcaRef,
     tipoVehiculo: tipoVehiculoRef,
@@ -382,7 +388,7 @@ export default function ResumenPage() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [activeDropdown]);
+  }, [activeDropdown, dropdownRefs]); // Added dropdownRefs to the dependency array
 
   function calculateTotals(tires: Tire[]) {
     let total = 0;
