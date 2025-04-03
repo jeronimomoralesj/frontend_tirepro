@@ -60,29 +60,19 @@ export default function FlotaPage() {
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   
   // Keeping track of counts but not using them directly in UI yet
-  const [vehiculosCount] = useState<number>(0);
-  const [llantasCount] = useState<number>(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [gastoTotal] = useState<number>(0);
-  const [gastoMes] = useState<number>(0);
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
 
-  // Keeping these for future use but not using them directly yet
-  const [companyId] = useState<string>("");
-  const [userName] = useState<string>("");
 
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
   
   // Not used but keeping for potential future use - removing state setters that are unused
-  const [tipoVehiculoOptions] = useState<string[]>([]);
   const [selectedTipoVehiculo] = useState<string>("Todos");
-  const [periodoOptions] = useState<string[]>(["Último mes", "Últimos 3 meses", "Últimos 6 meses", "Último año", "Todo"]);
   const [selectedPeriodo] = useState<string>("Todo");
-  const [cpkRangeOptions] = useState<string[]>(["Todos", "< 1,000", "1,000 - 5,000", "5,000 - 10,000", "> 10,000"]);
   const [selectedCpkRange] = useState<string>("Todos");
   
   // Vida filter options
@@ -142,7 +132,6 @@ export default function FlotaPage() {
       }));
       
       setTires(sanitizedData);
-      setLlantasCount(sanitizedData.length);
       calculateTotals(sanitizedData);
       calculateCpkAverages(sanitizedData);
       calculateExpiredInspections(sanitizedData);
@@ -167,7 +156,6 @@ export default function FlotaPage() {
       }
       const data = await res.json();
       setVehicles(data);
-      setVehiculosCount(data.length);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unexpected error";
       setError(errorMessage);
@@ -184,7 +172,6 @@ export default function FlotaPage() {
       if (user.companyId) {
         // Using a local variable instead of the state since we're not using it elsewhere
         const currentCompanyId = user.companyId;
-        const currentUserName = user.name || user.email || "User";
         
         // Execute fetch operations with the local variables
         fetchTires(currentCompanyId);
