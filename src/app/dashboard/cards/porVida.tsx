@@ -44,7 +44,6 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
 
   // Prepare chart data.
   const chartData = useMemo(() => {
-    const COLORS = ["#173D68", "#1E76B6", "#348CCB", "#173D68", "#1E76B6"];
     const labels = Object.keys(grouping);
     const values = labels.map((label) => grouping[label]);
     const backgroundColors = labels.map((_, index) => COLORS[index % COLORS.length]);
@@ -60,7 +59,7 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
         },
       ],
     };
-  }, [grouping, COLORS]);
+  }, [grouping]); // Removed COLORS from the dependency array
 
   // Chart options – keep it simple and similar to PromedioEje.
   const chartOptions = {
@@ -112,24 +111,23 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <h2 className="text-xl font-bold">Llantas por Vida</h2>
         <div className="group relative cursor-pointer">
-  <HelpCircle
-    className="text-white hover:text-gray-200 transition-colors"
-    size={24}
-  />
-  <div className="
-    absolute z-10 -top-2 right-full 
-    bg-[#0A183A] text-white 
-    text-xs p-3 rounded-lg 
-    opacity-0 group-hover:opacity-100 
-    transition-opacity duration-300 
-    w-60 pointer-events-none
-  ">
-    <p>
-      Este gráfico muestra cómo están distribuidas las llantas según su vida útil, por ejemplo: nueva, reencauche1, reencauche2, etc.
-    </p>
-  </div>
-</div>
-
+          <HelpCircle
+            className="text-white hover:text-gray-200 transition-colors"
+            size={24}
+          />
+          <div className="
+            absolute z-10 -top-2 right-full 
+            bg-[#0A183A] text-white 
+            text-xs p-3 rounded-lg 
+            opacity-0 group-hover:opacity-100 
+            transition-opacity duration-300 
+            w-60 pointer-events-none
+          ">
+            <p>
+              Este gráfico muestra cómo están distribuidas las llantas según su vida útil, por ejemplo: nueva, reencauche1, reencauche2, etc.
+            </p>
+          </div>
+        </div>
       </div>
       {/* Chart */}
       <div className="p-6">

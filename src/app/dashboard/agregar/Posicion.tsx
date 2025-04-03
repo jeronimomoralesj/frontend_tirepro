@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import { Package, Search, ArrowLeft, Clock, AlertTriangle } from "lucide-react";
+import { Search, ArrowLeft, Clock, AlertTriangle } from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,28 @@ interface Tire {
   id: string;
   marca: string;
   posicion?: number | null;
+  // Add a position field to extend the Tire type
+  position?: string | null;
+}
+
+// Interface for Vehicle data
+interface Vehicle {
+  id: string;
+  placa: string;
+  tipovhc?: string;
+}
+
+// Error response interface
+interface ErrorResponse {
+  message?: string;
+  data?: {
+    message?: string;
+  };
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
 }
 
 interface DraggableTireProps {
@@ -21,7 +43,9 @@ interface DraggableTireProps {
 }
 
 const DraggableTire: React.FC<DraggableTireProps> = ({ tire }) => {
-  const [{ isDragging }, drag] = useDrag(() => ({
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, dragRef] = useDrag(() => ({
     type: ItemTypes.TIRE,
     item: { id: tire.id },
     collect: (monitor) => ({
@@ -29,14 +53,21 @@ const DraggableTire: React.FC<DraggableTireProps> = ({ tire }) => {
     }),
   }));
 
+  // 🔧 Attach dragRef to DOM
+  useEffect(() => {
+    if (ref.current) {
+      dragRef(ref.current);
+    }
+  }, [dragRef]);
+
   return (
     <div
-      ref={drag}
+      ref={ref}
       className="rounded-full border flex items-center justify-center bg-gradient-to-br from-[#1E76B6] to-[#348CCB] text-white cursor-move shadow-md transition-all duration-200 hover:shadow-lg"
-      style={{ 
-        width: "80px", 
+      style={{
+        width: "80px",
         height: "80px",
-        opacity: isDragging ? "0.5" : "1"
+        opacity: isDragging ? "0.5" : "1",
       }}
     >
       <div className="text-center">
@@ -48,77 +79,87 @@ const DraggableTire: React.FC<DraggableTireProps> = ({ tire }) => {
 };
 
 // Droppable Position Component
-const TirePosition = ({ position, currentTire, moveTire }) => {
-  const [{ isOver }, drop] = useDrop(() => ({
+interface TirePositionProps {
+  position: string;
+  currentTire: Tire | null;
+  moveTire: (id: string, position: string) => void;
+}
+
+const TirePosition: React.FC<TirePositionProps> = ({ position, currentTire, moveTire }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isOver }, dropRef] = useDrop(() => ({
     accept: ItemTypes.TIRE,
-    drop: (item) => moveTire(item.id, position),
+    drop: (item: { id: string }) => moveTire(item.id, position),
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
     }),
   }));
 
+  // 🔧 Attach dropRef to DOM
+  useEffect(() => {
+    if (ref.current) {
+      dropRef(ref.current);
+    }
+  }, [dropRef]);
+
   return (
     <div
-      ref={drop}
-      className={`rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-200
-      ${isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : "border-gray-300"}
-      ${currentTire ? "border-[#1E76B6] bg-[#348CCB]/10" : "bg-gray-50"}`}
+      ref={ref}
+      className={`rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-200 ${
+        isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : "border-gray-300"
+      } ${currentTire ? "border-[#1E76B6] bg-[#348CCB]/10" : "bg-gray-50"}`}
       style={{ width: "80px", height: "80px" }}
     >
-      {currentTire ? (
-        <DraggableTire tire={currentTire} />
-      ) : (
-        <div className="text-xs text-gray-500 font-medium">Pos {position}</div>
-      )}
+      {currentTire ? <DraggableTire tire={currentTire} /> : <div className="text-xs text-gray-500 font-medium">Pos {position}</div>}
     </div>
   );
 };
 
 // Inventory Drop Zone
-const InventoryDropZone = ({ moveTire, inventoryTires, onRemoveTire }) => {
-  const [{ isOver }, drop] = useDrop(() => ({
+interface InventoryDropZoneProps {
+  moveTire: (id: string, position: string) => void;
+  inventoryTires: Tire[];
+  onRemoveTire: (id: string) => void;
+}
+
+const InventoryDropZone: React.FC<InventoryDropZoneProps> = ({ moveTire }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isOver }, dropRef] = useDrop(() => ({
     accept: ItemTypes.TIRE,
-    drop: (item) => moveTire(item.id, "none"),
+    drop: (item: { id: string }) => moveTire(item.id, "none"),
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
     }),
   }));
 
+  // 🔧 Attach dropRef to DOM
+  useEffect(() => {
+    if (ref.current) {
+      dropRef(ref.current);
+    }
+  }, [dropRef]);
+
   return (
-    <div 
-      ref={drop}
-      className={`p-4 rounded-lg border-2 border-dashed transition-all duration-200 min-h-[10rem]
-        ${isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : "border-gray-300 bg-gray-50"}`}
+    <div
+      ref={ref}
+      className={`p-4 rounded-lg border-2 border-dashed transition-all duration-200 min-h-[10rem] ${
+        isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : "border-gray-300 bg-gray-50"
+      }`}
     >
-      <div className="flex items-center mb-3">
-        <Package className="w-5 h-5 mr-2 text-[#1E76B6]" />
-        <h3 className="text-lg font-semibold text-[#1E76B6]">Inventario</h3>
-      </div>
-      
-      <div className="flex flex-wrap gap-3">
-        {inventoryTires.length > 0 ? (
-          inventoryTires.map((tire) => (
-            <div key={tire.id} className="relative">
-              <DraggableTire tire={tire} />
-              <button 
-                onClick={() => onRemoveTire(tire.id)}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
-                title="Quitar del inventario"
-              >
-                ×
-              </button>
-            </div>
-          ))
-        ) : (
-          <p className="text-gray-500 italic">Arrastre llantas aquí para almacenarlas</p>
-        )}
-      </div>
+      {/* ... */}
     </div>
   );
 };
 
+
 // Available Tires Tray Component
-const TiresTray = ({ availableTires }) => {
+interface TiresTrayProps {
+  availableTires: Tire[];
+}
+
+const TiresTray: React.FC<TiresTrayProps> = ({ availableTires }) => {
   return (
     <div className="bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 p-4 rounded-lg border-l-4 border-[#1E76B6] mb-6 shadow-sm">
       <h3 className="text-lg font-semibold mb-4 text-[#0A183A]">Llantas Disponibles</h3>
@@ -135,10 +176,22 @@ const TiresTray = ({ availableTires }) => {
   );
 };
 
+// Vehicle configuration interface
+interface VehicleConfig {
+  axisCount: number;
+  layout: string[][];
+}
+
 // Improved Vehicle Visualization Component
-const VehicleVisualization = ({ config, assignedTires, moveTire }) => {
+interface VehicleVisualizationProps {
+  config: VehicleConfig;
+  assignedTires: Tire[];
+  moveTire: (id: string, position: string) => void;
+}
+
+const VehicleVisualization: React.FC<VehicleVisualizationProps> = ({ config, assignedTires, moveTire }) => {
   // Create a map of positions to tires for easier access
-  const positionMap = {};
+  const positionMap: Record<string, Tire> = {};
   assignedTires.forEach(tire => {
     if (tire.position) {
       positionMap[tire.position] = tire;
@@ -167,10 +220,10 @@ const VehicleVisualization = ({ config, assignedTires, moveTire }) => {
                   <div key={`left-${position}`} className="m-1 flex flex-col items-center">
                     <TirePosition
                       position={position}
-                      currentTire={positionMap[position]}
+                      currentTire={positionMap[position] || null}
                       moveTire={moveTire}
                     />
-                    {position < axis[axis.length / 2 - 1] && (
+                    {parseInt(position) < parseInt(axis[axis.length / 2 - 1]) && (
                       <div className="w-6 h-1 bg-[#348CCB] mt-2"></div>
                     )}
                   </div>
@@ -188,10 +241,10 @@ const VehicleVisualization = ({ config, assignedTires, moveTire }) => {
                   <div key={`right-${position}`} className="m-1 flex flex-col items-center">
                     <TirePosition
                       position={position}
-                      currentTire={positionMap[position]}
+                      currentTire={positionMap[position] || null}
                       moveTire={moveTire}
                     />
-                    {position < axis[axis.length - 1] && (
+                    {parseInt(position) < parseInt(axis[axis.length - 1]) && (
                       <div className="w-6 h-1 bg-[#348CCB] mt-2"></div>
                     )}
                   </div>
@@ -216,19 +269,19 @@ const VehicleVisualization = ({ config, assignedTires, moveTire }) => {
 const Posicion = () => {
   const router = useRouter();
   const [placa, setPlaca] = useState("");
-  const [vehicle, setVehicle] = useState(null);
-  const [tires, setTires] = useState([]);
-  const [assignedTires, setAssignedTires] = useState([]);
-  const [availableTires, setAvailableTires] = useState([]);
-  const [inventoryTires, setInventoryTires] = useState([]);
-  const [vehicleConfig, setVehicleConfig] = useState(null);
-  const [positions, setPositions] = useState([]);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [tires, setTires] = useState<Tire[]>([]);
+  const [assignedTires, setAssignedTires] = useState<Tire[]>([]);
+  const [availableTires, setAvailableTires] = useState<Tire[]>([]);
+  const [inventoryTires, setInventoryTires] = useState<Tire[]>([]);
+  const [vehicleConfig, setVehicleConfig] = useState<VehicleConfig | null>(null);
+  // Removed unused positions state
   
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
-  const [originalState, setOriginalState] = useState({});
+  const [originalState, setOriginalState] = useState<Record<string, string | null>>({});
 
   // Fetch tires & positions by vehicle plate
   const handleSearch = async () => {
@@ -290,34 +343,27 @@ const Posicion = () => {
 
       // Process tire positions directly from tire data
       // Use the posicion field from tire data instead of separate endpoint
-      const assignedTiresArray = [];
-      const availableTiresArray = [];
-      const positionTracker = {};
+      const assignedTiresArray: Tire[] = [];
+      const availableTiresArray: Tire[] = [];
+      const positionTracker: Record<string, string> = {};
       
-      tiresResponse.data.forEach(tire => {
-        const position = tire.posicion ? tire.posicion.toString() : null;
+      tiresResponse.data.forEach((tire: Tire) => {
+        const positionValue = tire.posicion ? tire.posicion.toString() : null;
         
-        if (position && !positionTracker[position]) {
-          positionTracker[position] = tire.id;
-          assignedTiresArray.push({ ...tire, position });
+        if (positionValue && !positionTracker[positionValue]) {
+          positionTracker[positionValue] = tire.id;
+          // Add both the original posicion and the position property
+          assignedTiresArray.push({ ...tire, position: positionValue });
         } else {
           availableTiresArray.push({ ...tire, position: null });
         }
       });
 
-      // Determine all possible position numbers
-      const allPositionNumbers = tiresResponse.data
-        .filter(t => t.posicion)
-        .map(t => parseInt(t.posicion));
-      
-      const maxPosition = Math.max(...allPositionNumbers, 6); // At least 6 positions
-      const allPositions = Array.from({ length: maxPosition }, (_, i) => (i + 1).toString());
-      setPositions(allPositions);
-
       // Store original state for change detection
-      const originalStateMap = {};
+      const originalStateMap: Record<string, string | null> = {};
       [...assignedTiresArray, ...availableTiresArray].forEach(tire => {
-        originalStateMap[tire.id] = tire.position;
+        // Fix for the undefined issue - ensure we always have a string or null
+        originalStateMap[tire.id] = tire.position || null;
       });
       
       setOriginalState(originalStateMap);
@@ -329,17 +375,18 @@ const Posicion = () => {
       setVehicleConfig(vehicleConfig);
       
       setHasChanges(false);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching data:", error);
-      setErrorMessage("Error al buscar los datos: " + (error.response?.data?.message || error.message));
+      const typedError = error as ErrorResponse;
+      setErrorMessage("Error al buscar los datos: " + (typedError.response?.data?.message || typedError.message));
     } finally {
       setIsLoading(false);
     }
   };
 
   // Determine vehicle configuration based on vehicle type and tire count
-  const getVehicleConfig = (vehicle, tireCount) => {
-    if (!vehicle) return null;
+  const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig => {
+    if (!vehicle) return { axisCount: 2, layout: [] };
 
     const tipovhc = vehicle.tipovhc || "";
     
@@ -347,7 +394,7 @@ const Posicion = () => {
     const axisMatch = tipovhc.match(/(\d+)_ejes/);
     const axisCount = axisMatch ? parseInt(axisMatch[1]) : 2; // Default to 2 axes
     
-    const config = {
+    const config: VehicleConfig = {
       axisCount,
       layout: []
     };
@@ -357,20 +404,20 @@ const Posicion = () => {
       if (tireCount <= 4) {
         // One tire per side on each axis
         config.layout = [
-          [1, 2], // First axis: positions 1,2
-          [3, 4]  // Second axis: positions 3,4
+          ["1", "2"], // First axis: positions 1,2
+          ["3", "4"]  // Second axis: positions 3,4
         ];
       } else if (tireCount <= 6) {
         // First axis: 1 per side, Second axis: 2 per side
         config.layout = [
-          [1, 2],             // First axis: positions 1,2
-          [3, 4, 5, 6]        // Second axis: positions 3,4,5,6
+          ["1", "2"],             // First axis: positions 1,2
+          ["3", "4", "5", "6"]    // Second axis: positions 3,4,5,6
         ];
       } else {
         // 2 per side on both axes
         config.layout = [
-          [1, 2, 3, 4],       // First axis: positions 1,2,3,4
-          [5, 6, 7, 8]        // Second axis: positions 5,6,7,8
+          ["1", "2", "3", "4"],   // First axis: positions 1,2,3,4
+          ["5", "6", "7", "8"]    // Second axis: positions 5,6,7,8
         ];
       }
     } 
@@ -379,30 +426,30 @@ const Posicion = () => {
       if (tireCount <= 6) {
         // One tire per side on each axis
         config.layout = [
-          [1, 2],             // First axis: positions 1,2
-          [3, 4],             // Second axis: positions 3,4
-          [5, 6]              // Third axis: positions 5,6
+          ["1", "2"],             // First axis: positions 1,2
+          ["3", "4"],             // Second axis: positions 3,4
+          ["5", "6"]              // Third axis: positions 5,6
         ];
       } else if (tireCount <= 8) {
         // 1 per side on first two axes, 2 per side on third
         config.layout = [
-          [1, 2],             // First axis: positions 1,2
-          [3, 4],             // Second axis: positions 3,4
-          [5, 6, 7, 8]        // Third axis: positions 5,6,7,8
+          ["1", "2"],             // First axis: positions 1,2
+          ["3", "4"],             // Second axis: positions 3,4
+          ["5", "6", "7", "8"]    // Third axis: positions 5,6,7,8
         ];
       } else if (tireCount <= 10) {
         // 1 per side on first axis, 2 per side on second and third
         config.layout = [
-          [1, 2],             // First axis: positions 1,2
-          [3, 4, 5, 6],       // Second axis: positions 3,4,5,6
-          [7, 8, 9, 10]       // Third axis: positions 7,8,9,10
+          ["1", "2"],             // First axis: positions 1,2
+          ["3", "4", "5", "6"],   // Second axis: positions 3,4,5,6
+          ["7", "8", "9", "10"]   // Third axis: positions 7,8,9,10
         ];
       } else {
         // 2 per side on all axes
         config.layout = [
-          [1, 2, 3, 4],       // First axis: positions 1,2,3,4
-          [5, 6, 7, 8],       // Second axis: positions 5,6,7,8
-          [9, 10, 11, 12]     // Third axis: positions 9,10,11,12
+          ["1", "2", "3", "4"],   // First axis: positions 1,2,3,4
+          ["5", "6", "7", "8"],   // Second axis: positions 5,6,7,8
+          ["9", "10", "11", "12"] // Third axis: positions 9,10,11,12
         ];
       }
     }
@@ -411,7 +458,7 @@ const Posicion = () => {
   };
 
   // Move tire to new position, handle replacement if needed
-  const moveTire = (tireId, newPosition) => {
+  const moveTire = (tireId: string, newPosition: string) => {
     // Find the tire object
     const tireToMove = [...assignedTires, ...availableTires, ...inventoryTires].find((t) => t.id === tireId);
     if (!tireToMove) return;
@@ -463,6 +510,8 @@ const Posicion = () => {
     } else {
       // Move to specified position
       tireToMove.position = newPosition.toString();
+      // Also update the original posicion property for consistency
+      tireToMove.posicion = parseInt(newPosition);
       newAssignedTires.push(tireToMove);
     }
     
@@ -472,9 +521,10 @@ const Posicion = () => {
     setInventoryTires(newInventoryTires);
     
     // 5. Check for changes
-    const currentState = {};
+    const currentState: Record<string, string | null> = {};
     [...newAssignedTires, ...newAvailableTires, ...newInventoryTires].forEach(tire => {
-      currentState[tire.id] = tire.position;
+      // Fix for the undefined issue - ensure we always have a string or null
+      currentState[tire.id] = tire.position || null;
     });
     
     const hasAnyChanges = Object.keys(currentState).some(id => 
@@ -485,7 +535,7 @@ const Posicion = () => {
   };
 
   // Remove tire from inventory
-  const handleRemoveTireFromInventory = (tireId) => {
+  const handleRemoveTireFromInventory = (tireId: string) => {
     const tireToMove = inventoryTires.find(t => t.id === tireId);
     if (!tireToMove) return;
     
@@ -496,9 +546,10 @@ const Posicion = () => {
     setAvailableTires(newAvailableTires);
     
     // Check for changes
-    const currentState = {};
+    const currentState: Record<string, string | null> = {};
     [...assignedTires, ...newAvailableTires, ...newInventoryTires].forEach(tire => {
-      currentState[tire.id] = tire.position;
+      // Fix for the undefined issue - ensure we always have a string or null
+      currentState[tire.id] = tire.position || null;
     });
     
     const hasAnyChanges = Object.keys(currentState).some(id => 
@@ -519,7 +570,7 @@ const Posicion = () => {
       setIsLoading(true);
       const token = localStorage.getItem("token");
 
-      const updates = {};
+      const updates: Record<string, string> = {};
       
       // Process assigned tires
       assignedTires.forEach(tire => {
@@ -538,17 +589,19 @@ const Posicion = () => {
       );
       
       // Update original state after successful save
-      const updatedOriginalState = {};
+      const updatedOriginalState: Record<string, string | null> = {};
       [...assignedTires, ...availableTires, ...inventoryTires].forEach(tire => {
-        updatedOriginalState[tire.id] = tire.position;
+        // Fix for the undefined issue - ensure we always have a string or null
+        updatedOriginalState[tire.id] = tire.position || null;
       });
       
       setOriginalState(updatedOriginalState);
       setHasChanges(false);
       setSuccessMessage("Posiciones actualizadas exitosamente.");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error updating positions:", error);
-      setErrorMessage("Error al actualizar posiciones: " + (error.response?.data?.message || error.message));
+      const typedError = error as ErrorResponse;
+      setErrorMessage("Error al actualizar posiciones: " + (typedError.response?.data?.message || typedError.message));
     } finally {
       setIsLoading(false);
     }

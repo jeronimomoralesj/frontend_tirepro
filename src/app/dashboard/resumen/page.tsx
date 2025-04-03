@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {  
   DollarSign,
@@ -77,16 +77,76 @@ export default function ResumenPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // Refs for dropdown components
-  const dropdownRefs: {
-    [key: string]: React.RefObject<HTMLDivElement>
-  } = {
-    marca: useRef(null),
-    eje: useRef(null),
-    semaforo: useRef(null)
-  };
+  const dropdownRefs = useRef({
+    marca: useRef<HTMLDivElement>(null),
+    eje: useRef<HTMLDivElement>(null),
+    semaforo: useRef<HTMLDivElement>(null)
+  }).current;
 
-  // Define fetchTires before using it in useEffect
-  const fetchTires = async (companyId: string) => {
+  const calculateTotals = useCallback((tires: Tire[]) => {
+    let total = 0;
+    let totalMes = 0;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // zero-indexed
+
+    tires.forEach((tire) => {
+      if (Array.isArray(tire.costo)) {
+        tire.costo.forEach((entry) => {
+          // Make sure entry.valor is a number
+          const valor = typeof entry.valor === 'number' ? entry.valor : 0;
+          total += valor;
+          
+          if (typeof entry.fecha === 'string') {
+            const entryDate = new Date(entry.fecha);
+            if (
+              entryDate.getFullYear() === currentYear &&
+              entryDate.getMonth() === currentMonth
+            ) {
+              totalMes += valor;
+            }
+          }
+        });
+      }
+    });
+
+    setGastoTotal(total);
+    setGastoMes(totalMes);
+  }, []);
+
+  const calculateCpkAverages = useCallback((tires: Tire[]) => {
+    let totalCpk = 0;
+    let totalCpkProyectado = 0;
+    let validTireCount = 0;
+
+    tires.forEach((tire) => {
+      if (tire.inspecciones && tire.inspecciones.length > 0) {
+        // Get the last inspection for each tire
+        const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
+        
+        // Make sure the CPK values exist and are valid numbers
+        if (lastInspection.cpk && !isNaN(lastInspection.cpk)) {
+          totalCpk += lastInspection.cpk;
+          validTireCount++;
+        }
+        
+        if (lastInspection.cpkProyectado && !isNaN(lastInspection.cpkProyectado)) {
+          totalCpkProyectado += lastInspection.cpkProyectado;
+        }
+      }
+    });
+
+    // Calculate averages if we have valid tires
+    if (validTireCount > 0) {
+      setCpkPromedio(Math.round(totalCpk / validTireCount));
+      setCpkProyectado(Math.round(totalCpkProyectado / validTireCount));
+    } else {
+      setCpkPromedio(0);
+      setCpkProyectado(0);
+    }
+  }, []);
+
+  const fetchTires = useCallback(async (companyId: string) => {
     setLoading(true);
     setError("");
     try {
@@ -119,39 +179,10 @@ export default function ResumenPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [calculateTotals, calculateCpkAverages]);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.companyId) {
-        setCompanyId(user.companyId);
-        setUserName(user.name || user.email || "User");
-        fetchTires(user.companyId);
-      } else {
-        setError("No company assigned to user");
-      }
-    } else {
-      router.push("/login");
-    }
-  }, [router]); // Removed fetchTires from dependencies
-
-  // Extract unique marca and eje values for filter options
-  useEffect(() => {
-    if (tires.length > 0) {
-      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || "Sin marca")));
-      setMarcasOptions(["Todas", ...uniqueMarcas]);
-      
-      const uniqueEjes = Array.from(new Set(tires.map(tire => tire.eje || "Sin eje")));
-      setEjeOptions(["Todos", ...uniqueEjes]);
-      
-      setFilteredTires(tires);
-    }
-  }, [tires]);
-
-  // Define applyFilters before using it in useEffect
-  const applyFilters = () => {
+  // Apply filters whenever filter selections change
+  const applyFilters = useCallback(() => {
     // Filter tires based on selected filters
     let tempTires = [...tires];
     
@@ -190,18 +221,46 @@ export default function ResumenPage() {
     
     // Update metrics based on filtered data
     calculateCpkAverages(tempTires);
-  };
+  }, [tires, selectedMarca, selectedEje, selectedSemaforo, calculateCpkAverages]);
 
-  // Apply filters whenever filter selections change
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (user.companyId) {
+        setCompanyId(user.companyId);
+        setUserName(user.name || user.email || "User");
+        fetchTires(user.companyId);
+      } else {
+        setError("No company assigned to user");
+      }
+    } else {
+      router.push("/login");
+    }
+  }, [router, fetchTires]); // Added fetchTires to dependencies
+
+  // Extract unique marca and eje values for filter options
+  useEffect(() => {
+    if (tires.length > 0) {
+      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || "Sin marca")));
+      setMarcasOptions(["Todas", ...uniqueMarcas]);
+      
+      const uniqueEjes = Array.from(new Set(tires.map(tire => tire.eje || "Sin eje")));
+      setEjeOptions(["Todos", ...uniqueEjes]);
+      
+      setFilteredTires(tires);
+    }
+  }, [tires]);
+
   useEffect(() => {
     applyFilters();
-  }, [selectedMarca, selectedEje, selectedSemaforo, tires]); // Removed applyFilters from dependencies
+  }, [applyFilters]); // Added applyFilters to dependencies
 
   // Handle clicking outside dropdowns
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (activeDropdown) {
-        const currentRef = dropdownRefs[activeDropdown];
+        const currentRef = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
         if (currentRef && currentRef.current && !(currentRef.current).contains(event.target as Node)) {
           setActiveDropdown(null);
         }
@@ -212,70 +271,7 @@ export default function ResumenPage() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [activeDropdown]); // Removed dropdownRefs from dependencies since it's not changing
-
-  function calculateTotals(tires: Tire[]) {
-    let total = 0;
-    let totalMes = 0;
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // zero-indexed
-
-    tires.forEach((tire) => {
-      if (Array.isArray(tire.costo)) {
-        tire.costo.forEach((entry) => {
-          // Make sure entry.valor is a number
-          const valor = typeof entry.valor === 'number' ? entry.valor : 0;
-          total += valor;
-          
-          if (typeof entry.fecha === 'string') {
-            const entryDate = new Date(entry.fecha);
-            if (
-              entryDate.getFullYear() === currentYear &&
-              entryDate.getMonth() === currentMonth
-            ) {
-              totalMes += valor;
-            }
-          }
-        });
-      }
-    });
-
-    setGastoTotal(total);
-    setGastoMes(totalMes);
-  }
-
-  function calculateCpkAverages(tires: Tire[]) {
-    let totalCpk = 0;
-    let totalCpkProyectado = 0;
-    let validTireCount = 0;
-
-    tires.forEach((tire) => {
-      if (tire.inspecciones && tire.inspecciones.length > 0) {
-        // Get the last inspection for each tire
-        const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-        
-        // Make sure the CPK values exist and are valid numbers
-        if (lastInspection.cpk && !isNaN(lastInspection.cpk)) {
-          totalCpk += lastInspection.cpk;
-          validTireCount++;
-        }
-        
-        if (lastInspection.cpkProyectado && !isNaN(lastInspection.cpkProyectado)) {
-          totalCpkProyectado += lastInspection.cpkProyectado;
-        }
-      }
-    });
-
-    // Calculate averages if we have valid tires
-    if (validTireCount > 0) {
-      setCpkPromedio(Math.round(totalCpk / validTireCount));
-      setCpkProyectado(Math.round(totalCpkProyectado / validTireCount));
-    } else {
-      setCpkPromedio(0);
-      setCpkProyectado(0);
-    }
-  }
+  }, [activeDropdown, dropdownRefs]); // Added dropdownRefs to dependencies
 
   function classifyCondition(tire: Tire): string {
     if (!tire.inspecciones || tire.inspecciones.length === 0) return "sin_inspeccion";
@@ -311,7 +307,7 @@ export default function ResumenPage() {
     return (
       <div 
         className="relative" 
-        ref={dropdownRefs[id]}
+        ref={dropdownRefs[id as keyof typeof dropdownRefs]}
       >
         <button
           onClick={(e) => {

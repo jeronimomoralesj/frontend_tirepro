@@ -135,7 +135,7 @@ export default function AgregarInspeccion() {
           formData.append('profundidad_cen', profundidad_cen);
           formData.append('profundidad_ext', profundidad_ext);
           formData.append('vehicleKilometraje', vehicleKilometraje);
-          formData.append('userId', auth.user.id);
+          formData.append('userId', auth.user!.id);
           
           if (imageFile) {
             formData.append('image', imageFile);
@@ -146,7 +146,7 @@ export default function AgregarInspeccion() {
             profundidad_cen,
             profundidad_ext,
             vehicleKilometraje,
-            userId: auth.user.id,
+            userId: auth.user!.id,
             hasImage: !!imageFile
           });
   
