@@ -344,11 +344,11 @@ export default function InspeccionPage() {
                               type="number"
                               min={0}
                               max={30}
-                              value={tireUpdates[tire.id]?.[field as keyof typeof tireUpdates[string]] || 0}
+                              value={tireUpdates[tire.id]?.[field as "profundidadInt" | "profundidadCen" | "profundidadExt"] || 0}
                               onChange={(e) =>
                                 handleInputChange(
                                   tire.id,
-                                  field as "profundidadInt" | "profundidadCen" | "profundidadExt" | "image",
+                                  field as "profundidadInt" | "profundidadCen" | "profundidadExt",
                                   Number(e.target.value)
                                 )
                               }
