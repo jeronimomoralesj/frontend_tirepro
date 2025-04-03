@@ -15,7 +15,7 @@ export type Tire = {
   placa: string;
   marca: string;
   vida: VidaEntry[];
-  // ... other tire fields if needed
+  posicion?: string | number;
 };
 
 export type Vehicle = {

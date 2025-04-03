@@ -19,6 +19,7 @@ export type Tire = {
   id: string;
   placa: string;
   marca: string;
+  posicion?: string; // Add this property
   eventos?: EventoEntry[];
   vida?: { valor: string; fecha: string }[];
 };

@@ -60,7 +60,7 @@ const AjustesPage: React.FC = () => {
     role: "regular",
   });
   const [plateInputs, setPlateInputs] = useState<{ [userId: string]: string }>({});
-  // const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Notification function (simple alert for now)
   function showNotification(message: string, type: "success" | "error") {
