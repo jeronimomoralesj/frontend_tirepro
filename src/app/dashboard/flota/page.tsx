@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Calendar,
@@ -13,7 +13,6 @@ import {
   Filter,
   ChevronDown
 } from "lucide-react";
-// Removed SemaforoPie since it's not used
 import PorMarca from "../cards/porMarca";
 import TipoVehiculo from "../cards/tipoVehiculo";
 import PorVida from "../cards/porVida";
@@ -50,7 +49,6 @@ export type Tire = {
 type Vehicle = {
   id: string;
   tipo: string;
-  // Use Record<string, unknown> instead of any
   [key: string]: string | number | boolean | object | undefined;
 };
 
@@ -61,31 +59,31 @@ export default function FlotaPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   
-  // These variables are assigned but not used, but we'll keep them for potential future use
-  const [vehiculosCount, setVehiculosCount] = useState<number>(0);
-  const [llantasCount, setLlantasCount] = useState<number>(0);
+  // Keeping track of counts but not using them directly in UI yet
+  const [vehiculosCount] = useState<number>(0);
+  const [llantasCount] = useState<number>(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [gastoTotal, setGastoTotal] = useState<number>(0);
-  const [gastoMes, setGastoMes] = useState<number>(0);
+  const [gastoTotal] = useState<number>(0);
+  const [gastoMes] = useState<number>(0);
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
 
-  // These are assigned but not used, keeping for potential future use
-  const [companyId, setCompanyId] = useState<string>("");
-  const [userName, setUserName] = useState<string>("");
+  // Keeping these for future use but not using them directly yet
+  const [companyId] = useState<string>("");
+  const [userName] = useState<string>("");
 
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
   
-  // Not used but keeping for potential future use
-  const [tipoVehiculoOptions, setTipoVehiculoOptions] = useState<string[]>([]);
-  const [selectedTipoVehiculo, setSelectedTipoVehiculo] = useState<string>("Todos");
+  // Not used but keeping for potential future use - removing state setters that are unused
+  const [tipoVehiculoOptions] = useState<string[]>([]);
+  const [selectedTipoVehiculo] = useState<string>("Todos");
   const [periodoOptions] = useState<string[]>(["Último mes", "Últimos 3 meses", "Últimos 6 meses", "Último año", "Todo"]);
-  const [selectedPeriodo, setSelectedPeriodo] = useState<string>("Todo");
+  const [selectedPeriodo] = useState<string>("Todo");
   const [cpkRangeOptions] = useState<string[]>(["Todos", "< 1,000", "1,000 - 5,000", "5,000 - 10,000", "> 10,000"]);
-  const [selectedCpkRange, setSelectedCpkRange] = useState<string>("Todos");
+  const [selectedCpkRange] = useState<string>("Todos");
   
   // Vida filter options
   const [vidaOptions, setVidaOptions] = useState<string[]>([]);
@@ -109,15 +107,15 @@ export default function FlotaPage() {
   const vidaRef = useRef<HTMLDivElement>(null);
   const ejeRef = useRef<HTMLDivElement>(null);
   
-  // Create dropdownRefs object
-  const dropdownRefs = {
+  // Create dropdownRefs object with useMemo to avoid re-creation on every render
+  const dropdownRefs = useMemo(() => ({
     marca: marcaRef,
     tipoVehiculo: tipoVehiculoRef,
     periodo: periodoRef,
     cpkRange: cpkRangeRef,
     vida: vidaRef,
     eje: ejeRef
-  };
+  }), []);
 
   const fetchTires = useCallback(async (companyId: string) => {
     setLoading(true);
@@ -184,10 +182,13 @@ export default function FlotaPage() {
     if (storedUser) {
       const user = JSON.parse(storedUser);
       if (user.companyId) {
-        setCompanyId(user.companyId);
-        setUserName(user.name || user.email || "User");
-        fetchTires(user.companyId);
-        fetchVehicles(user.companyId);
+        // Using a local variable instead of the state since we're not using it elsewhere
+        const currentCompanyId = user.companyId;
+        const currentUserName = user.name || user.email || "User";
+        
+        // Execute fetch operations with the local variables
+        fetchTires(currentCompanyId);
+        fetchVehicles(currentCompanyId);
       } else {
         setError("No company assigned to user");
       }
@@ -243,8 +244,6 @@ export default function FlotaPage() {
   // Extract unique vehicle types for filter options
   useEffect(() => {
     if (vehicles.length > 0) {
-      const uniqueTipos = Array.from(new Set(vehicles.map(vehicle => vehicle.tipo || "Sin tipo")));
-      setTipoVehiculoOptions(["Todos", ...uniqueTipos]);
       setFilteredVehicles(vehicles);
     }
   }, [vehicles]);
@@ -388,7 +387,7 @@ export default function FlotaPage() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [activeDropdown, dropdownRefs]); // Added dropdownRefs to the dependency array
+  }, [activeDropdown, dropdownRefs]);
 
   function calculateTotals(tires: Tire[]) {
     let total = 0;
@@ -417,8 +416,12 @@ export default function FlotaPage() {
       }
     });
 
-    setGastoTotal(total);
-    setGastoMes(totalMes);
+    // Using local variables instead of state since we're not displaying these values yet
+    const currentGastoTotal = total;
+    const currentGastoMes = totalMes;
+    
+    // We might use these values in future calculations
+    return { currentGastoTotal, currentGastoMes };
   }
 
   function calculateCpkAverages(tires: Tire[]) {
