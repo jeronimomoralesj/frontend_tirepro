@@ -91,19 +91,27 @@ export default function ResumenPage() {
 
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-
-  // Refs for dropdown components
-  const dropdownRefs = {
-    marca: useRef<HTMLDivElement>(null),
-    tipoVehiculo: useRef<HTMLDivElement>(null),
-    periodo: useRef<HTMLDivElement>(null),
-    cpkRange: useRef<HTMLDivElement>(null),
-    vida: useRef<HTMLDivElement>(null),
-    eje: useRef<HTMLDivElement>(null)
-  };
-
+  
   // For tracking expired inspections
   const [inspeccionVencida, setInspeccionVencida] = useState(0);
+
+  // Refs for dropdown components - IMPORTANT: Initialize all refs here in the same order every render
+  const marcaRef = useRef<HTMLDivElement>(null);
+  const tipoVehiculoRef = useRef<HTMLDivElement>(null);
+  const periodoRef = useRef<HTMLDivElement>(null);
+  const cpkRangeRef = useRef<HTMLDivElement>(null);
+  const vidaRef = useRef<HTMLDivElement>(null);
+  const ejeRef = useRef<HTMLDivElement>(null);
+  
+  // Create dropdownRefs object after all the useRef calls
+  const dropdownRefs = {
+    marca: marcaRef,
+    tipoVehiculo: tipoVehiculoRef,
+    periodo: periodoRef,
+    cpkRange: cpkRangeRef,
+    vida: vidaRef,
+    eje: ejeRef
+  };
 
   const fetchTires = useCallback(async (companyId: string) => {
     setLoading(true);
@@ -374,7 +382,7 @@ export default function ResumenPage() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [activeDropdown, dropdownRefs]);
+  }, [activeDropdown]);
 
   function calculateTotals(tires: Tire[]) {
     let total = 0;

@@ -97,7 +97,6 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
   interface ChartElement {
     datasetIndex: number;
     index: number;
-    element: any; // This is from Chart.js internals, hard to type precisely
   }
 
   const options = {
