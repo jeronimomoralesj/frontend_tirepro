@@ -21,7 +21,7 @@ export default function RegisterUserPage() {
       const response = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
-          : "http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/register",
+          : "https://api.tirepro.com.co/api/users/register",
         {
           method: "POST",
           headers: {

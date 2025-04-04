@@ -85,7 +85,7 @@ const BuscarPage: React.FC = () => {
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(
                 searchTerm.trim()
               )}`
-            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/placa?placa=${encodeURIComponent(
+            : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(
                 searchTerm.trim()
               )}`
         );
@@ -97,7 +97,7 @@ const BuscarPage: React.FC = () => {
         const tiresRes = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/vehicle?vehicleId=${vehicleData.id}`
+            : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
         );
         if (!tiresRes.ok) {
           throw new Error("Error al obtener los llantas");
@@ -110,7 +110,7 @@ const BuscarPage: React.FC = () => {
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}&placa=${encodeURIComponent(
                 searchTerm.trim()
               )}`
-            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}&placa=${encodeURIComponent(
+            : `https://api.tirepro.com.co/api/tires?companyId=${companyId}&placa=${encodeURIComponent(
                 searchTerm.trim()
               )}`
         );

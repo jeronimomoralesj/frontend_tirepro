@@ -40,7 +40,7 @@ export default function AddUser() {
 
     async function fetchCompanyInfo() {
       try {
-        const res = await fetch(`http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/companies/${user!.companyId}`, {
+        const res = await fetch(`https://api.tirepro.com.co/api/companies/${user!.companyId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) throw new Error("Empresa no encontrada");
@@ -79,7 +79,7 @@ export default function AddUser() {
     }
 
     try {
-      const res = await fetch("http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/register", {
+      const res = await fetch("https://api.tirepro.com.co/api/users/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

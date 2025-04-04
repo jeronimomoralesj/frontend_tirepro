@@ -62,7 +62,7 @@ const DetallesLlantasPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}`
+          : `https://api.tirepro.com.co/api/tires?companyId=${companyId}`
       );
       if (!res.ok) throw new Error("Error al obtener las llantas");
       const data: Tire[] = await res.json();
@@ -71,7 +71,7 @@ const DetallesLlantasPage: React.FC = () => {
       const vehiclesRes = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${companyId}`
+          : `https://api.tirepro.com.co/api/vehicles?companyId=${companyId}`
       );
       const vehicles = await vehiclesRes.json();
 

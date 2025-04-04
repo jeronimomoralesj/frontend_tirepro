@@ -93,7 +93,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/${userId}`,
+          : `https://api.tirepro.com.co/api/users/${userId}`,
         {
           method: "DELETE",
         }
@@ -116,7 +116,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/companies/${companyId}`
+          : `https://api.tirepro.com.co/api/companies/${companyId}`
       );
       if (!res.ok) throw new Error("Failed to fetch company data");
       const data = await res.json();
@@ -135,7 +135,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users?companyId=${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users?companyId=${companyId}`
+          : `https://api.tirepro.com.co/api/users?companyId=${companyId}`
       );
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
@@ -165,7 +165,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/register`,
+          : `https://api.tirepro.com.co/api/users/register`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -202,7 +202,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/add-plate/${userId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/add-plate/${userId}`,
+          : `https://api.tirepro.com.co/api/users/add-plate/${userId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -237,7 +237,7 @@ const AjustesPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/remove-plate/${userId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/users/remove-plate/${userId}`,
+          : `https://api.tirepro.com.co/api/users/remove-plate/${userId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

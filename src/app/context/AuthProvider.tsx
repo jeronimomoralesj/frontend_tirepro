@@ -43,7 +43,7 @@ setUser({ ...parsedUser, companyId: storedCompanyId as string });
   // Updated login: simply set the user and token in state and localStorage.
   async function login(email: string, password: string) {
     try {
-      const res = await fetch("http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/auth/login", {
+      const res = await fetch("https://api.tirepro.com.co/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

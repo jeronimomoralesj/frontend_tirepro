@@ -122,7 +122,7 @@ export default function SemaforoPage() {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${cId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${cId}`
+          : `https://api.tirepro.com.co/api/tires?companyId=${cId}`
       );
       if (!res.ok) {
         throw new Error("Failed to fetch tires");
@@ -144,7 +144,7 @@ export default function SemaforoPage() {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${cId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${cId}`
+          : `https://api.tirepro.com.co/api/vehicles?companyId=${cId}`
       );
       if (!res.ok) {
         throw new Error("Failed to fetch vehicles");

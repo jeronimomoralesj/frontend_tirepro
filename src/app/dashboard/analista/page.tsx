@@ -72,7 +72,7 @@ const IntegratedAnalysisPage: React.FC = () => {
         const res = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-            : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires?companyId=${companyId}`
+            : `https://api.tirepro.com.co/api/tires?companyId=${companyId}`
         );
         if (!res.ok) {
           throw new Error("Error al obtener las llantas");
@@ -169,7 +169,7 @@ const IntegratedAnalysisPage: React.FC = () => {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/analyze?placa=${encodeURIComponent(placa.trim())}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/analyze?placa=${encodeURIComponent(placa.trim())}`
+          : `https://api.tirepro.com.co/api/tires/analyze?placa=${encodeURIComponent(placa.trim())}`
       );
       if (!res.ok) {
         throw new Error("Error al obtener el análisis");

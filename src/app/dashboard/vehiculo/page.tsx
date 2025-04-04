@@ -58,7 +58,7 @@ export default function VehiculoPage() {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles?companyId=${companyId}`
+          : `https://api.tirepro.com.co/api/vehicles?companyId=${companyId}`
       );
       if (!res.ok) {
         throw new Error("Failed to fetch vehicles");
@@ -83,7 +83,7 @@ export default function VehiculoPage() {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/create`
-          : "http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/create",
+          : "https://api.tirepro.com.co/api/vehicles/create",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -127,7 +127,7 @@ export default function VehiculoPage() {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/${vehicleId}`
-          : `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/${vehicleId}`,
+          : `https://api.tirepro.com.co/api/vehicles/${vehicleId}`,
         {
           method: "DELETE",
         }

@@ -45,7 +45,7 @@ export default function Sidebar({
     async function fetchCompany() {
       if (!user?.companyId) return;
       try {
-        const response = await fetch(`http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/companies/${user.companyId}`);
+        const response = await fetch(`https://api.tirepro.com.co/api/companies/${user.companyId}`);
         if (!response.ok) throw new Error("Failed to fetch company data");
         const companyData = await response.json();
         setCompany(companyData);

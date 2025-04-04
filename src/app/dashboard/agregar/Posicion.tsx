@@ -308,7 +308,7 @@ const Posicion = () => {
 
       // Updated to use the new endpoint for fetching vehicle by placa
       const vehicleResponse = await axios.get(
-        `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/vehicles/placa`,
+        `https://api.tirepro.com.co/api/vehicles/placa`,
         { 
           params: { placa },
           headers: { Authorization: `Bearer ${token}` } 
@@ -326,7 +326,7 @@ const Posicion = () => {
       // Fetch tires by vehicle ID rather than placa now
       const vehicleId = vehicleResponse.data.id;
       const tiresResponse = await axios.get(
-        `http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/vehicle`,
+        `https://api.tirepro.com.co/api/tires/vehicle`,
         { 
           params: { vehicleId },
           headers: { Authorization: `Bearer ${token}` } 
@@ -580,7 +580,7 @@ const Posicion = () => {
       });
 
       await axios.post(
-        "http://ec2-54-227-84-39.compute-1.amazonaws.com:6001/api/tires/update-positions",
+        "https://api.tirepro.com.co/api/tires/update-positions",
         { 
           placa,
           updates
