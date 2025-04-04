@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Menu, X, ChevronRight, MessageSquare, Activity, Database, Download, Check } from 'lucide-react';
 const landing = "/landing.png"; 
 import Image from 'next/image';
-
+import landingImg from "../../public/landing.png"
+import logo from "../../public/logo_text.png"
 const floatingElements = [
   { width: 250, height: 250, color: "#1E76B6", top: "10%", left: "20%", delay: "0s" },
   { width: 300, height: 300, color: "#348CCB", top: "30%", left: "50%", delay: "0.5s" },
@@ -40,7 +41,7 @@ const Home = () => {
           <div className="flex justify-between h-20">
             <div className="flex-shrink-0 flex items-center">
             <Image
-  src="https://tirepro.com.co/static/media/logo_text.2391efedce2e8af16a32.png"
+  src={logo}
   alt="TirePro Logo"
   className="h-10 w-auto"
   style={{ filter: 'invert(1) brightness(2)' }}
@@ -62,7 +63,7 @@ const Home = () => {
               <a href='/login'><button className="px-6 py-2 text-white/90 rounded-full border border-[#1E76B6] hover:bg-[#1E76B6]/20 transition-all duration-300">
                 Iniciar Sesión
               </button></a>
-              <a href='/register'><button className="px-6 py-2 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-full hover:shadow-lg hover:shadow-[#1E76B6]/50 transition-all duration-300 transform hover:scale-105">
+              <a href='/companyregister'><button className="px-6 py-2 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-full hover:shadow-lg hover:shadow-[#1E76B6]/50 transition-all duration-300 transform hover:scale-105">
                 Quiero iniciar
               </button></a>
             </div>
@@ -143,7 +144,7 @@ const Home = () => {
             </p>
 
             <div className="relative w-full max-w-4xl mx-auto mb-12">
-            <Image 
+            <img 
   src={landing}
   alt="Fleet Tire Management System"
   width={800}  // Set width and height explicitly
@@ -190,109 +191,84 @@ const Home = () => {
 </section>
 
 
-      {/* Pricing Section with modern cards */}
-      <section id="precios" className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#0A183A] to-[#173D68]">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4 text-white">
-              Planes
-              <span className="bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
-                {" "}Simples
-              </span>
-            </h2>
-            <p className="text-xl text-white/80">
-              Elija el plan perfecto para su flota
-            </p>
-          </div>
+{/* Pricing Section with modern cards - Updated with two options */}
+<section id="precios" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#0A183A] to-[#173D68] overflow-hidden">
+  <div className="max-w-6xl mx-auto">
+    <div className="text-center mb-12 md:mb-16">
+      <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+        Planes
+        <span className="bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
+          {" "}Simples
+        </span>
+      </h2>
+      <p className="text-lg md:text-xl text-white/80">
+        Elija el plan perfecto para su flota
+      </p>
+    </div>
 
-          <div className="grid lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Basic Plan */}
-            <div className="group">
-              <div className="p-8 rounded-2xl bg-gradient-to-b from-[#173D68]/50 to-[#1E76B6]/20 backdrop-blur-sm border border-[#1E76B6]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20 transform hover:scale-105">
-                <h3 className="text-2xl font-bold text-white mb-2">Básico</h3>
-                <p className="text-white/70 mb-6">Perfecto para flotas pequeñas</p>
-                <div className="mb-8">
-                  <span className="text-4xl font-bold text-white">$29,000</span>
-                  <span className="text-white/70 ml-2">/llanta mes</span>
-                </div>
-                <ul className="space-y-4 mb-8">
-                  {['Hasta 10 Perfiles', 'Monitoreo', 'Reportes de inspección'].map((feature, index) => (
-                    <li key={index} className="flex items-center text-white/80">
-                      <Check className="w-5 h-5 text-[#348CCB] mr-3" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <button className="w-full py-3 px-4 rounded-xl border border-[#1E76B6] text-white hover:bg-[#1E76B6]/20 transition-all duration-300">
-                  Seleccionar Plan
-                </button>
-              </div>
-            </div>
-
-            {/* Professional Plan */}
-            <div className="group lg:-mt-4">
-              <div className="p-8 rounded-2xl bg-gradient-to-b from-[#173D68] to-[#1E76B6]/40 backdrop-blur-sm border-2 border-[#348CCB] transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20 transform hover:scale-105">
-                <div className="absolute top-0 right-8 transform -translate-y-1/2">
-                  <span className="inline-flex items-center px-4 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white shadow-lg">
-                    Más Popular
+    <div className="grid md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
+      {/* Mini Plan */}
+      <div className="group transform transition-all duration-300 hover:scale-105">
+        <div className="h-full p-6 md:p-8 rounded-2xl bg-gradient-to-b from-[#173D68]/50 to-[#1E76B6]/20 backdrop-blur-sm border border-[#1E76B6]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20 flex flex-col justify-between">
+          <div>
+            <h3 className="text-2xl font-bold text-white mb-2">Mini</h3>
+            <p className="text-white/70 mb-6">Para los Uno a Uno</p>
+            <ul className="space-y-4 mb-8">
+              {[
+                'Análisis con IA',
+                'Un usuario',
+                'Tarjetas básicas',
+                'Llantas ilimitadas'
+              ].map((feature, index) => (
+                <li key={index} className="flex items-start text-white/80">
+                  <span className="mr-3 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#348CCB]">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
                   </span>
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Profesional</h3>
-                <p className="text-white/70 mb-6">Para flotas en crecimiento</p>
-                <div className="mb-8">
-                  <span className="text-4xl font-bold text-white">$21,000</span>
-                  <span className="text-white/70 ml-2">/llanta mes</span>
-                </div>
-                <ul className="space-y-4 mb-8">
-                  {[
-                    'Todo lo del modelo Básico',
-                    'Análisis predictivo',
-                    'Hasta 50 Usuarios',
-                    'Chat IA',
-                    'Soporte prioritario'
-                  ].map((feature, index) => (
-                    <li key={index} className="flex items-center text-white/80">
-                      <Check className="w-5 h-5 text-[#348CCB] mr-3" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <button className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white hover:shadow-lg hover:shadow-[#1E76B6]/50 transition-all duration-300">
-                  Seleccionar Plan
-                </button>
-              </div>
-            </div>
-
-{/* Enterprise Plan */}
-<div className="group">
-              <div className="p-8 rounded-2xl bg-gradient-to-b from-[#173D68]/50 to-[#1E76B6]/20 backdrop-blur-sm border border-[#1E76B6]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20 transform hover:scale-105">
-                <h3 className="text-2xl font-bold text-white mb-2">Empresarial</h3>
-                <p className="text-white/70 mb-6">Para grandes flotas</p>
-                <div className="mb-8">
-                  <span className="text-4xl font-bold text-white">Personalizado</span>
-                </div>
-                <ul className="space-y-4 mb-8">
-                  {[
-                    'Todo lo del modelo Profesional',
-                    'Flotas ilimitadas',
-                    'Connecciones externas',
-                    'API dedicada',
-                    'Gerente de cuenta dedicado'
-                  ].map((feature, index) => (
-                    <li key={index} className="flex items-center text-white/80">
-                      <Check className="w-5 h-5 text-[#348CCB] mr-3" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <button className="w-full py-3 px-4 rounded-xl bg-[#0A183A] text-white border border-[#1E76B6] hover:bg-[#1E76B6]/20 transition-all duration-300">
-                  Contactar Ventas
-                </button>
-              </div>
-            </div>
+                  {feature}
+                </li>
+              ))}
+            </ul>
           </div>
+          <button className="w-full py-3 px-4 rounded-xl border border-[#1E76B6] text-white hover:bg-[#1E76B6]/20 transition-all duration-300 mt-auto">
+            En desarollo...
+          </button>
         </div>
-      </section>
+      </div>
+
+      {/* Pro Plan */}
+      <div className="group transform transition-all duration-300 hover:scale-105">
+        <div className="h-full p-6 md:p-8 rounded-2xl bg-gradient-to-b from-[#173D68] to-[#1E76B6]/40 backdrop-blur-sm border-2 border-[#348CCB] transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20 relative flex flex-col justify-between">
+          <div>
+            <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
+            <p className="text-white/70 mb-6">Para grandes flotas</p>
+            <ul className="space-y-4 mb-8">
+              {[
+                'Análisis con IA',
+                'Usuarios ilimitados',
+                'Tarjetas detalladas',
+                'Llantas ilimitadas',
+              ].map((feature, index) => (
+                <li key={index} className="flex items-start text-white/80">
+                  <span className="mr-3 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#348CCB]">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </span>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <button className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white hover:shadow-lg hover:shadow-[#1E76B6]/50 transition-all duration-300 mt-auto">
+            Seleccionar Pro
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* App Section with floating elements */}
 <section className="relative py-24 overflow-hidden bg-white">
@@ -321,7 +297,7 @@ const Home = () => {
       {/* Right Image Section */}
       <div className="md:w-1/2 relative">
         <div className="absolute -top-6 -right-6 w-72 h-72 bg-gradient-to-br from-[#1E76B6] to-[#348CCB] rounded-full opacity-10"></div>
-        <Image
+        <img
           src="https://tirepro.com.co/static/media/app.e7a330a1d91499ba0c49.png"
           alt="TirePro App"
           className="relative w-full max-w-sm mx-auto rounded-3xl shadow-xl transition-transform duration-500 hover:scale-105"
@@ -332,51 +308,6 @@ const Home = () => {
 </section>
 
 
-      {/* Team Section with hover effects */}
-      <section id="nosotros" className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#173D68] to-[#0A183A]">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-16 text-white">
-            Nuestros
-            <span className="bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
-              {" "}Fundadores
-            </span>
-          </h2>
-          <div className="grid md:grid-cols-2 gap-12">
-            {[
-              {
-                name: "Mateo Morales",
-                role: "CEO & Co-Fundador",
-                bio: "Con 7 años de experiencia en consultoría en firmas líderes como Cap Gemini y Bain, Mateo aporta una sólida visión estratégica. Actualmente cursa un MBA en MIT y es economista graduado de Purdue.",
-                image: "https://media.licdn.com/dms/image/v2/D4D03AQHCGd8UB9m2AA/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1685477838438?e=1742428800&v=beta&t=axZdaXzmpLtmHFEhCdl_1us1r_jwWWDwQNeBcztGf2A"
-              },
-              {
-                name: "Jeronimo Morales",
-                role: "Product development & Co-Fundador",
-                bio: "Estudiante de Administración de Empresas en el CESA y con experiencia en el sector de las llantas en Merquellantas. Jerónimo es el programador del equipo, con 6 años de experiencia en desarrollo.",
-                image: "https://media.licdn.com/dms/image/v2/D4E03AQFM4BmS6dGm6Q/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1709150478233?e=1742428800&v=beta&t=X7fDQz4sJrPc4w2XvQWdkE63QREy-wFwbmIfSWCDNjs"
-              }
-            ].map((member, index) => (
-              <div key={index} className="group">
-                <div className="relative p-8 rounded-2xl bg-gradient-to-b from-[#173D68]/50 to-[#1E76B6]/20 backdrop-blur-sm border border-[#1E76B6]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20">
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                  <div className="relative">
-                    <Image 
-                      src={member.image}
-                      alt={member.name}
-                      className="w-32 h-32 rounded-full mx-auto mb-6 object-cover border-4 border-[#1E76B6]/30 group-hover:border-[#348CCB] transition-colors"
-                    />
-                    <h3 className="text-2xl font-bold mb-2 text-white text-center">{member.name}</h3>
-                    <p className="text-[#348CCB] mb-4 text-center">{member.role}</p>
-                    <p className="text-white/70 text-center">
-                      {member.bio}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Footer with gradient and blur effect */}
       <footer className="bg-[#0A183A] text-white py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">

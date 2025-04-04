@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import logo from "../../../public/logo_text.png"
+import Image from "next/image";
 
 export default function Sidebar({ 
   collapsed, 
@@ -123,8 +125,8 @@ export default function Sidebar({
             href="/dashboard" 
             className={`flex items-center ${collapsed ? 'justify-center w-full' : 'justify-start'}`}
           >
-            <img
-              src="https://tirepro.com.co/static/media/logo_text.2391efedce2e8af16a32.png"
+            <Image
+              src={logo}
               alt="TirePro Logo"
               className={`${collapsed ? 'h-6' : 'h-8'} w-auto`}
             />
