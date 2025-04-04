@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Menu, X, ChevronRight, MessageSquare, Activity, Database, Download, Check } from 'lucide-react';
+import { Menu, X, ChevronRight, MessageSquare, Activity, Database, Download } from 'lucide-react';
 const landing = "/landing.png"; 
 import Image from 'next/image';
-import landingImg from "../../public/landing.png"
 import logo from "../../public/logo_text.png"
 const floatingElements = [
   { width: 250, height: 250, color: "#1E76B6", top: "10%", left: "20%", delay: "0s" },
