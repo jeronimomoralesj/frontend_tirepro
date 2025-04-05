@@ -50,7 +50,6 @@ export default function ResumenPage() {
   const [exporting, setExporting] = useState(false);
   const [gastoTotal, setGastoTotal] = useState<number>(0);
   const [gastoMes, setGastoMes] = useState<number>(0);
-  const [companyId, setCompanyId] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
@@ -266,7 +265,6 @@ export default function ResumenPage() {
     if (storedUser) {
       const user = JSON.parse(storedUser);
       if (user.companyId) {
-        setCompanyId(user.companyId);
         setUserName(user.name || user.email || "User");
         fetchTires(user.companyId);
       } else {

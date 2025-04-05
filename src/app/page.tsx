@@ -58,13 +58,6 @@ const Home = () => {
     </div>
   );
   
-  
-
-  const features = [
-    { icon: <Activity className="w-8 h-8" />, title: "Monitoreo en tiempo real" },
-    { icon: <MessageSquare className="w-8 h-8" />, title: "Chat IA integrado" },
-    { icon: <Database className="w-8 h-8" />, title: "Gestión de datos" }
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0A183A] to-[#173D68]">
