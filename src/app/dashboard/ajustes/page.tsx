@@ -21,7 +21,6 @@ import {
   Users,
   PlusCircle
 } from "lucide-react";
-import Image from "next/image";
 
 // Define the types for User and Company
 export type UserData = {
