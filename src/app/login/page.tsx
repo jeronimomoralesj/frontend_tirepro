@@ -12,6 +12,8 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import Image from "next/image";
+import logo from "../../../public/logo_text.png"; 
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -48,6 +50,15 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-[#0A183A] to-[#173D68]">
       {/* Left panel - branding/info */}
       <div className="w-full md:w-1/2 flex flex-col justify-center p-8 md:p-16 text-white">
+      <div className="mb-8">
+  <Image 
+    src={logo}
+    alt="TirePro Logo"
+    className="w-auto h-12 filter brightness-0 invert"
+    priority
+  />
+</div>
+
         <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
           Bienvenido <span className="text-[#348CCB]">de nuevo!</span>
         </h1>
@@ -134,7 +145,7 @@ export default function LoginPage() {
 
             <div className="flex justify-end">
               <a
-                href="#"
+                href="mailto:jeronimo.morales@merquellantas.com?subject=Olvide%20Mi%20contrase%C3%B1a&body=Querido%20equipo%20tirepro%2C%0A%0ASolicito%20un%20link%20de%20restablecer%20contrase%C3%B1a%20para%20mi%20cuenta%20con%20el%20siguiente%20correo%3A%20"
                 className="text-sm text-[#348CCB] hover:text-[#1E76B6] transition-colors"
               >
                 Olvidé mi contraseña
@@ -163,7 +174,7 @@ export default function LoginPage() {
           <div className="mt-8 text-center">
             <p className="text-white/70 text-sm">
               ¿No tienes una cuenta?{" "}
-              <a href="/register" className="text-[#348CCB] hover:underline">
+              <a href="/companyregister" className="text-[#348CCB] hover:underline">
                 Regístrate
               </a>
             </p>

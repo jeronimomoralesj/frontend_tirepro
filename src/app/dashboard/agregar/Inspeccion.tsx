@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 
 export default function InspeccionPage() {
-  
   // Input states
   const [placaInput, setPlacaInput] = useState("");
   const [newKilometraje, setNewKilometraje] = useState<number>(0);
@@ -34,7 +33,12 @@ export default function InspeccionPage() {
   
   const [tires, setTires] = useState<Tire[]>([]);
   const [tireUpdates, setTireUpdates] = useState<{
-    [id: string]: { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null }
+    [id: string]: { 
+      profundidadInt: number; 
+      profundidadCen: number; 
+      profundidadExt: number; 
+      image: File | null 
+    }
   }>({});
 
   // UI states
@@ -146,23 +150,6 @@ export default function InspeccionPage() {
         throw new Error("Por favor ingrese valores numéricos válidos para todas las profundidades");
       }
   
-      // Update vehicle's kilometraje if needed.
-      if (vehicle && newKilometraje !== vehicle.kilometrajeActual) {
-        const vehicleRes = await fetch(
-          process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/${vehicle.id}/kilometraje`
-            : `https://api.tirepro.com.co/api/vehicles/${vehicle.id}/kilometraje`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kilometrajeActual: newKilometraje }),
-          }
-        );
-        if (!vehicleRes.ok) {
-          throw new Error("Error al actualizar el kilometraje del vehículo");
-        }
-      }
-  
       // Loop over tires and send updates
       const updatePromises = tires.map(async (tire) => {
         const updateData = tireUpdates[tire.id];
@@ -175,10 +162,8 @@ export default function InspeccionPage() {
           newKilometraje: Number(newKilometraje),
           imageUrl: updateData.image 
             ? await convertFileToBase64(updateData.image) 
-            : ""  // Send empty string instead of undefined
+            : ""
         };
-  
-        console.log(`Payload for tire ${tire.id}:`, payload);  // Debug logging
   
         const res = await fetch(
           process.env.NEXT_PUBLIC_API_URL
@@ -196,7 +181,6 @@ export default function InspeccionPage() {
         
         if (!res.ok) {
           const errorBody = await res.text();
-          console.error(`Error response for tire ${tire.id}:`, errorBody);
           throw new Error(`Error al actualizar el neumático ${tire.id}: ${errorBody}`);
         }
         return await res.json();
@@ -204,6 +188,22 @@ export default function InspeccionPage() {
       
       await Promise.all(updatePromises);
       alert("Inspecciones actualizadas exitosamente");
+
+      // Clear inspection fields after successful update.
+      if (tires.length > 0) {
+        const initialUpdates: { [id: string]: { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null } } = {};
+        tires.forEach((tire) => {
+          initialUpdates[tire.id] = {
+            profundidadInt: 0,
+            profundidadCen: 0,
+            profundidadExt: 0,
+            image: null,
+          };
+        });
+        setTireUpdates(initialUpdates);
+      }
+      // Optionally, reset the kilometraje field (or update it to the new value from vehicle)
+      setNewKilometraje(0);
     } catch (err) {
       if (err instanceof Error) {
         console.error("Full error:", err);
@@ -212,7 +212,7 @@ export default function InspeccionPage() {
         setError("Error desconocido");
       }
     }
-     finally {
+    finally {
       setLoading(false);
     }
   }
@@ -229,7 +229,7 @@ export default function InspeccionPage() {
                 type="text"
                 placeholder="Ingrese la placa del vehículo"
                 value={placaInput}
-                onChange={(e) => setPlacaInput(e.target.value)}
+                onChange={(e) => setPlacaInput(e.target.value.toLowerCase())}
                 className="w-full px-4 py-3 pl-10 border-2 border-[#1E76B6]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
               />
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#1E76B6]" />
@@ -333,7 +333,6 @@ export default function InspeccionPage() {
                     <div>
                       <h3 className="text-lg font-semibold mb-4">Mediciones de Profundidad</h3>
                       <div className="grid grid-cols-3 gap-3">
-                        {/* Profundidad Inputs */}
                         {['profundidadInt', 'profundidadCen', 'profundidadExt'].map((field) => (
                           <div key={field}>
                             <label className="block text-sm font-medium mb-1 text-center">

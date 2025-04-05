@@ -524,7 +524,7 @@ const AjustesPage: React.FC = () => {
                   </div>
                   <div className="flex flex-col sm:flex-row items-center mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#1E76B6] mb-4 sm:mb-0 sm:mr-6 flex-shrink-0">
-                      <Image
+                      <img
                         src={company.profileImage}
                         alt={`${company.name} Logo`}
                         className="w-full h-full object-cover"

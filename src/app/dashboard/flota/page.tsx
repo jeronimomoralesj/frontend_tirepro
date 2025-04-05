@@ -6,12 +6,12 @@ import {
   Calendar,
   Download,
   Bell,
-  Info, 
   Layers, 
   Clock, 
   Truck,
   Filter,
-  ChevronDown
+  ChevronDown,
+  Squircle
 } from "lucide-react";
 import PorMarca from "../cards/porMarca";
 import TipoVehiculo from "../cards/tipoVehiculo";
@@ -568,7 +568,7 @@ export default function FlotaPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           {/* Vehículos Card */}
           <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
-            <Info className="w-5 h-5 text-white" />
+            <Truck className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">{filteredVehicles.length}</p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>Vehículos</p>
@@ -589,29 +589,29 @@ export default function FlotaPage() {
             <Clock className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">{inspeccionVencida}</p>
-              <p className="text-sm uppercase tracking-wider">Inspección Vencida</p>
+              <p className="text-sm uppercase tracking-wider text-white">Inspección Vencida</p>
             </div>
           </div>
 
           {/* CPK Promedio Card */}
           <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <Truck className="w-5 h-5 text-white" />
+            <Squircle className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
               </p>
-              <p className="text-sm uppercase tracking-wider">CPK Promedio</p>
+              <p className="text-sm uppercase tracking-wider text-white">CPK Promedio</p>
             </div>
           </div>
 
           {/* CPK Proyectado Card */}
           <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <Download className="w-5 h-5 text-white" />
+            <Squircle className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : cpkProyectado.toLocaleString()}
               </p>
-              <p className="text-sm uppercase tracking-wider">CPK Proyectado</p>
+              <p className="text-sm uppercase tracking-wider text-white">CPK Proyectado</p>
             </div>
           </div>
         </div>
@@ -629,15 +629,6 @@ export default function FlotaPage() {
               options={marcasOptions}
               selected={selectedMarca}
               onChange={setSelectedMarca}
-            />
-            
-            {/* Vida Filter */}
-            <FilterDropdown
-              id="vida"
-              label="Vida"
-              options={vidaOptions}
-              selected={selectedVida}
-              onChange={setSelectedVida}
             />
             
             {/* Eje Filter */}

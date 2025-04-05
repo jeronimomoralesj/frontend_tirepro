@@ -189,9 +189,6 @@ const BuscarPage: React.FC = () => {
               <option value="vehicle">
                 Buscar por Placa de Vehículo
               </option>
-              <option value="tire">
-                Buscar por Placa de Llanta
-              </option>
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
           </div>
@@ -218,7 +215,7 @@ const BuscarPage: React.FC = () => {
                     : "Ingrese el id de la llanta"
                 }
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
                 className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent"
               />
             </div>
@@ -376,20 +373,20 @@ const BuscarPage: React.FC = () => {
               {/* Summary Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                 <div className="bg-[#173D68] bg-opacity-10 rounded-lg p-4">
-                  <p className="text-sm text-[#173D68] font-medium">Marca</p>
-                  <p className="text-lg font-bold text-[#0A183A]">{selectedTire.marca}</p>
+                  <p className="text-sm text-[#173D68] font-medium text-white">Marca</p>
+                  <p className="text-lg font-bold text-white">{selectedTire.marca}</p>
                 </div>
                 <div className="bg-[#173D68] bg-opacity-10 rounded-lg p-4">
-                  <p className="text-sm text-[#173D68] font-medium">Posición</p>
-                  <p className="text-lg font-bold text-[#0A183A]">{selectedTire.posicion}</p>
+                  <p className="text-sm text-[#173D68] font-medium text-white">Posición</p>
+                  <p className="text-lg font-bold text-white">{selectedTire.posicion}</p>
                 </div>
                 <div className="bg-[#173D68] bg-opacity-10 rounded-lg p-4">
-                  <p className="text-sm text-[#173D68] font-medium">Dimensión</p>
-                  <p className="text-lg font-bold text-[#0A183A]">{selectedTire.dimension}</p>
+                  <p className="text-sm text-[#173D68] font-medium text-white">Dimensión</p>
+                  <p className="text-lg font-bold text-white">{selectedTire.dimension}</p>
                 </div>
                 <div className="bg-[#173D68] bg-opacity-10 rounded-lg p-4">
-                  <p className="text-sm text-[#173D68] font-medium">Eje</p>
-                  <p className="text-lg font-bold text-[#0A183A]">{selectedTire.eje}</p>
+                  <p className="text-sm text-[#173D68] font-medium text-white">Eje</p>
+                  <p className="text-lg font-bold text-white">{selectedTire.eje}</p>
                 </div>
               </div>
               
@@ -491,13 +488,16 @@ const BuscarPage: React.FC = () => {
                             <td className="px-4 py-3">{insp.cpkProyectado ?? "N/A"}</td>
                             <td className="px-4 py-3">
                               {insp.imageUrl ? (
+                                <a href={insp.imageUrl} target="_blank" rel="noopener noreferrer">
                                 <Image
-                                src={insp.imageUrl}
-                                alt="Inspección"
-                                width={64}
-                                height={64}
-                                className="rounded-md shadow-sm border border-gray-200 object-cover"
-                              />
+                                  src={insp.imageUrl}
+                                  alt="Inspección"
+                                  width={64}
+                                  height={64}
+                                  className="rounded-md shadow-sm border border-gray-200 object-cover hover:scale-105 transition-transform duration-200"
+                                />
+                              </a>
+                              
                               ) : (
                                 <span className="text-gray-400">No disponible</span>
                               )}

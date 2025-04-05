@@ -55,7 +55,7 @@ const IntegratedAnalysisPage: React.FC = () => {
   };
   
   const [analysis, setAnalysis] = useState<TireAnalysisResponse | null>(null);
-    const [searchError, setSearchError] = useState("");
+  const [searchError, setSearchError] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
 
   // Fetch tires from backend using companyId from localStorage.
@@ -166,10 +166,12 @@ const IntegratedAnalysisPage: React.FC = () => {
 
     setSearchLoading(true);
     try {
+      // Convert the placa to lowercase before searching.
+      const lowerPlaca = placa.trim().toLowerCase();
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/analyze?placa=${encodeURIComponent(placa.trim())}`
-          : `https://api.tirepro.com.co/api/tires/analyze?placa=${encodeURIComponent(placa.trim())}`
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/analyze?placa=${encodeURIComponent(lowerPlaca)}`
+          : `https://api.tirepro.com.co/api/tires/analyze?placa=${encodeURIComponent(lowerPlaca)}`
       );
       if (!res.ok) {
         throw new Error("Error al obtener el análisis");
@@ -331,9 +333,10 @@ const IntegratedAnalysisPage: React.FC = () => {
                     <input
                       id="placa"
                       type="text"
-                      placeholder="Ej. ABC-123"
+                      placeholder="Ej. abc-123"
                       value={placa}
-                      onChange={(e) => setPlaca(e.target.value)}
+                      // Convert the input to lower case as the user types.
+                      onChange={(e) => setPlaca(e.target.value.toLowerCase())}
                       className="w-full px-4 py-3 border-2 border-[#1E76B6]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
                     />
                   </div>
@@ -379,7 +382,7 @@ const IntegratedAnalysisPage: React.FC = () => {
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {analysis.tires.map((tireAnalysis, index) => (
+                    {analysis.tires.map((tireAnalysis, index) => (
                       <div
                         key={`${tireAnalysis.placa}-${index}`}
                         className="p-6 bg-white rounded-lg shadow-md border-l-4 border-[#1E76B6] hover:shadow-lg transition-shadow"
@@ -436,7 +439,7 @@ const IntegratedAnalysisPage: React.FC = () => {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                {tireAnalysis.inspecciones.map((insp, idx: number) => (
+                                  {tireAnalysis.inspecciones.map((insp, idx: number) => (
                                     <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                                       <td className="py-1 px-2">
                                         {new Date(insp.fecha).toLocaleDateString()}

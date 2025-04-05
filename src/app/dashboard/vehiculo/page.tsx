@@ -28,6 +28,9 @@ export default function VehiculoPage() {
   const [error, setError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
 
+  // State for delete confirmation modal
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+
   // Form state for creating a vehicle
   const [placa, setPlaca] = useState("");
   const [kilometrajeActual, setKilometrajeActual] = useState<number>(0);
@@ -98,7 +101,7 @@ export default function VehiculoPage() {
         }
       );
       if (!res.ok) {
-        const errorData = await res.json() as ApiError;
+        const errorData = (await res.json()) as ApiError;
         throw new Error(errorData.message || "Failed to create vehicle");
       }
       const newVehicleResponse = await res.json();
@@ -121,6 +124,7 @@ export default function VehiculoPage() {
     }
   }
 
+  // Delete confirmation is handled via the confirmation modal.
   async function handleDeleteVehicle(vehicleId: string) {
     setError("");
     try {
@@ -133,7 +137,7 @@ export default function VehiculoPage() {
         }
       );
       if (!res.ok) {
-        const errorData = await res.json() as ApiError;
+        const errorData = (await res.json()) as ApiError;
         throw new Error(errorData.message || "Failed to delete vehicle");
       }
       // Remove the deleted vehicle from the state
@@ -194,7 +198,8 @@ export default function VehiculoPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-[#1E76B6]">Placa:</span>
-                      <span>{vehicle.placa}</span>
+                      {/* Display placa in all caps */}
+                      <span>{vehicle.placa.toUpperCase()}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-[#1E76B6]">Kilometraje:</span>
@@ -218,7 +223,7 @@ export default function VehiculoPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleDeleteVehicle(vehicle.id)}
+                    onClick={() => setVehicleToDelete(vehicle)}
                     className="mt-4 bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4 inline-block mr-1" />
@@ -249,7 +254,8 @@ export default function VehiculoPage() {
                   <input
                     type="text"
                     value={placa}
-                    onChange={(e) => setPlaca(e.target.value)}
+                    // Convert the placa input to lower case as the user types.
+                    onChange={(e) => setPlaca(e.target.value.toLowerCase())}
                     className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
                   />
@@ -272,6 +278,7 @@ export default function VehiculoPage() {
                     onChange={(e) => setCarga(e.target.value)}
                     className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
+                    placeholder="Tipo de carga como seca, liquidos, etc"
                   />
                 </div>
                 <div>
@@ -282,6 +289,7 @@ export default function VehiculoPage() {
                     onChange={(e) => setPesoCarga(parseFloat(e.target.value))}
                     className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
+                    placeholder="Peso de la carga en kg"
                   />
                 </div>
                 <div>
@@ -301,6 +309,38 @@ export default function VehiculoPage() {
                   Crear Vehículo
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {vehicleToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full p-6">
+              <h3 className="text-xl font-semibold mb-4 text-[#0A183A]">
+                Confirmar Eliminación
+              </h3>
+              <p className="mb-6">
+                ¿Está seguro de que desea eliminar el vehículo con placa{" "}
+                <span className="font-bold">{vehicleToDelete.placa.toUpperCase()}</span>?
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => setVehicleToDelete(null)}
+                  className="px-4 py-2 border border-gray-300 text-[#0A183A] rounded hover:bg-gray-100 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    await handleDeleteVehicle(vehicleToDelete.id);
+                    setVehicleToDelete(null);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                >
+                  Confirmar
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 
 type Vehicle = {
   id: string;
@@ -20,23 +20,38 @@ export default function TirePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
 
   // Tire form state
-  const [tirePlaca, setTirePlaca] = useState(""); 
-  const [marca, setMarca] = useState("");
-  const [diseno, setDiseno] = useState("");
-  const [profundidadInicial, setProfundidadInicial] = useState<number>(0);
-  const [dimension, setDimension] = useState("");
-  const [eje, setEje] = useState("");
-  const [kilometrosRecorridos, setKilometrosRecorridos] = useState<number>(0);
-  const [costo, setCosto] = useState<number>(0);
-  const [vida, setVida] = useState("");
-  const [posicion, setPosicion] = useState<string>("");
+  const [tireForm, setTireForm] = useState({
+    tirePlaca: "",
+    marca: "",
+    diseno: "",
+    profundidadInicial: 0,
+    dimension: "",
+    eje: "",
+    kilometrosRecorridos: 0,
+    costo: 0,
+    vida: "",
+    posicion: ""
+  });
 
   // Company and vehicle selection state
   const [companyId, setCompanyId] = useState<string>("");
   const [userVehicles, setUserVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
+
+  // Handle form input changes without losing focus
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    setTireForm(prev => ({
+      ...prev,
+      [name]: name === "profundidadInicial" || name === "kilometrosRecorridos" || name === "costo" 
+        ? parseFloat(value) || 0 
+        : value
+    }));
+  };
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -54,6 +69,7 @@ export default function TirePage() {
   }, [router]);
 
   async function fetchUserVehicles(companyId: string) {
+    setLoadingVehicles(true);
     try {
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
@@ -71,6 +87,8 @@ export default function TirePage() {
       } else {
         setError("Unexpected error");
       }
+    } finally {
+      setLoadingVehicles(false);
     }    
   }
 
@@ -92,20 +110,20 @@ export default function TirePage() {
     const currentDate = new Date().toISOString();
 
     // If tirePlaca is empty, generate a random string
-    const finalPlaca = tirePlaca.trim() !== "" ? tirePlaca : generateRandomString(8);
+    const finalPlaca = tireForm.tirePlaca.trim() !== "" ? tireForm.tirePlaca : generateRandomString(8);
 
     // Convert all string inputs to lowercase
     const payload = {
       placa: finalPlaca.toLowerCase(),
-      marca: marca.toLowerCase(),
-      diseno: diseno.toLowerCase(),
-      profundidadInicial,
-      dimension: dimension.toLowerCase(),
-      eje: eje.toLowerCase(),
-      kilometrosRecorridos,
-      costo: [{ valor: costo, fecha: currentDate }],
-      vida: [{ valor: vida.toLowerCase(), fecha: currentDate }],
-      posicion: Number(posicion),
+      marca: tireForm.marca.toLowerCase(),
+      diseno: tireForm.diseno.toLowerCase(),
+      profundidadInicial: tireForm.profundidadInicial,
+      dimension: tireForm.dimension.toLowerCase(),
+      eje: tireForm.eje.toLowerCase(),
+      kilometrosRecorridos: tireForm.kilometrosRecorridos,
+      costo: [{ valor: tireForm.costo, fecha: currentDate }],
+      vida: [{ valor: tireForm.vida.toLowerCase(), fecha: currentDate }],
+      posicion: Number(tireForm.posicion),
       companyId,
       vehicleId: selectedVehicleId || null,
     };
@@ -129,16 +147,18 @@ export default function TirePage() {
       setSuccess(data.message || "Neumático creado exitosamente");
       
       // Reset form fields
-      setTirePlaca("");
-      setMarca("");
-      setDiseno("");
-      setProfundidadInicial(0);
-      setDimension("");
-      setEje("");
-      setKilometrosRecorridos(0);
-      setCosto(0);
-      setVida("");
-      setPosicion("");
+      setTireForm({
+        tirePlaca: "",
+        marca: "",
+        diseno: "",
+        profundidadInicial: 0,
+        dimension: "",
+        eje: "",
+        kilometrosRecorridos: 0,
+        costo: 0,
+        vida: "",
+        posicion: ""
+      });
       setSelectedVehicleId("");
     } catch (err) {
       if (err instanceof Error) {
@@ -146,184 +166,261 @@ export default function TirePage() {
       } else {
         setError("Error desconocido");
       }
-    }
-     finally {
+    } finally {
       setLoading(false);
     }
   }
 
-  // Custom input component for consistent styling
-// Custom input component for consistent styling
-const InputField = ({ 
-  label, 
-  type = "text", 
-  value, 
-  onChange, 
-  required = false, 
-  placeholder = "",
-  min
-}: {
-  label: string;
-  type?: string;
-  value: string | number;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  required?: boolean;
-  placeholder?: string;
-  min?: number;
-}) => (
-  <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-    <input
-      type={type}
-      value={value}
-      onChange={onChange}
-      required={required}
-      placeholder={placeholder}
-      min={min}
-      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-      focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent 
-      bg-white text-[#0A183A] placeholder-gray-400"
-    />
-  </div>
-);
-
   return (
-    <div className="min-h-screen bg-white text-[#0A183A]">
-      <div className="container mx-auto px-4 py-8 max-w-xl">
-        <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-[#348CCB]/20">
+    <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 py-8">
+      <div className="container mx-auto px-4 max-w-2xl">
+        <div className="bg-white shadow-lg rounded-2xl overflow-hidden border border-[#348CCB]/10">
+          <div className="bg-gradient-to-r from-[#1E76B6] to-[#348CCB] p-6 text-white">
+            <h2 className="text-2xl font-bold">Crear Nueva Llanta</h2>
+            <p className="opacity-80 mt-1">Complete el formulario para registrar una nueva llanta</p>
+          </div>
 
-          <form onSubmit={handleCreateTire} className="p-6 space-y-4">
-            {/* Error and Success Messages */}
+          <form onSubmit={handleCreateTire} className="p-8 space-y-6">
+            {/* Notification Messages */}
             {error && (
-              <div className="flex items-center bg-red-50 border border-red-200 text-red-800 p-3 rounded-md mb-4">
-                <AlertTriangle className="mr-3 text-red-600" />
+              <div className="flex items-center bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-6 animate-appear">
+                <AlertTriangle className="mr-3 flex-shrink-0 text-red-600" />
                 <span>{error}</span>
               </div>
             )}
 
             {success && (
-              <div className="flex items-center bg-green-50 border border-green-200 text-green-800 p-3 rounded-md mb-4">
-                <CheckCircle className="mr-3 text-green-600" />
+              <div className="flex items-center bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg mb-6 animate-appear">
+                <CheckCircle className="mr-3 flex-shrink-0 text-green-600" />
                 <span>{success}</span>
               </div>
             )}
 
             {/* Vehicle Dropdown */}
-            <div className="mb-4">
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Seleccione Vehículo (Placa)
               </label>
-              <select
-                value={selectedVehicleId}
-                onChange={(e) => {
-                  const vehicleId = e.target.value;
-                  setSelectedVehicleId(vehicleId);
-                  const vehicle = userVehicles.find((v) => v.id === vehicleId);
-                  if (vehicle && tirePlaca.trim() === "") {
-                    setTirePlaca(vehicle.placa);
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent 
-                bg-white text-[#0A183A]"
-              >
-                <option value="">-- Seleccione un vehículo (opcional) --</option>
-                {userVehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.placa}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={selectedVehicleId}
+                  onChange={(e) => {
+                    setSelectedVehicleId(e.target.value);
+                    // Removed the auto-update of tirePlaca field
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] appearance-none transition-colors"
+                  disabled={loadingVehicles}
+                >
+                  <option value="">-- Seleccione un vehículo (opcional) --</option>
+                  {userVehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.placa}
+                    </option>
+                  ))}
+                </select>
+                {loadingVehicles && (
+                  <Loader2 className="absolute right-3 top-3 animate-spin text-gray-400" size={20} />
+                )}
+              </div>
               <p className="text-xs text-gray-500 mt-1">
-                Si selecciona un vehículo, se autocompletará la placa. Puede editarla si desea.
+                Seleccione un vehículo para asociar la llanta (opcional)
               </p>
             </div>
 
-            {/* Input Fields */}
-            <InputField
-              label="Id de la Llanta"
-              value={tirePlaca}
-              onChange={(e) => setTirePlaca(e.target.value)}
-              placeholder="Ingrese placa o déjelo en blanco para generar aleatoria"
-            />
+            {/* Form Grid for Multiple Columns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+              {/* ID de la Llanta */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ID de la Llanta
+                </label>
+                <input
+                  type="text"
+                  name="tirePlaca"
+                  value={tireForm.tirePlaca}
+                  onChange={handleInputChange}
+                  placeholder="Ingrese ID o déjelo en blanco para generar aleatorio"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Marca"
-              value={marca}
-              onChange={(e) => setMarca(e.target.value)}
-              required
-            />
+              {/* Marca */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Marca <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="marca"
+                  value={tireForm.marca}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Diseño"
-              value={diseno}
-              onChange={(e) => setDiseno(e.target.value)}
-              required
-            />
+              {/* Diseño */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Diseño <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="diseno"
+                  value={tireForm.diseno}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Profundidad Inicial"
-              type="number"
-              value={profundidadInicial}
-              onChange={(e) => setProfundidadInicial(parseFloat(e.target.value))}
-              required
-            />
+              {/* Profundidad Inicial */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Profundidad Inicial <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="profundidadInicial"
+                  value={tireForm.profundidadInicial}
+                  onChange={handleInputChange}
+                  required
+                  step="0.1"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Dimensión"
-              value={dimension}
-              onChange={(e) => setDimension(e.target.value)}
-              required
-            />
+              {/* Dimensión */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dimensión <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="dimension"
+                  value={tireForm.dimension}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Eje"
-              value={eje}
-              onChange={(e) => setEje(e.target.value)}
-              required
-            />
+              {/* Eje */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Eje <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="eje"
+                  value={tireForm.eje}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Kilómetros Recorridos"
-              type="number"
-              value={kilometrosRecorridos}
-              onChange={(e) => setKilometrosRecorridos(parseInt(e.target.value))}
-            />
+              {/* Kilómetros Recorridos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kilómetros Recorridos
+                </label>
+                <input
+                  type="number"
+                  name="kilometrosRecorridos"
+                  value={tireForm.kilometrosRecorridos}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Costo"
-              type="number"
-              value={costo}
-              onChange={(e) => setCosto(parseFloat(e.target.value))}
-              required
-            />
+              {/* Costo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Costo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="costo"
+                  value={tireForm.costo}
+                  onChange={handleInputChange}
+                  required
+                  step="0.01"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Vida"
-              value={vida}
-              onChange={(e) => setVida(e.target.value)}
-              required
-            />
+              {/* Vida */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Vida <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="vida"
+                  value={tireForm.vida}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
 
-            <InputField
-              label="Posición"
-              type="number"
-              value={posicion}
-              onChange={(e) => setPosicion(e.target.value)}
-              required
-              min={1}
-            />
+              {/* Posición */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Posición <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="posicion"
+                  value={tireForm.posicion}
+                  onChange={handleInputChange}
+                  required
+                  min={1}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
+                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                />
+              </div>
+            </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-[#1E76B6] text-white rounded-md 
-              hover:bg-[#348CCB] transition-colors duration-300 
-              flex items-center justify-center space-x-2
+              className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-lg
+              hover:shadow-md transition-all duration-300 
+              flex items-center justify-center font-medium
               disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Creando..." : "Crear llanta"}
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin mr-2" size={20} />
+                  <span>Creando...</span>
+                </>
+              ) : (
+                "Crear llanta"
+              )}
             </button>
           </form>
         </div>

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, AlertTriangle, Eye, ArrowLeft, Clock } from "lucide-react";
+import { Search, X, AlertTriangle, Eye, ArrowLeft, Clock, CheckCircle } from "lucide-react";
 
 export type Vehicle = {
   id: string;
@@ -31,6 +31,8 @@ const EventosPage: React.FC = () => {
   const [tires, setTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // New state for displaying success feedback when an event is added.
+  const [successMessage, setSuccessMessage] = useState("");
 
   // For modal to add an event
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
@@ -44,6 +46,7 @@ const EventosPage: React.FC = () => {
     setError("");
     setVehicle(null);
     setTires([]);
+    setSuccessMessage("");
     if (!searchTerm.trim()) {
       setError("Por favor ingrese la placa del vehículo");
       return;
@@ -134,6 +137,10 @@ const EventosPage: React.FC = () => {
           t.id === updatedTire.id ? updatedTire : t
         )
       );
+      // Display success message feedback.
+      setSuccessMessage("Evento agregado exitosamente");
+      // Clear success message after 5 seconds.
+      setTimeout(() => setSuccessMessage(""), 5000);
       closeModal();
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -141,7 +148,7 @@ const EventosPage: React.FC = () => {
       } else {
         setModalError("Error inesperado");
       }
-    }finally {
+    } finally {
       setLoading(false);
     }
   }
@@ -172,7 +179,7 @@ const EventosPage: React.FC = () => {
                 type="text"
                 placeholder="Ingrese la placa del vehículo"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
               />
             </div>
@@ -201,6 +208,14 @@ const EventosPage: React.FC = () => {
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg flex items-start">
             <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {/* Success message */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-600 rounded-lg flex items-start">
+            <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+            <span>{successMessage}</span>
           </div>
         )}
 

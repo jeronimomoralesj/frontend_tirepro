@@ -117,11 +117,28 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
           {tableData.map((row, idx) => (
             <tr key={idx} className="border-t">
               <td className="px-4 py-2 sticky left-0 bg-white font-bold z-10">{row.placa}</td>
-              {positions.map((pos) => (
-                <td key={pos} className="px-4 py-2 text-center">
-                  {row.depths[pos] !== null ? `${row.depths[pos]}` : "—"}
-                </td>
-              ))}
+              {positions.map((pos) => {
+  const value = row.depths[pos];
+  let bg = "bg-gray-200 text-gray-700"; // default
+  if (value !== null) {
+    if (value <= 5) bg = "bg-red-100 text-red-800";
+    else if (value <= 10) bg = "bg-yellow-100 text-yellow-800";
+    else bg = "bg-green-100 text-green-800";
+  }
+
+  return (
+    <td key={pos} className="px-4 py-2 text-center">
+      {value !== null ? (
+        <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${bg}`}>
+          {value}
+        </span>
+      ) : (
+        "—"
+      )}
+    </td>
+  );
+})}
+
             </tr>
           ))}
         </tbody>

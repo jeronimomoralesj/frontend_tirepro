@@ -19,13 +19,13 @@ const AnalisisPage: React.FC = () => {
       profundidadExt: number;
     }[];
   };
-  
+
   type AnalysisResponse = {
     tires: TireAnalysis[];
   };
-  
+
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
-  
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -41,10 +41,12 @@ const AnalisisPage: React.FC = () => {
 
     setLoading(true);
     try {
+      // Use the uppercase value of the placa in the API query.
+      const queryPlaca = placa.trim().toUpperCase();
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/analyze?placa=${encodeURIComponent(placa.trim())}`
-          : `https://api.tirepro.com.co/api/tires/analyze?placa=${encodeURIComponent(placa.trim())}`
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/analyze?placa=${encodeURIComponent(queryPlaca)}`
+          : `https://api.tirepro.com.co/api/tires/analyze?placa=${encodeURIComponent(queryPlaca)}`
       );
       if (!res.ok) {
         throw new Error("Error al obtener el análisis");
@@ -57,8 +59,7 @@ const AnalisisPage: React.FC = () => {
       } else {
         setError("Error inesperado");
       }
-    }
-     finally {
+    } finally {
       setLoading(false);
     }
   };
@@ -100,7 +101,8 @@ const AnalisisPage: React.FC = () => {
                   type="text"
                   placeholder="Ej. ABC-123"
                   value={placa}
-                  onChange={(e) => setPlaca(e.target.value)}
+                  // Convert the placa to uppercase as the user types.
+                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
                   className="w-full px-4 py-3 border-2 border-[#1E76B6]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
                 />
               </div>
@@ -146,7 +148,7 @@ const AnalisisPage: React.FC = () => {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {analysis.tires.map((tireAnalysis, index) => (
+                {analysis.tires.map((tireAnalysis, index) => (
                   <div
                     key={`${tireAnalysis.placa}-${index}`}
                     className="p-6 bg-white rounded-lg shadow-md border-l-4 border-[#1E76B6] hover:shadow-lg transition-shadow"
@@ -154,7 +156,7 @@ const AnalisisPage: React.FC = () => {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h4 className="font-bold text-lg text-[#0A183A]">
-                          ID: {tireAnalysis.placa}
+                          ID: {tireAnalysis.placa.toUpperCase()}
                         </h4>
                         <p className="text-[#173D68]">
                           Posición: <span className="font-medium">{tireAnalysis.posicion}</span>
@@ -203,7 +205,7 @@ const AnalisisPage: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody>
-                            {tireAnalysis.inspecciones.map((insp, idx: number) => (
+                              {tireAnalysis.inspecciones.map((insp, idx: number) => (
                                 <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                                   <td className="py-1 px-2">
                                     {new Date(insp.fecha).toLocaleDateString()}

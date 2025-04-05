@@ -45,8 +45,8 @@ export default function CompanyRegisterPage() {
         throw new Error(data.message || "Error al registrar la empresa");
       }
 
-      // Assuming the backend returns the new company object with an "id" field.
-      setCompanyId(data.id);
+      setCompanyId(data.companyId); 
+router.push(`/registeruser?companyId=${data.companyId}`);
     }catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -65,8 +65,8 @@ export default function CompanyRegisterPage() {
   };
 
   const handleCreateUser = () => {
-    // Navigate to user creation page with companyId
-    router.push(`/users/create?companyId=${companyId}`);
+    // Navigate to user registration page with companyId
+    router.push(`/registeruser?companyId=${companyId}`);
   };
 
   return (
@@ -117,10 +117,10 @@ export default function CompanyRegisterPage() {
                       primer usuario.
                     </p>
                   </div>
-                  <div className="flex space-x-4">
+                  <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 w-full justify-center">
                     <button
                       onClick={handleCopyId}
-                      className="mt-4 inline-flex items-center rounded-md border border-[#1E76B6] bg-[#1E76B6]/20 px-4 py-2 text-sm font-medium text-white hover:bg-[#1E76B6]/30 focus:outline-none focus:ring-2 focus:ring-[#348CCB]"
+                      className="inline-flex items-center justify-center rounded-md border border-[#1E76B6] bg-[#1E76B6]/20 px-4 py-2 text-sm font-medium text-white hover:bg-[#1E76B6]/30 focus:outline-none focus:ring-2 focus:ring-[#348CCB]"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -140,8 +140,22 @@ export default function CompanyRegisterPage() {
                     </button>
                     <button
                       onClick={handleCreateUser}
-                      className="mt-4 inline-flex items-center rounded-md bg-[#1E76B6] px-4 py-2 text-sm font-medium text-white hover:bg-[#348CCB] focus:outline-none focus:ring-2 focus:ring-[#348CCB]"
+                      className="inline-flex items-center justify-center rounded-md bg-[#1E76B6] px-4 py-2 text-sm font-medium text-white hover:bg-[#348CCB] focus:outline-none focus:ring-2 focus:ring-[#348CCB]"
                     >
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        className="mr-2 h-4 w-4" 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          strokeWidth={2} 
+                          d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" 
+                        />
+                      </svg>
                       Crear Primer Usuario
                     </button>
                   </div>

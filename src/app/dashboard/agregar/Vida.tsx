@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Search, X, AlertTriangle, ArrowLeft, Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // --- Types ---
 export type VidaEntry = {
@@ -88,8 +88,7 @@ const VidaPage: React.FC = () => {
       } else {
         setError("Error inesperado");
       }
-    }
-     finally {
+    } finally {
       setLoading(false);
     }
   }
@@ -98,14 +97,31 @@ const VidaPage: React.FC = () => {
   function openModal(tire: Tire) {
     setSelectedTire(tire);
     setModalError("");
-    // Determine allowed options based on the tire's current vida.
-    let lastIndex = -1;
+    // If the tire has no vida data, assume current value is "nueva"
+    let lastIndex = 0;
     if (tire.vida && tire.vida.length > 0) {
       const lastValue = tire.vida[tire.vida.length - 1].valor.toLowerCase();
       lastIndex = allowedVida.indexOf(lastValue);
+      if (lastIndex === -1) {
+        lastIndex = 0;
+      }
     }
-    // Allowed new values are those with an index greater than lastIndex.
-    const options = allowedVida.slice(lastIndex + 1);
+    let options: string[] = [];
+    if (lastIndex === 0) {
+      // From "nueva", allow only "reencauche1" and "fin"
+      options = [allowedVida[1], allowedVida[allowedVida.length - 1]];
+    } else if (lastIndex === 1) {
+      // From "reencauche1", allow only "reencauche2" and "fin"
+      options = [allowedVida[2], allowedVida[allowedVida.length - 1]];
+    } else if (lastIndex === 2) {
+      // From "reencauche2", allow only "reencauche3" and "fin"
+      options = [allowedVida[3], allowedVida[allowedVida.length - 1]];
+    } else if (lastIndex === 3) {
+      // From "reencauche3", only "fin" remains.
+      options = [allowedVida[4]];
+    } else {
+      options = [];
+    }
     if (options.length === 0) {
       setModalError("No se pueden agregar más entradas. La vida ya está en 'fin'.");
       setSelectedVida("");
@@ -160,8 +176,7 @@ const VidaPage: React.FC = () => {
       } else {
         setModalError("Error al actualizar vida");
       }
-    }
-     finally {
+    } finally {
       setLoading(false);
     }
   }
@@ -192,7 +207,7 @@ const VidaPage: React.FC = () => {
                 type="text"
                 placeholder="Ingrese la placa del vehículo"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
               />
             </div>
@@ -279,18 +294,6 @@ const VidaPage: React.FC = () => {
                     </p>
                   </div>
                   
-                  {tire.vida && tire.vida.length > 0 && (
-                    <div className="mb-3">
-                      <p className="font-semibold text-[#173D68] mb-1">Último cambio de vida:</p>
-                      <div className="bg-gray-50 rounded p-2 text-sm">
-                        <p className="text-gray-500 text-xs mb-1">
-                          {new Date(tire.vida[tire.vida.length - 1].fecha).toLocaleDateString()}
-                        </p>
-                        <p className="text-[#0A183A]">{tire.vida[tire.vida.length - 1].valor}</p>
-                      </div>
-                    </div>
-                  )}
-
                   <button
                     onClick={() => openModal(tire)}
                     className="w-full mt-2 px-4 py-2 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-all flex items-center justify-center gap-2"
@@ -352,12 +355,26 @@ const VidaPage: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
                 >
                   {(() => {
-                    let lastIndex = -1;
+                    let lastIndex = 0;
                     if (selectedTire.vida && selectedTire.vida.length > 0) {
                       const lastValue = selectedTire.vida[selectedTire.vida.length - 1].valor.toLowerCase();
-                      lastIndex = allowedVida.indexOf(lastValue);
+                      const idx = allowedVida.indexOf(lastValue);
+                      lastIndex = idx === -1 ? 0 : idx;
                     }
-                    const options = allowedVida.slice(lastIndex + 1);
+                    let options: string[] = [];
+                    if (lastIndex === 0) {
+                      // From "nueva", allow only "reencauche1" and "fin"
+                      options = [allowedVida[1], allowedVida[allowedVida.length - 1]];
+                    } else if (lastIndex === 1) {
+                      // From "reencauche1", allow only "reencauche2" and "fin"
+                      options = [allowedVida[2], allowedVida[allowedVida.length - 1]];
+                    } else if (lastIndex === 2) {
+                      // From "reencauche2", allow only "reencauche3" and "fin"
+                      options = [allowedVida[3], allowedVida[allowedVida.length - 1]];
+                    } else if (lastIndex === 3) {
+                      // From "reencauche3", only "fin" remains.
+                      options = [allowedVida[4]];
+                    }
                     return options.map((option) => (
                       <option key={option} value={option}>
                         {option.toUpperCase()}

@@ -5,6 +5,12 @@ import { Menu, X, ChevronRight, MessageSquare, Activity, Database, Download } fr
 const landing = "/landing.png"; 
 import Image from 'next/image';
 import logo from "../../public/logo_text.png"
+import analisis from "../../public/analisis.png"
+import rotacion from "../../public/rotacion.png"
+import inspecciones from "../../public/inspecciones.png"
+import cpk from "../../public/cpk.png"
+import onboarding from "../../public/onboarding.png"
+import reporte from "../../public/reporte.png"
 const floatingElements = [
   { width: 250, height: 250, color: "#1E76B6", top: "10%", left: "20%", delay: "0s" },
   { width: 300, height: 300, color: "#348CCB", top: "30%", left: "50%", delay: "0.5s" },
@@ -22,6 +28,36 @@ const Home = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const FeatureCard = ({
+    title,
+    description,
+    image,
+    iconPath,
+    extraClass = "",
+  }: {
+    title: string;
+    description: string;
+    image: string;
+    iconPath: string;
+    extraClass?: string;
+  }) => (
+    <div className={`group bg-gradient-to-b from-gray-50 to-gray-100 rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-500 transform hover:-translate-y-2 relative overflow-hidden ${extraClass}`}>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#1E76B6]/10 to-[#348CCB]/10 rounded-full -mr-16 -mt-16"></div>
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-[#1E76B6] to-[#348CCB] flex items-center justify-center mb-6 transform group-hover:rotate-6 transition-transform duration-300">
+        <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d={iconPath} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <h3 className="text-2xl font-semibold mb-3 text-gray-900">{title}</h3>
+      <p className="text-gray-600 mb-6">{description}</p>
+      <div className="relative h-48 rounded-xl overflow-hidden mb-4 transform transition-all duration-500 group-hover:scale-105">
+        <Image src={image} alt={title} className="w-full h-full object-cover"/>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0A183A] via-transparent to-transparent opacity-30"></div>
+      </div>
+    </div>
+  );
+  
   
 
   const features = [
@@ -56,9 +92,6 @@ const Home = () => {
               <a href="#precios" className="text-white/80 hover:text-white transition-colors">
                 Precios
               </a>
-              <a href="#nosotros" className="text-white/80 hover:text-white transition-colors">
-                Nosotros
-              </a>
               <a href='/login'><button className="px-6 py-2 text-white/90 rounded-full border border-[#1E76B6] hover:bg-[#1E76B6]/20 transition-all duration-300">
                 Iniciar Sesión
               </button></a>
@@ -88,9 +121,6 @@ const Home = () => {
               </a>
               <a href="#precios" className="block px-3 py-2 text-white/80 hover:text-white hover:bg-[#1E76B6]/20 rounded-lg transition-all duration-300">
                 Precios
-              </a>
-              <a href="#nosotros" className="block px-3 py-2 text-white/80 hover:text-white hover:bg-[#1E76B6]/20 rounded-lg transition-all duration-300">
-                Nosotros
               </a>
               <a href='/login'><button className="block w-full text-left px-3 py-2 text-white/80 hover:text-white hover:bg-[#1E76B6]/20 rounded-lg transition-all duration-300">
                 Iniciar Sesión
@@ -162,32 +192,79 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Features Section with hover effects */}
-      <section id="funcionalidades" className="py-24 px-4 sm:px-6 lg:px-8 bg-white">
-  <div className="max-w-7xl mx-auto">
-    <h2 className="text-4xl font-bold text-center mb-4 text-gray-900">
-      Características Clave
-    </h2>
-    <p className="text-xl text-gray-600 text-center mb-16">
-      Todo lo que necesita para maximizar la vida útil de sus llantas
-    </p>
 
-    <div className="grid md:grid-cols-3 gap-8">
-      {features.map((feature, index) => (
-        <div 
-          key={index}
-          className="group p-8 rounded-2xl bg-gradient-to-b from-gray-100 to-gray-200 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-        >
-          <div className="text-[#1E76B6] mb-6 group-hover:scale-110 transition-transform duration-300">
-            {feature.icon}
-          </div>
-          <h3 className="text-2xl font-semibold mb-4 text-gray-900">{feature.title}</h3>
-          <p className="text-gray-600">Optimice el rendimiento y reduzca costos con TirePro.</p>
-        </div>
-      ))}
+{/* Features Section with interactive cards and animations */}
+<section id="funcionalidades" className="py-24 px-4 sm:px-6 lg:px-8 bg-white relative overflow-hidden">
+  <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-5">
+    <div className="absolute rounded-full bg-gradient-to-r from-[#1E76B6] to-[#348CCB]" style={{width: '400px', height: '400px', top: '-100px', left: '-100px'}}></div>
+    <div className="absolute rounded-full bg-gradient-to-r from-[#348CCB] to-[#1E76B6]" style={{width: '300px', height: '300px', bottom: '-50px', right: '-50px'}}></div>
+  </div>
+
+  <div className="max-w-7xl mx-auto relative">
+    <div className="text-center mb-16">
+      <h2 className="text-4xl font-bold mb-4 text-gray-900">
+        Características 
+        <span className="bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text"> Inteligentes</span>
+      </h2>
+      <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+        Una plataforma todo-en-uno para gestionar, analizar y optimizar el estado y rendimiento de tus llantas
+      </p>
+    </div>
+
+    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
+      {/* Feature 1 */}
+      <FeatureCard
+        title="Inspecciones Digitales"
+        description="Registra profundidad, imagen y kilometraje con solo unos clics. Visualiza el historial de inspecciones en tiempo real."
+        image={inspecciones}
+        iconPath="M12 2V6M12 18V22..."
+      />
+
+      {/* Feature 2 */}
+      <FeatureCard
+        title="Costos y CPK en un Click"
+        description="Automatiza el seguimiento del costo por kilómetro y mantén visibilidad total sobre tu inversión en llantas."
+        image={cpk}
+        iconPath="M12 8V12L15 15..."
+        extraClass="md:translate-y-12"
+      />
+
+      {/* Feature 3 */}
+      <FeatureCard
+        title="Control de Posiciones"
+        description="Asigna, mueve y reorganiza llantas por vehículo y eje con una interfaz visual. Asegura un montaje eficiente."
+        image={rotacion}
+        iconPath="M3 12L5 10M5 10L12 3..."
+      />
+
+      {/* Feature 4 */}
+      <FeatureCard
+        title="Análisis Predictivo"
+        description="Identifica cuándo cambiar una llanta antes de que falle. Usa IA para tomar decisiones basadas en datos."
+        image={analisis}
+        iconPath="M9 19V13C9 11.8954..."
+      />
+
+      {/* Feature 5 */}
+      <FeatureCard
+        title="Reportes Visuales"
+        description="Dashboards de semáforo, vida útil y distribución que resumen el estado actual de tu flota con claridad."
+        image={reporte}
+        iconPath="M12 15C13.6569 15 15..."
+        extraClass="md:translate-y-12"
+      />
+
+      {/* Feature 6 */}
+      <FeatureCard
+        title="Onboarding y Personalización"
+        description="Crea tu cuenta, carga tu flota y empieza en minutos. Personaliza campos, métricas y estructura."
+        image={onboarding}
+        iconPath="M20 4H4C2.89543 4..."
+      />
     </div>
   </div>
 </section>
+
 
 
 {/* Pricing Section with modern cards - Updated with two options */}
@@ -310,65 +387,81 @@ const Home = () => {
 
       {/* Footer with gradient and blur effect */}
       <footer className="bg-[#0A183A] text-white py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1E76B6]/10 to-transparent"></div>
-        
-        <div className="max-w-7xl mx-auto relative">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            <div>
-              <h3 className="text-xl font-semibold mb-6 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
-                Links Importantes
-              </h3>
-              <ul className="space-y-4">
-                {[
-                  'Términos y Condiciones',
-                  'Privacidad de Datos',
-                  'Contáctanos',
-                  'Eliminar Datos'
-                ].map((link, index) => (
-                  <li key={index}>
-                    <a href="#" className="text-white/70 hover:text-[#348CCB] transition-colors">
-                      {link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-xl font-semibold mb-6 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
-                Contacto
-              </h3>
-              <ul className="space-y-4">
-                <li className="text-white/70">Correo TirePro</li>
-                <li className="text-white/70">+57 310 660 5563</li>
-                <li className="text-white/70">Bogotá, Colombia</li>
-              </ul>
-            </div>
+  <div className="absolute inset-0 bg-gradient-to-b from-[#1E76B6]/10 to-transparent"></div>
 
-            <div>
-              <h3 className="text-xl font-semibold mb-6 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
-                Síguenos
-              </h3>
-              <div className="flex space-x-4">
-                {['Facebook', 'Twitter', 'LinkedIn'].map((social, index) => (
-                  <a
-                    key={index}
-                    href="#"
-                    className="w-10 h-10 rounded-full bg-gradient-to-r from-[#1E76B6] to-[#348CCB] flex items-center justify-center hover:shadow-lg hover:shadow-[#1E76B6]/50 transition-all duration-300 transform hover:scale-110"
-                  >
-                    <span className="sr-only">{social}</span>
-                    <div className="w-6 h-6" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          </div>
+  <div className="max-w-7xl mx-auto relative">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+      {/* Links */}
+      <div>
+        <h3 className="text-xl font-semibold mb-6 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
+          Links Importantes
+        </h3>
+        <ul className="space-y-4">
+          <li>
+            <a href="/legal#terms-section" className="text-white/70 hover:text-[#348CCB] transition-colors">
+              Términos y Condiciones
+            </a>
+          </li>
+          <li>
+            <a href="/legal#privacy-section" className="text-white/70 hover:text-[#348CCB] transition-colors">
+              Privacidad de Datos
+            </a>
+          </li>
+          <li>
+            <a href="/contacto" className="text-white/70 hover:text-[#348CCB] transition-colors">
+              Contáctanos
+            </a>
+          </li>
+          <li>
+            <a href="#" className="text-white/70 hover:text-[#348CCB] transition-colors">
+              Eliminar Datos
+            </a>
+          </li>
+        </ul>
+      </div>
 
-          <div className="mt-16 pt-8 border-t border-[#1E76B6]/30 text-center text-white/50">
-            <p>© 2025 TirePro. Todos los derechos reservados.</p>
-          </div>
+      {/* Contact */}
+      <div>
+        <h3 className="text-xl font-semibold mb-6 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
+          Contacto
+        </h3>
+        <ul className="space-y-4">
+          <a href='mailto:jeronimo.morales@merquellantas.com?subject=Consulta%20TirePro'><li className="text-white/70">Correo TirePro</li></a>
+          <li className="text-white/70">+57 310 660 5563</li>
+          <li className="text-white/70">Bogotá, Colombia</li>
+        </ul>
+      </div>
+
+      {/* Social */}
+      <div>
+        <h3 className="text-xl font-semibold mb-6 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-transparent bg-clip-text">
+          Síguenos
+        </h3>
+        <div className="flex space-x-4">
+          {[
+            { name: 'Facebook', href: '#' },
+            { name: 'Twitter', href: '#' },
+            { name: 'LinkedIn', href: '#' },
+          ].map((social, index) => (
+            <a
+              key={index}
+              href={social.href}
+              className="w-10 h-10 rounded-full bg-gradient-to-r from-[#1E76B6] to-[#348CCB] flex items-center justify-center hover:shadow-lg hover:shadow-[#1E76B6]/50 transition-all duration-300 transform hover:scale-110"
+            >
+              <span className="sr-only">{social.name}</span>
+              <div className="w-6 h-6" />
+            </a>
+          ))}
         </div>
-      </footer>
+      </div>
+    </div>
+
+    <div className="mt-16 pt-8 border-t border-[#1E76B6]/30 text-center text-white/50">
+      <p>© 2025 TirePro. Todos los derechos reservados.</p>
+    </div>
+  </div>
+</footer>
+
 
       {/* Animated scroll to top button */}
       <button

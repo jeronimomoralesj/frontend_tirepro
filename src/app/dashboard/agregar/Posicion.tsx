@@ -648,7 +648,7 @@ const Posicion = () => {
                   type="text"
                   placeholder="Ingrese placa del vehículo"
                   value={placa}
-                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                  onChange={(e) => setPlaca(e.target.value.toLowerCase())}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
                 />
               </div>
