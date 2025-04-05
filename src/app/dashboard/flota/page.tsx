@@ -75,10 +75,6 @@ export default function FlotaPage() {
   const [selectedPeriodo] = useState<string>("Todo");
   const [selectedCpkRange] = useState<string>("Todos");
   
-  // Vida filter options
-  const [vidaOptions, setVidaOptions] = useState<string[]>([]);
-  const [selectedVida, setSelectedVida] = useState<string>("Todas");
-  
   // Eje filter options
   const [ejeOptions, setEjeOptions] = useState<string[]>([]);
   const [selectedEje, setSelectedEje] = useState<string>("Todos");
@@ -205,7 +201,6 @@ export default function FlotaPage() {
           }
         }
       });
-      setVidaOptions(["Todas", ...Array.from(uniqueVidas)]);
       
       // Extract unique eje values from tires or their latest inspections
       const uniqueEjes = new Set<string>();
@@ -242,24 +237,6 @@ export default function FlotaPage() {
     // Apply marca filter
     if (selectedMarca !== "Todas") {
       tempTires = tempTires.filter(tire => tire.marca === selectedMarca);
-    }
-
-    // Apply vida filter
-    if (selectedVida !== "Todas") {
-      tempTires = tempTires.filter(tire => {
-        // Check vida at tire level
-        if (tire.vida === selectedVida) {
-          return true;
-        }
-        
-        // Check vida in the latest inspection
-        if (tire.inspecciones && tire.inspecciones.length > 0) {
-          const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-          return lastInspection.vida === selectedVida;
-        }
-        
-        return false;
-      });
     }
     
     // Apply eje filter
@@ -347,12 +324,12 @@ export default function FlotaPage() {
     // Update metrics based on filtered data
     calculateTotals(tempTires);
     calculateCpkAverages(tempTires);
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedVida, selectedEje, tires, vehicles]);
+  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, tires, vehicles]);
 
   // Apply filters whenever filter selections change
   useEffect(() => {
     applyFilters();
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedVida, selectedEje, tires, vehicles, applyFilters]);
+  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, tires, vehicles, applyFilters]);
 
   // Calculate expired inspections
   useEffect(() => {
