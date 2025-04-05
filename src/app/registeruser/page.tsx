@@ -90,7 +90,7 @@ function RegisterForm() {
           Registrar Usuario
         </h1>
         <p className="mt-2 text-[#348CCB]">
-          Crea tu cuenta para acceder al sistema
+          Crea tu cuenta para iniciar
         </p>
       </div>
 
