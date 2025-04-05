@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Menu, X, ChevronRight, MessageSquare, Activity, Database, Download } from 'lucide-react';
+import { Menu, X, ChevronRight, Download } from 'lucide-react';
 const landing = "/landing.png"; 
 import Image from 'next/image';
 import logo from "../../public/logo_text.png"
