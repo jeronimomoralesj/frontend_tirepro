@@ -79,6 +79,17 @@ export default function FlotaPage() {
   const [ejeOptions, setEjeOptions] = useState<string[]>([]);
   const [selectedEje, setSelectedEje] = useState<string>("Todos");
 
+  // Semáforo filter options (Estado)
+  const [semaforoOptions] = useState<string[]>([
+    "Todos",
+    "Óptimo",
+    "60 Días",
+    "30 Días",
+    "Urgente",
+    "Sin Inspección",
+  ]);
+  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
+
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   
@@ -86,22 +97,15 @@ export default function FlotaPage() {
   const [inspeccionVencida, setInspeccionVencida] = useState(0);
 
   // Refs for dropdown components
-  const marcaRef = useRef<HTMLDivElement>(null);
-  const tipoVehiculoRef = useRef<HTMLDivElement>(null);
-  const periodoRef = useRef<HTMLDivElement>(null);
-  const cpkRangeRef = useRef<HTMLDivElement>(null);
-  const vidaRef = useRef<HTMLDivElement>(null);
-  const ejeRef = useRef<HTMLDivElement>(null);
-  
-  // Create dropdownRefs object with useMemo to avoid re-creation on every render
-  const dropdownRefs = useMemo(() => ({
-    marca: marcaRef,
-    tipoVehiculo: tipoVehiculoRef,
-    periodo: periodoRef,
-    cpkRange: cpkRangeRef,
-    vida: vidaRef,
-    eje: ejeRef
-  }), []);
+  const dropdownRefs = useRef({
+    marca: useRef<HTMLDivElement>(null),
+    eje: useRef<HTMLDivElement>(null),
+    semaforo: useRef<HTMLDivElement>(null),
+    tipoVehiculo: useRef<HTMLDivElement>(null),
+    periodo: useRef<HTMLDivElement>(null),
+    cpkRange: useRef<HTMLDivElement>(null),
+    vida: useRef<HTMLDivElement>(null),
+  }).current;
 
   const fetchTires = useCallback(async (companyId: string) => {
     setLoading(true);
@@ -127,10 +131,28 @@ export default function FlotaPage() {
         })) : []
       }));
       
-      setTires(sanitizedData);
-      calculateTotals(sanitizedData);
-      calculateCpkAverages(sanitizedData);
-      calculateExpiredInspections(sanitizedData);
+      // Filter out tires whose latest vida is "fin"
+      const activeTires = sanitizedData.filter(tire => {
+        // Check if tire has a direct vida property that's "fin"
+        if (tire.vida && tire.vida === "fin") {
+          return false;
+        }
+        
+        // Check if the latest inspection's vida is "fin"
+        if (tire.inspecciones && tire.inspecciones.length > 0) {
+          const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
+          if (lastInspection.vida && lastInspection.vida.toLowerCase() === "fin") {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      setTires(activeTires);
+      calculateTotals(activeTires);
+      calculateCpkAverages(activeTires);
+      calculateExpiredInspections(activeTires);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unexpected error";
       setError(errorMessage);
@@ -230,6 +252,16 @@ export default function FlotaPage() {
     }
   }, [vehicles]);
 
+  function classifyCondition(tire: Tire): string {
+    if (!tire.inspecciones || tire.inspecciones.length === 0) return "sin_inspeccion";
+    const last = tire.inspecciones[tire.inspecciones.length - 1];
+    const min = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+    if (min > 7) return "optimo";
+    if (min > 6) return "60_dias";
+    if (min > 5) return "30_dias";
+    return "urgente";
+  }
+
   const applyFilters = useCallback(() => {
     // Filter tires based on selected filters
     let tempTires = [...tires];
@@ -247,13 +279,34 @@ export default function FlotaPage() {
           return true;
         }
         
-        // Check vida in the latest inspection
+        // Check eje in the latest inspection
         if (tire.inspecciones && tire.inspecciones.length > 0) {
           const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
           return lastInspection.eje === selectedEje;
         }
         
         return false;
+      });
+    }
+
+    // Apply semáforo (Estado) filter
+    if (selectedSemaforo !== "Todos") {
+      tempTires = tempTires.filter(tire => {
+        const condition = classifyCondition(tire);
+        switch (selectedSemaforo) {
+          case "Óptimo":
+            return condition === "optimo";
+          case "60 Días":
+            return condition === "60_dias";
+          case "30 Días":
+            return condition === "30_dias";
+          case "Urgente":
+            return condition === "urgente";
+          case "Sin Inspección":
+            return condition === "sin_inspeccion";
+          default:
+            return true;
+        }
       });
     }
 
@@ -324,24 +377,20 @@ export default function FlotaPage() {
     // Update metrics based on filtered data
     calculateTotals(tempTires);
     calculateCpkAverages(tempTires);
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, tires, vehicles]);
+    calculateExpiredInspections(tempTires);
+  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, tires, vehicles]);
 
   // Apply filters whenever filter selections change
   useEffect(() => {
     applyFilters();
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, tires, vehicles, applyFilters]);
-
-  // Calculate expired inspections
-  useEffect(() => {
-    calculateExpiredInspections(filteredTires);
-  }, [filteredTires]);
+  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, tires, vehicles, applyFilters]);
 
   // Handle clicking outside dropdowns
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (activeDropdown) {
         const currentRef = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
-        if (currentRef && currentRef.current && !(currentRef.current as HTMLElement).contains(event.target as Node)) {
+        if (currentRef && currentRef.current && !currentRef.current.contains(event.target as Node)) {
           setActiveDropdown(null);
         }
       }
@@ -608,13 +657,20 @@ export default function FlotaPage() {
               onChange={setSelectedMarca}
             />
             
-            {/* Eje Filter */}
             <FilterDropdown
               id="eje"
               label="Eje"
               options={ejeOptions}
               selected={selectedEje}
               onChange={setSelectedEje}
+            />
+            
+            <FilterDropdown
+              id="semaforo"
+              label="Estado"
+              options={semaforoOptions}
+              selected={selectedSemaforo}
+              onChange={setSelectedSemaforo}
             />
           </div>
         </div>

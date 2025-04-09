@@ -200,7 +200,7 @@ export default function ResumenPage() {
           throw new Error("Failed to fetch tires");
         }
         const data: Tire[] = await res.json();
-
+  
         const sanitizedData = data.map((tire) => ({
           ...tire,
           inspecciones: Array.isArray(tire.inspecciones) ? tire.inspecciones : [],
@@ -210,11 +210,22 @@ export default function ResumenPage() {
                 fecha: typeof c.fecha === "string" ? c.fecha : new Date().toISOString(),
               }))
             : [],
+          // Ensure vida is an array
+          vida: Array.isArray(tire.vida) ? tire.vida : [],
         }));
-
-        setTires(sanitizedData);
-        calculateTotals(sanitizedData);
-        calculateCpkAverages(sanitizedData);
+  
+        // Filter out tires whose last vida entry is "fin"
+        const activeTires = sanitizedData.filter((tire) => {
+          if (tire.vida && tire.vida.length > 0) {
+            const lastVida = tire.vida[tire.vida.length - 1].valor.toLowerCase();
+            return lastVida !== "fin";
+          }
+          return true; // Include tires with no vida entries
+        });
+  
+        setTires(activeTires);
+        calculateTotals(activeTires);
+        calculateCpkAverages(activeTires);
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Unexpected error";
         setError(errorMessage);

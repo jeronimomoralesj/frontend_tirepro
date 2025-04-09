@@ -35,6 +35,7 @@ export type Tire = {
   }[];
   marca: string;
   eje: string;
+  
   // ...other tire fields if needed
 };
 
@@ -224,13 +225,24 @@ export default function SemaforoPage() {
         costo: Array.isArray(tire.costo) ? tire.costo.map(c => ({
           valor: typeof c.valor === 'number' ? c.valor : 0,
           fecha: typeof c.fecha === 'string' ? c.fecha : new Date().toISOString()
-        })) : []
+        })) : [],
+        // Ensure vida is an array
+        vida: Array.isArray(tire.vida) ? tire.vida : []
       }));
       
-      setTires(sanitizedData);
-      setFilteredTires(sanitizedData);
-      calculateTotals(sanitizedData);
-      calculateCpkAverages(sanitizedData);
+      // Filter out tires whose last vida entry is "fin"
+      const activeTires = sanitizedData.filter(tire => {
+        if (tire.vida && tire.vida.length > 0) {
+          const lastVida = tire.vida[tire.vida.length - 1].valor?.toLowerCase();
+          return lastVida !== "fin";
+        }
+        return true; // Keep tires without vida entries
+      });
+      
+      setTires(activeTires);
+      setFilteredTires(activeTires);
+      calculateTotals(activeTires);
+      calculateCpkAverages(activeTires);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unexpected error";
       setError(errorMessage);

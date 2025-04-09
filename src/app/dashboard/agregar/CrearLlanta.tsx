@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useRef, useCallback, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 
@@ -32,7 +32,8 @@ export default function TirePage() {
     eje: "",
     kilometrosRecorridos: 0,
     costo: 0,
-    vida: "",
+    // Replace the Vida input with a dropdown value
+    vida: "nueva",
     posicion: ""
   });
 
@@ -42,14 +43,15 @@ export default function TirePage() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
 
   // Handle form input changes without losing focus
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
     setTireForm(prev => ({
       ...prev,
-      [name]: name === "profundidadInicial" || name === "kilometrosRecorridos" || name === "costo" 
-        ? parseFloat(value) || 0 
-        : value
+      [name]: name === "profundidadInicial" ||
+              name === "kilometrosRecorridos" ||
+              name === "costo" 
+                ? parseFloat(value) || 0 
+                : value
     }));
   };
 
@@ -112,7 +114,7 @@ export default function TirePage() {
     // If tirePlaca is empty, generate a random string
     const finalPlaca = tireForm.tirePlaca.trim() !== "" ? tireForm.tirePlaca : generateRandomString(8);
 
-    // Convert all string inputs to lowercase
+    // Build the payload. Notice that we convert the vida field to lowercase.
     const payload = {
       placa: finalPlaca.toLowerCase(),
       marca: tireForm.marca.toLowerCase(),
@@ -156,7 +158,8 @@ export default function TirePage() {
         eje: "",
         kilometrosRecorridos: 0,
         costo: 0,
-        vida: "",
+        // Set default vida to "nueva" in the dropdown
+        vida: "nueva",
         posicion: ""
       });
       setSelectedVehicleId("");
@@ -204,10 +207,7 @@ export default function TirePage() {
               <div className="relative">
                 <select
                   value={selectedVehicleId}
-                  onChange={(e) => {
-                    setSelectedVehicleId(e.target.value);
-                    // Removed the auto-update of tirePlaca field
-                  }}
+                  onChange={(e) => setSelectedVehicleId(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
                   focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
                   bg-white text-[#0A183A] appearance-none transition-colors"
@@ -368,21 +368,25 @@ export default function TirePage() {
                 />
               </div>
 
-              {/* Vida */}
+              {/* VIDA - Changed from input to Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Vida <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="vida"
                   value={tireForm.vida}
                   onChange={handleInputChange}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
-                />
+                          focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
+                          bg-white text-[#0A183A] transition-colors"
+                >
+                  <option value="nueva">Nueva</option>
+                  <option value="reencauche1">Primer Reencauche</option>
+                  <option value="reencauche2">Segundo Reencauche</option>
+                  <option value="reencauche3">Tercer Reencauche</option>
+                </select>
               </div>
 
               {/* Posición */}

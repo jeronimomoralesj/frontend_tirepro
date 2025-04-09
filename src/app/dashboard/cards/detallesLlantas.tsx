@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Download, AlertTriangle, FileSpreadsheet, CheckCircle2 } from "lucide-react";
+import { Download, AlertTriangle, FileSpreadsheet, CheckCircle2, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 
 export type CostEntry = {
@@ -48,6 +48,7 @@ const DetallesLlantasPage: React.FC = () => {
   const [tires, setTires] = useState<Tire[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Define fetchTires as a separate function to use in useEffect
   const fetchTires = async () => {
@@ -95,7 +96,7 @@ const DetallesLlantasPage: React.FC = () => {
 
   useEffect(() => {
     fetchTires();
-  }, []);  // Added fetchTires to dependencies below
+  }, []);
 
   const exportToExcel = () => {
     const exportData = tires.map(t => {
@@ -130,6 +131,19 @@ const DetallesLlantasPage: React.FC = () => {
     XLSX.writeFile(wb, "detalles_llantas.xlsx");
   };
 
+  // Filter tires based on search term
+  const filteredTires = tires.filter((tire) => {
+    const searchValue = searchTerm.toLowerCase();
+    return (
+      tire.placa.toLowerCase().includes(searchValue) ||
+      tire.marca.toLowerCase().includes(searchValue) ||
+      tire.diseno.toLowerCase().includes(searchValue) ||
+      tire.dimension.toLowerCase().includes(searchValue) ||
+      tire.eje.toLowerCase().includes(searchValue) ||
+      (tire.vehicle?.placa || "").toLowerCase().includes(searchValue)
+    );
+  });
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
@@ -141,6 +155,24 @@ const DetallesLlantasPage: React.FC = () => {
           <Download className="mr-1.5" size={16} /> Exportar Excel
         </button>
       </div>
+
+      {!loading && !error && (
+        <div className="p-4 border-b border-gray-200">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Search size={18} className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Buscar por placa, marca, diseño..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="p-6">
         {loading ? (
           <div className="flex items-center justify-center h-64">
@@ -151,14 +183,23 @@ const DetallesLlantasPage: React.FC = () => {
             <AlertTriangle size={32} />
             <p>{error}</p>
           </div>
-        ) : tires.length === 0 ? (
+        ) : filteredTires.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-2">
-            <CheckCircle2 size={32} className="text-green-500" />
-            <p>No hay llantas disponibles</p>
+            {searchTerm ? (
+              <>
+                <AlertTriangle size={32} className="text-yellow-500" />
+                <p>No se encontraron resultados para la búsqueda.</p>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={32} className="text-green-500" />
+                <p>No hay llantas disponibles</p>
+              </>
+            )}
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto max-h-96 rounded-lg mb-4">
+            <div className="overflow-x-auto overflow-y-auto max-h-96 rounded-lg mb-4">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-[#173D68] text-white sticky top-0">
                   <tr>
@@ -179,7 +220,7 @@ const DetallesLlantasPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {tires.map((tire) => {
+                  {filteredTires.map((tire) => {
                     const vida = tire.vida.at(-1)?.valor || "-";
                     const inspeccion = tire.inspecciones.at(-1);
                     const costo = tire.costo.at(-1)?.valor || "-";
@@ -210,7 +251,9 @@ const DetallesLlantasPage: React.FC = () => {
             <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
               <div className="text-xs text-gray-500 flex items-center">
                 <FileSpreadsheet size={14} className="mr-1.5" />
-                Total de llantas: {tires.length}
+                {searchTerm 
+                  ? `Resultados: ${filteredTires.length} de ${tires.length} llantas` 
+                  : `Total de llantas: ${tires.length}`}
               </div>
               <div className="text-xs text-gray-500">
                 Actualizado: {new Date().toLocaleDateString()}
