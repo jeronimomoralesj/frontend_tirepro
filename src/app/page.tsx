@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Menu, X, ChevronRight, Download, BarChart2, Truck, CreditCard, PieChart, Settings, Users } from 'lucide-react';
+import { Menu, X, ChevronRight, Download, BarChart2, Truck, CreditCard, PieChart, Users } from 'lucide-react';
 import Image from 'next/image';
 import logo from "../../public/logo_text.png";
 import analisis from "../../public/analisis.png";

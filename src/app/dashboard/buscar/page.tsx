@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState } from "react";
 import {
   Search,
   Car,
@@ -13,7 +13,6 @@ import {
   Calendar,
   Ruler,
   Repeat,
-  Clock
 } from "lucide-react";
 import Image from "next/image";
 
