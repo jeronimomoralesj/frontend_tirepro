@@ -579,29 +579,5 @@ const BuscarPage: React.FC = () => {
   );
 };
 
-// Helper: returns a Tailwind class and text for a given vida status
-function getVidaStatusLabel(status: string): { text: string; className: string } {
-  switch (status.toLowerCase()) {
-    case "nueva":
-      return { text: "Nueva", className: "bg-green-500 text-white" };
-    case "reencauche1":
-      return { text: "Primer Reencauche", className: "bg-blue-500 text-white" };
-    case "reencauche2":
-      return { text: "Segundo Reencauche", className: "bg-purple-500 text-white" };
-    case "reencauche3":
-      return { text: "Tercer Reencauche", className: "bg-indigo-500 text-white" };
-    case "descarte":
-      return { text: "Descartada", className: "bg-red-500 text-white" };
-    default:
-      return { text: status, className: "bg-gray-500 text-white" };
-  }
-}
-
-// Helper: returns a Tailwind class for a given tread depth value
-function getTreadStatusColor(depth: number): string {
-  if (depth >= 6) return "bg-green-500";
-  if (depth >= 3) return "bg-yellow-500";
-  return "bg-red-500";
-}
 
 export default BuscarPage;
