@@ -55,7 +55,6 @@ export type Vehicle = {
 const BuscarPage: React.FC = () => {
   const [searchMode, setSearchMode] = useState<"vehicle" | "tire">("vehicle");
   const [searchTerm, setSearchTerm] = useState("");
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [tires, setTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -69,7 +68,6 @@ const BuscarPage: React.FC = () => {
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setVehicle(null);
     setTires([]);
     setSelectedTire(null);
     if (!searchTerm.trim()) {
