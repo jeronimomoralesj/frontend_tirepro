@@ -87,29 +87,30 @@ const BuscarPage: React.FC = () => {
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(
                 searchTerm.trim()
-              )}`
+              )}&companyId=${companyId}`
             : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(
                 searchTerm.trim()
-              )}`
+              )}&companyId=${companyId}`
         );
         if (!vehicleRes.ok) {
           throw new Error("Vehículo no encontrado");
         }
         const vehicleData: Vehicle = await vehicleRes.json();
-        setVehicle(vehicleData);
+        // No need to call setVehicle if you're not using it in rendering.
         const tiresRes = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
             : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
         );
         if (!tiresRes.ok) {
-          throw new Error("Error al obtener los llantas");
+          throw new Error("Error al obtener las llantas");
         }
         const tiresData: Tire[] = await tiresRes.json();
-        // Filter by companyId
+        // Optionally, filter to ensure tires' companyId matches
         const validTires = tiresData.filter((t) => t.companyId === companyId);
         setTires(validTires);
-      } else {
+      }
+       else {
         const tiresRes = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}&placa=${encodeURIComponent(
