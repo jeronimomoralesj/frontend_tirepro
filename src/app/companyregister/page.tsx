@@ -192,9 +192,7 @@ router.push(`/registeruser?companyId=${data.companyId}`);
                       onChange={(e) => setPlan(e.target.value)}
                       className="mt-1 block w-full appearance-none rounded-md border-0 bg-white/5 px-3 py-2 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-[#1E76B6] sm:text-sm sm:leading-6"
                     >
-                      <option value="Básico">Básico</option>
                       <option value="Pro">Pro</option>
-                      <option value="Empresarial">Empresarial</option>
                     </select>
                   </div>
 

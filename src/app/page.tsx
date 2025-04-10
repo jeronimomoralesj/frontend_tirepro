@@ -201,7 +201,7 @@ const Home = () => {
                 Funcionalidades
               </a>
               <a href="#precios" className="text-white/80 hover:text-white transition-colors">
-                Precios
+                Planes
               </a>
               <a href='/login'>
                 <button className="px-6 py-2 text-white/90 rounded-full border border-[#1E76B6] hover:bg-[#1E76B6]/20 transition-all duration-300">
@@ -236,7 +236,7 @@ const Home = () => {
                 Funcionalidades
               </a>
               <a href="#precios" className="block px-3 py-2 text-white/80 hover:text-white hover:bg-[#1E76B6]/20 rounded-lg transition-all duration-300">
-                Precios
+                Planes
               </a>
               <a href='/login'>
                 <button className="block w-full text-left px-3 py-2 text-white/80 hover:text-white hover:bg-[#1E76B6]/20 rounded-lg transition-all duration-300">
