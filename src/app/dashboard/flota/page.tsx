@@ -11,7 +11,8 @@ import {
   Truck,
   Filter,
   ChevronDown,
-  Squircle
+  PieChart,
+  TrendingUpIcon
 } from "lucide-react";
 import PorMarca from "../cards/porMarca";
 import TipoVehiculo from "../cards/tipoVehiculo";
@@ -120,35 +121,28 @@ export default function FlotaPage() {
         throw new Error("Failed to fetch tires");
       }
       const data: Tire[] = await res.json();
-      
-      // Ensure all necessary properties exist and are in the correct format
+  
+      // Sanitize the data
       const sanitizedData = data.map(tire => ({
         ...tire,
         inspecciones: Array.isArray(tire.inspecciones) ? tire.inspecciones : [],
-        costo: Array.isArray(tire.costo) ? tire.costo.map(c => ({
-          valor: typeof c.valor === 'number' ? c.valor : 0,
-          fecha: typeof c.fecha === 'string' ? c.fecha : new Date().toISOString()
-        })) : []
+        costo: Array.isArray(tire.costo)
+          ? tire.costo.map(c => ({
+              valor: typeof c.valor === 'number' ? c.valor : 0,
+              fecha: typeof c.fecha === 'string' ? c.fecha : new Date().toISOString()
+            }))
+          : []
       }));
-      
+  
       // Filter out tires whose latest vida is "fin"
       const activeTires = sanitizedData.filter(tire => {
-        // Check if tire has a direct vida property that's "fin"
-        if (tire.vida && tire.vida === "fin") {
-          return false;
+        if (Array.isArray(tire.vida) && tire.vida.length > 0) {
+          const lastVida = tire.vida[tire.vida.length - 1].valor;
+          return lastVida.toLowerCase() !== "fin";
         }
-        
-        // Check if the latest inspection's vida is "fin"
-        if (tire.inspecciones && tire.inspecciones.length > 0) {
-          const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-          if (lastInspection.vida && lastInspection.vida.toLowerCase() === "fin") {
-            return false;
-          }
-        }
-        
         return true;
       });
-      
+  
       setTires(activeTires);
       calculateTotals(activeTires);
       calculateCpkAverages(activeTires);
@@ -160,6 +154,7 @@ export default function FlotaPage() {
       setLoading(false);
     }
   }, []);
+  
 
   const fetchVehicles = useCallback(async (companyId: string) => {
     setLoading(true);
@@ -621,7 +616,7 @@ export default function FlotaPage() {
 
           {/* CPK Promedio Card */}
           <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <Squircle className="w-5 h-5 text-white" />
+            <PieChart className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
@@ -632,7 +627,7 @@ export default function FlotaPage() {
 
           {/* CPK Proyectado Card */}
           <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <Squircle className="w-5 h-5 text-white" />
+            <TrendingUpIcon className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : cpkProyectado.toLocaleString()}

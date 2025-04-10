@@ -74,17 +74,20 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
         borderWidth: 1,
       },
       datalabels: {
-        color: "#475569",
-        anchor: "end",
-        align: "top",
-        offset: 0,
+        color: "white", // Changed to white for better contrast
         font: {
           family: "'Inter', sans-serif",
-          size: 11,
-          weight: "500",
+          size: 12,
+          weight: "600" // Made slightly bolder
         },
         formatter: (value: number) => `${value}`,
-        padding: { top: 4 },
+        // Center the label within each bar
+        anchor: "center",
+        align: "center",
+        // Add a slight text shadow for better visibility against the blue background
+        textShadow: "0px 1px 2px rgba(0,0,0,0.3)",
+        // Ensure labels are always visible inside the bars
+        clamp: true
       },
     },
     scales: {

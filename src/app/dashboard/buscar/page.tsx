@@ -104,8 +104,10 @@ const BuscarPage: React.FC = () => {
           throw new Error("Error al obtener las llantas");
         }
         const tiresData: Tire[] = await tiresRes.json();
-        // Optionally, filter to ensure tires' companyId matches
-        const validTires = tiresData.filter((t) => t.companyId === companyId);
+        // Optionally, filter to ensure tires' companyId matches and sort by position
+        const validTires = tiresData
+          .filter((t) => t.companyId === companyId)
+          .sort((a, b) => a.posicion - b.posicion); // Sort by position
         setTires(validTires);
       }
        else {
@@ -122,7 +124,8 @@ const BuscarPage: React.FC = () => {
           throw new Error("Llanta no encontrada");
         }
         const tiresData: Tire[] = await tiresRes.json();
-        setTires(tiresData);
+        // Sort tires by position
+        setTires(tiresData.sort((a, b) => a.posicion - b.posicion));
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -277,7 +280,7 @@ const BuscarPage: React.FC = () => {
 
         {/* We are now NOT displaying the Datos del Vehículo section */}
 
-        {/* Tires List */}
+        {/* Tires List - Now sorted by position */}
         {tires.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
             <div className="bg-[#173D68] text-white p-6">
@@ -577,6 +580,5 @@ const BuscarPage: React.FC = () => {
     </div>
   );
 };
-
 
 export default BuscarPage;

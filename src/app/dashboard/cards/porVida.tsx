@@ -15,8 +15,8 @@ ChartJS.register(ArcElement, Tooltip, Legend, ChartDataLabels);
 const COLORS = ["#173D68", "#1E76B6", "#348CCB", "#173D68", "#1E76B6"];
 
 export interface VidaEntry {
-  valor: string;
   fecha: string;
+  valor: string;
 }
 
 export interface Tire {
@@ -59,7 +59,7 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
         },
       ],
     };
-  }, [grouping]); // Removed COLORS from the dependency array
+  }, [grouping]);
 
   // Chart options – keep it simple and similar to PromedioEje.
   const chartOptions = {
@@ -87,7 +87,7 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
               0
             );
             const percentage = Math.round((value / total) * 100);
-            return `${context.label}: ${value} llantas · ${percentage}%`;
+            return `Cantidad: ${value} · ${percentage}%`;
           },
           title: () => "Distribución por Vida",
         },
@@ -115,16 +115,19 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
             className="text-white hover:text-gray-200 transition-colors"
             size={24}
           />
-          <div className="
-            absolute z-10 -top-2 right-full 
-            bg-[#0A183A] text-white 
-            text-xs p-3 rounded-lg 
-            opacity-0 group-hover:opacity-100 
-            transition-opacity duration-300 
-            w-60 pointer-events-none
-          ">
+          <div
+            className="
+              absolute z-10 -top-2 right-full 
+              bg-[#0A183A] text-white 
+              text-xs p-3 rounded-lg 
+              opacity-0 group-hover:opacity-100 
+              transition-opacity duration-300 
+              w-60 pointer-events-none
+            "
+          >
             <p>
-              Este gráfico muestra cómo están distribuidas las llantas según su vida útil, por ejemplo: nueva, reencauche1, reencauche2, etc.
+              Este gráfico muestra cómo están distribuidas las llantas según su vida
+              útil, por ejemplo: nueva, reencauche1, reencauche2, etc.
             </p>
           </div>
         </div>
@@ -147,7 +150,7 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
             </>
           )}
         </div>
-        {/* Custom Legend */}
+        {/* Custom Legend with quantities */}
         <div className="flex flex-wrap justify-center gap-4">
           {chartData.labels.map((label, index) => (
             <div key={index} className="flex items-center gap-2">
@@ -155,11 +158,12 @@ const PorVida: React.FC<PorVidaProps> = ({ tires }) => {
                 className="block w-4 h-4 rounded"
                 style={{ backgroundColor: chartData.datasets[0].backgroundColor[index] }}
               ></span>
-              <span className="text-xs text-gray-700 uppercase">{label}</span>
+              <span className="text-xs text-gray-700 uppercase">
+                {label} ({chartData.datasets[0].data[index]})
+              </span>
             </div>
           ))}
         </div>
-        <br />
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
           <div className="text-xs text-gray-500">
             Total de tipos de vida: {chartData.labels.length}

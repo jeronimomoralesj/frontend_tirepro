@@ -77,10 +77,13 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
       {
         data: averageDepthData.map((item) => item.averageDepth),
         backgroundColor: averageDepthData.map((item) =>
-          item.eje === selectedEje ? "#1E76B6" : "#173D68"
+          item.eje === selectedEje ? "#173D68" : "#173D68"
+        ),
+        hoverBackgroundColor: averageDepthData.map((item) =>
+          item.eje === selectedEje ? "#173D68" : "#173D68"
         ),
         borderRadius: 8,
-        barPercentage: 0.6,
+        barPercentage: 0.7,
       },
     ],
   };
@@ -132,17 +135,23 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
         borderWidth: 1,
       },
       datalabels: {
-        color: "#475569",
-        anchor: "end",
-        align: "top",
-        offset: 0,
+        color: "white",
+        anchor: "center",
+        align: "center",
         font: {
           family: "'Inter', sans-serif",
-          size: 11,
-          weight: "500",
+          size: 12,
+          weight: "600",
         },
         formatter: (value: number) => `${value} mm`,
-        padding: { top: 4 },
+        textShadow: '0px 1px 2px rgba(0,0,0,0.25)',
+        // Only show labels for bars that have enough space
+        display: (context: any) => {
+          const dataset = context.dataset;
+          const value = dataset.data[context.dataIndex];
+          // Only show label if the bar width is wide enough
+          return value > 0.5;
+        },
       },
     },
     scales: {

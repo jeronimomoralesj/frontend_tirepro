@@ -73,7 +73,7 @@ export default function Sidebar({
   ];
 
   const regularLinks = [
-    { name: "Agregar Conductor", path: "/dashboard/agregarConductor", icon: Settings },
+    { name: "Agregar", path: "/dashboard/agregarConductor", icon: Settings },
   ];
 
   const links = isAdmin ? adminLinks : regularLinks;

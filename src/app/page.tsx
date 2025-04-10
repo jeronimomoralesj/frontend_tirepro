@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Menu, X, ChevronRight, Download, BarChart2, Truck, CreditCard, PieChart, Users } from 'lucide-react';
+import { Menu, X, ChevronRight, Download, BarChart2, Truck, CreditCard, PieChart, Users, Apple, DownloadCloud } from 'lucide-react';
 import Image from 'next/image';
 import logo from "../../public/logo_text.png";
 import analisis from "../../public/analisis.png";
@@ -10,6 +10,7 @@ import inspecciones from "../../public/inspecciones.png";
 import cpk from "../../public/cpk.png";
 import onboarding from "../../public/onboarding.png";
 import reporte from "../../public/reporte.png";
+import appImg from "../../public/2.png";
 const landing = "/landing.png";
 
 // Floating background elements configuration
@@ -85,9 +86,16 @@ const features = [
   }
 ];
 
+// App download links
+const appDownloadLinks = {
+  android: "https://play.google.com/store/apps/details?id=com.jeronimomoralesj.TirePro_App",
+  ios: "https://apps.apple.com/us/app/tirepro/id6741497732"
+};
+
 const Home = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
+  const [showAppPopup, setShowAppPopup] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return; // Ensure it runs only on client
@@ -95,6 +103,64 @@ const Home = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Handle opening the download popup
+  const handleOpenAppPopup = () => {
+    setShowAppPopup(true);
+  };
+
+  // Handle closing the download popup
+  const handleCloseAppPopup = () => {
+    setShowAppPopup(false);
+  };
+
+  // Handle download button click
+  const handleDownload = (platform) => {
+    window.open(appDownloadLinks[platform], '_blank');
+    setShowAppPopup(false);
+  };
+
+  // App Download Popup Component
+  const AppDownloadPopup = () => (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md animate-scale-in">
+        <button 
+          onClick={handleCloseAppPopup}
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 transition-colors"
+          aria-label="Cerrar popup"
+        >
+          <X className="h-6 w-6" />
+        </button>
+        
+        <div className="text-center mb-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">Descarga TirePro</h3>
+          <p className="text-gray-600">Selecciona la plataforma de tu dispositivo</p>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <button 
+            onClick={() => handleDownload('android')}
+            className="flex flex-col items-center justify-center p-6 rounded-xl bg-gradient-to-b from-[#4CAF50]/10 to-[#4CAF50]/20 border border-[#4CAF50]/30 hover:shadow-lg hover:shadow-[#4CAF50]/20 transition-all duration-300 transform hover:scale-105"
+          >
+            <DownloadCloud className="h-12 w-12 text-[#4CAF50] mb-3" />
+            <span className="text-lg font-semibold text-gray-800">Android</span>
+          </button>
+          
+          <button 
+            onClick={() => handleDownload('ios')}
+            className="flex flex-col items-center justify-center p-6 rounded-xl bg-gradient-to-b from-[#000000]/5 to-[#000000]/10 border border-[#000000]/20 hover:shadow-lg hover:shadow-[#000000]/10 transition-all duration-300 transform hover:scale-105"
+          >
+            <Apple className="h-12 w-12 text-[#000000] mb-3" />
+            <span className="text-lg font-semibold text-gray-800">iOS</span>
+          </button>
+        </div>
+        
+        <div className="mt-8 text-center text-sm text-gray-500">
+          <p>Descarga gratuita. Disponible para dispositivos Android e iOS.</p>
+        </div>
+      </div>
+    </div>
+  );
 
   // Improved Feature Card component with animated hover effects
   const FeatureCard = ({ title, description, image, icon, extraClass = "" }) => (
@@ -362,7 +428,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* App Section with floating elements */}
+      {/* App Section with floating elements - Updated with popup button */}
       <section className="relative py-24 overflow-hidden bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="flex flex-col md:flex-row items-center gap-12">
@@ -380,7 +446,10 @@ const Home = () => {
                 Acceda a información en tiempo real, reciba notificaciones importantes y tome 
                 decisiones informadas al instante.
               </p>
-              <button className="px-8 py-4 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-full inline-flex items-center hover:shadow-lg hover:shadow-[#1E76B6]/50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleOpenAppPopup}
+                className="px-8 py-4 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-full inline-flex items-center hover:shadow-lg hover:shadow-[#1E76B6]/50 transition-all duration-300 transform hover:scale-105"
+              >
                 <Download className="mr-2" />
                 Descargar App
               </button>
@@ -389,8 +458,8 @@ const Home = () => {
             {/* Right Image Section */}
             <div className="md:w-1/2 relative">
               <div className="absolute -top-6 -right-6 w-72 h-72 bg-gradient-to-br from-[#1E76B6] to-[#348CCB] rounded-full opacity-10"></div>
-              <img
-                src="https://tirepro.com.co/static/media/app.e7a330a1d91499ba0c49.png"
+              <Image
+                src={appImg}
                 alt="TirePro App"
                 className="relative w-full max-w-sm mx-auto rounded-3xl shadow-xl transition-transform duration-500 hover:scale-105"
               />
@@ -398,6 +467,9 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* App Download Popup */}
+      {showAppPopup && <AppDownloadPopup />}
 
       {/* Footer with gradient and blur effect */}
       <footer className="bg-[#0A183A] text-white py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">

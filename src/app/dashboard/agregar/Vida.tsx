@@ -80,8 +80,21 @@ const VidaPage: React.FC = () => {
         throw new Error("Error al obtener los llantas");
       }
       const tiresData: Tire[] = await tiresRes.json();
-      // Optionally sort by a field (e.g. posicion)
-      setTires(tiresData);
+      
+      // Sort tires by posicion
+      const sortedTires = [...tiresData].sort((a, b) => {
+        // Handle both string and number positions
+        const posA = a.posicion !== undefined ? Number(a.posicion) : Infinity;
+        const posB = b.posicion !== undefined ? Number(b.posicion) : Infinity;
+        
+        // If any conversion resulted in NaN, put those items last
+        const numA = isNaN(posA) ? Infinity : posA;
+        const numB = isNaN(posB) ? Infinity : posB;
+        
+        return numA - numB;
+      });
+      
+      setTires(sortedTires);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message || "Error inesperado");
@@ -163,10 +176,19 @@ const VidaPage: React.FC = () => {
         throw new Error(errText);
       }
       const updatedTire: Tire = await res.json();
-      // Update tires state with the updated tire data.
-      setTires((prev) =>
-        prev.map((t) => (t.id === updatedTire.id ? updatedTire : t))
-      );
+      // Update tires state with the updated tire data, maintaining the sort order
+      setTires((prev) => {
+        const updated = prev.map((t) => (t.id === updatedTire.id ? updatedTire : t));
+        return updated.sort((a, b) => {
+          const posA = a.posicion !== undefined ? Number(a.posicion) : Infinity;
+          const posB = b.posicion !== undefined ? Number(b.posicion) : Infinity;
+          
+          const numA = isNaN(posA) ? Infinity : posA;
+          const numB = isNaN(posB) ? Infinity : posB;
+          
+          return numA - numB;
+        });
+      });
       setShowModal(false);
       setSelectedTire(null);
       setSelectedVida("");
@@ -273,7 +295,7 @@ const VidaPage: React.FC = () => {
                   <div className="flex justify-between items-start mb-2">
                     <p className="font-bold text-[#0A183A]">Placa: {tire.placa}</p>
                     <div className="bg-[#173D68] text-white text-sm px-2 py-1 rounded">
-                      ID: {tire.id.substring(0, 6)}...
+                      Pos: {tire.posicion || "N/A"}
                     </div>
                   </div>
                   
@@ -282,7 +304,7 @@ const VidaPage: React.FC = () => {
                       <span className="font-semibold text-[#173D68]">Marca:</span> {tire.marca}
                     </p>
                     <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">Posición:</span> {tire.posicion}
+                      <span className="font-semibold text-[#173D68]">ID:</span> {tire.id.substring(0, 6)}...
                     </p>
                     <p className="text-gray-700">
                       <span className="font-semibold text-[#173D68]">Vida Actual:</span>{" "}
@@ -327,6 +349,9 @@ const VidaPage: React.FC = () => {
                 </p>
                 <p className="text-sm text-[#173D68]">
                   <span className="font-semibold">Marca:</span> {selectedTire.marca}
+                </p>
+                <p className="text-sm text-[#173D68]">
+                  <span className="font-semibold">Posición:</span> {selectedTire.posicion || "N/A"}
                 </p>
                 <p className="text-sm text-[#173D68]">
                   <span className="font-semibold">Último valor de vida:</span>{" "}

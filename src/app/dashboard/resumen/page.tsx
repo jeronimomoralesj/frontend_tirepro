@@ -9,7 +9,8 @@ import {
   Bell,
   Filter,
   ChevronDown,
-  Squircle,
+  PieChart,
+  TrendingUp,
 } from "lucide-react";
 import SemaforoPie from "../cards/semaforoPie";
 import PromedioEje from "../cards/promedioEje";
@@ -444,7 +445,7 @@ export default function ResumenPage() {
             </div>
           </div>
           <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <Squircle className="w-5 h-5 text-white" />
+            <PieChart className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
@@ -453,7 +454,7 @@ export default function ResumenPage() {
             </div>
           </div>
           <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <Squircle className="w-5 h-5 text-white" />
+            <TrendingUp className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : cpkProyectado.toLocaleString()}

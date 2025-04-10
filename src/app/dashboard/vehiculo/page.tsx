@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Database, Trash2 } from "lucide-react";
 
@@ -15,7 +15,6 @@ type Vehicle = {
   tireCount: number;
 };
 
-// Define error interface
 interface ApiError {
   message: string;
   [key: string]: unknown;
@@ -36,7 +35,8 @@ export default function VehiculoPage() {
   const [kilometrajeActual, setKilometrajeActual] = useState<number>(0);
   const [carga, setCarga] = useState("");
   const [pesoCarga, setPesoCarga] = useState<number>(0);
-  const [tipovhc, setTipovhc] = useState("");
+  // Initialize with a default value (e.g., "2_ejes")
+  const [tipovhc, setTipovhc] = useState("2_ejes");
 
   // Retrieve the companyId from stored user data
   const [companyId, setCompanyId] = useState<string>("");
@@ -101,7 +101,7 @@ export default function VehiculoPage() {
         }
       );
       if (!res.ok) {
-        const errorData = (await res.json()) as ApiError;
+        const errorData = await res.json();
         throw new Error(errorData.message || "Failed to create vehicle");
       }
       const newVehicleResponse = await res.json();
@@ -113,7 +113,7 @@ export default function VehiculoPage() {
       setKilometrajeActual(0);
       setCarga("");
       setPesoCarga(0);
-      setTipovhc("");
+      setTipovhc("2_ejes"); // Reset to default option
       setIsFormOpen(false);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -124,7 +124,6 @@ export default function VehiculoPage() {
     }
   }
 
-  // Delete confirmation is handled via the confirmation modal.
   async function handleDeleteVehicle(vehicleId: string) {
     setError("");
     try {
@@ -137,10 +136,9 @@ export default function VehiculoPage() {
         }
       );
       if (!res.ok) {
-        const errorData = (await res.json()) as ApiError;
+        const errorData = await res.json();
         throw new Error(errorData.message || "Failed to delete vehicle");
       }
-      // Remove the deleted vehicle from the state
       setVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -157,7 +155,7 @@ export default function VehiculoPage() {
         {/* Header */}
         <header className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Gestión de Vehículos</h1>
-          <button 
+          <button
             onClick={() => setIsFormOpen(!isFormOpen)}
             className="bg-[#1E76B6] text-white px-4 py-2 rounded-lg hover:bg-[#348CCB] transition-colors flex items-center space-x-2"
           >
@@ -179,7 +177,6 @@ export default function VehiculoPage() {
             <Database className="w-6 h-6 mr-3" />
             <h2 className="text-xl font-semibold">Lista de Vehículos</h2>
           </div>
-
           {loadingVehicles ? (
             <div className="flex justify-center items-center p-8">
               <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-[#1E76B6]"></div>
@@ -191,8 +188,8 @@ export default function VehiculoPage() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
               {vehicles.map((vehicle) => (
-                <div 
-                  key={vehicle.id} 
+                <div
+                  key={vehicle.id}
                   className="bg-white border border-[#348CCB]/20 rounded-lg shadow-md p-5 flex flex-col justify-between transition-all hover:shadow-lg"
                 >
                   <div className="space-y-2">
@@ -219,6 +216,7 @@ export default function VehiculoPage() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-[#1E76B6]">Tipo VHC:</span>
+                      {/* Now the type is fixed to the two options */}
                       <span>{vehicle.tipovhc}</span>
                     </div>
                   </div>
@@ -241,7 +239,7 @@ export default function VehiculoPage() {
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4">
               <div className="bg-[#173D68] text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Crear Nuevo Vehículo</h2>
-                <button 
+                <button
                   onClick={() => setIsFormOpen(false)}
                   className="text-white hover:text-gray-300"
                 >
@@ -254,7 +252,6 @@ export default function VehiculoPage() {
                   <input
                     type="text"
                     value={placa}
-                    // Convert the placa input to lower case as the user types.
                     onChange={(e) => setPlaca(e.target.value.toLowerCase())}
                     className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
@@ -278,7 +275,7 @@ export default function VehiculoPage() {
                     onChange={(e) => setCarga(e.target.value)}
                     className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
-                    placeholder="Tipo de carga como seca, liquidos, etc"
+                    placeholder="Tipo de carga: seca, líquidos, etc"
                   />
                 </div>
                 <div>
@@ -289,18 +286,20 @@ export default function VehiculoPage() {
                     onChange={(e) => setPesoCarga(parseFloat(e.target.value))}
                     className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
-                    placeholder="Peso de la carga en kg"
+                    placeholder="Peso en kg"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#0A183A] mb-2">Tipo de VHC</label>
-                  <input
-                    type="text"
+                  <select
                     value={tipovhc}
                     onChange={(e) => setTipovhc(e.target.value)}
                     className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
-                  />
+                  >
+                    <option value="2_ejes">2_ejes</option>
+                    <option value="3_ejes">3_ejes</option>
+                  </select>
                 </div>
                 <button
                   type="submit"
@@ -348,3 +347,4 @@ export default function VehiculoPage() {
     </div>
   );
 }
+

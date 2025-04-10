@@ -13,7 +13,6 @@ export default function InspeccionPage() {
   // Input states
   const [placaInput, setPlacaInput] = useState("");
   const [newKilometraje, setNewKilometraje] = useState<number>(0);
-  
   // Data states
   type Vehicle = {
     id: string;

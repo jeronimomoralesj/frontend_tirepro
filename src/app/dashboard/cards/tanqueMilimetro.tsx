@@ -32,7 +32,7 @@ const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({ tires }) => {
         lastInspection.profundidadCen,
         lastInspection.profundidadExt
       );
-      const progress = (tire.profundidadInicial - smallestDepth) / tire.profundidadInicial;
+      const progress = 1 - ((tire.profundidadInicial - smallestDepth) / tire.profundidadInicial);
       acc.push(progress);
     }
     return acc;

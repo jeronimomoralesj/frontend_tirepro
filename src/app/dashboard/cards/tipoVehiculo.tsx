@@ -28,9 +28,10 @@ const TipoVehiculo: React.FC<TipoVehiculoProps> = ({ vehicles }) => {
   const PALETTE = ["#173D68", "#1E76B6", "#348CCB"];
 
   // Group vehicles by type summing up tireCount.
+  // Now we trim the vehicle type so extra spaces don't create duplicate groups.
   const grouping = useMemo(() => {
     return vehicles.reduce((acc: { [tipo: string]: number }, vehicle) => {
-      const tipo = vehicle.tipovhc || "Desconocido";
+      const tipo = vehicle.tipovhc ? vehicle.tipovhc.trim() : "Desconocido";
       acc[tipo] = (acc[tipo] || 0) + vehicle.tireCount;
       return acc;
     }, {});
@@ -81,7 +82,8 @@ const TipoVehiculo: React.FC<TipoVehiculoProps> = ({ vehicles }) => {
             const percentage = Math.round((value / total) * 100);
             return `Cantidad: ${value} · ${percentage}%`;
           },
-          title: (tooltipItems: { label: string }[]) => `Tipo ${tooltipItems[0].label}`,
+          title: (tooltipItems: { label: string }[]) =>
+            `Tipo ${tooltipItems[0].label}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,
@@ -138,15 +140,20 @@ const TipoVehiculo: React.FC<TipoVehiculoProps> = ({ vehicles }) => {
             <p className="text-xs text-gray-500">llantas</p>
           </div>
         </div>
-        {/* Custom Legend */}
+        {/* Custom Legend with quantities */}
         <div className="flex flex-wrap justify-center gap-4">
           {chartData.labels.map((label, index) => (
             <div key={index} className="flex items-center gap-2">
               <span
                 className="block w-4 h-4 rounded"
-                style={{ backgroundColor: chartData.datasets[0].backgroundColor[index] }}
+                style={{
+                  backgroundColor:
+                    chartData.datasets[0].backgroundColor[index],
+                }}
               ></span>
-              <span className="text-xs text-gray-700">{label}</span>
+              <span className="text-xs text-gray-700">
+                {label} ({chartData.datasets[0].data[index]})
+              </span>
             </div>
           ))}
         </div>
@@ -154,7 +161,6 @@ const TipoVehiculo: React.FC<TipoVehiculoProps> = ({ vehicles }) => {
           <div className="text-xs text-gray-500">
             Total de tipos: {chartData.labels.length}
           </div>
-          <div className="text-xs text-gray-500">Cantidad de llantas</div>
         </div>
       </div>
     </div>
