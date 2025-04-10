@@ -15,10 +15,6 @@ type Vehicle = {
   tireCount: number;
 };
 
-interface ApiError {
-  message: string;
-  [key: string]: unknown;
-}
 
 export default function VehiculoPage() {
   const router = useRouter();

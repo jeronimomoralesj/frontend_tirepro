@@ -16,7 +16,7 @@ import { HelpCircle } from "lucide-react";
 // Register ChartJS components and plugins
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
-// Define proper types for tire and inspection
+// Define proper types for Inspeccion and Tire.
 interface Inspeccion {
   profundidadInt: number;
   profundidadCen: number;
@@ -29,34 +29,38 @@ interface Tire {
 }
 
 interface PromedioEjeProps {
-  tires: Tire[]; // Replaced any[] with Tire[]
+  tires: Tire[]; // List of tires to process
   onSelectEje: (eje: string | null) => void;
   selectedEje: string | null;
 }
 
-const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedEje }) => {
+// Define a type for the context parameter in the datalabels display callback.
+type DatalabelsContext = {
+  dataset: { data: number[] };
+  dataIndex: number;
+};
+
+const PromedioEje: React.FC<PromedioEjeProps> = ({
+  tires,
+  onSelectEje,
+  selectedEje,
+}) => {
   // Compute the average minimal depth per 'eje'
   const averageDepthData = useMemo(() => {
-    const ejeGroups: { [eje: string]: { totalDepth: number; count: number } } = {};
+    const ejeGroups: { [eje: string]: { totalDepth: number; count: number } } =
+      {};
 
     tires.forEach((tire) => {
-      // Ensure tire has inspections; if not, skip this tire.
       if (!tire.inspecciones || tire.inspecciones.length === 0) return;
-
-      // Get the latest inspection (assuming the last element is the latest)
-      const latestInspection = tire.inspecciones[tire.inspecciones.length - 1];
+      const latestInspection =
+        tire.inspecciones[tire.inspecciones.length - 1];
       if (!latestInspection) return;
-
-      // Compute the smallest depth from the latest inspection.
       const minDepth = Math.min(
         latestInspection.profundidadInt,
         latestInspection.profundidadCen,
         latestInspection.profundidadExt
       );
-
-      // Group by tire.eje (or "Desconocido" if missing)
       const eje = tire.eje || "Desconocido";
-
       if (!ejeGroups[eje]) {
         ejeGroups[eje] = { totalDepth: 0, count: 0 };
       }
@@ -66,7 +70,9 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
 
     return Object.entries(ejeGroups).map(([eje, data]) => ({
       eje,
-      averageDepth: data.count ? parseFloat((data.totalDepth / data.count).toFixed(2)) : 0,
+      averageDepth: data.count
+        ? parseFloat((data.totalDepth / data.count).toFixed(2))
+        : 0,
     }));
   }, [tires]);
 
@@ -88,7 +94,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
     ],
   };
 
-  // Define proper types for Chart.js events and elements
+  // Define types for chart click event and element, if needed.
   interface ChartClickEvent {
     native?: Event;
     type: string;
@@ -144,12 +150,11 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
           weight: "600",
         },
         formatter: (value: number) => `${value} mm`,
-        textShadow: '0px 1px 2px rgba(0,0,0,0.25)',
-        // Only show labels for bars that have enough space
-        display: (context: any) => {
-          const dataset = context.dataset;
-          const value = dataset.data[context.dataIndex];
-          // Only show label if the bar width is wide enough
+        textShadow: "0px 1px 2px rgba(0,0,0,0.25)",
+        // Only show labels for bars that have enough space.
+        display: (context: DatalabelsContext): boolean => {
+          const { dataset, dataIndex } = context;
+          const value = dataset.data[dataIndex];
           return value > 0.5;
         },
       },
@@ -191,6 +196,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      {/* Header */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <h2 className="text-xl font-bold">Profundidad Media por Eje</h2>
         <div className="group relative cursor-pointer">
@@ -198,23 +204,25 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
             className="text-white hover:text-gray-200 transition-colors"
             size={24}
           />
-          <div className="
+          <div
+            className="
             absolute z-10 -top-2 right-full 
             bg-[#0A183A] text-white 
             text-xs p-3 rounded-lg 
             opacity-0 group-hover:opacity-100 
             transition-opacity duration-300 
             w-64 pointer-events-none
-          ">
+          "
+          >
             <p>
-              Este gráfico muestra el promedio de la menor profundidad de banda
-              de rodamiento por eje. Ayuda a detectar desgaste irregular
+              Este gráfico muestra el promedio de la menor profundidad de
+              banda de rodamiento por eje. Ayuda a detectar desgaste irregular
               o ejes con mayor deterioro.
             </p>
           </div>
         </div>
       </div>
-
+      {/* Chart */}
       <div className="p-6">
         <div className="h-64 mb-4">
           <Bar data={chartData} options={options} />
