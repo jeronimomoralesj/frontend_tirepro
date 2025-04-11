@@ -286,7 +286,7 @@ const Home = () => {
               <span className="bg-gradient-to-r from-[#ffff] to-[#348CCB] text-transparent bg-clip-text">
                 {" "}Llantas
               </span>
-              {" "}para tu Flota
+              {" "}Para tu Flota
             </h1>
             <p className="text-xl text-white/80 mb-12 max-w-3xl mx-auto animate-fade-in-delayed">
               Optimice el rendimiento de sus llantas y reduzca costos operativos con nuestra plataforma integral de gestión de flotas.

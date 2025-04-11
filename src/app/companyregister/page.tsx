@@ -9,11 +9,19 @@ export default function CompanyRegisterPage() {
   const [companyId, setCompanyId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if terms are accepted
+    if (!termsAccepted) {
+      setError("Debes aceptar los términos y condiciones para continuar");
+      return;
+    }
+    
     setLoading(true);
     setError("");
 
@@ -46,15 +54,14 @@ export default function CompanyRegisterPage() {
       }
 
       setCompanyId(data.companyId); 
-router.push(`/registeruser?companyId=${data.companyId}`);
-    }catch (err: unknown) {
+      router.push(`/registeruser?companyId=${data.companyId}`);
+    } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
         setError("Ocurrió un error inesperado");
       }
-    }
-     finally {
+    } finally {
       setLoading(false);
     }
   };
@@ -196,11 +203,39 @@ router.push(`/registeruser?companyId=${data.companyId}`);
                     </select>
                   </div>
 
+                  {/* Terms and conditions checkbox */}
+                  <div className="flex items-start">
+                    <div className="flex items-center h-5">
+                      <input
+                        id="terms"
+                        name="terms"
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="h-4 w-4 rounded border-white/30 bg-white/5 text-[#1E76B6] focus:ring-[#348CCB] focus:ring-offset-gray-800"
+                      />
+                    </div>
+                    <div className="ml-3 text-sm">
+                      <label htmlFor="terms" className="text-gray-300">
+                        Acepto los{" "}
+                        <a href="/legal#terms-section" className="text-[#348CCB] hover:underline">
+                          Términos de Servicio
+                        </a>{" "}
+                        y la{" "}
+                        <a href="/legal#privacy-section" className="text-[#348CCB] hover:underline">
+                          Política de Privacidad
+                        </a>
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="pt-2">
                     <button
                       type="submit"
                       disabled={loading}
-                      className="flex w-full justify-center rounded-md bg-[#1E76B6] px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#348CCB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#348CCB] disabled:opacity-70 transition-all duration-200"
+                      className={`flex w-full justify-center rounded-md px-3 py-3 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#348CCB] disabled:opacity-70 transition-all duration-200 ${
+                        termsAccepted ? "bg-[#1E76B6] hover:bg-[#348CCB]" : "bg-gray-500 cursor-not-allowed"
+                      }`}
                     >
                       {loading ? (
                         <div className="flex items-center">
@@ -237,17 +272,6 @@ router.push(`/registeruser?companyId=${data.companyId}`);
                       {error}
                     </div>
                   )}
-
-                  <div className="mt-4 text-center text-xs text-gray-400">
-                    Al registrarte, aceptas nuestros{" "}
-                    <a href="#" className="text-[#348CCB] hover:underline">
-                      Términos de Servicio
-                    </a>{" "}
-                    y{" "}
-                    <a href="#" className="text-[#348CCB] hover:underline">
-                      Política de Privacidad
-                    </a>
-                  </div>
                 </form>
               </div>
             </div>
