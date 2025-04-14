@@ -29,7 +29,7 @@ export default function TirePage() {
     diseno: "",
     profundidadInicial: 0,
     dimension: "",
-    eje: "",
+    eje: "direccion", // Default value for the dropdown
     kilometrosRecorridos: 0,
     costo: 0,
     // Replace the Vida input with a dropdown value
@@ -155,7 +155,7 @@ export default function TirePage() {
         diseno: "",
         profundidadInicial: 0,
         dimension: "",
-        eje: "",
+        eje: "direccion", // Reset to default value
         kilometrosRecorridos: 0,
         costo: 0,
         // Set default vida to "nueva" in the dropdown
@@ -317,21 +317,23 @@ export default function TirePage() {
                 />
               </div>
 
-              {/* Eje */}
+              {/* Eje - Changed from input to dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Eje <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="eje"
                   value={tireForm.eje}
                   onChange={handleInputChange}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
                   focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
-                />
+                  bg-white text-[#0A183A] transition-colors"
+                >
+                  <option value="direccion">Dirección</option>
+                  <option value="traccion">Tracción</option>
+                </select>
               </div>
 
               {/* Kilómetros Recorridos */}

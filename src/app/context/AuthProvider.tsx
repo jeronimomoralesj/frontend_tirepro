@@ -10,7 +10,6 @@ type AuthContextType = {
   logout: () => void;
 };
 
-
 type User = {
   id: string;
   name: string;
@@ -34,13 +33,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (storedUser && storedToken) {
         const parsedUser: User = JSON.parse(storedUser);
-setUser({ ...parsedUser, companyId: storedCompanyId as string });
+        setUser({ ...parsedUser, companyId: storedCompanyId as string });
         setToken(storedToken);
       }
     }
   }, []);
 
-  // Updated login: simply set the user and token in state and localStorage.
+  // Updated login: properly throw errors so they can be caught in the login page
   async function login(email: string, password: string) {
     try {
       const res = await fetch("https://api.tirepro.com.co/api/auth/login", {
@@ -49,11 +48,25 @@ setUser({ ...parsedUser, companyId: storedCompanyId as string });
         body: JSON.stringify({ email, password }),
       });
   
-      if (!res.ok) throw new Error("Invalid credentials");
+      if (!res.ok) {
+        // Get specific error message from API if available
+        let errorMessage = "Invalid credentials";
+        try {
+          const errorData = await res.json();
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (e) {
+          // If parsing fails, use status text
+          errorMessage = res.statusText || "Invalid credentials";
+        }
+        
+        throw new Error(errorMessage);
+      }
   
       const data = await res.json();
   
-      // Make sure data.user has companyId.
+      // Make sure data.user has companyId
       if (!data.user.companyId) {
         throw new Error("User has no assigned companyId");
       }
@@ -66,10 +79,11 @@ setUser({ ...parsedUser, companyId: storedCompanyId as string });
       localStorage.setItem("companyId", data.user.companyId);
     } catch (error) {
       console.error("Login error:", error);
+      // Re-throw the error so it can be caught by the login page
+      throw error;
     }
   }
   
-
   // Updated register: simply set the user and token in state and localStorage.
   function register(user: User, token: string) {
     setUser(user);

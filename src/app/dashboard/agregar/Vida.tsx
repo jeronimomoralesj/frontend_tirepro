@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, X, AlertTriangle, ArrowLeft, Clock } from "lucide-react";
+import { Search, X, AlertTriangle, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 // --- Types ---
@@ -209,10 +209,6 @@ const VidaPage: React.FC = () => {
       <header className="bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white p-4 md:p-6 shadow-md">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl md:text-3xl font-bold flex items-center">
-            <ArrowLeft 
-              className="mr-4 cursor-pointer hover:text-[#348CCB] transition-colors" 
-              onClick={() => router.back()}
-            />
             Actualizar Vida 
           </h1>
         </div>

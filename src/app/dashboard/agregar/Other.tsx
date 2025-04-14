@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, AlertTriangle, Eye, ArrowLeft, Clock, CheckCircle } from "lucide-react";
+import { Search, X, AlertTriangle, Eye, Clock, CheckCircle } from "lucide-react";
 
 export type Vehicle = {
   id: string;
@@ -159,10 +159,6 @@ const EventosPage: React.FC = () => {
       <header className="bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white p-4 md:p-6 shadow-md">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl md:text-3xl font-bold flex items-center">
-            <ArrowLeft 
-              className="mr-4 cursor-pointer hover:text-[#348CCB] transition-colors" 
-              onClick={() => router.back()}
-            />
             Agrega un Eventos Personalizado
           </h1>
         </div>

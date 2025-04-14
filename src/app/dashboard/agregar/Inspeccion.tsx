@@ -219,7 +219,7 @@ export default function InspeccionPage() {
   return (
     <div className="min-h-screen bg-white text-[#0A183A] font-sans">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-
+<h1 className="text-xl font-semibold text-[#0A183A] mb-4">Ingrese la placa del vehiculo</h1>
         {/* Search Section */}
         <div className="bg-[#348CCB]/10 rounded-xl p-6 mb-6 shadow-sm">
           <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4 items-center">
@@ -315,16 +315,16 @@ export default function InspeccionPage() {
                         Detalles del Neumático
                       </h3>
                       <div className="space-y-2">
-                        <p className="flex justify-between">
-                          <span className="font-medium">ID:</span> 
+                        <p className="flex justify-baseline">
+                          <span className="font-medium">ID: </span> 
                           <span>{tire.placa}</span>
                         </p>
-                        <p className="flex justify-between">
-                          <span className="font-medium">Marca:</span> 
+                        <p className="flex justify-baseline">
+                          <span className="font-medium">Marca: </span> 
                           <span>{tire.marca}</span>
                         </p>
-                        <p className="flex justify-between">
-                          <span className="font-medium">Posición:</span> 
+                        <p className="flex justify-baseline">
+                          <span className="font-medium">Posición: </span> 
                           <span>{tire.posicion}</span>
                         </p>
                       </div>

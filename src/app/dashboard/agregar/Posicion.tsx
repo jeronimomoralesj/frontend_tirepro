@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import { Search, ArrowLeft, Clock, AlertTriangle } from "lucide-react";
+import { Search, Clock, AlertTriangle } from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useRouter } from "next/navigation";
@@ -614,10 +614,6 @@ const Posicion = () => {
         <header className="bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white p-4 md:p-6 shadow-md">
           <div className="max-w-7xl mx-auto">
             <h1 className="text-2xl md:text-3xl font-bold flex items-center">
-              <ArrowLeft 
-                className="mr-4 cursor-pointer hover:text-[#348CCB] transition-colors" 
-                onClick={() => router.back()}
-              />
               Asignar Posiciones de Llantas
             </h1>
           </div>

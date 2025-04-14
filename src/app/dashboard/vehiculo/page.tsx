@@ -293,8 +293,10 @@ export default function VehiculoPage() {
                     className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
                   >
-                    <option value="2_ejes">2_ejes</option>
-                    <option value="3_ejes">3_ejes</option>
+                    <option value="2_ejes">trailer_2_ejes</option>
+                    <option value="2_ejes">cabezote_2_ejes</option>
+                    <option value="3_ejes">trailer_3_ejes</option>
+                    <option value="3_ejes">cabezote_3_ejes</option>
                   </select>
                 </div>
                 <button

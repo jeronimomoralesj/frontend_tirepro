@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthProvider";
 import {
@@ -11,54 +11,67 @@ import {
   CheckCircle,
   Eye,
   EyeOff,
+  X,
 } from "lucide-react";
 import Image from "next/image";
-import logo from "../../../public/logo_text.png"; 
+import logo from "../../../public/logo_text.png";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showErrorPopup, setShowErrorPopup] = useState(false);
+  const [invalidCredentials, setInvalidCredentials] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const auth = useAuth();
   const router = useRouter();
 
+  // Redirect when the auth context's user is set.
+  useEffect(() => {
+    if (auth.user) {
+      router.push("/dashboard");
+    }
+  }, [auth.user, router]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setInvalidCredentials(false);
     setLoading(true);
 
     try {
-      // Delegate login to AuthProvider by passing credentials.
+      // Delegate login to the auth provider.
       await auth.login(email, password);
-      // After successful login, redirect to the dashboard.
-      router.push("/dashboard");
+      // (Redirection will occur via the useEffect when auth.user is set.)
     } catch (err: unknown) {
-      if (err instanceof Error) {
+      // Check specifically for "Invalid credentials" error
+      if (err instanceof Error && err.message === "Invalid credentials") {
+        setInvalidCredentials(true);
+        setError("Credenciales inválidas");
+      } else if (err instanceof Error) {
         setError(err.message);
       } else {
         setError("Ocurrió un error inesperado");
       }
-    }
-     finally {
+      setShowErrorPopup(true);
+    } finally {
       setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-[#0A183A] to-[#173D68]">
-      {/* Left panel - branding/info */}
+      {/* Left Panel - Branding / Info */}
       <div className="w-full md:w-1/2 flex flex-col justify-center p-8 md:p-16 text-white">
-      <div className="mb-8">
-  <Image 
-    src={logo}
-    alt="TirePro Logo"
-    className="w-auto h-12 filter brightness-0 invert"
-    priority
-  />
-</div>
-
+        <div className="mb-8">
+          <Image
+            src={logo}
+            alt="TirePro Logo"
+            className="w-auto h-12 filter brightness-0 invert"
+            priority
+          />
+        </div>
         <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
           Bienvenido <span className="text-[#348CCB]">de nuevo!</span>
         </h1>
@@ -87,17 +100,20 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right panel - login form */}
+      {/* Right Panel - Login Form */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-12">
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 md:p-10 w-full max-w-md border border-white/10">
           <h2 className="text-2xl font-bold text-white text-center mb-6">
             Inicia Sesión
           </h2>
-
-          {error && (
-            <div className="flex items-center gap-3 p-4 mb-6 bg-red-500/10 border border-red-300/30 rounded-lg text-white">
-              <AlertCircle size={20} className="text-red-400 flex-shrink-0" />
-              <p className="text-sm">{error}</p>
+          
+          {/* Error Alert */}
+          {invalidCredentials && (
+            <div className="mb-6 p-3 bg-red-500/20 border border-red-500/40 rounded-lg">
+              <div className="flex items-center text-red-400">
+                <AlertCircle size={18} className="mr-2 flex-shrink-0" />
+                <p>Credenciales inválidas. Por favor verifica tu correo y contraseña.</p>
+              </div>
             </div>
           )}
 
@@ -113,7 +129,9 @@ export default function LoginPage() {
                   placeholder="nombre@tirepro.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-[#348CCB]/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all"
+                  className={`w-full px-4 py-3 bg-white/5 border ${
+                    invalidCredentials ? "border-red-500" : "border-[#348CCB]/30"
+                  } rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all`}
                   required
                 />
               </div>
@@ -130,7 +148,9 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-[#348CCB]/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all"
+                  className={`w-full px-4 py-3 bg-white/5 border ${
+                    invalidCredentials ? "border-red-500" : "border-[#348CCB]/30"
+                  } rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all`}
                   required
                 />
                 <button
@@ -154,8 +174,8 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] hover:from-[#348CCB] hover:to-[#1E76B6] text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed"
               disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] hover:from-[#348CCB] hover:to-[#1E76B6] text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
@@ -181,6 +201,34 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Error Popup */}
+      {showErrorPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold flex items-center text-red-600">
+                <AlertCircle className="w-5 h-5 mr-2" />
+                Error de autenticación
+              </h2>
+              <button onClick={() => setShowErrorPopup(false)}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {invalidCredentials ? (
+              <p className="mt-4">Las credenciales ingresadas son inválidas. Por favor verifica tu correo y contraseña.</p>
+            ) : (
+              <p className="mt-4">{error}</p>
+            )}
+            <button
+              onClick={() => setShowErrorPopup(false)}
+              className="mt-4 px-4 py-2 bg-[#1E76B6] text-white rounded-lg"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

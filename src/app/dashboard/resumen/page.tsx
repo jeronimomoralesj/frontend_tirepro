@@ -179,12 +179,13 @@ export default function ResumenPage() {
     });
 
     if (validTireCount > 0) {
-      setCpkPromedio(Math.round(totalCpk / validTireCount));
-      setCpkProyectado(Math.round(totalCpkProyectado / validTireCount));
+      setCpkPromedio(Number((totalCpk / validTireCount).toFixed(2)));
+      setCpkProyectado(Number((totalCpkProyectado / validTireCount).toFixed(2)));
     } else {
       setCpkPromedio(0);
       setCpkProyectado(0);
     }
+    
   }, []);
 
   const fetchTires = useCallback(

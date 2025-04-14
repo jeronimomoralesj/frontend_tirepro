@@ -78,7 +78,7 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
   }, [filteredVehicles, tires]);
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col h-full">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       {/* Card Title */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <h2 className="text-xl font-bold">Semáforo Tabla</h2>
@@ -118,7 +118,7 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
           <tbody>
             {tableData.map((row, idx) => (
               <tr key={idx} className="border-t">
-                <td className="px-4 py-2 sticky left-0 bg-white font-bold z-10">{row.placa}</td>
+                <td className="px-4 py-2 sticky left-0 bg-white font-bold z-10">{row.placa.toUpperCase()}</td>
                 {positions.map((pos) => {
                   const value = row.depths[pos];
                   let bg = "bg-gray-200 text-gray-700"; // default

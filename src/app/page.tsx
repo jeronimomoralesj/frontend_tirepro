@@ -361,7 +361,7 @@ const Home = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-4 md:gap-2 max-w-4xl mx-auto">
             {/* Mini Plan */}
             <div className="group transform transition-all duration-300 hover:scale-105">
               <div className="h-full p-6 md:p-8 rounded-2xl bg-gradient-to-b from-[#173D68]/50 to-[#1E76B6]/20 backdrop-blur-sm border border-[#1E76B6]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20 flex flex-col justify-between">
@@ -424,6 +424,36 @@ const Home = () => {
                 </a>
               </div>
             </div>
+
+            {/* Retail Plan */}
+            <div className="group transform transition-all duration-300 hover:scale-105">
+              <div className="h-full p-6 md:p-8 rounded-2xl bg-gradient-to-b from-[#173D68]/50 to-[#1E76B6]/20 backdrop-blur-sm border border-[#1E76B6]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#1E76B6]/20 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Retail</h3>
+                  <p className="text-white/70 mb-6">Para los distribuidores</p>
+                  <ul className="space-y-4 mb-8">
+                    {[
+                      'Todo lo del plan Pro',
+                      'Crea tus Clientes',
+                      'Analisis por el Cliente',
+                    ].map((feature, index) => (
+                      <li key={index} className="flex items-start text-white/80">
+                        <span className="mr-3 mt-0.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#348CCB]">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button className="w-full py-3 px-4 rounded-xl border border-[#1E76B6] text-white hover:bg-[#1E76B6]/20 transition-all duration-300 mt-auto">
+                  En desarrollo...
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -499,7 +529,7 @@ const Home = () => {
                   </a>
                 </li>
                 <li>
-                  <a href="/delete-data" className="text-white/70 hover:text-[#348CCB] transition-colors">
+                  <a href="/delete" className="text-white/70 hover:text-[#348CCB] transition-colors">
                     Eliminar Datos
                   </a>
                 </li>
