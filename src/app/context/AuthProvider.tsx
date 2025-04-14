@@ -39,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Updated login function with proper error handling
   async function login(email: string, password: string) {
     try {
       const res = await fetch("https://api.tirepro.com.co/api/auth/login", {
@@ -55,8 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (errorData && errorData.message) {
             errorMessage = errorData.message;
           }
-        } catch (_e) {
-          // Using _e to indicate the error parameter is intentionally unused.
+        } catch {
           errorMessage = res.statusText || "Invalid credentials";
         }
         
@@ -81,7 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
   
-  // Register: set user and token in state and localStorage.
   function register(user: User, token: string) {
     setUser(user);
     setToken(token);
