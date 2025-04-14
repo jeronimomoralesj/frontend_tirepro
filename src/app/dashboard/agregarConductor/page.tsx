@@ -357,7 +357,7 @@ const UserPlateInspection: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-gray-500 text-sm">No se encontraron placas que coincidan con "{searchQuery}"</p>
+                        <p className="text-gray-500 text-sm">No se encontraron placas que coincidan con {searchQuery}</p>
                       )
                     ) : (
                       <p className="text-gray-500 text-sm">No hay placas asignadas</p>

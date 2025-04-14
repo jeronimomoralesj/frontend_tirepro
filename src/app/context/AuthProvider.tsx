@@ -56,10 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (errorData && errorData.message) {
             errorMessage = errorData.message;
           }
-        } catch (e) {
+        } catch (_e) {
           // If parsing fails, use status text
           errorMessage = res.statusText || "Invalid credentials";
-        }
+        }        
         
         throw new Error(errorMessage);
       }

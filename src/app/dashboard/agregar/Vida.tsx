@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Search, X, AlertTriangle, Clock } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 // --- Types ---
 export type VidaEntry = {
@@ -29,7 +28,6 @@ export type Vehicle = {
 const allowedVida = ["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"];
 
 const VidaPage: React.FC = () => {
-  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [tires, setTires] = useState<Tire[]>([]);

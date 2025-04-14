@@ -3,7 +3,6 @@ import axios from "axios";
 import { Search, Clock, AlertTriangle } from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { useRouter } from "next/navigation";
 
 // DND Item Types
 const ItemTypes = {
@@ -267,7 +266,6 @@ const VehicleVisualization: React.FC<VehicleVisualizationProps> = ({ config, ass
 };
 
 const Posicion = () => {
-  const router = useRouter();
   const [placa, setPlaca] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [tires, setTires] = useState<Tire[]>([]);

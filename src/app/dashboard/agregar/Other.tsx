@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Search, X, AlertTriangle, Eye, Clock, CheckCircle } from "lucide-react";
 
 export type Vehicle = {
@@ -25,16 +24,15 @@ export type Tire = {
 };
 
 const EventosPage: React.FC = () => {
-  const router = useRouter();
+  // Removed the unused router variable.
   const [searchTerm, setSearchTerm] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [tires, setTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  // New state for displaying success feedback when an event is added.
   const [successMessage, setSuccessMessage] = useState("");
 
-  // For modal to add an event
+  // State for modal to add an event
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
   const [newEventText, setNewEventText] = useState("");
   const [modalError, setModalError] = useState("");
@@ -133,9 +131,7 @@ const EventosPage: React.FC = () => {
       const updatedTire: Tire = await res.json();
       // Update tires state with the updated tire data.
       setTires((prevTires) =>
-        prevTires.map((t) =>
-          t.id === updatedTire.id ? updatedTire : t
-        )
+        prevTires.map((t) => (t.id === updatedTire.id ? updatedTire : t))
       );
       // Display success message feedback.
       setSuccessMessage("Evento agregado exitosamente");
