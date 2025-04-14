@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Updated login: properly throw errors so they can be caught in the login page
+  // Updated login function with proper error handling
   async function login(email: string, password: string) {
     try {
       const res = await fetch("https://api.tirepro.com.co/api/auth/login", {
@@ -49,7 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   
       if (!res.ok) {
-        // Get specific error message from API if available
         let errorMessage = "Invalid credentials";
         try {
           const errorData = await res.json();
@@ -57,16 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             errorMessage = errorData.message;
           }
         } catch (_e) {
-          // If parsing fails, use status text
+          // Using _e to indicate the error parameter is intentionally unused.
           errorMessage = res.statusText || "Invalid credentials";
-        }        
+        }
         
         throw new Error(errorMessage);
       }
   
       const data = await res.json();
   
-      // Make sure data.user has companyId
       if (!data.user.companyId) {
         throw new Error("User has no assigned companyId");
       }
@@ -79,12 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("companyId", data.user.companyId);
     } catch (error) {
       console.error("Login error:", error);
-      // Re-throw the error so it can be caught by the login page
       throw error;
     }
   }
   
-  // Updated register: simply set the user and token in state and localStorage.
+  // Register: set user and token in state and localStorage.
   function register(user: User, token: string) {
     setUser(user);
     setToken(token);
@@ -99,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setToken(null);
     localStorage.clear();
-    window.location.href = "/login"; // Full reload ensures state is cleared
+    window.location.href = "/login"; // Full reload ensures state is cleared.
   }
 
   return (
