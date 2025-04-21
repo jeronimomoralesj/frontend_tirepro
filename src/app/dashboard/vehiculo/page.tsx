@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Database, Trash2, X, Truck, Link2, Unlink } from "lucide-react";
+import { Plus, Database, Trash2, X, Truck, Link2 } from "lucide-react";
+// Removed unused 'Unlink' import
 
 type Vehicle = {
   id: string;
@@ -53,10 +54,7 @@ export default function VehiculoPage() {
   // Organize vehicles by their connections
   const organizedVehicles = useMemo(() => {
     // Create map of placa to vehicle for quick lookup
-    const vehicleMap = vehicles.reduce((acc, vehicle) => {
-      acc[vehicle.placa] = vehicle;
-      return acc;
-    }, {} as Record<string, Vehicle>);
+    // Removed unused vehicleMap variable
     
     // Track vehicles that have been processed
     const processed = new Set<string>();
@@ -102,7 +100,8 @@ export default function VehiculoPage() {
         } else {
           setError("No companyId found on user");
         }
-      } catch (e) {
+      } catch {
+        // Removed unused 'e' parameter
         setError("Error parsing user data");
         router.push("/login");
       }
@@ -415,7 +414,8 @@ export default function VehiculoPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {organizedVehicles
                       .filter(group => group.length === 1)
-                      .map((group, groupIndex) => (
+                      .map((group) => (
+                        // Removed unused groupIndex variable
                         <VehicleCard key={`single-${group[0].id}`} vehicle={group[0]} />
                       ))}
                   </div>
