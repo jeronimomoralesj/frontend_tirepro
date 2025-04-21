@@ -3,10 +3,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FilePlus, Upload } from "lucide-react";
 
-interface ErrorResponse {
-  message: string;
-}
-
 export default function CargaMasiva() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
