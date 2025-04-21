@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Database, Trash2 } from "lucide-react";
+import { Plus, Database, Trash2, X, Truck, Link2, Unlink } from "lucide-react";
 
 type Vehicle = {
   id: string;
@@ -13,8 +13,8 @@ type Vehicle = {
   tipovhc: string;
   companyId: string;
   tireCount: number;
+  union: string[]; // array of connected vehicle placas
 };
-
 
 export default function VehiculoPage() {
   const router = useRouter();
@@ -25,25 +25,86 @@ export default function VehiculoPage() {
 
   // State for delete confirmation modal
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+  
+  // State for union deletion
+  const [unionToDelete, setUnionToDelete] = useState<{
+    sourceId: string;
+    targetPlaca: string;
+  } | null>(null);
 
   // Form state for creating a vehicle
   const [placa, setPlaca] = useState("");
   const [kilometrajeActual, setKilometrajeActual] = useState<number>(0);
   const [carga, setCarga] = useState("");
   const [pesoCarga, setPesoCarga] = useState<number>(0);
-  // Initialize with a default value (e.g., "2_ejes")
   const [tipovhc, setTipovhc] = useState("2_ejes");
+
+  // Union placa inputs per vehicle
+  const [plateInputs, setPlateInputs] = useState<{ [vehicleId: string]: string }>({});
+  
+  // Flag to show/hide union inputs
+  const [showUnionInput, setShowUnionInput] = useState<{ [key: string]: boolean }>({});
 
   // Retrieve the companyId from stored user data
   const [companyId, setCompanyId] = useState<string>("");
 
+  const API_BASE = "https://api.tirepro.com.co/api";
+
+  // Organize vehicles by their connections
+  const organizedVehicles = useMemo(() => {
+    // Create map of placa to vehicle for quick lookup
+    const vehicleMap = vehicles.reduce((acc, vehicle) => {
+      acc[vehicle.placa] = vehicle;
+      return acc;
+    }, {} as Record<string, Vehicle>);
+    
+    // Track vehicles that have been processed
+    const processed = new Set<string>();
+    
+    // Result array: groups of connected vehicles
+    const groups: Vehicle[][] = [];
+    
+    // Process each vehicle
+    vehicles.forEach(vehicle => {
+      // Skip if already processed
+      if (processed.has(vehicle.id)) return;
+      
+      // Start a new group with this vehicle
+      const group: Vehicle[] = [vehicle];
+      processed.add(vehicle.id);
+      
+      // Find all connected vehicles
+      // Check if union exists and is an array before accessing length property
+      if (vehicle.union && Array.isArray(vehicle.union) && vehicle.union.length > 0) {
+        vehicle.union.forEach(connectedPlaca => {
+          const connectedVehicle = vehicles.find(v => v.placa === connectedPlaca);
+          if (connectedVehicle && !processed.has(connectedVehicle.id)) {
+            group.push(connectedVehicle);
+            processed.add(connectedVehicle.id);
+          }
+        });
+      }
+      
+      groups.push(group);
+    });
+    
+    return groups;
+  }, [vehicles]);
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.companyId) {
-        setCompanyId(user.companyId);
-        fetchVehicles(user.companyId);
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.companyId) {
+          setCompanyId(user.companyId);
+          fetchVehicles(user.companyId);
+        } else {
+          setError("No companyId found on user");
+        }
+      } catch (e) {
+        setError("Error parsing user data");
+        router.push("/login");
       }
     } else {
       router.push("/login");
@@ -54,22 +115,17 @@ export default function VehiculoPage() {
     setLoadingVehicles(true);
     setError("");
     try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
-          : `https://api.tirepro.com.co/api/vehicles?companyId=${companyId}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch vehicles");
-      }
-      const data = await res.json();
-      setVehicles(data);
+      const res = await fetch(`${API_BASE}/vehicles?companyId=${companyId}`);
+      if (!res.ok) throw new Error("Failed to fetch vehicles");
+      const data: Vehicle[] = await res.json();
+      // Ensure all vehicles have a union array, even if the API doesn't provide one
+      const safeData = data.map(vehicle => ({
+        ...vehicle,
+        union: vehicle.union || []
+      }));
+      setVehicles(safeData);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Unexpected error");
-      }
+      setError(err instanceof Error ? err.message : "Unexpected error");
     } finally {
       setLoadingVehicles(false);
     }
@@ -79,252 +135,388 @@ export default function VehiculoPage() {
     e.preventDefault();
     setError("");
     try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/create`
-          : "https://api.tirepro.com.co/api/vehicles/create",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            placa,
-            kilometrajeActual,
-            carga,
-            pesoCarga,
-            tipovhc,
-            companyId,
-          }),
-        }
-      );
+      const res = await fetch(`${API_BASE}/vehicles/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placa,
+          kilometrajeActual,
+          carga,
+          pesoCarga,
+          tipovhc,
+          companyId,
+        }),
+      });
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to create vehicle");
+        const err = await res.json();
+        throw new Error(err.message || "Failed to create vehicle");
       }
-      const newVehicleResponse = await res.json();
-      // Assuming the backend returns an object with the vehicle key:
-      const newVehicle = newVehicleResponse.vehicle || newVehicleResponse;
-      setVehicles((prev) => [...prev, newVehicle]);
-      // Reset form fields and close the panel
+      const { vehicle: newVehicle } = await res.json();
+      // Ensure the new vehicle has a union array
+      const safeVehicle = {
+        ...newVehicle,
+        union: newVehicle.union || []
+      };
+      setVehicles((prev) => [...prev, safeVehicle]);
+      // reset
       setPlaca("");
       setKilometrajeActual(0);
       setCarga("");
       setPesoCarga(0);
-      setTipovhc("2_ejes"); // Reset to default option
+      setTipovhc("2_ejes");
       setIsFormOpen(false);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Unexpected error");
-      }
+      setError(err instanceof Error ? err.message : "Unexpected error");
     }
   }
 
   async function handleDeleteVehicle(vehicleId: string) {
     setError("");
     try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/${vehicleId}`
-          : `https://api.tirepro.com.co/api/vehicles/${vehicleId}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to delete vehicle");
+        const err = await res.json();
+        throw new Error(err.message || "Failed to delete vehicle");
       }
       setVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Unexpected error");
-      }
+      setError(err instanceof Error ? err.message : "Unexpected error");
     }
   }
 
+  // Patch union.add
+  async function addUnion(vehicleId: string) {
+    const placaUnion = plateInputs[vehicleId]?.trim();
+    if (!placaUnion) return alert("Ingrese placa para unir");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/union/add`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placa: placaUnion }),
+      });
+      if (!res.ok) throw new Error("Fallo al añadir unión");
+      const { vehicle: updated } = await res.json();
+      // Ensure the updated vehicle has a union array
+      const safeVehicle = {
+        ...updated,
+        union: updated.union || []
+      };
+      setVehicles((vs) =>
+        vs.map((v) => (v.id === safeVehicle.id ? safeVehicle : v))
+      );
+      setPlateInputs((prev) => ({ ...prev, [vehicleId]: "" }));
+      setShowUnionInput((prev) => ({ ...prev, [vehicleId]: false }));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error inesperado");
+    }
+  }
+
+  // Patch union.remove
+  async function removeUnion(vehicleId: string, placaToRemove: string) {
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/union/remove`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placa: placaToRemove }),
+      });
+      if (!res.ok) throw new Error("Fallo al eliminar unión");
+      const { vehicle: updated } = await res.json();
+      // Ensure the updated vehicle has a union array
+      const safeVehicle = {
+        ...updated,
+        union: updated.union || []
+      };
+      setVehicles((vs) =>
+        vs.map((v) => (v.id === safeVehicle.id ? safeVehicle : v))
+      );
+      setUnionToDelete(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error inesperado");
+    }
+  }
+
+  function toggleUnionInput(vehicleId: string) {
+    setShowUnionInput(prev => ({
+      ...prev,
+      [vehicleId]: !prev[vehicleId]
+    }));
+  }
+
+  // Vehicle card component for reuse
+  const VehicleCard = ({ vehicle, isConnected = false, connectionIndex = 0, onRemoveConnection = null }) => (
+    <div 
+      className="relative border border-[#348CCB]/20 rounded-lg shadow-md p-4 flex flex-col justify-between bg-white max-w-xs w-full sm:w-72"
+      style={{ zIndex: 5 }}
+    >
+      {/* Connector line between vehicles - only show for connected vehicles */}
+      {isConnected && connectionIndex > 0 && onRemoveConnection && (
+        <div 
+          className="absolute left-0 top-1/2 transform -translate-x-full -translate-y-1/2 w-4 md:w-6 h-1 bg-[#1E76B6] cursor-pointer hover:bg-[#0A183A]"
+          onClick={onRemoveConnection}
+        />
+      )}
+      
+      {/* Vehicle Info */}
+      <div className="space-y-2">
+        <div className="flex justify-between items-center border-b pb-2">
+          <span className="font-bold text-[#173D68]">{vehicle.placa?.toUpperCase() || "SIN PLACA"}</span>
+          <span className="bg-[#1E76B6]/10 text-[#1E76B6] px-2 py-1 rounded text-xs">
+            {vehicle.tipovhc?.replace("_", " ") || "Sin tipo"}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 pt-2 text-sm">
+          <span>Kilometraje:</span>
+          <span className="text-right">{vehicle.kilometrajeActual || 0} km</span>
+          <span>Carga:</span>
+          <span className="text-right">{vehicle.carga || "N/A"}</span>
+          <span>Peso:</span>
+          <span className="text-right">{vehicle.pesoCarga || 0} kg</span>
+          <span>Llantas:</span>
+          <span className="text-right">{vehicle.tireCount || 0}</span>
+          <span>Uniones:</span>
+          <span className="text-right">
+            {vehicle.union && Array.isArray(vehicle.union) && vehicle.union.length > 0 
+              ? vehicle.union.join(", ") 
+              : "Ninguna"}
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-4 space-y-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => toggleUnionInput(vehicle.id)}
+            className="flex-1 bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-2 rounded hover:bg-[#1E76B6]/20 flex items-center justify-center"
+          >
+            <Link2 className="w-4 h-4 mr-2" />
+            Unir
+          </button>
+          <button
+            onClick={() => setVehicleToDelete(vehicle)}
+            className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 flex items-center justify-center"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Eliminar
+          </button>
+        </div>
+
+        {/* Union input field (conditionally shown) */}
+        {showUnionInput[vehicle.id] && (
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              placeholder="Placa del otro vehiculo"
+              value={plateInputs[vehicle.id] || ""}
+              onChange={(e) =>
+                setPlateInputs((p) => ({ ...p, [vehicle.id]: e.target.value }))
+              }
+              className="flex-1 px-2 py-1 border rounded-md"
+            />
+            <button
+              onClick={() => addUnion(vehicle.id)}
+              className="px-2 bg-[#1E76B6] text-white rounded hover:bg-[#173D68]"
+            >
+              ➕
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen text-[#0A183A] antialiased">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="min-h-screen text-[#0A183A] antialiased bg-gray-50">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
-        <header className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Gestión de Vehículos</h1>
+        <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold">Gestión de Vehículos</h1>
           <button
             onClick={() => setIsFormOpen(!isFormOpen)}
-            className="bg-[#1E76B6] text-white px-4 py-2 rounded-lg hover:bg-[#348CCB] transition-colors flex items-center space-x-2"
+            className="bg-[#1E76B6] text-white px-4 py-2 rounded-lg hover:bg-[#348CCB] flex items-center"
           >
-            <Plus className="w-5 h-5" />
-            <span>Añadir Vehículo</span>
+            <Plus className="w-5 h-5 mr-2" />
+            Añadir Vehículo
           </button>
         </header>
 
-        {/* Error Handling */}
+        {/* Error */}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <span className="block sm:inline">{error}</span>
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
           </div>
         )}
 
         {/* Vehicles List */}
-        <section className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="px-6 py-4 bg-[#173D68] text-white flex items-center">
-            <Database className="w-6 h-6 mr-3" />
-            <h2 className="text-xl font-semibold">Lista de Vehículos</h2>
+        <section className="bg-white shadow-lg rounded-lg border border-[#348CCB]/20">
+          <div className="px-4 py-4 bg-[#173D68] text-white flex items-center rounded-t-lg">
+            <Database className="w-5 h-5 mr-2" />
+            <h2 className="text-lg font-semibold">Lista de Vehículos</h2>
           </div>
+
           {loadingVehicles ? (
             <div className="flex justify-center items-center p-8">
-              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-[#1E76B6]"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#1E76B6]"></div>
             </div>
           ) : vehicles.length === 0 ? (
             <div className="text-center p-8 text-gray-500">
+              <Truck className="mx-auto h-12 w-12 text-[#348CCB]/50 mb-3" />
               <p>No se encontraron vehículos.</p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-              {vehicles.map((vehicle) => (
-                <div
-                  key={vehicle.id}
-                  className="bg-white border border-[#348CCB]/20 rounded-lg shadow-md p-5 flex flex-col justify-between transition-all hover:shadow-lg"
-                >
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#1E76B6]">Placa:</span>
-                      {/* Display placa in all caps */}
-                      <span>{vehicle.placa.toUpperCase()}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#1E76B6]">Kilometraje:</span>
-                      <span>{vehicle.kilometrajeActual} km</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#1E76B6]">Carga:</span>
-                      <span>{vehicle.carga}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#1E76B6]">Peso:</span>
-                      <span>{vehicle.pesoCarga} kg</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#1E76B6]">Cantidad de llantas:</span>
-                      <span>{vehicle.tireCount}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#1E76B6]">Tipo VHC:</span>
-                      {/* Now the type is fixed to the two options */}
-                      <span>{vehicle.tipovhc}</span>
-                    </div>
+            <div className="p-4 space-y-8">
+              {/* Groups with connected vehicles */}
+              {organizedVehicles.filter(group => group.length > 1).map((group, groupIndex) => (
+                <div key={`connected-group-${groupIndex}`} className="mb-8">
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">Vehículos Conectados</h3>
+                  <div className="flex flex-row flex-nowrap overflow-x-auto pb-4">
+                    {group.map((vehicle, vehicleIndex) => (
+                      <div 
+                        key={vehicle.id}
+                        className={`${vehicleIndex > 0 ? 'ml-8' : ''} flex-shrink-0`}
+                      >
+                        <VehicleCard 
+                          vehicle={vehicle} 
+                          isConnected={true}
+                          connectionIndex={vehicleIndex}
+                          onRemoveConnection={vehicleIndex > 0 ? () => {
+                            // Find the connection to break
+                            const currentVehicle = vehicle;
+                            const previousVehicle = group[vehicleIndex - 1];
+                            
+                            // Check which vehicle has the union referencing the other
+                            if (previousVehicle.union && Array.isArray(previousVehicle.union) && 
+                                previousVehicle.union.includes(currentVehicle.placa)) {
+                              setUnionToDelete({
+                                sourceId: previousVehicle.id,
+                                targetPlaca: currentVehicle.placa
+                              });
+                            } else if (currentVehicle.union && Array.isArray(currentVehicle.union) && 
+                                      currentVehicle.union.includes(previousVehicle.placa)) {
+                              setUnionToDelete({
+                                sourceId: currentVehicle.id,
+                                targetPlaca: previousVehicle.placa
+                              });
+                            }
+                          } : null}
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <button
-                    onClick={() => setVehicleToDelete(vehicle)}
-                    className="mt-4 bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4 inline-block mr-1" />
-                    Eliminar
-                  </button>
                 </div>
               ))}
+              
+              {/* Single vehicles (not connected) in a grid */}
+              {organizedVehicles.filter(group => group.length === 1).length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">Vehículos Individuales</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {organizedVehicles
+                      .filter(group => group.length === 1)
+                      .map((group, groupIndex) => (
+                        <VehicleCard key={`single-${group[0].id}`} vehicle={group[0]} />
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
 
-        {/* Create Vehicle Form (Sliding Panel) */}
+        {/* Create Vehicle Form */}
         {isFormOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4">
-              <div className="bg-[#173D68] text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Crear Nuevo Vehículo</h2>
-                <button
-                  onClick={() => setIsFormOpen(false)}
-                  className="text-white hover:text-gray-300"
-                >
-                  ✕
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
+              <div className="bg-[#173D68] text-white p-4 flex justify-between items-center rounded-t-lg">
+                <h2>Crear Vehículo</h2>
+                <button onClick={() => setIsFormOpen(false)}>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-              <form onSubmit={handleCreateVehicle} className="p-6 space-y-4">
+              <form onSubmit={handleCreateVehicle} className="p-4 space-y-4">
+                {/* placa, kilometraje, carga, peso, tipovhc inputs */}
                 <div>
-                  <label className="block text-sm font-medium text-[#0A183A] mb-2">Placa</label>
+                  <label className="block mb-1">Placa</label>
                   <input
                     type="text"
                     value={placa}
                     onChange={(e) => setPlaca(e.target.value.toLowerCase())}
-                    className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
+                    className="w-full px-3 py-2 border rounded-md"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#0A183A] mb-2">Kilometraje Actual</label>
+                  <label className="block mb-1">Kilometraje Actual</label>
                   <input
                     type="number"
                     value={kilometrajeActual}
-                    onChange={(e) => setKilometrajeActual(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
+                    onChange={(e) => setKilometrajeActual(parseInt(e.target.value) || 0)}
                     required
+                    className="w-full px-3 py-2 border rounded-md"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#0A183A] mb-2">Carga</label>
+                  <label className="block mb-1">Carga</label>
                   <input
                     type="text"
                     value={carga}
                     onChange={(e) => setCarga(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
-                    placeholder="Tipo de carga: seca, líquidos, etc"
+                    className="w-full px-3 py-2 border rounded-md"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#0A183A] mb-2">Peso de Carga</label>
+                  <label className="block mb-1">Peso de Carga (kg)</label>
                   <input
                     type="number"
                     value={pesoCarga}
-                    onChange={(e) => setPesoCarga(parseFloat(e.target.value))}
-                    className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
+                    onChange={(e) => setPesoCarga(parseFloat(e.target.value) || 0)}
                     required
-                    placeholder="Peso en kg"
+                    className="w-full px-3 py-2 border rounded-md"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#0A183A] mb-2">Tipo de VHC</label>
+                  <label className="block mb-1">Tipo de Vehículo</label>
                   <select
                     value={tipovhc}
                     onChange={(e) => setTipovhc(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-black"
                     required
+                    className="w-full px-3 py-2 border rounded-md"
                   >
-                    <option value="2_ejes">trailer_2_ejes</option>
-                    <option value="2_ejes">cabezote_2_ejes</option>
-                    <option value="3_ejes">trailer_3_ejes</option>
-                    <option value="3_ejes">cabezote_3_ejes</option>
+                    <option value="2_ejes">Trailer 2 ejes</option>
+                    <option value="2_ejes_cabezote">Cabezote 2 ejes</option>
+                    <option value="3_ejes">Trailer 3 ejes</option>
+                    <option value="3_ejes_cabezote">Cabezote 3 ejes</option>
                   </select>
                 </div>
-                <button
-                  type="submit"
-                  className="w-full bg-[#1E76B6] text-white py-3 rounded-lg hover:bg-[#348CCB] transition-colors"
-                >
-                  Crear Vehículo
-                </button>
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormOpen(false)}
+                    className="flex-1 border px-4 py-2 rounded"
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="flex-1 bg-[#1E76B6] text-white px-4 py-2 rounded">
+                    Crear
+                  </button>
+                </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
+        {/* Delete Vehicle Confirmation */}
         {vehicleToDelete && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full p-6">
-              <h3 className="text-xl font-semibold mb-4 text-[#0A183A]">
-                Confirmar Eliminación
-              </h3>
-              <p className="mb-6">
-                ¿Está seguro de que desea eliminar el vehículo con placa{" "}
-                <span className="font-bold">{vehicleToDelete.placa.toUpperCase()}</span>?
-              </p>
-              <div className="flex justify-end gap-4">
+              <h3 className="text-lg mb-4">¿Eliminar {vehicleToDelete.placa?.toUpperCase() || "este vehículo"}?</h3>
+              <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => setVehicleToDelete(null)}
-                  className="px-4 py-2 border border-gray-300 text-[#0A183A] rounded hover:bg-gray-100 transition-colors"
+                  className="px-4 py-2 border rounded"
                 >
                   Cancelar
                 </button>
@@ -333,9 +525,39 @@ export default function VehiculoPage() {
                     await handleDeleteVehicle(vehicleToDelete.id);
                     setVehicleToDelete(null);
                   }}
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  className="px-4 py-2 bg-red-600 text-white rounded"
                 >
-                  Confirmar
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Union Deletion Confirmation */}
+        {unionToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full p-6">
+              <h3 className="text-lg mb-4">¿Eliminar conexión?</h3>
+              <p className="mb-4 text-gray-600">
+                ¿Está seguro que desea eliminar esta conexión entre vehículos?
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setUnionToDelete(null)}
+                  className="px-4 py-2 border rounded"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    if (unionToDelete) {
+                      await removeUnion(unionToDelete.sourceId, unionToDelete.targetPlaca);
+                    }
+                  }}
+                  className="px-4 py-2 bg-[#1E76B6] text-white rounded"
+                >
+                  Eliminar Conexión
                 </button>
               </div>
             </div>
@@ -345,4 +567,3 @@ export default function VehiculoPage() {
     </div>
   );
 }
-

@@ -21,6 +21,7 @@ import {
   Users,
   PlusCircle
 } from "lucide-react";
+import CambiarContrasena from "./CambiarContraseña";
 
 // Define the types for User and Company
 export type UserData = {
@@ -52,6 +53,8 @@ const AjustesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("profile"); // 'profile' | 'company' | 'users' | 'addUser'
+  const [showChange, setShowChange] = useState(false);
+
   const [newUserData, setNewUserData] = useState({
     name: "",
     email: "",
@@ -431,83 +434,106 @@ const AjustesPage: React.FC = () => {
 
             {/* Tab content with improved card styling */}
             <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-              {/* Profile tab */}
-              {activeTab === "profile" && user && (
-                <div className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row items-center mb-6">
-                    <div className="bg-gradient-to-r from-[#0A183A] to-[#1E76B6] text-white p-3 rounded-full mr-0 sm:mr-4 mb-3 sm:mb-0">
-                      <User className="h-8 w-8" />
-                    </div>
-                    <div className="text-center sm:text-left">
-                      <h2 className="text-xl font-bold text-[#0A183A]">Información de Usuario</h2>
-                      <p className="text-sm text-gray-500">Tus datos personales y acceso</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">ID</p>
-                      <p className="text-base text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 overflow-auto">
-                        {user.id}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">Nombre</p>
-                      <p className="text-base text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center">
-                        <User className="h-4 w-4 text-[#1E76B6] mr-2 flex-shrink-0" />
-                        {user.name}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">Email</p>
-                      <p className="text-base text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center overflow-hidden">
-                        <Mail className="h-4 w-4 text-[#1E76B6] mr-2 flex-shrink-0" />
-                        <span className="truncate">{user.email}</span>
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-500">Rol</p>
-                      <p className="text-base text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center">
-                        <Shield className="h-4 w-4 text-[#1E76B6] mr-2 flex-shrink-0" />
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            user.role === "admin"
-                              ? "bg-[#173D68] text-white"
-                              : "bg-[#348CCB] text-white"
-                          }`}
-                        >
-                          {user.role === "admin" ? "Administrador" : "Usuario Regular"}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="sm:col-span-2 space-y-1">
-                      <p className="text-sm font-medium text-gray-500">Placas Asignadas</p>
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-12">
-                        {user.plates && user.plates.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {user.plates.map((plate) => (
-                              <span
-                                key={plate}
-                                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#1E76B6] text-white"
-                              >
-                                <Tag className="h-4 w-4 mr-1" />
-                                {plate}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-sm">No hay placas asignadas</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <h3 className="text-lg font-medium text-[#0A183A]">Cambiar Contraseña</h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Para cambiar tu contraseña, contacta al administrador del sistema.
-                    </p>
-                  </div>
-                </div>
-              )}
+            {activeTab === "profile" && user && (
+  <div className="p-4 sm:p-6">
+    {/* Header */}
+    <div className="flex flex-col sm:flex-row items-center mb-6">
+      <div className="bg-gradient-to-r from-[#0A183A] to-[#1E76B6] text-white p-3 rounded-full mr-0 sm:mr-4 mb-3 sm:mb-0">
+        <User className="h-8 w-8" />
+      </div>
+      <div className="text-center sm:text-left">
+        <h2 className="text-xl font-bold text-[#0A183A]">Información de Usuario</h2>
+        <p className="text-sm text-gray-500">Tus datos personales y acceso</p>
+      </div>
+    </div>
+
+    {/* Details grid */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {/* ID */}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-gray-500">ID</p>
+        <p className="text-base text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 overflow-auto">
+          {user.id}
+        </p>
+      </div>
+
+      {/* Nombre */}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-gray-500">Nombre</p>
+        <p className="text-base text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center">
+          <User className="h-4 w-4 text-[#1E76B6] mr-2 flex-shrink-0" />
+          {user.name}
+        </p>
+      </div>
+
+      {/* Email */}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-gray-500">Email</p>
+        <p className="text-base text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center overflow-hidden">
+          <Mail className="h-4 w-4 text-[#1E76B6] mr-2 flex-shrink-0" />
+          <span className="truncate">{user.email}</span>
+        </p>
+      </div>
+
+      {/* Rol */}
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-gray-500">Rol</p>
+        <p className="text-base text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center">
+          <Shield className="h-4 w-4 text-[#1E76B6] mr-2 flex-shrink-0" />
+          <span
+            className={`px-2 py-1 text-xs font-medium rounded-full ${
+              user.role === "admin"
+                ? "bg-[#173D68] text-white"
+                : "bg-[#348CCB] text-white"
+            }`}
+          >
+            {user.role === "admin" ? "Administrador" : "Usuario Regular"}
+          </span>
+        </p>
+      </div>
+
+      {/* Placas Asignadas (full width) */}
+      <div className="sm:col-span-2 space-y-1">
+        <p className="text-sm font-medium text-gray-500">Placas Asignadas</p>
+        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-12">
+          {user.plates && user.plates.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {user.plates.map((plate) => (
+                <span
+                  key={plate}
+                  className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#1E76B6] text-white"
+                >
+                  <Tag className="h-4 w-4 mr-1" />
+                  {plate}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No hay placas asignadas</p>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* Change password */}
+    <div className="mt-8 pt-6 border-t border-gray-200">
+      <h3 className="text-lg font-medium text-[#0A183A]">Cambiar Contraseña</h3>
+      <button
+        onClick={() => setShowChange((v) => !v)}
+        className="mb-4 px-4 py-2 bg-[#1E76B6] text-white rounded hover:bg-[#348CCB]"
+      >
+        {showChange ? "Ocultar" : "Esocger nueva contraseña"}
+      </button>
+
+      {showChange && (
+        <div className="mt-4">
+          <CambiarContrasena />
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
 
               {/* Company tab */}
               {activeTab === "company" && company && (
@@ -626,13 +652,7 @@ const AjustesPage: React.FC = () => {
                               </div>
                             </div>
                             <div className="flex items-center mt-2 sm:mt-0">
-                              <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                                u.role === "admin" 
-                                  ? "bg-purple-100 text-purple-800" 
-                                  : "bg-blue-100 text-blue-800"
-                              }`}>
-                                {u.role === "admin" ? "Administrador" : "Usuario Regular"}
-                              </span>
+                             
                               <button
   onClick={() => handleDeleteUser(u.id)} // you need this function defined
   className="ml-4 text-red-600 hover:text-red-800 focus:outline-none"
