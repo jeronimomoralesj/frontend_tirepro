@@ -48,7 +48,6 @@ export default function ResumenPage() {
   const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [gastoTotal, setGastoTotal] = useState<number>(0);
   const [gastoMes, setGastoMes] = useState<number>(0);
   const [userName, setUserName] = useState<string>("");
@@ -368,11 +367,10 @@ export default function ResumenPage() {
                 <button
                   className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
                   onClick={exportToPDF}
-                  disabled={exporting}
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {exporting ? "Exportando..." : "Exportar"}
+                  Exportar
                   </span>
                 </button>
                 <button className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
@@ -482,17 +480,6 @@ export default function ResumenPage() {
           {error && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4">
               <p className="text-red-700">{error}</p>
-            </div>
-          )}
-
-          {exporting && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white p-6 rounded-lg shadow-xl">
-                <p className="text-lg font-medium">Generando PDF...</p>
-                <div className="mt-4 w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-blue-600 h-2.5 rounded-full animate-pulse w-full"></div>
-                </div>
-              </div>
             </div>
           )}
         </main>
