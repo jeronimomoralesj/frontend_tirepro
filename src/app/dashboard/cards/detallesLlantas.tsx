@@ -33,6 +33,7 @@ export type Tire = {
   inspecciones: Inspection[];
   primeraVida: unknown[];
   eventos: { valor: string; fecha: string }[];
+  vehicleId?: string; 
   vehicle?: { placa: string };
 };
 
@@ -71,16 +72,17 @@ const DetallesLlantasPage: React.FC = () => {
       const vehicles: Vehicle[] = await vehiclesRes.json();
 
       const tiresWithVehicle = data
-        .filter(t => {
-          const lastVida = t.vida.length
-            ? t.vida[t.vida.length - 1].valor.toLowerCase()
-            : null;
-          return lastVida !== "fin";
-        })
-        .map(t => {
-          const vehicle = vehicles.find(v => v.id === (t as any).vehicleId);
-          return { ...t, vehicle: vehicle ? { placa: vehicle.placa } : undefined };
-        });
+  .filter(t => {
+    const lastVida = t.vida.length
+      ? t.vida[t.vida.length - 1].valor.toLowerCase()
+      : null;
+    return lastVida !== "fin";
+  })
+  .map(t => {
+    const vehicle = vehicles.find(v => v.id === t.vehicleId);
+    return { ...t, vehicle: vehicle ? { placa: vehicle.placa } : undefined };
+  });
+
 
       setTires(tiresWithVehicle);
     } catch (err) {
