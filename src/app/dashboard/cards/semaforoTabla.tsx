@@ -18,7 +18,10 @@ export interface Inspection {
 
 export interface Tire {
   id: string;
-  vehicleId?: string | null;
+  vehicleId?: string | null;const companyId = localStorage.getItem("companyId");
+  if (!companyId) {
+    setError("No se encontró el companyId");
+    return;
   posicion: number;
   inspecciones?: Inspection[];
 }

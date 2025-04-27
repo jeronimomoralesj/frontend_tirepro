@@ -39,7 +39,6 @@ export type Tire = {
   inspecciones: Inspection[];
   marca: string;
   eje: string;
-  // ...other tire fields
 };
 
 export default function ResumenPage() {

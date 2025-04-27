@@ -19,13 +19,21 @@ export type Tire = {
   marca: string;
   posicion?: string;
   inspecciones?: Inspection[];
+  vehicleId?: string;
 };
+
+interface Vehicle {
+  id: string;
+  placa: string;
+}
+
 
 type TireAnalysis = {
   id: string;
   marca: string;
   placa: string;
   posicion?: string;
+  vehicleId?: string; 
   ultimaInspeccionFecha: string;
   profundidadInt: number;
   profundidadCen: number;
@@ -58,6 +66,7 @@ const IntegratedAnalysisPage: React.FC = () => {
   const [analysis, setAnalysis] = useState<TireAnalysisResponse | null>(null);
   const [searchError, setSearchError] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
+  const [vehicles, setVehicles]     = useState<Vehicle[]>([]);
 
   // Fetch tires from backend using companyId from localStorage.
   useEffect(() => {
@@ -80,6 +89,17 @@ const IntegratedAnalysisPage: React.FC = () => {
         }
         const data: Tire[] = await res.json();
         setTires(data);
+
+        const resV = await fetch(
+          process.env.NEXT_PUBLIC_API_URL
+            ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
+            : `https://api.tirepro.com.co/api/vehicles?companyId=${companyId}`
+        );
+        if (resV.ok) {
+          const vehData: Vehicle[] = await resV.json();
+          setVehicles(vehData);
+        }
+
       } catch (err) {
         if (err instanceof Error) {
           setSearchError(err.message);
@@ -95,6 +115,13 @@ const IntegratedAnalysisPage: React.FC = () => {
     fetchTires();
   }, [router]);
 
+const plateByVehicleId = useMemo(
+  () =>
+    Object.fromEntries(
+      vehicles.map((v) => [v.id, v.placa])
+    ),
+  [vehicles]
+);
 
   // Filter tires that require immediate change (last inspection has any depth ≤ 2)
   const immediateTires = useMemo(() => {
@@ -139,6 +166,7 @@ const IntegratedAnalysisPage: React.FC = () => {
       id: tire.id,
       marca: tire.marca,
       placa: tire.placa,
+      vehicleId: tire.vehicleId,
       posicion: tire.posicion,
       ultimaInspeccionFecha: new Date(latest.fecha).toLocaleDateString(),
       profundidadInt,
@@ -250,9 +278,9 @@ const IntegratedAnalysisPage: React.FC = () => {
                   <table className="min-w-full border-collapse">
                     <thead className="bg-[#173D68] text-white">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">ID</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Marca</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold">Placa</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">Marca</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">Id</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold">Fecha Inspección</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold">Prof. Int (mm)</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold">Prof. Cen (mm)</th>
@@ -269,7 +297,9 @@ const IntegratedAnalysisPage: React.FC = () => {
                             index % 2 === 0 ? "bg-white" : "bg-gray-50"
                           }`}
                         >
-                          <td className="px-4 py-3 text-sm">{tire.placa}</td>
+                          <td className="px-4 py-3 text-sm">
+          {plateByVehicleId[tire.vehicleId!] || "—"}
+        </td>
                           <td className="px-4 py-3 text-sm">{tire.marca}</td>
                           <td className="px-4 py-3 text-sm">{tire.placa}</td>
                           <td className="px-4 py-3 text-sm">{tire.ultimaInspeccionFecha}</td>
