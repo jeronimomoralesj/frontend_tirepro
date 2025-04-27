@@ -17,6 +17,8 @@ import PromedioEje from "../cards/promedioEje";
 import ReencaucheHistorico from "../cards/reencaucheHistorico";
 import TanqueMilimetro from "../cards/tanqueMilimetro";
 import HistoricChart from "../cards/historicChart";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 export type CostEntry = {
   valor: number;
@@ -87,49 +89,11 @@ export default function ResumenPage() {
     semaforo: useRef<HTMLDivElement>(null),
   }).current;
 
-  /**
-   * Alternative export function that opens a new window with the printable content.
-   * The browser's print dialog will allow users to print or save as PDF.
-   */
-  const exportToPDF = useCallback(() => {
-    if (!contentRef.current) return;
-    setExporting(true);
-
-    // Create a new window
-    const printWindow = window.open("", "", "width=800,height=600");
-    if (printWindow) {
-      // Get all styles from the current document (so the new window retains styling)
-      const styles = Array.from(
-        document.querySelectorAll("style, link[rel='stylesheet']")
-      )
-        .map((node) => node.outerHTML)
-        .join("");
-
-      // Build a complete HTML document with the inner HTML of the contentRef
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Exportar PDF</title>
-            ${styles}
-          </head>
-          <body>
-            ${contentRef.current.innerHTML}
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-
-      // Use a timeout to ensure the window has rendered before printing
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-        setExporting(false);
-      }, 500);
-    } else {
-      setExporting(false);
-    }
-  }, []);
+  const exportToPDF = () => {
+    window.print();
+  };
+  
+  
 
   const calculateTotals = useCallback((tires: Tire[]) => {
     let total = 0;

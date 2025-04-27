@@ -1,6 +1,21 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@media print {
+  /* force exact color reproduction */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* hide UI bits you don’t want in the PDF */
+  .no-print { display: none !important; }
+
+  /* make your dashboard fill the page */
+  body, html { margin: 0; padding: 0; }
+}
+
+
 @custom-variant dark (&:is(.dark *));
 @tailwind base;
 @tailwind components;

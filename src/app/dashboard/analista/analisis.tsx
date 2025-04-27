@@ -83,7 +83,7 @@ const AnalisisPage: React.FC = () => {
       <div className="container mx-auto px-6 py-8">
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <h2 className="text-3xl font-bold mb-6 text-[#0A183A] border-b-2 border-[#1E76B6]/20 pb-3">
-            Análisis de Llantas por Placa
+            Análisis de Llantas por Placa 
           </h2>
 
           {/* Search Form */}

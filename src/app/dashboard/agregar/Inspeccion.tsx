@@ -86,7 +86,7 @@ export default function InspeccionPage() {
           : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
       );
       if (!tiresRes.ok) {
-        throw new Error("Error al obtener los neumáticos");
+        throw new Error("Error al obtener las llantas");
       }
       const tiresData: Tire[] = await tiresRes.json();
       // Sort tires by posicion
@@ -167,7 +167,7 @@ export default function InspeccionPage() {
         const res = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/${tire.id}/inspection`
-            : `https://api.tirepro.com.co/api/tires/${tire.id}/inspection`,
+            : `http://api.tirepro.com/api/tires/${tire.id}/inspection`,
           {
             method: "PATCH",
             headers: { 
@@ -391,7 +391,7 @@ export default function InspeccionPage() {
 
         {vehicle && tires.length === 0 && !loading && (
           <div className="text-center bg-[#348CCB]/10 p-6 rounded-xl">
-            <p className="text-[#0A183A]">No se encontraron neumáticos para este vehículo.</p>
+            <p className="text-[#0A183A]">No se encontraron llantas para este vehículo.</p>
           </div>
         )}
       </div>

@@ -148,6 +148,21 @@ const BuscarPage: React.FC = () => {
     setShowModal(false);
   };
 
+  const getProjectedKilometraje = (tire: Tire): string => {
+    if (!tire.inspecciones || tire.inspecciones.length === 0) return "N/A";
+    const latest = tire.inspecciones[tire.inspecciones.length - 1];
+    const minProf = Math.min(
+      latest.profundidadInt,
+      latest.profundidadCen,
+      latest.profundidadExt
+    );
+    const initial = tire.profundidadInicial;
+    const usedDepth = initial - minProf;
+    if (usedDepth <= 0) return "∞";
+    const projected = (tire.kilometrosRecorridos / usedDepth) * initial;
+    return Math.round(projected).toLocaleString();
+  };
+
   // Calculate average tread depth from the latest inspection
   const calculateAvgTreadDepth = (tire: Tire) => {
     if (!tire.inspecciones || tire.inspecciones.length === 0) return "N/A";
@@ -465,6 +480,13 @@ const BuscarPage: React.FC = () => {
                         <p className="text-sm font-medium text-gray-500">Estado Actual:</p>
                         <p className="font-medium">{getCurrentVidaStatus(selectedTire)}</p>
                       </div>
+                      <div>
+  <p className="text-sm font-medium text-gray-500">Kilometraje proyectado:</p>
+  <p className="font-medium">
+    {getProjectedKilometraje(selectedTire)} km
+  </p>
+</div>
+
                       {selectedTire.costo && selectedTire.costo.length > 0 && (
                         <div>
                           <p className="text-sm font-medium text-gray-500">Último Costo:</p>

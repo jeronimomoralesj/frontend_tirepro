@@ -97,6 +97,10 @@ export default function FlotaPage() {
   // For tracking expired inspections
   const [inspeccionVencida, setInspeccionVencida] = useState(0);
 
+  const [exporting, setExporting] = useState(false);
+  const exportToPDF = () => {
+    window.print();
+  };
   // Refs for dropdown components
   const dropdownRefs = useRef({
     marca: useRef<HTMLDivElement>(null),
@@ -568,16 +572,17 @@ export default function FlotaPage() {
             
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex gap-2">
-                <button 
+                <button
                   className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
+                  onClick={exportToPDF}
+                  disabled={exporting}
                 >
                   <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Exportar</span>
+                  <span className="hidden sm:inline">
+                    {exporting ? "Exportando..." : "Exportar"}
+                  </span>
                 </button>
-
-                <button 
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
-                >
+                <button className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
                   <Bell className="h-4 w-4" />
                 </button>
               </div>

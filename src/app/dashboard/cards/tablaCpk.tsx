@@ -114,7 +114,7 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
           <table className="min-w-full table-auto">
             <thead className="bg-gray-100 sticky top-0">
               <tr className="text-left text-sm font-semibold text-gray-600">
-                <th className="py-3 px-4">Placa</th>
+                <th className="py-3 px-4">Id</th>
                 <th className="py-3 px-4">CPK</th>
                 <th className="py-3 px-4">CPK Proy</th>
                 <th className="py-3 px-4">Vida</th>

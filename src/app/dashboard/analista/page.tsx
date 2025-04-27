@@ -41,6 +41,7 @@ const IntegratedAnalysisPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showCriticalTires, setShowCriticalTires] = useState(false);
   const router = useRouter();
+  
 
   // Analysis search states
   const [placa, setPlaca] = useState("");
@@ -93,6 +94,7 @@ const IntegratedAnalysisPage: React.FC = () => {
 
     fetchTires();
   }, [router]);
+
 
   // Filter tires that require immediate change (last inspection has any depth ≤ 2)
   const immediateTires = useMemo(() => {
