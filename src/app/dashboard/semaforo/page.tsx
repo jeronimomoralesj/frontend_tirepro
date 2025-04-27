@@ -403,7 +403,7 @@ export default function SemaforoPage() {
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    Exportar
+                    exportar
                   </span>
                 </button>
                 <button className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2">

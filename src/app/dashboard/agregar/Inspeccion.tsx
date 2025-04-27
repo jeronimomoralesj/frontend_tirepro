@@ -134,87 +134,93 @@ export default function InspeccionPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+  
     try {
-      // Validate inputs before submission
+      // 1) Basic numeric validation
       const invalidTires = tires.filter(tire => {
-        const update = tireUpdates[tire.id];
+        const upd = tireUpdates[tire.id];
         return (
-          isNaN(update.profundidadInt) || 
-          isNaN(update.profundidadCen) || 
-          isNaN(update.profundidadExt)
+          isNaN(upd.profundidadInt) ||
+          isNaN(upd.profundidadCen) ||
+          isNaN(upd.profundidadExt)
         );
       });
-  
       if (invalidTires.length > 0) {
         throw new Error("Por favor ingrese valores numéricos válidos para todas las profundidades");
       }
   
-      // Loop over tires and send updates
-      const updatePromises = tires.map(async (tire) => {
-        const updateData = tireUpdates[tire.id];
-        
-        // Prepare the payload to match the UpdateInspectionDto
+      // 2) Count zero‐value depth fields
+      let zeroCount = 0;
+      tires.forEach(tire => {
+        const upd = tireUpdates[tire.id];
+        if (upd.profundidadInt === 0) zeroCount++;
+        if (upd.profundidadCen === 0) zeroCount++;
+        if (upd.profundidadExt === 0) zeroCount++;
+      });
+      if (zeroCount > 0) {
+        const proceed = window.confirm(
+          `Se encontraron ${zeroCount} campo${zeroCount > 1 ? "s" : ""} con valor 0. ¿Desea continuar?`
+        );
+        if (!proceed) {
+          setLoading(false);
+          return;  // abort submission to let the user edit
+        }
+      }
+  
+      // 3) Send updates
+      const updatePromises = tires.map(async tire => {
+        const upd = tireUpdates[tire.id];
         const payload = {
-          profundidadInt: Number(updateData.profundidadInt),
-          profundidadCen: Number(updateData.profundidadCen),
-          profundidadExt: Number(updateData.profundidadExt),
+          profundidadInt: Number(upd.profundidadInt),
+          profundidadCen: Number(upd.profundidadCen),
+          profundidadExt: Number(upd.profundidadExt),
           newKilometraje: Number(newKilometraje),
-          imageUrl: updateData.image 
-            ? await convertFileToBase64(updateData.image) 
-            : ""
+          imageUrl: upd.image ? await convertFileToBase64(upd.image) : ""
         };
   
         const res = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/${tire.id}/inspection`
-            : `http://api.tirepro.com/api/tires/${tire.id}/inspection`,
+            : `https://api.tirepro.com.co/api/tires/${tire.id}/inspection`,
           {
             method: "PATCH",
-            headers: { 
+            headers: {
               "Content-Type": "application/json",
-              "Accept": "application/json"
+              Accept: "application/json",
             },
             body: JSON.stringify(payload),
           }
         );
-        
         if (!res.ok) {
-          const errorBody = await res.text();
-          throw new Error(`Error al actualizar el neumático ${tire.id}: ${errorBody}`);
+          const text = await res.text();
+          throw new Error(`Error al actualizar el neumático ${tire.id}: ${text}`);
         }
-        return await res.json();
+        return res.json();
       });
-      
+  
       await Promise.all(updatePromises);
       alert("Inspecciones actualizadas exitosamente");
-
-      // Clear inspection fields after successful update.
-      if (tires.length > 0) {
-        const initialUpdates: { [id: string]: { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null } } = {};
-        tires.forEach((tire) => {
-          initialUpdates[tire.id] = {
-            profundidadInt: 0,
-            profundidadCen: 0,
-            profundidadExt: 0,
-            image: null,
-          };
-        });
-        setTireUpdates(initialUpdates);
-      }
-      // Optionally, reset the kilometraje field (or update it to the new value from vehicle)
+  
+      // 4) Reset fields
+      const initial = tires.reduce((acc, t) => {
+        acc[t.id] = { profundidadInt: 0, profundidadCen: 0, profundidadExt: 0, image: null };
+        return acc;
+      }, {} as typeof tireUpdates);
+      setTireUpdates(initial);
       setNewKilometraje(0);
+  
     } catch (err) {
       if (err instanceof Error) {
-        console.error("Full error:", err);
+        console.error(err);
         setError(err.message);
       } else {
         setError("Error desconocido");
       }
-    }
-    finally {
+    } finally {
       setLoading(false);
     }
   }
+  
 
   return (
     <div className="min-h-screen bg-white text-[#0A183A] font-sans">
