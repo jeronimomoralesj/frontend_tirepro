@@ -97,7 +97,6 @@ export default function FlotaPage() {
   // For tracking expired inspections
   const [inspeccionVencida, setInspeccionVencida] = useState(0);
 
-  const [exporting, setExporting] = useState(false);
   const exportToPDF = () => {
     window.print();
   };
@@ -575,11 +574,10 @@ export default function FlotaPage() {
                 <button
                   className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
                   onClick={exportToPDF}
-                  disabled={exporting}
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {exporting ? "Exportando..." : "Exportar"}
+                    Exportar
                   </span>
                 </button>
                 <button className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2">

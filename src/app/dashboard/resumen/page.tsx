@@ -17,8 +17,6 @@ import PromedioEje from "../cards/promedioEje";
 import ReencaucheHistorico from "../cards/reencaucheHistorico";
 import TanqueMilimetro from "../cards/tanqueMilimetro";
 import HistoricChart from "../cards/historicChart";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 export type CostEntry = {
   valor: number;
