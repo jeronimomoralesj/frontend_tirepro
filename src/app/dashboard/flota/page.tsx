@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -5,14 +6,13 @@ import { useRouter } from "next/navigation";
 import { 
   Calendar,
   Download,
-  Bell,
   Layers, 
-  Clock, 
   Truck,
   Filter,
   ChevronDown,
   PieChart,
-  TrendingUpIcon
+  TrendingUpIcon,
+  AlertCircle
 } from "lucide-react";
 import PorMarca from "../cards/porMarca";
 import TipoVehiculo from "../cards/tipoVehiculo";
@@ -66,7 +66,7 @@ export default function FlotaPage() {
   const [loading, setLoading] = useState(false);
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
-
+  const [inspeccionVencida, setInspeccionVencida] = useState(0);
 
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
@@ -94,9 +94,6 @@ export default function FlotaPage() {
 
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  
-  // For tracking expired inspections
-  const [inspeccionVencida, setInspeccionVencida] = useState(0);
 
   const exportToPDF = () => {
     window.print();
@@ -606,8 +603,6 @@ export default function FlotaPage() {
               <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>Llantas</p>
             </div>
           </div>
-
-
 
           {/* CPK Promedio Card */}
           <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">

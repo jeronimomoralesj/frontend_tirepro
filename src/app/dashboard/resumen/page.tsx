@@ -6,7 +6,6 @@ import {
   DollarSign,
   Calendar,
   Download,
-  Bell,
   Filter,
   ChevronDown,
   PieChart,

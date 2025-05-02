@@ -11,6 +11,8 @@ import {
   Title,
   Tooltip,
   Legend,
+  TooltipItem,
+  ChartData,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle } from "lucide-react";
@@ -45,10 +47,10 @@ interface HistoricChartProps {
   tires: Tire[];
 }
 
+type VariableType = "cpk" | "cpkProyectado" | "profundidadInt" | "profundidadCen" | "profundidadExt";
+
 const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
-  const [selectedVariable, setSelectedVariable] = useState<
-    "cpk" | "cpkProyectado" | "profundidadInt" | "profundidadCen" | "profundidadExt"
-  >("cpk");
+  const [selectedVariable, setSelectedVariable] = useState<VariableType>("cpk");
 
   // 1️⃣ Build the last 60 calendar days labels
   const days = useMemo(() => {
@@ -81,10 +83,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
           const lastOfDay = todayInsps.reduce((p, c) =>
             new Date(c.fecha) > new Date(p.fecha) ? c : p
           );
-          lastVal =
-            selectedVariable === "cpk"
-              ? lastOfDay.cpk!
-              : lastOfDay.cpkProyectado!;
+          lastVal = lastOfDay[selectedVariable] as number;
         }
         if (lastVal !== undefined) {
           dateMap[day] = lastVal;
@@ -154,8 +153,8 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         cornerRadius: 8,
         displayColors: false,
         callbacks: {
-          title: (t: any[]) => `Fecha: ${t[0].label}`,
-          label: (tt: any) => `${selectedVariable}: ${tt.raw.toFixed(2)}`,
+          title: (tooltipItems: TooltipItem<"line">[]) => `Fecha: ${tooltipItems[0].label}`,
+          label: (tooltipItem: TooltipItem<"line">) => `${selectedVariable}: ${tooltipItem.raw.toFixed(2)}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,
@@ -195,12 +194,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
           value={selectedVariable}
           onChange={(e) =>
             setSelectedVariable(
-              e.target.value as
-                | "cpk"
-                | "cpkProyectado"
-                | "profundidadInt"
-                | "profundidadCen"
-                | "profundidadExt"
+              e.target.value as VariableType
             )
           }
           className="bg-white/10 text-white rounded p-2 text-sm"
