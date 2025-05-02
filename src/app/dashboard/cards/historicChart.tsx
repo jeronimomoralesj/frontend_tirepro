@@ -49,15 +49,27 @@ interface HistoricChartProps {
 type VariableType = "cpk" | "cpkProyectado" | "profundidadInt" | "profundidadCen" | "profundidadExt";
 
 // Google Analytics tracking function
-const trackEvent = (eventName: string, eventParams: Record<string, any>) => {
+const trackEvent = (eventName: string, eventParams: Record<string, unknown>) => {
   if (typeof window !== 'undefined' && 'gtag' in window) {
-    // @ts-ignore - gtag may not be recognized by TypeScript
+    // @ts-expect-error - gtag may not be recognized by TypeScript
     window.gtag('event', eventName, eventParams);
   }
 };
 
 const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
   const [selectedVariable, setSelectedVariable] = useState<VariableType>("cpk");
+
+  // Display name for the selected variable
+  const variableDisplayName = useMemo(() => {
+    switch(selectedVariable) {
+      case "cpk": return "CPK";
+      case "cpkProyectado": return "CPK Proyectado";
+      case "profundidadInt": return "Profundidad Interior";
+      case "profundidadCen": return "Profundidad Central";
+      case "profundidadExt": return "Profundidad Exterior";
+      default: return selectedVariable;
+    }
+  }, [selectedVariable]);
 
   // 1️⃣ Build the last 60 calendar days labels
   const days = useMemo(() => {
@@ -129,7 +141,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
       labels: days,
       datasets: [
         {
-          label: selectedVariable,
+          label: variableDisplayName,
           data,
           borderColor: "#1E76B6",
           backgroundColor: "rgba(30,118,182,0.2)",
@@ -142,7 +154,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         },
       ],
     };
-  }, [days, tireMaps, selectedVariable]);
+  }, [days, tireMaps, selectedVariable, variableDisplayName]);
 
   // Track chart interactions
   const handleChartClick = useCallback(() => {
@@ -196,7 +208,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         displayColors: false,
         callbacks: {
           title: (tooltipItems: TooltipItem<"line">[]) => `Fecha: ${tooltipItems[0].label}`,
-          label: (tooltipItem: TooltipItem<"line">) => `${selectedVariable}: ${tooltipItem.raw.toFixed(2)}`,
+          label: (tooltipItem: TooltipItem<"line">) => `${variableDisplayName}: ${tooltipItem.raw.toFixed(2)}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,
@@ -222,17 +234,6 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         border: { display: false },
       },
     },
-  };
-
-  const getVariableDisplayName = (variable: VariableType): string => {
-    switch(variable) {
-      case "cpk": return "CPK";
-      case "cpkProyectado": return "CPK Proyectado";
-      case "profundidadInt": return "Profundidad Interior";
-      case "profundidadCen": return "Profundidad Central";
-      case "profundidadExt": return "Profundidad Exterior";
-      default: return variable;
-    }
   };
 
   return (

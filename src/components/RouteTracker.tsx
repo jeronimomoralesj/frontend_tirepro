@@ -7,8 +7,12 @@ const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!;
 
 declare global {
   interface Window {
-    dataLayer: any[];
-    gtag?: (...args: any[]) => void;
+    dataLayer: unknown[]; // Changed from any[] to unknown[]
+    gtag?: (
+      command: string,
+      targetId: string,
+      parameters?: Record<string, string>
+    ) => void; // Replaced any[] with specific parameter types
   }
 }
 
