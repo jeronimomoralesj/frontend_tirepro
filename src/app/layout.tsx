@@ -1,9 +1,12 @@
+// (no "use client" here – this is a Server Component)
+
 import React from "react";
 import Script from "next/script";
 import { AuthProvider } from "./context/AuthProvider";
 import "./globals.css";
 import type { Metadata } from "next";
 import RouteTracker from "../components/RouteTracker";
+import CookieConsentBanner from "../components/CookieConsentBanner"; // client component
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!;
 
@@ -21,9 +24,7 @@ export const metadata: Metadata = {
     "análisis de datos",
     "TirePro",
   ],
-  icons: {
-    icon: "/favicon.ico",
-  },
+  icons: { icon: "/favicon.ico" },
   openGraph: {
     title: "TirePro – Gestión Inteligente de Neumáticos para Flotas",
     description:
@@ -52,23 +53,31 @@ export default function RootLayout({
   return (
     <AuthProvider>
       <html lang="es">
-        {/* 1) Load GA library */}
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-          strategy="afterInteractive"
-        />
-        {/* 2) Initialize GA (disable automatic page_view) */}
-        <Script id="gtag-init" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){ dataLayer.push(arguments); }
-            gtag('js', new Date());
-            gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
-          `}
-        </Script>
+        <head>
+          {/* 1) Load GA */}
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+            strategy="afterInteractive"
+          />
+          {/* 2) Init GA with default-deny */}
+          <Script id="gtag-init" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){ dataLayer.push(arguments); }
+              gtag('js', new Date());
+              // start with no storage until consent
+              gtag('consent', 'default', {
+                'analytics_storage': 'denied',
+                'ad_storage': 'denied'
+              });
+            `}
+          </Script>
+        </head>
         <body>
-          {/* 3) Fire a page_view on every client-side route change */}
+          {/* 3) SPA route tracking */}
           <RouteTracker />
+          {/* 4) Cookie consent banner */}
+          <CookieConsentBanner />
           {children}
         </body>
       </html>
