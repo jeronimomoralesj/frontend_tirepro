@@ -12,23 +12,17 @@ declare global {
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!;
 
 export default function CookieConsentBanner() {
-  const [consentStatus, setConsentStatus] = useState<"pending" | "accepted" | "declined">("pending");
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     // Check if the user has already made a choice
     const cookieValue = getCookie("tirepro_consent");
-    if (cookieValue === "true") {
-      setConsentStatus("accepted");
-      setIsVisible(false);
-    } else if (cookieValue === "false") {
-      setConsentStatus("declined");
+    if (cookieValue === "true" || cookieValue === "false") {
       setIsVisible(false);
     }
   }, []);
 
   const handleAccept = () => {
-    setConsentStatus("accepted");
     setCookie("tirepro_consent", "true", 365);
     window.gtag?.("consent", "update", { analytics_storage: "granted" });
     window.gtag?.("config", GA_MEASUREMENT_ID, {
@@ -38,7 +32,6 @@ export default function CookieConsentBanner() {
   };
 
   const handleDecline = () => {
-    setConsentStatus("declined");
     setCookie("tirepro_consent", "false", 365);
     window.gtag?.("consent", "update", { analytics_storage: "denied" });
     setIsVisible(false);
