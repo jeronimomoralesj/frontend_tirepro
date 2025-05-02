@@ -12,7 +12,6 @@ import {
   ChevronDown,
   PieChart,
   TrendingUpIcon,
-  AlertCircle
 } from "lucide-react";
 import PorMarca from "../cards/porMarca";
 import TipoVehiculo from "../cards/tipoVehiculo";
@@ -66,7 +65,6 @@ export default function FlotaPage() {
   const [loading, setLoading] = useState(false);
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
-  const [inspeccionVencida, setInspeccionVencida] = useState(0);
 
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
@@ -483,8 +481,7 @@ export default function FlotaPage() {
         }
       }
     });
-    
-    setInspeccionVencida(expiredCount);
+
   }
 
   // Toggle dropdown visibility

@@ -12,7 +12,6 @@ import {
   Tooltip,
   Legend,
   TooltipItem,
-  ChartData,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle } from "lucide-react";
