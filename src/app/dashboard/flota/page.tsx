@@ -145,7 +145,6 @@ export default function FlotaPage() {
       setTires(activeTires);
       calculateTotals(activeTires);
       calculateCpkAverages(activeTires);
-      calculateExpiredInspections(activeTires);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unexpected error";
       setError(errorMessage);
@@ -371,7 +370,6 @@ export default function FlotaPage() {
     // Update metrics based on filtered data
     calculateTotals(tempTires);
     calculateCpkAverages(tempTires);
-    calculateExpiredInspections(tempTires);
   }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, tires, vehicles]);
 
   // Apply filters whenever filter selections change
@@ -461,27 +459,6 @@ export default function FlotaPage() {
       setCpkPromedio(0);
       setCpkProyectado(0);
     }
-  }
-
-  function calculateExpiredInspections(tires: Tire[]) {
-    const currentDate = new Date();
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(currentDate.getMonth() - 3);
-    
-    let expiredCount = 0;
-    
-    tires.forEach(tire => {
-      if (tire.inspecciones && tire.inspecciones.length > 0) {
-        const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-        if (typeof lastInspection.fecha === 'string') {
-          const inspectionDate = new Date(lastInspection.fecha);
-          if (inspectionDate < threeMonthsAgo) {
-            expiredCount++;
-          }
-        }
-      }
-    });
-
   }
 
   // Toggle dropdown visibility
