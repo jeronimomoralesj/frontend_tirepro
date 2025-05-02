@@ -5,30 +5,30 @@ import { Cookie, Check, X, Info } from "lucide-react";
 
 declare global {
   interface Window {
-    gtag?: (...args: any[]) => void;
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!;
 
 export default function CookieConsentBanner() {
-  const [consent, setConsent] = useState<"pending" | "accepted" | "declined">("pending");
+  const [consentStatus, setConsentStatus] = useState<"pending" | "accepted" | "declined">("pending");
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     // Check if the user has already made a choice
     const cookieValue = getCookie("tirepro_consent");
     if (cookieValue === "true") {
-      setConsent("accepted");
+      setConsentStatus("accepted");
       setIsVisible(false);
     } else if (cookieValue === "false") {
-      setConsent("declined");
+      setConsentStatus("declined");
       setIsVisible(false);
     }
   }, []);
 
   const handleAccept = () => {
-    setConsent("accepted");
+    setConsentStatus("accepted");
     setCookie("tirepro_consent", "true", 365);
     window.gtag?.("consent", "update", { analytics_storage: "granted" });
     window.gtag?.("config", GA_MEASUREMENT_ID, {
@@ -38,7 +38,7 @@ export default function CookieConsentBanner() {
   };
 
   const handleDecline = () => {
-    setConsent("declined");
+    setConsentStatus("declined");
     setCookie("tirepro_consent", "false", 365);
     window.gtag?.("consent", "update", { analytics_storage: "denied" });
     setIsVisible(false);
