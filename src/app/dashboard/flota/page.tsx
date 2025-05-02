@@ -20,6 +20,7 @@ import PorVida from "../cards/porVida";
 import PromedioEje from "../cards/promedioEje";
 import InspeccionVencidaPage from "../cards/inspeccionVencida";
 import TablaCpk from "../cards/tablaCpk";
+import Notificaciones from "../cards/Notificaciones";
 
 export type CostEntry = {
   valor: number;
@@ -580,16 +581,14 @@ export default function FlotaPage() {
                     Exportar
                   </span>
                 </button>
-                <button className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
-                  <Bell className="h-4 w-4" />
-                </button>
+                <Notificaciones />
               </div>
             </div>
           </div>
         </div>
 
         {/* Main Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Vehículos Card */}
           <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
             <Truck className="w-5 h-5 text-white" />
@@ -608,14 +607,7 @@ export default function FlotaPage() {
             </div>
           </div>
 
-          {/* Inspección Vencida Card */}
-          <div className="flex items-center space-x-2 bg-[#1E76B6] p-4 rounded-xl shadow-2xl">
-            <Clock className="w-5 h-5 text-white" />
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">{inspeccionVencida}</p>
-              <p className="text-sm uppercase tracking-wider text-white">Inspección Vencida</p>
-            </div>
-          </div>
+
 
           {/* CPK Promedio Card */}
           <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">

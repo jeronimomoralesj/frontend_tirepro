@@ -17,6 +17,7 @@ import PromedioEje from "../cards/promedioEje";
 import ReencaucheHistorico from "../cards/reencaucheHistorico";
 import TanqueMilimetro from "../cards/tanqueMilimetro";
 import HistoricChart from "../cards/historicChart";
+import Notificaciones from "../cards/Notificaciones";
 
 export type CostEntry = {
   valor: number;
@@ -372,9 +373,7 @@ export default function ResumenPage() {
                   Exportar
                   </span>
                 </button>
-                <button className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
-                  <Bell className="h-4 w-4" />
-                </button>
+                <Notificaciones />
               </div>
             </div>
           </div>

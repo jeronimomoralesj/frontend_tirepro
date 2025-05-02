@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle } from "lucide-react";
+import { eachDayOfInterval, format } from "date-fns";
 
 ChartJS.register(
   CategoryScale,
@@ -26,7 +27,6 @@ ChartJS.register(
   ChartDataLabels
 );
 
-// Types for inspection and tire data.
 export type Inspection = {
   profundidadInt: number;
   profundidadCen: number;
@@ -50,84 +50,93 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
     "cpk" | "cpkProyectado" | "profundidadInt" | "profundidadCen" | "profundidadExt"
   >("cpk");
 
-  // Combine all inspections from all tires and sort by date (ascending).
-  const allInspections = useMemo(() => {
-    const grouped: { [key: string]: Inspection } = {}; // key = `${tire.id}-${YYYY-MM-DD}`
-  
+  // 1️⃣ Build the last 60 calendar days labels
+  const days = useMemo(() => {
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(start.getDate() - 59);
+    return eachDayOfInterval({ start, end: today }).map((d) =>
+      format(d, "yyyy-MM-dd")
+    );
+  }, []);
+
+  // 2️⃣ For each tire, create a map day→last-known value
+  const tireMaps = useMemo(() => {
+    const maps: Record<string, Record<string, number>> = {};
     tires.forEach((tire) => {
-      if (!tire.inspecciones || tire.inspecciones.length === 0) return;
-  
-      tire.inspecciones.forEach((insp) => {
-        const dayKey = new Date(insp.fecha).toISOString().slice(0, 10);
-        const uniqueKey = `${tire.id}-${dayKey}`;
-        if (
-          !grouped[uniqueKey] ||
-          new Date(insp.fecha).getTime() > new Date(grouped[uniqueKey].fecha).getTime()
-        ) {
-          grouped[uniqueKey] = insp;
+      const insps = (tire.inspecciones || [])
+        .filter((i) => typeof i[selectedVariable] === "number")
+        .sort(
+          (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+        );
+
+      let lastVal: number | undefined;
+      const dateMap: Record<string, number> = {};
+
+      days.forEach((day) => {
+        const todayInsps = insps.filter(
+          (i) => format(new Date(i.fecha), "yyyy-MM-dd") === day
+        );
+        if (todayInsps.length) {
+          const lastOfDay = todayInsps.reduce((p, c) =>
+            new Date(c.fecha) > new Date(p.fecha) ? c : p
+          );
+          lastVal =
+            selectedVariable === "cpk"
+              ? lastOfDay.cpk!
+              : lastOfDay.cpkProyectado!;
+        }
+        if (lastVal !== undefined) {
+          dateMap[day] = lastVal;
         }
       });
-    });
-  
-    const sorted = Object.values(grouped).sort(
-      (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-    );
-  
-    return sorted;
-  }, [tires]);
-  
 
-  // Group inspections by day (YYYY-MM-DD) and average the selected variable.
+      maps[tire.id] = dateMap;
+    });
+    return maps;
+  }, [tires, days, selectedVariable]);
+
+  // 3️⃣ Build chart data by averaging across tires per day
   const chartData = useMemo(() => {
-    const groups: { [day: string]: { sum: number; count: number } } = {};
-
-    allInspections.forEach((insp) => {
-      const dayKey = new Date(insp.fecha).toISOString().slice(0, 10);
-      let value: number | undefined = undefined;
-      if (selectedVariable === "cpk") {
-        value = insp.cpk;
-      } else if (selectedVariable === "cpkProyectado") {
-        value = insp.cpkProyectado;
-      } else if (selectedVariable === "profundidadInt") {
-        value = insp.profundidadInt;
-      } else if (selectedVariable === "profundidadCen") {
-        value = insp.profundidadCen;
-      } else if (selectedVariable === "profundidadExt") {
-        value = insp.profundidadExt;
-      }
-      if (value !== undefined && !isNaN(value)) {
-        if (!groups[dayKey]) {
-          groups[dayKey] = { sum: 0, count: 0 };
+    const data = days.map((day) => {
+      let sum = 0;
+      let cnt = 0;
+      Object.values(tireMaps).forEach((dm) => {
+        const v = dm[day];
+        if (v !== undefined) {
+          sum += v;
+          cnt++;
         }
-        groups[dayKey].sum += value;
-        groups[dayKey].count += 1;
-      }
+      });
+      return cnt > 0 ? parseFloat((sum / cnt).toFixed(2)) : 0;
     });
 
-    const sortedDays = Object.keys(groups).sort();
-    // Only take the last 60 days.
-    const last60Days = sortedDays.slice(-60);
-    const labels = last60Days;
-    const data = last60Days.map((day) => {
-      const avg = groups[day].sum / groups[day].count;
-      return parseFloat(avg.toFixed(2));
+    // Only show 3 visible point markers: first, middle, last
+    const pointRadius = data.map((_, idx) => {
+      if (idx === 0 || idx === Math.floor(days.length / 2) || idx === days.length - 1) {
+        return 5;
+      }
+      return 0;
     });
 
     return {
-      labels,
+      labels: days,
       datasets: [
         {
           label: selectedVariable,
           data,
           borderColor: "#1E76B6",
-          backgroundColor: "rgba(30, 118, 182, 0.2)", // Fill color for area under the line
+          backgroundColor: "rgba(30,118,182,0.2)",
           fill: true,
           tension: 0.4,
+          cubicInterpolationMode: "monotone",
+          pointRadius,
           pointBackgroundColor: "#1E76B6",
+          pointHoverRadius: 7,
         },
       ],
     };
-  }, [allInspections, selectedVariable]);
+  }, [days, tireMaps, selectedVariable]);
 
   const options = {
     responsive: true,
@@ -145,81 +154,54 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         cornerRadius: 8,
         displayColors: false,
         callbacks: {
-          title: (tooltipItems: { label: string }[]) => `Fecha: ${tooltipItems[0].label}`,
-          label: (tooltipItem: { raw: number }) =>          
-            `${selectedVariable}: ${tooltipItem.raw.toFixed(2)}`,
+          title: (t: any[]) => `Fecha: ${t[0].label}`,
+          label: (tt: any) => `${selectedVariable}: ${tt.raw.toFixed(2)}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,
       },
       datalabels: {
-        color: "#475569",
-        anchor: "end",
-        align: "top",
-        offset: 0,
-        font: { family: "'Inter', sans-serif", size: 11, weight: "500" },
-        formatter: (value: number) => `${value}`,
-        padding: { top: 4 },
+        display: false,
       },
     },
     scales: {
       x: {
-        ticks: {
-          color: "#64748b",
-          font: { family: "'Inter', sans-serif", size: 12, weight: "500" },
-        },
+        ticks: { color: "#64748b" },
         grid: { display: false },
         border: { display: false },
       },
       y: {
         beginAtZero: true,
-        ticks: {
-          color: "#94a3b8",
-          font: { family: "'Inter', sans-serif", size: 11 },
-          padding: 8,
+        ticks: { color: "#94a3b8", padding: 8 },
+        grid: {
+          color: "rgba(226, 232, 240, 0.6)",
+          drawBorder: false,
+          lineWidth: 1,
         },
-        grid: { color: "rgba(226, 232, 240, 0.6)", drawBorder: false, lineWidth: 1 },
         border: { display: false },
       },
-    },
-    onClick: () => {
-      // Optionally add an onClick handler if needed.
     },
   };
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      {/* Header */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <div className="flex items-center">
-        <div className="group relative cursor-pointer">
-    <HelpCircle
-      className="text-white hover:text-gray-200 transition-colors"
-      size={24}
-    />
-    <div className="
-      absolute z-10 -top-2 left-full 
-      bg-[#0A183A] text-white 
-      text-xs p-3 rounded-lg 
-      opacity-0 group-hover:opacity-100 
-      transition-opacity duration-300 
-      w-64 pointer-events-none
-    ">
-      <p>
-        Este gráfico muestra los datos promedios historicos de tus llantas agrupados por día.
-      </p>
-    </div>
-  </div>
+        <div className="flex items-center gap-2">
+          <HelpCircle size={24} className="text-white" />
           <h2 className="text-xl font-bold">Histórico de Inspecciones</h2>
         </div>
         <select
           value={selectedVariable}
           onChange={(e) =>
-            setSelectedVariable(e.target.value as
-              | "cpk"
-              | "cpkProyectado"
-              | "profundidadInt"
-              | "profundidadCen"
-              | "profundidadExt")
+            setSelectedVariable(
+              e.target.value as
+                | "cpk"
+                | "cpkProyectado"
+                | "profundidadInt"
+                | "profundidadCen"
+                | "profundidadExt"
+            )
           }
           className="bg-white/10 text-white rounded p-2 text-sm"
         >
@@ -240,15 +222,21 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
           </option>
         </select>
       </div>
+
+      {/* Chart */}
       <div className="p-6">
         <div className="h-64 mb-4">
           <Line data={chartData} options={options} />
         </div>
+
+        {/* Footer */}
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
           <div className="text-xs text-gray-500">
-            Total de Inspecciones: {allInspections.length}
+            Total de Días: {days.length}
           </div>
-          <div className="text-xs text-gray-500">Últimas 60 entradas</div>
+          <div className="text-xs text-gray-500">
+            Últimas {days.length} entradas
+          </div>
         </div>
       </div>
     </div>

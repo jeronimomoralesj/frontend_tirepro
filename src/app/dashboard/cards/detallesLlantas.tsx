@@ -33,7 +33,7 @@ export type Tire = {
   inspecciones: Inspection[];
   primeraVida: unknown[];
   eventos: { valor: string; fecha: string }[];
-  vehicleId?: string; 
+  vehicleId?: string;
   vehicle?: { placa: string };
 };
 
@@ -72,17 +72,16 @@ const DetallesLlantasPage: React.FC = () => {
       const vehicles: Vehicle[] = await vehiclesRes.json();
 
       const tiresWithVehicle = data
-  .filter(t => {
-    const lastVida = t.vida.length
-      ? t.vida[t.vida.length - 1].valor.toLowerCase()
-      : null;
-    return lastVida !== "fin";
-  })
-  .map(t => {
-    const vehicle = vehicles.find(v => v.id === t.vehicleId);
-    return { ...t, vehicle: vehicle ? { placa: vehicle.placa } : undefined };
-  });
-
+        .filter((t) => {
+          const lastVida = t.vida.length
+            ? t.vida[t.vida.length - 1].valor.toLowerCase()
+            : null;
+          return lastVida !== "fin";
+        })
+        .map((t) => {
+          const v = vehicles.find((v) => v.id === t.vehicleId);
+          return { ...t, vehicle: v ? { placa: v.placa } : undefined };
+        });
 
       setTires(tiresWithVehicle);
     } catch (err) {
@@ -97,7 +96,7 @@ const DetallesLlantasPage: React.FC = () => {
   }, []);
 
   const exportToExcel = () => {
-    const exportData = tires.map(t => {
+    const exportData = tires.map((t) => {
       const vida = t.vida.at(-1)?.valor || "-";
       const inspeccion = t.inspecciones.at(-1);
       const costo = t.costo.at(-1)?.valor || "-";
@@ -108,13 +107,20 @@ const DetallesLlantasPage: React.FC = () => {
         ? [inspeccion.profundidadInt, inspeccion.profundidadCen, inspeccion.profundidadExt]
         : [0, 0, 0];
       const minDepth = Math.min(...depths);
-      const desgastePct =
-  t.profundidadInicial > 0
-    ? minDepth <= 0
-      ? "100%"
-      : (1-((minDepth / t.profundidadInicial)) * 100).toFixed(2) + "%"
-    : "-";
 
+      // % desgaste
+      const desgastePct =
+        t.profundidadInicial > 0
+          ? minDepth <= 0
+            ? "100%"
+            : ((1 - minDepth / t.profundidadInicial) * 100).toFixed(2) + "%"
+          : "-";
+
+      // Km proyectados = kmRecorridos * (profInicial / minDepth)
+      const kmProyectados =
+        t.profundidadInicial > 0 && minDepth > 0
+          ? Math.round(t.kilometrosRecorridos * (t.profundidadInicial / minDepth))
+          : "-";
 
       return {
         "Placa Vehículo": t.vehicle?.placa || "-",
@@ -125,8 +131,11 @@ const DetallesLlantasPage: React.FC = () => {
         Eje: t.eje,
         Posición: t.posicion,
         "Km Recorridos": t.kilometrosRecorridos,
+        "Km Proyectados": kmProyectados,
         "Vida Actual": vida,
-        "Última Inspección": inspeccion ? new Date(inspeccion.fecha).toLocaleDateString() : "-",
+        "Última Inspección": inspeccion
+          ? new Date(inspeccion.fecha).toLocaleDateString()
+          : "-",
         CPK: inspeccion?.cpk ?? "-",
         "CPK Proy": inspeccion?.cpkProyectado ?? "-",
         "Profundidad Int": inspeccion?.profundidadInt ?? "-",
@@ -146,14 +155,15 @@ const DetallesLlantasPage: React.FC = () => {
   };
 
   const filteredTires = useMemo(() => {
-    const val = searchTerm.toLowerCase();
-    return tires.filter(t =>
-      t.placa.toLowerCase().includes(val) ||
-      t.marca.toLowerCase().includes(val) ||
-      t.diseno.toLowerCase().includes(val) ||
-      t.dimension.toLowerCase().includes(val) ||
-      t.eje.toLowerCase().includes(val) ||
-      (t.vehicle?.placa || "").toLowerCase().includes(val)
+    const v = searchTerm.toLowerCase();
+    return tires.filter(
+      (t) =>
+        t.placa.toLowerCase().includes(v) ||
+        t.marca.toLowerCase().includes(v) ||
+        t.diseno.toLowerCase().includes(v) ||
+        t.dimension.toLowerCase().includes(v) ||
+        t.eje.toLowerCase().includes(v) ||
+        (t.vehicle?.placa || "").toLowerCase().includes(v)
     );
   }, [tires, searchTerm]);
 
@@ -161,7 +171,10 @@ const DetallesLlantasPage: React.FC = () => {
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <h2 className="text-xl font-bold">Detalles de Todas las Llantas</h2>
-        <button onClick={exportToExcel} className="px-3 py-1.5 bg-[#1E76B6] text-white rounded hover:bg-[#0A183A] transition flex items-center text-sm">
+        <button
+          onClick={exportToExcel}
+          className="px-3 py-1.5 bg-[#1E76B6] text-white rounded hover:bg-[#0A183A] transition flex items-center text-sm"
+        >
           <Download className="mr-1.5" size={16} /> Exportar Excel
         </button>
       </div>
@@ -169,12 +182,12 @@ const DetallesLlantasPage: React.FC = () => {
       {!loading && !error && (
         <div className="p-4 border-b border-gray-200">
           <div className="relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
               placeholder="Buscar por placa, marca, diseño..."
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -184,7 +197,7 @@ const DetallesLlantasPage: React.FC = () => {
       <div className="p-6">
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#173D68]"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#173D68]" />
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-64 text-red-500 gap-2">
@@ -195,12 +208,12 @@ const DetallesLlantasPage: React.FC = () => {
           <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-2">
             {searchTerm ? (
               <>
-                <AlertTriangle size={32} className="text-yellow-500" />
+                <AlertTriangle className="text-yellow-500" size={32} />
                 <p>No se encontraron resultados para la búsqueda.</p>
               </>
             ) : (
               <>
-                <CheckCircle2 size={32} className="text-green-500" />
+                <CheckCircle2 className="text-green-500" size={32} />
                 <p>No hay llantas disponibles</p>
               </>
             )}
@@ -219,6 +232,7 @@ const DetallesLlantasPage: React.FC = () => {
                     <th className="px-4 py-2 text-left">Eje</th>
                     <th className="px-4 py-2 text-left">Posición</th>
                     <th className="px-4 py-2 text-left">Km Recorridos</th>
+                    <th className="px-4 py-2 text-left">Km Proyectados</th>
                     <th className="px-4 py-2 text-left">Vida</th>
                     <th className="px-4 py-2 text-left">Última Inspección</th>
                     <th className="px-4 py-2 text-left">CPK</th>
@@ -232,37 +246,47 @@ const DetallesLlantasPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredTires.map(tire => {
-                    const vida = tire.vida.at(-1)?.valor || "-";
-                    const inspeccion = tire.inspecciones.at(-1);
-                    const costo = tire.costo.at(-1)?.valor || "-";
-                    const evento = tire.eventos.at(-1)?.valor || "-";
+                  {filteredTires.map((t) => {
+                    const vida = t.vida.at(-1)?.valor || "-";
+                    const insp = t.inspecciones.at(-1);
+                    const costo = t.costo.at(-1)?.valor || "-";
+                    const evento = t.eventos.at(-1)?.valor || "-";
 
-                    const depths = inspeccion
-                      ? [inspeccion.profundidadInt, inspeccion.profundidadCen, inspeccion.profundidadExt]
+                    const depths = insp
+                      ? [insp.profundidadInt, insp.profundidadCen, insp.profundidadExt]
                       : [0, 0, 0];
                     const minDepth = Math.min(...depths);
-                    const desgastePct = tire.profundidadInicial > 0
-                      ? ((1-(minDepth / tire.profundidadInicial)) * 100).toFixed(2) + "%"
-                      : "-";
+
+                    const desgastePct =
+                      t.profundidadInicial > 0
+                        ? ((1 - minDepth / t.profundidadInicial) * 100).toFixed(2) + "%"
+                        : "-";
+
+                    const kmProyectados =
+                      t.profundidadInicial > 0 && minDepth > 0
+                        ? Math.round(t.kilometrosRecorridos * (t.profundidadInicial / minDepth))
+                        : "-";
 
                     return (
-                      <tr key={tire.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2">{tire.vehicle?.placa || "-"}</td>
-                        <td className="px-4 py-2">{tire.placa}</td>
-                        <td className="px-4 py-2">{tire.marca}</td>
-                        <td className="px-4 py-2">{tire.diseno}</td>
-                        <td className="px-4 py-2">{tire.dimension}</td>
-                        <td className="px-4 py-2">{tire.eje}</td>
-                        <td className="px-4 py-2">{tire.posicion}</td>
-                        <td className="px-4 py-2">{tire.kilometrosRecorridos}</td>
+                      <tr key={t.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2">{t.vehicle?.placa || "-"}</td>
+                        <td className="px-4 py-2">{t.placa}</td>
+                        <td className="px-4 py-2">{t.marca}</td>
+                        <td className="px-4 py-2">{t.diseno}</td>
+                        <td className="px-4 py-2">{t.dimension}</td>
+                        <td className="px-4 py-2">{t.eje}</td>
+                        <td className="px-4 py-2">{t.posicion}</td>
+                        <td className="px-4 py-2">{t.kilometrosRecorridos}</td>
+                        <td className="px-4 py-2">{kmProyectados}</td>
                         <td className="px-4 py-2">{vida}</td>
-                        <td className="px-4 py-2">{inspeccion ? new Date(inspeccion.fecha).toLocaleDateString() : "-"}</td>
-                        <td className="px-4 py-2">{inspeccion?.cpk ?? "-"}</td>
-                        <td className="px-4 py-2">{inspeccion?.cpkProyectado ?? "-"}</td>
-                        <td className="px-4 py-2">{inspeccion?.profundidadInt ?? "-"}</td>
-                        <td className="px-4 py-2">{inspeccion?.profundidadCen ?? "-"}</td>
-                        <td className="px-4 py-2">{inspeccion?.profundidadExt ?? "-"}</td>
+                        <td className="px-4 py-2">
+                          {insp ? new Date(insp.fecha).toLocaleDateString() : "-"}
+                        </td>
+                        <td className="px-4 py-2">{insp?.cpk ?? "-"}</td>
+                        <td className="px-4 py-2">{insp?.cpkProyectado ?? "-"}</td>
+                        <td className="px-4 py-2">{insp?.profundidadInt ?? "-"}</td>
+                        <td className="px-4 py-2">{insp?.profundidadCen ?? "-"}</td>
+                        <td className="px-4 py-2">{insp?.profundidadExt ?? "-"}</td>
                         <td className="px-4 py-2">{desgastePct}</td>
                         <td className="px-4 py-2">{costo}</td>
                         <td className="px-4 py-2">{evento}</td>
@@ -272,9 +296,10 @@ const DetallesLlantasPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
             <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
               <div className="text-xs text-gray-500 flex items-center">
-                <FileSpreadsheet size={14} className="mr-1.5" />
+                <FileSpreadsheet className="mr-1.5" size={14} />
                 {searchTerm
                   ? `Resultados: ${filteredTires.length} de ${tires.length} llantas`
                   : `Total de llantas: ${tires.length}`}
