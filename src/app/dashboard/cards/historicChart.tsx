@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -47,6 +47,14 @@ interface HistoricChartProps {
 }
 
 type VariableType = "cpk" | "cpkProyectado" | "profundidadInt" | "profundidadCen" | "profundidadExt";
+
+// Google Analytics tracking function
+const trackEvent = (eventName: string, eventParams: Record<string, any>) => {
+  if (typeof window !== 'undefined' && 'gtag' in window) {
+    // @ts-ignore - gtag may not be recognized by TypeScript
+    window.gtag('event', eventName, eventParams);
+  }
+};
 
 const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
   const [selectedVariable, setSelectedVariable] = useState<VariableType>("cpk");
@@ -136,9 +144,44 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
     };
   }, [days, tireMaps, selectedVariable]);
 
+  // Track chart interactions
+  const handleChartClick = useCallback(() => {
+    trackEvent('historicc_interaction', {
+      component: 'historic_chart',
+      chart_type: 'line',
+      variable: selectedVariable,
+    });
+  }, [selectedVariable]);
+
+  // Track variable selection
+  const handleVariableChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newVariable = e.target.value as VariableType;
+    
+    // Track the selection change
+    trackEvent('variable_historic', {
+      component: 'historic_chart',
+      variable: newVariable,
+      previous_variable: selectedVariable
+    });
+    
+    setSelectedVariable(newVariable);
+  }, [selectedVariable]);
+
+  // Track help icon clicks
+  const handleHelpClick = useCallback(() => {
+    trackEvent('help_historic_click', {
+      component: 'historic_chart',
+      section: 'header',
+      context: 'inspecciones_historico'
+    });
+    
+    // You can add the actual help functionality here
+  }, []);
+
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    onClick: handleChartClick, // Track clicks on the chart
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -181,36 +224,53 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
     },
   };
 
+  const getVariableDisplayName = (variable: VariableType): string => {
+    switch(variable) {
+      case "cpk": return "CPK";
+      case "cpkProyectado": return "CPK Proyectado";
+      case "profundidadInt": return "Profundidad Interior";
+      case "profundidadCen": return "Profundidad Central";
+      case "profundidadExt": return "Profundidad Exterior";
+      default: return variable;
+    }
+  };
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+    <div 
+      className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+      data-analytics-component="historic-chart"
+    >
       {/* Header */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <HelpCircle size={24} className="text-white" />
+          <button
+            onClick={handleHelpClick}
+            aria-label="Ayuda sobre el histórico de inspecciones"
+            data-analytics-id="help-icon-historic"
+          >
+            <HelpCircle size={24} className="text-white" />
+          </button>
           <h2 className="text-xl font-bold">Histórico de Inspecciones</h2>
         </div>
         <select
           value={selectedVariable}
-          onChange={(e) =>
-            setSelectedVariable(
-              e.target.value as VariableType
-            )
-          }
+          onChange={handleVariableChange}
           className="bg-white/10 text-white rounded p-2 text-sm"
+          data-analytics-id="variable-selector"
         >
-          <option value="cpk" className="text-black">
+          <option value="cpk" className="text-black" data-analytics-option="cpk">
             CPK
           </option>
-          <option value="cpkProyectado" className="text-black">
+          <option value="cpkProyectado" className="text-black" data-analytics-option="cpk-proyectado">
             CPK Proyectado
           </option>
-          <option value="profundidadInt" className="text-black">
+          <option value="profundidadInt" className="text-black" data-analytics-option="profundidad-int">
             Profundidad Int
           </option>
-          <option value="profundidadCen" className="text-black">
+          <option value="profundidadCen" className="text-black" data-analytics-option="profundidad-cen">
             Profundidad Cen
           </option>
-          <option value="profundidadExt" className="text-black">
+          <option value="profundidadExt" className="text-black" data-analytics-option="profundidad-ext">
             Profundidad Ext
           </option>
         </select>
@@ -218,7 +278,11 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
 
       {/* Chart */}
       <div className="p-6">
-        <div className="h-64 mb-4">
+        <div 
+          className="h-64 mb-4"
+          data-analytics-id="chart-container"
+          data-analytics-variable={selectedVariable}
+        >
           <Line data={chartData} options={options} />
         </div>
 

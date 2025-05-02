@@ -522,7 +522,7 @@ const AjustesPage: React.FC = () => {
         onClick={() => setShowChange((v) => !v)}
         className="mb-4 px-4 py-2 bg-[#1E76B6] text-white rounded hover:bg-[#348CCB]"
       >
-        {showChange ? "Ocultar" : "Esocger nueva contraseña"}
+        {showChange ? "Ocultar" : "Escoger nueva contraseña"}
       </button>
 
       {showChange && (
