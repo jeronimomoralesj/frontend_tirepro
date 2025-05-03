@@ -382,78 +382,116 @@ const Posicion = () => {
     }
   };
 
-  // Determine vehicle configuration based on vehicle type and tire count
-  const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig => {
-    if (!vehicle) return { axisCount: 2, layout: [] };
+// Determine vehicle configuration based on vehicle type and tire count
+const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig => {
+  if (!vehicle) return { axisCount: 2, layout: [] };
 
-    const tipovhc = vehicle.tipovhc || "";
+  const tipovhc = vehicle.tipovhc || "";
+  
+  // Try to extract axis count from vehicle type if available
+  const axisMatch = tipovhc.match(/(\d+)_ejes/);
+  
+  // Determine axes based on type or infer from tire count
+  let axisCount = 2; // Default to 2 axes
+  
+  if (axisMatch) {
+    // If we have a type with explicit axis count, use it
+    axisCount = parseInt(axisMatch[1]);
+  } else {
+    // If no type is available, infer axes from tire count
+    if (tireCount <= 4) {
+      axisCount = 2; // For 4 or fewer tires, assume 2 axes
+    } else if (tireCount <= 6) {
+      // For 5-6 tires, could be 2 axes with dual rear wheels
+      // or 3 axes with single wheels
+      axisCount = tireCount % 2 === 0 ? (tireCount <= 6 ? 3 : 2) : 2;
+    } else if (tireCount <= 10) {
+      axisCount = 3; // For 7-10 tires, assume 3 axes
+    } else {
+      axisCount = Math.ceil(tireCount / 4); // Approximate for larger vehicles
+    }
+  }
+  
+  // Ensure we never have more than 5 axes (reasonable limit)
+  axisCount = Math.min(axisCount, 5);
+  
+  // Initialize the configuration
+  const config: VehicleConfig = {
+    axisCount,
+    layout: []
+  };
+  
+  // Calculate how many tires per side per axis
+  // First, try to distribute them evenly
+  let remainingTires = tireCount;
+  const maxTiresPerAxis = remainingTires >= axisCount * 4 ? 4 : 2;
+  
+  // Determine if we need mixed configurations (some axes with 2 tires, some with 4)
+  const needMixedConfig = remainingTires > axisCount * 2 && remainingTires < axisCount * 4;
+  
+  // Calculate how many axes should have 4 tires (2 per side) in a mixed configuration
+  const axesWithFourTires = needMixedConfig ? Math.floor((remainingTires - axisCount * 2) / 2) : 0;
+  
+  // Build the layout axis by axis
+  for (let i = 0; i < axisCount; i++) {
+    let tiresOnThisAxis: string[];
+    let basePosition = i * maxTiresPerAxis + 1;
     
-    // Extract axis count from vehicle type
-    const axisMatch = tipovhc.match(/(\d+)_ejes/);
-    const axisCount = axisMatch ? parseInt(axisMatch[1]) : 2; // Default to 2 axes
-    
-    const config: VehicleConfig = {
-      axisCount,
-      layout: []
-    };
-
-    // For 2 axis vehicles
-    if (axisCount === 2) {
-      if (tireCount <= 4) {
-        // One tire per side on each axis
-        config.layout = [
-          ["1", "2"], // First axis: positions 1,2
-          ["3", "4"]  // Second axis: positions 3,4
+    if (needMixedConfig) {
+      // In mixed configuration, start with single tires for the first axes
+      if (i < axisCount - axesWithFourTires) {
+        // This axis has 1 tire per side
+        tiresOnThisAxis = [
+          basePosition.toString(), 
+          (basePosition + 1).toString()
         ];
-      } else if (tireCount <= 6) {
-        // First axis: 1 per side, Second axis: 2 per side
-        config.layout = [
-          ["1", "2"],             // First axis: positions 1,2
-          ["3", "4", "5", "6"]    // Second axis: positions 3,4,5,6
-        ];
+        remainingTires -= 2;
       } else {
-        // 2 per side on both axes
-        config.layout = [
-          ["1", "2", "3", "4"],   // First axis: positions 1,2,3,4
-          ["5", "6", "7", "8"]    // Second axis: positions 5,6,7,8
+        // This axis has 2 tires per side
+        tiresOnThisAxis = [
+          basePosition.toString(),
+          (basePosition + 1).toString(),
+          (basePosition + 2).toString(),
+          (basePosition + 3).toString()
         ];
+        remainingTires -= 4;
       }
-    } 
-    // For 3 axis vehicles
-    else if (axisCount === 3) {
-      if (tireCount <= 6) {
-        // One tire per side on each axis
-        config.layout = [
-          ["1", "2"],             // First axis: positions 1,2
-          ["3", "4"],             // Second axis: positions 3,4
-          ["5", "6"]              // Third axis: positions 5,6
-        ];
-      } else if (tireCount <= 8) {
-        // 1 per side on first two axes, 2 per side on third
-        config.layout = [
-          ["1", "2"],             // First axis: positions 1,2
-          ["3", "4"],             // Second axis: positions 3,4
-          ["5", "6", "7", "8"]    // Third axis: positions 5,6,7,8
-        ];
-      } else if (tireCount <= 10) {
-        // 1 per side on first axis, 2 per side on second and third
-        config.layout = [
-          ["1", "2"],             // First axis: positions 1,2
-          ["3", "4", "5", "6"],   // Second axis: positions 3,4,5,6
-          ["7", "8", "9", "10"]   // Third axis: positions 7,8,9,10
-        ];
-      } else {
-        // 2 per side on all axes
-        config.layout = [
-          ["1", "2", "3", "4"],   // First axis: positions 1,2,3,4
-          ["5", "6", "7", "8"],   // Second axis: positions 5,6,7,8
-          ["9", "10", "11", "12"] // Third axis: positions 9,10,11,12
-        ];
-      }
+    } else if (remainingTires >= 4) {
+      // Full complement of 2 tires per side
+      tiresOnThisAxis = [
+        basePosition.toString(),
+        (basePosition + 1).toString(),
+        (basePosition + 2).toString(),
+        (basePosition + 3).toString()
+      ];
+      remainingTires -= 4;
+    } else if (remainingTires >= 2) {
+      // Single tire per side
+      tiresOnThisAxis = [
+        basePosition.toString(),
+        (basePosition + 1).toString()
+      ];
+      remainingTires -= 2;
+    } else {
+      // Not enough tires left
+      break;
     }
     
-    return config;
-  };
+    config.layout.push(tiresOnThisAxis);
+  }
+  
+  // Ensure positions are consecutive across all axes
+  let positionCounter = 1;
+  const finalLayout: string[][] = [];
+  
+  for (const axis of config.layout) {
+    const newAxis = axis.map(() => (positionCounter++).toString());
+    finalLayout.push(newAxis);
+  }
+  
+  config.layout = finalLayout;
+  return config;
+}
 
   // Move tire to new position, handle replacement if needed
   const moveTire = (tireId: string, newPosition: string) => {

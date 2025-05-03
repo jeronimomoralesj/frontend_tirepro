@@ -78,7 +78,7 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
   }, [filteredVehicles, tires]);
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col">
       {/* Card Title */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <h2 className="text-xl font-bold">Semáforo Tabla</h2>
@@ -102,14 +102,18 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
         </div>
       </div>
       
-      {/* Table container with scroll */}
-      <div className="overflow-auto flex-1" style={{ maxHeight: "70vh" }}>
-        <table className="min-w-full border-collapse">
-          <thead className="bg-gray-100 sticky top-0 z-10">
+      {/* Table container with both horizontal and vertical scroll */}
+      <div className="overflow-auto relative" style={{ maxHeight: "70vh" }}>
+        <table className="w-full border-collapse">
+          <thead className="sticky top-0 z-20">
             <tr>
-              <th className="px-4 py-2 text-left sticky left-0 bg-gray-100 z-20">Placa</th>
+              {/* Fixed column header (top-left corner) */}
+              <th className="px-4 py-2 text-left sticky left-0 z-30 bg-gray-100 min-w-[120px]">
+                Placa
+              </th>
+              {/* Regular headers (sticky top) */}
               {positions.map((pos) => (
-                <th key={pos} className="px-4 py-2 text-center">
+                <th key={pos} className="px-4 py-2 text-center bg-gray-100 min-w-[80px]">
                   Pos {pos}
                 </th>
               ))}
@@ -118,7 +122,11 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
           <tbody>
             {tableData.map((row, idx) => (
               <tr key={idx} className="border-t">
-                <td className="px-4 py-2 sticky left-0 bg-white font-bold z-10">{row.placa.toUpperCase()}</td>
+                {/* Fixed first column */}
+                <td className="px-4 py-2 sticky left-0 bg-white font-bold z-10 min-w-[120px]">
+                  {row.placa.toUpperCase()}
+                </td>
+                {/* Regular cells */}
                 {positions.map((pos) => {
                   const value = row.depths[pos];
                   let bg = "bg-gray-200 text-gray-700"; // default
@@ -129,7 +137,7 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
                   }
 
                   return (
-                    <td key={pos} className="px-4 py-2 text-center">
+                    <td key={pos} className="px-4 py-2 text-center min-w-[80px]">
                       {value !== null ? (
                         <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${bg}`}>
                           {value}

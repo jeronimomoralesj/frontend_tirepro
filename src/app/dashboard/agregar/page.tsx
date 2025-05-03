@@ -69,7 +69,7 @@ export default function AgregarPage() {
             active={selectedOption === "evento"}
             onClick={() => setSelectedOption("evento")}
             title="Evento"
-            description="Registre un evento para una llanta existente"
+            description="Registre una rotación o un evento personalizado."
             Icon={Calendar}
           />
         </div>
