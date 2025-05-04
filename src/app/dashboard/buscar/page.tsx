@@ -13,6 +13,7 @@ import {
   Calendar,
   Ruler,
   Repeat,
+  Trash2Icon,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -203,6 +204,28 @@ const BuscarPage: React.FC = () => {
     const currentStatus = tire.vida[tire.vida.length - 1].valor;
     return getVidaStatusLabel(currentStatus).text;
   };
+
+  // after your other useState / functions
+const handleDeleteInspection = async (fecha: string) => {
+  if (!selectedTire) return;
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/tires/${selectedTire.id}/inspection?fecha=${encodeURIComponent(fecha)}`,
+      { method: "DELETE" }
+    );
+    if (!res.ok) throw new Error("Error al eliminar");
+    // optimistically update UI
+    const updatedInsps = (selectedTire.inspecciones || [])
+      .filter(i => i.fecha !== fecha);
+    const updatedTire = { ...selectedTire, inspecciones: updatedInsps };
+    setSelectedTire(updatedTire);
+    setTires(ts => ts.map(t => t.id === updatedTire.id ? updatedTire : t));
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo eliminar la inspección");
+  }
+};
+
 
   return (
     <div className="min-h-screen text-gray-800">
@@ -539,6 +562,7 @@ const BuscarPage: React.FC = () => {
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPK</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPK Proyectado</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Imagen</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -579,6 +603,20 @@ const BuscarPage: React.FC = () => {
                                 <span className="text-gray-400">No disponible</span>
                               )}
                             </td>
+                            <td className="px-4 py-3">
+  <button
+    title="Eliminar inspección"
+    onClick={() => {
+      if (window.confirm("¿Estás seguro que quieres borrar esta inspección?")) {
+        handleDeleteInspection(insp.fecha);
+      }
+    }}
+    className="text-red-500 hover:text-red-700 transition-colors"
+  >
+    <Trash2Icon className="w-4 h-4"/>
+  </button>
+</td>
+
                           </tr>
                         ))}
                       </tbody>
