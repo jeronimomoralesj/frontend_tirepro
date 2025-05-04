@@ -435,7 +435,7 @@ const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig =>
   // Build the layout axis by axis
   for (let i = 0; i < axisCount; i++) {
     let tiresOnThisAxis: string[];
-    let basePosition = i * maxTiresPerAxis + 1;
+    const basePosition = i * maxTiresPerAxis + 1;
     
     if (needMixedConfig) {
       // In mixed configuration, start with single tires for the first axes
