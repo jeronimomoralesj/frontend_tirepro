@@ -205,11 +205,16 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
           color: "#64748b",
           // Show fewer labels on x-axis for better readability
           maxTicksLimit: 8,
-          callback: function(this: any, val: string | number, index: number) {
+          callback: function (
+            this: { getLabelForValue(value: string | number): string },
+            val: string | number,
+            index: number
+          ): string {
+            // show only every Nth label
             return index % Math.ceil(inspectionDays.length / 8) === 0
               ? this.getLabelForValue(val)
-              : '';
-          }          
+              : "";
+          },        
         },
         grid: { display: false },
         border: { display: false },
