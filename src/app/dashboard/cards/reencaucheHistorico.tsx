@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { eachMonthOfInterval, format } from "date-fns";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, ChevronDown } from "lucide-react";
 
 export interface VidaEntry {
   valor: string;       // e.g. "reencauche 1", "reencauche 2", …
@@ -12,9 +12,12 @@ export interface Tire {
   vida: VidaEntry[];
 }
 
+type ViewMode = "individual" | "acumulado";
+
 const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
   // mode selector: per-month or cumulative
-  const [mode, setMode] = useState<"individual" | "acumulado">("individual");
+  const [mode, setMode] = useState<ViewMode>("individual");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Build a sorted list of the last 6 months labels
   const months = useMemo(() => {
@@ -61,22 +64,52 @@ const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Reencauche Histórico</h2>
-        <div className="flex items-center gap-4">
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as "individual" | "acumulado")}
-            className="bg-white text-[#173D68] rounded px-3 py-1 text-sm font-medium"
+        <div className="flex items-center">
+          <h2 className="text-xl font-bold">Reencauche Histórico</h2>
+          <div className="relative inline-block">
+          <button
+            className="bg-white text-[#173D68] rounded px-4 py-2 text-sm font-medium flex items-center"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
           >
-            <option value="individual">Individual</option>
-            <option value="acumulado">Acumulado</option>
-          </select>
-          <div className="group relative cursor-pointer">
+            {mode === "individual" ? "Vista Individual" : "Vista Acumulada"}
+            <ChevronDown className="ml-2 h-4 w-4" />
+          </button>
+          
+          {dropdownOpen && (
+            <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-100">
+              <div className="py-1">
+                <button
+                  className={`w-full text-left px-4 py-2 text-sm ${
+                    mode === "individual" ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  onClick={() => {
+                    setMode("individual");
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Vista Individual
+                </button>
+                <button
+                  className={`w-full text-left px-4 py-2 text-sm ${
+                    mode === "acumulado" ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                  onClick={() => {
+                    setMode("acumulado");
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Vista Acumulada
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+          <div className="group relative cursor-pointer ml-2">
             <HelpCircle
               className="text-white hover:text-gray-200 transition-colors"
-              size={24}
+              size={20}
             />
-            <div className="absolute z-10 -top-2 right-full bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-60 pointer-events-none">
+            <div className="absolute z-10 top-full right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-60 pointer-events-none mt-2">
               <p>
                 Esta tabla muestra cuántos reencauches has tenido a lo largo de los últimos meses.
                 {mode === "acumulado" && " Vista acumulada muestra el total hasta cada mes."}
@@ -84,6 +117,7 @@ const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
             </div>
           </div>
         </div>
+        
       </div>
       
       <div className="p-6">
