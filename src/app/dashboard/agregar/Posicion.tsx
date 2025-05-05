@@ -126,6 +126,42 @@ const TirePosition: React.FC<TirePositionProps> = ({ position, currentTire, move
 };
 
 
+// Only the single prop we actually use
+interface InventoryDropZoneProps {
+  moveTire: (id: string, position: string) => void;
+}
+
+const InventoryDropZone: React.FC<InventoryDropZoneProps> = ({ moveTire }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isOver }, dropRef] = useDrop(() => ({
+    accept: ItemTypes.TIRE,
+    drop: (item: { id: string }) => moveTire(item.id, "none"),
+    collect: (monitor) => ({
+      isOver: !!monitor.isOver(),
+    }),
+  }));
+
+  // 🔧 Attach dropRef to DOM
+  useEffect(() => {
+    if (ref.current) {
+      dropRef(ref.current);
+    }
+  }, [dropRef]);
+
+  return (
+    <div
+      ref={ref}
+      className={`p-4 rounded-lg border-2 border-dashed transition-all duration-200 min-h-[10rem] ${
+        isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : "border-gray-300 bg-gray-50"
+      }`}
+    >
+      {/* Inventory zone content here */}
+    </div>
+  );
+};
+
+
 // Available Tires Tray Component
 interface TiresTrayProps {
   availableTires: Tire[];
@@ -651,30 +687,6 @@ const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig =>
     setHasChanges(hasAnyChanges);
   };
 
-  // Remove tire from inventory
-  const handleRemoveTireFromInventory = (tireId: string) => {
-    const tireToMove = inventoryTires.find(t => t.id === tireId);
-    if (!tireToMove) return;
-    
-    const newInventoryTires = inventoryTires.filter(t => t.id !== tireId);
-    const newAvailableTires = [...availableTires, { ...tireToMove, position: null }];
-    
-    setInventoryTires(newInventoryTires);
-    setAvailableTires(newAvailableTires);
-    
-    // Check for changes
-    const currentState: Record<string, string | null> = {};
-    [...assignedTires, ...newAvailableTires, ...newInventoryTires].forEach(tire => {
-      // Fix for the undefined issue - ensure we always have a string or null
-      currentState[tire.id] = tire.position || null;
-    });
-    
-    const hasAnyChanges = Object.keys(currentState).some(id => 
-      currentState[id] !== originalState[id]
-    );
-    
-    setHasChanges(hasAnyChanges);
-  };
 
   // Reset positions to original state
   const resetPositions = () => {
@@ -863,8 +875,6 @@ setIsExportModalOpen(true);
             <div className="mb-6">
               <InventoryDropZone 
                 moveTire={moveTire}
-                inventoryTires={inventoryTires}
-                onRemoveTire={handleRemoveTireFromInventory}
               />
             </div>
           )}
