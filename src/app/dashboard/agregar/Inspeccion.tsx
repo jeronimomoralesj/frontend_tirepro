@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   Search,
   Timer,
@@ -17,6 +17,33 @@ export default function InspeccionPage() {
   const [placaInput, setPlacaInput] = useState("");
   const [newKilometraje, setNewKilometraje] = useState(0);
 
+  interface InspectionData {
+    vehicle: Vehicle;
+    tires: Array<{
+      id: string;
+      placa: string;
+      marca: string;
+      posicion: number;
+      profundidadInicial: number;
+      kilometrosRecorridos: number;
+      costo: Array<{ valor: number }>;
+      updates: {
+        profundidadInt: number;
+        profundidadCen: number;
+        profundidadExt: number;
+        image: File | null;
+      };
+      avgDepth: number;
+      minDepth: number;
+      cpk: string;
+      cpkProyectado: string;
+      projectedKm: number;
+      imageBase64: string | null;
+    }>;
+    date: string;
+    kmDiff: number;
+  }
+  
   // Data states
   type Vehicle = {
     id: string;
@@ -28,6 +55,16 @@ export default function InspeccionPage() {
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
 
+  interface Inspection {
+    profundidadInt: number;
+    profundidadCen: number;
+    profundidadExt: number;
+    imageUrl: string;
+    cpk: string;
+    cpkProyectado: string;
+    fecha: string;
+  }
+  
   type Tire = {
     id: string;
     placa: string;
@@ -36,7 +73,7 @@ export default function InspeccionPage() {
     profundidadInicial: number;
     kilometrosRecorridos: number;
     costo: Array<{valor: number}>;
-    inspecciones: Array<any>;
+    inspecciones: Inspection[];  
   };
 
   const [tires, setTires] = useState<Tire[]>([]);
@@ -53,7 +90,7 @@ export default function InspeccionPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showExportPopup, setShowExportPopup] = useState(false);
-  const [inspectionData, setInspectionData] = useState<any>(null);
+  const [inspectionData, setInspectionData] = useState<InspectionData | null>(null);
 
   // Helper function to convert File to base64 string
   function convertFileToBase64(file: File): Promise<string> {
@@ -71,9 +108,8 @@ export default function InspeccionPage() {
     const newTireKm = tire.kilometrosRecorridos + kmDiff;
 
     // Calculate total cost by summing the costo array
-    const totalCost = Array.isArray(tire.costo)
-      ? tire.costo.reduce((sum, entry: any) => sum + (entry?.valor || 0), 0)
-      : 0;
+    const totalCost = tire.costo.reduce((sum, entry) => sum + entry.valor, 0);
+
 
     // Calculate cost per kilometer (cpk)
     const cpk = newTireKm > 0 ? totalCost / newTireKm : 0;
@@ -251,8 +287,9 @@ export default function InspeccionPage() {
         return res.json();
       });
 
-      const results = await Promise.all(updatePromises);
+      await Promise.all(updatePromises);
       alert("Inspecciones actualizadas exitosamente");
+
       
       // Prepare data for the PDF export
       const inspectionDataForPDF = {
@@ -296,12 +333,6 @@ export default function InspeccionPage() {
       
       setInspectionData(inspectionDataForPDF);
       setShowExportPopup(true);
-
-      // 4) Reset fields only after export
-      const initial = tires.reduce((acc, t) => {
-        acc[t.id] = { profundidadInt: "", profundidadCen: "", profundidadExt: "", image: null };
-        return acc;
-      }, {} as typeof tireUpdates);
       
       // We'll reset the form after the user closes the export popup
       

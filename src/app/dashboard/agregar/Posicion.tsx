@@ -125,46 +125,6 @@ const TirePosition: React.FC<TirePositionProps> = ({ position, currentTire, move
   );
 };
 
-// Inventory Drop Zone
-interface InventoryDropZoneProps {
-  moveTire: (id: string, position: string) => void;
-  inventoryTires: Tire[];
-  onRemoveTire: (id: string) => void;
-}
-
-const InventoryDropZone: React.FC<InventoryDropZoneProps> = ({ moveTire,
-  inventoryTires,
-  onRemoveTire }) => {
-  const ref = useRef<HTMLDivElement>(null);
-
-  const [{ isOver }, dropRef] = useDrop(() => ({
-    accept: ItemTypes.TIRE,
-    drop: (item: { id: string }) => moveTire(item.id, "none"),
-    collect: (monitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  }));
-
-  // 🔧 Attach dropRef to DOM
-  useEffect(() => {
-    if (ref.current) {
-      dropRef(ref.current);
-    }
-  }, [dropRef]);
-  
-
-  return (
-    <div
-      ref={ref}
-      className={`p-4 rounded-lg border-2 border-dashed transition-all duration-200 min-h-[10rem] ${
-        isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : "border-gray-300 bg-gray-50"
-      }`}
-    >
-      {/* ... */}
-    </div>
-  );
-};
-
 
 // Available Tires Tray Component
 interface TiresTrayProps {
