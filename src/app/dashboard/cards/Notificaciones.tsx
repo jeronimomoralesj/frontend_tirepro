@@ -55,7 +55,7 @@ export default function Notificaciones() {
             latest.profundidadCen,
             latest.profundidadExt
           );
-          if (minDepth <= 4) {
+          if (minDepth <= 3) {
             alerts.push({
               id: t.id,
               title: `Neumático ${t.placa}`,

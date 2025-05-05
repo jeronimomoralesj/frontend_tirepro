@@ -357,7 +357,7 @@ const ExportModal: React.FC<{
           </table>
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded">No exportar</button>
           <button onClick={onExport} className="px-4 py-2 bg-blue-600 text-white rounded flex items-center gap-1">
             <Download /> Exportar PDF
           </button>
@@ -686,7 +686,6 @@ const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig =>
     
     setHasChanges(hasAnyChanges);
   };
-
 
   // Reset positions to original state
   const resetPositions = () => {

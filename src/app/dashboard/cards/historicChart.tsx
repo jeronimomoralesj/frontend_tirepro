@@ -15,7 +15,7 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle } from "lucide-react";
-import { eachDayOfInterval, format } from "date-fns";
+import { format } from "date-fns";
 
 ChartJS.register(
   CategoryScale,
@@ -71,78 +71,60 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
     }
   }, [selectedVariable]);
 
-  // 1️⃣ Build the last 60 calendar days labels
-  const days = useMemo(() => {
-    const today = new Date();
-    const start = new Date(today);
-    start.setDate(start.getDate() - 59);
-    return eachDayOfInterval({ start, end: today }).map((d) =>
-      format(d, "yyyy-MM-dd")
-    );
-  }, []);
-
-  // 2️⃣ For each tire, create a map day→last-known value
-  const tireMaps = useMemo(() => {
-    const maps: Record<string, Record<string, number>> = {};
-    tires.forEach((tire) => {
-      const insps = (tire.inspecciones || [])
-        .filter((i) => typeof i[selectedVariable] === "number")
-        .sort(
-          (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-        );
-
-      let lastVal: number | undefined;
-      const dateMap: Record<string, number> = {};
-
-      days.forEach((day) => {
-        const todayInsps = insps.filter(
-          (i) => format(new Date(i.fecha), "yyyy-MM-dd") === day
-        );
-        if (todayInsps.length) {
-          const lastOfDay = todayInsps.reduce((p, c) =>
-            new Date(c.fecha) > new Date(p.fecha) ? c : p
-          );
-          lastVal = lastOfDay[selectedVariable] as number;
+  // Extract all inspections and group by date
+  const { inspectionDays, dailyAverages } = useMemo(() => {
+    // Create a map of dates to arrays of inspection values for the selected variable
+    const dateValueMap: Record<string, number[]> = {};
+    
+    // Process all inspections from all tires
+    tires.forEach(tire => {
+      if (!tire.inspecciones?.length) return;
+      
+      tire.inspecciones.forEach(inspection => {
+        // Only consider inspections that have a value for the selected variable
+        const value = inspection[selectedVariable];
+        if (value === undefined || value === null) return;
+        
+        // Format the date to YYYY-MM-DD
+        const dateKey = format(new Date(inspection.fecha), "yyyy-MM-dd");
+        
+        // Add the value to the array for this date
+        if (!dateValueMap[dateKey]) {
+          dateValueMap[dateKey] = [];
         }
-        if (lastVal !== undefined) {
-          dateMap[day] = lastVal;
-        }
+        dateValueMap[dateKey].push(value as number);
       });
-
-      maps[tire.id] = dateMap;
     });
-    return maps;
-  }, [tires, days, selectedVariable]);
+    
+    // Sort the dates chronologically
+    const inspectionDays = Object.keys(dateValueMap).sort();
+    
+    // Calculate averages for each day
+    const dailyAverages = inspectionDays.map(day => {
+      const values = dateValueMap[day];
+      const sum = values.reduce((acc, val) => acc + val, 0);
+      return parseFloat((sum / values.length).toFixed(2));
+    });
+    
+    return { inspectionDays, dailyAverages };
+  }, [tires, selectedVariable]);
 
-  // 3️⃣ Build chart data by averaging across tires per day
+  // Build chart data
   const chartData = useMemo(() => {
-    const data = days.map((day) => {
-      let sum = 0;
-      let cnt = 0;
-      Object.values(tireMaps).forEach((dm) => {
-        const v = dm[day];
-        if (v !== undefined) {
-          sum += v;
-          cnt++;
-        }
-      });
-      return cnt > 0 ? parseFloat((sum / cnt).toFixed(2)) : 0;
-    });
-
     // Only show 3 visible point markers: first, middle, last
-    const pointRadius = data.map((_, idx) => {
-      if (idx === 0 || idx === Math.floor(days.length / 2) || idx === days.length - 1) {
+    const pointRadius = dailyAverages.map((_, idx) => {
+      if (idx === 0 || idx === Math.floor(inspectionDays.length / 2) || idx === inspectionDays.length - 1) {
         return 5;
       }
       return 0;
     });
 
     return {
-      labels: days,
+      labels: inspectionDays,
       datasets: [
         {
           label: variableDisplayName,
-          data,
+          data: dailyAverages,
           borderColor: "#1E76B6",
           backgroundColor: "rgba(30,118,182,0.2)",
           fill: true,
@@ -154,7 +136,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         },
       ],
     };
-  }, [days, tireMaps, selectedVariable, variableDisplayName]);
+  }, [inspectionDays, dailyAverages, variableDisplayName]);
 
   // Track chart interactions
   const handleChartClick = useCallback(() => {
@@ -219,7 +201,15 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
     },
     scales: {
       x: {
-        ticks: { color: "#64748b" },
+        ticks: { 
+          color: "#64748b",
+          // Show fewer labels on x-axis for better readability
+          maxTicksLimit: 8,
+          callback: function(val: any, index: number) {
+            // Only show some dates to avoid overcrowding
+            return index % Math.ceil(inspectionDays.length / 8) === 0 ? this.getLabelForValue(val) : '';
+          }
+        },
         grid: { display: false },
         border: { display: false },
       },
@@ -235,6 +225,36 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
       },
     },
   };
+
+  // Show a message if there's no data
+  if (inspectionDays.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={handleHelpClick} aria-label="Ayuda sobre el histórico de inspecciones">
+              <HelpCircle size={24} className="text-white" />
+            </button>
+            <h2 className="text-xl font-bold">Histórico de Inspecciones</h2>
+          </div>
+          <select
+            value={selectedVariable}
+            onChange={handleVariableChange}
+            className="bg-white/10 text-white rounded p-2 text-sm"
+          >
+            <option value="cpk" className="text-black">CPK</option>
+            <option value="cpkProyectado" className="text-black">CPK Proyectado</option>
+            <option value="profundidadInt" className="text-black">Profundidad Int</option>
+            <option value="profundidadCen" className="text-black">Profundidad Cen</option>
+            <option value="profundidadExt" className="text-black">Profundidad Ext</option>
+          </select>
+        </div>
+        <div className="p-6 flex items-center justify-center h-64">
+          <p className="text-gray-500">No hay datos de inspección disponibles para {variableDisplayName}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -290,10 +310,10 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         {/* Footer */}
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
           <div className="text-xs text-gray-500">
-            Total de Días: {days.length}
+            Total de Días: {inspectionDays.length}
           </div>
           <div className="text-xs text-gray-500">
-            Últimas {days.length} entradas
+            Mostrando solo días con inspecciones
           </div>
         </div>
       </div>

@@ -46,7 +46,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
 
       if (minDepth > 7) counts.buenEstado++;
       else if (minDepth > 6) counts.dias60++;
-      else if (minDepth > 5) counts.dias30++;
+      else if (minDepth > 3) counts.dias30++;
       else counts.cambioInmediato++;
     });
 
