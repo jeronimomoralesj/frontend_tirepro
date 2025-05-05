@@ -3,6 +3,10 @@ import axios from "axios";
 import { Search, Clock, AlertTriangle } from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import { Download, X } from "lucide-react";
+import autoTable from "jspdf-autotable";
 
 // DND Item Types
 const ItemTypes = {
@@ -15,6 +19,12 @@ interface Tire {
   posicion?: number | null;
   // Add a position field to extend the Tire type
   position?: string | null;
+}
+interface TireChange {
+  id: string;
+  marca: string;
+  originalPosition: string | null;
+  newPosition: string | null;
 }
 
 // Interface for Vehicle data
@@ -71,7 +81,7 @@ const DraggableTire: React.FC<DraggableTireProps> = ({ tire }) => {
     >
       <div className="text-center">
         <div className="text-xs font-bold">{tire.marca}</div>
-        <div className="text-xs">{tire.id.substring(0, 6)}</div>
+        <div className="text-xs">{tire.posicion}</div>
       </div>
     </div>
   );
@@ -122,7 +132,9 @@ interface InventoryDropZoneProps {
   onRemoveTire: (id: string) => void;
 }
 
-const InventoryDropZone: React.FC<InventoryDropZoneProps> = ({ moveTire }) => {
+const InventoryDropZone: React.FC<InventoryDropZoneProps> = ({ moveTire,
+  inventoryTires,
+  onRemoveTire }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   const [{ isOver }, dropRef] = useDrop(() => ({
@@ -139,6 +151,7 @@ const InventoryDropZone: React.FC<InventoryDropZoneProps> = ({ moveTire }) => {
       dropRef(ref.current);
     }
   }, [dropRef]);
+  
 
   return (
     <div
@@ -188,82 +201,176 @@ interface VehicleVisualizationProps {
   moveTire: (id: string, position: string) => void;
 }
 
-const VehicleVisualization: React.FC<VehicleVisualizationProps> = ({ config, assignedTires, moveTire }) => {
-  // Create a map of positions to tires for easier access
-  const positionMap: Record<string, Tire> = {};
-  assignedTires.forEach(tire => {
-    if (tire.position) {
-      positionMap[tire.position] = tire;
+interface VehicleVisualizationProps {
+  assignedTires: Tire[];
+  moveTire: (id: string, position: string) => void;
+}
+
+const VehicleVisualization: React.FC<VehicleVisualizationProps> = ({ assignedTires, moveTire }) => {
+  // 1) Keep the “structure” stable after the first render:
+  const structureRef = useRef<{
+    axisCount: number;
+    layout: string[][];
+  } | null>(null);
+
+  if (!structureRef.current) {
+    // map positions → tire for lookup
+    const positions = assignedTires
+      .map(t => t.position && parseInt(t.position, 10))
+      .filter((n): n is number => !!n);
+    const maxPos = positions.length ? Math.max(...positions) : 0;
+
+    // decide how many axes
+    const count = assignedTires.length;
+    let axisCount: number;
+    if (count <= 4) axisCount = 2;
+    else if (count <= 6) axisCount = 2;
+    else if (count <= 8) axisCount = 2;
+    else axisCount = Math.ceil(count / 4);
+
+    // how many slots per axle: front always up to 2, then up to 4
+    const slots: number[] = [];
+    let remaining = maxPos;
+    for (let axle = 0; axle < axisCount; axle++) {
+      const cap = axle === 0 ? 2 : 4;
+      const thisSlot = Math.min(cap, remaining);
+      slots.push(thisSlot);
+      remaining -= thisSlot;
     }
+
+    // build the actual layout: ["1","2"],["3","4","5","6"],…
+    let cursor = 1;
+    const layout = slots.map(slotsOnAxis => {
+      const arr: string[] = [];
+      for (let i = 0; i < slotsOnAxis; i++) {
+        arr.push((cursor++).toString());
+      }
+      return arr;
+    });
+
+    structureRef.current = { axisCount, layout };
+  }
+
+  const { axisCount, layout } = structureRef.current!;
+
+  // 2) Build a map of current tires to their positions:
+  const positionMap: Record<string, Tire> = {};
+  assignedTires.forEach(t => {
+    if (t.position) positionMap[t.position] = t;
   });
 
   return (
     <div className="bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 p-6 rounded-lg border-l-4 border-[#1E76B6] mb-6 shadow-sm">
       <h3 className="text-lg font-semibold mb-4 text-[#0A183A]">
-        Configuración de Llantas ({config.axisCount} ejes)
+        Configuración de Llantas ({axisCount} eje{axisCount>1?'s':''})
       </h3>
-      
       <div className="flex flex-col gap-8">
-        {config.layout.map((axis, axisIndex) => (
-          <div key={`axis-${axisIndex}`} className="flex flex-col items-center">
+        {layout.map((axisSlots, axleIdx) => (
+          <div key={axleIdx} className="flex flex-col items-center">
             <div className="text-sm font-medium text-[#173D68] mb-2">
-              Eje {axisIndex + 1}
+              Eje {axleIdx + 1}
             </div>
             <div className="flex items-center justify-center w-full">
-              {/* Vehicle body side representation */}
-              <div className="h-4 w-3 bg-[#0A183A] rounded-l-lg"></div>
-              
-              {/* Left side tires */}
+              {/* body left */}
+              <div className="h-4 w-3 bg-[#0A183A] rounded-l-lg" />
+
+              {/* left tires */}
               <div className="flex items-center">
-                {axis.slice(0, axis.length / 2).map((position) => (
-                  <div key={`left-${position}`} className="m-1 flex flex-col items-center">
+                {axisSlots.slice(0, axisSlots.length / 2).map(pos => (
+                  <div key={pos} className="m-1 flex flex-col items-center">
                     <TirePosition
-                      position={position}
-                      currentTire={positionMap[position] || null}
+                      position={pos}
+                      currentTire={positionMap[pos] || null}
                       moveTire={moveTire}
                     />
-                    {parseInt(position) < parseInt(axis[axis.length / 2 - 1]) && (
-                      <div className="w-6 h-1 bg-[#348CCB] mt-2"></div>
-                    )}
+                    <div className="w-6 h-1 bg-[#348CCB] mt-2" />
                   </div>
                 ))}
               </div>
-              
-              {/* Axis representation */}
+
+              {/* axle */}
               <div className="bg-[#0A183A] h-6 flex-grow rounded-full mx-2 flex items-center justify-center">
-                <div className="bg-[#1E76B6] h-2 w-10/12 rounded-full"></div>
+                <div className="bg-[#1E76B6] h-2 w-10/12 rounded-full" />
               </div>
-              
-              {/* Right side tires */}
+
+              {/* right tires */}
               <div className="flex items-center">
-                {axis.slice(axis.length / 2).map((position) => (
-                  <div key={`right-${position}`} className="m-1 flex flex-col items-center">
+                {axisSlots.slice(axisSlots.length / 2).map(pos => (
+                  <div key={pos} className="m-1 flex flex-col items-center">
                     <TirePosition
-                      position={position}
-                      currentTire={positionMap[position] || null}
+                      position={pos}
+                      currentTire={positionMap[pos] || null}
                       moveTire={moveTire}
                     />
-                    {parseInt(position) < parseInt(axis[axis.length - 1]) && (
-                      <div className="w-6 h-1 bg-[#348CCB] mt-2"></div>
-                    )}
+                    <div className="w-6 h-1 bg-[#348CCB] mt-2" />
                   </div>
                 ))}
               </div>
-              
-              {/* Vehicle body side representation */}
-              <div className="h-4 w-3 bg-[#0A183A] rounded-r-lg"></div>
+
+              {/* body right */}
+              <div className="h-4 w-3 bg-[#0A183A] rounded-r-lg" />
             </div>
           </div>
         ))}
-        
-        {/* Vehicle body representation connecting the axes */}
+
+        {/* optional connector */}
         <div className="relative mt-4">
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1/3 h-4 bg-[#0A183A] rounded-full opacity-30"></div>
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 
+                          w-1/3 h-4 bg-[#0A183A] rounded-full opacity-30" />
         </div>
       </div>
     </div>
   );
 };
+
+
+const ExportModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onExport: () => void;
+  changes: TireChange[];
+  vehicle: Vehicle | null;
+}> = ({ isOpen, onClose, onExport, changes, vehicle }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">Exportar Cambios</h3>
+          <button onClick={onClose}><X /></button>
+        </div>
+        <p className="mb-4">
+          {changes.length} cambio(s) para <strong>{vehicle?.placa}</strong>
+        </p>
+        <div className="max-h-48 overflow-y-auto mb-4">
+          <table className="w-full text-sm">
+            <thead><tr>
+              <th className="text-left">Llanta</th>
+              <th className="text-left">Orig.</th>
+              <th className="text-left">Nueva</th>
+            </tr></thead>
+            <tbody>
+              {changes.map((c,i) => (
+                <tr key={i} className="border-t">
+                  <td>{c.marca}</td>
+                  <td>{c.originalPosition||"—"}</td>
+                  <td>{c.newPosition||"—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
+          <button onClick={onExport} className="px-4 py-2 bg-blue-600 text-white rounded flex items-center gap-1">
+            <Download /> Exportar PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const Posicion = () => {
   const [placa, setPlaca] = useState("");
@@ -280,7 +387,21 @@ const Posicion = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
   const [originalState, setOriginalState] = useState<Record<string, string | null>>({});
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  // the list of actual changes
+  const [tireChanges, setTireChanges] = useState<TireChange[]>([]);
 
+  const calculateChanges = (): TireChange[] => {
+    const all = [...assignedTires, ...availableTires, ...inventoryTires];
+    return all
+      .map(t => ({
+        id: t.id,
+        marca: t.marca,
+        originalPosition: originalState[t.id] || null,
+        newPosition: t.position || null,
+      }))
+      .filter(c => c.originalPosition !== c.newPosition);
+  };
   // Fetch tires & positions by vehicle plate
   const handleSearch = async () => {
     if (!placa.trim()) {
@@ -338,7 +459,7 @@ const Posicion = () => {
       }
 
       setTires(tiresResponse.data);
-
+      
       // Process tire positions directly from tire data
       // Use the posicion field from tire data instead of separate endpoint
       const assignedTiresArray: Tire[] = [];
@@ -600,6 +721,33 @@ const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig =>
     handleSearch();
   };
 
+  const generatePDF = () => {
+    // 1) Instantiate
+    const doc = new jsPDF();
+  
+    // 2) Header
+    doc.setFontSize(18);
+    doc.setTextColor("#1E76B6");
+    doc.text(`Cambios de Posición — ${vehicle?.placa}`, 14, 20);
+  
+    // 3) Table
+    autoTable(doc, {
+      startY: 30,
+      head: [["Llanta", "Pos. Original", "Nueva Posición"]],
+      body: tireChanges.map((c) => [
+        c.marca,
+        c.originalPosition ?? "—",
+        c.newPosition      ?? "—",
+      ]),
+      headStyles: { fillColor: [26, 118, 182] },
+      styles:    { fontSize: 12 },
+    });
+  
+    // 4) Save
+    doc.save(`reporte-posiciones-${vehicle?.placa}.pdf`);
+  };
+  
+  
   // Save updated positions to backend
   const handleUpdatePositions = async () => {
     try {
@@ -634,6 +782,10 @@ const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig =>
       setOriginalState(updatedOriginalState);
       setHasChanges(false);
       setSuccessMessage("Posiciones actualizadas exitosamente.");
+      const changes = calculateChanges();
+setTireChanges(changes);
+setIsExportModalOpen(true);
+
     } catch (error: unknown) {
       console.error("Error updating positions:", error);
       const typedError = error as ErrorResponse;
@@ -641,6 +793,11 @@ const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig =>
     } finally {
       setIsLoading(false);
     }
+
+    const changes = calculateChanges();
+  setTireChanges(changes);
+  // show the export modal
+  setIsExportModalOpen(true);
   };
 
   return (
@@ -785,6 +942,19 @@ const getVehicleConfig = (vehicle: Vehicle, tireCount: number): VehicleConfig =>
           )}
         </main>
       </div>
+
+      <ExportModal
+  isOpen={isExportModalOpen}
+  onClose={() => setIsExportModalOpen(false)}
+  onExport={() => {
+    generatePDF();
+    setIsExportModalOpen(false);
+  }}
+  changes={tireChanges}
+  vehicle={vehicle}
+/>
+
+
     </DndProvider>
   );
 };
