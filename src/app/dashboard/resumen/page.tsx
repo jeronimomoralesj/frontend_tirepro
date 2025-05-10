@@ -52,6 +52,8 @@ export default function ResumenPage() {
   const [userName, setUserName] = useState<string>("");
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
+  const [exporting, setExporting] = useState(false);
+
 
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
@@ -85,11 +87,143 @@ export default function ResumenPage() {
     semaforo: useRef<HTMLDivElement>(null),
   }).current;
 
-  const exportToPDF = () => {
-    window.print();
+const exportToPDF = () => {
+    try {
+      setExporting(true);
+      
+      // Create a print-specific stylesheet
+      const style = document.createElement('style');
+      style.type = 'text/css';
+      style.id = 'print-style';
+      
+      // Hide everything except the content we want to print
+      style.innerHTML = `
+        @media print {
+          @page { 
+            size: A4 portrait;
+            margin: 10mm; 
+          }
+          
+          body * {
+            visibility: hidden;
+          }
+          
+          .min-h-screen {
+            min-height: initial !important;
+          }
+          
+          #content-to-print,
+          #content-to-print * {
+            visibility: visible;
+          }
+          
+          #content-to-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          
+          /* Fix potential color issues */
+          .bg-gradient-to-r {
+            background: linear-gradient(to right, #0A183A, #1E76B6) !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#0A183A\\] {
+            background-color: #0A183A !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#173D68\\] {
+            background-color: #173D68 !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#348CCB\\] {
+            background-color: #348CCB !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .text-white {
+            color: white !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          /* Ensure charts are visible */
+          canvas {
+            max-width: 100%;
+            height: auto !important;
+          }
+        }
+      `;
+      
+      // Add the style to the document head
+      document.head.appendChild(style);
+      
+      // Add temporary ID to content container
+      if (contentRef.current) {
+        contentRef.current.id = 'content-to-print';
+      }
+      
+      // Short delay to ensure styles are applied
+      setTimeout(() => {
+        // Trigger browser print dialog
+        window.print();
+        
+        // Clean up
+        setTimeout(() => {
+          document.head.removeChild(style);
+          if (contentRef.current) {
+            contentRef.current.removeAttribute('id');
+          }
+          setExporting(false);
+        }, 500);
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error during print:', error);
+      alert('Error al generar la impresión. Por favor intente de nuevo.');
+      setExporting(false);
+    }
   };
   
-  
+  // Helper function to create a clean clone of content
+  // This avoids the oklch color function issue
+  const createCleanClone = () => {
+    if (!contentRef.current) return null;
+    
+    const clone = contentRef.current.cloneNode(true) as HTMLElement;
+    
+    // Apply inline styles to replace any oklch colors with RGB equivalents
+    const allElements = clone.querySelectorAll('*');
+    
+    allElements.forEach(el => {
+      const computedStyle = window.getComputedStyle(el as Element);
+      
+      // Replace background colors
+      if (computedStyle.backgroundColor.includes('oklch')) {
+        (el as HTMLElement).style.backgroundColor = 'rgb(255, 255, 255)';
+      }
+      
+      // Replace text colors
+      if (computedStyle.color.includes('oklch')) {
+        (el as HTMLElement).style.color = 'rgb(0, 0, 0)';
+      }
+      
+      // Replace border colors
+      if (computedStyle.borderColor && computedStyle.borderColor.includes('oklch')) {
+        (el as HTMLElement).style.borderColor = 'rgb(200, 200, 200)';
+      }
+    });
+    
+    return clone;
+  };
 
   const calculateTotals = useCallback((tires: Tire[]) => {
     let total = 0;
@@ -363,15 +497,23 @@ export default function ResumenPage() {
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex gap-2">
-                <button
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
-                  onClick={exportToPDF}
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                  Exportar
-                  </span>
-                </button>
+              <button
+  className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
+  onClick={exportToPDF}
+  disabled={exporting}
+>
+  {exporting ? (
+    <>
+      <div className="animate-spin h-4 w-4 border-2 border-white/60 border-t-transparent rounded-full" />
+      <span className="hidden sm:inline">Exportando...</span>
+    </>
+  ) : (
+    <>
+      <Download className="h-4 w-4" />
+      <span className="hidden sm:inline">Exportar</span>
+    </>
+  )}
+</button>
                 <Notificaciones />
               </div>
             </div>

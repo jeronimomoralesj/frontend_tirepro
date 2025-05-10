@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -60,6 +59,11 @@ export default function FlotaPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   
+  // Add exporting state
+  const [exporting, setExporting] = useState(false);
+  // Add content ref for print targeting
+  const contentRef = useRef<HTMLDivElement>(null);
+  
   // Keeping track of counts but not using them directly in UI yet
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -94,8 +98,110 @@ export default function FlotaPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   const exportToPDF = () => {
-    window.print();
+    try {
+      setExporting(true);
+      
+      // Create a print-specific stylesheet
+      const style = document.createElement('style');
+      style.type = 'text/css';
+      style.id = 'print-style';
+      
+      // Hide everything except the content we want to print
+      style.innerHTML = `
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          
+          body * {
+            visibility: hidden;
+          }
+          
+          .min-h-screen {
+            min-height: initial !important;
+          }
+          
+          #content-to-print,
+          #content-to-print * {
+            visibility: visible;
+          }
+          
+          #content-to-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          
+          /* Fix potential color issues */
+          .bg-gradient-to-r {
+            background: linear-gradient(to right, #0A183A, #1E76B6) !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#0A183A\\] {
+            background-color: #0A183A !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#173D68\\] {
+            background-color: #173D68 !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#348CCB\\] {
+            background-color: #348CCB !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .text-white {
+            color: white !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          /* Ensure charts are visible */
+          canvas {
+            max-width: 100%;
+            height: auto !important;
+          }
+        }
+      `;
+      
+      // Add the style to the document head
+      document.head.appendChild(style);
+      
+      // Add temporary ID to content container
+      if (contentRef.current) {
+        contentRef.current.id = 'content-to-print';
+      }
+      
+      // Short delay to ensure styles are applied
+      setTimeout(() => {
+        // Trigger browser print dialog
+        window.print();
+        
+        // Clean up
+        setTimeout(() => {
+          document.head.removeChild(style);
+          if (contentRef.current) {
+            contentRef.current.removeAttribute('id');
+          }
+          setExporting(false);
+        }, 500);
+      }, 500);
+    } catch (error) {
+      console.error('Error during print:', error);
+      alert('Error al generar la impresión. Por favor intente de nuevo.');
+      setExporting(false);
+    }
   };
+
   // Refs for dropdown components
   const dropdownRefs = useRef({
     marca: useRef<HTMLDivElement>(null),
@@ -546,10 +652,11 @@ export default function FlotaPage() {
                 <button
                   className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
                   onClick={exportToPDF}
+                  disabled={exporting}
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    Exportar
+                    {exporting ? "Exportando..." : "Exportar"}
                   </span>
                 </button>
                 <Notificaciones />
@@ -558,110 +665,113 @@ export default function FlotaPage() {
           </div>
         </div>
 
-        {/* Main Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Vehículos Card */}
-          <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
-            <Truck className="w-5 h-5 text-white" />
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">{filteredVehicles.length}</p>
-              <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>Vehículos</p>
+        {/* Content that will be printed */}
+        <div ref={contentRef}>
+          {/* Main Metrics Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Vehículos Card */}
+            <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
+              <Truck className="w-5 h-5 text-white" />
+              <div className="text-left">
+                <p className="text-2xl font-bold text-white">{filteredVehicles.length}</p>
+                <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>Vehículos</p>
+              </div>
+            </div>
+
+            {/* Llantas Card */}
+            <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
+              <Layers className="w-5 h-5 text-white" />
+              <div className="text-left">
+                <p className="text-2xl font-bold text-white">{filteredTires.length}</p>
+                <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>Llantas</p>
+              </div>
+            </div>
+
+            {/* CPK Promedio Card */}
+            <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
+              <PieChart className="w-5 h-5 text-white" />
+              <div className="text-left">
+                <p className="text-2xl font-bold text-white">
+                  {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
+                </p>
+                <p className="text-sm uppercase tracking-wider text-white">CPK Promedio</p>
+              </div>
+            </div>
+
+            {/* CPK Proyectado Card */}
+            <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
+              <TrendingUpIcon className="w-5 h-5 text-white" />
+              <div className="text-left">
+                <p className="text-2xl font-bold text-white">
+                  {loading ? "Cargando..." : cpkProyectado.toLocaleString()}
+                </p>
+                <p className="text-sm uppercase tracking-wider text-white">CPK Proyectado</p>
+              </div>
             </div>
           </div>
 
-          {/* Llantas Card */}
-          <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <Layers className="w-5 h-5 text-white" />
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">{filteredTires.length}</p>
-              <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>Llantas</p>
+          {/* Filter Section (will be hidden in print by the CSS) */}
+          <div className="bg-white rounded-xl shadow-md p-4 mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter className="h-5 w-5 text-gray-500" />
+              <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
+              <FilterDropdown
+                id="marca"
+                label="Marca"
+                options={marcasOptions}
+                selected={selectedMarca}
+                onChange={setSelectedMarca}
+              />
+              
+              <FilterDropdown
+                id="eje"
+                label="Eje"
+                options={ejeOptions}
+                selected={selectedEje}
+                onChange={setSelectedEje}
+              />
+              
+              <FilterDropdown
+                id="semaforo"
+                label="Estado"
+                options={semaforoOptions}
+                selected={selectedSemaforo}
+                onChange={setSelectedSemaforo}
+              />
             </div>
           </div>
 
-          {/* CPK Promedio Card */}
-          <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <PieChart className="w-5 h-5 text-white" />
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
-              </p>
-              <p className="text-sm uppercase tracking-wider text-white">CPK Promedio</p>
+          <main className="container mx-auto max-w-6xl px-4 py-8">
+            <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
+              <PorMarca groupData={tiresGroupByMarca} />
+              <PorVida tires={filteredTires} />
             </div>
-          </div>
+            <br />
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <PromedioEje tires={filteredTires} onSelectEje={(eje) => setSelectedEje(eje || "Todos")} selectedEje={selectedEje} />
+              <InspeccionVencidaPage tires={filteredTires} />
+              <TipoVehiculo vehicles={filteredVehicles} />
+            </div>
+            <br />
+            <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-6">
+              <TablaCpk tires={filteredTires} />
+            </div>
 
-          {/* CPK Proyectado Card */}
-          <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <TrendingUpIcon className="w-5 h-5 text-white" />
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : cpkProyectado.toLocaleString()}
-              </p>
-              <p className="text-sm uppercase tracking-wider text-white">CPK Proyectado</p>
-            </div>
-          </div>
+            {/* Loading & Error states */}
+            {loading && (
+              <div className="text-center py-4 text-[#1E76B6] animate-pulse">
+                Cargando neumáticos...
+              </div>
+            )}
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4">
+                <p className="text-red-700">{error}</p>
+              </div>
+            )}
+          </main>
         </div>
-
-        {/* Filter Section */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Filter className="h-5 w-5 text-gray-500" />
-            <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
-            <FilterDropdown
-              id="marca"
-              label="Marca"
-              options={marcasOptions}
-              selected={selectedMarca}
-              onChange={setSelectedMarca}
-            />
-            
-            <FilterDropdown
-              id="eje"
-              label="Eje"
-              options={ejeOptions}
-              selected={selectedEje}
-              onChange={setSelectedEje}
-            />
-            
-            <FilterDropdown
-              id="semaforo"
-              label="Estado"
-              options={semaforoOptions}
-              selected={selectedSemaforo}
-              onChange={setSelectedSemaforo}
-            />
-          </div>
-        </div>
-
-        <main className="container mx-auto max-w-6xl px-4 py-8">
-          <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
-            <PorMarca groupData={tiresGroupByMarca} />
-            <PorVida tires={filteredTires} />
-          </div>
-          <br />
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <PromedioEje tires={filteredTires} onSelectEje={(eje) => setSelectedEje(eje || "Todos")} selectedEje={selectedEje} />
-            <InspeccionVencidaPage tires={filteredTires} />
-            <TipoVehiculo vehicles={filteredVehicles} />
-          </div>
-          <br />
-          <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-6">
-            <TablaCpk tires={filteredTires} />
-          </div>
-
-          {/* Loading & Error states */}
-          {loading && (
-            <div className="text-center py-4 text-[#1E76B6] animate-pulse">
-              Cargando neumáticos...
-            </div>
-          )}
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4">
-              <p className="text-red-700">{error}</p>
-            </div>
-          )}
-        </main>
       </div>
     </div>
   );

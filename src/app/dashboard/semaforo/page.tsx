@@ -57,7 +57,11 @@ export default function SemaforoPage() {
   const [userName, setUserName] = useState<string>("");
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
+  // Add new state for exporting
+  const [exporting, setExporting] = useState<boolean>(false);
 
+  // Add content ref for PDF export
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
@@ -88,11 +92,112 @@ export default function SemaforoPage() {
     semaforo: useRef<HTMLDivElement>(null)
   }).current;
 
+  // Updated exportToPDF function
   const exportToPDF = () => {
-    window.print();
+    try {
+      setExporting(true);
+      
+      // Create a print-specific stylesheet
+      const style = document.createElement('style');
+      style.type = 'text/css';
+      style.id = 'print-style';
+      
+      // Hide everything except the content we want to print
+      style.innerHTML = `
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+          
+          body {
+            visibility: hidden;
+          }
+          
+          .min-h-screen {
+            min-height: initial !important;
+          }
+          
+          #content-to-print,
+          #content-to-print * {
+            visibility: visible;
+          }
+          
+          #content-to-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          
+          /* Fix potential color issues */
+          .bg-gradient-to-r {
+            background: linear-gradient(to right, #0A183A, #1E76B6) !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#0A183A\\] {
+            background-color: #0A183A !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#173D68\\] {
+            background-color: #173D68 !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .bg-\\[\\#348CCB\\] {
+            background-color: #348CCB !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          .text-white {
+            color: white !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          
+          /* Ensure charts are visible */
+          canvas {
+            max-width: 100%;
+            height: auto !important;
+          }
+        }
+      `;
+      
+      // Add the style to the document head
+      document.head.appendChild(style);
+      
+      // Add temporary ID to content container
+      if (contentRef.current) {
+        contentRef.current.id = 'content-to-print';
+      }
+      
+      // Short delay to ensure styles are applied
+      setTimeout(() => {
+        // Trigger browser print dialog
+        window.print();
+        
+        // Clean up
+        setTimeout(() => {
+          document.head.removeChild(style);
+          if (contentRef.current) {
+            contentRef.current.removeAttribute('id');
+          }
+          setExporting(false);
+        }, 500);
+      }, 500);
+    } catch (error) {
+      console.error('Error during print:', error);
+      alert('Error al generar la impresión. Por favor intente de nuevo.');
+      setExporting(false);
+    }
   };
 
-  // Function definitions first, before they are used in useEffect
   const calculateTotals = useCallback((tires: Tire[]) => {
     let total = 0;
     let totalMes = 0;
@@ -383,7 +488,7 @@ export default function SemaforoPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={contentRef}>
         {/* Header Section */}
         <div className="mb-8 bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-lg p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -400,10 +505,11 @@ export default function SemaforoPage() {
                 <button
                   className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
                   onClick={exportToPDF}
+                  disabled={exporting}
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    Exportar
+                    {exporting ? "Exportando..." : "Exportar"}
                   </span>
                 </button>
                 <Notificaciones />
@@ -463,8 +569,8 @@ export default function SemaforoPage() {
           </div>
         </div>
 
-        {/* Filter Section */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6">
+        {/* Filter Section - Hide in print with CSS */}
+        <div className="bg-white rounded-xl shadow-md p-4 mb-6 print:hidden">
           <div className="flex items-center gap-2 mb-3">
             <Filter className="h-5 w-5 text-gray-500" />
             <h3 className="text-lg font-medium text-gray-800">Filtros</h3>

@@ -88,7 +88,7 @@ const features = [
 
 // App download links
 const appDownloadLinks = {
-  android: "https://play.google.com/store/apps/details?id=com.jeronimomoralesj.TirePro_App",
+  android: "https://play.google.com/apps/testing/com.jeronimomorales.tirepro",
   ios: "https://apps.apple.com/us/app/tirepro/id6741497732"
 };
 
