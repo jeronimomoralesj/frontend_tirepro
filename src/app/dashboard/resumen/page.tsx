@@ -193,37 +193,6 @@ const exportToPDF = () => {
     }
   };
   
-  // Helper function to create a clean clone of content
-  // This avoids the oklch color function issue
-  const createCleanClone = () => {
-    if (!contentRef.current) return null;
-    
-    const clone = contentRef.current.cloneNode(true) as HTMLElement;
-    
-    // Apply inline styles to replace any oklch colors with RGB equivalents
-    const allElements = clone.querySelectorAll('*');
-    
-    allElements.forEach(el => {
-      const computedStyle = window.getComputedStyle(el as Element);
-      
-      // Replace background colors
-      if (computedStyle.backgroundColor.includes('oklch')) {
-        (el as HTMLElement).style.backgroundColor = 'rgb(255, 255, 255)';
-      }
-      
-      // Replace text colors
-      if (computedStyle.color.includes('oklch')) {
-        (el as HTMLElement).style.color = 'rgb(0, 0, 0)';
-      }
-      
-      // Replace border colors
-      if (computedStyle.borderColor && computedStyle.borderColor.includes('oklch')) {
-        (el as HTMLElement).style.borderColor = 'rgb(200, 200, 200)';
-      }
-    });
-    
-    return clone;
-  };
 
   const calculateTotals = useCallback((tires: Tire[]) => {
     let total = 0;
