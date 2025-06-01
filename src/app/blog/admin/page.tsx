@@ -1,18 +1,12 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import { 
   X,
   Plus,
   Edit3,
   Trash2,
-  Eye,
-  Calendar,
-  Tag,
-  ImageIcon,
-  Save,
-  ArrowLeft,
   Mail,
   Shield
 } from 'lucide-react'

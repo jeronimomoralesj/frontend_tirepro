@@ -33,7 +33,7 @@ const getAuthHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem("token")}`
 });
 
-const getErrorMessage = (error: any): string => {
+const getErrorMessage = (error: unknown): string => {
   return error?.response?.data?.message || error?.message || "Error desconocido";
 };
 
@@ -43,7 +43,7 @@ const useApiCall = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const apiCall = async (fn: () => Promise<any>) => {
+const apiCall = async (fn: () => Promise<unknown>) => {
     try {
       setLoading(true);
       setError("");

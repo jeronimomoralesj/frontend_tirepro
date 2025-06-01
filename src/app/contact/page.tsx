@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { 
   Menu,
   X,
@@ -239,10 +240,12 @@ const handleSubmit = async (e) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <a href='/'><div className="flex items-center space-x-2">
-              <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
-              <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
-            </div></a>
+            <Link href='/'>
+              <div className="flex items-center space-x-2">
+                <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
+                <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
+              </div>
+            </Link>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
@@ -262,12 +265,16 @@ const handleSubmit = async (e) => {
 
             {/* CTA Buttons */}
             <div className="hidden md:flex items-center space-x-4">
-              <a href='/login'><button className="px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg hover:bg-[#348CCB] hover:text-white transition-all">
-                Ingresar
-              </button></a>
-              <a href='/companyregister'><button className="px-4 py-2 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all">
-                Quiero Iniciar
-              </button></a>
+              <Link href='/login'>
+                <button className="px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg hover:bg-[#348CCB] hover:text-white transition-all">
+                  Ingresar
+                </button>
+              </Link>
+              <Link href='/companyregister'>
+                <button className="px-4 py-2 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all">
+                  Quiero Iniciar
+                </button>
+              </Link>
             </div>
 
             {/* Mobile menu button */}
@@ -297,12 +304,16 @@ const handleSubmit = async (e) => {
                 Contacto
               </a>
               <div className="flex flex-col space-y-2 pt-4 border-t border-[#0A183A]">
-                <a href='/login'><button className="px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg">
-                  Acceso
-                </button></a>
-                <a href='/companyregister'><button className="px-4 py-2 bg-[#348CCB] text-white rounded-lg">
-                  Quiero Iniciar
-                </button></a>
+                <Link href='/login'>
+                  <button className="px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg">
+                    Acceso
+                  </button>
+                </Link>
+                <Link href='/companyregister'>
+                  <button className="px-4 py-2 bg-[#348CCB] text-white rounded-lg">
+                    Quiero Iniciar
+                  </button>
+                </Link>
               </div>
             </div>
           </div>

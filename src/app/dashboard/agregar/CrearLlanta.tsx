@@ -299,7 +299,6 @@ export default function TirePage() {
                     type="text"
                     value={vehicleSearch}
                     onChange={(e) => handleVehicleSearch(e.target.value)}
-                    onFocus={() => setShowVehicleDropdown(true)}
                     placeholder="Buscar vehículo por placa o tipo..."
                     className="w-full pl-12 pr-12 py-4 border-2 rounded-xl shadow-sm 
                     focus:outline-none focus:ring-4 transition-all duration-300

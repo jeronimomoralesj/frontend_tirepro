@@ -13,7 +13,6 @@ import {
   TrendingUpIcon,
 } from "lucide-react";
 import PorMarca from "../cards/porMarca";
-import TipoVehiculo from "../cards/tipoVehiculo";
 import PorVida from "../cards/porVida";
 import PromedioEje from "../cards/promedioEje";
 import InspeccionVencidaPage from "../cards/inspeccionVencida";
@@ -309,9 +308,9 @@ const exportToPDF = () => {
       
       // Add page break control classes
       const gridContainers = contentRef.current.querySelectorAll('.grid');
-      gridContainers.forEach((container, index) => {
-        container.classList.add('avoid-break');
-      });
+      gridContainers.forEach((container) => {
+  container.classList.add('avoid-break');
+});
     }
     
     // Wait for charts to render properly before printing

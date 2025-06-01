@@ -10,7 +10,6 @@ import {
   ChevronDown,
   PieChart,
   TrendingUpIcon,
-  Users
 } from "lucide-react";
 import SemaforoPie from "../cards/semaforoPie";
 import PromedioEje from "../cards/promedioEje";

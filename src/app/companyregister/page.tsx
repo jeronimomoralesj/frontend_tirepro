@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -11,7 +10,6 @@ import {
   Users,
   Truck,
   Building2,
-  Sparkles,
   Shield,
   Zap,
   ChevronRight

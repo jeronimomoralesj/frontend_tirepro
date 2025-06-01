@@ -8,7 +8,6 @@ import {
   Lock,
   ChevronRight,
   AlertCircle,
-  CheckCircle,
   Eye,
   EyeOff,
   X,
@@ -96,10 +95,10 @@ export default function LoginPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <a href="/"><div className="flex items-center space-x-2">
+            <Link href="/"><div className="flex items-center space-x-2">
               <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
               <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
-            </div></a>
+            </div></Link>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
@@ -178,14 +177,14 @@ export default function LoginPage() {
               <div className="mb-8 lg:mb-12">
                 <div className="flex items-center space-x-3 mb-6 lg:mb-8">
                   <div className="p-2 lg:p-3 rounded-xl bg-gradient-to-r from-[#348CCB]/20 to-purple-500/20 border border-[#173D68]/30">
-                    <a href="/"><Image src={logoTire} alt="TirePro" width={20}  className='lg:w-auto lg:h-6 filter brightness-0 invert'/></a>
+                    <Link href="/"><Image src={logoTire} alt="TirePro" width={20}  className='lg:w-auto lg:h-6 filter brightness-0 invert'/></Link>
                   </div>
-                  <a href="/"><Image
+                  <Link href="/"><Image
                     src={logo}
                     alt="TirePro Logo"
                     className="w-auto lg:h-8 filter brightness-0 invert"
                     priority
-                  /></a>
+                  /></Link>
                 </div>
               </div>
 
@@ -250,14 +249,14 @@ export default function LoginPage() {
               <div className="lg:hidden text-center mb-6 sm:mb-8">
                 <div className="flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
                   <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-[#348CCB]/20 to-purple-500/20 border border-[#173D68]/30">
-                    <a href="/"><Image src={logoTire} alt="TirePro" height={20} className='sm:w-6 sm:h-6 filter brightness-0 invert'/></a>
+                    <Link href="/"><Image src={logoTire} alt="TirePro" height={20} className='sm:w-6 sm:h-6 filter brightness-0 invert'/></Link>
                   </div>
-                  <a href="/"><Image 
+                  <Link href="/"><Image 
                     src={logo} 
                     alt="TirePro" 
                     width={100} 
                     className="sm:w-[120px] sm:h-[32px] filter brightness-0 invert"
-                  /></a>
+                  /></Link>
                 </div>
                 <h1 className="text-xl sm:text-2xl font-bold">
                   Bienvenido <span className="text-[#348CCB]">de nuevo!</span>
