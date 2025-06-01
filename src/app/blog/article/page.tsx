@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -20,7 +20,8 @@ import {
 import logo from "../../../../public/logo_text.png"
 import logoTire from "../../../../public/logo_tire.png"
 
-const ArticlePage = () => {
+// Create a separate component for the article content that uses useSearchParams
+const ArticleContent = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [article, setArticle] = useState(null)
@@ -538,6 +539,25 @@ const ArticlePage = () => {
         </div>
       </footer>
     </div>
+  )
+}
+
+// Loading component for Suspense fallback
+const ArticlePageFallback = () => (
+  <div className="bg-[#030712] text-white min-h-screen flex items-center justify-center">
+    <div className="text-center">
+      <Loader className="animate-spin h-12 w-12 text-[#348CCB] mx-auto mb-4" />
+      <p className="text-gray-300">Cargando página...</p>
+    </div>
+  </div>
+)
+
+// Main component wrapped with Suspense
+const ArticlePage = () => {
+  return (
+    <Suspense fallback={<ArticlePageFallback />}>
+      <ArticleContent />
+    </Suspense>
   )
 }
 
