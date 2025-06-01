@@ -39,11 +39,19 @@ export type Tire = {
   inspecciones: Inspection[];
   marca: string;
   eje: string;
+  vehicleId?: string;
+};
+
+export type Vehicle = {
+  id: string;
+  placa: string;
+  cliente?: string;
 };
 
 export default function ResumenPage() {
   const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,7 +62,7 @@ export default function ResumenPage() {
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
   const [exporting, setExporting] = useState(false);
 
-
+  
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -65,6 +73,10 @@ export default function ResumenPage() {
   // Eje filter options
   const [ejeOptions, setEjeOptions] = useState<string[]>([]);
   const [selectedEje, setSelectedEje] = useState<string>("Todos");
+
+  // Cliente filter options
+  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
 
   // Semáforo filter options
   const [semaforoOptions] = useState<string[]>([
@@ -85,93 +97,173 @@ export default function ResumenPage() {
     marca: useRef<HTMLDivElement>(null),
     eje: useRef<HTMLDivElement>(null),
     semaforo: useRef<HTMLDivElement>(null),
+    cliente: useRef<HTMLDivElement>(null),
   }).current;
 
 const exportToPDF = () => {
-    try {
-      setExporting(true);
-      
-      // Create a print-specific stylesheet
-      const style = document.createElement('style');
-      style.type = 'text/css';
-      style.id = 'print-style';
-      
-      // Hide everything except the content we want to print
-      style.innerHTML = `
-        @media print {
-          @page { 
-            size: A4 portrait;
-            margin: 10mm; 
-          }
-          
-          body * {
-            visibility: hidden;
-          }
-          
-          .min-h-screen {
-            min-height: initial !important;
-          }
-          
-          #content-to-print,
-          #content-to-print * {
-            visibility: visible;
-          }
-          
-          #content-to-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          
-          /* Fix potential color issues */
-          .bg-gradient-to-r {
-            background: linear-gradient(to right, #0A183A, #1E76B6) !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#0A183A\\] {
-            background-color: #0A183A !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#173D68\\] {
-            background-color: #173D68 !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#348CCB\\] {
-            background-color: #348CCB !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .text-white {
-            color: white !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          /* Ensure charts are visible */
-          canvas {
-            max-width: 100%;
-            height: auto !important;
-          }
+  try {
+    setExporting(true);
+
+    // Create a print-specific stylesheet
+    const style = document.createElement('style');
+    style.type = 'text/css';
+    style.id = 'print-style';
+    
+    // Hide everything except the content we want to print
+    style.innerHTML = `
+      @media print {
+        @page { 
+          size: A4 portrait;
+          margin: 10mm; 
         }
-      `;
-      
-      // Add the style to the document head
-      document.head.appendChild(style);
-      
-      // Add temporary ID to content container
-      if (contentRef.current) {
-        contentRef.current.id = 'content-to-print';
+        
+        body * {
+          visibility: hidden;
+        }
+        
+        .min-h-screen {
+          min-height: initial !important;
+        }
+        
+        #content-to-print,
+        #content-to-print * {
+          visibility: visible;
+        }
+        
+        #content-to-print {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+        
+        /* Fix potential color issues */
+        .bg-gradient-to-r {
+          background: linear-gradient(to right, #0A183A, #1E76B6) !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        .bg-\\[\\#0A183A\\] {
+          background-color: #0A183A !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        .bg-\\[\\#173D68\\] {
+          background-color: #173D68 !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        .bg-\\[\\#348CCB\\] {
+          background-color: #348CCB !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        .text-white {
+          color: white !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        /* Enhanced chart and canvas handling */
+        canvas {
+          max-width: 100% !important;
+          height: auto !important;
+          display: block !important;
+          margin: 0 auto !important;
+        }
+        
+        /* Ensure proper positioning for chart containers */
+        .relative {
+          position: relative !important;
+        }
+        
+        .absolute {
+          position: absolute !important;
+        }
+        
+        /* Fix chart container sizing */
+        .h-64 {
+          height: 12rem !important;
+        }
+        
+        /* Ensure center text is properly positioned */
+        .inset-0 {
+          top: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          left: 0 !important;
+        }
+        
+        .z-10 {
+          z-index: 10 !important;
+        }
+        
+        /* Hide interactive elements */
+        .print\\:hidden {
+          display: none !important;
+        }
+        
+        /* Adjust spacing for print */
+        .print\\:gap-2 {
+          gap: 0.5rem !important;
+        }
+        
+        .print\\:mt-4 {
+          margin-top: 1rem !important;
+        }
+        
+        .print\\:p-2 {
+          padding: 0.5rem !important;
+        }
+        
+        .print\\:text-xs {
+          font-size: 0.75rem !important;
+        }
+        
+        .print\\:text-base {
+          font-size: 1rem !important;
+        }
+        
+        .print\\:w-4 {
+          width: 1rem !important;
+        }
+        
+        .print\\:h-4 {
+          height: 1rem !important;
+        }
+        
+        .print\\:h-48 {
+          height: 12rem !important;
+        }
+        
+        .print\\:max-w-48 {
+          max-width: 12rem !important;
+        }
+        
+        .print\\:max-h-48 {
+          max-height: 12rem !important;
+        }
       }
+    `;
+    
+    // Add the style to the document head
+    document.head.appendChild(style);
+    
+    // Add temporary ID to content container
+    if (contentRef.current) {
+      contentRef.current.id = 'content-to-print';
+    }
+    
+    // Wait for charts to render properly before printing
+    setTimeout(() => {
+      // Force chart re-render for print
+      window.dispatchEvent(new Event('resize'));
       
-      // Short delay to ensure styles are applied
+      // Additional delay for chart rendering
       setTimeout(() => {
         // Trigger browser print dialog
         window.print();
@@ -184,15 +276,15 @@ const exportToPDF = () => {
           }
           setExporting(false);
         }, 500);
-      }, 500);
-      
-    } catch (error) {
-      console.error('Error during print:', error);
-      alert('Error al generar la impresión. Por favor intente de nuevo.');
-      setExporting(false);
-    }
-  };
-  
+      }, 300);
+    }, 500);
+    
+  } catch (error) {
+    console.error('Error during print:', error);
+    alert('Error al generar la impresión. Por favor intente de nuevo.');
+    setExporting(false);
+  }
+};
 
   const calculateTotals = useCallback((tires: Tire[]) => {
     let total = 0;
@@ -251,6 +343,33 @@ const exportToPDF = () => {
     
   }, []);
 
+  const fetchVehicles = useCallback(
+    async (companyId: string) => {
+      try {
+        const res = await fetch(
+          process.env.NEXT_PUBLIC_API_URL
+            ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
+            : `https://api.tirepro.com.co/api/vehicles?companyId=${companyId}`
+        );
+        if (!res.ok) {
+          throw new Error("Failed to fetch vehicles");
+        }
+        const data: Vehicle[] = await res.json();
+        setVehicles(data);
+        
+        // Extract unique cliente values
+        const uniqueClientes = Array.from(
+          new Set(data.map((vehicle) => vehicle.cliente || ""))
+        );
+        setClienteOptions(["Todos", ...uniqueClientes]);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Unexpected error";
+        setError((prev) => prev + " " + errorMessage);
+      }
+    },
+    []
+  );
+
   const fetchTires = useCallback(
     async (companyId: string) => {
       setLoading(true);
@@ -304,14 +423,30 @@ const exportToPDF = () => {
   const applyFilters = useCallback(() => {
     let tempTires = [...tires];
 
+    // Filter by marca
     if (selectedMarca !== "Todas") {
       tempTires = tempTires.filter((tire) => tire.marca === selectedMarca);
     }
 
+    // Filter by eje
     if (selectedEje !== "Todos") {
       tempTires = tempTires.filter((tire) => tire.eje === selectedEje);
     }
 
+    // Filter by cliente (owner)
+    if (selectedCliente !== "Todos") {
+      // Get vehicle IDs that match the selected cliente
+      const filteredVehicleIds = vehicles
+        .filter((vehicle) => vehicle.cliente === selectedCliente)
+        .map((vehicle) => vehicle.id);
+      
+      // Filter tires that belong to these vehicles
+      tempTires = tempTires.filter((tire) => 
+        tire.vehicleId && filteredVehicleIds.includes(tire.vehicleId)
+      );
+    }
+
+    // Filter by semáforo (condition)
     if (selectedSemaforo !== "Todos") {
       tempTires = tempTires.filter((tire) => {
         const condition = classifyCondition(tire);
@@ -334,7 +469,50 @@ const exportToPDF = () => {
 
     setFilteredTires(tempTires);
     calculateCpkAverages(tempTires);
-  }, [tires, selectedMarca, selectedEje, selectedSemaforo, calculateCpkAverages]);
+  }, [tires, vehicles, selectedMarca, selectedEje, selectedCliente, selectedSemaforo, calculateCpkAverages]);
+
+const [userPlan, setUserPlan] = useState<string>("");
+
+
+const fetchCompany = useCallback(async (companyId: string) => {
+  try {
+    const url = process.env.NEXT_PUBLIC_API_URL
+      ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
+      : `https://api.tirepro.com.co/api/companies/${companyId}`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to fetch company");
+    const company = await res.json();
+    setUserPlan(company.plan);
+  } catch (err) {
+    console.error(err);
+    setError("No se pudo cargar la configuración de la compañía");
+  }
+}, []);
+
+// 3) in your existing useEffect, call fetchCompany
+useEffect(() => {
+  const storedUser = localStorage.getItem("user");
+  if (!storedUser) {
+    router.push("/login");
+    return;
+  }
+
+  const user = JSON.parse(storedUser);
+  if (!user.companyId) {
+    setError("No company assigned to user");
+    return;
+  }
+
+  setUserName(user.name || user.email || "User");
+
+  // → NEW:
+  fetchCompany(user.companyId);
+
+  // your existing loads:
+  fetchVehicles(user.companyId);
+  fetchTires(user.companyId);
+}, [router, fetchTires, fetchVehicles, fetchCompany]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -342,6 +520,7 @@ const exportToPDF = () => {
       const user = JSON.parse(storedUser);
       if (user.companyId) {
         setUserName(user.name || user.email || "User");
+        fetchVehicles(user.companyId);
         fetchTires(user.companyId);
       } else {
         setError("No company assigned to user");
@@ -349,7 +528,7 @@ const exportToPDF = () => {
     } else {
       router.push("/login");
     }
-  }, [router, fetchTires]);
+  }, [router, fetchTires, fetchVehicles]);
 
   useEffect(() => {
     if (tires.length > 0) {
@@ -533,36 +712,52 @@ const exportToPDF = () => {
           </div>
         </div>
 
-        {/* Filter Section */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Filter className="h-5 w-5 text-gray-500" />
-            <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
-            <FilterDropdown
-              id="marca"
-              label="Marca"
-              options={marcasOptions}
-              selected={selectedMarca}
-              onChange={setSelectedMarca}
-            />
-            <FilterDropdown
-              id="eje"
-              label="Eje"
-              options={ejeOptions}
-              selected={selectedEje}
-              onChange={setSelectedEje}
-            />
-            <FilterDropdown
-              id="semaforo"
-              label="Estado"
-              options={semaforoOptions}
-              selected={selectedSemaforo}
-              onChange={setSelectedSemaforo}
-            />
-          </div>
-        </div>
+{/* Filter Section */}
+<div className="bg-white rounded-xl shadow-md p-4 mb-6">
+  <div className="flex items-center gap-2 mb-3">
+    <Filter className="h-5 w-5 text-gray-500" />
+    <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
+  </div>
+  <div className={`
+    grid
+    grid-cols-1
+    sm:grid-cols-2
+    ${userPlan === "retail" ? "lg:grid-cols-4" : "lg:grid-cols-3"}
+    gap-3
+  `}>
+    {userPlan === "retail" && (
+      <FilterDropdown
+        id="cliente"
+        label="Dueño"
+        options={clienteOptions}
+        selected={selectedCliente}
+        onChange={setSelectedCliente}
+      />
+    )}
+    <FilterDropdown
+      id="marca"
+      label="Marca"
+      options={marcasOptions}
+      selected={selectedMarca}
+      onChange={setSelectedMarca}
+    />
+    <FilterDropdown
+      id="eje"
+      label="Eje"
+      options={ejeOptions}
+      selected={selectedEje}
+      onChange={setSelectedEje}
+    />
+    <FilterDropdown
+      id="semaforo"
+      label="Estado"
+      options={semaforoOptions}
+      selected={selectedSemaforo}
+      onChange={setSelectedSemaforo}
+    />
+  </div>
+</div>
+
 
         <main className="container mx-auto max-w-6xl px-4 py-8">
           <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">

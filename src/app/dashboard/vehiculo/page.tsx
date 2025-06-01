@@ -3,7 +3,6 @@
 import React, { useState, useEffect, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Database, Trash2, X, Truck, Link2 } from "lucide-react";
-// Removed unused 'Unlink' import
 
 type Vehicle = {
   id: string;
@@ -14,7 +13,8 @@ type Vehicle = {
   tipovhc: string;
   companyId: string;
   tireCount: number;
-  union: string[]; // array of connected vehicle placas
+  union: string[];
+  cliente: string | null;
 };
 
 export default function VehiculoPage() {
@@ -39,6 +39,7 @@ export default function VehiculoPage() {
   const [carga, setCarga] = useState("");
   const [pesoCarga, setPesoCarga] = useState<number>(0);
   const [tipovhc, setTipovhc] = useState("2_ejes");
+  const [cliente, setCliente] = useState("");
 
   // Union placa inputs per vehicle
   const [plateInputs, setPlateInputs] = useState<{ [vehicleId: string]: string }>({});
@@ -49,13 +50,13 @@ export default function VehiculoPage() {
   // Retrieve the companyId from stored user data
   const [companyId, setCompanyId] = useState<string>("");
 
-  const API_BASE = "https://api.tirepro.com.co/api";
-
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") /* strip trailing slash */ 
+  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+  : "https://api.tirepro.com.co/api";
+  
   // Organize vehicles by their connections
   const organizedVehicles = useMemo(() => {
-    // Create map of placa to vehicle for quick lookup
-    // Removed unused vehicleMap variable
-    
     // Track vehicles that have been processed
     const processed = new Set<string>();
     
@@ -101,7 +102,6 @@ export default function VehiculoPage() {
           setError("No companyId found on user");
         }
       } catch {
-        // Removed unused 'e' parameter
         setError("Error parsing user data");
         router.push("/login");
       }
@@ -110,64 +110,101 @@ export default function VehiculoPage() {
     }
   }, [router]);
 
-  async function fetchVehicles(companyId: string) {
-    setLoadingVehicles(true);
-    setError("");
-    try {
-      const res = await fetch(`${API_BASE}/vehicles?companyId=${companyId}`);
-      if (!res.ok) throw new Error("Failed to fetch vehicles");
-      const data: Vehicle[] = await res.json();
-      // Ensure all vehicles have a union array, even if the API doesn't provide one
-      const safeData = data.map(vehicle => ({
-        ...vehicle,
-        union: vehicle.union || []
-      }));
-      setVehicles(safeData);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unexpected error");
-    } finally {
-      setLoadingVehicles(false);
-    }
-  }
-
-  async function handleCreateVehicle(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    try {
-      const res = await fetch(`${API_BASE}/vehicles/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          placa,
-          kilometrajeActual,
-          carga,
-          pesoCarga,
-          tipovhc,
-          companyId,
-        }),
+async function fetchVehicles(companyId: string) {
+  setLoadingVehicles(true);
+  setError("");
+  try {
+    const res = await fetch(`${API_BASE}/vehicles?companyId=${companyId}`);
+    if (!res.ok) throw new Error("Failed to fetch vehicles");
+    
+    const data = await res.json();
+    console.log("Vehicles from API:", data);
+    
+    // DEBUG: Check each vehicle's cliente field
+    data.forEach((vehicle, index) => {
+      console.log(`Vehicle ${index + 1} (${vehicle.placa}):`, {
+        cliente: vehicle.cliente,
+        clienteType: typeof vehicle.cliente,
+        clienteValue: JSON.stringify(vehicle.cliente)
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to create vehicle");
-      }
-      const { vehicle: newVehicle } = await res.json();
-      // Ensure the new vehicle has a union array
-      const safeVehicle = {
-        ...newVehicle,
-        union: newVehicle.union || []
-      };
-      setVehicles((prev) => [...prev, safeVehicle]);
-      // reset
-      setPlaca("");
-      setKilometrajeActual(0);
-      setCarga("");
-      setPesoCarga(0);
-      setTipovhc("2_ejes");
-      setIsFormOpen(false);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unexpected error");
-    }
+    });
+    
+    // Only ensure union is an array, leave cliente as-is
+    const safeData = data.map(vehicle => ({
+      ...vehicle,
+      union: Array.isArray(vehicle.union) ? vehicle.union : [],
+    }));
+    
+    setVehicles(safeData);
+  } catch (err: unknown) {
+    console.error("Fetch vehicles error:", err);
+    setError(err instanceof Error ? err.message : "Unexpected error");
+  } finally {
+    setLoadingVehicles(false);
   }
+}
+async function handleCreateVehicle(e: FormEvent) {
+  e.preventDefault();
+  setError("");
+  
+  console.log("Sending to API:", {
+    placa,
+    kilometrajeActual,
+    carga,
+    pesoCarga,
+    tipovhc,
+    companyId,
+    cliente: cliente.trim() || null
+  });
+  
+  try {
+    const res = await fetch(`${API_BASE}/vehicles/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        placa,
+        kilometrajeActual,
+        carga,
+        pesoCarga,
+        tipovhc,
+        companyId,
+        cliente: cliente.trim() || null  
+      }),
+    });
+    
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || "Failed to create vehicle");
+    }
+    
+    const responseData = await res.json();
+    console.log("Response from API:", responseData);
+    
+    const newVehicle = responseData.vehicle;
+    
+    // Only ensure union is an array, don't transform cliente
+    const safeVehicle = {
+      ...newVehicle,
+      union: Array.isArray(newVehicle.union) ? newVehicle.union : [],
+    };
+    
+    console.log("Processed vehicle:", safeVehicle);
+    
+    setVehicles((prev) => [...prev, safeVehicle]);
+    
+    // reset form
+    setPlaca("");
+    setKilometrajeActual(0);
+    setCarga("");
+    setPesoCarga(0);
+    setTipovhc("2_ejes");
+    setCliente("");
+    setIsFormOpen(false);
+  } catch (err: unknown) {
+    console.error("Create vehicle error:", err);
+    setError(err instanceof Error ? err.message : "Unexpected error");
+  }
+}
 
   async function handleDeleteVehicle(vehicleId: string) {
     setError("");
@@ -241,90 +278,108 @@ export default function VehiculoPage() {
       ...prev,
       [vehicleId]: !prev[vehicleId]
     }));
+    
+    // Initialize the plate input field if not yet set
+    if (!plateInputs[vehicleId]) {
+      setPlateInputs(prev => ({
+        ...prev,
+        [vehicleId]: ""
+      }));
+    }
+  }
+
+  // Handle input change without losing focus
+  function handlePlateInputChange(vehicleId: string, value: string) {
+    setPlateInputs(prev => ({
+      ...prev,
+      [vehicleId]: value
+    }));
   }
 
   // Vehicle card component for reuse
-  const VehicleCard = ({ vehicle, isConnected = false, connectionIndex = 0, onRemoveConnection = null }) => (
-    <div 
-      className="relative border border-[#348CCB]/20 rounded-lg shadow-md p-4 flex flex-col justify-between bg-white max-w-xs w-full sm:w-72"
-      style={{ zIndex: 5 }}
-    >
-      {/* Connector line between vehicles - only show for connected vehicles */}
-      {isConnected && connectionIndex > 0 && onRemoveConnection && (
-        <div 
-          className="absolute left-0 top-1/2 transform -translate-x-full -translate-y-1/2 w-4 md:w-6 h-1 bg-[#1E76B6] cursor-pointer hover:bg-[#0A183A]"
-          onClick={onRemoveConnection}
-        />
-      )}
-      
-      {/* Vehicle Info */}
-      <div className="space-y-2">
-        <div className="flex justify-between items-center border-b pb-2">
-          <span className="font-bold text-[#173D68]">{vehicle.placa?.toUpperCase() || "SIN PLACA"}</span>
-          <span className="bg-[#1E76B6]/10 text-[#1E76B6] px-2 py-1 rounded text-xs">
-            {vehicle.tipovhc?.replace("_", " ") || "Sin tipo"}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 pt-2 text-sm">
-          <span>Kilometraje:</span>
-          <span className="text-right">{vehicle.kilometrajeActual || 0} km</span>
-          <span>Carga:</span>
-          <span className="text-right">{vehicle.carga || "N/A"}</span>
-          <span>Peso:</span>
-          <span className="text-right">{vehicle.pesoCarga || 0} kg</span>
-          <span>Llantas:</span>
-          <span className="text-right">{vehicle.tireCount || 0}</span>
-          <span>Uniones:</span>
-          <span className="text-right">
-            {vehicle.union && Array.isArray(vehicle.union) && vehicle.union.length > 0 
-              ? vehicle.union.join(", ") 
-              : "Ninguna"}
-          </span>
-        </div>
+const VehicleCard = ({ vehicle, isConnected = false, connectionIndex = 0, onRemoveConnection = null }) => (
+  <div 
+    className="relative border border-[#348CCB]/20 rounded-lg shadow-md p-4 flex flex-col justify-between bg-white max-w-xs w-full sm:w-72"
+    style={{ zIndex: 5 }}
+  >
+    {/* Connector line between vehicles - only show for connected vehicles */}
+    {isConnected && connectionIndex > 0 && onRemoveConnection && (
+      <div 
+        className="absolute left-0 top-1/2 transform -translate-x-full -translate-y-1/2 w-4 md:w-6 h-1 bg-[#1E76B6] cursor-pointer hover:bg-[#0A183A]"
+        onClick={onRemoveConnection}
+      />
+    )}
+    
+    {/* Vehicle Info */}
+    <div className="space-y-2">
+      <div className="flex justify-between items-center border-b pb-2">
+        <span className="font-bold text-[#173D68]">{vehicle.placa?.toUpperCase() || "SIN PLACA"}</span>
+        <span className="bg-[#1E76B6]/10 text-[#1E76B6] px-2 py-1 rounded text-xs">
+          {vehicle.tipovhc?.replace("_", " ") || "Sin tipo"}
+        </span>
       </div>
-
-      {/* Actions */}
-      <div className="mt-4 space-y-2">
-        <div className="flex gap-2">
-          <button
-            onClick={() => toggleUnionInput(vehicle.id)}
-            className="flex-1 bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-2 rounded hover:bg-[#1E76B6]/20 flex items-center justify-center"
-          >
-            <Link2 className="w-4 h-4 mr-2" />
-            Unir
-          </button>
-          <button
-            onClick={() => setVehicleToDelete(vehicle)}
-            className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 flex items-center justify-center"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Eliminar
-          </button>
-        </div>
-
-        {/* Union input field (conditionally shown) */}
-        {showUnionInput[vehicle.id] && (
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              placeholder="Placa del otro vehiculo"
-              value={plateInputs[vehicle.id] || ""}
-              onChange={(e) =>
-                setPlateInputs((p) => ({ ...p, [vehicle.id]: e.target.value }))
-              }
-              className="flex-1 px-2 py-1 border rounded-md"
-            />
-            <button
-              onClick={() => addUnion(vehicle.id)}
-              className="px-2 bg-[#1E76B6] text-white rounded hover:bg-[#173D68]"
-            >
-              ➕
-            </button>
-          </div>
-        )}
+      <div className="grid grid-cols-2 gap-2 pt-2 text-sm">
+        <span>Kilometraje:</span>
+        <span className="text-right">{vehicle.kilometrajeActual || 0} km</span>
+        <span>Carga:</span>
+        <span className="text-right">{vehicle.carga || "N/A"}</span>
+        <span>Peso:</span>
+        <span className="text-right">{vehicle.pesoCarga || 0} kg</span>
+        <span>Llantas:</span>
+        <span className="text-right">{vehicle.tireCount || 0}</span>
+        <span>Dueño:</span>
+<span className="text-right">
+  {vehicle.cliente ? vehicle.cliente : "—"}
+</span>
+        <span>Uniones:</span>
+        <span className="text-right">
+          {vehicle.union && Array.isArray(vehicle.union) && vehicle.union.length > 0 
+            ? vehicle.union.join(", ") 
+            : "Ninguna"}
+        </span>
       </div>
     </div>
-  );
+
+    {/* Actions */}
+    <div className="mt-4 space-y-2">
+      <div className="flex gap-2">
+        <button
+          onClick={() => toggleUnionInput(vehicle.id)}
+          className="flex-1 bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-2 rounded hover:bg-[#1E76B6]/20 flex items-center justify-center"
+        >
+          <Link2 className="w-4 h-4 mr-2" />
+          Unir
+        </button>
+        <button
+          onClick={() => setVehicleToDelete(vehicle)}
+          className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 flex items-center justify-center"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          Eliminar
+        </button>
+      </div>
+
+      {/* Union input field (conditionally shown) */}
+      {showUnionInput[vehicle.id] && (
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            placeholder="Placa del otro vehiculo"
+            value={plateInputs[vehicle.id] || ""}
+            onChange={(e) => handlePlateInputChange(vehicle.id, e.target.value)}
+            className="flex-1 px-2 py-1 border rounded-md"
+          />
+          <button
+            onClick={() => addUnion(vehicle.id)}
+            className="px-2 bg-[#1E76B6] text-white rounded hover:bg-[#173D68]"
+          >
+            ➕
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+);
 
   return (
     <div className="min-h-screen text-[#0A183A] antialiased bg-gray-50">
@@ -415,7 +470,6 @@ export default function VehiculoPage() {
                     {organizedVehicles
                       .filter(group => group.length === 1)
                       .map((group) => (
-                        // Removed unused groupIndex variable
                         <VehicleCard key={`single-${group[0].id}`} vehicle={group[0]} />
                       ))}
                   </div>
@@ -491,6 +545,17 @@ export default function VehiculoPage() {
                     <option value="3_ejes_cabezote">Cabezote 3 ejes</option>
                   </select>
                 </div>
+                <div>
+  <label className="block mb-1">Dueño (opcional)</label>
+  <input
+    type="text"
+    value={cliente}
+    onChange={e => setCliente(e.target.value)}
+    placeholder="Nombre del cliente"
+    className="w-full px-3 py-2 border rounded-md"
+  />
+</div>
+
                 <div className="flex space-x-3">
                   <button
                     type="button"

@@ -40,16 +40,24 @@ export type Inspection = {
 export type Tire = {
   id: string;
   costo: CostEntry[];
-  inspecciones: Inspection[];
+  inspecciones?: {
+    cpk?: number;
+    cpkProyectado?: number;
+    profundidadInt: number;
+    profundidadCen: number;
+    profundidadExt: number;
+    fecha: string;
+  }[];
   marca: string;
-  vida?: string;
-  eje?: string;
+  eje: string;
+  vehicleId?: string;
 };
 
-type Vehicle = {
+export type Vehicle = {
   id: string;
-  tipo: string;
-  [key: string]: string | number | boolean | object | undefined;
+  placa: string;
+  tireCount: number;
+  cliente?: string;
 };
 
 export default function FlotaPage() {
@@ -73,6 +81,10 @@ export default function FlotaPage() {
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
+
+  // Cliente filter options - ADD THIS
+  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
   
   // Not used but keeping for potential future use - removing state setters that are unused
   const [selectedTipoVehiculo] = useState<string>("Todos");
@@ -97,91 +109,217 @@ export default function FlotaPage() {
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
-  const exportToPDF = () => {
-    try {
-      setExporting(true);
-      
-      // Create a print-specific stylesheet
-      const style = document.createElement('style');
-      style.type = 'text/css';
-      style.id = 'print-style';
-      
-      // Hide everything except the content we want to print
-      style.innerHTML = `
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 10mm;
-          }
-          
-          body * {
-            visibility: hidden;
-          }
-          
-          .min-h-screen {
-            min-height: initial !important;
-          }
-          
-          #content-to-print,
-          #content-to-print * {
-            visibility: visible;
-          }
-          
-          #content-to-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          
-          /* Fix potential color issues */
-          .bg-gradient-to-r {
-            background: linear-gradient(to right, #0A183A, #1E76B6) !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#0A183A\\] {
-            background-color: #0A183A !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#173D68\\] {
-            background-color: #173D68 !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#348CCB\\] {
-            background-color: #348CCB !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .text-white {
-            color: white !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          /* Ensure charts are visible */
-          canvas {
-            max-width: 100%;
-            height: auto !important;
-          }
+const exportToPDF = () => {
+  try {
+    setExporting(true);
+
+    // Create a print-specific stylesheet
+    const style = document.createElement('style');
+    style.type = 'text/css';
+    style.id = 'print-style';
+    
+    // Enhanced print styles with better page break control
+    style.innerHTML = `
+      @media print {
+        @page { 
+          size: A4 portrait;
+          margin: 10mm; 
         }
-      `;
-      
-      // Add the style to the document head
-      document.head.appendChild(style);
-      
-      // Add temporary ID to content container
-      if (contentRef.current) {
-        contentRef.current.id = 'content-to-print';
+        
+        body * {
+          visibility: hidden;
+        }
+        
+        .min-h-screen {
+          min-height: initial !important;
+        }
+        
+        #content-to-print,
+        #content-to-print * {
+          visibility: visible;
+        }
+        
+        #content-to-print {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+        
+        /* Fix potential color issues */
+        .bg-gradient-to-r {
+          background: linear-gradient(to right, #0A183A, #1E76B6) !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        .bg-\\[\\#0A183A\\] {
+          background-color: #0A183A !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        .bg-\\[\\#173D68\\] {
+          background-color: #173D68 !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        .bg-\\[\\#348CCB\\] {
+          background-color: #348CCB !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        .text-white {
+          color: white !important;
+          print-color-adjust: exact !important;
+          -webkit-print-color-adjust: exact !important;
+        }
+        
+        /* Enhanced chart and canvas handling */
+        canvas {
+          max-width: 100% !important;
+          height: auto !important;
+          display: block !important;
+          margin: 0 auto !important;
+        }
+        
+        /* Control page breaks */
+        .page-break-before {
+          page-break-before: always !important;
+        }
+        
+        .page-break-after {
+          page-break-after: always !important;
+        }
+        
+        .avoid-break {
+          page-break-inside: avoid !important;
+        }
+        
+        /* Specific component avoidance */
+        .grid {
+          break-inside: avoid !important;
+        }
+        
+        /* First row of content should stay together */
+        .grid.md\\:grid-cols-1.lg\\:grid-cols-2 {
+          page-break-inside: avoid !important;
+        }
+        
+        /* Second row needs separate handling */
+        .grid.md\\:grid-cols-2.lg\\:grid-cols-3 {
+          page-break-before: always !important;
+          page-break-inside: avoid !important;
+        }
+        
+        /* Table row should be on its own page */
+        .grid.md\\:grid-cols-1.lg\\:grid-cols-1 {
+          page-break-before: always !important;
+        }
+        
+        /* Scale down components slightly to fit better */
+        .grid.md\\:grid-cols-1.lg\\:grid-cols-2 > div,
+        .grid.md\\:grid-cols-2.lg\\:grid-cols-3 > div {
+          transform: scale(0.95);
+          transform-origin: top left;
+        }
+        
+        /* Ensure proper positioning for chart containers */
+        .relative {
+          position: relative !important;
+        }
+        
+        .absolute {
+          position: absolute !important;
+        }
+        
+        /* Fix chart container sizing */
+        .h-64 {
+          height: 12rem !important;
+        }
+        
+        /* Ensure center text is properly positioned */
+        .inset-0 {
+          top: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          left: 0 !important;
+        }
+        
+        .z-10 {
+          z-index: 10 !important;
+        }
+        
+        /* Hide interactive elements */
+        .print\\:hidden {
+          display: none !important;
+        }
+        
+        /* Adjust spacing for print */
+        .print\\:gap-2 {
+          gap: 0.5rem !important;
+        }
+        
+        .print\\:mt-4 {
+          margin-top: 1rem !important;
+        }
+        
+        .print\\:p-2 {
+          padding: 0.5rem !important;
+        }
+        
+        .print\\:text-xs {
+          font-size: 0.75rem !important;
+        }
+        
+        .print\\:text-base {
+          font-size: 1rem !important;
+        }
+        
+        .print\\:w-4 {
+          width: 1rem !important;
+        }
+        
+        .print\\:h-4 {
+          height: 1rem !important;
+        }
+        
+        .print\\:h-48 {
+          height: 12rem !important;
+        }
+        
+        .print\\:max-w-48 {
+          max-width: 12rem !important;
+        }
+        
+        .print\\:max-h-48 {
+          max-height: 12rem !important;
+        }
       }
+    `;
+    
+    // Add the style to the document head
+    document.head.appendChild(style);
+    
+    // Add temporary ID to content container
+    if (contentRef.current) {
+      contentRef.current.id = 'content-to-print';
       
-      // Short delay to ensure styles are applied
+      // Add page break control classes
+      const gridContainers = contentRef.current.querySelectorAll('.grid');
+      gridContainers.forEach((container, index) => {
+        container.classList.add('avoid-break');
+      });
+    }
+    
+    // Wait for charts to render properly before printing
+    setTimeout(() => {
+      // Force chart re-render for print
+      window.dispatchEvent(new Event('resize'));
+      
+      // Additional delay for chart rendering
       setTimeout(() => {
         // Trigger browser print dialog
         window.print();
@@ -191,16 +329,24 @@ export default function FlotaPage() {
           document.head.removeChild(style);
           if (contentRef.current) {
             contentRef.current.removeAttribute('id');
+            
+            // Remove added classes
+            const gridContainers = contentRef.current.querySelectorAll('.grid');
+            gridContainers.forEach((container) => {
+              container.classList.remove('avoid-break');
+            });
           }
           setExporting(false);
         }, 500);
-      }, 500);
-    } catch (error) {
-      console.error('Error during print:', error);
-      alert('Error al generar la impresión. Por favor intente de nuevo.');
-      setExporting(false);
-    }
-  };
+      }, 300);
+    }, 500);
+    
+  } catch (error) {
+    console.error('Error during print:', error);
+    alert('Error al generar la impresión. Por favor intente de nuevo.');
+    setExporting(false);
+  }
+};
 
   // Refs for dropdown components
   const dropdownRefs = useRef({
@@ -211,6 +357,7 @@ export default function FlotaPage() {
     periodo: useRef<HTMLDivElement>(null),
     cpkRange: useRef<HTMLDivElement>(null),
     vida: useRef<HTMLDivElement>(null),
+    cliente: useRef<HTMLDivElement>(null),
   }).current;
 
   const fetchTires = useCallback(async (companyId: string) => {
@@ -271,8 +418,18 @@ export default function FlotaPage() {
       if (!res.ok) {
         throw new Error("Failed to fetch vehicles");
       }
-      const data = await res.json();
+      const data: Vehicle[] = await res.json();
       setVehicles(data);
+      // Extract unique cliente values for the filter dropdown
+      const uniqueClientes = Array.from(
+        new Set(
+          data
+            .filter(vehicle => vehicle.cliente) // Filter out vehicles with no cliente
+            .map(vehicle => vehicle.cliente || "Sin dueño")
+        )
+      );
+      
+      setClienteOptions(["Todos", ...uniqueClientes]);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unexpected error";
       setError(errorMessage);
@@ -281,6 +438,44 @@ export default function FlotaPage() {
     }
   }, []);
 
+const [userPlan, setUserPlan] = useState<string>("");
+
+// 2) fetchCompany helper
+const fetchCompany = useCallback(async (companyId: string) => {
+  try {
+    const url = process.env.NEXT_PUBLIC_API_URL
+      ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
+      : `https://api.tirepro.com.co/api/companies/${companyId}`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to fetch company");
+    const company = await res.json();
+    setUserPlan(company.plan);
+  } catch (err) {
+    console.error(err);
+    setError("No se pudo cargar la configuración de la compañía");
+  }
+}, []);
+
+// 3) in your existing useEffect, call fetchCompany
+useEffect(() => {
+  const storedUser = localStorage.getItem("user");
+  if (!storedUser) {
+    router.push("/login");
+    return;
+  }
+
+  const user = JSON.parse(storedUser);
+  if (!user.companyId) {
+    setError("No company assigned to user");
+    return;
+  }
+  fetchCompany(user.companyId);
+
+  // your existing loads:
+  fetchVehicles(user.companyId);
+  fetchTires(user.companyId);
+}, [router, fetchTires, fetchVehicles, fetchCompany]);
   useEffect(() => {
     // Get user from localStorage
     const storedUser = localStorage.getItem("user");
@@ -364,6 +559,18 @@ export default function FlotaPage() {
   const applyFilters = useCallback(() => {
     // Filter tires based on selected filters
     let tempTires = [...tires];
+    // Apply cliente filter first
+    if (selectedCliente !== "Todos") {
+      // Get all vehicle IDs that belong to the selected cliente
+      const vehicleIds = vehicles
+        .filter(vehicle => vehicle.cliente === selectedCliente)
+        .map(vehicle => vehicle.id);
+      
+      // Filter tires to only include those from the matching vehicles
+      tempTires = tempTires.filter(tire => 
+        tire.vehicleId && vehicleIds.includes(tire.vehicleId)
+      );
+    }
     
     // Apply marca filter
     if (selectedMarca !== "Todas") {
@@ -476,12 +683,12 @@ export default function FlotaPage() {
     // Update metrics based on filtered data
     calculateTotals(tempTires);
     calculateCpkAverages(tempTires);
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, tires, vehicles]);
+  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, selectedCliente, tires, vehicles]);
 
   // Apply filters whenever filter selections change
   useEffect(() => {
     applyFilters();
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, tires, vehicles, applyFilters]);
+  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, selectedCliente, tires, vehicles, applyFilters]);
 
   // Handle clicking outside dropdowns
   useEffect(() => {
@@ -559,8 +766,8 @@ export default function FlotaPage() {
 
     // Calculate averages if we have valid tires
     if (validTireCount > 0) {
-      setCpkPromedio(Math.round(totalCpk / validTireCount));
-      setCpkProyectado(Math.round(totalCpkProyectado / validTireCount));
+      setCpkPromedio(Number((totalCpk / validTireCount).toFixed(2)));
+      setCpkProyectado(Number((totalCpkProyectado / validTireCount).toFixed(2)));
     } else {
       setCpkPromedio(0);
       setCpkProyectado(0);
@@ -716,7 +923,24 @@ export default function FlotaPage() {
               <Filter className="h-5 w-5 text-gray-500" />
               <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
+                      <div
+  className={`
+    grid
+    grid-cols-1
+    sm:grid-cols-2
+    ${userPlan === "retail" ? "lg:grid-cols-4" : "lg:grid-cols-3"}
+    gap-3
+  `}
+>
+  {userPlan === "retail" && (
+    <FilterDropdown
+      id="cliente"
+      label="Dueño"
+      options={clienteOptions}
+      selected={selectedCliente}
+      onChange={setSelectedCliente}
+    />
+  )}
               <FilterDropdown
                 id="marca"
                 label="Marca"
@@ -749,10 +973,9 @@ export default function FlotaPage() {
               <PorVida tires={filteredTires} />
             </div>
             <br />
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
               <PromedioEje tires={filteredTires} onSelectEje={(eje) => setSelectedEje(eje || "Todos")} selectedEje={selectedEje} />
               <InspeccionVencidaPage tires={filteredTires} />
-              <TipoVehiculo vehicles={filteredVehicles} />
             </div>
             <br />
             <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-6">

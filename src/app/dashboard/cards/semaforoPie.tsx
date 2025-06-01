@@ -25,14 +25,17 @@ interface SemaforoPieProps {
   selectedCondition?: string | null;
 }
 
-const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = () => {}, selectedCondition = null }) => {
+const SemaforoPie: React.FC<SemaforoPieProps> = ({ 
+  tires, 
+  onSelectCondition = () => {}, 
+  selectedCondition = null 
+}) => {
   const [tireCounts, setTireCounts] = useState({
     buenEstado: 0,
     dias60: 0,
     dias30: 0,
     cambioInmediato: 0,
   });
- // const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     const counts = { buenEstado: 0, dias60: 0, dias30: 0, cambioInmediato: 0 };
@@ -63,7 +66,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
     <AlertOctagon size={20} key="alert" />,
     <RotateCcw size={20} key="rotate" />
   ];
-  
+
   const values = conditions.map((c) => (selectedCondition && c !== selectedCondition ? 0 : tireCounts[c]));
   const total = Object.values(tireCounts).reduce((a, b) => a + b, 0);
   const activeIndices = values.map((v, i) => (v > 0 ? i : -1)).filter((i) => i !== -1);
@@ -84,6 +87,10 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    // Add animation configuration for better print handling
+    animation: {
+      duration: 0, // Disable animations during print
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -112,8 +119,6 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
       elements: { index: number }[]
     ) => {
       if (elements.length > 0) {
-        setIsAnimating(true);
-        setTimeout(() => setIsAnimating(false), 500);
         const index = elements[0].index;
         const condition = conditions[activeIndices[index]];
         onSelectCondition(condition === selectedCondition ? null : condition);
@@ -122,75 +127,89 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({ tires, onSelectCondition = ()
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden print:shadow-none print:border-gray-300">
+      <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <h2 className="text-xl font-bold">Semáforo</h2>
-        <div className="group relative cursor-pointer">
-  <HelpCircle
-    className="text-white hover:text-gray-200 transition-colors"
-    size={24}
-  />
-  <div className="
-    absolute z-10 -top-2 right-full 
-    bg-[#0A183A] text-white 
-    text-xs p-3 rounded-lg 
-    opacity-0 group-hover:opacity-100 
-    transition-opacity duration-300 
-    w-60 pointer-events-none
-  ">
-    <p>
-      Esta gráfica en dono muestra las proyecciones de cambio de sus llantas.
-    </p>
-  </div>
-</div>
-
+        <div className="group relative cursor-pointer print:hidden">
+          <HelpCircle
+            className="text-white hover:text-gray-200 transition-colors"
+            size={24}
+          />
+          <div className="
+            absolute z-10 -top-2 right-full 
+            bg-[#0A183A] text-white 
+            text-xs p-3 rounded-lg 
+            opacity-0 group-hover:opacity-100 
+            transition-opacity duration-300 
+            w-60 pointer-events-none
+          ">
+            <p>
+              Esta gráfica en dono muestra las proyecciones de cambio de sus llantas.
+            </p>
+          </div>
+        </div>
       </div>
+      
       <div className="p-6">
-        <div className="h-64 mb-4 relative">
+        {/* Chart container with improved positioning for print */}
+        <div className="h-64 mb-4 relative print:h-48">
           {total === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-500">
               <AlertOctagon size={32} />
               <p>No hay inspecciones disponibles</p>
             </div>
           ) : (
-            <>
-              <Doughnut data={data} options={options} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className="text-3xl font-bold text-[#0A183A]">{total}</p>
-                <p className="text-sm text-gray-500">llantas inspeccionadas</p>
+            <div className="relative w-full h-full">
+              {/* Canvas container with fixed positioning */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-full h-full max-w-64 max-h-64 print:max-w-48 print:max-h-48">
+                  <Doughnut data={data} options={options} />
+                </div>
               </div>
-            </>
+              {/* Center text with improved positioning */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                <p className="text-3xl font-bold text-[#0A183A] print:text-2xl">{total}</p>
+                <p className="text-sm text-gray-500 print:text-xs">llantas inspeccionadas</p>
+              </div>
+            </div>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+        
+        {/* Legend grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 print:gap-2 print:mt-4">
           {activeIndices.map((i) => (
             <div
               key={i}
               onClick={() => onSelectCondition(conditions[i] === selectedCondition ? null : conditions[i])}
-              className={`p-3 rounded-xl border hover:shadow transition-all cursor-pointer ${
-                selectedCondition === conditions[i] ? "bg-opacity-30 scale-105" : ""
+              className={`p-3 rounded-xl border hover:shadow transition-all cursor-pointer print:cursor-default print:p-2 print:rounded-lg ${
+                selectedCondition === conditions[i] ? "bg-opacity-30 scale-105 print:scale-100" : ""
               }`}
               style={{
                 backgroundColor: lightColors[i],
               }}
             >
-              <div className="flex items-center gap-3">
-                <div className="text-white p-2 rounded-full" style={{ backgroundColor: backgroundColors[i] }}>
-                  {icons[i]}
+              <div className="flex items-center gap-3 print:gap-2">
+                <div 
+                  className="text-white p-2 rounded-full print:p-1" 
+                  style={{ backgroundColor: backgroundColors[i] }}
+                >
+                  {React.cloneElement(icons[i], { size: 20, className: "print:w-4 print:h-4" })}
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">{conditionLabels[i]}</p>
-                  <p className="text-lg font-bold text-gray-800">{tireCounts[conditions[i]]}</p>
+                  <p className="text-sm text-gray-600 print:text-xs">{conditionLabels[i]}</p>
+                  <p className="text-lg font-bold text-gray-800 print:text-base">{tireCounts[conditions[i]]}</p>
                 </div>
               </div>
             </div>
           ))}
         </div>
-        <div className="border-t border-gray-100 pt-4 flex justify-between items-center mt-4">
-          <div className="text-xs text-gray-500">
+        
+        {/* Footer */}
+        <div className="border-t border-gray-100 pt-4 flex justify-between items-center mt-4 print:pt-2 print:mt-2">
+          <div className="text-xs text-gray-500 print:text-xs">
             Total de condiciones: {activeIndices.length}
           </div>
-          <div className="text-xs text-gray-500">Estado actual de llantas</div>
+          <div className="text-xs text-gray-500 print:text-xs">Estado actual de llantas</div>
         </div>
       </div>
     </div>

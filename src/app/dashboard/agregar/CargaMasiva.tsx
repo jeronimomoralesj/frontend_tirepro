@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { FilePlus, Upload } from "lucide-react";
+import { FilePlus, Upload, Download, Info } from "lucide-react";
 
 export default function CargaMasiva() {
   const [file, setFile] = useState<File | null>(null);
@@ -9,7 +9,16 @@ export default function CargaMasiva() {
   const [message, setMessage] = useState<string>();
   const [messageType, setMessageType] = useState<"success" | "error">();
   const [companyId, setCompanyId] = useState<string>("");
+  const [showDetails, setShowDetails] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Template fields for Excel
+  const requiredFields = [
+    "llanta", "vida", "placa", "kilometraje_actual", "frente", 
+    "marca", "diseno", "tipovhc", "pos", "proact", 
+    "eje", "profundidad_int", "profundidad_cen", "profundidad_ext", 
+    "costo", "kms", "dimension"
+  ];
 
   // On mount, pull the companyId from the stored user object
   useEffect(() => {
@@ -92,11 +101,85 @@ export default function CargaMasiva() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    // Create a template with headers
+    const headers = requiredFields.join('\t');
+    const blob = new Blob([headers], { type: 'text/tab-separated-values' });
+    
+    // Create a download link
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'plantilla_carga_llantas.xls';
+    
+    // Append to the document and trigger download
+    document.body.appendChild(a);
+    a.click();
+    
+    // Clean up
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
+  const toggleDetails = () => {
+    setShowDetails(!showDetails);
+  };
+
   return (
     <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+      {/* Explanatory section */}
+      <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div 
+          className="flex items-center justify-between cursor-pointer" 
+          onClick={toggleDetails}
+        >
+          <div className="flex items-center">
+            <Info className="h-5 w-5 text-blue-600 mr-2" />
+            <h3 className="font-medium text-blue-800">
+              Instrucciones para la Carga Masiva
+            </h3>
+          </div>
+          <span className="text-blue-600">
+            {showDetails ? "▲" : "▼"}
+          </span>
+        </div>
+        
+        {showDetails && (
+          <div className="mt-3 text-sm text-gray-700">
+            <p className="mb-2">
+              Para subir las llantas asegúrate de tener estos campos y que tengan estos títulos en tu archivo Excel:
+            </p>
+            
+            <div className="grid grid-cols-3 gap-x-2 gap-y-1 mb-3">
+              {requiredFields.map((field, index) => (
+                <div key={index} className="px-2 py-1 bg-blue-100 rounded text-blue-800 text-xs">
+                  {field}
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownloadTemplate();
+                }}
+                className="flex items-center text-blue-700 hover:text-blue-800"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Descargar Plantilla Excel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="border-2 border-dashed border-[#1E76B6] rounded-lg p-8 text-center bg-[#173D68]/5 cursor-pointer" onClick={handleClickUpload}>
+        <div 
+          className="border-2 border-dashed border-[#1E76B6] rounded-lg p-8 text-center bg-[#173D68]/5 cursor-pointer" 
+          onClick={handleClickUpload}
+        >
           <input
             ref={inputRef}
             type="file"

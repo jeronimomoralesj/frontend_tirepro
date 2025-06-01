@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2, Search, ChevronDown, X } from "lucide-react";
 
 type Vehicle = {
   id: string;
@@ -22,6 +22,12 @@ export default function TirePage() {
   const [loading, setLoading] = useState(false);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
 
+  // Vehicle search state
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
+  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
+  const vehicleDropdownRef = useRef<HTMLDivElement>(null);
+
   // Tire form state
   const [tireForm, setTireForm] = useState({
     tirePlaca: "",
@@ -29,10 +35,9 @@ export default function TirePage() {
     diseno: "",
     profundidadInicial: 0,
     dimension: "",
-    eje: "direccion", // Default value for the dropdown
+    eje: "direccion",
     kilometrosRecorridos: 0,
     costo: 0,
-    // Replace the Vida input with a dropdown value
     vida: "nueva",
     posicion: ""
   });
@@ -40,9 +45,20 @@ export default function TirePage() {
   // Company and vehicle selection state
   const [companyId, setCompanyId] = useState<string>("");
   const [userVehicles, setUserVehicles] = useState<Vehicle[]>([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
 
-  // Handle form input changes without losing focus
+  // Common input focus/blur handlers
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.target.style.borderColor = '#1E76B6';
+    e.target.style.boxShadow = '0 0 0 4px #1E76B633';
+  };
+
+  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.target.style.borderColor = '#348CCB4D';
+    e.target.style.boxShadow = 'none';
+  };
+
+  // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setTireForm(prev => ({
@@ -54,6 +70,49 @@ export default function TirePage() {
                 : value
     }));
   };
+
+  // Handle vehicle search
+  const handleVehicleSearch = (searchValue: string) => {
+    setVehicleSearch(searchValue);
+    if (searchValue.trim() === "") {
+      setFilteredVehicles(userVehicles);
+    } else {
+      const filtered = userVehicles.filter(vehicle =>
+        vehicle.placa.toLowerCase().includes(searchValue.toLowerCase()) ||
+        vehicle.tipovhc.toLowerCase().includes(searchValue.toLowerCase())
+      );
+      setFilteredVehicles(filtered);
+    }
+    setShowVehicleDropdown(true);
+  };
+
+  // Handle vehicle selection
+  const handleVehicleSelect = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setVehicleSearch(vehicle.placa);
+    setShowVehicleDropdown(false);
+  };
+
+  // Clear vehicle selection
+  const clearVehicleSelection = () => {
+    setSelectedVehicle(null);
+    setVehicleSearch("");
+    setFilteredVehicles(userVehicles);
+  };
+
+  // Click outside handler for dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(event.target as Node)) {
+        setShowVehicleDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -69,6 +128,11 @@ export default function TirePage() {
       router.push("/login");
     }
   }, [router]);
+
+  // Update filtered vehicles when userVehicles changes
+  useEffect(() => {
+    setFilteredVehicles(userVehicles);
+  }, [userVehicles]);
 
   async function fetchUserVehicles(companyId: string) {
     setLoadingVehicles(true);
@@ -110,11 +174,8 @@ export default function TirePage() {
     setLoading(true);
 
     const currentDate = new Date().toISOString();
-
-    // If tirePlaca is empty, generate a random string
     const finalPlaca = tireForm.tirePlaca.trim() !== "" ? tireForm.tirePlaca : generateRandomString(8);
 
-    // Build the payload. Notice that we convert the vida field to lowercase.
     const payload = {
       placa: finalPlaca.toLowerCase(),
       marca: tireForm.marca.toLowerCase(),
@@ -127,7 +188,7 @@ export default function TirePage() {
       vida: [{ valor: tireForm.vida.toLowerCase(), fecha: currentDate }],
       posicion: Number(tireForm.posicion),
       companyId,
-      vehicleId: selectedVehicleId || null,
+      vehicleId: selectedVehicle?.id || null,
     };
 
     try {
@@ -155,14 +216,13 @@ export default function TirePage() {
         diseno: "",
         profundidadInicial: 0,
         dimension: "",
-        eje: "direccion", // Reset to default value
+        eje: "direccion",
         kilometrosRecorridos: 0,
         costo: 0,
-        // Set default vida to "nueva" in the dropdown
         vida: "nueva",
         posicion: ""
       });
-      setSelectedVehicleId("");
+      clearVehicleSelection();
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
@@ -175,65 +235,166 @@ export default function TirePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 py-8">
-      <div className="container mx-auto px-4 max-w-2xl">
-        <div className="bg-white shadow-lg rounded-2xl overflow-hidden border border-[#348CCB]/10">
-          <div className="bg-gradient-to-r from-[#1E76B6] to-[#348CCB] p-6 text-white">
-            <h2 className="text-2xl font-bold">Crear Nueva Llanta</h2>
-            <p className="opacity-80 mt-1">Complete el formulario para registrar una nueva llanta</p>
+    <div 
+      className="min-h-screen py-8"
+      style={{
+
+      }}
+    >
+      <div className="container mx-auto px-4 max-w-4xl">
+        <div 
+          className="bg-white shadow-2xl rounded-3xl overflow-hidden border-2"
+          style={{ borderColor: '#348CCB33' }}
+        >
+          {/* Header */}
+          <div 
+            className="p-8 text-white relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(to right, #0A183A, #173D68, #1E76B6)'
+            }}
+          >
+            <div 
+              className="absolute inset-0 opacity-20"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23348CCB' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+              }}
+            ></div>
+            <div className="relative">
+              <h1 className="text-4xl font-bold mb-2 tracking-tight">Crear Nueva Llanta</h1>
+              <p className="text-lg font-medium" style={{ color: '#348CCB' }}>Complete el formulario para registrar una nueva llanta en el sistema</p>
+            </div>
           </div>
 
-          <form onSubmit={handleCreateTire} className="p-8 space-y-6">
+          <form onSubmit={handleCreateTire} className="p-8 space-y-8">
             {/* Notification Messages */}
             {error && (
-              <div className="flex items-center bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-6 animate-appear">
-                <AlertTriangle className="mr-3 flex-shrink-0 text-red-600" />
-                <span>{error}</span>
+              <div className="flex items-center bg-red-50 border-l-4 border-red-500 text-red-800 p-5 rounded-r-lg shadow-md animate-pulse">
+                <AlertTriangle className="mr-3 flex-shrink-0 text-red-600" size={24} />
+                <span className="font-medium">{error}</span>
               </div>
             )}
 
             {success && (
-              <div className="flex items-center bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg mb-6 animate-appear">
-                <CheckCircle className="mr-3 flex-shrink-0 text-green-600" />
-                <span>{success}</span>
+              <div className="flex items-center bg-green-50 border-l-4 border-green-500 text-green-800 p-5 rounded-r-lg shadow-md animate-pulse">
+                <CheckCircle className="mr-3 flex-shrink-0 text-green-600" size={24} />
+                <span className="font-medium">{success}</span>
               </div>
             )}
 
-            {/* Vehicle Dropdown */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            {/* Vehicle Search Section */}
+            <div 
+              className="p-6 rounded-2xl border"
+              style={{
+                background: 'linear-gradient(to right, #348CCB0A, #1E76B60A)',
+                borderColor: '#348CCB33'
+              }}
+            >
+              <label className="block text-lg font-semibold mb-3" style={{ color: '#0A183A' }}>
                 Seleccione Vehículo (Placa)
               </label>
-              <div className="relative">
-                <select
-                  value={selectedVehicleId}
-                  onChange={(e) => setSelectedVehicleId(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] appearance-none transition-colors"
-                  disabled={loadingVehicles}
-                >
-                  <option value="">-- Seleccione un vehículo (opcional) --</option>
-                  {userVehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.placa}
-                    </option>
-                  ))}
-                </select>
-                {loadingVehicles && (
-                  <Loader2 className="absolute right-3 top-3 animate-spin text-gray-400" size={20} />
+              <div className="relative" ref={vehicleDropdownRef}>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10" style={{ color: '#173D68' }} size={20} />
+                  <input
+                    type="text"
+                    value={vehicleSearch}
+                    onChange={(e) => handleVehicleSearch(e.target.value)}
+                    onFocus={() => setShowVehicleDropdown(true)}
+                    placeholder="Buscar vehículo por placa o tipo..."
+                    className="w-full pl-12 pr-12 py-4 border-2 rounded-xl shadow-sm 
+                    focus:outline-none focus:ring-4 transition-all duration-300
+                    bg-white text-lg font-medium"
+                    style={{
+                      borderColor: '#348CCB4D',
+                      color: '#0A183A'
+                    }}
+                    onFocus={(e) => {
+                      setShowVehicleDropdown(true);
+                      handleInputFocus(e);
+                    }}
+                    onBlur={handleInputBlur}
+                    disabled={loadingVehicles}
+                  />
+                  {selectedVehicle && (
+                    <button
+                      type="button"
+                      onClick={clearVehicleSelection}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 hover:text-red-500 transition-colors"
+                      style={{ color: '#173D68' }}
+                    >
+                      <X size={20} />
+                    </button>
+                  )}
+                  {!selectedVehicle && (
+                    <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2" style={{ color: '#173D68' }} size={20} />
+                  )}
+                  {loadingVehicles && (
+                    <Loader2 className="absolute right-4 top-1/2 transform -translate-y-1/2 animate-spin" style={{ color: '#1E76B6' }} size={20} />
+                  )}
+                </div>
+
+                {/* Dropdown */}
+                {showVehicleDropdown && !loadingVehicles && (
+                  <div 
+                    className="absolute z-50 w-full mt-2 bg-white border-2 rounded-xl shadow-xl max-h-60 overflow-y-auto"
+                    style={{ borderColor: '#348CCB4D' }}
+                  >
+                    {filteredVehicles.length === 0 ? (
+                      <div className="p-4 text-center" style={{ color: '#173D68' }}>
+                        No se encontraron vehículos
+                      </div>
+                    ) : (
+                      <>
+                        <div className="p-3 border-b" style={{ borderColor: '#348CCB33' }}>
+                          <button
+                            type="button"
+                            onClick={clearVehicleSelection}
+                            className="w-full text-left p-2 rounded-lg transition-colors hover:bg-gray-100"
+                            style={{ color: '#173D68' }}
+                          >
+                            -- Sin vehículo (opcional) --
+                          </button>
+                        </div>
+                        {filteredVehicles.map((vehicle) => (
+                          <button
+                            key={vehicle.id}
+                            type="button"
+                            onClick={() => handleVehicleSelect(vehicle)}
+                            className="w-full text-left p-4 transition-colors border-b last:border-b-0 hover:bg-gray-100"
+                            style={{ borderColor: '#348CCB1A' }}
+                          >
+                            <div className="font-semibold" style={{ color: '#0A183A' }}>{vehicle.placa}</div>
+                            <div className="text-sm" style={{ color: '#173D68' }}>{vehicle.tipovhc} - {vehicle.carga}</div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Seleccione un vehículo para asociar la llanta (opcional)
+              {selectedVehicle && (
+                <div 
+                  className="mt-3 p-3 rounded-lg border"
+                  style={{
+                    backgroundColor: '#1E76B61A',
+                    borderColor: '#1E76B633'
+                  }}
+                >
+                  <div className="text-sm" style={{ color: '#0A183A' }}>
+                    <strong>Seleccionado:</strong> {selectedVehicle.placa} - {selectedVehicle.tipovhc}
+                  </div>
+                </div>
+              )}
+              <p className="text-sm mt-2" style={{ color: '#173D68' }}>
+                Busque y seleccione un vehículo para asociar la llanta (opcional)
               </p>
             </div>
 
-            {/* Form Grid for Multiple Columns */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+            {/* Form Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* ID de la Llanta */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold" style={{ color: '#0A183A' }}>
                   ID de la Llanta
                 </label>
                 <input
@@ -242,15 +403,21 @@ export default function TirePage() {
                   value={tireForm.tirePlaca}
                   onChange={handleInputChange}
                   placeholder="Ingrese ID o déjelo en blanco para generar aleatorio"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                  className="w-full px-4 py-4 border-2 rounded-xl shadow-sm 
+                  focus:outline-none transition-all duration-300
+                  bg-white text-lg font-medium"
+                  style={{
+                    borderColor: '#348CCB4D',
+                    color: '#0A183A'
+                  }}
+                  onFocus={handleInputFocus}
+                  onBlur={handleInputBlur}
                 />
               </div>
 
               {/* Marca */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Marca <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -259,15 +426,16 @@ export default function TirePage() {
                   value={tireForm.marca}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
+                  text-lg font-medium"
                 />
               </div>
 
               {/* Diseño */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Diseño <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -276,15 +444,16 @@ export default function TirePage() {
                   value={tireForm.diseno}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
+                  text-lg font-medium"
                 />
               </div>
 
               {/* Profundidad Inicial */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Profundidad Inicial <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -294,15 +463,16 @@ export default function TirePage() {
                   onChange={handleInputChange}
                   required
                   step="0.1"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
+                  text-lg font-medium"
                 />
               </div>
 
               {/* Dimensión */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Dimensión <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -311,15 +481,16 @@ export default function TirePage() {
                   value={tireForm.dimension}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
+                  text-lg font-medium"
                 />
               </div>
 
-              {/* Eje - Changed from input to dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              {/* Eje */}
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Eje <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -327,9 +498,9 @@ export default function TirePage() {
                   value={tireForm.eje}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] transition-all duration-300 text-lg font-medium"
                 >
                   <option value="direccion">Dirección</option>
                   <option value="traccion">Tracción</option>
@@ -337,8 +508,8 @@ export default function TirePage() {
               </div>
 
               {/* Kilómetros Recorridos */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Kilómetros Recorridos
                 </label>
                 <input
@@ -346,15 +517,16 @@ export default function TirePage() {
                   name="kilometrosRecorridos"
                   value={tireForm.kilometrosRecorridos}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
+                  text-lg font-medium"
                 />
               </div>
 
               {/* Costo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Costo <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -364,15 +536,16 @@ export default function TirePage() {
                   onChange={handleInputChange}
                   required
                   step="0.01"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
+                  text-lg font-medium"
                 />
               </div>
 
-              {/* VIDA - Changed from input to Dropdown */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              {/* Vida */}
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Vida <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -380,9 +553,9 @@ export default function TirePage() {
                   value={tireForm.vida}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                          focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                          bg-white text-[#0A183A] transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] transition-all duration-300 text-lg font-medium"
                 >
                   <option value="nueva">Nueva</option>
                   <option value="reencauche1">Primer Reencauche</option>
@@ -392,8 +565,8 @@ export default function TirePage() {
               </div>
 
               {/* Posición */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-[#0A183A]">
                   Posición <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -403,9 +576,10 @@ export default function TirePage() {
                   onChange={handleInputChange}
                   required
                   min={1}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm 
-                  focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-gray-400 transition-colors"
+                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
+                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
+                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
+                  text-lg font-medium"
                 />
               </div>
             </div>
@@ -414,18 +588,23 @@ export default function TirePage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-lg
-              hover:shadow-md transition-all duration-300 
-              flex items-center justify-center font-medium
-              disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full mt-8 py-5 px-6 text-white rounded-2xl
+              hover:shadow-2xl hover:scale-105 transition-all duration-300 
+              flex items-center justify-center text-xl font-bold tracking-wide
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+              border-2"
+              style={{
+                background: 'linear-gradient(to right, #0A183A, #173D68, #1E76B6)',
+                borderColor: '#348CCB4D'
+              }}
             >
               {loading ? (
                 <>
-                  <Loader2 className="animate-spin mr-2" size={20} />
-                  <span>Creando...</span>
+                  <Loader2 className="animate-spin mr-3" size={24} />
+                  <span>Creando Llanta...</span>
                 </>
               ) : (
-                "Crear llanta"
+                "Crear Nueva Llanta"
               )}
             </button>
           </form>

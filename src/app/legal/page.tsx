@@ -65,7 +65,7 @@ const LegalPage = () => {
       title: "Identificación de la Entidad Responsable",
       content: [
         "TirePro, identificada con NIT 1016912013, con domicilio en Carrera 80 #170-60, Bogotá, Colombia, es la entidad responsable de proporcionar la plataforma y los servicios relacionados. TirePro está registrada bajo las leyes de la República de Colombia y cumple con todas las normativas aplicables en materia de protección de datos, comercio electrónico y derechos de los consumidores. Para consultas, puede contactarnos mediante los siguientes canales:",
-        "Correo electrónico: jeronimo.morales@merquellantas.com",
+        "Correo electrónico: info@tirepro.com.co",
         "Teléfono: 3106605563",
         "Horario de atención: lunes a viernes de 8:00 a.m. a 5:00 p.m. (hora local).",
         "Formulario de contacto: Disponible en nuestra plataforma."
@@ -142,7 +142,7 @@ const LegalPage = () => {
         {
           title: "4.3. Reporte de Infracciones",
           content: [
-            "Si detecta alguna infracción a los derechos de propiedad intelectual de TirePro, por favor notifíquelo al correo electrónico jeronimo.morales@merquellantas.com."
+            "Si detecta alguna infracción a los derechos de propiedad intelectual de TirePro, por favor notifíquelo al correo electrónico info@tirepro.com.co."
           ]
         }
       ]
@@ -230,7 +230,7 @@ const LegalPage = () => {
       title: "Identificación del Responsable del Tratamiento de Datos",
       content: [
         "TirePro, identificada con C.C 1016912013, con domicilio en Carrera 80 #170-60, Bogotá, Colombia, es responsable del tratamiento de los datos personales recogidos a través de la plataforma. Puede contactarnos para cualquier consulta o ejercicio de derechos en:",
-        "Correo electrónico: jeronimo.morales@merquellantas.com",
+        "Correo electrónico: info@tirepro.com.co",
         "Teléfono: 3106605563"
       ]
     },
@@ -357,7 +357,7 @@ const LegalPage = () => {
         "- Eliminación: Pedir la eliminación de los datos cuando ya no sean necesarios para las finalidades del tratamiento.",
         "- Revocación del Consentimiento: Retirar en cualquier momento el consentimiento otorgado para el tratamiento de datos personales.",
         "- Consulta y Reclamación: Presentar solicitudes relacionadas con el uso de sus datos personales a través de los canales establecidos.",
-        "Para ejercer estos derechos, los titulares deben enviar una solicitud a jeronimo.morales@merquellantas.com indicando su identificación, la descripción de la solicitud y los documentos de soporte necesarios."
+        "Para ejercer estos derechos, los titulares deben enviar una solicitud a info@tirepro.com.co indicando su identificación, la descripción de la solicitud y los documentos de soporte necesarios."
       ]
     },
     {
@@ -409,10 +409,6 @@ const LegalPage = () => {
             
             {/* Jump to specific sections */}
             <div className="relative group ml-auto">
-              <button className="flex items-center whitespace-nowrap px-3 py-2 text-[#1E76B6] font-medium">
-                Ir a Sección
-                <ChevronDown className="w-4 h-4 ml-1" />
-              </button>
               <div className="absolute right-0 mt-2 w-60 bg-white shadow-lg rounded-md border border-gray-200 py-2 hidden group-hover:block">
                 <div className="max-h-96 overflow-y-auto">
                   <div className="px-3 py-1 text-sm font-semibold text-gray-600">Términos y Condiciones</div>
@@ -501,11 +497,11 @@ const LegalPage = () => {
           </p>
           <div className="flex justify-center items-center mb-6">
             <a 
-              href="mailto:jeronimo.morales@merquellantas.com" 
+              href="mailto:info@tirepro.com.co" 
               className="flex items-center text-[#1E76B6] hover:text-[#348CCB] transition-colors"
             >
               <ExternalLink className="w-4 h-4 mr-2" />
-              jeronimo.morales@merquellantas.com
+              info@tirepro.com.co
             </a>
           </div>
           <p className="text-sm text-gray-500">

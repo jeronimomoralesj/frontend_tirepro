@@ -9,7 +9,8 @@ import {
   Filter,
   ChevronDown,
   PieChart,
-  TrendingUpIcon
+  TrendingUpIcon,
+  Users
 } from "lucide-react";
 import SemaforoPie from "../cards/semaforoPie";
 import PromedioEje from "../cards/promedioEje";
@@ -37,12 +38,14 @@ export type Tire = {
   }[];
   marca: string;
   eje: string;
+  vehicleId?: string;
 };
 
 export type Vehicle = {
   id: string;
   placa: string;
   tireCount: number;
+  cliente?: string;
 };
 
 export default function SemaforoPage() {
@@ -71,6 +74,10 @@ export default function SemaforoPage() {
   const [ejeOptions, setEjeOptions] = useState<string[]>([]);
   const [selectedEje, setSelectedEje] = useState<string>("Todos");
   
+  // Cliente filter options - ADD THIS
+  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
+  
   // Semáforo filter options
   const [semaforoOptions] = useState<string[]>([
     "Todos", 
@@ -89,7 +96,8 @@ export default function SemaforoPage() {
   const dropdownRefs = useRef({
     marca: useRef<HTMLDivElement>(null),
     eje: useRef<HTMLDivElement>(null),
-    semaforo: useRef<HTMLDivElement>(null)
+    semaforo: useRef<HTMLDivElement>(null),
+    cliente: useRef<HTMLDivElement>(null) // ADD THIS
   }).current;
 
   // Updated exportToPDF function
@@ -253,8 +261,8 @@ export default function SemaforoPage() {
 
     // Calculate averages if we have valid tires
     if (validTireCount > 0) {
-      setCpkPromedio(Math.round(totalCpk / validTireCount));
-      setCpkProyectado(Math.round(totalCpkProyectado / validTireCount));
+      setCpkPromedio(Number((totalCpk / validTireCount).toFixed(2)));
+      setCpkProyectado(Number((totalCpkProyectado / validTireCount).toFixed(2)));
     } else {
       setCpkPromedio(0);
       setCpkProyectado(0);
@@ -273,8 +281,24 @@ export default function SemaforoPage() {
 
   // Apply filters whenever filter selections change
   const applyFilters = useCallback(() => {
-    // Filter tires based on selected filters
-    let tempTires = [...tires];
+    // First, filter tires based on cliente selection
+    let tiresForCliente = [...tires];
+    
+    // Apply cliente filter first
+    if (selectedCliente !== "Todos") {
+      // Get all vehicle IDs that belong to the selected cliente
+      const vehicleIds = vehicles
+        .filter(vehicle => vehicle.cliente === selectedCliente)
+        .map(vehicle => vehicle.id);
+      
+      // Filter tires to only include those from the matching vehicles
+      tiresForCliente = tiresForCliente.filter(tire => 
+        tire.vehicleId && vehicleIds.includes(tire.vehicleId)
+      );
+    }
+    
+    // Then apply other filters
+    let tempTires = [...tiresForCliente];
     
     // Apply marca filter
     if (selectedMarca !== "Todas") {
@@ -311,7 +335,8 @@ export default function SemaforoPage() {
     
     // Update metrics based on filtered data
     calculateCpkAverages(tempTires);
-  }, [tires, selectedMarca, selectedEje, selectedSemaforo, calculateCpkAverages]);
+    calculateTotals(tempTires);
+  }, [tires, vehicles, selectedMarca, selectedEje, selectedSemaforo, selectedCliente, calculateCpkAverages, calculateTotals]);
 
   const fetchTires = useCallback(async (cId: string) => {
     setLoading(true);
@@ -372,10 +397,64 @@ export default function SemaforoPage() {
       }
       const data: Vehicle[] = await res.json();
       setVehicles(data);
+      
+      // Extract unique cliente values for the filter dropdown
+      const uniqueClientes = Array.from(
+        new Set(
+          data
+            .filter(vehicle => vehicle.cliente) // Filter out vehicles with no cliente
+            .map(vehicle => vehicle.cliente || "Sin dueño")
+        )
+      );
+      
+      setClienteOptions(["Todos", ...uniqueClientes]);
     } catch (err: unknown) {
       console.error(err);
     }
   }, []);
+
+const [userPlan, setUserPlan] = useState<string>("");
+
+// 2) fetchCompany helper
+const fetchCompany = useCallback(async (companyId: string) => {
+  try {
+    const url = process.env.NEXT_PUBLIC_API_URL
+      ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
+      : `https://api.tirepro.com.co/api/companies/${companyId}`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to fetch company");
+    const company = await res.json();
+    setUserPlan(company.plan);
+  } catch (err) {
+    console.error(err);
+    setError("No se pudo cargar la configuración de la compañía");
+  }
+}, []);
+
+// 3) in your existing useEffect, call fetchCompany
+useEffect(() => {
+  const storedUser = localStorage.getItem("user");
+  if (!storedUser) {
+    router.push("/login");
+    return;
+  }
+
+  const user = JSON.parse(storedUser);
+  if (!user.companyId) {
+    setError("No company assigned to user");
+    return;
+  }
+
+  setUserName(user.name || user.email || "User");
+
+  // → NEW:
+  fetchCompany(user.companyId);
+
+  // your existing loads:
+  fetchVehicles(user.companyId);
+  fetchTires(user.companyId);
+}, [router, fetchTires, fetchVehicles, fetchCompany]);
 
   // Now that functions are defined, we can use them in useEffect
   useEffect(() => {
@@ -575,7 +654,25 @@ export default function SemaforoPage() {
             <Filter className="h-5 w-5 text-gray-500" />
             <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
+          <div
+  className={`
+    grid
+    grid-cols-1
+    sm:grid-cols-2
+    ${userPlan === "retail" ? "lg:grid-cols-4" : "lg:grid-cols-3"}
+    gap-3
+  `}
+>
+  {userPlan === "retail" && (
+    <FilterDropdown
+      id="cliente"
+      label="Dueño"
+      options={clienteOptions}
+      selected={selectedCliente}
+      onChange={setSelectedCliente}
+    />
+  )}
+            
             <FilterDropdown
               id="marca"
               label="Marca"
@@ -620,7 +717,7 @@ export default function SemaforoPage() {
           </div>
           <br/>
           <div className="grid md:grid-cols-0 lg:grid-cols-1 gap-6">
-            <DetallesLlantas tires={filteredTires} />
+            <DetallesLlantas tires={filteredTires} vehicles={vehicles} />
           </div>
           <br />
 

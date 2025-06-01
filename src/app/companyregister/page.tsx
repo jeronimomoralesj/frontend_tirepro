@@ -2,21 +2,89 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Check,
+  Copy,
+  Users,
+  Truck,
+  Building2,
+  Sparkles,
+  Shield,
+  Zap,
+  ChevronRight
+} from "lucide-react";
+
+type UserType = "individual" | "fleet" | "distributor" | null;
 
 export default function CompanyRegisterPage() {
+  const [step, setStep] = useState<"userType" | "companyDetails">("userType");
+  const [userType, setUserType] = useState<UserType>(null);
   const [name, setName] = useState("");
-  const [plan, setPlan] = useState("Básico");
+  const [plan, setPlan] = useState("Pro");
   const [companyId, setCompanyId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const router = useRouter();
+
+  const userTypeOptions = [
+    {
+      id: "individual" as UserType,
+      title: "Propietario Individual",
+      subtitle: "1-5 vehículos",
+      description: "Perfecto para propietarios individuales o pequeñas flotas",
+      icon: Users,
+      plan: "mini",
+      gradient: "from-emerald-500/20 to-teal-500/20",
+      iconColor: "text-emerald-400",
+      borderColor: "border-emerald-500/30 hover:border-emerald-400/60"
+    },
+    {
+      id: "fleet" as UserType,
+      title: "Empresa con Flota",
+      subtitle: "Más de 5 vehículos",
+      description: "Ideal para empresas con flotas medianas y grandes que buscan optimización",
+      icon: Truck,
+      plan: "pro",
+      gradient: "from-blue-500/20 to-cyan-500/20",
+      iconColor: "text-blue-400",
+      borderColor: "border-blue-500/30 hover:border-blue-400/60"
+    },
+    {
+      id: "distributor" as UserType,
+      title: "Distribuidor",
+      subtitle: "Gestión para clientes",
+      description: "Solución completa para distribuidores que manejan múltiples clientes",
+      icon: Building2,
+      plan: "retail",
+      gradient: "from-purple-500/20 to-pink-500/20",
+      iconColor: "text-purple-400",
+      borderColor: "border-purple-500/30 hover:border-purple-400/60"
+    }
+  ];
+
+  const handleUserTypeSelection = (selectedType: UserType) => {
+    setUserType(selectedType);
+    const selectedOption = userTypeOptions.find(option => option.id === selectedType);
+    if (selectedOption) {
+      setPlan(selectedOption.plan);
+    }
+    setStep("companyDetails");
+  };
+
+  const handleBackToUserType = () => {
+    setStep("userType");
+    setError("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check if terms are accepted
     if (!termsAccepted) {
       setError("Debes aceptar los términos y condiciones para continuar");
       return;
@@ -26,7 +94,6 @@ export default function CompanyRegisterPage() {
     setError("");
 
     try {
-      // Validate input
       if (!name.trim()) {
         throw new Error("El nombre de la empresa es obligatorio");
       }
@@ -42,7 +109,8 @@ export default function CompanyRegisterPage() {
           },
           body: JSON.stringify({
             name: name.trim(),
-            plan: plan === "Básico" ? "basic" : plan.toLowerCase(),
+            plan: plan,
+            userType: userType,
           }),
         }
       );
@@ -54,7 +122,6 @@ export default function CompanyRegisterPage() {
       }
 
       setCompanyId(data.companyId); 
-      router.push(`/registeruser?companyId=${data.companyId}`);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -66,215 +133,322 @@ export default function CompanyRegisterPage() {
     }
   };
 
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(companyId);
-    alert("ID de empresa copiado al portapapeles");
+  const handleCopyId = async () => {
+    try {
+      await navigator.clipboard.writeText(companyId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   const handleCreateUser = () => {
-    // Navigate to user registration page with companyId
     router.push(`/registeruser?companyId=${companyId}`);
   };
 
-  return (
-    <div className="flex min-h-screen w-full bg-gradient-to-b from-[#0A183A] to-[#173D68] text-white">
-      <div className="container mx-auto px-4 py-12 md:px-6 lg:px-8">
-        <div className="mx-auto max-w-md">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-              Registrar Empresa
-            </h1>
-            <p className="mt-2 text-[#348CCB]">
-              Crea tu cuenta empresarial para comenzar
-            </p>
+  // User Type Selection Step
+  if (step === "userType") {
+    return (
+      <div className="min-h-screen bg-[#030712] text-white overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A183A]/40 via-transparent to-[#173D68]/20"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#348CCB]/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl"></div>
+
+        <div className="relative z-10">
+          {/* Header */}
+          <div className="border-b border-[#173D68]/30 bg-[#030712]/80 backdrop-blur-md">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              <Link href="/" className="inline-flex items-center space-x-2 text-gray-300 hover:text-white transition-colors">
+                <ArrowLeft size={20} />
+                <span>Volver al inicio</span>
+              </Link>
+            </div>
           </div>
 
-          {companyId ? (
-            <div className="overflow-hidden rounded-lg bg-white/10 backdrop-blur-lg">
-              <div className="p-6">
-                <div className="flex flex-col items-center space-y-4 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1E76B6]">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-6 w-6 text-white"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <h2 className="text-xl font-semibold">¡Registro Exitoso!</h2>
-                  <div className="text-sm text-gray-200">
-                    Tu empresa ha sido registrada correctamente
-                  </div>
-                  <div className="mt-2 rounded-md bg-[#0A183A]/50 p-4">
-                    <p className="text-sm font-medium">ID de Empresa:</p>
-                    <p className="mt-1 select-all break-all text-lg font-mono font-bold text-[#348CCB]">
-                      {companyId}
-                    </p>
-                  </div>
-                  <div className="mt-2 text-sm text-yellow-300">
-                    <p className="font-semibold">¡IMPORTANTE!</p>
-                    <p>
-                      Guarda este ID de empresa. Lo necesitarás para crear el
-                      primer usuario.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 w-full justify-center">
-                    <button
-                      onClick={handleCopyId}
-                      className="inline-flex items-center justify-center rounded-md border border-[#1E76B6] bg-[#1E76B6]/20 px-4 py-2 text-sm font-medium text-white hover:bg-[#1E76B6]/30 focus:outline-none focus:ring-2 focus:ring-[#348CCB]"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="mr-2 h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-                        />
-                      </svg>
-                      Copiar ID
-                    </button>
-                    <button
-                      onClick={handleCreateUser}
-                      className="inline-flex items-center justify-center rounded-md bg-[#1E76B6] px-4 py-2 text-sm font-medium text-white hover:bg-[#348CCB] focus:outline-none focus:ring-2 focus:ring-[#348CCB]"
-                    >
-                      <svg 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        className="mr-2 h-4 w-4" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={2} 
-                          d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" 
-                        />
-                      </svg>
-                      Crear Primer Usuario
-                    </button>
-                  </div>
-                </div>
-              </div>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            {/* Hero Section */}
+            <div className="text-center mb-16">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-gray-100 to-[#348CCB] bg-clip-text text-transparent">
+                ¿Cuál es tu perfil?
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+                Selecciona la opción que mejor describe tu negocio para personalizar tu experiencia
+              </p>
             </div>
-          ) : (
-            <div className="overflow-hidden rounded-lg bg-white/10 backdrop-blur-lg shadow-xl">
-              <div className="p-6">
+
+            {/* User Type Cards */}
+            <div className="grid lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              {userTypeOptions.map((option) => {
+                const IconComponent = option.icon;
+                return (
+                  <div
+                    key={option.id}
+                    onClick={() => handleUserTypeSelection(option.id)}
+                    className={`group relative cursor-pointer rounded-2xl bg-gradient-to-br ${option.gradient} border ${option.borderColor} backdrop-blur-lg transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-[#348CCB]/20`}
+                  >
+                    {/* Glow effect */}
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-[#348CCB]/20 to-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur"></div>
+                    
+                    <div className="relative bg-gradient-to-br from-[#0A183A]/80 to-[#173D68]/40 rounded-2xl p-8 border border-[#173D68]/30">
+                      {/* Icon */}
+                      <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0A183A]/60 to-[#173D68]/30 border border-[#173D68]/30 mb-6 ${option.iconColor} group-hover:scale-110 transition-transform duration-300`}>
+                        <IconComponent size={28} />
+                      </div>
+
+                      {/* Content */}
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="text-2xl font-bold mb-2 group-hover:text-[#348CCB] transition-colors">
+                            {option.title}
+                          </h3>
+                          <p className="text-[#348CCB] font-semibold text-lg">
+                            {option.subtitle}
+                          </p>
+                        </div>
+
+                        <p className="text-gray-300 leading-relaxed">
+                          {option.description}
+                        </p>
+
+                        {/* Plan Badge */}
+                        <div className="flex items-center justify-between pt-4 border-t border-[#173D68]/30">
+                          <div className="flex items-center space-x-2">
+                            <Shield size={16} className="text-[#348CCB]" />
+                            <span className="text-sm font-medium text-[#348CCB]">
+                              Plan {option.plan.charAt(0).toUpperCase() + option.plan.slice(1)}
+                            </span>
+                          </div>
+                          <ChevronRight className="text-gray-400 group-hover:text-[#348CCB] group-hover:translate-x-1 transition-all" size={20} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bottom CTA */}
+            <div className="text-center mt-16">
+              <p className="text-gray-400 mb-4">¿Necesitas ayuda para decidir?</p>
+              <Link href="/contact" className="inline-flex items-center space-x-2 text-[#348CCB] hover:text-white transition-colors">
+                <span>Habla con nuestro equipo</span>
+                <ChevronRight size={16} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Company Details Step
+  const selectedOption = userTypeOptions.find(opt => opt.id === userType);
+  const IconComponent = selectedOption?.icon || Users;
+
+  return (
+    <div className="min-h-screen bg-[#030712] text-white overflow-hidden">
+      {/* Background Effects */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0A183A]/40 via-transparent to-[#173D68]/20"></div>
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#348CCB]/5 rounded-full blur-3xl"></div>
+
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="border-b border-[#173D68]/30 bg-[#030712]/80 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <button
+              onClick={handleBackToUserType}
+              className="inline-flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+            >
+              <ArrowLeft size={20} />
+              <span>Cambiar tipo de perfil</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          {!companyId ? (
+            <>
+              {/* Form Header */}
+              <div className="text-center mb-12">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-[#0A183A]/60 to-[#173D68]/30 border border-[#173D68]/30 mb-6">
+                  <IconComponent size={32} className={selectedOption?.iconColor} />
+                </div>
+                
+                <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
+                  Registrar Empresa
+                </h1>
+                <p className="text-gray-300 mb-6">
+                  Complete los datos para crear su cuenta empresarial
+                </p>
+                
+                {selectedOption && (
+                  <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#0A183A]/60 to-[#173D68]/30 rounded-full border border-[#173D68]/30">
+                    <IconComponent size={16} className={`mr-2 ${selectedOption.iconColor}`} />
+                    <span className="text-sm">
+                      {selectedOption.title} - Plan <span className="font-semibold text-[#348CCB]">{plan.charAt(0).toUpperCase() + plan.slice(1)}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Form */}
+              <div className="bg-gradient-to-br from-[#0A183A]/60 to-[#173D68]/40 rounded-2xl border border-[#173D68]/30 backdrop-blur-lg p-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-white">
-                      Nombre de la Empresa
+                    <label className="block text-sm font-medium text-white mb-3">
+                      Nombre de la Empresa *
                     </label>
-                    <div className="mt-1">
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="block w-full appearance-none rounded-md border-0 bg-white/5 px-3 py-2 text-white shadow-sm ring-1 ring-inset ring-white/10 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[#1E76B6] sm:text-sm sm:leading-6"
-                        placeholder="Ingresa el nombre de tu empresa"
-                        maxLength={100}
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-4 py-3 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#348CCB] focus:ring-1 focus:ring-[#348CCB] transition-colors"
+                      placeholder="Ingresa el nombre de tu empresa"
+                      maxLength={100}
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-white">
-                      Plan de Suscripción
+                    <label className="block text-sm font-medium text-white mb-3">
+                      Plan Seleccionado
                     </label>
-                    <select
-                      value={plan}
-                      onChange={(e) => setPlan(e.target.value)}
-                      className="mt-1 block w-full appearance-none rounded-md border-0 bg-white/5 px-3 py-2 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-[#1E76B6] sm:text-sm sm:leading-6"
-                    >
-                      <option value="Pro">Pro</option>
-                    </select>
-                  </div>
-
-                  {/* Terms and conditions checkbox */}
-                  <div className="flex items-start">
-                    <div className="flex items-center h-5">
-                      <input
-                        id="terms"
-                        name="terms"
-                        type="checkbox"
-                        checked={termsAccepted}
-                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                        className="h-4 w-4 rounded border-white/30 bg-white/5 text-[#1E76B6] focus:ring-[#348CCB] focus:ring-offset-gray-800"
-                      />
-                    </div>
-                    <div className="ml-3 text-sm">
-                      <label htmlFor="terms" className="text-gray-300">
-                        Acepto los{" "}
-                        <a href="/legal#terms-section" className="text-[#348CCB] hover:underline">
-                          Términos de Servicio
-                        </a>{" "}
-                        y la{" "}
-                        <a href="/legal#privacy-section" className="text-[#348CCB] hover:underline">
-                          Política de Privacidad
-                        </a>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className={`flex w-full justify-center rounded-md px-3 py-3 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#348CCB] disabled:opacity-70 transition-all duration-200 ${
-                        termsAccepted ? "bg-[#1E76B6] hover:bg-[#348CCB]" : "bg-gray-500 cursor-not-allowed"
-                      }`}
-                    >
-                      {loading ? (
-                        <div className="flex items-center">
-                          <svg
-                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Registrando...
+                    <div className="px-4 py-3 bg-[#0A183A]/20 border border-[#173D68]/30 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br from-[#0A183A]/60 to-[#173D68]/30 flex items-center justify-center ${selectedOption?.iconColor}`}>
+                            <IconComponent size={16} />
+                          </div>
+                          <div>
+                            <span className="text-white font-medium capitalize">{plan}</span>
+                            <p className="text-sm text-gray-400">{selectedOption?.subtitle}</p>
+                          </div>
                         </div>
-                      ) : (
-                        "Registrar Empresa"
-                      )}
-                    </button>
+                        <Zap className="text-[#348CCB]" size={20} />
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Terms checkbox */}
+                  <div className="flex items-start space-x-3">
+                    <input
+                      id="terms"
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded border-[#173D68]/30 bg-[#0A183A]/40 text-[#348CCB] focus:ring-[#348CCB] focus:ring-offset-0"
+                    />
+                    <label htmlFor="terms" className="text-sm text-gray-300 leading-relaxed">
+                      Acepto los{" "}
+                      <Link href="/legal#terms-section" className="text-[#348CCB] hover:underline">
+                        Términos de Servicio
+                      </Link>{" "}
+                      y la{" "}
+                      <Link href="/legal#privacy-section" className="text-[#348CCB] hover:underline">
+                        Política de Privacidad
+                      </Link>
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || !termsAccepted}
+                    className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 ${
+                      termsAccepted && !loading
+                        ? "bg-gradient-to-r from-[#348CCB] to-[#1E76B6] hover:from-[#1E76B6] hover:to-[#348CCB] text-white shadow-lg hover:shadow-[#348CCB]/25"
+                        : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                    }`}
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Registrando empresa...</span>
+                      </div>
+                    ) : (
+                      "Registrar Empresa"
+                    )}
+                  </button>
 
                   {error && (
-                    <div className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
-                      {error}
+                    <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                      <p className="text-red-400 text-sm">{error}</p>
                     </div>
                   )}
                 </form>
               </div>
-            </div>
+            </>
+          ) : (
+            /* Success State */
+            <>
+              <div className="text-center mb-12">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-500/20 border border-emerald-500/30 mb-6">
+                  <Check size={32} className="text-emerald-400" />
+                </div>
+                
+                <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-emerald-400 bg-clip-text text-transparent">
+                  ¡Registro Exitoso!
+                </h1>
+                <p className="text-gray-300">
+                  Tu empresa ha sido registrada correctamente en TirePro
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-br from-[#0A183A]/60 to-[#173D68]/40 rounded-2xl border border-[#173D68]/30 backdrop-blur-lg p-8 space-y-6">
+                {/* Company ID */}
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold mb-4">ID de Empresa</h3>
+                  <div className="bg-[#0A183A]/60 rounded-lg p-4 border border-[#173D68]/30">
+                    <p className="text-2xl font-mono font-bold text-[#348CCB] break-all select-all">
+                      {companyId}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Warning */}
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-[#030712] text-xs font-bold">!</span>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-amber-400 mb-1">¡Importante!</h4>
+                      <p className="text-amber-300 text-sm">
+                        Guarda este ID de empresa en un lugar seguro. Lo necesitarás para crear el primer usuario y acceder a tu cuenta.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={handleCopyId}
+                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-white hover:bg-[#0A183A]/60 hover:border-[#348CCB]/30 transition-all"
+                  >
+                    <Copy size={16} />
+                    <span>{copied ? "¡Copiado!" : "Copiar ID"}</span>
+                  </button>
+                  
+                  <button
+                    onClick={handleCreateUser}
+                    className="flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] rounded-lg text-white hover:from-[#1E76B6] hover:to-[#348CCB] transition-all shadow-lg hover:shadow-[#348CCB]/25"
+                  >
+                    <Users size={16} />
+                    <span>Crear Primer Usuario</span>
+                  </button>
+                </div>
+
+                {/* Next Steps */}
+                <div className="text-center pt-4 border-t border-[#173D68]/30">
+                  <p className="text-sm text-gray-400 mb-2">Próximos pasos:</p>
+                  <p className="text-sm text-gray-300">
+                    Crea tu primer usuario administrador para comenzar a usar TirePro
+                  </p>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

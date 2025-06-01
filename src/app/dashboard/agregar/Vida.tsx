@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, X, AlertTriangle, Clock } from "lucide-react";
+import { Search, X, AlertTriangle, Clock, DollarSign } from "lucide-react";
 
 // --- Types ---
 export type VidaEntry = {
@@ -15,6 +15,7 @@ export type Tire = {
   marca: string;
   vida: VidaEntry[];
   posicion?: string | number;
+  diseno?: string; // Added diseno field for banda
 };
 
 export type Vehicle = {
@@ -37,8 +38,13 @@ const VidaPage: React.FC = () => {
   // For the modal update
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
   const [selectedVida, setSelectedVida] = useState("");
+  const [bandaValue, setBandaValue] = useState(""); // New state for banda/diseño
+  const [costValue, setCostValue] = useState(""); // State for cost
   const [modalError, setModalError] = useState("");
   const [showModal, setShowModal] = useState(false);
+
+  // API URL helper
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
 
   // --- Search for a vehicle by plate, then load its tires ---
   async function handleSearch(e: React.FormEvent) {
@@ -54,13 +60,7 @@ const VidaPage: React.FC = () => {
     try {
       // Fetch vehicle by plate
       const vehicleRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(
-              searchTerm.trim()
-            )}`
-          : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(
-              searchTerm.trim()
-            )}`
+        `${API_URL}/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim())}`
       );
       if (!vehicleRes.ok) {
         throw new Error("Vehículo no encontrado");
@@ -70,9 +70,7 @@ const VidaPage: React.FC = () => {
 
       // Fetch tires for that vehicle
       const tiresRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-          : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
+        `${API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
       );
       if (!tiresRes.ok) {
         throw new Error("Error al obtener los llantas");
@@ -81,14 +79,10 @@ const VidaPage: React.FC = () => {
       
       // Sort tires by posicion
       const sortedTires = [...tiresData].sort((a, b) => {
-        // Handle both string and number positions
         const posA = a.posicion !== undefined ? Number(a.posicion) : Infinity;
         const posB = b.posicion !== undefined ? Number(b.posicion) : Infinity;
-        
-        // If any conversion resulted in NaN, put those items last
         const numA = isNaN(posA) ? Infinity : posA;
         const numB = isNaN(posB) ? Infinity : posB;
-        
         return numA - numB;
       });
       
@@ -108,6 +102,10 @@ const VidaPage: React.FC = () => {
   function openModal(tire: Tire) {
     setSelectedTire(tire);
     setModalError("");
+    setCostValue(""); // Reset cost value
+    // Grab the existing "diseno" from the tire for banda field
+    setBandaValue((tire as any).diseno || "");
+    
     // If the tire has no vida data, assume current value is "nueva"
     let lastIndex = 0;
     if (tire.vida && tire.vida.length > 0) {
@@ -147,55 +145,63 @@ const VidaPage: React.FC = () => {
     setShowModal(false);
     setSelectedTire(null);
     setSelectedVida("");
+    setBandaValue("");
+    setCostValue("");
     setModalError("");
   }
+
+  // Function to check if the selected vida requires a cost input
+  const requiresCost = (vida: string) => {
+    return vida.startsWith("reencauche");
+  };
 
   // --- Call backend to update vida ---
   async function handleUpdateVida() {
     if (!selectedTire) return;
-    if (!selectedVida) {
-      setModalError("Seleccione un valor válido.");
-      return;
+    if (!selectedVida) return setModalError("Seleccione un valor de vida");
+    if (!bandaValue.trim()) return setModalError("Ingrese la banda/diseño");
+    
+    // Validate cost if required
+    if (requiresCost(selectedVida)) {
+      const n = parseFloat(costValue);
+      if (isNaN(n) || n <= 0) {
+        return setModalError("Costo inválido");
+      }
     }
+
     try {
       setLoading(true);
+      // Build the payload
+      const body: any = {
+        valor: selectedVida,
+        banda: bandaValue.trim(), // Our new field
+      };
+      if (requiresCost(selectedVida)) {
+        body.costo = parseFloat(costValue); // Just the number, server will wrap {fecha,valor}
+      }
+
       const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/${selectedTire.id}/vida`
-          : `https://api.tirepro.com.co/api/tires/${selectedTire.id}/vida`,
+        `${API_URL}/api/tires/${selectedTire.id}/vida`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ valor: selectedVida }),
+          body: JSON.stringify(body),
         }
       );
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText);
-      }
-      const updatedTire: Tire = await res.json();
-      // Update tires state with the updated tire data, maintaining the sort order
-      setTires((prev) => {
-        const updated = prev.map((t) => (t.id === updatedTire.id ? updatedTire : t));
-        return updated.sort((a, b) => {
-          const posA = a.posicion !== undefined ? Number(a.posicion) : Infinity;
-          const posB = b.posicion !== undefined ? Number(b.posicion) : Infinity;
-          
-          const numA = isNaN(posA) ? Infinity : posA;
-          const numB = isNaN(posB) ? Infinity : posB;
-          
-          return numA - numB;
+      if (!res.ok) throw new Error(await res.text());
+      const updated: Tire = await res.json();
+
+      // Merge into state and re-sort
+      setTires(prev => {
+        const out = prev.map(t => t.id === updated.id ? updated : t);
+        return out.sort((a,b)=>{
+          const pa = Number(a.posicion)||Infinity, pb = Number(b.posicion)||Infinity;
+          return pa-pb;
         });
       });
-      setShowModal(false);
-      setSelectedTire(null);
-      setSelectedVida("");
-    } catch (err) {
-      if (err instanceof Error) {
-        setModalError(err.message || "Error al actualizar vida");
-      } else {
-        setModalError("Error al actualizar vida");
-      }
+      closeModal();
+    } catch (e) {
+      setModalError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -207,7 +213,7 @@ const VidaPage: React.FC = () => {
       <header className="bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white p-4 md:p-6 shadow-md">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl md:text-3xl font-bold flex items-center">
-            Actualizar Vida 
+            Actualizar Vida
           </h1>
         </div>
       </header>
@@ -308,6 +314,11 @@ const VidaPage: React.FC = () => {
                           : "Ninguna"}
                       </span>
                     </p>
+                    {tire.diseno && (
+                      <p className="text-gray-700">
+                        <span className="font-semibold text-[#173D68]">Banda/Diseño:</span> {tire.diseno}
+                      </p>
+                    )}
                   </div>
                   
                   <button
@@ -363,6 +374,20 @@ const VidaPage: React.FC = () => {
                   {modalError}
                 </div>
               )}
+
+              {/* BANDA (diseño) - Always shown */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-[#0A183A] mb-2">
+                  Banda / Diseño
+                </label>
+                <input
+                  type="text"
+                  value={bandaValue}
+                  onChange={e => setBandaValue(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
+                  placeholder="Ingrese la banda o diseño"
+                />
+              </div>
               
               <div className="mb-4">
                 <label className="block text-sm font-medium text-[#0A183A] mb-2">
@@ -402,6 +427,29 @@ const VidaPage: React.FC = () => {
                   })()}
                 </select>
               </div>
+
+              {/* COSTO (only for any "reencaucheX") */}
+              {requiresCost(selectedVida) && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-[#0A183A] mb-2">
+                    Costo del reencauche (COP)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={costValue}
+                      onChange={e => setCostValue(e.target.value)}
+                      className="w-full pl-10 px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ingrese un costo válido (> 0)
+                  </p>
+                </div>
+              )}
               
               <div className="flex gap-3">
                 <button

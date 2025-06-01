@@ -40,7 +40,12 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
   // Prepare table data: for each vehicle, build a row where each cell (by position)
   // shows the smallest depth (in mm) from the last inspection of tires matching that position.
   const tableData = useMemo(() => {
-    return filteredVehicles.map((vehicle) => {
+    // First, identify vehicles that have at least one tire
+    const vehiclesWithTires = filteredVehicles.filter(vehicle => 
+      tires.some(tire => tire.vehicleId === vehicle.id)
+    );
+
+    return vehiclesWithTires.map((vehicle) => {
       const row = {
         placa: vehicle.placa,
         depths: {} as { [position: number]: number | null },
@@ -131,8 +136,8 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
                   const value = row.depths[pos];
                   let bg = "bg-gray-200 text-gray-700"; // default
                   if (value !== null) {
-                    if (value <= 5) bg = "bg-red-100 text-red-800";
-                    else if (value <= 10) bg = "bg-yellow-100 text-yellow-800";
+                    if (value <= 3) bg = "bg-red-100 text-red-800";
+                    else if (value <= 6) bg = "bg-yellow-100 text-yellow-800";
                     else bg = "bg-green-100 text-green-800";
                   }
 
