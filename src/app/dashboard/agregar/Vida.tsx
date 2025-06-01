@@ -104,8 +104,8 @@ const VidaPage: React.FC = () => {
     setModalError("");
     setCostValue(""); // Reset cost value
     // Grab the existing "diseno" from the tire for banda field
-    setBandaValue((tire as any).diseno || "");
-    
+setBandaValue(tire.diseno || "");
+
     // If the tire has no vida data, assume current value is "nueva"
     let lastIndex = 0;
     if (tire.vida && tire.vida.length > 0) {
@@ -172,7 +172,7 @@ const VidaPage: React.FC = () => {
     try {
       setLoading(true);
       // Build the payload
-      const body: any = {
+const body: any = {
         valor: selectedVida,
         banda: bandaValue.trim(), // Our new field
       };
