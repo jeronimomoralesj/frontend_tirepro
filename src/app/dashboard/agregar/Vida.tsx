@@ -200,7 +200,7 @@ const body: any = {
         });
       });
       closeModal();
-    } catch (e) {
+} catch (e: unknown) {
 setModalError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setLoading(false);
