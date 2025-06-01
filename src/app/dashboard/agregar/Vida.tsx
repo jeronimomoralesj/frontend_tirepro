@@ -172,7 +172,7 @@ setBandaValue(tire.diseno || "");
     try {
       setLoading(true);
       // Build the payload
-const body: any = {
+const body: { valor: string; banda: string; costo?: number } = {
         valor: selectedVida,
         banda: bandaValue.trim(), // Our new field
       };
