@@ -446,7 +446,7 @@ const VidaPage: React.FC = () => {
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Ingrese un costo válido (> 0)
+                    Ingrese un costo válido (mayor a 0)
                   </p>
                 </div>
               )}

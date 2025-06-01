@@ -249,18 +249,17 @@ const handleSubmit = async (e) => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
-              <a href="/#platform" className="text-gray-300 hover:text-white transition-colors">
+      <Link href="/#platform" className="text-gray-300 hover:text-white transition-colors"> </Link>
                 Plataforma
-              </a>
-              <a href="/blog" className="text-gray-300 hover:text-white transition-colors">
+              <Link href="/blog" className="text-gray-300 hover:text-white transition-colors">
                 Blog
-              </a>
-              <a href="/#plans" className="text-gray-300 hover:text-white transition-colors">
+              </Link>
+              <Link href="/#plans" className="text-gray-300 hover:text-white transition-colors">
                 Planes
-              </a>
-              <a href="/contact" className="text-[#348CCB] font-semibold">
+              </Link>
+              <Link href="/contact" className="text-[#348CCB] font-semibold">
                 Contacto
-              </a>
+              </Link>
             </div>
 
             {/* CTA Buttons */}
@@ -291,18 +290,18 @@ const handleSubmit = async (e) => {
         {isMobileMenuOpen && (
           <div className="md:hidden bg-[#030712]/95 backdrop-blur-md border-t border-[#0A183A]">
             <div className="px-4 py-4 space-y-4">
-              <a href="/#platform" className="block text-gray-300 hover:text-white">
+              <Link href="/#platform" className="block text-gray-300 hover:text-white">
                 Plataforma
-              </a>
-              <a href="/blog" className="block text-gray-300 hover:text-white">
+              </Link>
+              <Link href="/blog" className="block text-gray-300 hover:text-white">
                 Blog
-              </a>
-              <a href="/#plans" className="block text-gray-300 hover:text-white">
+              </Link>
+              <Link href="/#plans" className="block text-gray-300 hover:text-white">
                 Planes
-              </a>
-              <a href="/contact" className="block text-[#348CCB] font-semibold">
+              </Link>
+              <Link href="/contact" className="block text-[#348CCB] font-semibold">
                 Contacto
-              </a>
+              </Link>
               <div className="flex flex-col space-y-2 pt-4 border-t border-[#0A183A]">
                 <Link href='/login'>
                   <button className="px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg">
@@ -573,10 +572,10 @@ const handleSubmit = async (e) => {
             <div>
               <h4 className="text-white font-semibold mb-4">Links Importantes</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="/legal#terms-section" className="hover:text-[#348CCB] transition-colors">Términos y Condiciones</a></li>
-                <li><a href="/legal#privacy-section" className="hover:text-[#348CCB] transition-colors">Privacidad de Datos</a></li>
-                <li><a href="/contact" className="hover:text-[#348CCB] transition-colors">Contáctanos</a></li>
-                <li><a href="/delete" className="hover:text-[#348CCB] transition-colors">Eliminar Datos</a></li>
+                <li><Link href="/legal#terms-section" className="hover:text-[#348CCB] transition-colors">Términos y Condiciones</Link></li>
+                <li><Link href="/legal#privacy-section" className="hover:text-[#348CCB] transition-colors">Privacidad de Datos</Link></li>
+                <li><Link href="/contact" className="hover:text-[#348CCB] transition-colors">Contáctanos</Link></li>
+                <li><Link href="/delete" className="hover:text-[#348CCB] transition-colors">Eliminar Datos</Link></li>
               </ul>
             </div>
 
