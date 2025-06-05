@@ -23,7 +23,6 @@ import retail from "../../public/retail.png"
 const TireProLanding = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [currentSlide, setCurrentSlide] = useState(0)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,13 +32,7 @@ const TireProLanding = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Auto-carousel effect
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % 6)
-    }, 3000)
-    return () => clearInterval(timer)
-  }, [])
+
 
   const features = [
     {
