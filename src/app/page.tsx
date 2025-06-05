@@ -109,15 +109,7 @@ const TireProLanding = () => {
     }
   ]
 
-  const companyLogos = [
-    "https://ii.ct-stc.com/1/logos/empresas/2022/12/15/comercializadora-internacional-de-llantas-sa-FF32AF4270DB2733202139250thumbnail.png",
-    "https://pbs.twimg.com/profile_images/1139913736137977856/HJ3rueq4_400x400.png",
-    "https://www.cmodistribuciones.com/wp-content/uploads/2022/02/ctc-1-249x233-2.png",
-    "https://media.licdn.com/dms/image/v2/C4E0BAQFZkpMWoNQU1w/company-logo_200_200/company-logo_200_200/0/1630609548810?e=2147483647&v=beta&t=kVePfprWik91OQyyu6sgafGDp8uFGurAk0wG23Wac2Y",
-    "https://brand.mit.edu/sites/default/files/styles/image_text_2x/public/2023-08/MIT-lockup-3line-red.png?itok=MJP9Djff",
-    "https://assets-002.noviams.com/novi-file-uploads/ceo/members/aws.png",
-    "https://media.licdn.com/dms/image/v2/C4D0BAQH84rmxPm2jew/company-logo_200_200/company-logo_200_200/0/1630536981682?e=2147483647&v=beta&t=v9LJy8REXCzrlwzoqnc3okTQr4yjr24JIzj2z8gf-c8",
-  ]
+
 
   return (
     <div className="bg-[#030712] text-white min-h-screen">
@@ -243,108 +235,7 @@ const TireProLanding = () => {
         </div>
       </section>
 
-{/* Enhanced Trust Section with Carousel */}
-<section className="py-20 bg-gradient-to-b from-transparent via-[#0A183A]/10 to-[#0A183A]/20 relative overflow-hidden">
-  {/* Background decorative elements */}
-  <div className="absolute inset-0 opacity-30">
-    <div className="absolute top-0 left-1/4 w-64 h-64 bg-gradient-to-r from-[#348CCB]/20 to-[#1E76B6]/20 rounded-full blur-3xl"></div>
-    <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-gradient-to-l from-[#1E76B6]/20 to-[#348CCB]/20 rounded-full blur-2xl"></div>
-  </div>
 
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-    {/* Enhanced Header */}
-    <div className="text-center mb-16">
-      
-      
-      <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white via-gray-100 to-[#348CCB] bg-clip-text text-transparent">
-        Contamos con el apoyo de grandes líderes
-      </h2>
-      <p className="text-lg text-gray-400 max-w-2xl mx-auto leading-relaxed">
-        Empresas líderes confían en nuestra tecnología para optimizar sus flotas
-      </p>
-    </div>
-    
-    {/* Enhanced Carousel Container */}
-    <div className="relative">
-      {/* Gradient overlays for smooth edges */}
-      <div className="absolute left-0 top-0 w-20 h-full bg-gradient-to-r from-[#030712] to-transparent z-10 pointer-events-none"></div>
-      <div className="absolute right-0 top-0 w-20 h-full bg-gradient-to-l from-[#030712] to-transparent z-10 pointer-events-none"></div>
-      
-      {/* Main carousel track */}
-      <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-[#0A183A]/30 via-[#0A183A]/20 to-[#0A183A]/30 border border-[#173D68]/30 backdrop-blur-sm">
-        <div 
-          className="flex transition-transform duration-700 ease-out py-8"
-          style={{ 
-            transform: `translateX(-${currentSlide * (100 / 7)}%)`,
-            width: `${(companyLogos.length * 2 * 100) / 7}%`
-          }}
-        >
-          {companyLogos.concat(companyLogos).map((logoUrl, index) => (
-            <div
-              key={index}
-              className="flex-shrink-0 px-3 lg:px-4"
-              style={{ width: `${100 / (companyLogos.length * 2)}%` }}
-            >
-              {/* Enhanced logo container */}
-              <div className="group relative">
-                {/* Glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 to-[#1E76B6]/20 rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-sm"></div>
-                
-                {/* Main logo card */}
-                <div className="relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-xl p-6 h-24 flex items-center justify-center border border-[#173D68]/40 hover:border-[#348CCB]/60 transition-all duration-500 group-hover:transform group-hover:scale-105 group-hover:shadow-xl group-hover:shadow-[#348CCB]/20">
-                  
-                  {/* Logo image with enhanced styling */}
-                  <img
-                    src={logoUrl}
-                    alt="Company Logo"
-                    className="max-h-12 max-w-full object-contain filter brightness-90 contrast-110 group-hover:brightness-110 group-hover:contrast-125 transition-all duration-500 drop-shadow-sm"
-                    style={{
-                      filter: 'brightness(0.9) contrast(1.1) saturate(0.8) hue-rotate(0deg)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.filter = 'brightness(1.1) contrast(1.25) saturate(1.2) hue-rotate(0deg)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.filter = 'brightness(0.9) contrast(1.1) saturate(0.8) hue-rotate(0deg)';
-                    }}
-                  />
-                  
-                  {/* Corner accent */}
-                  <div className="absolute top-2 right-2 w-2 h-2 bg-gradient-to-br from-[#348CCB] to-[#1E76B6] rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 delay-200"></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-    
-    {/* Enhanced Navigation dots */}
-    <div className="flex justify-center mt-10 space-x-3">
-      {Array.from({ length: 6 }).map((_, index) => (
-        <button
-          key={index}
-          onClick={() => setCurrentSlide(index)}
-          className={`relative group transition-all duration-300 ${
-            index === currentSlide ? 'transform scale-125' : 'hover:scale-110'
-          }`}
-          aria-label={`Go to slide ${index + 1}`}
-        >
-          <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
-            index === currentSlide 
-              ? 'bg-gradient-to-r from-[#348CCB] to-[#1E76B6] shadow-lg shadow-[#348CCB]/50' 
-              : 'bg-[#173D68] group-hover:bg-[#348CCB]/60'
-          }`}></div>
-          
-          {/* Active indicator ring */}
-          {index === currentSlide && (
-            <div className="absolute inset-0 w-5 h-5 -m-1 border-2 border-[#348CCB]/40 rounded-full animate-pulse"></div>
-          )}
-        </button>
-      ))}
-    </div>
-  </div>
-</section>
 
 {/* Features Section with Floating Cards */}
 <section className="py-8 sm:py-12 lg:py-16 bg-gradient-to-b from-[#0A183A]/20 to-transparent relative overflow-hidden">
@@ -484,6 +375,8 @@ const TireProLanding = () => {
     </div>
   </div>
 </section>
+
+
       {/* Features Section */}
       <section id="platform" className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
