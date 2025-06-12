@@ -571,7 +571,7 @@ useEffect(() => {
         <div className="mb-8 bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-lg p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="text-white">
-              <h2 className="text-2xl font-bold">Mi Resumen</h2>
+              <h2 className="text-2xl font-bold">Mi Semáforo</h2>
               <p className="text-blue-100 mt-1 flex items-center text-sm">
                 <Calendar className="h-4 w-4 mr-2" />
                 Actualizado: {new Date().toLocaleDateString()}
