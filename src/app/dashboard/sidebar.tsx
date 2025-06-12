@@ -18,7 +18,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  PlaneIcon,
   MessageCircleHeart
 } from "lucide-react";
 import logo from "../../../public/logo_text.png";
