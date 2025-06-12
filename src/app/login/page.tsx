@@ -86,87 +86,106 @@ export default function LoginPage() {
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] sm:w-[600px] sm:h-[600px] lg:w-[800px] lg:h-[800px] bg-gradient-to-r from-[#348CCB]/3 to-purple-500/3 rounded-full blur-3xl"></div>
 
       <div className="relative z-10">
-        {/* Enhanced Navigation - Fully responsive */}
-        <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${
-        isScrolled 
-          ? 'bg-[#030712]/95 backdrop-blur-md border-b border-[#0A183A]' 
-          : 'bg-transparent'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/"><div className="flex items-center space-x-2">
-              <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
-              <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
-            </div></Link>
+        {/* Mobile Menu Blur Overlay */}
+        <div className={`fixed inset-0 z-40 transition-all duration-500 ${
+          isMobileMenuOpen 
+            ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
+            : 'opacity-0 pointer-events-none'
+        }`} onClick={() => setIsMobileMenuOpen(false)}></div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#platform" className="text-gray-300 hover:text-white transition-colors">
-                Plataforma
-              </a>
-              <a href="/blog" className="text-gray-300 hover:text-white transition-colors">
-                Blog
-              </a>
-              <a href="#plans" className="text-gray-300 hover:text-white transition-colors">
-                Planes
-              </a>
-              <a href="/contact" className="text-gray-300 hover:text-white transition-colors">
-                Contacto
-              </a>
+        {/* Enhanced Floating Liquid Glass Navbar */}
+        <nav className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[calc(100%-3rem)] max-w-6xl z-50 transition-all duration-700 rounded-2xl ${
+          isScrolled 
+            ? 'backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 shadow-2xl' 
+            : 'backdrop-blur-xl bg-gradient-to-r from-white/8 via-transparent to-white/8 border border-white/20 shadow-xl'
+        }`}>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#348CCB]/15 via-transparent to-[#348CCB]/15 opacity-60 rounded-2xl"></div>
+          
+          <div className="px-4 sm:px-6 lg:px-8 xl:px-10 relative">
+            <div className="flex justify-between items-center h-16">
+              {/* Logo */}
+              <div className="flex items-center space-x-2 relative z-10">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xl font-bold bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
+                    <Link href="/"><div className="flex items-center space-x-2">
+                <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
+                <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
+              </div></Link>
+                  </span>
+                </div>
+              </div>
+
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center space-x-6 relative z-10">
+                {['Plataforma', 'Blog', 'Planes', 'Contacto'].map((item, i) => (
+                  <a 
+                    key={i}
+                    href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 
+                    className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group"
+                  >
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
+                    <span className="relative z-10">{item}</span>
+                  </a>
+                ))}
+              </div>
+
+              {/* CTA Buttons */}
+              <div className="hidden md:flex items-center space-x-3 relative z-10">
+                <a href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-white backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
+                  Ingresar
+                </button></a>
+                <a href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
+                  Comenzar
+                </button></a>
+              </div>
+
+              {/* Mobile menu button */}
+              <button 
+                className="md:hidden p-3 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                <div className="relative">
+                  <Menu className={`w-6 h-6 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0 rotate-45' : 'opacity-100'}`} />
+                  <X className={`w-6 h-6 absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 -rotate-45'}`} />
+                </div>
+              </button>
             </div>
-
-            {/* CTA Buttons */}
-            <div className="hidden md:flex items-center space-x-4">
-              <a href='/login'><button className="px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg hover:bg-[#348CCB] hover:text-white transition-all">
-                Ingresar
-              </button></a>
-              <a href='/companyregister'><button className="px-4 py-2 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all">
-                Quiero Iniciar
-              </button></a>
-            </div>
-
-            {/* Mobile menu button */}
-            <button 
-              className="md:hidden p-2"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
           </div>
-        </div>
 
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden bg-[#030712]/95 backdrop-blur-md border-t border-[#0A183A]">
-            <div className="px-4 py-4 space-y-4">
-              <a href="#platform" className="block text-gray-300 hover:text-white">
-                Plataforma
-              </a>
-              <a href="/blog" className="block text-gray-300 hover:text-white">
-                Blog
-              </a>
-              <a href="#plans" className="block text-gray-300 hover:text-white">
-                Planes
-              </a>
-              <a href="/contact" className="block text-gray-300 hover:text-white">
-                Contacto
-              </a>
-              <div className="flex flex-col space-y-2 pt-4 border-t border-[#0A183A]">
-                <a href='/login'><button className="px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg">
-                  Acceso
-                </button></a>
-                <a href='/companyregister'><button className="px-4 py-2 bg-[#348CCB] text-white rounded-lg">
-                  Quiero Iniciar
-                </button></a>
+          {/* Enhanced Floating Mobile Menu */}
+          <div className={`md:hidden absolute top-full left-1/2 transform -translate-x-1/2 w-full mt-4 z-50 transition-all duration-500 ${
+            isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8 pointer-events-none'
+          }`}>
+            <div className="mx-4 rounded-3xl backdrop-blur-3xl bg-gradient-to-br from-white/25 via-white/15 to-white/20 border-2 border-white/40 shadow-2xl overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
+              
+              <div className="relative p-6 sm:p-8 space-y-4 sm:space-y-6">
+                {['Plataforma', 'Blog', 'Planes', 'Contacto'].map((item, i) => (
+                  <a 
+                    key={i}
+                    href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`}
+                    className="block py-3 px-4 sm:px-6 rounded-2xl text-white font-medium text-base sm:text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {item}
+                  </a>
+                ))}
+                
+                <div className="pt-4 sm:pt-6 border-t border-white/30 space-y-3 sm:space-y-4">
+                  <a href='/login'><button className="w-full py-3 px-4 sm:px-6 rounded-2xl border-2 border-[#348CCB]/70 text-white font-semibold text-base sm:text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
+                    Ingresar
+                  </button></a>
+                  <a href='/companyregister'><button className="w-full py-3 sm:py-4 px-4 sm:px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-base sm:text-lg transition-all duration-300">
+                    Comenzar
+                  </button></a>
+                </div>
               </div>
             </div>
           </div>
-        )}
-      </nav>
+        </nav>
 
         {/* Main Content - Enhanced responsive layout */}
-        <div className="flex flex-col lg:flex-row min-h-screen">
+        <div className="flex flex-col lg:flex-row min-h-screen pt-24 sm:pt-28">
           {/* Left Panel - Enhanced responsive branding */}
           <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 flex-col justify-center p-8 xl:p-16 relative">
             {/* Decorative Elements - Responsive sizing */}
@@ -235,7 +254,7 @@ export default function LoginPage() {
           </div>
 
           {/* Right Panel - Fully responsive login form */}
-          <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-4 sm:p-6 lg:p-8 xl:p-12 pt-20 sm:pt-24 lg:pt-12 min-h-screen lg:min-h-0">
+          <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-4 sm:p-6 lg:p-8 xl:p-12 min-h-screen lg:min-h-0">
             <div className="w-full max-w-md">
               {/* Back Button for Mobile - Enhanced */}
               <div className="lg:hidden mb-6 sm:mb-8">
@@ -263,118 +282,123 @@ export default function LoginPage() {
                 </h1>
               </div>
 
-              {/* Enhanced Form Container - Fully responsive */}
+              {/* Enhanced Form Container - Fully responsive with liquid glass effect */}
               <div className="relative group">
                 {/* Glow effect */}
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-[#348CCB]/20 to-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur"></div>
                 
-                <div className="relative bg-gradient-to-br from-[#0A183A]/80 to-[#173D68]/40 backdrop-blur-lg rounded-2xl shadow-2xl p-6 sm:p-8 border border-[#173D68]/30">
-                  <div className="text-center mb-6 sm:mb-8">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
-                      Inicia Sesión
-                    </h2>
-                    <p className="text-gray-400 text-sm">
-                      Accede a tu cuenta TirePro
-                    </p>
-                  </div>
+                <div className="relative backdrop-blur-2xl bg-gradient-to-br from-white/10 via-white/5 to-white/10 rounded-3xl shadow-2xl p-6 sm:p-8 border-2 border-white/20 hover:border-white/30 transition-all duration-300">
+                  {/* Liquid glass overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/5 via-transparent to-purple-500/5 rounded-3xl"></div>
                   
-                  {/* Enhanced Error Alert - Responsive */}
-                  {invalidCredentials && (
-                    <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-500/30 rounded-lg backdrop-blur-sm">
-                      <div className="flex items-start text-red-400">
-                        <div className="p-1 bg-red-500/20 rounded-full mr-2 sm:mr-3 flex-shrink-0 mt-0.5">
-                          <AlertCircle size={12} className="sm:w-3.5 sm:h-3.5" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-xs sm:text-sm">Credenciales inválidas</p>
-                          <p className="text-xs text-red-300 mt-1 leading-relaxed">Por favor verifica tu correo y contraseña.</p>
+                  <div className="relative z-10">
+                    <div className="text-center mb-6 sm:mb-8">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+                        Inicia Sesión
+                      </h2>
+                      <p className="text-gray-300 text-sm">
+                        Accede a tu cuenta TirePro
+                      </p>
+                    </div>
+                    
+                    {/* Enhanced Error Alert - Responsive */}
+                    {invalidCredentials && (
+                      <div className="mb-4 sm:mb-6 p-3 sm:p-4 backdrop-blur-xl bg-gradient-to-r from-red-500/15 to-red-600/10 border border-red-500/30 rounded-2xl">
+                        <div className="flex items-start text-red-300">
+                          <div className="p-1 bg-red-500/20 rounded-full mr-2 sm:mr-3 flex-shrink-0 mt-0.5 backdrop-blur-sm">
+                            <AlertCircle size={12} className="sm:w-3.5 sm:h-3.5" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-xs sm:text-sm">Credenciales inválidas</p>
+                            <p className="text-xs text-red-200 mt-1 leading-relaxed">Por favor verifica tu correo y contraseña.</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-white flex items-center gap-2">
-                        <Mail size={14} className="sm:w-4 sm:h-4 text-[#348CCB]" />
-                        Correo Electrónico
-                      </label>
-                      <div className="relative group">
-                        <input
-                          type="email"
-                          placeholder="nombre@tirepro.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-[#0A183A]/40 border ${
-                            invalidCredentials ? "border-red-500/50" : "border-[#173D68]/30"
-                          } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#348CCB] focus:ring-1 focus:ring-[#348CCB] transition-all group-hover:border-[#173D68]/50`}
-                          required
-                        />
+                    <form onSubmit={handleLogin} className="space-y-5 sm:space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-white flex items-center gap-2">
+                          <Mail size={14} className="sm:w-4 sm:h-4 text-[#348CCB]" />
+                          Correo Electrónico
+                        </label>
+                        <div className="relative group">
+                          <input
+                            type="email"
+                            placeholder="nombre@tirepro.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base backdrop-blur-xl bg-white/5 border ${
+                              invalidCredentials ? "border-red-500/50" : "border-white/20"
+                            } rounded-xl text-white placeholder-gray-300 focus:outline-none focus:border-[#348CCB]/60 focus:ring-1 focus:ring-[#348CCB]/30 transition-all group-hover:border-white/30 hover:bg-white/10`}
+                            required
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-white flex items-center gap-2">
-                        <Lock size={14} className="sm:w-4 sm:h-4 text-[#348CCB]" />
-                        Contraseña
-                      </label>
-                      <div className="relative group">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base bg-[#0A183A]/40 border ${
-                            invalidCredentials ? "border-red-500/50" : "border-[#173D68]/30"
-                          } rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#348CCB] focus:ring-1 focus:ring-[#348CCB] transition-all group-hover:border-[#173D68]/50 pr-10 sm:pr-12`}
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#348CCB] transition-colors p-1"
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-white flex items-center gap-2">
+                          <Lock size={14} className="sm:w-4 sm:h-4 text-[#348CCB]" />
+                          Contraseña
+                        </label>
+                        <div className="relative group">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base backdrop-blur-xl bg-white/5 border ${
+                              invalidCredentials ? "border-red-500/50" : "border-white/20"
+                            } rounded-xl text-white placeholder-gray-300 focus:outline-none focus:border-[#348CCB]/60 focus:ring-1 focus:ring-[#348CCB]/30 transition-all group-hover:border-white/30 hover:bg-white/10 pr-10 sm:pr-12`}
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-300 hover:text-[#348CCB] transition-colors p-1 rounded-lg hover:bg-white/10 backdrop-blur-sm"
+                          >
+                            {showPassword ? <EyeOff size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Eye size={16} className="sm:w-[18px] sm:h-[18px]" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <a
+                          href="mailto:jeronimo.morales@merquellantas.com?subject=Olvide%20Mi%20contrase%C3%B1a&body=Querido%20equipo%20tirepro%2C%0A%0ASolicito%20un%20link%20de%20restablecer%20contrase%C3%B1a%20para%20mi%20cuenta%20con%20el%20siguiente%20correo%3A%20"
+                          className="text-xs sm:text-sm text-[#348CCB] hover:text-white transition-colors hover:underline"
                         >
-                          {showPassword ? <EyeOff size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Eye size={16} className="sm:w-[18px] sm:h-[18px]" />}
-                        </button>
+                          Olvidé mi contraseña
+                        </a>
                       </div>
-                    </div>
 
-                    <div className="flex justify-end">
-                      <a
-                        href="mailto:jeronimo.morales@merquellantas.com?subject=Olvide%20Mi%20contrase%C3%B1a&body=Querido%20equipo%20tirepro%2C%0A%0ASolicito%20un%20link%20de%20restablecer%20contrase%C3%B1a%20para%20mi%20cuenta%20con%20el%20siguiente%20correo%3A%20"
-                        className="text-xs sm:text-sm text-[#348CCB] hover:text-white transition-colors hover:underline"
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-2.5 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-[#348CCB] to-[#1E76B6] hover:from-[#1E76B6] hover:to-[#348CCB] text-white rounded-xl flex items-center justify-center gap-2 transition-all shadow-xl hover:shadow-[#348CCB]/25 disabled:opacity-70 disabled:cursor-not-allowed group backdrop-blur-sm border border-[#348CCB]/20 hover:scale-105"
                       >
-                        Olvidé mi contraseña
-                      </a>
+                        {loading ? (
+                          <>
+                            <div className="h-4 w-4 sm:h-5 sm:w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            <span>Ingresando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Iniciar Sesión</span>
+                            <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px] group-hover:translate-x-1 transition-transform" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    <div className="mt-6 sm:mt-8 text-center">
+                      <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4">
+                        ¿No tienes una cuenta?
+                      </p>
+                      <Link href="/companyregister" className="inline-flex items-center space-x-2 text-[#348CCB] hover:text-white transition-colors group text-sm">
+                        <span>Registra tu empresa</span>
+                        <ChevronRight size={14} className="sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
+                      </Link>
                     </div>
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full py-2.5 sm:py-3 text-sm sm:text-base bg-gradient-to-r from-[#348CCB] to-[#1E76B6] hover:from-[#1E76B6] hover:to-[#348CCB] text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-[#348CCB]/25 disabled:opacity-70 disabled:cursor-not-allowed group"
-                    >
-                      {loading ? (
-                        <>
-                          <div className="h-4 w-4 sm:h-5 sm:w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>Ingresando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Iniciar Sesión</span>
-                          <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px] group-hover:translate-x-1 transition-transform" />
-                        </>
-                      )}
-                    </button>
-                  </form>
-
-                  <div className="mt-6 sm:mt-8 text-center">
-                    <p className="text-gray-400 text-xs sm:text-sm mb-3 sm:mb-4">
-                      ¿No tienes una cuenta?
-                    </p>
-                    <Link href="/companyregister" className="inline-flex items-center space-x-2 text-[#348CCB] hover:text-white transition-colors group text-sm">
-                      <span>Registra tu empresa</span>
-                      <ChevronRight size={14} className="sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
-                    </Link>
                   </div>
                 </div>
               </div>
@@ -382,7 +406,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-
       {/* Enhanced Error Popup - Fully responsive */}
       {showErrorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
