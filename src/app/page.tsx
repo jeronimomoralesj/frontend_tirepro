@@ -165,7 +165,7 @@ const TireProLanding = () => {
 
             {/* Mobile menu button */}
             <button 
-              className="md:hidden p-3 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
+              className="md:hidden p-1 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               <div className="relative">
@@ -183,23 +183,23 @@ const TireProLanding = () => {
           <div className="mx-4 rounded-3xl backdrop-blur-3xl bg-gradient-to-br from-white/25 via-white/15 to-white/20 border-2 border-white/40 shadow-2xl overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
             
-            <div className="relative p-8 space-y-6">
-              {['Plataforma', 'Blog', 'Planes', 'Contacto'].map((item, i) => (
+            <div className="relative p-5 space-y-6">
+              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
                 <a 
                   key={i}
                   href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`}
-                  className="block py-3 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30"
+                  className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item}
                 </a>
               ))}
               
-              <div className="pt-6 border-t border-white/30 space-y-4">
-                <a href='/login'><button className="w-full py-3 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
+              <div className="pt-2 border-t border-white/30 space-y-4">
+                <a href='/login'><button className="w-full py-2 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
                   Ingresar
                 </button></a>
-                <a href='/registerCompany'><button className="w-full py-4 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
+                <a href='/registerCompany'><button className="w-full py-2 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
                   Comenzar
                 </button></a>
               </div>
@@ -209,7 +209,7 @@ const TireProLanding = () => {
       </nav>
 
       {/* Hero Section */}
-      <section id="hero" className="relative min-h-screen flex items-center pt-20">
+      <section id="hero" className="relative min-h-screen flex items-center pt-30">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#136eb2_0%,_rgba(19,110,178,0.4)_40%,_transparent_60%)]"></div>
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -232,9 +232,7 @@ const TireProLanding = () => {
               <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/20 backdrop-blur-sm">
                 <div className="aspect-video w-full bg-gradient-to-br from-[#348CCB]/20 to-[#1E76B6]/10 flex items-center justify-center rounded-3xl border border-white/10">
                   <div className="w-full h-full flex items-center justify-center p-8">
-                    <div className="w-full max-w-lg h-64 bg-gradient-to-br from-[#348CCB]/30 to-[#1E76B6]/20 rounded-2xl border border-white/20 flex items-center justify-center">
                       <span className="text-white/60 text-lg font-medium"><Image src={landingImage} alt='Foto Landing'/></span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -470,7 +468,7 @@ const TireProLanding = () => {
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li><a href="/legal#terms-section" className="hover:text-[#348CCB] transition-colors">Términos</a></li>
                 <li><a href="/legal#privacy-section" className="hover:text-[#348CCB] transition-colors">Privacidad</a></li>
-                <li><a href="/contacto" className="hover:text-[#348CCB] transition-colors">Contacto</a></li>
+                <li><a href="/contact" className="hover:text-[#348CCB] transition-colors">Contacto</a></li>
                 <li><a href="/delete" className="hover:text-[#348CCB] transition-colors">Eliminar Datos</a></li>
               </ul>
             </div>

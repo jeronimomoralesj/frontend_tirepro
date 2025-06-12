@@ -100,7 +100,7 @@ export default function Sidebar({
   } else {
     // Regular user on pro/retail
     links = [
-      { name: "Agregar", path: "/dashboard/agregarConductor", icon: Plus },
+      { name: "Agregar", path: "/dashboard/agregarConductor", icon: Settings },
     ];
   }
 
