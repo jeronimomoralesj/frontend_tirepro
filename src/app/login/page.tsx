@@ -87,102 +87,102 @@ export default function LoginPage() {
 
       <div className="relative z-10">
         {/* Mobile Menu Blur Overlay */}
-        <div className={`fixed inset-0 z-40 transition-all duration-500 ${
-          isMobileMenuOpen 
-            ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
-            : 'opacity-0 pointer-events-none'
-        }`} onClick={() => setIsMobileMenuOpen(false)}></div>
+      <div className={`fixed inset-0 z-40 transition-all duration-500 ${
+        isMobileMenuOpen 
+          ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
+          : 'opacity-0 pointer-events-none'
+      }`} onClick={() => setIsMobileMenuOpen(false)}></div>
 
-        {/* Enhanced Floating Liquid Glass Navbar */}
-        <nav className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[calc(100%-3rem)] max-w-6xl z-50 transition-all duration-700 rounded-2xl ${
-          isScrolled 
-            ? 'backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 shadow-2xl' 
-            : 'backdrop-blur-xl bg-gradient-to-r from-white/8 via-transparent to-white/8 border border-white/20 shadow-xl'
+      {/* Enhanced Floating Liquid Glass Navbar */}
+      <nav className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[calc(100%-3rem)] max-w-6xl z-50 transition-all duration-700 rounded-2xl ${
+        isScrolled 
+          ? 'backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 shadow-2xl' 
+          : 'backdrop-blur-xl bg-gradient-to-r from-white/8 via-transparent to-white/8 border border-white/20 shadow-xl'
+      }`}>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#348CCB]/15 via-transparent to-[#348CCB]/15 opacity-60 rounded-2xl"></div>
+        
+        <div className="px-6 sm:px-8 lg:px-10 relative">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center space-x-2 relative z-10">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl font-bold bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
+                  <Link href="/"><div className="flex items-center space-x-2">
+              <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
+              <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
+            </div></Link>
+                </span>
+              </div>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-6 relative z-10">
+              {['Plataforma', 'Blog', 'Planes', 'Contacto'].map((item, i) => (
+                <a 
+                  key={i}
+                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 
+                  className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group"
+                >
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
+                  <span className="relative z-10">{item}</span>
+                </a>
+              ))}
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="hidden md:flex items-center space-x-3 relative z-10">
+              <a href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-black backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
+                Ingresar
+              </button></a>
+              <a href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
+                Comenzar
+              </button></a>
+            </div>
+
+            {/* Mobile menu button */}
+            <button 
+              className="md:hidden p-1 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              <div className="relative">
+                <Menu className={`w-6 h-6 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0 rotate-45' : 'opacity-100'}`} />
+                <X className={`w-6 h-6 absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 -rotate-45'}`} />
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Enhanced Floating Mobile Menu */}
+        <div className={`md:hidden absolute top-full left-1/2 transform -translate-x-1/2 w-full mt-4 z-50 transition-all duration-500 ${
+          isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8 pointer-events-none'
         }`}>
-          <div className="absolute inset-0 bg-gradient-to-r from-[#348CCB]/15 via-transparent to-[#348CCB]/15 opacity-60 rounded-2xl"></div>
-          
-          <div className="px-4 sm:px-6 lg:px-8 xl:px-10 relative">
-            <div className="flex justify-between items-center h-16">
-              {/* Logo */}
-              <div className="flex items-center space-x-2 relative z-10">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xl font-bold bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
-                    <Link href="/"><div className="flex items-center space-x-2">
-                <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
-                <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
-              </div></Link>
-                  </span>
-                </div>
-              </div>
-
-              {/* Desktop Navigation */}
-              <div className="hidden md:flex items-center space-x-6 relative z-10">
-                {['Plataforma', 'Blog', 'Planes', 'Contacto'].map((item, i) => (
-                  <a 
-                    key={i}
-                    href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 
-                    className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group"
-                  >
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
-                    <span className="relative z-10">{item}</span>
-                  </a>
-                ))}
-              </div>
-
-              {/* CTA Buttons */}
-              <div className="hidden md:flex items-center space-x-3 relative z-10">
-                <a href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-white backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
+          <div className="mx-4 rounded-3xl backdrop-blur-3xl bg-gradient-to-br from-white/25 via-white/15 to-white/20 border-2 border-white/40 shadow-2xl overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
+            
+            <div className="relative p-5 space-y-6">
+              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
+                <a 
+                  key={i}
+                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`}
+                  className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {item}
+                </a>
+              ))}
+              
+              <div className="pt-2 border-t border-white/30 space-y-4">
+                <a href='/login'><button className="w-full py-2 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
                   Ingresar
                 </button></a>
-                <a href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
+                <a href='/registerCompany'><button className="w-full py-2 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
                   Comenzar
                 </button></a>
               </div>
-
-              {/* Mobile menu button */}
-              <button 
-                className="md:hidden p-3 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              >
-                <div className="relative">
-                  <Menu className={`w-6 h-6 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0 rotate-45' : 'opacity-100'}`} />
-                  <X className={`w-6 h-6 absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 -rotate-45'}`} />
-                </div>
-              </button>
             </div>
           </div>
-
-          {/* Enhanced Floating Mobile Menu */}
-          <div className={`md:hidden absolute top-full left-1/2 transform -translate-x-1/2 w-full mt-4 z-50 transition-all duration-500 ${
-            isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8 pointer-events-none'
-          }`}>
-            <div className="mx-4 rounded-3xl backdrop-blur-3xl bg-gradient-to-br from-white/25 via-white/15 to-white/20 border-2 border-white/40 shadow-2xl overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
-              
-              <div className="relative p-6 sm:p-8 space-y-4 sm:space-y-6">
-                {['Plataforma', 'Blog', 'Planes', 'Contacto'].map((item, i) => (
-                  <a 
-                    key={i}
-                    href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`}
-                    className="block py-3 px-4 sm:px-6 rounded-2xl text-white font-medium text-base sm:text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    {item}
-                  </a>
-                ))}
-                
-                <div className="pt-4 sm:pt-6 border-t border-white/30 space-y-3 sm:space-y-4">
-                  <a href='/login'><button className="w-full py-3 px-4 sm:px-6 rounded-2xl border-2 border-[#348CCB]/70 text-white font-semibold text-base sm:text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
-                    Ingresar
-                  </button></a>
-                  <a href='/companyregister'><button className="w-full py-3 sm:py-4 px-4 sm:px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-base sm:text-lg transition-all duration-300">
-                    Comenzar
-                  </button></a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </nav>
+        </div>
+      </nav>
 
         {/* Main Content - Enhanced responsive layout */}
         <div className="flex flex-col lg:flex-row min-h-screen pt-24 sm:pt-28">

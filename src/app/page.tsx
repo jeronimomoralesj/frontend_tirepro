@@ -199,7 +199,7 @@ const TireProLanding = () => {
                 <a href='/login'><button className="w-full py-2 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
                   Ingresar
                 </button></a>
-                <a href='/registerCompany'><button className="w-full py-2 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
+                <a href='/companyregister'><button className="w-full py-2 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
                   Comenzar
                 </button></a>
               </div>
@@ -390,7 +390,7 @@ const TireProLanding = () => {
                     ))}
                   </ul>
                   
-                  <a href='/registerCompany'><button className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 ${
+                  <a href='/companyregister'><button className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 ${
                     plan.highlighted
                       ? 'bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white hover:shadow-lg hover:shadow-[#348CCB]/25'
                       : 'border border-[#348CCB]/50 text-[#348CCB] backdrop-blur-sm bg-white/5 hover:bg-[#348CCB]/20'
