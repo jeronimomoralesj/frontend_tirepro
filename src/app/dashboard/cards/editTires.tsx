@@ -204,7 +204,7 @@ const EditTires: React.FC<EditTiresProps> = ({ isOpen, onClose, vehicle, apiBase
             <div className="flex flex-col items-center justify-center h-32 text-gray-500 gap-2">
               <AlertTriangle size={32} />
               <p>No hay llantas registradas para este vehículo</p>
-              <p className="text-sm">Usa "Agregar Llanta" para añadir llantas</p>
+              <p className="text-sm">Usa Agregar Llanta para añadir llantas</p>
             </div>
           ) : (
             <div className="space-y-4">

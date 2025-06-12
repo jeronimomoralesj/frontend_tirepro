@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Lock, Globe, Hash } from 'lucide-react';
+import { X, Lock, Globe } from 'lucide-react';
 
 interface Group {
   name: string;

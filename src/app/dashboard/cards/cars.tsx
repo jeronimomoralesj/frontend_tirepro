@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, ChevronLeft, ChevronRight, Truck, PlusCircle, Edit3 } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Truck, PlusCircle } from "lucide-react";
 import AddCar from "./addCar";
 import AddTires from "./addTires";
 import EditTires from "./editTires";
@@ -28,7 +28,7 @@ type Tire = {
 };
 
 // Vehicle Visualization Components
-const TireDisplay: React.FC<{ tire: Tire | null; position: string }> = ({ tire, position }) => (
+const TireDisplay: React.FC<{ tire: Tire | null; position: string }> = ({ tire }) => (
   <div
     className="rounded-full border flex items-center justify-center text-white shadow-md bg-gradient-to-br from-[#1E76B6] to-[#348CCB]"
     style={{ width: "80px", height: "80px" }}
@@ -98,7 +98,7 @@ const VehicleAxis: React.FC<{
 const VehicleVisualization: React.FC<{
   tires: Tire[];
   vehicleId: string;
-}> = ({ tires, vehicleId }) => {
+}> = ({ tires }) => {
   const layout = React.useMemo(() => {
     const activeTires = tires.filter(t => t.position && t.position !== "0");
     const count = activeTires.length || 4; // Default to 4 if no tires assigned
