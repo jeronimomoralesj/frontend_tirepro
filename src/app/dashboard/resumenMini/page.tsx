@@ -56,7 +56,6 @@ export type Extra = {
 export default function ResumenMiniPage() {
   const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleExtras, setVehicleExtras] = useState<Record<string, Extra[]>>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -294,8 +293,6 @@ export default function ResumenMiniPage() {
       const safeVehiclesData = vehiclesData.map((vehicle: Vehicle) => ({
         ...vehicle,
       }));
-      
-      setVehicles(safeVehiclesData);
 
       // Fetch tires
       const tiresRes = await fetch(

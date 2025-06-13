@@ -208,7 +208,6 @@ const CarCard: React.FC<CarCardProps> = ({
   tires, 
   isLoading, 
   onAddTires, 
-  onEditTires 
 }) => {
   return (
     <div className="bg-gray-50 rounded-xl p-3 sm:p-4 lg:p-6 border border-gray-200">
