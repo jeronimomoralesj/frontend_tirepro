@@ -43,18 +43,42 @@ export type Vehicle = {
   cliente?: string;
 };
 
+export type Extra = {
+  id: string;
+  vehicleId: string;
+  type: string;
+  brand: string;
+  purchaseDate: string;
+  cost: number;
+  notes?: string;
+};
+
 export default function ResumenMiniPage() {
   const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicleExtras, setVehicleExtras] = useState<Record<string, Extra[]>>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [extrasLoading, setExtrasLoading] = useState(false);
   const [gastoMes, setGastoMes] = useState<number>(0);
   const [userName, setUserName] = useState<string>("");
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
   const [exporting, setExporting] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const API_BASE =
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "")
+      ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+      : "https://api.tirepro.com.co/api";
+
+  const getAuthHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+    'Content-Type': 'application/json'
+  });
 
   const exportToPDF = () => {
     try {
@@ -164,12 +188,14 @@ export default function ResumenMiniPage() {
     }
   };
 
-  const calculateTotals = useCallback((tires: Tire[]) => {
+  // Stable calculation functions - moved outside of useCallback to prevent recreations
+  const calculateTotals = (tires: Tire[], allExtras: Extra[]) => {
     let totalMes = 0;
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
+    // Calculate tire costs
     tires.forEach((tire) => {
       if (Array.isArray(tire.costo)) {
         tire.costo.forEach((entry) => {
@@ -187,10 +213,21 @@ export default function ResumenMiniPage() {
       }
     });
 
-    setGastoMes(totalMes);
-  }, []);
+    // Calculate vehicle extras costs
+    allExtras.forEach((extra) => {
+      const extraDate = new Date(extra.purchaseDate);
+      if (
+        extraDate.getFullYear() === currentYear &&
+        extraDate.getMonth() === currentMonth
+      ) {
+        totalMes += extra.cost;
+      }
+    });
 
-  const calculateCpkProjected = useCallback((tires: Tire[]) => {
+    return totalMes;
+  };
+
+  const calculateCpkProjected = (tires: Tire[]) => {
     let totalCpkProyectado = 0;
     let validTireCount = 0;
 
@@ -205,61 +242,122 @@ export default function ResumenMiniPage() {
     });
 
     if (validTireCount > 0) {
-      setCpkProyectado(Number((totalCpkProyectado / validTireCount).toFixed(2)));
+      return Number((totalCpkProyectado / validTireCount).toFixed(2));
     } else {
-      setCpkProyectado(0);
+      return 0;
     }
-  }, []);
+  };
 
-  const fetchTires = useCallback(
-    async (companyId: string) => {
-      setLoading(true);
-      setError("");
-      try {
-        const res = await fetch(
-          process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-            : `https://api.tirepro.com.co/api/tires?companyId=${companyId}`
-        );
-        if (!res.ok) {
-          throw new Error("Failed to fetch tires");
-        }
-        const data: Tire[] = await res.json();
+  // Update calculations when data changes
+  useEffect(() => {
+    if (dataLoaded) {
+      const allExtras = Object.values(vehicleExtras).flat();
+      const newGastoMes = calculateTotals(tires, allExtras);
+      const newCpkProyectado = calculateCpkProjected(tires);
+      
+      setGastoMes(newGastoMes);
+      setCpkProyectado(newCpkProyectado);
+    }
+  }, [tires, vehicleExtras, dataLoaded]);
 
-        const sanitizedData = data.map((tire) => ({
-          ...tire,
-          inspecciones: Array.isArray(tire.inspecciones) ? tire.inspecciones : [],
-          costo: Array.isArray(tire.costo)
-            ? tire.costo.map((c) => ({
-                valor: typeof c.valor === "number" ? c.valor : 0,
-                fecha: typeof c.fecha === "string" ? c.fecha : new Date().toISOString(),
-              }))
-            : [],
-          vida: Array.isArray(tire.vida) ? tire.vida : [],
-        }));
-
-        // Filter out tires whose last vida entry is "fin"
-        const activeTires = sanitizedData.filter((tire) => {
-          if (tire.vida && tire.vida.length > 0) {
-            const lastVida = tire.vida[tire.vida.length - 1].valor.toLowerCase();
-            return lastVida !== "fin";
-          }
-          return true; // Include tires with no vida entries
-        });
-
-        setTires(activeTires);
-        calculateTotals(activeTires);
-        calculateCpkProjected(activeTires);
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : "Unexpected error";
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
+  const fetchVehicleExtras = useCallback(async (vehicleId: string): Promise<Extra[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/vehicles/${vehicleId}/extras`, {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.ok) {
+        const extrasData = await response.json();
+        return extrasData;
+      } else {
+        console.warn(`Failed to fetch extras for vehicle ${vehicleId}:`, response.status);
+        return [];
       }
-    },
-    [calculateTotals, calculateCpkProjected]
-  );
+    } catch (err) {
+      console.error("Error fetching extras for vehicle:", vehicleId, err);
+      return [];
+    }
+  }, [API_BASE]);
 
+  // Main data fetching function
+  const fetchAllData = useCallback(async (companyId: string) => {
+    setLoading(true);
+    setExtrasLoading(true);
+    setError("");
+
+    try {
+      // Fetch vehicles
+      const vehiclesRes = await fetch(`${API_BASE}/vehicles?companyId=${companyId}`);
+      if (!vehiclesRes.ok) throw new Error("Failed to fetch vehicles");
+      
+      const vehiclesData = await vehiclesRes.json();
+      const safeVehiclesData = vehiclesData.map((vehicle: Vehicle) => ({
+        ...vehicle,
+      }));
+      
+      setVehicles(safeVehiclesData);
+
+      // Fetch tires
+      const tiresRes = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
+          : `https://api.tirepro.com.co/api/tires?companyId=${companyId}`
+      );
+      if (!tiresRes.ok) {
+        throw new Error("Failed to fetch tires");
+      }
+      const tiresData: Tire[] = await tiresRes.json();
+
+      const sanitizedTiresData = tiresData.map((tire) => ({
+        ...tire,
+        inspecciones: Array.isArray(tire.inspecciones) ? tire.inspecciones : [],
+        costo: Array.isArray(tire.costo)
+          ? tire.costo.map((c) => ({
+              valor: typeof c.valor === "number" ? c.valor : 0,
+              fecha: typeof c.fecha === "string" ? c.fecha : new Date().toISOString(),
+            }))
+          : [],
+        vida: Array.isArray(tire.vida) ? tire.vida : [],
+      }));
+
+      // Filter out tires whose last vida entry is "fin"
+      const activeTires = sanitizedTiresData.filter((tire) => {
+        if (tire.vida && tire.vida.length > 0) {
+          const lastVida = tire.vida[tire.vida.length - 1].valor.toLowerCase();
+          return lastVida !== "fin";
+        }
+        return true; // Include tires with no vida entries
+      });
+
+      setTires(activeTires);
+
+      // Fetch extras for all vehicles
+      const extrasPromises = safeVehiclesData.map(async (vehicle: Vehicle) => {
+        const extras = await fetchVehicleExtras(vehicle.id);
+        return { vehicleId: vehicle.id, extras };
+      });
+      
+      const extrasResults = await Promise.all(extrasPromises);
+      const newVehicleExtras: Record<string, Extra[]> = {};
+      
+      extrasResults.forEach(({ vehicleId, extras }) => {
+        newVehicleExtras[vehicleId] = extras;
+      });
+      
+      setVehicleExtras(newVehicleExtras);
+      setDataLoaded(true);
+
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unexpected error";
+      setError(errorMessage);
+      console.error("Error fetching data:", err);
+    } finally {
+      setLoading(false);
+      setExtrasLoading(false);
+    }
+  }, [API_BASE, fetchVehicleExtras]);
+
+  // Initialize data on component mount
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
@@ -274,8 +372,12 @@ export default function ResumenMiniPage() {
     }
 
     setUserName(user.name || user.email || "User");
-    fetchTires(user.companyId);
-  }, [router, fetchTires]);
+    
+    // Only fetch data once when component mounts
+    if (!dataLoaded) {
+      fetchAllData(user.companyId);
+    }
+  }, [router, fetchAllData, dataLoaded]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -323,7 +425,7 @@ export default function ResumenMiniPage() {
             <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `$${gastoMes.toLocaleString()}`}
+                {loading || extrasLoading ? "Cargando..." : `$${gastoMes.toLocaleString()}`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>
                 Inversión del Mes
@@ -348,11 +450,12 @@ export default function ResumenMiniPage() {
           </div>
           <br />
           <CarsPage />
+          <br />
           <CuponesPage />
 
-          {loading && (
+          {(loading || extrasLoading) && (
             <div className="text-center py-4 text-[#1E76B6] animate-pulse">
-              Cargando neumáticos...
+              Cargando datos...
             </div>
           )}
           {error && (

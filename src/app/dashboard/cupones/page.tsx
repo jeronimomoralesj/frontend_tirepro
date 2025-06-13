@@ -25,13 +25,13 @@ const CuponesPage: React.FC = () => {
   const cupones: Cupon[] = [
     {
       id: "1",
-      titulo: "20% OFF en Llantas Premium",
+      titulo: "15% OFF en Llantas Continental",
       descripcion: "Descuento especial en toda nuestra línea de llantas premium",
-      descuento: 20,
+      descuento: 15,
       categoria: "llantas",
       fechaVencimiento: "2025-07-15",
       codigo: "LLANTA20",
-      imagen: "/api/placeholder/300/200",
+      imagen: "https://pbs.twimg.com/media/FDOEw9BX0AI5CMe.jpg",
       terminos: ["Válido hasta el 15 de julio", "No acumulable con otras ofertas", "Mínimo de compra $500"],
       activo: true
     },

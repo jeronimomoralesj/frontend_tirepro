@@ -12,7 +12,8 @@ import {
   Download,
   Smartphone,
   Plus,
-  Minus
+  Minus,
+  PhoneCall,
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -91,8 +92,8 @@ const TireProLanding = () => {
 
   const faqs = [
     {
-      question: "¿Cómo funciona el análisis predictivo?",
-      answer: "Nuestra IA analiza patrones de desgaste, condiciones de manejo y datos históricos para predecir el momento óptimo de cambio o rotación de llantas."
+      question: "¿Cómo puede TirePro ayudarme?",
+      answer: "TirePro hace un analisis de todas tus llantas y te hace recomendaciones para que tu le saques el mayo rendimiento a cada llanta y sepas que llanta comprar para que asi te ahorres unos pesos extra."
     },
     {
       question: "¿Qué dispositivos necesito?",
@@ -490,6 +491,25 @@ const TireProLanding = () => {
           </div>
         </div>
       </footer>
+      {/* Floating WhatsApp Button */}
+<a
+  href="https://wa.me/3151349122"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="
+    fixed bottom-6 right-6 z-50
+    p-4 rounded-full
+    bg-gradient-to-br from-[#348CCB] to-[#1E76B6]
+    backdrop-blur-lg
+    shadow-2xl
+    hover:scale-105
+    transition-transform duration-300
+  "
+  title="Chat on WhatsApp"
+>
+  <PhoneCall className="w-6 h-6 text-white" />
+</a>
+
     </div>
   )
 }
