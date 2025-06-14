@@ -142,7 +142,7 @@ const TireProLanding = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6 relative z-10">
-              {['Plataforma', 'Blog', 'Planes', 'Contacto'].map((item, i) => (
+              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
                 <a 
                   key={i}
                   href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 

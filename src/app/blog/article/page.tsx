@@ -222,91 +222,107 @@ const ArticleContent = () => {
 
   return (
     <div className="bg-[#030712] text-white min-h-screen">
-      {/* Navbar */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${
+{/* Mobile Menu Blur Overlay */}
+      <div className={`fixed inset-0 z-40 transition-all duration-500 ${
+        isMobileMenuOpen 
+          ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
+          : 'opacity-0 pointer-events-none'
+      }`} onClick={() => setIsMobileMenuOpen(false)}></div>
+
+      {/* Enhanced Floating Liquid Glass Navbar */}
+      <nav className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[calc(100%-3rem)] max-w-6xl z-50 transition-all duration-700 rounded-2xl ${
         isScrolled 
-          ? 'bg-[#030712]/95 backdrop-blur-md border-b border-[#0A183A]' 
-          : 'bg-transparent'
+          ? 'backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 shadow-2xl' 
+          : 'backdrop-blur-xl bg-gradient-to-r from-white/8 via-transparent to-white/8 border border-white/20 shadow-xl'
       }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#348CCB]/15 via-transparent to-[#348CCB]/15 opacity-60 rounded-2xl"></div>
+        
+        <div className="px-6 sm:px-8 lg:px-10 relative">
           <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center space-x-2">
+            {/* Logo */}
+            <div className="flex items-center space-x-2 relative z-10">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl font-bold bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
+                  <Link href="/"><div className="flex items-center space-x-2">
               <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
               <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
-            </Link>
-
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/#platform" className="text-gray-300 hover:text-white transition-colors">
-                Plataforma
-              </Link>
-              <Link href="/blog" className="text-white font-medium">
-                Blog
-              </Link>
-              <Link href="/#plans" className="text-gray-300 hover:text-white transition-colors">
-                Planes
-              </Link>
-              <Link href="/#contact" className="text-gray-300 hover:text-white transition-colors">
-                Contacto
-              </Link>
+            </div></Link>
+                </span>
+              </div>
             </div>
 
-            <div className="hidden md:flex items-center space-x-4">
-              <Link href='/login'>
-                <button className="px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg hover:bg-[#348CCB] hover:text-white transition-all">
-                  Ingresar
-                </button>
-              </Link>
-              <Link href='/companyregister'>
-                <button className="px-4 py-2 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all">
-                  Quiero Iniciar
-                </button>
-              </Link>
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-6 relative z-10">
+              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
+                <a 
+                  key={i}
+                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 
+                  className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group"
+                >
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
+                  <span className="relative z-10">{item}</span>
+                </a>
+              ))}
             </div>
 
+            {/* CTA Buttons */}
+            <div className="hidden md:flex items-center space-x-3 relative z-10">
+              <a href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-black backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
+                Ingresar
+              </button></a>
+              <a href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
+                Comenzar
+              </button></a>
+            </div>
+
+            {/* Mobile menu button */}
             <button 
-              className="md:hidden p-2"
+              className="md:hidden p-1 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              <div className="relative">
+                <Menu className={`w-6 h-6 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0 rotate-45' : 'opacity-100'}`} />
+                <X className={`w-6 h-6 absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 -rotate-45'}`} />
+              </div>
             </button>
           </div>
         </div>
 
-        {isMobileMenuOpen && (
-          <div className="md:hidden bg-[#030712]/95 backdrop-blur-md border-t border-[#0A183A]">
-            <div className="px-4 py-4 space-y-4">
-              <Link href="/#platform" className="block text-gray-300 hover:text-white">
-                Plataforma
-              </Link>
-              <Link href="/blog" className="block text-white font-medium">
-                Blog
-              </Link>
-              <Link href="/#plans" className="block text-gray-300 hover:text-white">
-                Planes
-              </Link>
-              <Link href="/#contact" className="block text-gray-300 hover:text-white">
-                Contacto
-              </Link>
-              <div className="flex flex-col space-y-2 pt-4 border-t border-[#0A183A]">
-                <Link href='/login'>
-                  <button className="w-full px-4 py-2 text-[#348CCB] border border-[#348CCB] rounded-lg">
-                    Ingresar
-                  </button>
-                </Link>
-                <Link href='/companyregister'>
-                  <button className="w-full px-4 py-2 bg-[#348CCB] text-white rounded-lg">
-                    Quiero Iniciar
-                  </button>
-                </Link>
+        {/* Enhanced Floating Mobile Menu */}
+        <div className={`md:hidden absolute top-full left-1/2 transform -translate-x-1/2 w-full mt-4 z-50 transition-all duration-500 ${
+          isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8 pointer-events-none'
+        }`}>
+          <div className="mx-4 rounded-3xl backdrop-blur-3xl bg-gradient-to-br from-white/25 via-white/15 to-white/20 border-2 border-white/40 shadow-2xl overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
+            
+            <div className="relative p-5 space-y-6">
+              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
+                <a 
+                  key={i}
+                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`}
+                  className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {item}
+                </a>
+              ))}
+              
+              <div className="pt-2 border-t border-white/30 space-y-4">
+                <a href='/login'><button className="w-full py-2 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
+                  Ingresar
+                </button></a>
+                <a href='/companyregister'><button className="w-full py-2 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
+                  Comenzar
+                </button></a>
               </div>
             </div>
           </div>
-        )}
+        </div>
       </nav>
 
       {/* Back to Blog Button */}
       <div className="pt-20 pb-4">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-5">
           <Link href="/blog" className="inline-flex items-center space-x-2 text-[#348CCB] hover:text-white transition-colors group">
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span>Volver al Blog</span>
@@ -458,26 +474,6 @@ const ArticleContent = () => {
         </section>
       )}
 
-      {/* Newsletter Section */}
-      <section className="py-16 bg-gradient-to-r from-[#0A183A]/40 to-[#173D68]/20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">¿Te gustó este artículo?</h2>
-          <p className="text-gray-300 mb-8">
-            Suscríbete para recibir más contenido como este directamente en tu correo
-          </p>
-          <div className="flex flex-col sm:flex-row max-w-md mx-auto gap-4">
-            <input
-              type="email"
-              placeholder="tu@email.com"
-              className="flex-1 px-4 py-3 bg-[#0A183A]/60 border border-[#173D68]/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#348CCB] transition-colors"
-            />
-            <button className="px-6 py-3 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all font-medium">
-              Suscribirse
-            </button>
-          </div>
-        </div>
-      </section>
-
       {/* Scroll to Top Button */}
       {showScrollToTop && (
         <button
@@ -507,7 +503,7 @@ const ArticleContent = () => {
               <ul className="space-y-2 text-gray-400">
                 <li><a href="/legal#terms-section" className="hover:text-[#348CCB] transition-colors">Términos y Condiciones</a></li>
                 <li><a href="/legal#privacy-section" className="hover:text-[#348CCB] transition-colors">Privacidad de Datos</a></li>
-                <li><a href="/contacto" className="hover:text-[#348CCB] transition-colors">Contáctanos</a></li>
+                <li><a href="/contact" className="hover:text-[#348CCB] transition-colors">Contáctanos</a></li>
                 <li><a href="/delete" className="hover:text-[#348CCB] transition-colors">Eliminar Datos</a></li>
               </ul>
             </div>

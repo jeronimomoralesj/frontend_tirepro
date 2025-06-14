@@ -8,7 +8,7 @@ export default function DashboardLayout({ children }) {
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
   
   return (
-    <div className="flex bg-[#F4F7FA] min-h-screen">
+    <div className="flex min-h-screen">
       {/* Sidebar */}
       <Sidebar
         collapsed={collapsed}

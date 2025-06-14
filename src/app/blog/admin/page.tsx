@@ -61,7 +61,8 @@ const BlogAdminPage = () => {
     'mantenimiento',
     'seguridad',
     'tecnologia',
-    'negocios'
+    'negocios',
+    'tips'
   ]
 
   // Helper function to make API requests with fallback

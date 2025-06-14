@@ -204,7 +204,7 @@ const BlogPage = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6 relative z-10">
-              {['Plataforma', 'Blog', 'Planes', 'Contacto'].map((item, i) => (
+              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
                 <a 
                   key={i}
                   href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 
@@ -451,26 +451,6 @@ const BlogPage = () => {
         </div>
       </section>
 
-      {/* Newsletter Section */}
-      <section className="py-16 bg-gradient-to-r from-[#0A183A]/40 to-[#173D68]/20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">Mantente al día con TirePro</h2>
-          <p className="text-gray-300 mb-8">
-            Recibe los últimos insights, tips y actualizaciones directamente en tu correo
-          </p>
-          <div className="flex flex-col sm:flex-row max-w-md mx-auto gap-4">
-            <input
-              type="email"
-              placeholder="tu@email.com"
-              className="flex-1 px-4 py-3 bg-[#0A183A]/60 border border-[#173D68]/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#348CCB] transition-colors"
-            />
-            <button className="px-6 py-3 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all font-medium">
-              Suscribirse
-            </button>
-          </div>
-        </div>
-      </section>
-
       {/* Footer - Same as original */}
       <footer className="bg-[#0A183A]/30 border-t border-[#173D68]/30 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -490,7 +470,7 @@ const BlogPage = () => {
               <ul className="space-y-2 text-gray-400">
                 <li><a href="/legal#terms-section" className="hover:text-[#348CCB] transition-colors">Términos y Condiciones</a></li>
                 <li><a href="/legal#privacy-section" className="hover:text-[#348CCB] transition-colors">Privacidad de Datos</a></li>
-                <li><a href="/contacto" className="hover:text-[#348CCB] transition-colors">Contáctanos</a></li>
+                <li><a href="/contact" className="hover:text-[#348CCB] transition-colors">Contáctanos</a></li>
                 <li><a href="/delete" className="hover:text-[#348CCB] transition-colors">Eliminar Datos</a></li>
               </ul>
             </div>
