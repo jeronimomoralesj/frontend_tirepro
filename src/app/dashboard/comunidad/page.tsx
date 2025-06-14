@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowUp, 
   ArrowDown, 
@@ -251,7 +251,7 @@ export default function ComunidadPage() {
                   ].map(({ key, label, icon: Icon }) => (
                     <button
                       key={key}
-                      onClick={() => setSortBy(key as any)}
+                      onClick={() => setSortBy(key as 'hot' | 'new' | 'top')}
                       className={`flex items-center space-x-1.5 px-3 py-2 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl font-medium 
                                 transition-all duration-300 text-sm whitespace-nowrap ${
                         sortBy === key
