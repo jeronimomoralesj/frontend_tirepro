@@ -11,9 +11,9 @@ import {
   X,
   Download,
   Smartphone,
+  MessageCircle,
   Plus,
   Minus,
-  PhoneCall,
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -210,7 +210,7 @@ const TireProLanding = () => {
       </nav>
 
       {/* Hero Section */}
-      <section id="hero" className="relative min-h-screen flex items-center pt-30">
+      <section id="hero" className="relative min-h-screen flex items-center pt-20">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#136eb2_0%,_rgba(19,110,178,0.4)_40%,_transparent_60%)]"></div>
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -277,7 +277,7 @@ const TireProLanding = () => {
       </section>
 
       {/* Download App Section */}
-      <section className="py-20">
+      <section className="py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
@@ -307,10 +307,10 @@ const TireProLanding = () => {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="flex items-center justify-center space-x-3 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white px-6 py-4 rounded-xl font-semibold hover:shadow-lg transition-all">
+                <a href='https://apps.apple.com/us/app/tirepro/id6741497732'><button className="flex items-center justify-center space-x-3 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white px-6 py-4 rounded-xl font-semibold hover:shadow-lg transition-all">
                   <Download size={20} />
                   <span>Descargar para iOS</span>
-                </button>
+                </button></a>
                 <button className="flex items-center justify-center space-x-3 border border-[#348CCB]/50 text-[#348CCB] px-6 py-4 rounded-xl font-semibold backdrop-blur-sm bg-white/5 hover:bg-[#348CCB]/20 transition-all">
                   <Download size={20} />
                   <span>Descargar para Android</span>
@@ -496,19 +496,35 @@ const TireProLanding = () => {
   href="https://wa.me/3151349122"
   target="_blank"
   rel="noopener noreferrer"
-  className="
-    fixed bottom-6 right-6 z-50
-    p-4 rounded-full
-    bg-gradient-to-br from-[#348CCB] to-[#1E76B6]
-    backdrop-blur-lg
-    shadow-2xl
-    hover:scale-105
-    transition-transform duration-300
-  "
   title="Chat on WhatsApp"
+  className="group fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center"
 >
-  <PhoneCall className="w-6 h-6 text-white" />
+  {/* Liquid‐glass shell */}
+  <span
+    className="
+      absolute inset-0 rounded-full
+      bg-white/10 backdrop-blur-2xl
+      border border-white/30
+      before:absolute before:inset-0 before:rounded-full
+      before:bg-gradient-to-br before:from-white/30 before:via-white/10 before:to-transparent
+      before:opacity-0 before:transition-opacity before:duration-500
+      group-hover:before:opacity-50
+      shadow-lg shadow-[#1E76B640]
+      transition-transform duration-300
+      group-hover:scale-105
+    "
+  />
+  {/* Centered icon */}
+  <MessageCircle
+    className="
+      relative z-10 w-6 h-6
+      text-white drop-shadow-md
+      transition-colors duration-300
+      group-hover:text-[#348CCB]
+    "
+  />
 </a>
+
 
     </div>
   )
