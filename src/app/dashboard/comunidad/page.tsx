@@ -104,8 +104,8 @@ export default function TireProCommunity() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
   // New post form state
   const [newPost, setNewPost] = useState({
     title: '',
@@ -146,11 +146,11 @@ export default function TireProCommunity() {
         throw new Error('Failed to fetch chats');
       }
 
-      const data = await response.json();
-      
+const data = await response.json() as Chat[];
+
       // Transform backend data to frontend format
-      const transformedChats = data.map((chat: any) => ({
-        ...chat,
+const transformedChats = data.map((chat: Chat) => ({
+          ...chat,
         // Add client-side properties with defaults
         isBookmarked: false,
         userVote: null,
@@ -180,8 +180,8 @@ const fetchMessages = async (chatId: string) => {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch messages');
-    const data = await res.json();
-    return data.map((message: any) => ({
+    const data = await res.json() as Message[];
+    return data.map((message: Message) => ({
       ...message,
       authorAvatar: '👤',
       timeAgo: formatTimeAgo(message.createdAt),
