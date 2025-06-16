@@ -1,5 +1,5 @@
 import React from "react";
-import { Truck, PlusCircle } from "lucide-react";
+import { Truck, Plus } from "lucide-react";
 
 type Vehicle = {
   id: string;
@@ -38,15 +38,15 @@ interface CarCardProps {
   onEditTires: () => void;
 }
 
-// Vehicle Visualization Components
+// Tire Display Component with Apple-style design
 const TireDisplay: React.FC<{ tire: Tire | null; position: string }> = ({ tire }) => {
-  // Calculate minimum depth from last inspection if available
   const getMinDepthAndColor = (tire: Tire | null) => {
     if (!tire || !tire.inspecciones || tire.inspecciones.length === 0) {
       return { 
         minDepth: null, 
-        bgColor: "bg-gradient-to-br from-gray-400 to-gray-500",
-        textColor: "text-white"
+        bgColor: "bg-gray-100",
+        textColor: "text-gray-400",
+        borderColor: "border-gray-200"
       };
     }
 
@@ -57,47 +57,69 @@ const TireDisplay: React.FC<{ tire: Tire | null; position: string }> = ({ tire }
       lastInspection.profundidadExt
     );
 
-    let bgColor, textColor;
+    let bgColor, textColor, borderColor;
     if (minDepth <= 3) {
-      bgColor = "bg-red-600";
-      textColor = "text-white";
+      bgColor = "bg-red-50";
+      textColor = "text-red-600";
+      borderColor = "border-red-200";
     } else if (minDepth <= 6) {
-      bgColor = "bg-ellow-600";
-      textColor = "text-white";
+      bgColor = "bg-orange-50";
+      textColor = "text-orange-600";
+      borderColor = "border-orange-200";
     } else {
-      bgColor = "bg-green-600";
-      textColor = "text-white";
+      bgColor = "bg-green-50";
+      textColor = "text-green-600";
+      borderColor = "border-green-200";
     }
 
-    return { minDepth, bgColor, textColor };
+    return { minDepth, bgColor, textColor, borderColor };
   };
 
-  const { minDepth, bgColor, textColor } = getMinDepthAndColor(tire);
+  const { minDepth, bgColor, textColor, borderColor } = getMinDepthAndColor(tire);
 
   return (
-    <div
-      className={`rounded-full border flex items-center justify-center shadow-md ${bgColor} ${textColor} relative`}
-      style={{ width: "80px", height: "80px" }}
-    >
-      <div className="text-center">
-        {tire ? (
-          <>
-            <div className="text-xs font-bold">{tire.marca}</div>
-            <div className="text-xs">{tire.diseno}</div>
-            {minDepth !== null && (
-              <div className="text-xs font-semibold mt-1 bg-black/20 px-1 rounded">
-                {minDepth}mm
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-xs text-white/70 font-medium">Vacío</div>
-        )}
-      </div>
+    <div className={`
+      relative rounded-2xl border-2 ${borderColor} ${bgColor}
+      flex flex-col items-center justify-center
+      transition-all duration-300 ease-out
+      hover:scale-105 hover:shadow-lg
+      w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24
+      backdrop-blur-sm
+    `}>
+      {tire ? (
+        <div className="text-center px-1">
+          <div className={`text-xs font-semibold ${textColor} truncate max-w-full`}>
+            {tire.marca}
+          </div>
+          {tire.diseno && (
+            <div className={`text-xs ${textColor} opacity-70 truncate`}>
+              {tire.diseno}
+            </div>
+          )}
+          {minDepth !== null && (
+            <div className={`
+              text-xs font-bold mt-1 px-1.5 py-0.5 rounded-md
+              ${minDepth <= 3 ? 'bg-red-600 text-white' : 
+                minDepth <= 6 ? 'bg-orange-600 text-white' : 
+                'bg-green-600 text-white'}
+            `}>
+              {minDepth}mm
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-center">
+          <div className="w-6 h-6 mx-auto mb-1 rounded-full bg-gray-200 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+          </div>
+          <div className="text-xs text-gray-400 font-medium">Vacío</div>
+        </div>
+      )}
     </div>
   );
 };
 
+// Vehicle Axis Component with refined styling
 const VehicleAxis: React.FC<{
   axleIdx: number;
   positions: string[];
@@ -108,52 +130,65 @@ const VehicleAxis: React.FC<{
   const rightTires = positions.slice(middleIndex);
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="text-sm font-medium text-[#173D68] mb-2">Eje {axleIdx + 1}</div>
-      <div className="flex items-center justify-center w-full">
-        <div className="h-4 w-3 bg-[#0A183A] rounded-l-lg" />
+    <div className="flex flex-col items-center space-y-4">
+      <div className="text-sm font-semibold text-gray-500 tracking-wide">
+        EJE {axleIdx + 1}
+      </div>
+      
+      <div className="flex items-center justify-center w-full max-w-4xl">
+        {/* Left axle cap */}
+        <div className="w-2 h-8 bg-gray-800 rounded-l-xl shadow-sm"></div>
         
-        <div className="flex items-center">
+        {/* Left tires */}
+        <div className="flex items-center space-x-2 sm:space-x-3 px-2 sm:px-4">
           {leftTires.map(pos => (
-            <div key={pos} className="m-1 flex flex-col items-center">
+            <div key={pos} className="flex flex-col items-center space-y-2">
               <TireDisplay
                 position={pos}
                 tire={tireMap[pos] || null}
               />
-              <div className="w-6 h-1 bg-[#348CCB] mt-2" />
+              <div className="w-8 h-1 bg-blue-500 rounded-full opacity-60"></div>
             </div>
           ))}
         </div>
 
-        <div className="bg-[#0A183A] h-6 flex-grow rounded-full mx-2 flex items-center justify-center">
-          <div className="bg-[#1E76B6] h-2 w-10/12 rounded-full" />
+        {/* Axle body */}
+        <div className="relative flex-grow min-w-0 mx-2 sm:mx-4 max-w-xs">
+          <div className="h-6 bg-gray-800 rounded-full shadow-inner">
+            <div className="h-full w-4/5 bg-gradient-to-r from-gray-600 to-gray-700 rounded-full mx-auto flex items-center justify-center">
+              <div className="w-8 h-1 bg-blue-400 rounded-full opacity-80"></div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center">
+        {/* Right tires */}
+        <div className="flex items-center space-x-2 sm:space-x-3 px-2 sm:px-4">
           {rightTires.map(pos => (
-            <div key={pos} className="m-1 flex flex-col items-center">
+            <div key={pos} className="flex flex-col items-center space-y-2">
               <TireDisplay
                 position={pos}
                 tire={tireMap[pos] || null}
               />
-              <div className="w-6 h-1 bg-[#348CCB] mt-2" />
+              <div className="w-8 h-1 bg-blue-500 rounded-full opacity-60"></div>
             </div>
           ))}
         </div>
 
-        <div className="h-4 w-3 bg-[#0A183A] rounded-r-lg" />
+        {/* Right axle cap */}
+        <div className="w-2 h-8 bg-gray-800 rounded-r-xl shadow-sm"></div>
       </div>
     </div>
   );
 };
 
+// Vehicle Visualization with clean Apple-style layout
 const VehicleVisualization: React.FC<{
   tires: Tire[];
   vehicleId: string;
 }> = ({ tires }) => {
   const layout = React.useMemo(() => {
     const activeTires = tires.filter(t => t.position && t.position !== "0");
-    const count = activeTires.length || 4; // Default to 4 if no tires assigned
+    const count = activeTires.length || 4;
     const axisCount = count <= 8 ? 2 : count <= 12 ? 3 : Math.ceil(count / 4);
     
     const axisLayout: string[][] = [];
@@ -183,13 +218,17 @@ const VehicleVisualization: React.FC<{
   }, [tires]);
 
   return (
-    <div className="bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 p-6 rounded-lg border-l-4 border-[#1E76B6] mb-6 shadow-sm">
-      <div className="flex justify-between items-start mb-4">
-        <h3 className="text-lg font-semibold text-[#0A183A]">
-          Configuración de Llantas ({layout.length} eje{layout.length > 1 ? 's' : ''})
+    <div className="bg-white/50 backdrop-blur-sm border border-gray-200/60 rounded-3xl p-6 lg:p-8 mb-6 shadow-sm hover:shadow-md transition-all duration-300">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2 sm:mb-0">
+          Configuración de Llantas
         </h3>
+        <span className="text-sm text-gray-500 font-medium">
+          {layout.length} eje{layout.length > 1 ? 's' : ''}
+        </span>
       </div>
-      <div className="flex flex-col gap-8">
+      
+      <div className="flex flex-col space-y-8 lg:space-y-12 overflow-x-auto">
         {layout.map((positions, idx) => (
           <VehicleAxis
             key={idx}
@@ -203,6 +242,7 @@ const VehicleVisualization: React.FC<{
   );
 };
 
+// Main CarCard Component with Apple aesthetic
 const CarCard: React.FC<CarCardProps> = ({ 
   vehicle, 
   tires, 
@@ -210,45 +250,66 @@ const CarCard: React.FC<CarCardProps> = ({
   onAddTires, 
 }) => {
   return (
-    <div className="bg-gray-50 rounded-xl p-3 sm:p-4 lg:p-6 border border-gray-200">
+    <div className="bg-white/80 backdrop-blur-md rounded-3xl border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-500 ease-out overflow-hidden">
       {/* Vehicle Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b border-gray-300 pb-3 sm:pb-4 mb-3 sm:mb-4 gap-2 sm:gap-0">
-        <h3 className="text-xl sm:text-2xl font-bold text-[#173D68] break-all">
-          {vehicle.placa?.toUpperCase() || "SIN PLACA"}
-        </h3>
-        <span className="bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-1 rounded-full text-xs sm:text-sm font-medium self-start sm:self-auto whitespace-nowrap">
-          {vehicle.tipovhc?.replace("_", " ") || "Sin tipo"}
-        </span>
+      <div className="px-6 py-8 lg:px-8 lg:py-10 border-b border-gray-100">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div className="flex-grow min-w-0">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 tracking-tight break-words">
+              {vehicle.placa?.toUpperCase() || "SIN PLACA"}
+            </h2>
+            <p className="text-gray-500 mt-2 text-sm font-medium">
+              {vehicle.tipovhc?.replace("_", " ") || "Sin tipo"}
+            </p>
+          </div>
+          
+          <div className="flex-shrink-0">
+            <div className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 rounded-2xl text-sm font-semibold">
+              <Truck size={16} className="mr-2" />
+              Vehículo
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Vehicle Visualization */}
-      {isLoading ? (
-        <div className="flex items-center justify-center h-32 bg-gray-100 rounded-lg mb-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#173D68]"></div>
-          <span className="ml-2 text-[#173D68]">Cargando configuración de llantas...</span>
-        </div>
-      ) : tires.length > 0 ? (
-        <VehicleVisualization 
-          tires={tires}
-          vehicleId={vehicle.id}
-        />
-      ) : (
-        <div className="bg-gray-100 p-6 rounded-lg mb-4 text-center text-gray-500">
-          <Truck size={32} className="mx-auto mb-2 text-gray-400" />
-          <p>Sin llantas asignadas</p>
-          <p className="text-sm">Agrega llantas para ver la configuración del vehículo</p>
-        </div>
-      )}
+      {/* Vehicle Content */}
+      <div className="px-6 py-6 lg:px-8 lg:py-8">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="relative">
+              <div className="w-12 h-12 border-3 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+            </div>
+            <p className="mt-4 text-gray-600 font-medium">Cargando configuración...</p>
+          </div>
+        ) : tires.length > 0 ? (
+          <VehicleVisualization 
+            tires={tires}
+            vehicleId={vehicle.id}
+          />
+        ) : (
+          <div className="text-center py-16">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-3xl flex items-center justify-center">
+              <Truck size={32} className="text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Sin llantas asignadas
+            </h3>
+            <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">
+              Agrega llantas para visualizar la configuración completa del vehículo
+            </p>
+          </div>
+        )}
 
-      {/* Action Buttons - Responsive Stack */}
-      <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-6">
-        <button
-          onClick={onAddTires}
-          className="flex-1 bg-[#1E76B6] hover:bg-[#348CCB] text-white px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center font-medium text-sm sm:text-base"
-        >
-          <PlusCircle size={16} className="sm:w-5 sm:h-5 mr-2" />
-          Agregar Llanta
-        </button>
+        {/* Action Button */}
+        <div className="mt-8 pt-6 border-t border-gray-100">
+          <button
+            onClick={onAddTires}
+            className="w-full bg-[#1E76B6] hover:bg-[#348CCB] active:bg-blue-800 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 ease-out transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center shadow-lg hover:shadow-xl"
+          >
+            <Plus size={20} className="mr-3" />
+            Agregar Llanta
+          </button>
+        </div>
       </div>
     </div>
   );

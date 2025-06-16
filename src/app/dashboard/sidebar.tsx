@@ -132,13 +132,13 @@ export default function Sidebar({
         onClick={() => setIsMobileOpen(false)}
       />
 
-      {/* Mobile Navigation Bar */}
-      <nav className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[calc(100%-3rem)] z-50 transition-all duration-700 rounded-2xl lg:hidden
+      {/* Mobile Navigation Bar - Fixed height of 64px total */}
+      <nav className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[calc(100%-2rem)] h-14 z-50 transition-all duration-700 rounded-xl lg:hidden
                       backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 shadow-2xl`}>
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/15 via-transparent to-[#0A183A]/15 opacity-60 rounded-2xl"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/15 via-transparent to-[#0A183A]/15 opacity-60 rounded-xl"></div>
         
-        <div className="px-6 relative">
-          <div className="flex justify-between items-center h-16">
+        <div className="px-4 relative h-full">
+          <div className="flex justify-between items-center h-full">
             {/* Logo - Centered */}
             <div className="flex-1 flex justify-center items-center relative z-10">
               <Link
@@ -150,7 +150,7 @@ export default function Sidebar({
                   <Image 
                     src={logo} 
                     alt="TirePro Logo" 
-                    className="h-8 w-auto transition-all duration-300 filter  drop-shadow-lg" 
+                    className="h-7 w-auto transition-all duration-300 filter drop-shadow-lg" 
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
                                   rounded-lg blur-xl opacity-0 hover:opacity-100 transition-opacity duration-300" />
@@ -162,48 +162,48 @@ export default function Sidebar({
             <button
               onClick={toggleMobileMenu}
               className="relative z-10 bg-white/20 backdrop-blur-xl border border-white/30 
-                         p-3 rounded-2xl shadow-2xl hover:bg-white/30 
+                         p-2 rounded-xl shadow-2xl hover:bg-white/30 
                          transition-all duration-300 ease-out hover:scale-105
-                         before:absolute before:inset-0 before:rounded-2xl 
+                         before:absolute before:inset-0 before:rounded-xl 
                          before:bg-gradient-to-br before:from-white/20 before:to-transparent before:opacity-0 
                          hover:before:opacity-100 before:transition-opacity before:duration-300"
             >
-              {isMobileOpen ? <X className="h-6 w-6 text-white" /> : <Menu className="h-6 w-6 text-white" />}
+              {isMobileOpen ? <X className="h-5 w-5 text-white" /> : <Menu className="h-5 w-5 text-white" />}
             </button>
           </div>
         </div>
       </nav>
 
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - Made thinner */}
       <aside
         className={`
           fixed top-4 left-4 h-[calc(100vh-2rem)] z-40 
           transition-all duration-500 ease-out
-          ${collapsed ? 'w-20' : 'w-72'} 
+          ${collapsed ? 'w-16' : 'w-60'} 
           flex flex-col overflow-hidden
           hidden lg:flex
           
           /* Liquid glass effect */
           bg-white/80 backdrop-blur-2xl 
-          border border-white/30 rounded-3xl shadow-2xl
+          border border-white/30 rounded-2xl shadow-2xl
           
           /* Floating animation */
           hover:shadow-3xl hover:-translate-y-1 transition-all duration-300
           
           /* Inner glow */
-          before:absolute before:inset-0 before:rounded-3xl 
+          before:absolute before:inset-0 before:rounded-2xl 
           before:bg-gradient-to-br before:from-white/40 before:via-white/20 before:to-transparent 
           before:opacity-60 before:pointer-events-none
           
           /* Outer highlight */
-          after:absolute after:inset-0 after:rounded-3xl 
+          after:absolute after:inset-0 after:rounded-2xl 
           after:bg-gradient-to-r after:from-[#0A183A]/10 after:via-[#1E76B6]/5 after:to-transparent 
           after:opacity-0 hover:after:opacity-100 after:transition-opacity after:duration-500
           after:pointer-events-none
         `}
       >
-        {/* Logo section with glass morphism */}
-        <div className="relative flex items-center justify-between p-6 
+        {/* Logo section with glass morphism - Made more compact */}
+        <div className="relative flex items-center justify-between p-4 
                         border-b border-white/20 backdrop-blur-xl
                         bg-gradient-to-r from-white/30 to-white/10">
           <Link
@@ -217,7 +217,7 @@ export default function Sidebar({
               <Image 
                 src={logo} 
                 alt="TirePro Logo" 
-                className={`${collapsed ? 'h-8' : 'h-10'} w-auto transition-all duration-300
+                className={`${collapsed ? 'h-6' : 'h-8'} w-auto transition-all duration-300
                            filter drop-shadow-lg`} 
               />
               <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
@@ -227,27 +227,27 @@ export default function Sidebar({
           
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex p-2.5 rounded-2xl 
+            className="flex p-2 rounded-xl 
                        bg-white/20 backdrop-blur-xl border border-white/30
                        hover:bg-white/30 hover:scale-105 
                        text-gray-700 transition-all duration-300 ease-out
                        shadow-lg hover:shadow-xl"
           >
             {collapsed ? 
-              <ChevronRight className="h-5 w-5" /> : 
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4" /> : 
+              <ChevronLeft className="h-4 w-4" />
             }
           </button>
         </div>
 
-        {/* User/Company info with enhanced glass effect */}
+        {/* User/Company info with enhanced glass effect - Made more compact */}
         <div className={`
           relative flex items-center ${collapsed ? 'justify-center' : 'justify-start'}
-          p-6 border-b border-white/20
+          p-4 border-b border-white/20
           bg-gradient-to-br from-white/40 via-white/20 to-white/10
           backdrop-blur-xl
         `}>
-          <div className="relative w-12 h-12 rounded-2xl overflow-hidden 
+          <div className="relative w-10 h-10 rounded-xl overflow-hidden 
                           border-2 border-white/40 shadow-2xl
                           bg-gradient-to-br from-white/30 to-white/10">
             {company.profileImage ? (
@@ -255,14 +255,14 @@ export default function Sidebar({
             ) : (
               <div className="w-full h-full bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
                               flex items-center justify-center backdrop-blur-xl">
-                <User className="w-6 h-6 text-gray-700" />
+                <User className="w-5 h-5 text-gray-700" />
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
           </div>
           
           {!collapsed && (
-            <div className="ml-4 truncate">
+            <div className="ml-3 truncate">
               <p className="text-sm font-semibold text-gray-800 drop-shadow-sm">
                 {company.name}
               </p>
@@ -273,8 +273,8 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* Navigation with liquid glass buttons */}
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 bg-blue-50">
+        {/* Navigation with liquid glass buttons - More compact */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 bg-blue-50">
           {links.map(({ name, path, icon: Icon }) => {
             const active = pathname === path;
             return (
@@ -283,8 +283,8 @@ export default function Sidebar({
                 href={path}
                 onClick={handleLinkClick}
                 className={`
-                  group relative flex items-center ${collapsed ? 'justify-center px-3' : 'justify-start px-4'}
-                  py-3.5 text-sm font-medium rounded-2xl transition-all duration-300
+                  group relative flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-3'}
+                  py-2.5 text-sm font-medium rounded-xl transition-all duration-300
                   ${active 
                     ? 'bg-gradient-to-r from-[#0A183A]/90 to-[#1E76B6]/90 text-white shadow-2xl border border-white/20' 
                     : 'text-gray-700 hover:bg-white/30 hover:backdrop-blur-xl hover:shadow-xl hover:border-white/30 border border-transparent'
@@ -294,13 +294,13 @@ export default function Sidebar({
               >
                 {/* Background glass effect for non-active items */}
                 {!active && (
-                  <div className="absolute inset-0 rounded-2xl bg-white/20 backdrop-blur-xl opacity-0 
+                  <div className="absolute inset-0 rounded-xl bg-white/20 backdrop-blur-xl opacity-0 
                                   group-hover:opacity-100 transition-all duration-300" />
                 )}
                 
                 {/* Active item glow */}
                 {active && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
                                   blur-xl opacity-60" />
                 )}
                 
@@ -310,13 +310,13 @@ export default function Sidebar({
                   transition-colors duration-300
                 `}>
                   <div className={`
-                    rounded-xl p-2.5 transition-all duration-300
+                    rounded-lg p-2 transition-all duration-300
                     ${active 
                       ? 'bg-white/20 backdrop-blur-xl shadow-lg' 
                       : 'bg-white/40 backdrop-blur-xl group-hover:bg-white/60 group-hover:shadow-lg'
                     }
                   `}>
-                    <Icon className={`${collapsed ? 'h-5 w-5' : 'h-4 w-4'} transition-all duration-300`} />
+                    <Icon className={`${collapsed ? 'h-4 w-4' : 'h-4 w-4'} transition-all duration-300`} />
                   </div>
                   
                   {!collapsed && (
@@ -330,12 +330,12 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Footer with glass morphism */}
+        {/* Footer with glass morphism - More compact */}
         <div className={`
-          p-4 border-t border-white/20 
+          p-3 border-t border-white/20 
           bg-gradient-to-br from-white/40 via-white/20 to-white/10
           backdrop-blur-xl
-          ${collapsed ? 'space-y-3' : 'space-y-2'}
+          ${collapsed ? 'space-y-2' : 'space-y-1'}
         `}>
           {/* Settings link for admin users */}
           {company.plan !== "mini" && isAdmin && (
@@ -343,20 +343,20 @@ export default function Sidebar({
               href="/dashboard/ajustes"
               onClick={handleLinkClick}
               className={`
-                group relative flex items-center ${collapsed ? 'justify-center px-3' : 'justify-start px-4'}
-                py-3 text-sm font-medium rounded-2xl 
+                group relative flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-3'}
+                py-2.5 text-sm font-medium rounded-xl 
                 text-gray-700 hover:bg-white/30 hover:backdrop-blur-xl 
                 hover:shadow-lg border border-transparent hover:border-white/30
                 transition-all duration-300 hover:scale-[1.02]
               `}
             >
-              <div className="absolute inset-0 rounded-2xl bg-white/20 backdrop-blur-xl opacity-0 
+              <div className="absolute inset-0 rounded-xl bg-white/20 backdrop-blur-xl opacity-0 
                               group-hover:opacity-100 transition-all duration-300" />
               
               <div className="relative z-10 flex items-center">
-                <div className="bg-white/40 backdrop-blur-xl rounded-xl p-2 
+                <div className="bg-white/40 backdrop-blur-xl rounded-lg p-2 
                                 group-hover:bg-white/60 group-hover:shadow-lg transition-all duration-300">
-                  <Settings className={`${collapsed ? 'h-5 w-5' : 'h-4 w-4'} text-gray-600`} />
+                  <Settings className={`${collapsed ? 'h-4 w-4' : 'h-4 w-4'} text-gray-600`} />
                 </div>
                 {!collapsed && <span className="ml-3 drop-shadow-sm">Ajustes</span>}
               </div>
@@ -367,20 +367,20 @@ export default function Sidebar({
           <button
             onClick={handleLogout}
             className={`
-              group relative w-full flex items-center ${collapsed ? 'justify-center px-3' : 'justify-start px-4'}
-              py-3 text-sm font-medium rounded-2xl 
+              group relative w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-3'}
+              py-2.5 text-sm font-medium rounded-xl 
               text-gray-700 hover:bg-red-50/40 hover:backdrop-blur-xl 
               hover:shadow-lg border border-transparent hover:border-red-200/30
               transition-all duration-300 hover:scale-[1.02]
             `}
           >
-            <div className="absolute inset-0 rounded-2xl bg-red-50/30 backdrop-blur-xl opacity-0 
+            <div className="absolute inset-0 rounded-xl bg-red-50/30 backdrop-blur-xl opacity-0 
                             group-hover:opacity-100 transition-all duration-300" />
             
             <div className="relative z-10 flex items-center">
-              <div className="bg-red-100/60 backdrop-blur-xl rounded-xl p-2 
+              <div className="bg-red-100/60 backdrop-blur-xl rounded-lg p-2 
                               group-hover:bg-red-200/60 group-hover:shadow-lg transition-all duration-300">
-                <LogOut className={`${collapsed ? 'h-5 w-5' : 'h-4 w-4'} text-red-500`} />
+                <LogOut className={`${collapsed ? 'h-4 w-4' : 'h-4 w-4'} text-red-500`} />
               </div>
               {!collapsed && (
                 <span className="ml-3 group-hover:text-red-600 transition-colors duration-300 drop-shadow-sm">
