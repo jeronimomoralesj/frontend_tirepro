@@ -22,11 +22,8 @@ import {
   ArrowLeft,
   Paperclip,
   Smile,
-  Image,
-  Hash,
   Type,
   AlignLeft,
-  Camera
 } from 'lucide-react';
 
 interface Chat {
@@ -225,9 +222,6 @@ const createNewPost = async () => {
       }
       throw new Error(`Failed to create chat (status ${response.status})`);
     }
-
-    const createdChat = await response.json();
-    // … your existing success handling …
   } catch (err) {
     console.error(err);
     setError(err instanceof Error ? err.message : 'Unknown error');
