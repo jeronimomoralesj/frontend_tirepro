@@ -39,45 +39,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  async function login(email: string, password: string) {
-    try {
-      const res = await fetch("https://api.tirepro.com.co/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-  
-      if (!res.ok) {
-        let errorMessage = "Invalid credentials";
-        try {
-          const errorData = await res.json();
-          if (errorData && errorData.message) {
-            errorMessage = errorData.message;
-          }
-        } catch {
-          errorMessage = res.statusText || "Invalid credentials";
+async function login(email: string, password: string) {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) {
+      let errorMessage = "Invalid credentials";
+      try {
+        const errorData = await res.json();
+        if (errorData?.message) {
+          errorMessage = errorData.message;
         }
-        
-        throw new Error(errorMessage);
+      } catch {
+        errorMessage = res.statusText || "Invalid credentials";
       }
-  
-      const data = await res.json();
-  
-      if (!data.user.companyId) {
-        throw new Error("User has no assigned companyId");
-      }
-  
-      setUser(data.user);
-      setToken(data.access_token);
-  
-      localStorage.setItem("token", data.access_token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      localStorage.setItem("companyId", data.user.companyId);
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
+      throw new Error(errorMessage);
     }
+
+    const data = await res.json();
+
+    if (!data.user.companyId) {
+      throw new Error("User has no assigned companyId");
+    }
+
+    setUser(data.user);
+    setToken(data.access_token);
+
+    localStorage.setItem("token", data.access_token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("companyId", data.user.companyId);
+  } catch (error) {
+    console.error("Login error:", error);
+    throw error;
   }
+}
+
   
   function register(user: User, token: string) {
     setUser(user);
