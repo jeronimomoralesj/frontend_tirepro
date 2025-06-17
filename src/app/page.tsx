@@ -20,11 +20,278 @@ import Image from 'next/image'
 import logo from "../../public/logo_text.png"
 import logoTire from "../../public/logo_tire.png"
 import landingImage from "../../public/landing.png" 
-import phone from "../../public/2.png" 
+import phone from "../../public/2.png"
+
+// Language content
+const content = {
+  en: {
+    nav: {
+      platform: "Platform",
+      blog: "Blog", 
+      plans: "Plans",
+      contact: "Contact",
+      login: "Login",
+      start: "Get Started"
+    },
+    hero: {
+      title: "Reduce your tire costs by up to 25%",
+      subtitle: "AI that analyzes wear, anticipates failures and optimizes your tire investment.",
+      cta: "Start Free"
+    },
+    features: {
+      title: "How TirePro Works",
+      subtitle: "Technology that optimizes every aspect of your fleet",
+      items: [
+        {
+          title: "Digital Inspections",
+          description: "Automate inspections with AI and maintain complete records of each tire's condition."
+        },
+        {
+          title: "Costs & CPK",
+          description: "Automatic cost-per-kilometer tracking with full visibility of your investment."
+        },
+        {
+          title: "Position Control",
+          description: "Manage and reorganize tires by vehicle with intuitive visual interface."
+        },
+        {
+          title: "Predictive Analytics",
+          description: "AI that predicts when to change tires before critical failures."
+        }
+      ]
+    },
+    app: {
+      title: "Take TirePro With You",
+      subtitle: "Inspect and manage your fleet from anywhere",
+      features: [
+        { title: "Offline Inspections", desc: "Works without connection, syncs later" },
+        { title: "Real-time Data", desc: "Instantly updated information" },
+        { title: "Connected Team", desc: "All your technicians on one platform" }
+      ],
+      downloadIos: "Download for iOS",
+      downloadAndroid: "Download for Android"
+    },
+    plans: {
+      title: "TirePro Plans",
+      subtitle: "Start free, scale when you need",
+      recommended: "Recommended",
+      mini: {
+        name: "Mini",
+        subtitle: "For small fleets (less than 5 vehicles)",
+        features: ["AI Analysis", "One user", "Unlimited tires", "Tire monitoring"]
+      },
+      pro: {
+        name: "Pro", 
+        subtitle: "For large fleets (more than 5 vehicles)",
+        features: ["AI Analysis", "Unlimited users", "Advanced reports", "Tire monitoring and alerts"]
+      },
+      retail: {
+        name: "Retail",
+        subtitle: "For distributors", 
+        features: ["Everything in Pro", "Client management", "Client analytics"]
+      },
+      cta: "Get Started"
+    },
+    faq: {
+      title: "Frequently Asked Questions",
+      subtitle: "We answer your questions about TirePro",
+      items: [
+        {
+          question: "How can TirePro help me?",
+          answer: "TirePro analyzes all your tires and makes recommendations so you get the most out of each tire and know which tire to buy to save extra money."
+        },
+        {
+          question: "What devices do I need?",
+          answer: "You need a smartphone, tablet or computer. The platform works offline on phones and syncs when you have connection. The website works with internet connection."
+        },
+        {
+          question: "How long does it take to implement TirePro?",
+          answer: "Initial setup takes less than 10 minutes. Load your vehicles and do a bulk upload (see the bulk upload page for requirements)."
+        },
+        {
+          question: "Are there limits on vehicles or tires?",
+          answer: "No, all our plans include unlimited vehicles and tires completely free."
+        }
+      ]
+    },
+    footer: {
+      description: "Intelligent platform for fleet management and optimization.",
+      legal: "Legal",
+      terms: "Terms",
+      privacy: "Privacy", 
+      contact: "Contact",
+      deleteData: "Delete Data",
+      contactInfo: "Contact",
+      rights: "All rights reserved."
+    }
+  },
+  es: {
+    nav: {
+      platform: "Plataforma",
+      blog: "Blog",
+      plans: "Planes", 
+      contact: "Contacto",
+      login: "Ingresar",
+      start: "Comenzar"
+    },
+    hero: {
+      title: "Reduce hasta un 25% tus costos en llantas",
+      subtitle: "IA que analiza desgaste, anticipa fallas y optimiza tu inversión en llantas.",
+      cta: "Empieza Gratis"
+    },
+    features: {
+      title: "Cómo Funciona TirePro",
+      subtitle: "Tecnología que optimiza cada aspecto de tu flota",
+      items: [
+        {
+          title: "Inspecciones Digitales",
+          description: "Automatiza inspecciones con IA y mantén registro completo del estado de cada llanta."
+        },
+        {
+          title: "Costos y CPK",
+          description: "Seguimiento automático del costo por kilómetro con visibilidad total de tu inversión."
+        },
+        {
+          title: "Control de Posiciones", 
+          description: "Gestiona y reorganiza llantas por vehículo con interfaz visual intuitiva."
+        },
+        {
+          title: "Análisis Predictivo",
+          description: "IA que predice cuándo cambiar llantas antes de fallas críticas."
+        }
+      ]
+    },
+    app: {
+      title: "Lleva TirePro Contigo",
+      subtitle: "Inspecciona y gestiona tu flota desde cualquier lugar",
+      features: [
+        { title: "Inspecciones Offline", desc: "Funciona sin conexión, sincroniza después" },
+        { title: "Datos en Tiempo Real", desc: "Información actualizada al instante" },
+        { title: "Equipo Conectado", desc: "Todos tus técnicos en una sola plataforma" }
+      ],
+      downloadIos: "Descargar para iOS",
+      downloadAndroid: "Descargar para Android"
+    },
+    plans: {
+      title: "Planes TirePro",
+      subtitle: "Comienza gratis, escala cuando necesites",
+      recommended: "Recomendado",
+      mini: {
+        name: "Mini",
+        subtitle: "Para uno a uno (menos de 5 carros)",
+        features: ["Análisis con IA", "Un usuario", "Llantas ilimitadas", "Monitoreo de llantas"]
+      },
+      pro: {
+        name: "Pro",
+        subtitle: "Para grandes flotas (más de 5 carros)", 
+        features: ["Análisis con IA", "Usuarios ilimitados", "Reportes avanzados", "Monitoreo y alertas de llantas"]
+      },
+      retail: {
+        name: "Retail",
+        subtitle: "Para distribuidores",
+        features: ["Todo de Pro", "Gestión de clientes", "Análisis por cliente"]
+      },
+      cta: "Comenzar"
+    },
+    faq: {
+      title: "Preguntas Frecuentes",
+      subtitle: "Resolvemos tus dudas sobre TirePro",
+      items: [
+        {
+          question: "¿Cómo puede TirePro ayudarme?",
+          answer: "TirePro hace un analisis de todas tus llantas y te hace recomendaciones para que tu le saques el mayo rendimiento a cada llanta y sepas que llanta comprar para que asi te ahorres unos pesos extra."
+        },
+        {
+          question: "¿Qué dispositivos necesito?",
+          answer: "Necesitas un smartphone, tablet o un computador. La plataforma funciona offline en los celulares y sincroniza cuando tienes conexión. En la pagina web funciona con conexion a internet"
+        },
+        {
+          question: "¿Cuánto tiempo toma implementar TirePro?",
+          answer: "La configuración inicial toma menos de 10 minutos. Carga tus vehiculos y haz una carga masiva (mira la pagina de carga masiva para ver los requerimientos)."
+        },
+        {
+          question: "¿Hay límite de vehículos o llantas?",
+          answer: "No, todos nuestros planes incluyen vehículos y llantas ilimitadas y completamente gratis."
+        }
+      ]
+    },
+    footer: {
+      description: "Plataforma inteligente para la gestión y optimización de flotas de vehículos.",
+      legal: "Legal",
+      terms: "Términos",
+      privacy: "Privacidad",
+      contact: "Contacto", 
+      deleteData: "Eliminar Datos",
+      contactInfo: "Contacto",
+      rights: "Todos los derechos reservados."
+    }
+  }
+}
+
 const TireProLanding = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [openFaq, setOpenFaq] = useState(null)
+  const [language, setLanguage] = useState('es') // Default to Spanish
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Detect user location and set language
+  useEffect(() => {
+    const detectLocation = async () => {
+      try {
+        // First try to get location from browser API
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              // Use a geolocation API to get country from coordinates
+              try {
+                const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`)
+                const data = await response.json()
+                const country = data.countryCode
+                
+                // US and Canada use English, rest of Americas use Spanish
+                if (country === 'US' || country === 'CA') {
+                  setLanguage('en')
+                } else {
+                  setLanguage('es')
+                }
+              } catch (error) {
+                console.log('Geolocation API error:', error)
+                // Fallback to browser language detection
+                detectLanguageFromBrowser()
+              }
+              setIsLoading(false)
+            },
+            (error) => {
+              console.log('Geolocation error:', error)
+              // Fallback to browser language detection
+              detectLanguageFromBrowser()
+              setIsLoading(false)
+            }
+          )
+        } else {
+          // Fallback to browser language detection
+          detectLanguageFromBrowser()
+          setIsLoading(false)
+        }
+      } catch (error) {
+        console.log('Location detection error:', error)
+        detectLanguageFromBrowser()
+        setIsLoading(false)
+      }
+    }
+
+    const detectLanguageFromBrowser = () => {
+      const browserLang = navigator.language || navigator.languages[0]
+      if (browserLang.startsWith('en')) {
+        setLanguage('en')
+      } else {
+        setLanguage('es')
+      }
+    }
+
+    detectLocation()
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -34,7 +301,6 @@ const TireProLanding = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Toggle body blur when mobile menu is open
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden'
@@ -46,72 +312,33 @@ const TireProLanding = () => {
     }
   }, [isMobileMenuOpen])
 
-  const features = [
-    {
-      title: "Inspecciones Digitales",
-      description: "Automatiza inspecciones con IA y mantén registro completo del estado de cada llanta.",
-      icon: Calendar
-    },
-    {
-      title: "Costos y CPK", 
-      description: "Seguimiento automático del costo por kilómetro con visibilidad total de tu inversión.",
-      icon: BarChart3
-    },
-    {
-      title: "Control de Posiciones",
-      description: "Gestiona y reorganiza llantas por vehículo con interfaz visual intuitiva.",
-      icon: MapPin
-    },
-    {
-      title: "Análisis Predictivo",
-      description: "IA que predice cuándo cambiar llantas antes de fallas críticas.",
-      icon: Clock
-    }
-  ]
+  const t = content[language]
+  const features = t.features.items.map((item, index) => ({
+    ...item,
+    icon: [Calendar, BarChart3, MapPin, Clock][index]
+  }))
 
   const plans = [
-    {
-      name: "Mini",
-      subtitle: "Para uno a uno (menos de 5 carros)",
-      features: ["Análisis con IA", "Un usuario", "Llantas ilimitadas", "Monitoreo de llantas"],
-      highlighted: false
-    },
-    {
-      name: "Pro",
-      subtitle: "Para grandes flotas (más de 5 carros)",
-      features: ["Análisis con IA", "Usuarios ilimitados", "Reportes avanzados", "Monitoreo y alertas de llantas"],
-      highlighted: true
-    },
-    {
-      name: "Retail",
-      subtitle: "Para distribuidores",
-      features: ["Todo de Pro", "Gestión de clientes", "Análisis por cliente"],
-      highlighted: false
-    }
+    { ...t.plans.mini, highlighted: false },
+    { ...t.plans.pro, highlighted: true },
+    { ...t.plans.retail, highlighted: false }
   ]
 
-  const faqs = [
-    {
-      question: "¿Cómo puede TirePro ayudarme?",
-      answer: "TirePro hace un analisis de todas tus llantas y te hace recomendaciones para que tu le saques el mayo rendimiento a cada llanta y sepas que llanta comprar para que asi te ahorres unos pesos extra."
-    },
-    {
-      question: "¿Qué dispositivos necesito?",
-      answer: "Necesitas un smartphone, tablet o un computador. La plataforma funciona offline en los celulares y sincroniza cuando tienes conexión. En la pagina web funciona con conexion a internet"
-    },
-    {
-      question: "¿Cuánto tiempo toma implementar TirePro?",
-      answer: "La configuración inicial toma menos de 10 minutos. Carga tus vehiculos y haz una carga masiva (mira la pagina de carga masiva para ver los requerimientos)."
-    },
-    {
-      question: "¿Hay límite de vehículos o llantas?",
-      answer: "No, todos nuestros planes incluyen vehículos y llantas ilimitadas y completamente gratis."
-    }
-  ]
+  // Show loading state while detecting location
+  if (isLoading) {
+    return (
+      <div className="bg-[#030712] text-white min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#348CCB] mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-[#030712] text-white min-h-screen overflow-x-hidden relative">
-{/* Mobile Menu Blur Overlay */}
+      {/* Mobile Menu Blur Overlay */}
       <div className={`fixed inset-0 z-40 transition-all duration-500 ${
         isMobileMenuOpen 
           ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
@@ -142,14 +369,19 @@ const TireProLanding = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6 relative z-10">
-              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
+              {[
+                { key: 'platform', href: '#platform' },
+                { key: 'blog', href: '/blog' },
+                { key: 'plans', href: '#plans' },
+                { key: 'contact', href: '/contact' }
+              ].map((item, i) => (
                 <a 
                   key={i}
-                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 
+                  href={item.href} 
                   className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group"
                 >
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
-                  <span className="relative z-10">{item}</span>
+                  <span className="relative z-10">{t.nav[item.key]}</span>
                 </a>
               ))}
             </div>
@@ -157,10 +389,10 @@ const TireProLanding = () => {
             {/* CTA Buttons */}
             <div className="hidden md:flex items-center space-x-3 relative z-10">
               <a href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-black backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
-                Ingresar
+                {t.nav.login}
               </button></a>
               <a href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
-                Comenzar
+                {t.nav.start}
               </button></a>
             </div>
 
@@ -185,23 +417,28 @@ const TireProLanding = () => {
             <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
             
             <div className="relative p-5 space-y-6">
-              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
+              {[
+                { key: 'platform', href: '#platform' },
+                { key: 'blog', href: '/blog' },
+                { key: 'plans', href: '#plans' },
+                { key: 'contact', href: '/contact' }
+              ].map((item, i) => (
                 <a 
                   key={i}
-                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`}
+                  href={item.href}
                   className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  {item}
+                  {t.nav[item.key]}
                 </a>
               ))}
               
               <div className="pt-2 border-t border-white/30 space-y-4">
                 <a href='/login'><button className="w-full py-2 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
-                  Ingresar
+                  {t.nav.login}
                 </button></a>
                 <a href='/companyregister'><button className="w-full py-2 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
-                  Comenzar
+                  {t.nav.start}
                 </button></a>
               </div>
             </div>
@@ -217,14 +454,14 @@ const TireProLanding = () => {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight bg-gradient-to-r from-white via-gray-100 to-[#348CCB] bg-clip-text text-transparent">
-                Reduce hasta un 25% tus costos en llantas
+                {t.hero.title}
               </h1>
               <p className="text-xl text-gray-300 leading-relaxed">
-                IA que analiza desgaste, anticipa fallas y optimiza tu inversión en llantas.
+                {t.hero.subtitle}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <button className="bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white px-8 py-4 rounded-xl text-lg font-semibold hover:shadow-lg hover:shadow-[#348CCB]/25 transition-all transform hover:scale-105">
-                  Empieza Gratis
+                  {t.hero.cta}
                 </button>
               </div>
             </div>
@@ -247,9 +484,9 @@ const TireProLanding = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
-              Cómo Funciona TirePro
+              {t.features.title}
             </h2>
-            <p className="text-xl text-gray-300">Tecnología que optimiza cada aspecto de tu flota</p>
+            <p className="text-xl text-gray-300">{t.features.subtitle}</p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -281,39 +518,39 @@ const TireProLanding = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
-              Lleva TirePro Contigo
+              {t.app.title}
             </h2>
-            <p className="text-xl text-gray-300">Inspecciona y gestiona tu flota desde cualquier lugar</p>
+            <p className="text-xl text-gray-300">{t.app.subtitle}</p>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <div className="space-y-6">
-                {[
-                  { icon: Smartphone, title: "Inspecciones Offline", desc: "Funciona sin conexión, sincroniza después" },
-                  { icon: Download, title: "Datos en Tiempo Real", desc: "Información actualizada al instante" },
-                  { icon: Users, title: "Equipo Conectado", desc: "Todos tus técnicos en una sola plataforma" }
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start space-x-4">
-                    <div className="bg-gradient-to-br from-[#348CCB] to-[#1E76B6] p-4 rounded-2xl shadow-xl flex-shrink-0">
-                      <item.icon size={20} className="text-white" />
+                {t.app.features.map((item, i) => {
+                  const icons = [Smartphone, Download, Users]
+                  const IconComponent = icons[i]
+                  return (
+                    <div key={i} className="flex items-start space-x-4">
+                      <div className="bg-gradient-to-br from-[#348CCB] to-[#1E76B6] p-4 rounded-2xl shadow-xl flex-shrink-0">
+                        <IconComponent size={20} className="text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+                        <p className="text-gray-300">{item.desc}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                      <p className="text-gray-300">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <a href='https://apps.apple.com/us/app/tirepro/id6741497732'><button className="flex items-center justify-center space-x-3 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white px-6 py-4 rounded-xl font-semibold hover:shadow-lg transition-all">
                   <Download size={20} />
-                  <span>Descargar para iOS</span>
+                  <span>{t.app.downloadIos}</span>
                 </button></a>
                 <button className="flex items-center justify-center space-x-3 border border-[#348CCB]/50 text-[#348CCB] px-6 py-4 rounded-xl font-semibold backdrop-blur-sm bg-white/5 hover:bg-[#348CCB]/20 transition-all">
                   <Download size={20} />
-                  <span>Descargar para Android</span>
+                  <span>{t.app.downloadAndroid}</span>
                 </button>
               </div>
             </div>
@@ -416,7 +653,7 @@ const TireProLanding = () => {
           </div>
 
           <div className="space-y-4">
-            {faqs.map((faq, index) => (
+{t.faq.items.map((faq, index) => (
               <div 
                 key={index}
                 className="backdrop-blur-2xl bg-gradient-to-br from-white/15 via-white/8 to-white/12 rounded-3xl border border-white/25 overflow-hidden transition-all duration-300 hover:border-[#348CCB]/60"
@@ -460,22 +697,22 @@ const TireProLanding = () => {
             </div></Link></span>
               </div>
               <p className="text-gray-400 mb-4">
-                Plataforma inteligente para la gestión y optimización de flotas de vehículos.
+                {t.footer.description}
               </p>
             </div>
 
             <div>
               <h4 className="text-white font-semibold mb-4">Legal</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
-                <li><a href="/legal#terms-section" className="hover:text-[#348CCB] transition-colors">Términos</a></li>
-                <li><a href="/legal#privacy-section" className="hover:text-[#348CCB] transition-colors">Privacidad</a></li>
-                <li><a href="/contact" className="hover:text-[#348CCB] transition-colors">Contacto</a></li>
-                <li><a href="/delete" className="hover:text-[#348CCB] transition-colors">Eliminar Datos</a></li>
+                <li><a href="/legal#terms-section" className="hover:text-[#348CCB] transition-colors">{t.footer.terms}</a></li>
+                <li><a href="/legal#privacy-section" className="hover:text-[#348CCB] transition-colors">{t.footer.privacy}</a></li>
+                <li><a href="/contact" className="hover:text-[#348CCB] transition-colors">{t.footer.contact}</a></li>
+                <li><a href="/delete" className="hover:text-[#348CCB] transition-colors">{t.footer.deleteData}</a></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-white font-semibold mb-4">Contacto</h4>
+              <h4 className="text-white font-semibold mb-4">{t.footer.contactInfo}</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li>info@tirepro.com.co</li>
                 <li>+57 310 660 5563</li>
@@ -483,6 +720,31 @@ const TireProLanding = () => {
               </ul>
             </div>
           </div>
+
+          <div className="mt-4 pt-4 border-t border-white/20">
+  <div className="flex rounded-xl backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 p-1 w-fit">
+    <button
+      onClick={() => setLanguage('en')}
+      className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-300 ${
+        language === 'en' 
+          ? 'bg-[#348CCB] text-white shadow-lg' 
+          : 'text-gray-300 hover:text-white'
+      }`}
+    >
+      EN
+    </button>
+    <button
+      onClick={() => setLanguage('es')}
+      className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-300 ${
+        language === 'es' 
+          ? 'bg-[#348CCB] text-white shadow-lg' 
+          : 'text-gray-300 hover:text-white'
+      }`}
+    >
+      ES
+    </button>
+  </div>
+</div>
 
           <div className="border-t border-white/25 mt-12 pt-8 text-center">
             <p className="text-gray-400">
