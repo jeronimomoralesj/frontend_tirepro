@@ -118,7 +118,8 @@ export default function Sidebar({
           return;
         }
       } catch (error) {
-        console.log('Geolocation failed, falling back to browser language');
+        console.log('Geolocation failed, falling back to browser language:',
+    error);
       }
 
       // Step 4: Fallback to browser language detection
@@ -131,6 +132,7 @@ export default function Sidebar({
         // Step 5: Final fallback to Spanish
         setLanguage('es');
         localStorage.setItem('preferredLanguage', 'es');
+        console.log(error);
       }
     };
 

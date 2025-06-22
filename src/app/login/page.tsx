@@ -16,7 +16,6 @@ import {
   Shield,
   Zap,
   Users,
-  Globe
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -128,7 +127,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [language, setLanguage] = useState("es"); // Default to Spanish
-  const [locationDetected, setLocationDetected] = useState(false);
   const auth = useAuth();
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false)
