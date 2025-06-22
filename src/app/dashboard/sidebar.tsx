@@ -18,10 +18,43 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  MessageCircleHeart
+  MessageCircleHeart,
+  Globe
 } from "lucide-react";
 import logo from "../../../public/logo_text.png";
 import Image from "next/image";
+
+// Language translations
+const translations = {
+  en: {
+    dashboard: "Dashboard",
+    fleet: "Fleet",
+    traffic_light: "Traffic Light",
+    add: "Add",
+    analyst: "Expert",
+    vehicles: "Vehicles",
+    search: "Search",
+    add_driver: "Add Driver",
+    community: "Community",
+    settings: "Settings",
+    logout: "Logout",
+    language: "Language"
+  },
+  es: {
+    dashboard: "Resumen",
+    fleet: "Flota",
+    traffic_light: "Semáforo",
+    add: "Agregar",
+    analyst: "Analista",
+    vehicles: "Vehículos",
+    search: "Buscar",
+    add_driver: "Agregar",
+    community: "Comunidad",
+    settings: "Ajustes",
+    logout: "Cerrar sesión",
+    language: "Idioma"
+  }
+};
 
 export default function Sidebar({
   collapsed,
@@ -37,6 +70,84 @@ export default function Sidebar({
   const pathname = usePathname();
   const [user, setUser] = useState<{ name: string; role: string; companyId: string } | null>(null);
   const [company, setCompany] = useState<{ name: string; profileImage?: string; plan: string } | null>(null);
+  const [language, setLanguage] = useState<'en' | 'es'>('es');
+
+  // Language detection and initialization
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      // Check if language is already saved
+      const savedLanguage = localStorage.getItem('preferredLanguage') as 'en' | 'es';
+      if (savedLanguage) {
+        setLanguage(savedLanguage);
+        return;
+      }
+
+      try {
+        // Step 1: Try to get user's GPS location
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error('Geolocation not supported'));
+            return;
+          }
+          
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            { timeout: 10000, enableHighAccuracy: false }
+          );
+        });
+
+        // Step 2: Convert GPS coordinates to country using reverse geocoding
+        const response = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          const countryCode = data.countryCode;
+          
+          // Step 3: Set language based on country
+          if (countryCode === 'US' || countryCode === 'CA') {
+            setLanguage('en');
+            localStorage.setItem('preferredLanguage', 'en');
+          } else {
+            // All other countries default to Spanish
+            setLanguage('es');
+            localStorage.setItem('preferredLanguage', 'es');
+          }
+          return;
+        }
+      } catch (error) {
+        console.log('Geolocation failed, falling back to browser language');
+      }
+
+      // Step 4: Fallback to browser language detection
+      try {
+        const browserLang = navigator.language || navigator.languages?.[0] || 'es';
+        const detectedLang = browserLang.toLowerCase().startsWith('en') ? 'en' : 'es';
+        setLanguage(detectedLang);
+        localStorage.setItem('preferredLanguage', detectedLang);
+      } catch (error) {
+        // Step 5: Final fallback to Spanish
+        setLanguage('es');
+        localStorage.setItem('preferredLanguage', 'es');
+      }
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Toggle language function
+  const toggleLanguage = () => {
+    const newLanguage = language === 'en' ? 'es' : 'en';
+    setLanguage(newLanguage);
+    localStorage.setItem('preferredLanguage', newLanguage);
+  };
+
+  // Get translation function
+  const t = (key: keyof typeof translations.en) => {
+    return translations[language][key];
+  };
 
   // load user from localStorage
   useEffect(() => {
@@ -76,12 +187,12 @@ export default function Sidebar({
     // Mini plan: only resumenMini
     links = [
       {
-        name: "Resumen",
+        name: t('dashboard'),
         path: "/dashboard/resumenMini",
         icon: LayoutDashboard,
       },
       {
-        name: "Comunidad",
+        name: t('community'),
         path: "/dashboard/comunidad",
         icon: MessageCircleHeart,
       },
@@ -89,18 +200,18 @@ export default function Sidebar({
   } else if (isAdmin) {
     // Admin on pro/retail
     links = [
-      { name: "Resumen", path: "/dashboard/resumen", icon: LayoutDashboard },
-      { name: "Flota", path: "/dashboard/flota", icon: LifeBuoy },
-      { name: "Semáforo", path: "/dashboard/semaforo", icon: ChartPie },
-      { name: "Agregar", path: "/dashboard/agregar", icon: Plus },
-      { name: "Analista", path: "/dashboard/analista", icon: Glasses },
-      { name: "Vehículos", path: "/dashboard/vehiculo", icon: Car },
-      { name: "Buscar", path: "/dashboard/buscar", icon: Search },
+      { name: t('dashboard'), path: "/dashboard/resumen", icon: LayoutDashboard },
+      { name: t('fleet'), path: "/dashboard/flota", icon: LifeBuoy },
+      { name: t('traffic_light'), path: "/dashboard/semaforo", icon: ChartPie },
+      { name: t('add'), path: "/dashboard/agregar", icon: Plus },
+      { name: t('analyst'), path: "/dashboard/analista", icon: Glasses },
+      { name: t('vehicles'), path: "/dashboard/vehiculo", icon: Car },
+      { name: t('search'), path: "/dashboard/buscar", icon: Search },
     ];
   } else {
     // Regular user on pro/retail
     links = [
-      { name: "Agregar", path: "/dashboard/agregarConductor", icon: Plus },
+      { name: t('add_driver'), path: "/dashboard/agregarConductor", icon: Plus },
     ];
   }
 
@@ -274,7 +385,7 @@ export default function Sidebar({
         </div>
 
         {/* Navigation with liquid glass buttons - More compact */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 bg-blue-50">
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {links.map(({ name, path, icon: Icon }) => {
             const active = pathname === path;
             return (
@@ -337,6 +448,54 @@ export default function Sidebar({
           backdrop-blur-xl
           ${collapsed ? 'space-y-2' : 'space-y-1'}
         `}>
+          {/* Language Toggle */}
+          <div className={`
+            flex items-center ${collapsed ? 'justify-center' : 'justify-between'}
+            px-3 py-2
+          `}>
+            {!collapsed && (
+              <div className="flex items-center text-xs text-gray-600">
+                <Globe className="h-3 w-3 mr-1" />
+                <span className="drop-shadow-sm">{t('language')}</span>
+              </div>
+            )}
+            <button
+              onClick={toggleLanguage}
+              className={`
+                relative inline-flex items-center ${collapsed ? 'mx-auto' : ''}
+                h-6 w-12 rounded-full transition-all duration-300 ease-in-out
+                ${language === 'en' 
+                  ? 'bg-gradient-to-r from-[#0A183A]/80 to-[#1E76B6]/80' 
+                  : 'bg-gray-300/60'
+                }
+                backdrop-blur-xl border border-white/30 shadow-lg
+                hover:scale-105 hover:shadow-xl
+                focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/50
+              `}
+            >
+              <span
+                className={`
+                  inline-block h-4 w-4 transform rounded-full 
+                  bg-white shadow-lg transition-all duration-300 ease-in-out
+                  ${language === 'en' ? 'translate-x-6' : 'translate-x-1'}
+                  backdrop-blur-xl border border-white/40
+                `}
+              />
+              <span className={`
+                absolute left-1.5 text-[10px] font-medium transition-all duration-300
+                ${language === 'es' ? 'text-white drop-shadow-sm' : 'text-gray-500'}
+              `}>
+                ES
+              </span>
+              <span className={`
+                absolute right-1.5 text-[10px] font-medium transition-all duration-300
+                ${language === 'en' ? 'text-white drop-shadow-sm' : 'text-gray-500'}
+              `}>
+                EN
+              </span>
+            </button>
+          </div>
+
           {/* Settings link for admin users */}
           {company.plan !== "mini" && isAdmin && (
             <Link
@@ -358,7 +517,7 @@ export default function Sidebar({
                                 group-hover:bg-white/60 group-hover:shadow-lg transition-all duration-300">
                   <Settings className={`${collapsed ? 'h-4 w-4' : 'h-4 w-4'} text-gray-600`} />
                 </div>
-                {!collapsed && <span className="ml-3 drop-shadow-sm">Ajustes</span>}
+                {!collapsed && <span className="ml-3 drop-shadow-sm">{t('settings')}</span>}
               </div>
             </Link>
           )}
@@ -384,7 +543,7 @@ export default function Sidebar({
               </div>
               {!collapsed && (
                 <span className="ml-3 group-hover:text-red-600 transition-colors duration-300 drop-shadow-sm">
-                  Cerrar sesión
+                  {t('logout')}
                 </span>
               )}
             </div>

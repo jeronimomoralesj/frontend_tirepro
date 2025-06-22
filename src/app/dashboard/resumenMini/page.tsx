@@ -377,7 +377,7 @@ export default function ResumenMiniPage() {
   }, [router, fetchAllData, dataLoaded]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={contentRef}>
         {/* Header Section */}
         <div className="mb-8 bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-lg p-6">

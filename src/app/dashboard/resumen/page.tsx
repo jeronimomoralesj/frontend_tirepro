@@ -92,6 +92,48 @@ export default function ResumenPage() {
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
+  // language select
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  useEffect(() => {
+  const detectAndSetLanguage = async () => {
+    const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+    if (saved) {
+      setLanguage(saved);
+      return;
+    }
+
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!navigator.geolocation) return reject('no geo');
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout:10000 });
+      });
+
+      const resp = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+      );
+      if (resp.ok) {
+        const { countryCode } = await resp.json();
+        const lang = (countryCode==='US'||countryCode==='CA') ? 'en' : 'es';
+        setLanguage(lang);
+        localStorage.setItem('preferredLanguage', lang);
+        return;
+      }
+    } catch {
+      // fallback …
+    }
+
+    // Browser‐fallback
+    const browser = navigator.language || navigator.languages?.[0] || 'es';
+    const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+    setLanguage(lang);
+    localStorage.setItem('preferredLanguage', lang);
+  };
+
+  detectAndSetLanguage();
+}, []);
+
+
   // Refs for dropdown components
   const dropdownRefs = useRef({
     marca: useRef<HTMLDivElement>(null),
@@ -99,6 +141,43 @@ export default function ResumenPage() {
     semaforo: useRef<HTMLDivElement>(null),
     cliente: useRef<HTMLDivElement>(null),
   }).current;
+
+const translations = {
+  en: {
+    summary: "My summary",
+    update: "Updated",
+    welcome: "Welcome",
+    investment: "investment",
+    month: "monthly",
+    total: "total",
+    cpm: "CPM",
+    average: "average",
+    forecasted: "forecasted",
+    filters: "filters",
+    brand: "brand",
+    all: "all",
+    axis: "axis",
+    state: "state", 
+    export: "export"
+  },
+  es:{
+    summary: "Mi resumen",
+    update: "Actualizado",
+    welcome: "Bienvenido",
+    investment: "inversión",
+    month: "mensual",
+    total: "total",
+    cpm: "CPK",
+    average: "promedio",
+    forecasted: "proyectado",
+    filters: "filtros",
+    brand: "marca",
+    all: "todas",
+    axis: "eje",
+    state: "estado", 
+    export: "exportar",
+  }
+}
 
 const exportToPDF = () => {
   try {
@@ -632,14 +711,14 @@ useEffect(() => {
         <div className="mb-8 bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-lg p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="text-white">
-              <h2 className="text-2xl font-bold">Mi Resumen</h2>
+              <h2 className="text-2xl font-bold">{translations[language].summary}</h2>
               <p className="text-blue-100 mt-1 flex items-center text-sm">
                 <Calendar className="h-4 w-4 mr-2" />
-                Actualizado: {new Date().toLocaleDateString()}
+                {translations[language].update}: {new Date().toLocaleDateString()}
               </p>
               {userName && (
                 <p className="text-blue-100 mt-1 text-sm">
-                  Bienvenido, {userName}
+                  {translations[language].welcome}, {userName}
                 </p>
               )}
             </div>
@@ -653,12 +732,12 @@ useEffect(() => {
   {exporting ? (
     <>
       <div className="animate-spin h-4 w-4 border-2 border-white/60 border-t-transparent rounded-full" />
-      <span className="hidden sm:inline">Exportando...</span>
+      <span className="hidden sm:inline">{translations[language].export}...</span>
     </>
   ) : (
     <>
       <Download className="h-4 w-4" />
-      <span className="hidden sm:inline">Exportar</span>
+      <span className="hidden sm:inline">{translations[language].export[0].toUpperCase() + translations[language].export.slice(1)}</span>
     </>
   )}
 </button>
@@ -677,7 +756,7 @@ useEffect(() => {
                 {loading ? "Cargando..." : `$${gastoMes.toLocaleString()}`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>
-                Inversión del Mes
+                {translations[language].month} {translations[language].investment}
               </p>
             </div>
           </div>
@@ -688,7 +767,7 @@ useEffect(() => {
                 {loading ? "Cargando..." : `$${gastoTotal.toLocaleString()}`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>
-                Inversión Total
+                {translations[language].total} {translations[language].investment}
               </p>
             </div>
           </div>
@@ -698,7 +777,7 @@ useEffect(() => {
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
               </p>
-              <p className="text-sm uppercase tracking-wider text-white">CPK Promedio</p>
+              <p className="text-sm uppercase tracking-wider text-white">{translations[language].average} {translations[language].cpm}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
@@ -707,7 +786,7 @@ useEffect(() => {
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : cpkProyectado.toLocaleString()}
               </p>
-              <p className="text-sm uppercase tracking-wider text-white">CPK Proyectado</p>
+              <p className="text-sm uppercase tracking-wider text-white">{translations[language].forecasted} {translations[language].cpm}</p>
             </div>
           </div>
         </div>
@@ -716,7 +795,7 @@ useEffect(() => {
 <div className="bg-white rounded-xl shadow-md p-4 mb-6">
   <div className="flex items-center gap-2 mb-3">
     <Filter className="h-5 w-5 text-gray-500" />
-    <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
+    <h3 className="text-lg font-medium text-gray-800">{translations[language].filters[0].toUpperCase() + translations[language].filters.slice(1)}</h3>
   </div>
   <div className={`
     grid
@@ -736,21 +815,21 @@ useEffect(() => {
     )}
     <FilterDropdown
       id="marca"
-      label="Marca"
+      label={translations[language].brand}
       options={marcasOptions}
       selected={selectedMarca}
       onChange={setSelectedMarca}
     />
     <FilterDropdown
       id="eje"
-      label="Eje"
+      label={translations[language].axis}
       options={ejeOptions}
       selected={selectedEje}
       onChange={setSelectedEje}
     />
     <FilterDropdown
       id="semaforo"
-      label="Estado"
+      label={translations[language].state}
       options={semaforoOptions}
       selected={selectedSemaforo}
       onChange={setSelectedSemaforo}

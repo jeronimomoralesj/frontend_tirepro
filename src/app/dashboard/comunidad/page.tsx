@@ -395,7 +395,7 @@ const createNewPost = async () => {
         {/* Chat Header */}
         <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-2xl border-b border-white/30">
           <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <div className="flex items-center space-x-4 py-4">
+            <div className="flex items-center space-x-4 py-0">
               <button 
                 onClick={() => setViewMode('community')}
                 className="p-2 hover:bg-white/60 rounded-xl transition-colors duration-200"
@@ -407,7 +407,7 @@ const createNewPost = async () => {
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
                   {selectedChat.title}
                 </h1>
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <div className="flex items-center space-x-2 text-sm text-gray-500 pb-2">
                   <span>{selectedChat.messageCount} respuestas</span>
                   <span>•</span>
                   <span>{selectedChat.views || 0} vistas</span>
@@ -453,8 +453,8 @@ const createNewPost = async () => {
                     </span>
                   </div>
                   
-                  <div className="bg-white/80 backdrop-blur-xl text-gray-900 border border-white/40 p-4 rounded-2xl shadow-sm">
-                    <h3 className="font-bold text-base mb-2">{selectedChat.title}</h3>
+                  <div className="bg-white/80 backdrop-blur-xl text-gray-900 border border-white/40 p-3 rounded-2xl shadow-sm">
+                    <h3 className="font-bold text-base">{selectedChat.title}</h3>
                     <p className="text-sm leading-relaxed">{selectedChat.content}</p>
                   </div>
                 </div>

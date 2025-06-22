@@ -15,12 +15,109 @@ import {
   ArrowLeft,
   Shield,
   Zap,
-  Users
+  Users,
+  Globe
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import logo from "../../../public/logo_text.png";
 import logoTire from "../../../public/logo_tire.png"
+
+// Language content object
+const content = {
+  en: {
+    // Navigation
+    platform: "Platform",
+    blog: "Blog",
+    plans: "Plans",
+    contact: "Contact",
+    login: "Login",
+    getStarted: "Get Started",
+    
+    // Main content
+    welcomeBack: "Welcome",
+    back: "back!",
+    loginSubtitle: "Sign in to access your control panel and manage your data intelligently",
+    
+    // Features
+    secureDataHandling: "Secure data handling",
+    endToEndEncryption: "End-to-end encryption",
+    realTimeAnalysis: "Analyze your tires in real time",
+    continuousMonitoring: "Continuous monitoring and smart alerts",
+    support247: "24/7 Support",
+    specializedTechnicalAssistance: "Specialized technical assistance",
+    
+    // Form
+    backToHome: "Back to home",
+    signIn: "Sign In",
+    accessYourAccount: "Access your TirePro account",
+    email: "Email",
+    emailPlaceholder: "name@tirepro.com",
+    password: "Password",
+    passwordPlaceholder: "••••••••",
+    forgotPassword: "Forgot my password",
+    signingIn: "Signing in...",
+    signInButton: "Sign In",
+    
+    // Errors
+    invalidCredentials: "Invalid credentials",
+    invalidCredentialsMessage: "Please verify your email and password.",
+    authenticationError: "Authentication error",
+    invalidCredentialsLong: "The entered credentials are invalid. Please verify your email and password.",
+    understood: "Understood",
+    unexpectedError: "An unexpected error occurred",
+    
+    // Registration
+    noAccount: "Don't have an account?",
+    registerCompany: "Register your company"
+  },
+  es: {
+    // Navigation
+    platform: "Plataforma",
+    blog: "Blog",
+    plans: "Planes",
+    contact: "Contact",
+    login: "Ingresar",
+    getStarted: "Comenzar",
+    
+    // Main content
+    welcomeBack: "Bienvenido",
+    back: "de nuevo!",
+    loginSubtitle: "Inicia sesión para acceder a tu panel de control y gestionar tus datos de manera inteligente",
+    
+    // Features
+    secureDataHandling: "Manejo de datos seguro",
+    endToEndEncryption: "Encriptación de extremo a extremo",
+    realTimeAnalysis: "Analiza tus llantas en tiempo real",
+    continuousMonitoring: "Monitoreo continuo y alertas inteligentes",
+    support247: "Soporte 24/7",
+    specializedTechnicalAssistance: "Asistencia técnica especializada",
+    
+    // Form
+    backToHome: "Volver al inicio",
+    signIn: "Inicia Sesión",
+    accessYourAccount: "Accede a tu cuenta TirePro",
+    email: "Correo Electrónico",
+    emailPlaceholder: "nombre@tirepro.com",
+    password: "Contraseña",
+    passwordPlaceholder: "••••••••",
+    forgotPassword: "Olvidé mi contraseña",
+    signingIn: "Ingresando...",
+    signInButton: "Iniciar Sesión",
+    
+    // Errors
+    invalidCredentials: "Credenciales inválidas",
+    invalidCredentialsMessage: "Por favor verifica tu correo y contraseña.",
+    authenticationError: "Error de autenticación",
+    invalidCredentialsLong: "Las credenciales ingresadas son inválidas. Por favor verifica tu correo y contraseña.",
+    understood: "Entendido",
+    unexpectedError: "Ocurrió un error inesperado",
+    
+    // Registration
+    noAccount: "¿No tienes una cuenta?",
+    registerCompany: "Registra tu empresa"
+  }
+};
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -30,10 +127,68 @@ export default function LoginPage() {
   const [invalidCredentials, setInvalidCredentials] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [language, setLanguage] = useState("es"); // Default to Spanish
+  const [locationDetected, setLocationDetected] = useState(false);
   const auth = useAuth();
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Get current content based on language
+  const t = content[language];
+
+  // Geolocation and language detection
+  useEffect(() => {
+    const detectLanguageFromLocation = async () => {
+      try {
+        // First, try to get user's position
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 10000,
+            enableHighAccuracy: true,
+            maximumAge: 300000 // Cache for 5 minutes
+          });
+        });
+
+        // Use reverse geocoding to get country information
+        const response = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          const countryCode = data.countryCode;
+          
+          // Set language based on country
+          if (countryCode === 'US' || countryCode === 'CA') {
+            setLanguage('en');
+          } else {
+            // Default to Spanish for all other American countries and worldwide
+            setLanguage('es');
+          }
+          
+          setLocationDetected(true);
+          console.log(`Location detected: ${data.countryName} (${countryCode}), Language set to: ${countryCode === 'US' || countryCode === 'CA' ? 'English' : 'Spanish'}`);
+        }
+      } catch (error) {
+        console.log('Geolocation failed, using browser language as fallback:', error);
+        
+        // Fallback to browser language detection
+        const browserLang = navigator.language || navigator.languages?.[0] || 'es';
+        
+        if (browserLang.startsWith('en')) {
+          setLanguage('en');
+        } else {
+          setLanguage('es'); // Default to Spanish
+        }
+        
+        setLocationDetected(true);
+        console.log(`Browser language detected: ${browserLang}, Language set to: ${browserLang.startsWith('en') ? 'English' : 'Spanish'}`);
+      }
+    };
+
+    detectLanguageFromLocation();
+  }, []);
 
   // Handle scroll for navbar
   useEffect(() => {
@@ -65,17 +220,18 @@ export default function LoginPage() {
       // Check specifically for "Invalid credentials" error
       if (err instanceof Error && err.message === "Invalid credentials") {
         setInvalidCredentials(true);
-        setError("Credenciales inválidas");
+        setError(t.invalidCredentials);
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Ocurrió un error inesperado");
+        setError(t.unexpectedError);
       }
       setShowErrorPopup(true);
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#030712] text-white overflow-x-hidden">
@@ -117,25 +273,31 @@ export default function LoginPage() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6 relative z-10">
-              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
+              {[
+                { key: 'platform', href: '#platform' },
+                { key: 'blog', href: '/blog' },
+                { key: 'plans', href: '#plans' },
+                { key: 'contact', href: '/contact' }
+              ].map((item, i) => (
                 <a 
                   key={i}
-                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 
+                  href={item.href} 
                   className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group"
                 >
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
-                  <span className="relative z-10">{item}</span>
+                  <span className="relative z-10">{t[item.key]}</span>
                 </a>
               ))}
             </div>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons with Language Toggle */}
             <div className="hidden md:flex items-center space-x-3 relative z-10">
+              
               <a href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-black backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
-                Ingresar
+                {t.login}
               </button></a>
               <a href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
-                Comenzar
+                {t.getStarted}
               </button></a>
             </div>
 
@@ -160,23 +322,28 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
             
             <div className="relative p-5 space-y-6">
-              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
+              {[
+                { key: 'platform', href: '#platform' },
+                { key: 'blog', href: '/blog' },
+                { key: 'plans', href: '#plans' },
+                { key: 'contact', href: '/contact' }
+              ].map((item, i) => (
                 <a 
                   key={i}
-                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`}
+                  href={item.href}
                   className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  {item}
+                  {t[item.key]}
                 </a>
               ))}
               
               <div className="pt-2 border-t border-white/30 space-y-4">
                 <a href='/login'><button className="w-full py-2 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
-                  Ingresar
+                  {t.login}
                 </button></a>
                 <a href='/registerCompany'><button className="w-full py-2 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
-                  Comenzar
+                  {t.getStarted}
                 </button></a>
               </div>
             </div>
@@ -208,14 +375,14 @@ export default function LoginPage() {
               </div>
 
               <h1 className="text-3xl lg:text-4xl xl:text-5xl 2xl:text-6xl font-bold mb-4 lg:mb-6 leading-tight">
-                Bienvenido{" "}
+                {t.welcomeBack}{" "}
                 <span className="bg-gradient-to-r from-[#348CCB] to-purple-400 bg-clip-text text-transparent">
-                  de nuevo!
+                  {t.back}
                 </span>
               </h1>
               
               <p className="text-lg lg:text-xl text-gray-300 mb-8 lg:mb-12 leading-relaxed">
-                Inicia sesión para acceder a tu panel de control y gestionar tus datos de manera inteligente
+                {t.loginSubtitle}
               </p>
 
               {/* Enhanced Feature List - Responsive */}
@@ -225,8 +392,8 @@ export default function LoginPage() {
                     <Shield size={16} className="lg:w-5 lg:h-5 text-[#348CCB]" />
                   </div>
                   <div>
-                    <p className="font-semibold text-white text-sm lg:text-base">Manejo de datos seguro</p>
-                    <p className="text-xs lg:text-sm text-gray-400">Encriptación de extremo a extremo</p>
+                    <p className="font-semibold text-white text-sm lg:text-base">{t.secureDataHandling}</p>
+                    <p className="text-xs lg:text-sm text-gray-400">{t.endToEndEncryption}</p>
                   </div>
                 </div>
 
@@ -235,8 +402,8 @@ export default function LoginPage() {
                     <Zap size={16} className="lg:w-5 lg:h-5 text-[#348CCB]" />
                   </div>
                   <div>
-                    <p className="font-semibold text-white text-sm lg:text-base">Analiza tus llantas en tiempo real</p>
-                    <p className="text-xs lg:text-sm text-gray-400">Monitoreo continuo y alertas inteligentes</p>
+                    <p className="font-semibold text-white text-sm lg:text-base">{t.realTimeAnalysis}</p>
+                    <p className="text-xs lg:text-sm text-gray-400">{t.continuousMonitoring}</p>
                   </div>
                 </div>
 
@@ -245,8 +412,8 @@ export default function LoginPage() {
                     <Users size={16} className="lg:w-5 lg:h-5 text-[#348CCB]" />
                   </div>
                   <div>
-                    <p className="font-semibold text-white text-sm lg:text-base">Soporte 24/7</p>
-                    <p className="text-xs lg:text-sm text-gray-400">Asistencia técnica especializada</p>
+                    <p className="font-semibold text-white text-sm lg:text-base">{t.support247}</p>
+                    <p className="text-xs lg:text-sm text-gray-400">{t.specializedTechnicalAssistance}</p>
                   </div>
                 </div>
               </div>
@@ -260,25 +427,27 @@ export default function LoginPage() {
               <div className="lg:hidden mb-6 sm:mb-8">
                 <Link href="/" className="inline-flex items-center space-x-2 text-gray-300 hover:text-white transition-colors text-sm">
                   <ArrowLeft size={18} />
-                  <span>Volver al inicio</span>
+                  <span>{t.backToHome}</span>
                 </Link>
               </div>
 
-              {/* Mobile Logo - Responsive */}
+              {/* Mobile Logo and Language Toggle - Responsive */}
               <div className="lg:hidden text-center mb-6 sm:mb-8">
-                <div className="flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
-                  <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-[#348CCB]/20 to-purple-500/20 border border-[#173D68]/30">
-                    <Link href="/"><Image src={logoTire} alt="TirePro" height={20} className='sm:w-6 sm:h-6 filter brightness-0 invert'/></Link>
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-r from-[#348CCB]/20 to-purple-500/20 border border-[#173D68]/30">
+                      <Link href="/"><Image src={logoTire} alt="TirePro" height={20} className='sm:w-6 sm:h-6 filter brightness-0 invert'/></Link>
+                    </div>
+                    <Link href="/"><Image 
+                      src={logo} 
+                      alt="TirePro" 
+                      width={100} 
+                      className="sm:w-[120px] sm:h-[32px] filter brightness-0 invert"
+                    /></Link>
                   </div>
-                  <Link href="/"><Image 
-                    src={logo} 
-                    alt="TirePro" 
-                    width={100} 
-                    className="sm:w-[120px] sm:h-[32px] filter brightness-0 invert"
-                  /></Link>
                 </div>
                 <h1 className="text-xl sm:text-2xl font-bold">
-                  Bienvenido <span className="text-[#348CCB]">de nuevo!</span>
+                  {t.welcomeBack} <span className="text-[#348CCB]">{t.back}</span>
                 </h1>
               </div>
 
@@ -294,10 +463,10 @@ export default function LoginPage() {
                   <div className="relative z-10">
                     <div className="text-center mb-6 sm:mb-8">
                       <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
-                        Inicia Sesión
+                        {t.signIn}
                       </h2>
                       <p className="text-gray-300 text-sm">
-                        Accede a tu cuenta TirePro
+                        {t.accessYourAccount}
                       </p>
                     </div>
                     
@@ -320,7 +489,7 @@ export default function LoginPage() {
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-white flex items-center gap-2">
                           <Mail size={14} className="sm:w-4 sm:h-4 text-[#348CCB]" />
-                          Correo Electrónico
+                          {t.email}
                         </label>
                         <div className="relative group">
                           <input
@@ -339,7 +508,7 @@ export default function LoginPage() {
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-white flex items-center gap-2">
                           <Lock size={14} className="sm:w-4 sm:h-4 text-[#348CCB]" />
-                          Contraseña
+                          {t.password}
                         </label>
                         <div className="relative group">
                           <input
@@ -367,7 +536,7 @@ export default function LoginPage() {
                           href="mailto:jeronimo.morales@merquellantas.com?subject=Olvide%20Mi%20contrase%C3%B1a&body=Querido%20equipo%20tirepro%2C%0A%0ASolicito%20un%20link%20de%20restablecer%20contrase%C3%B1a%20para%20mi%20cuenta%20con%20el%20siguiente%20correo%3A%20"
                           className="text-xs sm:text-sm text-[#348CCB] hover:text-white transition-colors hover:underline"
                         >
-                          Olvidé mi contraseña
+                          {t.forgotPassword}
                         </a>
                       </div>
 
@@ -383,7 +552,7 @@ export default function LoginPage() {
                           </>
                         ) : (
                           <>
-                            <span>Iniciar Sesión</span>
+                            <span>{t.login}</span>
                             <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px] group-hover:translate-x-1 transition-transform" />
                           </>
                         )}
@@ -392,10 +561,10 @@ export default function LoginPage() {
 
                     <div className="mt-6 sm:mt-8 text-center">
                       <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4">
-                        ¿No tienes una cuenta?
+                        {t.noAccount}
                       </p>
                       <Link href="/companyregister" className="inline-flex items-center space-x-2 text-[#348CCB] hover:text-white transition-colors group text-sm">
-                        <span>Registra tu empresa</span>
+                        <span>{t.registerCompany}</span>
                         <ChevronRight size={14} className="sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
                       </Link>
                     </div>
