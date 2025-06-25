@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Search, X, AlertTriangle, Clock, DollarSign } from "lucide-react";
 
 // --- Types ---
@@ -96,19 +95,11 @@ const translations = {
 const allowedVida = ["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"];
 
 const VidaPage: React.FC = () => {
-  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [tires, setTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [gastoTotal, setGastoTotal] = useState<number>(0);
-  const [gastoMes, setGastoMes] = useState<number>(0);
-  const [userName, setUserName] = useState<string>("");
-  const [cpkPromedio, setCpkPromedio] = useState<number>(0);
-  const [cpkProyectado, setCpkProyectado] = useState<number>(0);
 
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);

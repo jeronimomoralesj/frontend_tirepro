@@ -36,6 +36,11 @@ export type Inspection = {
   eje?: string;
 };
 
+export type VidaEntry = {
+  valor: string;
+  fecha: string;
+};
+
 export type Tire = {
   id: string;
   costo: CostEntry[];
@@ -50,7 +55,7 @@ export type Tire = {
   marca: string;
   eje: string;
   vehicleId?: string;
-  vida?: any;
+  vida?: VidaEntry[];
 };
 
 export type Vehicle = {
@@ -197,9 +202,11 @@ export default function FlotaPage() {
     detectAndSetLanguage();
   }, []);
 
+  // Get current translations
+  const t = translations[language];
+
   // Update filter options when language changes
   useEffect(() => {
-    const t = translations[language];
     setSemaforoOptions([
       t.all,
       t.optimal,
@@ -222,10 +229,7 @@ export default function FlotaPage() {
     if (selectedSemaforo === "" || selectedSemaforo === "Todos" || selectedSemaforo === "All") {
       setSelectedSemaforo(t.all);
     }
-  }, [language]);
-
-  // Get current translations
-  const t = translations[language];
+  }, [language, t, selectedMarca, selectedEje, selectedCliente, selectedSemaforo]);
 
 const exportToPDF = () => {
   try {
@@ -539,7 +543,6 @@ const exportToPDF = () => {
       });
   
       setTires(activeTires);
-      calculateTotals(activeTires);
       calculateCpkAverages(activeTires);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unexpected error";
@@ -720,7 +723,6 @@ const exportToPDF = () => {
     setFilteredVehicles(vehicles);
     
     // Update metrics based on filtered data
-    calculateTotals(tempTires);
     calculateCpkAverages(tempTires);
   }, [selectedMarca, selectedEje, selectedSemaforo, selectedCliente, tires, vehicles, t]);
 
@@ -745,33 +747,6 @@ const exportToPDF = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [activeDropdown, dropdownRefs]);
-
-  function calculateTotals(tires: Tire[]) {
-    let total = 0;
-    let totalMes = 0;
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    tires.forEach((tire) => {
-      if (Array.isArray(tire.costo)) {
-        tire.costo.forEach((entry) => {
-          const valor = typeof entry.valor === 'number' ? entry.valor : 0;
-          total += valor;
-          
-          if (typeof entry.fecha === 'string') {
-            const entryDate = new Date(entry.fecha);
-            if (
-              entryDate.getFullYear() === currentYear &&
-              entryDate.getMonth() === currentMonth
-            ) {
-              totalMes += valor;
-            }
-          }
-        });
-      }
-    });
-  }
 
   function calculateCpkAverages(tires: Tire[]) {
     let totalCpk = 0;

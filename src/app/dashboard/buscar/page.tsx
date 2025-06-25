@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Search,
   Car,
@@ -16,7 +15,6 @@ import {
   Repeat,
   Trash2Icon,
 } from "lucide-react";
-import Image from "next/image";
 
 export type Inspection = {
   profundidadInt: number;
@@ -165,7 +163,6 @@ const texts = {
 };
 
 const BuscarPage: React.FC = () => {
-  const router = useRouter();
   const [searchMode, setSearchMode] = useState<"vehicle" | "tire">("vehicle");
   const [searchTerm, setSearchTerm] = useState("");
   const [tires, setTires] = useState<Tire[]>([]);
