@@ -105,7 +105,9 @@ const texts = {
     retread2: "Segundo Reencauche",
     retread3: "Tercer Reencauche",
     discard: "Descartada",
-    notRegistered: "No Registrada"
+    notRegistered: "No Registrada",
+    cpk: "CPK",
+    projectedCpk: "CPK Proyectado",
   },
   en: {
     searchTire: "Search Tire",
@@ -137,7 +139,7 @@ const texts = {
     characteristics: "Characteristics",
     design: "Design",
     initialDepth: "Initial Depth",
-    kmTraveled: "Km Traveled",
+    kmTraveled: "Miles Traveled",
     currentStatus: "Current Status",
     projectedKm: "Projected mileage",
     lastCost: "Last Cost",
@@ -158,7 +160,9 @@ const texts = {
     retread2: "Second Retread",
     retread3: "Third Retread",
     discard: "Discarded",
-    notRegistered: "Not Registered"
+    notRegistered: "Not Registered",
+    cpk: "CPM",
+    projectedCpk: "Forecasted CPK",
   }
 };
 
@@ -594,7 +598,7 @@ const BuscarPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">{t.kmTraveled}:</p>
-                        <p className="font-medium">{selectedTire.kilometrosRecorridos.toLocaleString()} km</p>
+                        <p className="font-medium">{selectedTire.kilometrosRecorridos.toLocaleString()} miles</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">{t.currentStatus}:</p>
@@ -602,7 +606,7 @@ const BuscarPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">{t.projectedKm}:</p>
-                        <p className="font-medium">{getProjectedKilometraje(selectedTire)} km</p>
+                        <p className="font-medium">{getProjectedKilometraje(selectedTire)} miles</p>
                       </div>
                     </div>
                   </div>
@@ -613,19 +617,19 @@ const BuscarPage: React.FC = () => {
               {selectedTire.inspecciones && selectedTire.inspecciones.length > 0 && (
                 <div>
                   <h3 className="text-xl font-bold text-[#0A183A] pb-2 border-b border-gray-200 mb-4">
-                    Historial de Inspecciones
+                    {t.inspectionHistory}
                   </h3>
                   <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-gray-50">
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Fecha</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Prof. Interior</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Prof. Central</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Prof. Exterior</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPK</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPK Proyectado</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Imagen</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.date}</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.innerDepth}</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.centerDepth}</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.outerDepth}</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.cpk}</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.projectedCpk}</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.image}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b"></th>
                         </tr>
                       </thead>

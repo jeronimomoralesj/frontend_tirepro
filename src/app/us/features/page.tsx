@@ -11,6 +11,11 @@ import Image from 'next/image'
 import logo from "../../../../public/logo_text.png"
 import logoTire from "../../../../public/logo_tire.png"
 import feature1 from "../../../../public/feature1.png"
+import feature2 from "../../../../public/feature2.png"
+import feature3 from "../../../../public/feature3.png"
+import feature4 from "../../../../public/feature4.png"
+import feature5 from "../../../../public/feature5.png"
+import feature6 from "../../../../public/feature6.png"
 
 const TireProFeaturesPage = () => {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -60,13 +65,13 @@ const TireProFeaturesPage = () => {
       {
         title: "Cost-Per-Mile Optimization",
         description: "Track and analyze your true tire costs with our comprehensive CPM tracking system. Get detailed insights into tire performance, replacement schedules, and cost optimization opportunities.",
-        image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop",
+        image: feature2,
         benefits: ["Real-time cost tracking", "ROI optimization", "CPM forecasting", "Performance benchmarking"]
       },
       {
         title: "Purchase recommendations",
         description: "Data analysis algorithms provide tire purchase recommendations.",
-        image: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=600&h=400&fit=crop",
+        image: feature3,
         benefits: ["Pattern recognition AI", "Maintenance optimization", "Extended tire life", "Alignment insights"]
       }
     ],
@@ -74,19 +79,19 @@ const TireProFeaturesPage = () => {
       {
         title: "Real-time Fleet Dashboard",
         description: "Monitor your entire fleet from a single, comprehensive dashboard. Get instant visibility into tire health, vehicle status, and critical alerts across all your vehicles.",
-        image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop",
+        image: feature4,
         benefits: ["Live fleet overview", "Instant notifications", "Multi-vehicle tracking", "Performance metrics"]
       },
       {
         title: "Intelligent Alert System",
         description: "Receive smart notifications based on tire condition, and predictive maintenance schedules. Never miss a critical maintenance window again.",
-        image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&h=400&fit=crop",
+        image: feature5,
         benefits: ["Smart notifications", "Custom thresholds", "Priority alerts", "Mobile integration"]
       },
       {
         title: "Historical Performance Tracking",
         description: "Access comprehensive historical data and performance trends to make informed decisions about tire purchases, maintenance schedules, and fleet optimization strategies.",
-        image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=400&fit=crop",
+        image: feature6,
         benefits: ["Trend analysis", "Performance history", "Data-driven decisions", "Long-term insights"]
       }
     ],
@@ -337,7 +342,7 @@ const TireProFeaturesPage = () => {
                         <Image
                           src={feature.image}
                           alt={feature.title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover p-5"
                           fill
                         />
                       )}
