@@ -127,7 +127,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [language, setLanguage] = useState("es"); // Default to Spanish
-  const [locationDetected, setLocationDetected] = useState(false);
   const [isUSLocation, setIsUSLocation] = useState(false);
   const auth = useAuth();
   const router = useRouter();
@@ -185,7 +184,6 @@ export default function LoginPage() {
             setIsUSLocation(false);
           }
           
-          setLocationDetected(true);
           console.log(`Location detected: ${data.countryName} (${countryCode}), Language set to: ${countryCode === 'US' ? 'English' : 'Spanish'}, US Location: ${countryCode === 'US'}`);
         }
       } catch (error) {
@@ -202,7 +200,6 @@ export default function LoginPage() {
           setIsUSLocation(false);
         }
         
-        setLocationDetected(true);
         console.log(`Browser language detected: ${browserLang}, Language set to: ${browserLang.startsWith('en') ? 'English' : 'Spanish'}, US Location: ${browserLang.startsWith('en')}`);
       }
     };

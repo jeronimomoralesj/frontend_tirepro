@@ -115,7 +115,6 @@ const Popup = ({ isOpen, onClose, type, t }) => {
 const ContactPage = () => {
   const [language, setLanguage] = useState('es')
   const [isUSLocation, setIsUSLocation] = useState(false)
-  const [locationDetected, setLocationDetected] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -151,7 +150,6 @@ const ContactPage = () => {
             setLanguage('es')
             setIsUSLocation(false)
           }
-          setLocationDetected(true)
           console.log(`Location detected: ${data.countryName} (${countryCode}), Language: ${countryCode === 'US' ? 'English' : 'Spanish'}`)
         }
       } catch (error) {
@@ -164,7 +162,6 @@ const ContactPage = () => {
           setLanguage('es')
           setIsUSLocation(false)
         }
-        setLocationDetected(true)
       }
     }
     detectLanguageFromLocation()
@@ -204,6 +201,7 @@ const ContactPage = () => {
       setFormData({ companyName: '', contactName: '', email: '', phone: '', numberOfCars: '', message: '' })
     } catch (error) {
       setShowPopup({ type: 'error', show: true })
+      console.log(error)
     } finally {
       setIsSubmitting(false)
     }

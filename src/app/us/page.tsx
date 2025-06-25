@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { 
-  Calendar, BarChart3, Clock, MapPin, Users, Menu, X, Download,
-  Smartphone, MessageCircle, Plus, Minus,
+  Calendar, BarChart3, Clock, Users, Menu, X, Download,
+  Smartphone, Plus, Minus,
   Glasses,
   LayoutDashboard
 } from 'lucide-react'

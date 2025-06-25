@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react'
 import { 
-  Calendar, BarChart3, Clock, MapPin, Users, Menu, X, Download,
-  Smartphone, MessageCircle, Plus, Minus, Brain, Shield, Zap,
-  Glasses, LayoutDashboard, TrendingUp, AlertTriangle, Settings,
-  CheckCircle, Eye, Bell, Database, Cloud, Cpu, Activity
+Menu, X,
+  Smartphone, Brain, Shield, TrendingUp, Settings,
+  CheckCircle, Bell, Database, Cloud, Activity
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -271,7 +270,7 @@ const TireProFeaturesPage = () => {
             Powerful Features for Modern Fleet Management
           </h1>
           <p className="text-xl text-gray-300 leading-relaxed max-w-3xl mx-auto">
-            Discover how TirePro's advanced features transform your fleet operations with AI-powered insights, real-time monitoring, and comprehensive management tools designed for the modern transportation industry.
+            Discover how TirePro&apos;s advanced features transform your fleet operations with AI-powered insights, real-time monitoring, and comprehensive management tools designed for the modern transportation industry.
           </p>
         </div>
       </section>
@@ -405,7 +404,7 @@ const TireProFeaturesPage = () => {
                 Ready to Transform Your Fleet Management?
               </h2>
               <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-                Join thousands of fleet operators who have already reduced their tire costs by up to 25% with TirePro's intelligent platform.
+                Join thousands of fleet operators who have already reduced their tire costs by up to 25% with TirePro&apos;s intelligent platform.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href='/companyregister'>
