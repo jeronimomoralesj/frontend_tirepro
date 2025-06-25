@@ -29,9 +29,9 @@ const translations = {
   en: {
     dashboard: "Dashboard",
     fleet: "Fleet",
-    traffic_light: "Traffic Light",
+    stop_light: "Stop Light",
     add: "Add",
-    analyst: "Expert",
+    analyst: "Analyst",
     vehicles: "Vehicles",
     search: "Search",
     add_driver: "Add Driver",
@@ -43,7 +43,7 @@ const translations = {
   es: {
     dashboard: "Resumen",
     fleet: "Flota",
-    traffic_light: "Semáforo",
+    stop_light: "Semáforo",
     add: "Agregar",
     analyst: "Analista",
     vehicles: "Vehículos",
@@ -139,13 +139,6 @@ export default function Sidebar({
     detectAndSetLanguage();
   }, []);
 
-  // Toggle language function
-  const toggleLanguage = () => {
-    const newLanguage = language === 'en' ? 'es' : 'en';
-    setLanguage(newLanguage);
-    localStorage.setItem('preferredLanguage', newLanguage);
-  };
-
   // Get translation function
   const t = (key: keyof typeof translations.en) => {
     return translations[language][key];
@@ -204,7 +197,7 @@ export default function Sidebar({
     links = [
       { name: t('dashboard'), path: "/dashboard/resumen", icon: LayoutDashboard },
       { name: t('fleet'), path: "/dashboard/flota", icon: LifeBuoy },
-      { name: t('traffic_light'), path: "/dashboard/semaforo", icon: ChartPie },
+      { name: t('stop_light'), path: "/dashboard/semaforo", icon: ChartPie },
       { name: t('add'), path: "/dashboard/agregar", icon: Plus },
       { name: t('analyst'), path: "/dashboard/analista", icon: Glasses },
       { name: t('vehicles'), path: "/dashboard/vehiculo", icon: Car },
@@ -450,53 +443,6 @@ export default function Sidebar({
           backdrop-blur-xl
           ${collapsed ? 'space-y-2' : 'space-y-1'}
         `}>
-          {/* Language Toggle */}
-          <div className={`
-            flex items-center ${collapsed ? 'justify-center' : 'justify-between'}
-            px-3 py-2
-          `}>
-            {!collapsed && (
-              <div className="flex items-center text-xs text-gray-600">
-                <Globe className="h-3 w-3 mr-1" />
-                <span className="drop-shadow-sm">{t('language')}</span>
-              </div>
-            )}
-            <button
-              onClick={toggleLanguage}
-              className={`
-                relative inline-flex items-center ${collapsed ? 'mx-auto' : ''}
-                h-6 w-12 rounded-full transition-all duration-300 ease-in-out
-                ${language === 'en' 
-                  ? 'bg-gradient-to-r from-[#0A183A]/80 to-[#1E76B6]/80' 
-                  : 'bg-gray-300/60'
-                }
-                backdrop-blur-xl border border-white/30 shadow-lg
-                hover:scale-105 hover:shadow-xl
-                focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/50
-              `}
-            >
-              <span
-                className={`
-                  inline-block h-4 w-4 transform rounded-full 
-                  bg-white shadow-lg transition-all duration-300 ease-in-out
-                  ${language === 'en' ? 'translate-x-6' : 'translate-x-1'}
-                  backdrop-blur-xl border border-white/40
-                `}
-              />
-              <span className={`
-                absolute left-1.5 text-[10px] font-medium transition-all duration-300
-                ${language === 'es' ? 'text-white drop-shadow-sm' : 'text-gray-500'}
-              `}>
-                ES
-              </span>
-              <span className={`
-                absolute right-1.5 text-[10px] font-medium transition-all duration-300
-                ${language === 'en' ? 'text-white drop-shadow-sm' : 'text-gray-500'}
-              `}>
-                EN
-              </span>
-            </button>
-          </div>
 
           {/* Settings link for admin users */}
           {company.plan !== "mini" && isAdmin && (

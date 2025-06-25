@@ -144,7 +144,7 @@ export default function ResumenPage() {
 
 const translations = {
   en: {
-    summary: "My summary",
+    summary: "My Summary",
     update: "Updated",
     welcome: "Welcome",
     investment: "investment",
@@ -840,18 +840,19 @@ useEffect(() => {
 
         <main className="container mx-auto max-w-6xl px-4 py-8">
           <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
-            <HistoricChart tires={filteredTires} />
+            <HistoricChart tires={filteredTires} language={language}  />
             <PromedioEje
               tires={filteredTires}
               onSelectEje={(eje) => setSelectedEje(eje || "Todos")}
               selectedEje={selectedEje}
+              language={language} 
             />
           </div>
           <br />
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <SemaforoPie tires={filteredTires} />
-            <ReencaucheHistorico tires={filteredTires} />
-            <TanqueMilimetro tires={filteredTires} />
+            <SemaforoPie tires={filteredTires} language={language}  />
+            <ReencaucheHistorico tires={filteredTires} language={language} />
+            <TanqueMilimetro tires={filteredTires} language={language} />
           </div>
 
           {loading && (

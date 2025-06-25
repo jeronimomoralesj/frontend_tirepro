@@ -32,6 +32,7 @@ interface PromedioEjeProps {
   tires: Tire[]; // List of tires to process
   onSelectEje: (eje: string | null) => void;
   selectedEje: string | null;
+  language: "en" | "es"; // Language prop
 }
 
 // Define a type for the context parameter in the datalabels display callback.
@@ -40,11 +41,36 @@ type DatalabelsContext = {
   dataIndex: number;
 };
 
+// Translation object
+const translations = {
+  en: {
+    title: "Average Depth by Axle",
+    depth: "Depth",
+    axle: "Axle",
+    unknown: "Unknown",
+    totalAxles: "Total axles",
+    measurementUnit: "Measurement in millimeters",
+    tooltipText: "This chart shows the average minimum tread depth by axle. It helps detect irregular wear or axles with greater deterioration."
+  },
+  es: {
+    title: "Profundidad Media por Eje",
+    depth: "Profundidad",
+    axle: "Eje",
+    unknown: "Desconocido",
+    totalAxles: "Total de ejes",
+    measurementUnit: "Medición en milímetros",
+    tooltipText: "Este gráfico muestra el promedio de la menor profundidad de banda de rodamiento por eje. Ayuda a detectar desgaste irregular o ejes con mayor deterioro."
+  }
+};
+
 const PromedioEje: React.FC<PromedioEjeProps> = ({
   tires,
   onSelectEje,
   selectedEje,
+  language = "es", // Default to Spanish
 }) => {
+  const t = translations[language];
+
   // Compute the average minimal depth per 'eje'
   const averageDepthData = useMemo(() => {
     const ejeGroups: { [eje: string]: { totalDepth: number; count: number } } =
@@ -60,7 +86,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
         latestInspection.profundidadCen,
         latestInspection.profundidadExt
       );
-      const eje = tire.eje || "Desconocido";
+      const eje = tire.eje || t.unknown;
       if (!ejeGroups[eje]) {
         ejeGroups[eje] = { totalDepth: 0, count: 0 };
       }
@@ -74,7 +100,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
         ? parseFloat((data.totalDepth / data.count).toFixed(2))
         : 0,
     }));
-  }, [tires]);
+  }, [tires, t.unknown]);
 
   // Prepare data for the Bar chart.
   const chartData = {
@@ -132,10 +158,10 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
               0
             );
             const percentage = Math.round((value / total) * 100);
-            return `Profundidad: ${value} mm · ${percentage}%`;
+            return `${t.depth}: ${value} mm · ${percentage}%`;
           },
           title: (tooltipItems: { label: string }[]) =>
-            `Eje ${tooltipItems[0].label}`,
+            `${t.axle} ${tooltipItems[0].label}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,
@@ -198,7 +224,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       {/* Header */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Profundidad Media por Eje</h2>
+        <h2 className="text-xl font-bold">{t.title}</h2>
         <div className="group relative cursor-pointer">
           <HelpCircle
             className="text-white hover:text-gray-200 transition-colors"
@@ -214,11 +240,7 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
             w-64 pointer-events-none
           "
           >
-            <p>
-              Este gráfico muestra el promedio de la menor profundidad de
-              banda de rodamiento por eje. Ayuda a detectar desgaste irregular
-              o ejes con mayor deterioro.
-            </p>
+            <p>{t.tooltipText}</p>
           </div>
         </div>
       </div>
@@ -229,9 +251,9 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
         </div>
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
           <div className="text-xs text-gray-500">
-            Total de ejes: {averageDepthData.length}
+            {t.totalAxles}: {averageDepthData.length}
           </div>
-          <div className="text-xs text-gray-500">Medición en milímetros</div>
+          <div className="text-xs text-gray-500">{t.measurementUnit}</div>
         </div>
       </div>
     </div>

@@ -14,9 +14,43 @@ export interface Tire {
 
 type ViewMode = "individual" | "acumulado";
 
-const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
+interface ReencaucheHistoricoProps {
+  tires: Tire[];
+  language?: "en" | "es"; // Language prop
+}
+
+// Translation object
+const translations = {
+  en: {
+    title: "Retreading History",
+    individualView: "Individual View",
+    cumulativeView: "Cumulative View",
+    month: "Month",
+    retreadsQuantity: "Number of Retreads",
+    cumulativeTotal: "Cumulative Total",
+    tooltipIndividual: "This table shows how many retreads you have had over the last months.",
+    tooltipCumulative: " The cumulative view accumulates the total up to each month."
+  },
+  es: {
+    title: "Reencauche Histórico",
+    individualView: "Vista Individual",
+    cumulativeView: "Vista Acumulada",
+    month: "Mes",
+    retreadsQuantity: "Cantidad de Reencauches",
+    cumulativeTotal: "Total Acumulado",
+    tooltipIndividual: "Esta tabla muestra cuántos reencauches has tenido a lo largo de los últimos meses.",
+    tooltipCumulative: " La vista acumulada acumula el total hasta cada mes."
+  }
+};
+
+const ReencaucheHistorico: React.FC<ReencaucheHistoricoProps> = ({ 
+  tires, 
+  language = "es" // Default to Spanish
+}) => {
   const [mode, setMode] = useState<ViewMode>("individual");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  const t = translations[language];
 
   // Last 6 months labels, e.g. ["May 2024", "Jun 2024", …]
   const months = useMemo(() => {
@@ -27,7 +61,7 @@ const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
     );
   }, []);
 
-  // Count per-month “reencauche” events
+  // Count per-month "reencauche" events
   const individualCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     months.forEach((m) => (counts[m] = 0));
@@ -61,14 +95,14 @@ const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
     <div className="bg-white rounded-2xl shadow-lg border-gray-100 overflow-hidden border">
       {/* Header */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Reencauche Histórico</h2>
+        <h2 className="text-xl font-bold">{t.title}</h2>
         <div className="flex items-center gap-4">
           <div className="relative inline-block">
             <button
               className="bg-white text-[#173D68] rounded px-4 py-2 text-sm font-medium flex items-center"
               onClick={() => setDropdownOpen((o) => !o)}
             >
-              {mode === "individual" ? "Vista Individual" : "Vista Acumulada"}
+              {mode === "individual" ? t.individualView : t.cumulativeView}
               <ChevronDown className="ml-2 h-4 w-4" />
             </button>
             {dropdownOpen && (
@@ -81,7 +115,7 @@ const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
                   }`}
                   onClick={() => { setMode("individual"); setDropdownOpen(false); }}
                 >
-                  Vista Individual
+                  {t.individualView}
                 </button>
                 <button
                   className={`w-full text-left px-4 py-2 text-sm ${
@@ -91,7 +125,7 @@ const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
                   }`}
                   onClick={() => { setMode("acumulado"); setDropdownOpen(false); }}
                 >
-                  Vista Acumulada
+                  {t.cumulativeView}
                 </button>
               </div>
             )}
@@ -101,8 +135,8 @@ const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
             <HelpCircle size={20} className="text-white hover:text-gray-200" />
             <div className="absolute z-10 top-full right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-60 pointer-events-none mt-2">
               <p>
-                Esta tabla muestra cuántos reencauches has tenido a lo largo de los últimos meses.
-                {mode === "acumulado" && " La vista acumulada acumula el total hasta cada mes."}
+                {t.tooltipIndividual}
+                {mode === "acumulado" && t.tooltipCumulative}
               </p>
             </div>
           </div>
@@ -114,9 +148,11 @@ const ReencaucheHistorico: React.FC<{ tires: Tire[] }> = ({ tires }) => {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="pb-3 text-left text-sm font-medium text-gray-500 uppercase">Mes</th>
+              <th className="pb-3 text-left text-sm font-medium text-gray-500 uppercase">
+                {t.month}
+              </th>
               <th className="pb-3 text-right text-sm font-medium text-gray-500 uppercase">
-                {mode === "individual" ? "Cantidad de Reencauches" : "Total Acumulado"}
+                {mode === "individual" ? t.retreadsQuantity : t.cumulativeTotal}
               </th>
             </tr>
           </thead>

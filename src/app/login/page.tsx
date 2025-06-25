@@ -127,6 +127,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [language, setLanguage] = useState("es"); // Default to Spanish
+  const [locationDetected, setLocationDetected] = useState(false);
+  const [isUSLocation, setIsUSLocation] = useState(false);
   const auth = useAuth();
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false)
@@ -134,6 +136,22 @@ export default function LoginPage() {
 
   // Get current content based on language
   const t = content[language];
+
+  // Navigation items based on location
+  const getNavItems = () => {
+    const baseItems = [
+      { key: 'platform', href: '/#platform' },
+      { key: 'plans', href: '/#plans' },
+      { key: 'contact', href: '/contact' }
+    ];
+
+    // Only add blog for non-US locations
+    if (!isUSLocation) {
+      baseItems.splice(1, 0, { key: 'blog', href: '/blog' });
+    }
+
+    return baseItems;
+  };
 
   // Geolocation and language detection
   useEffect(() => {
@@ -157,16 +175,18 @@ export default function LoginPage() {
           const data = await response.json();
           const countryCode = data.countryCode;
           
-          // Set language based on country
-          if (countryCode === 'US' || countryCode === 'CA') {
+          // Set language and location based on country
+          if (countryCode === 'US') {
             setLanguage('en');
+            setIsUSLocation(true);
           } else {
-            // Default to Spanish for all other American countries and worldwide
+            // Default to Spanish for all other countries
             setLanguage('es');
+            setIsUSLocation(false);
           }
           
           setLocationDetected(true);
-          console.log(`Location detected: ${data.countryName} (${countryCode}), Language set to: ${countryCode === 'US' || countryCode === 'CA' ? 'English' : 'Spanish'}`);
+          console.log(`Location detected: ${data.countryName} (${countryCode}), Language set to: ${countryCode === 'US' ? 'English' : 'Spanish'}, US Location: ${countryCode === 'US'}`);
         }
       } catch (error) {
         console.log('Geolocation failed, using browser language as fallback:', error);
@@ -176,12 +196,14 @@ export default function LoginPage() {
         
         if (browserLang.startsWith('en')) {
           setLanguage('en');
+          setIsUSLocation(true); // Assume US if English browser
         } else {
-          setLanguage('es'); // Default to Spanish
+          setLanguage('es');
+          setIsUSLocation(false);
         }
         
         setLocationDetected(true);
-        console.log(`Browser language detected: ${browserLang}, Language set to: ${browserLang.startsWith('en') ? 'English' : 'Spanish'}`);
+        console.log(`Browser language detected: ${browserLang}, Language set to: ${browserLang.startsWith('en') ? 'English' : 'Spanish'}, US Location: ${browserLang.startsWith('en')}`);
       }
     };
 
@@ -271,12 +293,7 @@ export default function LoginPage() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6 relative z-10">
-              {[
-                { key: 'platform', href: '#platform' },
-                { key: 'blog', href: '/blog' },
-                { key: 'plans', href: '#plans' },
-                { key: 'contact', href: '/contact' }
-              ].map((item, i) => (
+              {getNavItems().map((item, i) => (
                 <a 
                   key={i}
                   href={item.href} 
@@ -320,12 +337,7 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
             
             <div className="relative p-5 space-y-6">
-              {[
-                { key: 'platform', href: '#platform' },
-                { key: 'blog', href: '/blog' },
-                { key: 'plans', href: '#plans' },
-                { key: 'contact', href: '/contact' }
-              ].map((item, i) => (
+              {getNavItems().map((item, i) => (
                 <a 
                   key={i}
                   href={item.href}

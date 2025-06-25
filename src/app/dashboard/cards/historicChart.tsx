@@ -44,7 +44,38 @@ export type Tire = {
 
 interface HistoricChartProps {
   tires: Tire[];
+  language: "en" | "es";
 }
+
+const translations = {
+  en: {
+    title:          "Inspection History",
+    noData:         "No inspection data available for",
+    totalDays:      "Total Days",
+    footerNote:     "Showing only days with inspections",
+    cpk:            "CPM",
+    cpkProjected:   "Forecasted CPM",
+    profundidadInt: "Interior Depth",
+    profundidadCen: "Center Depth",
+    profundidadExt: "Exterior Depth",
+    tooltipDate:    "Date",
+    tooltipValue:   (label: string, value: number) => `${label}: ${value}`,
+  },
+  es: {
+    title:          "Histórico de Inspecciones",
+    noData:         "No hay datos de inspección disponibles para",
+    totalDays:      "Total de Días",
+    footerNote:     "Mostrando solo días con inspecciones",
+    cpk:            "CPK",
+    cpkProjected:   "CPK Proyectado",
+    profundidadInt: "Profundidad Int",
+    profundidadCen: "Profundidad Cen",
+    profundidadExt: "Profundidad Ext",
+    tooltipDate:    "Fecha",
+    tooltipValue:   (label: string, value: number) => `${label}: ${value.toFixed(2)}`,
+  }
+};
+
 
 type VariableType = "cpk" | "cpkProyectado" | "profundidadInt" | "profundidadCen" | "profundidadExt";
 
@@ -56,7 +87,8 @@ const trackEvent = (eventName: string, eventParams: Record<string, unknown>) => 
   }
 };
 
-const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
+const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
+  const t = translations[language];
   const [selectedVariable, setSelectedVariable] = useState<VariableType>("cpk");
 
   // Display name for the selected variable
@@ -241,22 +273,22 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
             <button onClick={handleHelpClick} aria-label="Ayuda sobre el histórico de inspecciones">
               <HelpCircle size={24} className="text-white" />
             </button>
-            <h2 className="text-xl font-bold">Histórico de Inspecciones</h2>
+            <h2 className="text-xl font-bold">{t.title}</h2>
           </div>
           <select
             value={selectedVariable}
             onChange={handleVariableChange}
             className="bg-white/10 text-white rounded p-2 text-sm"
           >
-            <option value="cpk" className="text-black">CPK</option>
-            <option value="cpkProyectado" className="text-black">CPK Proyectado</option>
-            <option value="profundidadInt" className="text-black">Profundidad Int</option>
-            <option value="profundidadCen" className="text-black">Profundidad Cen</option>
-            <option value="profundidadExt" className="text-black">Profundidad Ext</option>
+            <option value="cpk" className="text-black">{t.cpk}</option>
+            <option value="cpkProyectado" className="text-black">{t.cpkProjected}</option>
+            <option value="profundidadInt" className="text-black">{t.profundidadInt}</option>
+            <option value="profundidadCen" className="text-black">{t.profundidadCen}</option>
+            <option value="profundidadExt" className="text-black">{t.profundidadExt}</option>
           </select>
         </div>
         <div className="p-6 flex items-center justify-center h-64">
-          <p className="text-gray-500">No hay datos de inspección disponibles para {variableDisplayName}</p>
+          <p className="text-gray-500">{t.noData} {variableDisplayName}</p>
         </div>
       </div>
     );
@@ -277,7 +309,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
           >
             <HelpCircle size={24} className="text-white" />
           </button>
-          <h2 className="text-xl font-bold">Histórico de Inspecciones</h2>
+          <h2 className="text-xl font-bold">{t.title}</h2>
         </div>
         <select
           value={selectedVariable}
@@ -286,19 +318,19 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
           data-analytics-id="variable-selector"
         >
           <option value="cpk" className="text-black" data-analytics-option="cpk">
-            CPK
+            {t.cpk}
           </option>
           <option value="cpkProyectado" className="text-black" data-analytics-option="cpk-proyectado">
-            CPK Proyectado
+            {t.cpkProjected}
           </option>
           <option value="profundidadInt" className="text-black" data-analytics-option="profundidad-int">
-            Profundidad Int
+            {t.profundidadInt}
           </option>
           <option value="profundidadCen" className="text-black" data-analytics-option="profundidad-cen">
-            Profundidad Cen
+            {t.profundidadCen}
           </option>
           <option value="profundidadExt" className="text-black" data-analytics-option="profundidad-ext">
-            Profundidad Ext
+            {t.profundidadExt}
           </option>
         </select>
       </div>
@@ -316,10 +348,10 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires }) => {
         {/* Footer */}
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
           <div className="text-xs text-gray-500">
-            Total de Días: {inspectionDays.length}
+            {t.totalDays}: {inspectionDays.length}
           </div>
           <div className="text-xs text-gray-500">
-            Mostrando solo días con inspecciones
+            {t.footerNote}
           </div>
         </div>
       </div>

@@ -19,17 +19,56 @@ export type Tire = {
   inspecciones: Inspection[];
 };
 
+const translations = {
+  en: {
+    title: "Status",
+    tooltip:
+      "This donut chart shows how many tires are in each condition bucket.",
+    noData: "No inspections available",
+    inspected: "tires inspected",
+    totalConditions: "Total conditions",
+    footerText: "Current tire status",
+    tire: "tires",
+    labels: {
+      buenEstado: "Optimal",
+      dias60: "60 Days",
+      dias30: "30 Days",
+      cambioInmediato: "Urgent",
+    },
+  },
+  es: {
+    title: "Semáforo",
+    tooltip:
+      "Esta gráfica en dona muestra las proyecciones de cambio de sus llantas.",
+    noData: "No hay inspecciones disponibles",
+    inspected: "llantas inspeccionadas",
+    totalConditions: "Total de condiciones",
+    tire: "llantas",
+    footerText: "Estado actual de llantas",
+    labels: {
+      buenEstado: "Óptimo",
+      dias60: "60 Días",
+      dias30: "30 Días",
+      cambioInmediato: "Urgente",
+    },
+  },
+};
+
+
 interface SemaforoPieProps {
   tires: Tire[];
   onSelectCondition?: (condition: string | null) => void;
   selectedCondition?: string | null;
+  language: "en" | "es";
 }
 
 const SemaforoPie: React.FC<SemaforoPieProps> = ({ 
   tires, 
   onSelectCondition = () => {}, 
-  selectedCondition = null 
+  selectedCondition = null,
+  language 
 }) => {
+  const t = translations[language]; 
   const [tireCounts, setTireCounts] = useState({
     buenEstado: 0,
     dias60: 0,
@@ -56,8 +95,8 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
     setTireCounts(counts);
   }, [tires]);
 
-  const conditions = ["buenEstado", "dias60", "dias30", "cambioInmediato"];
-  const conditionLabels = ["Óptimo", "60 Días", "30 Días", "Urgente"];
+  const conditions = ["buenEstado", "dias60", "dias30", "cambioInmediato"] as const;
+  const conditionLabels = conditions.map((key) => t.labels[key]);
   const backgroundColors = ["#22c55e", "#2D95FF", "#f97316", "#ef4444"];
   const lightColors = ["#bbf7d0", "#bfdbfe", "#fed7aa", "#fecaca"];
   const icons = [
@@ -109,7 +148,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
           label: (context: { raw: number; label: string }) => {
             const value = context.raw;
             const percent = total ? Math.round((value / total) * 100) : 0;
-            return `${context.label}: ${value} llantas · ${percent}%`;
+            return `${context.label}: ${value} ${t.tire}· ${percent}%`;
           },
         },
       },
@@ -129,7 +168,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden print:shadow-none print:border-gray-300">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Semáforo</h2>
+        <h2 className="text-xl font-bold">{t.title}</h2>
         <div className="group relative cursor-pointer print:hidden">
           <HelpCircle
             className="text-white hover:text-gray-200 transition-colors"
@@ -144,7 +183,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
             w-60 pointer-events-none
           ">
             <p>
-              Esta gráfica en dono muestra las proyecciones de cambio de sus llantas.
+              {t.tooltip}
             </p>
           </div>
         </div>
@@ -156,7 +195,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
           {total === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-500">
               <AlertOctagon size={32} />
-              <p>No hay inspecciones disponibles</p>
+              <p>{t.noData}</p>
             </div>
           ) : (
             <div className="relative w-full h-full">
@@ -169,7 +208,7 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
               {/* Center text with improved positioning */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
                 <p className="text-3xl font-bold text-[#0A183A] print:text-2xl">{total}</p>
-                <p className="text-sm text-gray-500 print:text-xs">llantas inspeccionadas</p>
+                <p className="text-sm text-gray-500 print:text-xs">{t.inspected}</p>
               </div>
             </div>
           )}
@@ -207,9 +246,9 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
         {/* Footer */}
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center mt-4 print:pt-2 print:mt-2">
           <div className="text-xs text-gray-500 print:text-xs">
-            Total de condiciones: {activeIndices.length}
+            {t.totalConditions}: {activeIndices.length}
           </div>
-          <div className="text-xs text-gray-500 print:text-xs">Estado actual de llantas</div>
+          <div className="text-xs text-gray-500 print:text-xs">{t.footerText}</div>
         </div>
       </div>
     </div>

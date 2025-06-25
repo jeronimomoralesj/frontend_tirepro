@@ -3,13 +3,15 @@
 import React, { useState, useEffect } from 'react'
 import { 
   Calendar, BarChart3, Clock, MapPin, Users, Menu, X, Download,
-  Smartphone, MessageCircle, Plus, Minus
+  Smartphone, MessageCircle, Plus, Minus,
+  Glasses,
+  LayoutDashboard
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import logo from "../../../public/logo_text.png"
 import logoTire from "../../../public/logo_tire.png"
-import landingImage from "../../../public/landing.png" 
+import landingImage from "../../../public/landingUs.png" 
 import phone from "../../../public/2.png"
 
 const TireProUSLanding = () => {
@@ -85,24 +87,34 @@ const TireProUSLanding = () => {
   const features = [
     {
       title: "Digital Inspections",
-      description: "Automate inspections with AI and maintain complete tire condition records.",
+      description: "Finish your tire inspections in less than 10 minutes",
       icon: Calendar
     },
     {
       title: "Cost & CPK Tracking",
-      description: "Automatic cost-per-kilometer tracking with full investment visibility.",
+      description: "Automatic cost-per-kilometer tracking with full investment visibility to track your true results.",
       icon: BarChart3
     },
     {
-      title: "Position Control", 
-      description: "Manage and reorganize tires by vehicle with intuitive visual interface.",
-      icon: MapPin
+      title: "Complete dashboard", 
+      description: "Get a detailed dashboard with the current state of your fleet.",
+      icon: LayoutDashboard
     },
     {
       title: "Predictive Analytics",
       description: "AI that predicts when to change tires before critical failures.",
+      icon: Glasses
+    },
+    {
+      title: "Historical Analysis",
+      description: "View how much your CPM has changed over time.",
       icon: Clock
-    }
+    },
+    {
+      title: "Retreading Control",
+      description: "Add any events including retreading to your tires.",
+      icon: Clock
+    },
   ]
 
   const plans = [
@@ -142,6 +154,22 @@ const TireProUSLanding = () => {
     {
       question: "Are there limits on vehicles or tires?",
       answer: "No, all our plans include unlimited vehicles and tires completely free."
+    },
+    {
+      question: "How is TirePro different from competitors?",
+      answer: "TirePro combines AI-powered predictive analytics with comprehensive fleet management in one platform, offering real-time insights that help reduce costs by up to 25%."
+    },
+    {
+      question: "Can I replace spreadsheets with TirePro?",
+      answer: "Yes, TirePro eliminates the need for manual spreadsheet tracking by automating data collection and providing real-time analytics and reporting."
+    },
+    {
+      question: "What insights will I get?",
+      answer: "You'll receive predictive maintenance alerts, cost analysis, wear pattern insights, replacement recommendations, and performance optimization suggestions."
+    },
+    {
+      question: "Is TirePro secure?",
+      answer: "Yes, TirePro uses enterprise-grade security with encrypted data transmission and storage, ensuring your fleet data remains protected and private."
     }
   ]
 
@@ -149,6 +177,29 @@ const TireProUSLanding = () => {
     { title: "Offline Inspections", desc: "Works without connection, syncs later" },
     { title: "Real-time Data", desc: "Information updated instantly" },
     { title: "Connected Team", desc: "All your technicians on one platform" }
+  ]
+
+  const logos = [
+    {
+      src: "https://www.aerospacewalesforum.com/wp-content/uploads/MIT-logo.png",
+      alt: "MIT",
+      className: "h-16 w-16 object-contain"
+    },
+    {
+      src: "https://ingenio.org.uy/wp-content/uploads/2023/05/MongoDB-for-Startups.png",
+      alt: "MongoDB",
+      className: "h-12 w-auto object-contain"
+    },
+    {
+      src: "https://preditrix.ai/wp-content/uploads/2025/04/aws-n.png",
+      alt: "AWS Startup",
+      className: "h-12 w-auto object-contain"
+    },
+    {
+      src: "https://static1.squarespace.com/static/594ea10aff7c5048d6e4133a/t/606f00d7796b2013faf1573d/1750691954785/",
+      alt: "Partner Logo",
+      className: "h-12 w-auto object-contain"
+    }
   ]
 
   if (isLoading) {
@@ -189,8 +240,13 @@ const TireProUSLanding = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6 relative z-10">
-              {['Platform', 'Plans', 'Contact'].map((item) => (
-                <a key={item} href={item === 'Platform' ? '#platform' : item === 'Plans' ? '#plans' : `/${item.toLowerCase()}`} 
+              {['Platform', 'Plans', 'Contact', 'Features'].map((item) => (
+                <a key={item} href={
+                  item === 'Platform' ? '#platform' : 
+                  item === 'Plans' ? '#plans' : 
+                  item === 'Features' ? '/us/features' :
+                  `/${item.toLowerCase()}`
+                } 
                    className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group">
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
                   <span className="relative z-10">{item}</span>
@@ -202,7 +258,7 @@ const TireProUSLanding = () => {
             <div className="hidden md:flex items-center space-x-3 relative z-10">
               <a href='/login'>
                 <button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-black backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
-                  Sign In
+                  Log In
                 </button>
               </a>
               <a href='/companyregister'>
@@ -233,8 +289,13 @@ const TireProUSLanding = () => {
             <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
             
             <div className="relative p-5 space-y-6">
-              {['Platform', 'Plans', 'Contact'].map((item) => (
-                <a key={item} href={item === 'Platform' ? '#platform' : item === 'Plans' ? '#plans' : `/${item.toLowerCase()}`}
+              {['Platform', 'Plans', 'Contact', 'Features'].map((item) => (
+                <a key={item} href={
+                  item === 'Platform' ? '#platform' : 
+                  item === 'Plans' ? '#plans' : 
+                  item === 'Features' ? '/us/features' :
+                  `/${item.toLowerCase()}`
+                }
                    className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30" 
                    onClick={() => setIsMobileMenuOpen(false)}>
                   {item}
@@ -244,7 +305,7 @@ const TireProUSLanding = () => {
               <div className="pt-2 border-t border-white/30 space-y-4">
                 <a href='/login'>
                   <button className="w-full py-2 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
-                    Sign In
+                    Log In
                   </button>
                 </a>
                 <a href='/companyregister'>
@@ -259,34 +320,60 @@ const TireProUSLanding = () => {
       </nav>
 
       {/* Hero Section */}
-      <section id="hero" className="relative min-h-screen flex items-center pt-20">
+      <section id="hero" className="relative min-h-screen flex items-center pt-32 md:pt-40">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#136eb2_0%,_rgba(19,110,178,0.4)_40%,_transparent_60%)]"></div>
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
+          <div className="flex flex-col items-center text-center space-y-12">
+            {/* Text Content Above */}
+            <div className="space-y-8 max-w-4xl">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight bg-gradient-to-r from-white via-gray-100 to-[#348CCB] bg-clip-text text-transparent">
                 Reduce Your Tire Costs by Up to 25%
               </h1>
               <p className="text-xl text-gray-300 leading-relaxed">
-                AI that analyzes wear, anticipates failures, and optimizes your tire investment.
+                Transform your fleet management with AI-powered tire analytics that predicts failures before they happen, optimizes replacement schedules, and provides real-time insights to maximize your tire investment while reducing downtime and operational costs.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button className="bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white px-8 py-4 rounded-xl text-lg font-semibold hover:shadow-lg hover:shadow-[#348CCB]/25 transition-all transform hover:scale-105">
                   Start Free
                 </button>
               </div>
             </div>
              
-            <div className="relative">
+            {/* Image Below - Larger Size */}
+            <div className="relative w-full max-w-5xl">
               <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/20 backdrop-blur-sm">
                 <div className="aspect-video w-full bg-gradient-to-br from-[#348CCB]/20 to-[#1E76B6]/10 flex items-center justify-center rounded-3xl border border-white/10">
-                  <div className="w-full h-full flex items-center justify-center p-8">
-                    <Image src={landingImage} alt='TirePro Dashboard'/>
+                  <div className="w-full h-full flex items-center justify-center p-6">
+                    <Image src={landingImage} alt='TirePro Dashboard' className="w-full h-full object-contain rounded-xl"/>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Logo Section */}
+      <section className="py-15 bg-gradient-to-b from-transparent to-[#0A183A]/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <p className="text-gray-400 text-lg mb-8">With the support of leading organizations</p>
+          </div>
+          
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 lg:gap-16">
+            {logos.map((logo, index) => (
+              <div key={index} className="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity duration-300">
+                <img 
+                  src={logo.src} 
+                  alt={logo.alt}
+                  className={`${logo.className} filter brightness-0 invert`}
+                  onError={(e) => {
+                    e.target.style.display = 'none'
+                  }}
+                />
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -301,7 +388,7 @@ const TireProUSLanding = () => {
             <p className="text-xl text-gray-300">Technology that optimizes every aspect of your fleet</p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((feature, index) => {
               const IconComponent = feature.icon
               return (
@@ -448,35 +535,36 @@ const TireProUSLanding = () => {
             <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
               Frequently Asked Questions
             </h2>
-            <p className="text-xl text-gray-300">We answer your questions about TirePro</p>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-6">
             {faqItems.map((faq, index) => (
               <div 
                 key={index}
-                className="backdrop-blur-2xl bg-gradient-to-br from-white/15 via-white/8 to-white/12 rounded-3xl border border-white/25 overflow-hidden transition-all duration-300 hover:border-[#348CCB]/60"
+                className="rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-2xl bg-gradient-to-br from-white/15 via-white/8 to-white/12 rounded-3xl border border-white/25 overflow-hidden transition-all duration-300 hover:border-[#348CCB]/60"
               >
                 <button
-                  className="w-full p-6 text-left flex items-center justify-between hover:bg-white/10 transition-all duration-300"
+                  className="w-full text-left flex items-start justify-between group"
                   onClick={() => setOpenFaq(openFaq === index ? null : index)}
                 >
-                  <span className="font-semibold text-white pr-4">{faq.question}</span>
-                  <div className="flex-shrink-0">
+                  <h3 className="font-semibold text-white pr-4 text-lg leading-relaxed">
+                    {faq.question}
+                  </h3>
+                  <div className="flex-shrink-0 mt-1">
                     {openFaq === index ? (
-                      <Minus size={20} className="text-[#348CCB]" />
+                      <Minus size={20} className="text-[#348CCB] transition-transform duration-300" />
                     ) : (
-                      <Plus size={20} className="text-[#348CCB]" />
+                      <Plus size={20} className="text-[#348CCB] transition-transform duration-300 group-hover:scale-110" />
                     )}
                   </div>
                 </button>
                 
                 <div className={`overflow-hidden transition-all duration-300 ${
-                  openFaq === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  openFaq === index ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'
                 }`}>
-                  <div className="px-6 pb-6 py-5">
-                    <p className="text-gray-300 leading-relaxed">{faq.answer}</p>
-                  </div>
+                  <p className="text-gray-400 leading-relaxed text-sm">
+                    {faq.answer}
+                  </p>
                 </div>
               </div>
             ))}
@@ -525,18 +613,6 @@ const TireProUSLanding = () => {
           </div>
         </div>
       </footer>
-
-      {/* Floating WhatsApp Button */}
-      <a
-        href="https://wa.me/15551234567"
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Chat on WhatsApp"
-        className="group fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center"
-      >
-        <span className="absolute inset-0 rounded-full bg-white/10 backdrop-blur-2xl border border-white/30 before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-br before:from-white/30 before:via-white/10 before:to-transparent before:opacity-0 before:transition-opacity before:duration-500 group-hover:before:opacity-50 shadow-lg shadow-[#1E76B640] transition-transform duration-300 group-hover:scale-105" />
-        <MessageCircle className="relative z-10 w-6 h-6 text-white drop-shadow-md transition-colors duration-300 group-hover:text-[#348CCB]" />
-      </a>
     </div>
   )
 }

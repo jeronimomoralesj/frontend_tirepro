@@ -20,9 +20,31 @@ export type Tire = {
 
 interface TanqueMilimetroProps {
   tires: Tire[];
+  language?: "en" | "es"; // Language prop
 }
 
-const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({ tires }) => {
+// Translation object
+const translations = {
+  en: {
+    title: "Tank per Millimeter",
+    averageWear: "Average Wear",
+    totalTires: "Total Tires",
+    tooltipText: "Percentage of available usage for all tires in the fleet. Example: if 30% remains, it means only 30% of the average useful life remains for all tires."
+  },
+  es: {
+    title: "Tanque por Milímetro",
+    averageWear: "Desgaste Promedio",
+    totalTires: "Total de Llantas",
+    tooltipText: "Porcentaje de uso disponible de todas las llantas en la flota. Ejemplo: si queda un 30% restante, significa que solo queda un 30% de la vida útil en promedio de todas las llantas."
+  }
+};
+
+const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({ 
+  tires, 
+  language = "es" // Default to Spanish
+}) => {
+  const t = translations[language];
+
   // Calculate progress for each tire (only if there is at least one inspection)
   const progresses = tires.reduce((acc: number[], tire) => {
     if (tire.inspecciones && tire.inspecciones.length > 0) {
@@ -49,32 +71,32 @@ const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({ tires }) => {
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Tanque por Milímetro</h2>
+      <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
+        <h2 className="text-xl font-bold">{t.title}</h2>
         <div className="group relative cursor-pointer">
-  <HelpCircle
-    className="text-white hover:text-gray-200 transition-colors"
-    size={24}
-  />
-  <div className="
-    absolute z-10 -top-2 right-full 
-    bg-[#0A183A] text-white 
-    text-xs p-3 rounded-lg 
-    opacity-0 group-hover:opacity-100 
-    transition-opacity duration-300 
-    w-60 pointer-events-none
-  ">
-    <p>
-    Porcentaje de uso disponible de todas las llantas en la flota. Ejemplo: si queda un 30% restante, significa que solo queda un 30% de la vida útil en promedio de todas las llantas.
-    </p>
-  </div>
-</div>
-
+          <HelpCircle
+            className="text-white hover:text-gray-200 transition-colors"
+            size={24}
+          />
+          <div className="
+            absolute z-10 -top-2 right-full 
+            bg-[#0A183A] text-white 
+            text-xs p-3 rounded-lg 
+            opacity-0 group-hover:opacity-100 
+            transition-opacity duration-300 
+            w-60 pointer-events-none
+          ">
+            <p>
+              {t.tooltipText}
+            </p>
+          </div>
+        </div>
       </div>
+      
       <div className="p-6">
         <div className="mb-4">
           <div className="flex justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Desgaste Promedio</span>
+            <span className="text-sm font-medium text-gray-700">{t.averageWear}</span>
             <span className="text-sm font-medium text-gray-700">{progressPercentage}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-4">
@@ -86,7 +108,7 @@ const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({ tires }) => {
         </div>
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
           <div className="text-xs text-gray-500">
-            Total de Llantas: {tires.length}
+            {t.totalTires}: {tires.length}
           </div>
         </div>
       </div>

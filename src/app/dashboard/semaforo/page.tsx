@@ -50,8 +50,8 @@ export type Vehicle = {
 export default function SemaforoPage() {
   const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
-  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [gastoTotal, setGastoTotal] = useState<number>(0);
@@ -59,12 +59,11 @@ export default function SemaforoPage() {
   const [userName, setUserName] = useState<string>("");
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
-  // Add new state for exporting
-  const [exporting, setExporting] = useState<boolean>(false);
-
-  // Add content ref for PDF export
+  const [exporting, setExporting] = useState(false);
+  
+  // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
-
+  
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
   const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
@@ -73,30 +72,72 @@ export default function SemaforoPage() {
   const [ejeOptions, setEjeOptions] = useState<string[]>([]);
   const [selectedEje, setSelectedEje] = useState<string>("Todos");
   
-  // Cliente filter options - ADD THIS
+  // Cliente filter options
   const [clienteOptions, setClienteOptions] = useState<string[]>([]);
   const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
   
   // Semáforo filter options
   const [semaforoOptions] = useState<string[]>([
-    "Todos", 
-    "Óptimo", 
-    "60 Días", 
-    "30 Días", 
-    "Urgente", 
-    "Sin Inspección"
+    "Todos",
+    "Óptimo",
+    "60 Días",
+    "30 Días",
+    "Urgente",
+    "Sin Inspección",
   ]);
   const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
-
+  
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  
+  // Language select
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language
+      }
+
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
 
   // Refs for dropdown components
   const dropdownRefs = useRef({
     marca: useRef<HTMLDivElement>(null),
     eje: useRef<HTMLDivElement>(null),
     semaforo: useRef<HTMLDivElement>(null),
-    cliente: useRef<HTMLDivElement>(null) // ADD THIS
+    cliente: useRef<HTMLDivElement>(null)
   }).current;
 
   // Updated exportToPDF function
@@ -412,65 +453,46 @@ export default function SemaforoPage() {
     }
   }, []);
 
-const [userPlan, setUserPlan] = useState<string>("");
+  const [userPlan, setUserPlan] = useState<string>("");
 
-// 2) fetchCompany helper
-const fetchCompany = useCallback(async (companyId: string) => {
-  try {
-    const url = process.env.NEXT_PUBLIC_API_URL
-      ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
-      : `https://api.tirepro.com.co/api/companies/${companyId}`;
+  // fetchCompany helper
+  const fetchCompany = useCallback(async (companyId: string) => {
+    try {
+      const url = process.env.NEXT_PUBLIC_API_URL
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
+        : `https://api.tirepro.com.co/api/companies/${companyId}`;
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Failed to fetch company");
-    const company = await res.json();
-    setUserPlan(company.plan);
-  } catch (err) {
-    console.error(err);
-    setError("No se pudo cargar la configuración de la compañía");
-  }
-}, []);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch company");
+      const company = await res.json();
+      setUserPlan(company.plan);
+    } catch (err) {
+      console.error(err);
+      setError("No se pudo cargar la configuración de la compañía");
+    }
+  }, []);
 
-// 3) in your existing useEffect, call fetchCompany
-useEffect(() => {
-  const storedUser = localStorage.getItem("user");
-  if (!storedUser) {
-    router.push("/login");
-    return;
-  }
-
-  const user = JSON.parse(storedUser);
-  if (!user.companyId) {
-    setError("No company assigned to user");
-    return;
-  }
-
-  setUserName(user.name || user.email || "User");
-
-  // → NEW:
-  fetchCompany(user.companyId);
-
-  // your existing loads:
-  fetchVehicles(user.companyId);
-  fetchTires(user.companyId);
-}, [router, fetchTires, fetchVehicles, fetchCompany]);
-
-  // Now that functions are defined, we can use them in useEffect
+  // Main effect for user initialization
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.companyId) {
-        setUserName(user.name || user.email || "User");
-        fetchTires(user.companyId);
-        fetchVehicles(user.companyId);
-      } else {
-        setError("No company assigned to user");
-      }
-    } else {
+    if (!storedUser) {
       router.push("/login");
+      return;
     }
-  }, [router, fetchTires, fetchVehicles]);
+
+    const user = JSON.parse(storedUser);
+    if (!user.companyId) {
+      setError("No company assigned to user");
+      return;
+    }
+
+    setUserName(user.name || user.email || "User");
+
+    // Load company data and other resources
+    fetchCompany(user.companyId);
+    fetchVehicles(user.companyId);
+    fetchTires(user.companyId);
+  }, [router, fetchTires, fetchVehicles, fetchCompany]);
 
   // Extract unique marca and eje values for filter options
   useEffect(() => {
@@ -654,24 +676,24 @@ useEffect(() => {
             <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
           </div>
           <div
-  className={`
-    grid
-    grid-cols-1
-    sm:grid-cols-2
-    ${userPlan === "retail" ? "lg:grid-cols-4" : "lg:grid-cols-3"}
-    gap-3
-  `}
->
-  {userPlan === "retail" && (
-    <FilterDropdown
-      id="cliente"
-      label="Dueño"
-      options={clienteOptions}
-      selected={selectedCliente}
-      onChange={setSelectedCliente}
-    />
-  )}
-            
+            className={`
+              grid
+              grid-cols-1
+              sm:grid-cols-2
+              ${userPlan === "retail" ? "lg:grid-cols-4" : "lg:grid-cols-3"}
+              gap-3
+            `}
+          >
+            {userPlan === "retail" && (
+              <FilterDropdown
+                id="cliente"
+                label="Dueño"
+                options={clienteOptions}
+                selected={selectedCliente}
+                onChange={setSelectedCliente}
+              />
+            )}
+              
             <FilterDropdown
               id="marca"
               label="Marca"
@@ -711,8 +733,8 @@ useEffect(() => {
           <br />
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <PorVida tires={filteredTires} />
-            <SemaforoPie tires={filteredTires} />
-            <ReencaucheHistorico tires={filteredTires} />
+            <SemaforoPie tires={filteredTires} language={language}  />
+            <ReencaucheHistorico tires={filteredTires} language={language}  />
           </div>
           <br/>
           <div className="grid md:grid-cols-0 lg:grid-cols-1 gap-6">
