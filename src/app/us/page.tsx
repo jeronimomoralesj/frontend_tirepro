@@ -520,6 +520,7 @@ const TireProUSLanding = () => {
                     }`}>
                       Get Started
                     </button>
+                    <h3 className="text-gray-200 text-center mt-5">100% Free</h3>
                   </a>
                 </div>
               </div>
