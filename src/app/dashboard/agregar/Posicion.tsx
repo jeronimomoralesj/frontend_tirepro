@@ -25,8 +25,68 @@ interface TireChange {
   newPosition: string | null;
 }
 
+interface Translation {
+  title: string;
+  searchVehicle: string;
+  enterPlate: string;
+  search: string;
+  searching: string;
+  vehicleData: string;
+  plate: string;
+  type: string;
+  totalTires: string;
+  assigned: string;
+  inventory: string;
+  availableTires: string;
+  inventoryTires: string;
+  tireConfig: string;
+  axis: string;
+  pos: string;
+  inventoryZone: string;
+  dragToInventory: string;
+  inventoryPos: string;
+  availableZone: string;
+  saveChanges: string;
+  saving: string;
+  cancelChanges: string;
+  exportChanges: string;
+  changesFor: string;
+  tire: string;
+  orig: string;
+  new: string;
+  noExport: string;
+  exportPDF: string;
+  noTires: string;
+  noInventoryTires: string;
+  noVehicleFound: string;
+  noTiresFound: string;
+  positionsUpdated: string;
+  updateError: string;
+  unknownError: string;
+}
+
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+}
+
+interface GeolocationResponse {
+  coords: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+interface GeocodingResponse {
+  countryCode: string;
+}
+
 // Language translations
-const translations = {
+const translations: Record<'es' | 'en', Translation> = {
   es: {
     title: "Asignar Posiciones de Llantas",
     searchVehicle: "Buscar Vehículo",
@@ -117,7 +177,8 @@ const getAuthHeaders = () => ({
 });
 
 const getErrorMessage = (error: unknown): string => {
-  return error?.response?.data?.message || error?.message || "Error desconocido";
+  const apiError = error as ApiError;
+  return apiError?.response?.data?.message || apiError?.message || "Error desconocido";
 };
 
 // Hooks
@@ -144,7 +205,7 @@ const useApiCall = () => {
 };
 
 // Components
-const DraggableTire: React.FC<{ tire: Tire; isInventory?: boolean; t: any }> = ({ tire, isInventory = false, t }) => {
+const DraggableTire: React.FC<{ tire: Tire; isInventory?: boolean; t: Translation }> = ({ tire, isInventory = false }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [{ isDragging }, dragRef] = useDrag(() => ({
     type: ItemTypes.TIRE,
@@ -211,7 +272,7 @@ const TirePosition: React.FC<{
   position: string;
   tire: Tire | null;
   onDrop: (tireId: string) => void;
-  t: any;
+  t: Translation;
 }> = ({ position, tire, onDrop, t }) => (
   <DropZone
     onDrop={onDrop}
@@ -226,7 +287,7 @@ const TirePosition: React.FC<{
   </DropZone>
 );
 
-const TiresTray: React.FC<{ tires: Tire[]; title: string; isInventory?: boolean; t: any }> = ({ 
+const TiresTray: React.FC<{ tires: Tire[]; title: string; isInventory?: boolean; t: Translation }> = ({ 
   tires, 
   title, 
   isInventory = false,
@@ -263,7 +324,7 @@ const VehicleAxis: React.FC<{
   positions: string[];
   tireMap: Record<string, Tire>;
   onTireDrop: (tireId: string, position: string) => void;
-  t: any;
+  t: Translation;
 }> = ({ axleIdx, positions, tireMap, onTireDrop, t }) => {
   const middleIndex = Math.ceil(positions.length / 2);
   const leftTires = positions.slice(0, middleIndex);
@@ -316,7 +377,7 @@ const VehicleAxis: React.FC<{
 const VehicleVisualization: React.FC<{
   tires: Tire[];
   onTireDrop: (tireId: string, position: string) => void;
-  t: any;
+  t: Translation;
 }> = ({ tires, onTireDrop, t }) => {
   const layout = React.useMemo(() => {
     const activeTires = tires.filter(t => t.position && t.position !== "0");
@@ -387,7 +448,7 @@ const ExportModal: React.FC<{
   onExport: () => void;
   changes: TireChange[];
   vehicle: Vehicle | null;
-  t: any;
+  t: Translation;
 }> = ({ isOpen, onClose, onExport, changes, vehicle, t }) => {
   if (!isOpen) return null;
   
@@ -459,7 +520,7 @@ const Posicion = () => {
       }
       
       try {
-        const pos = await new Promise((resolve, reject) => {
+        const pos = await new Promise<GeolocationResponse>((resolve, reject) => {
           if (!navigator.geolocation) return reject('no geo');
           navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
         });
@@ -469,8 +530,8 @@ const Posicion = () => {
         );
         
         if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          const data: GeocodingResponse = await resp.json();
+          const lang = (data.countryCode === 'US' || data.countryCode === 'CA') ? 'en' : 'es';
           setLanguage(lang);
           localStorage.setItem('preferredLanguage', lang);
           return;

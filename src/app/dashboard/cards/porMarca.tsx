@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Bar } from 'react-chartjs-2';
 import { 
   Chart as ChartJS, 
@@ -49,7 +48,6 @@ interface PorMarcaProps {
 }
 
 const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
-  const router = useRouter();
   const [language, setLanguage] = useState<'en'|'es'>('es');
 
   useEffect(() => {

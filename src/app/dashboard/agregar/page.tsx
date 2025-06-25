@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { PlusCircle, Search, Calendar, FilePlus } from "lucide-react";
 import CrearLlanta from "./CrearLlanta";
 import Inspeccion from "./Inspeccion";
@@ -10,62 +9,11 @@ import CargaMasiva from "./CargaMasiva";
 
 type Option = "crear" | "inspeccion" | "evento" | "cargamasiva";
 
-// Types for your data structures
-interface Tire {
-  id: string;
-  // Add other tire properties as needed
-}
-
-interface Vehicle {
-  id: string;
-  // Add other vehicle properties as needed
-}
-
 export default function AgregarPage() {
-  const router = useRouter();
   const [selectedOption, setSelectedOption] = useState<Option>("crear");
-  
-  // Your existing state variables
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [gastoTotal, setGastoTotal] = useState<number>(0);
-  const [gastoMes, setGastoMes] = useState<number>(0);
-  const [userName, setUserName] = useState<string>("");
-  const [cpkPromedio, setCpkPromedio] = useState<number>(0);
-  const [cpkProyectado, setCpkProyectado] = useState<number>(0);
-  const [exporting, setExporting] = useState(false);
   
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
-  
-  // Filter state
-  const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
-  const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
-  
-  // Eje filter options
-  const [ejeOptions, setEjeOptions] = useState<string[]>([]);
-  const [selectedEje, setSelectedEje] = useState<string>("Todos");
-  
-  // Cliente filter options
-  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
-  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
-  
-  // Semáforo filter options
-  const [semaforoOptions] = useState<string[]>([
-    "Todos",
-    "Óptimo",
-    "60 Días",
-    "30 Días",
-    "Urgente",
-    "Sin Inspección",
-  ]);
-  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
-  
-  // Dropdown visibility states
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   
   // Language select
   const [language, setLanguage] = useState<'en'|'es'>('es');

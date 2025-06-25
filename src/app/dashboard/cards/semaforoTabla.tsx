@@ -2,7 +2,6 @@
 
 import { HelpCircle } from "lucide-react";
 import React, { useMemo, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 // Define types for Vehicle, Inspection, and Tire.
 export interface Vehicle {
@@ -49,8 +48,6 @@ const translations = {
 };
 
 const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
-  const router = useRouter();
-  
   // Language detection state
   const [language, setLanguage] = useState<'en'|'es'>('es');
 

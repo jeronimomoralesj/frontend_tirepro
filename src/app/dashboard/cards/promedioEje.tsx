@@ -12,7 +12,6 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 // Register ChartJS components and plugins
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
@@ -68,7 +67,6 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
   onSelectEje,
   selectedEje,
 }) => {
-  const router = useRouter();
   
   // Language detection state
   const [language, setLanguage] = useState<'en'|'es'>('es');

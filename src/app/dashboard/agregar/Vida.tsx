@@ -109,36 +109,9 @@ const VidaPage: React.FC = () => {
   const [userName, setUserName] = useState<string>("");
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
-  const [exporting, setExporting] = useState(false);
 
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
-
-  // Filter state
-  const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
-  const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
-
-  // Eje filter options
-  const [ejeOptions, setEjeOptions] = useState<string[]>([]);
-  const [selectedEje, setSelectedEje] = useState<string>("Todos");
-
-  // Cliente filter options
-  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
-  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
-
-  // Semáforo filter options
-  const [semaforoOptions] = useState<string[]>([
-    "Todos",
-    "Óptimo",
-    "60 Días",
-    "30 Días",
-    "Urgente",
-    "Sin Inspección",
-  ]);
-  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
-
-  // Dropdown visibility states
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // Language state
   const [language, setLanguage] = useState<'en'|'es'>('es');

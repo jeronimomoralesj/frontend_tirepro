@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, HelpCircle } from "lucide-react";
 
 // Language translations
@@ -59,7 +58,6 @@ export type Tire = {
 };
 
 const InspeccionVencidaPage: React.FC = () => {
-  const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

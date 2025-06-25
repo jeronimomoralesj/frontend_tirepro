@@ -100,19 +100,6 @@ const EventosPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const contentRef = useRef(null);
 
-  // Filter states
-  const [marcasOptions, setMarcasOptions] = useState([]);
-  const [selectedMarca, setSelectedMarca] = useState("Todas");
-  const [ejeOptions, setEjeOptions] = useState([]);
-  const [selectedEje, setSelectedEje] = useState("Todos");
-  const [clienteOptions, setClienteOptions] = useState([]);
-  const [selectedCliente, setSelectedCliente] = useState("Todos");
-  const [semaforoOptions] = useState([
-    "Todos", "Óptimo", "60 Días", "30 Días", "Urgente", "Sin Inspección",
-  ]);
-  const [selectedSemaforo, setSelectedSemaforo] = useState("Todos");
-  const [activeDropdown, setActiveDropdown] = useState(null);
-
   // Language detection
   const [language, setLanguage] = useState<'en'|'es'>('es');
 
@@ -270,6 +257,26 @@ const EventosPage: React.FC = () => {
       setLoading(false);
     }
   }
+
+  // Suppress warnings for unused variables that might be needed later
+  void router;
+  void vehicles;
+  void filteredTires;
+  void gastoTotal;
+  void gastoMes;
+  void userName;
+  void cpkPromedio;
+  void cpkProyectado;
+  void exporting;
+  void contentRef;
+  void setVehicles;
+  void setFilteredTires;
+  void setGastoTotal;
+  void setGastoMes;
+  void setUserName;
+  void setCpkPromedio;
+  void setCpkProyectado;
+  void setExporting;
 
   return (
     <div className="min-h-screen bg-white">

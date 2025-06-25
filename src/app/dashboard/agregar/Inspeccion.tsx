@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   Search,
   Timer,
@@ -123,7 +122,6 @@ const translations = {
 };
 
 export default function InspeccionPage() {
-  const router = useRouter();
   
   // Language detection state
   const [language, setLanguage] = useState<'en'|'es'>('es');

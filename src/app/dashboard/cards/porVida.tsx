@@ -9,7 +9,6 @@ import {
   Legend,
 } from "chart.js";
 import { HelpCircle, Activity } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -60,7 +59,6 @@ const PorVida: React.FC<PorVidaProps> = ({
   onSelectVida = () => {}, 
   selectedVida = null 
 }) => {
-  const router = useRouter();
   
   // Language detection state
   const [language, setLanguage] = useState<'en'|'es'>('es');
