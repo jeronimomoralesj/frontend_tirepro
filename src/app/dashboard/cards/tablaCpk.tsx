@@ -1,7 +1,7 @@
 "use client";
 
 import { HelpCircle, Search } from "lucide-react";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 
 export type VidaEntry = {
   valor: string;
@@ -30,8 +30,84 @@ interface TablaCpkProps {
   tires: Tire[];
 }
 
+// Translations object
+const translations = {
+  es: {
+    title: "Mejor CPK",
+    helpTooltip: "Esta tabla hace un ranking histórico de tus llantas con mejor CPK",
+    searchPlaceholder: "Buscar por placa o marca...",
+    id: "Id",
+    cpk: "CPK",
+    cpkProjected: "CPK Proy",
+    life: "Vida",
+    position: "Posición",
+    brand: "Marca",
+    noResults: "No se encontraron resultados para la búsqueda.",
+    noData: "No hay datos de CPK disponibles."
+  },
+  en: {
+    title: "Best CPK",
+    helpTooltip: "This table shows a historical ranking of your tires with the best CPK",
+    searchPlaceholder: "Search by plate or brand...",
+    id: "ID",
+    cpk: "CPK",
+    cpkProjected: "CPK Proj",
+    life: "Life",
+    position: "Position",
+    brand: "Brand",
+    noResults: "No results found for the search.",
+    noData: "No CPK data available."
+  }
+};
+
 const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Language state and detection
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language
+      }
+      
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Get current translations
+  const t = translations[language];
 
   const sortedTires = useMemo(() => {
     const tiresWithLastInspection = tires
@@ -70,28 +146,46 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
     );
   }, [sortedTires, searchTerm]);
 
+  // Language toggle component
+  const LanguageToggle = () => (
+    <div className="flex items-center space-x-2">
+      <button
+        onClick={() => {
+          const newLang = language === 'es' ? 'en' : 'es';
+          setLanguage(newLang);
+          localStorage.setItem('preferredLanguage', newLang);
+        }}
+        className="px-3 py-1.5 bg-white/20 text-white rounded hover:bg-white/30 transition flex items-center text-sm"
+      >
+        {language === 'es' ? 'EN' : 'ES'}
+      </button>
+    </div>
+  );
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Mejor CPK</h2>
-        <div className="group relative cursor-pointer">
-          <HelpCircle
-            className="text-white hover:text-gray-200 transition-colors"
-            size={24}
-          />
-          <div className="
-            absolute z-10 -top-2 right-full 
-            bg-[#0A183A] text-white
-            text-xs p-3 rounded-lg
-            opacity-0 group-hover:opacity-100
-            transition-opacity duration-300
-            w-60 pointer-events-none
-          ">
-            <p>
-              Esta tabla hace un ranking historico de tus llantas con mejor cpk
-            </p>
+        <div className="flex items-center space-x-3">
+          <h2 className="text-xl font-bold">{t.title}</h2>
+          <div className="group relative cursor-pointer">
+            <HelpCircle
+              className="text-white hover:text-gray-200 transition-colors"
+              size={20}
+            />
+            <div className="
+              absolute z-10 -top-2 right-full 
+              bg-[#0A183A] text-white
+              text-xs p-3 rounded-lg
+              opacity-0 group-hover:opacity-100
+              transition-opacity duration-300
+              w-60 pointer-events-none
+              mr-2
+            ">
+              <p>{t.helpTooltip}</p>
+            </div>
           </div>
         </div>
+        <LanguageToggle />
       </div>
       
       <div className="p-4 border-b border-gray-200">
@@ -102,7 +196,7 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
           <input
             type="text"
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Buscar por placa o marca..."
+            placeholder={t.searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -114,12 +208,12 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
           <table className="min-w-full table-auto">
             <thead className="bg-gray-100 sticky top-0">
               <tr className="text-left text-sm font-semibold text-gray-600">
-                <th className="py-3 px-4">Id</th>
-                <th className="py-3 px-4">CPK</th>
-                <th className="py-3 px-4">CPK Proy</th>
-                <th className="py-3 px-4">Vida</th>
-                <th className="py-3 px-4">Posición</th>
-                <th className="py-3 px-4">Marca</th>
+                <th className="py-3 px-4">{t.id}</th>
+                <th className="py-3 px-4">{t.cpk}</th>
+                <th className="py-3 px-4">{t.cpkProjected}</th>
+                <th className="py-3 px-4">{t.life}</th>
+                <th className="py-3 px-4">{t.position}</th>
+                <th className="py-3 px-4">{t.brand}</th>
               </tr>
             </thead>
             <tbody className="text-sm text-gray-700 divide-y divide-gray-100">
@@ -138,7 +232,7 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
           
           {filteredTires.length === 0 && (
             <p className="mt-4 text-sm text-gray-500 text-center">
-              {searchTerm ? "No se encontraron resultados para la búsqueda." : "No hay datos de CPK disponibles."}
+              {searchTerm ? t.noResults : t.noData}
             </p>
           )}
         </div>

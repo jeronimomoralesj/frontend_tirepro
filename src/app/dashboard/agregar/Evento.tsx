@@ -5,16 +5,65 @@ import Vida from "./Vida";
 import Posicion from "./Posicion";
 import OtherEvent from "./Other";
 
-export default function Evento() {
+interface EventoProps {
+  language: 'en' | 'es';
+}
+
+export default function Evento({ language = 'es' }: EventoProps) {
   const [selectedOption, setSelectedOption] = useState<"vida" | "posicion" | "evento">("vida");
 
-  const getTitleByOption = () => {
-    switch (selectedOption) {
-      case "vida": return "Actualizar vida";
-      case "posicion": return "Registro nueva rotación";
-      case "evento": return "Registrar otro evento";
-      default: return "Seleccione una opción";
+  // Translations object
+  const translations = {
+    es: {
+      titleByOption: {
+        vida: "Actualizar vida",
+        posicion: "Registro nueva rotación",
+        evento: "Registrar otro evento"
+      },
+      defaultTitle: "Seleccione una opción",
+      cards: {
+        vida: {
+          title: "Cambiar Vida",
+          description: "Cambie la llanta a reencauche, o en fin de vida"
+        },
+        posicion: {
+          title: "Agregar Rotación",
+          description: "Agregue una rotación en sus Vehículos"
+        },
+        evento: {
+          title: "Otro evento",
+          description: "Agregar otros eventos como pinchazo, etc."
+        }
+      }
+    },
+    en: {
+      titleByOption: {
+        vida: "Update Life",
+        posicion: "New Rotation Record",
+        evento: "Register Other Event"
+      },
+      defaultTitle: "Select an option",
+      cards: {
+        vida: {
+          title: "Change Life",
+          description: "Change tire to retread or end of life"
+        },
+        posicion: {
+          title: "Add Rotation",
+          description: "Add a rotation to your Vehicles"
+        },
+        evento: {
+          title: "Other Event",
+          description: "Add other events like puncture, etc."
+        }
+      }
     }
+  };
+
+  const t = translations[language];
+
+  const getTitleByOption = () => {
+    return t.titleByOption[selectedOption] || t.defaultTitle;
   }  
 
   return (
@@ -35,9 +84,9 @@ export default function Evento() {
             <div className={`absolute inset-0 opacity-10 ${selectedOption === "vida" ? "bg-[#1E76B6]" : "bg-gray-200"}`}></div>
             <div className="relative p-6">
               <h3 className={`font-semibold text-lg mb-2 ${selectedOption === "vida" ? "text-[#0A183A]" : "text-gray-700"}`}>
-                Cambiar Vida
+                {t.cards.vida.title}
               </h3>
-              <p className="text-sm text-gray-500">Cambie la llanta a reencauche, o en fin de vida</p>
+              <p className="text-sm text-gray-500">{t.cards.vida.description}</p>
             </div>
           </div>
 
@@ -53,9 +102,9 @@ export default function Evento() {
             <div className={`absolute inset-0 opacity-10 ${selectedOption === "posicion" ? "bg-[#1E76B6]" : "bg-gray-200"}`}></div>
             <div className="relative p-6">
               <h3 className={`font-semibold text-lg mb-2 ${selectedOption === "posicion" ? "text-[#0A183A]" : "text-gray-700"}`}>
-                Agregar Rotación
+                {t.cards.posicion.title}
               </h3>
-              <p className="text-sm text-gray-500">Agregue una rotación en sus Vehículos</p>
+              <p className="text-sm text-gray-500">{t.cards.posicion.description}</p>
             </div>
           </div>
 
@@ -71,9 +120,9 @@ export default function Evento() {
             <div className={`absolute inset-0 opacity-10 ${selectedOption === "evento" ? "bg-[#1E76B6]" : "bg-gray-200"}`}></div>
             <div className="relative p-6">
               <h3 className={`font-semibold text-lg mb-2 ${selectedOption === "evento" ? "text-[#0A183A]" : "text-gray-700"}`}>
-                Otro evento
+                {t.cards.evento.title}
               </h3>
-              <p className="text-sm text-gray-500">Agregar otros eventos como pinchazo, etc.</p>
+              <p className="text-sm text-gray-500">{t.cards.evento.description}</p>
             </div>
           </div>
         </div>
@@ -85,9 +134,9 @@ export default function Evento() {
           </div>
           
           <div>
-            {selectedOption === "vida" && <Vida />}
-            {selectedOption === "posicion" && <Posicion />}
-            {selectedOption === "evento" && <OtherEvent />}
+            {selectedOption === "vida" && <Vida language={language} />}
+            {selectedOption === "posicion" && <Posicion language={language} />}
+            {selectedOption === "evento" && <OtherEvent language={language} />}
           </div>
         </div>
       </div>

@@ -50,6 +50,7 @@ export type Tire = {
   marca: string;
   eje: string;
   vehicleId?: string;
+  vida?: any;
 };
 
 export type Vehicle = {
@@ -57,56 +58,177 @@ export type Vehicle = {
   placa: string;
   tireCount: number;
   cliente?: string;
+  tipo?: string;
+};
+
+// Language translations
+const translations = {
+  es: {
+    myFleet: "Mi Flota",
+    updated: "Actualizado",
+    export: "Exportar",
+    exporting: "Exportando...",
+    vehicles: "Vehículos",
+    tires: "Llantas",
+    avgCpk: "CPK Promedio",
+    projectedCpk: "CPK Proyectado",
+    filters: "Filtros",
+    owner: "Dueño",
+    brand: "Marca",
+    axle: "Eje",
+    status: "Estado",
+    all: "Todos",
+    allBrands: "Todas",
+    allAxles: "Todos",
+    allOwners: "Todos",
+    optimal: "Óptimo",
+    days60: "60 Días",
+    days30: "30 Días",
+    urgent: "Urgente",
+    noInspection: "Sin Inspección",
+    loading: "Cargando neumáticos...",
+    noMarca: "Sin marca",
+    noOwner: "Sin dueño"
+  },
+  en: {
+    myFleet: "My Fleet",
+    updated: "Updated",
+    export: "Export",
+    exporting: "Exporting...",
+    vehicles: "Vehicles",
+    tires: "Tires",
+    avgCpk: "Average CPK",
+    projectedCpk: "Projected CPK",
+    filters: "Filters",
+    owner: "Owner",
+    brand: "Brand",
+    axle: "Axle",
+    status: "Status",
+    all: "All",
+    allBrands: "All",
+    allAxles: "All",
+    allOwners: "All",
+    optimal: "Optimal",
+    days60: "60 Days",
+    days30: "30 Days",
+    urgent: "Urgent",
+    noInspection: "No Inspection",
+    loading: "Loading tires...",
+    noMarca: "No brand",
+    noOwner: "No owner"
+  }
 };
 
 export default function FlotaPage() {
   const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
-  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
-  
-  // Add exporting state
-  const [exporting, setExporting] = useState(false);
-  // Add content ref for print targeting
-  const contentRef = useRef<HTMLDivElement>(null);
-  
-  // Keeping track of counts but not using them directly in UI yet
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [gastoTotal, setGastoTotal] = useState<number>(0);
+  const [gastoMes, setGastoMes] = useState<number>(0);
+  const [userName, setUserName] = useState<string>("");
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
-
+  const [exporting, setExporting] = useState(false);
+  
+  // Ref for the content container
+  const contentRef = useRef<HTMLDivElement>(null);
+  
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
-  const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
-
-  // Cliente filter options - ADD THIS
-  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
-  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
-  
-  // Not used but keeping for potential future use - removing state setters that are unused
-  const [selectedTipoVehiculo] = useState<string>("Todos");
-  const [selectedPeriodo] = useState<string>("Todo");
-  const [selectedCpkRange] = useState<string>("Todos");
+  const [selectedMarca, setSelectedMarca] = useState<string>("");
   
   // Eje filter options
   const [ejeOptions, setEjeOptions] = useState<string[]>([]);
-  const [selectedEje, setSelectedEje] = useState<string>("Todos");
-
-  // Semáforo filter options (Estado)
-  const [semaforoOptions] = useState<string[]>([
-    "Todos",
-    "Óptimo",
-    "60 Días",
-    "30 Días",
-    "Urgente",
-    "Sin Inspección",
-  ]);
-  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
-
+  const [selectedEje, setSelectedEje] = useState<string>("");
+  
+  // Cliente filter options
+  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<string>("");
+  
+  // Semáforo filter options
+  const [semaforoOptions, setSemaforoOptions] = useState<string[]>([]);
+  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("");
+  
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  
+  // Language detection
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [userPlan, setUserPlan] = useState<string>("");
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language
+      }
+      
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Update filter options when language changes
+  useEffect(() => {
+    const t = translations[language];
+    setSemaforoOptions([
+      t.all,
+      t.optimal,
+      t.days60,
+      t.days30,
+      t.urgent,
+      t.noInspection,
+    ]);
+    
+    // Reset selected values with translated strings
+    if (selectedMarca === "" || selectedMarca === "Todas" || selectedMarca === "All") {
+      setSelectedMarca(t.allBrands);
+    }
+    if (selectedEje === "" || selectedEje === "Todos" || selectedEje === "All") {
+      setSelectedEje(t.allAxles);
+    }
+    if (selectedCliente === "" || selectedCliente === "Todos" || selectedCliente === "All") {
+      setSelectedCliente(t.allOwners);
+    }
+    if (selectedSemaforo === "" || selectedSemaforo === "Todos" || selectedSemaforo === "All") {
+      setSelectedSemaforo(t.all);
+    }
+  }, [language]);
+
+  // Get current translations
+  const t = translations[language];
 
 const exportToPDF = () => {
   try {
@@ -117,7 +239,7 @@ const exportToPDF = () => {
     style.type = 'text/css';
     style.id = 'print-style';
     
-    // Enhanced print styles with better page break control
+    // Enhanced print styles with better page break control and chart positioning
     style.innerHTML = `
       @media print {
         @page { 
@@ -143,6 +265,11 @@ const exportToPDF = () => {
           left: 0;
           top: 0;
           width: 100%;
+        }
+        
+        /* Hide filter section in print */
+        .print\\:hidden {
+          display: none !important;
         }
         
         /* Fix potential color issues */
@@ -176,12 +303,31 @@ const exportToPDF = () => {
           -webkit-print-color-adjust: exact !important;
         }
         
-        /* Enhanced chart and canvas handling */
+        /* Enhanced chart and canvas handling with proper positioning */
         canvas {
           max-width: 100% !important;
           height: auto !important;
           display: block !important;
           margin: 0 auto !important;
+          position: relative !important;
+        }
+        
+        /* Chart container positioning */
+        .chart-container {
+          position: relative !important;
+          height: auto !important;
+          min-height: 200px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: flex-end !important;
+        }
+        
+        /* Ensure charts align to bottom of their containers */
+        .chart-wrapper {
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: flex-end !important;
+          height: 100% !important;
         }
         
         /* Control page breaks */
@@ -234,9 +380,12 @@ const exportToPDF = () => {
           position: absolute !important;
         }
         
-        /* Fix chart container sizing */
+        /* Fix chart container sizing with bottom alignment */
         .h-64 {
           height: 12rem !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: flex-end !important;
         }
         
         /* Ensure center text is properly positioned */
@@ -249,11 +398,6 @@ const exportToPDF = () => {
         
         .z-10 {
           z-index: 10 !important;
-        }
-        
-        /* Hide interactive elements */
-        .print\\:hidden {
-          display: none !important;
         }
         
         /* Adjust spacing for print */
@@ -287,6 +431,9 @@ const exportToPDF = () => {
         
         .print\\:h-48 {
           height: 12rem !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: flex-end !important;
         }
         
         .print\\:max-w-48 {
@@ -309,8 +456,8 @@ const exportToPDF = () => {
       // Add page break control classes
       const gridContainers = contentRef.current.querySelectorAll('.grid');
       gridContainers.forEach((container) => {
-  container.classList.add('avoid-break');
-});
+        container.classList.add('avoid-break');
+      });
     }
     
     // Wait for charts to render properly before printing
@@ -419,112 +566,74 @@ const exportToPDF = () => {
       }
       const data: Vehicle[] = await res.json();
       setVehicles(data);
+      
       // Extract unique cliente values for the filter dropdown
       const uniqueClientes = Array.from(
         new Set(
           data
-            .filter(vehicle => vehicle.cliente) // Filter out vehicles with no cliente
-            .map(vehicle => vehicle.cliente || "Sin dueño")
+            .filter(vehicle => vehicle.cliente)
+            .map(vehicle => vehicle.cliente || t.noOwner)
         )
       );
       
-      setClienteOptions(["Todos", ...uniqueClientes]);
+      setClienteOptions([t.allOwners, ...uniqueClientes]);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unexpected error";
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
+  }, [t.allOwners, t.noOwner]);
+
+  // fetchCompany helper
+  const fetchCompany = useCallback(async (companyId: string) => {
+    try {
+      const url = process.env.NEXT_PUBLIC_API_URL
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
+        : `https://api.tirepro.com.co/api/companies/${companyId}`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch company");
+      const company = await res.json();
+      setUserPlan(company.plan);
+    } catch (err) {
+      console.error(err);
+      setError("No se pudo cargar la configuración de la compañía");
+    }
   }, []);
 
-const [userPlan, setUserPlan] = useState<string>("");
-
-// 2) fetchCompany helper
-const fetchCompany = useCallback(async (companyId: string) => {
-  try {
-    const url = process.env.NEXT_PUBLIC_API_URL
-      ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
-      : `https://api.tirepro.com.co/api/companies/${companyId}`;
-
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Failed to fetch company");
-    const company = await res.json();
-    setUserPlan(company.plan);
-  } catch (err) {
-    console.error(err);
-    setError("No se pudo cargar la configuración de la compañía");
-  }
-}, []);
-
-// 3) in your existing useEffect, call fetchCompany
-useEffect(() => {
-  const storedUser = localStorage.getItem("user");
-  if (!storedUser) {
-    router.push("/login");
-    return;
-  }
-
-  const user = JSON.parse(storedUser);
-  if (!user.companyId) {
-    setError("No company assigned to user");
-    return;
-  }
-  fetchCompany(user.companyId);
-
-  // your existing loads:
-  fetchVehicles(user.companyId);
-  fetchTires(user.companyId);
-}, [router, fetchTires, fetchVehicles, fetchCompany]);
+  // Main useEffect for initial data loading
   useEffect(() => {
-    // Get user from localStorage
     const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.companyId) {
-        // Using a local variable instead of the state since we're not using it elsewhere
-        const currentCompanyId = user.companyId;
-        
-        // Execute fetch operations with the local variables
-        fetchTires(currentCompanyId);
-        fetchVehicles(currentCompanyId);
-      } else {
-        setError("No company assigned to user");
-      }
-    } else {
+    if (!storedUser) {
       router.push("/login");
+      return;
     }
-  }, [router, fetchTires, fetchVehicles]);
+
+    const user = JSON.parse(storedUser);
+    if (!user.companyId) {
+      setError("No company assigned to user");
+      return;
+    }
+    
+    setUserName(user.name || "");
+    fetchCompany(user.companyId);
+    fetchVehicles(user.companyId);
+    fetchTires(user.companyId);
+  }, [router, fetchTires, fetchVehicles, fetchCompany]);
 
   // Extract unique marca values for filter options
   useEffect(() => {
     if (tires.length > 0) {
-      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || "Sin marca")));
-      setMarcasOptions(["Todas", ...uniqueMarcas]);
-      
-      // Extract unique vida values from tires or their latest inspections
-      const uniqueVidas = new Set<string>();
-      tires.forEach(tire => {
-        // Try to get vida from tire directly
-        if (tire.vida) {
-          uniqueVidas.add(tire.vida);
-        }
-        // Also check the latest inspection for vida
-        else if (tire.inspecciones && tire.inspecciones.length > 0) {
-          const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-          if (lastInspection.vida) {
-            uniqueVidas.add(lastInspection.vida);
-          }
-        }
-      });
+      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || t.noMarca)));
+      setMarcasOptions([t.allBrands, ...uniqueMarcas]);
       
       // Extract unique eje values from tires or their latest inspections
       const uniqueEjes = new Set<string>();
       tires.forEach(tire => {
-        // Try to get eje from tire directly
         if (tire.eje) {
           uniqueEjes.add(tire.eje);
         }
-        // Also check the latest inspection for eje
         else if (tire.inspecciones && tire.inspecciones.length > 0) {
           const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
           if (lastInspection.eje) {
@@ -532,11 +641,11 @@ useEffect(() => {
           }
         }
       });
-      setEjeOptions(["Todos", ...Array.from(uniqueEjes)]);
+      setEjeOptions([t.allAxles, ...Array.from(uniqueEjes)]);
       
       setFilteredTires(tires);
     }
-  }, [tires]);
+  }, [tires, t.allBrands, t.noMarca, t.allAxles]);
 
   // Extract unique vehicle types for filter options
   useEffect(() => {
@@ -556,35 +665,31 @@ useEffect(() => {
   }
 
   const applyFilters = useCallback(() => {
-    // Filter tires based on selected filters
     let tempTires = [...tires];
+    
     // Apply cliente filter first
-    if (selectedCliente !== "Todos") {
-      // Get all vehicle IDs that belong to the selected cliente
+    if (selectedCliente !== t.allOwners) {
       const vehicleIds = vehicles
         .filter(vehicle => vehicle.cliente === selectedCliente)
         .map(vehicle => vehicle.id);
       
-      // Filter tires to only include those from the matching vehicles
       tempTires = tempTires.filter(tire => 
         tire.vehicleId && vehicleIds.includes(tire.vehicleId)
       );
     }
     
     // Apply marca filter
-    if (selectedMarca !== "Todas") {
+    if (selectedMarca !== t.allBrands) {
       tempTires = tempTires.filter(tire => tire.marca === selectedMarca);
     }
     
     // Apply eje filter
-    if (selectedEje !== "Todos") {
+    if (selectedEje !== t.allAxles) {
       tempTires = tempTires.filter(tire => {
-        // Check eje at tire level
         if (tire.eje === selectedEje) {
           return true;
         }
         
-        // Check eje in the latest inspection
         if (tire.inspecciones && tire.inspecciones.length > 0) {
           const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
           return lastInspection.eje === selectedEje;
@@ -595,19 +700,19 @@ useEffect(() => {
     }
 
     // Apply semáforo (Estado) filter
-    if (selectedSemaforo !== "Todos") {
+    if (selectedSemaforo !== t.all) {
       tempTires = tempTires.filter(tire => {
         const condition = classifyCondition(tire);
         switch (selectedSemaforo) {
-          case "Óptimo":
+          case t.optimal:
             return condition === "optimo";
-          case "60 Días":
+          case t.days60:
             return condition === "60_dias";
-          case "30 Días":
+          case t.days30:
             return condition === "30_dias";
-          case "Urgente":
+          case t.urgent:
             return condition === "urgente";
-          case "Sin Inspección":
+          case t.noInspection:
             return condition === "sin_inspeccion";
           default:
             return true;
@@ -615,79 +720,18 @@ useEffect(() => {
       });
     }
 
-    // Apply CPK filter
-    if (selectedCpkRange !== "Todos") {
-      tempTires = tempTires.filter(tire => {
-        if (tire.inspecciones && tire.inspecciones.length > 0) {
-          const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-          const cpk = lastInspection.cpk;
-          
-          switch (selectedCpkRange) {
-            case "< 1,000":
-              return cpk < 1000;
-            case "1,000 - 5,000":
-              return cpk >= 1000 && cpk <= 5000;
-            case "5,000 - 10,000":
-              return cpk > 5000 && cpk <= 10000;
-            case "> 10,000":
-              return cpk > 10000;
-            default:
-              return true;
-          }
-        }
-        return false;
-      });
-    }
-
-    // Apply period filter to both tires and vehicles
-    if (selectedPeriodo !== "Todo") {
-      const currentDate = new Date();
-      const compareDate = new Date();
-      
-      switch (selectedPeriodo) {
-        case "Último mes":
-          compareDate.setMonth(currentDate.getMonth() - 1);
-          break;
-        case "Últimos 3 meses":
-          compareDate.setMonth(currentDate.getMonth() - 3);
-          break;
-        case "Últimos 6 meses":
-          compareDate.setMonth(currentDate.getMonth() - 6);
-          break;
-        case "Último año":
-          compareDate.setFullYear(currentDate.getFullYear() - 1);
-          break;
-      }
-
-      // Filter tires based on the last inspection date
-      tempTires = tempTires.filter(tire => {
-        if (tire.inspecciones && tire.inspecciones.length > 0) {
-          const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-          const inspectionDate = new Date(lastInspection.fecha);
-          return inspectionDate >= compareDate;
-        }
-        return false;
-      });
-    }
-
-    // Apply tipo vehicle filter to vehicles
-    let tempVehicles = [...vehicles];
-    if (selectedTipoVehiculo !== "Todos") {
-      tempVehicles = tempVehicles.filter(vehicle => vehicle.tipo === selectedTipoVehiculo);
-    }
-
     setFilteredTires(tempTires);
-    setFilteredVehicles(tempVehicles);
+    setFilteredVehicles(vehicles);
     
     // Update metrics based on filtered data
     calculateTotals(tempTires);
     calculateCpkAverages(tempTires);
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, selectedCliente, tires, vehicles]);
+  }, [selectedMarca, selectedEje, selectedSemaforo, selectedCliente, tires, vehicles, t]);
 
   // Apply filters whenever filter selections change
   useEffect(() => {
     applyFilters();
-  }, [selectedMarca, selectedTipoVehiculo, selectedPeriodo, selectedCpkRange, selectedEje, selectedSemaforo, selectedCliente, tires, vehicles, applyFilters]);
+  }, [applyFilters]);
 
   // Handle clicking outside dropdowns
   useEffect(() => {
@@ -711,12 +755,11 @@ useEffect(() => {
     let totalMes = 0;
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // zero-indexed
+    const currentMonth = now.getMonth();
 
     tires.forEach((tire) => {
       if (Array.isArray(tire.costo)) {
         tire.costo.forEach((entry) => {
-          // Make sure entry.valor is a number
           const valor = typeof entry.valor === 'number' ? entry.valor : 0;
           total += valor;
           
@@ -733,12 +776,8 @@ useEffect(() => {
       }
     });
 
-    // Using local variables instead of state since we're not displaying these values yet
-    const currentGastoTotal = total;
-    const currentGastoMes = totalMes;
-    
-    // We might use these values in future calculations
-    return { currentGastoTotal, currentGastoMes };
+    setGastoTotal(total);
+    setGastoMes(totalMes);
   }
 
   function calculateCpkAverages(tires: Tire[]) {
@@ -748,10 +787,8 @@ useEffect(() => {
 
     tires.forEach((tire) => {
       if (tire.inspecciones && tire.inspecciones.length > 0) {
-        // Get the last inspection for each tire
         const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
         
-        // Make sure the CPK values exist and are valid numbers
         if (lastInspection.cpk && !isNaN(lastInspection.cpk)) {
           totalCpk += lastInspection.cpk;
           validTireCount++;
@@ -763,7 +800,6 @@ useEffect(() => {
       }
     });
 
-    // Calculate averages if we have valid tires
     if (validTireCount > 0) {
       setCpkPromedio(Number((totalCpk / validTireCount).toFixed(2)));
       setCpkProyectado(Number((totalCpkProyectado / validTireCount).toFixed(2)));
@@ -846,10 +882,10 @@ useEffect(() => {
         <div className="mb-8 bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-lg p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="text-white">
-              <h2 className="text-2xl font-bold">Mi Flota</h2>
+              <h2 className="text-2xl font-bold">{t.myFleet}</h2>
               <p className="text-blue-100 mt-1 flex items-center text-sm">
                 <Calendar className="h-4 w-4 mr-2" />
-                Actualizado: {new Date().toLocaleDateString()}
+                {t.updated}: {new Date().toLocaleDateString()}
               </p>
             </div>
             
@@ -862,7 +898,7 @@ useEffect(() => {
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {exporting ? "Exportando..." : "Exportar"}
+                    {exporting ? t.exporting : t.export}
                   </span>
                 </button>
                 <Notificaciones />
@@ -880,7 +916,7 @@ useEffect(() => {
               <Truck className="w-5 h-5 text-white" />
               <div className="text-left">
                 <p className="text-2xl font-bold text-white">{filteredVehicles.length}</p>
-                <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>Vehículos</p>
+                <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>{t.vehicles}</p>
               </div>
             </div>
 
@@ -889,7 +925,7 @@ useEffect(() => {
               <Layers className="w-5 h-5 text-white" />
               <div className="text-left">
                 <p className="text-2xl font-bold text-white">{filteredTires.length}</p>
-                <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>Llantas</p>
+                <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>{t.tires}</p>
               </div>
             </div>
 
@@ -900,7 +936,7 @@ useEffect(() => {
                 <p className="text-2xl font-bold text-white">
                   {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
                 </p>
-                <p className="text-sm uppercase tracking-wider text-white">CPK Promedio</p>
+                <p className="text-sm uppercase tracking-wider text-white">{t.avgCpk}</p>
               </div>
             </div>
 
@@ -911,7 +947,7 @@ useEffect(() => {
                 <p className="text-2xl font-bold text-white">
                   {loading ? "Cargando..." : cpkProyectado.toLocaleString()}
                 </p>
-                <p className="text-sm uppercase tracking-wider text-white">CPK Proyectado</p>
+                <p className="text-sm uppercase tracking-wider text-white">{t.projectedCpk}</p>
               </div>
             </div>
           </div>
@@ -920,7 +956,7 @@ useEffect(() => {
           <div className="bg-white rounded-xl shadow-md p-4 mb-6">
             <div className="flex items-center gap-2 mb-3">
               <Filter className="h-5 w-5 text-gray-500" />
-              <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
+              <h3 className="text-lg font-medium text-gray-800">{t.filters}</h3>
             </div>
                       <div
   className={`
@@ -942,7 +978,7 @@ useEffect(() => {
   )}
               <FilterDropdown
                 id="marca"
-                label="Marca"
+                label={t.brand}
                 options={marcasOptions}
                 selected={selectedMarca}
                 onChange={setSelectedMarca}
@@ -950,7 +986,7 @@ useEffect(() => {
               
               <FilterDropdown
                 id="eje"
-                label="Eje"
+                label={t.axle}
                 options={ejeOptions}
                 selected={selectedEje}
                 onChange={setSelectedEje}
@@ -958,7 +994,7 @@ useEffect(() => {
               
               <FilterDropdown
                 id="semaforo"
-                label="Estado"
+                label={t.status}
                 options={semaforoOptions}
                 selected={selectedSemaforo}
                 onChange={setSelectedSemaforo}

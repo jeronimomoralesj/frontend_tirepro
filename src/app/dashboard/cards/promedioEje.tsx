@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // Register ChartJS components and plugins
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
@@ -32,7 +33,6 @@ interface PromedioEjeProps {
   tires: Tire[]; // List of tires to process
   onSelectEje: (eje: string | null) => void;
   selectedEje: string | null;
-  language: "en" | "es"; // Language prop
 }
 
 // Define a type for the context parameter in the datalabels display callback.
@@ -67,8 +67,53 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
   tires,
   onSelectEje,
   selectedEje,
-  language = "es", // Default to Spanish
 }) => {
+  const router = useRouter();
+  
+  // Language detection state
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language detection
+      }
+      
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Get current translations
   const t = translations[language];
 
   // Compute the average minimal depth per 'eje'

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Search, X, AlertTriangle, Clock, DollarSign } from "lucide-react";
 
 // --- Types ---
@@ -25,15 +26,122 @@ export type Vehicle = {
   // ... any other vehicle fields
 };
 
+// --- Language translations ---
+const translations = {
+  es: {
+    updateLife: "Actualizar Vida",
+    searchVehicle: "Buscar Vehículo",
+    enterPlate: "Ingrese la placa del vehículo",
+    searching: "Buscando...",
+    search: "Buscar",
+    vehicleData: "Datos del Vehículo",
+    plate: "Placa",
+    type: "Tipo",
+    tiresFound: "Llantas Encontrados",
+    brand: "Marca",
+    currentLife: "Vida Actual",
+    bandDesign: "Banda/Diseño",
+    updateLifeBtn: "Actualizar Vida",
+    none: "Ninguna",
+    selectNewValue: "Seleccione nuevo valor",
+    rechargeCost: "Costo del reencauche (COP)",
+    enterValidCost: "Ingrese un costo válido (mayor a 0)",
+    cancel: "Cancelar",
+    update: "Actualizar",
+    saving: "Guardando...",
+    vehicleNotFound: "Vehículo no encontrado",
+    errorGettingTires: "Error al obtener los llantas",
+    unexpectedError: "Error inesperado",
+    enterVehiclePlate: "Por favor ingrese la placa del vehículo",
+    selectLifeValue: "Seleccione un valor de vida",
+    enterBandDesign: "Ingrese la banda/diseño",
+    invalidCost: "Costo inválido",
+    noMoreEntries: "No se pueden agregar más entradas. La vida ya está en 'fin'.",
+    position: "Posición"
+  },
+  en: {
+    updateLife: "Update Life",
+    searchVehicle: "Search Vehicle",
+    enterPlate: "Enter vehicle plate",
+    searching: "Searching...",
+    search: "Search",
+    vehicleData: "Vehicle Data",
+    plate: "Plate",
+    type: "Type",
+    tiresFound: "Tires Found",
+    brand: "Brand",
+    currentLife: "Current Life",
+    bandDesign: "Band/Design",
+    updateLifeBtn: "Update Life",
+    none: "None",
+    selectNewValue: "Select new value",
+    rechargeCost: "Retread cost (COP)",
+    enterValidCost: "Enter a valid cost (greater than 0)",
+    cancel: "Cancel",
+    update: "Update",
+    saving: "Saving...",
+    vehicleNotFound: "Vehicle not found",
+    errorGettingTires: "Error getting tires",
+    unexpectedError: "Unexpected error",
+    enterVehiclePlate: "Please enter the vehicle plate",
+    selectLifeValue: "Select a life value",
+    enterBandDesign: "Enter band/design",
+    invalidCost: "Invalid cost",
+    noMoreEntries: "No more entries can be added. Life is already at 'end'.",
+    position: "Position"
+  }
+};
+
 // --- Allowed values in order ---
 const allowedVida = ["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"];
 
 const VidaPage: React.FC = () => {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [tires, setTires] = useState<Tire[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [gastoTotal, setGastoTotal] = useState<number>(0);
+  const [gastoMes, setGastoMes] = useState<number>(0);
+  const [userName, setUserName] = useState<string>("");
+  const [cpkPromedio, setCpkPromedio] = useState<number>(0);
+  const [cpkProyectado, setCpkProyectado] = useState<number>(0);
+  const [exporting, setExporting] = useState(false);
+
+  // Ref for the content container
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Filter state
+  const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
+  const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
+
+  // Eje filter options
+  const [ejeOptions, setEjeOptions] = useState<string[]>([]);
+  const [selectedEje, setSelectedEje] = useState<string>("Todos");
+
+  // Cliente filter options
+  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
+
+  // Semáforo filter options
+  const [semaforoOptions] = useState<string[]>([
+    "Todos",
+    "Óptimo",
+    "60 Días",
+    "30 Días",
+    "Urgente",
+    "Sin Inspección",
+  ]);
+  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
+
+  // Dropdown visibility states
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  // Language state
+  const [language, setLanguage] = useState<'en'|'es'>('es');
 
   // For the modal update
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
@@ -42,6 +150,49 @@ const VidaPage: React.FC = () => {
   const [costValue, setCostValue] = useState(""); // State for cost
   const [modalError, setModalError] = useState("");
   const [showModal, setShowModal] = useState(false);
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      // Note: Using in-memory storage instead of localStorage for Claude.ai compatibility
+      // In a real environment, you would use localStorage here
+      
+      try {
+        // Try geolocation first
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { 
+            timeout: 10000 
+          });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          // In real environment: localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // Geolocation failed, fallback to browser language
+      }
+      
+      // Browser language fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      // In real environment: localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Get current translations
+  const t = translations[language];
 
   // API URL helper
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
@@ -53,7 +204,7 @@ const VidaPage: React.FC = () => {
     setVehicle(null);
     setTires([]);
     if (!searchTerm.trim()) {
-      setError("Por favor ingrese la placa del vehículo");
+      setError(t.enterVehiclePlate);
       return;
     }
     setLoading(true);
@@ -63,7 +214,7 @@ const VidaPage: React.FC = () => {
         `${API_URL}/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim())}`
       );
       if (!vehicleRes.ok) {
-        throw new Error("Vehículo no encontrado");
+        throw new Error(t.vehicleNotFound);
       }
       const vehicleData: Vehicle = await vehicleRes.json();
       setVehicle(vehicleData);
@@ -73,7 +224,7 @@ const VidaPage: React.FC = () => {
         `${API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
       );
       if (!tiresRes.ok) {
-        throw new Error("Error al obtener los llantas");
+        throw new Error(t.errorGettingTires);
       }
       const tiresData: Tire[] = await tiresRes.json();
       
@@ -89,9 +240,9 @@ const VidaPage: React.FC = () => {
       setTires(sortedTires);
     } catch (err) {
       if (err instanceof Error) {
-        setError(err.message || "Error inesperado");
+        setError(err.message || t.unexpectedError);
       } else {
-        setError("Error inesperado");
+        setError(t.unexpectedError);
       }
     } finally {
       setLoading(false);
@@ -104,7 +255,7 @@ const VidaPage: React.FC = () => {
     setModalError("");
     setCostValue(""); // Reset cost value
     // Grab the existing "diseno" from the tire for banda field
-setBandaValue(tire.diseno || "");
+    setBandaValue(tire.diseno || "");
 
     // If the tire has no vida data, assume current value is "nueva"
     let lastIndex = 0;
@@ -132,7 +283,7 @@ setBandaValue(tire.diseno || "");
       options = [];
     }
     if (options.length === 0) {
-      setModalError("No se pueden agregar más entradas. La vida ya está en 'fin'.");
+      setModalError(t.noMoreEntries);
       setSelectedVida("");
     } else {
       setSelectedVida(options[0]);
@@ -158,21 +309,21 @@ setBandaValue(tire.diseno || "");
   // --- Call backend to update vida ---
   async function handleUpdateVida() {
     if (!selectedTire) return;
-    if (!selectedVida) return setModalError("Seleccione un valor de vida");
-    if (!bandaValue.trim()) return setModalError("Ingrese la banda/diseño");
+    if (!selectedVida) return setModalError(t.selectLifeValue);
+    if (!bandaValue.trim()) return setModalError(t.enterBandDesign);
     
     // Validate cost if required
     if (requiresCost(selectedVida)) {
       const n = parseFloat(costValue);
       if (isNaN(n) || n <= 0) {
-        return setModalError("Costo inválido");
+        return setModalError(t.invalidCost);
       }
     }
 
     try {
       setLoading(true);
       // Build the payload
-const body: { valor: string; banda: string; costo?: number } = {
+      const body: { valor: string; banda: string; costo?: number } = {
         valor: selectedVida,
         banda: bandaValue.trim(), // Our new field
       };
@@ -200,8 +351,8 @@ const body: { valor: string; banda: string; costo?: number } = {
         });
       });
       closeModal();
-} catch (e: unknown) {
-setModalError(e instanceof Error ? e.message : 'Unknown error');
+    } catch (e: unknown) {
+      setModalError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -211,23 +362,23 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white p-4 md:p-6 shadow-md">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-2xl md:text-3xl font-bold flex items-center">
-            Actualizar Vida
+            {t.updateLife}
           </h1>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-6">
+      <main className="max-w-7xl mx-auto p-4 md:p-6" ref={contentRef}>
         {/* Search Form */}
         <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
-          <h2 className="text-xl font-semibold text-[#0A183A] mb-4">Buscar Vehículo</h2>
+          <h2 className="text-xl font-semibold text-[#0A183A] mb-4">{t.searchVehicle}</h2>
           <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-grow">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Ingrese la placa del vehículo"
+                placeholder={t.enterPlate}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
@@ -241,12 +392,12 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
               {loading ? (
                 <>
                   <Clock className="animate-spin h-5 w-5" />
-                  <span>Buscando...</span>
+                  <span>{t.searching}</span>
                 </>
               ) : (
                 <>
                   <Search className="h-5 w-5" />
-                  <span>Buscar</span>
+                  <span>{t.search}</span>
                 </>
               )}
             </button>
@@ -264,15 +415,15 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
         {/* Vehicle Info */}
         {vehicle && (
           <div className="mb-6 p-4 md:p-6 bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 rounded-lg border-l-4 border-[#1E76B6] shadow-sm">
-            <h2 className="text-xl font-bold mb-2 text-[#0A183A]">Datos del Vehículo</h2>
+            <h2 className="text-xl font-bold mb-2 text-[#0A183A]">{t.vehicleData}</h2>
             <div className="flex flex-wrap gap-x-6 gap-y-2">
               <p className="flex items-center">
-                <span className="font-semibold text-[#173D68] mr-2">Placa:</span> 
+                <span className="font-semibold text-[#173D68] mr-2">{t.plate}:</span> 
                 <span className="bg-[#1E76B6] text-white px-3 py-1 rounded-md">{vehicle.placa}</span>
               </p>
               {vehicle.tipovhc && (
                 <p>
-                  <span className="font-semibold text-[#173D68] mr-2">Tipo:</span> 
+                  <span className="font-semibold text-[#173D68] mr-2">{t.type}:</span> 
                   {vehicle.tipovhc}
                 </p>
               )}
@@ -284,7 +435,7 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
         {tires.length > 0 && (
           <div className="mb-6">
             <h2 className="text-2xl font-bold mb-4 text-[#0A183A] border-b border-gray-200 pb-2">
-              Llantas Encontrados
+              {t.tiresFound}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {tires.map((tire) => (
@@ -293,30 +444,30 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
                   className="p-4 bg-white rounded-lg shadow-md border border-gray-200 hover:border-[#1E76B6] transition-all hover:shadow-lg"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <p className="font-bold text-[#0A183A]">Placa: {tire.placa}</p>
+                    <p className="font-bold text-[#0A183A]">{t.plate}: {tire.placa}</p>
                     <div className="bg-[#173D68] text-white text-sm px-2 py-1 rounded">
-                      Pos: {tire.posicion || "N/A"}
+                      {t.position}: {tire.posicion || "N/A"}
                     </div>
                   </div>
                   
                   <div className="mb-3 pb-3 border-b border-gray-100">
                     <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">Marca:</span> {tire.marca}
+                      <span className="font-semibold text-[#173D68]">{t.brand}:</span> {tire.marca}
                     </p>
                     <p className="text-gray-700">
                       <span className="font-semibold text-[#173D68]">ID:</span> {tire.id.substring(0, 6)}...
                     </p>
                     <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">Vida Actual:</span>{" "}
+                      <span className="font-semibold text-[#173D68]">{t.currentLife}:</span>{" "}
                       <span className="inline-block bg-[#348CCB]/20 text-[#0A183A] px-2 py-0.5 rounded font-medium">
                         {tire.vida && tire.vida.length > 0
                           ? tire.vida[tire.vida.length - 1].valor
-                          : "Ninguna"}
+                          : t.none}
                       </span>
                     </p>
                     {tire.diseno && (
                       <p className="text-gray-700">
-                        <span className="font-semibold text-[#173D68]">Banda/Diseño:</span> {tire.diseno}
+                        <span className="font-semibold text-[#173D68]">{t.bandDesign}:</span> {tire.diseno}
                       </p>
                     )}
                   </div>
@@ -326,7 +477,7 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
                     className="w-full mt-2 px-4 py-2 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-all flex items-center justify-center gap-2"
                   >
                     <Clock size={18} />
-                    <span>Actualizar Vida</span>
+                    <span>{t.updateLifeBtn}</span>
                   </button>
                 </div>
               ))}
@@ -339,7 +490,7 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fadeIn">
               <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
-                <h2 className="text-xl font-bold text-[#0A183A]">Actualizar Vida</h2>
+                <h2 className="text-xl font-bold text-[#0A183A]">{t.updateLife}</h2>
                 <button 
                   onClick={closeModal}
                   className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
@@ -350,20 +501,20 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
               
               <div className="bg-[#173D68]/10 rounded-lg p-3 mb-4">
                 <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">Placa:</span> {selectedTire.placa}
+                  <span className="font-semibold">{t.plate}:</span> {selectedTire.placa}
                 </p>
                 <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">Marca:</span> {selectedTire.marca}
+                  <span className="font-semibold">{t.brand}:</span> {selectedTire.marca}
                 </p>
                 <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">Posición:</span> {selectedTire.posicion || "N/A"}
+                  <span className="font-semibold">{t.position}:</span> {selectedTire.posicion || "N/A"}
                 </p>
                 <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">Último valor de vida:</span>{" "}
+                  <span className="font-semibold">{t.currentLife}:</span>{" "}
                   <span className="font-medium">
                     {selectedTire.vida && selectedTire.vida.length > 0
                       ? selectedTire.vida[selectedTire.vida.length - 1].valor
-                      : "Ninguna"}
+                      : t.none}
                   </span>
                 </p>
               </div>
@@ -378,20 +529,20 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
               {/* BANDA (diseño) - Always shown */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-[#0A183A] mb-2">
-                  Banda / Diseño
+                  {t.bandDesign}
                 </label>
                 <input
                   type="text"
                   value={bandaValue}
                   onChange={e => setBandaValue(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
-                  placeholder="Ingrese la banda o diseño"
+                  placeholder={t.enterBandDesign}
                 />
               </div>
               
               <div className="mb-4">
                 <label className="block text-sm font-medium text-[#0A183A] mb-2">
-                  Seleccione nuevo valor
+                  {t.selectNewValue}
                 </label>
                 <select
                   value={selectedVida}
@@ -432,7 +583,7 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
               {requiresCost(selectedVida) && (
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-[#0A183A] mb-2">
-                    Costo del reencauche (COP)
+                    {t.rechargeCost}
                   </label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -446,7 +597,7 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Ingrese un costo válido (mayor a 0)
+                    {t.enterValidCost}
                   </p>
                 </div>
               )}
@@ -456,7 +607,7 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
                   onClick={closeModal}
                   className="flex-1 px-4 py-2 border border-gray-300 text-[#0A183A] rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  Cancelar
+                  {t.cancel}
                 </button>
                 <button
                   onClick={handleUpdateVida}
@@ -466,11 +617,11 @@ setModalError(e instanceof Error ? e.message : 'Unknown error');
                   {loading ? (
                     <>
                       <Clock className="animate-spin h-4 w-4" />
-                      <span>Guardando...</span>
+                      <span>{t.saving}</span>
                     </>
-                  ) : "Actualizar"}
+                  ) : t.update}
                 </button>
-              </div>
+                </div>
             </div>
           </div>
         )}

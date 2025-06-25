@@ -47,6 +47,94 @@ export type Vehicle = {
   cliente?: string;
 };
 
+// Translation object
+const translations = {
+  es: {
+    // Header
+    title: "Mi Semáforo",
+    updated: "Actualizado",
+    user: "Usuario",
+    export: "Exportar",
+    exporting: "Exportando...",
+    
+    // Metrics
+    monthlyInvestment: "Inversión del Mes",
+    totalInvestment: "Inversión Total",
+    averageCpk: "CPK Promedio",
+    projectedCpk: "CPK Proyectado",
+    
+    // Filters
+    filters: "Filtros",
+    owner: "Dueño",
+    brand: "Marca",
+    axis: "Eje",
+    status: "Estado",
+    all: "Todos",
+    allBrands: "Todas",
+    allAxes: "Todos",
+    allOwners: "Todos",
+    
+    // Status options
+    optimal: "Óptimo",
+    sixtyDays: "60 Días",
+    thirtyDays: "30 Días",
+    urgent: "Urgente",
+    noInspection: "Sin Inspección",
+    
+    // Loading and errors
+    loading: "Cargando...",
+    loadingTires: "Cargando neumáticos...",
+    printError: "Error al generar la impresión. Por favor intente de nuevo.",
+    
+    // Other
+    noOwner: "Sin dueño",
+    noBrand: "Sin marca",
+    noAxis: "Sin eje"
+  },
+  en: {
+    // Header
+    title: "Stop Light",
+    updated: "Updated",
+    user: "User",
+    export: "Export",
+    exporting: "Exporting...",
+    
+    // Metrics
+    monthlyInvestment: "Monthly Investment",
+    totalInvestment: "Total Investment",
+    averageCpk: "Average CPM",
+    projectedCpk: "Forecasted CPM",
+    
+    // Filters
+    filters: "Filters",
+    owner: "Owner",
+    brand: "Brand",
+    axis: "Axis",
+    status: "Status",
+    all: "All",
+    allBrands: "All",
+    allAxes: "All",
+    allOwners: "All",
+    
+    // Status options
+    optimal: "Optimal",
+    sixtyDays: "60 Days",
+    thirtyDays: "30 Days",
+    urgent: "Urgent",
+    noInspection: "No Inspection",
+    
+    // Loading and errors
+    loading: "Loading...",
+    loadingTires: "Loading tires...",
+    printError: "Error generating print. Please try again.",
+    
+    // Other
+    noOwner: "No owner",
+    noBrand: "No brand",
+    noAxis: "No axis"
+  }
+};
+
 export default function SemaforoPage() {
   const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
@@ -66,32 +154,28 @@ export default function SemaforoPage() {
   
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
-  const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
+  const [selectedMarca, setSelectedMarca] = useState<string>("");
   
   // Eje filter options
   const [ejeOptions, setEjeOptions] = useState<string[]>([]);
-  const [selectedEje, setSelectedEje] = useState<string>("Todos");
+  const [selectedEje, setSelectedEje] = useState<string>("");
   
   // Cliente filter options
   const [clienteOptions, setClienteOptions] = useState<string[]>([]);
-  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
+  const [selectedCliente, setSelectedCliente] = useState<string>("");
   
   // Semáforo filter options
-  const [semaforoOptions] = useState<string[]>([
-    "Todos",
-    "Óptimo",
-    "60 Días",
-    "30 Días",
-    "Urgente",
-    "Sin Inspección",
-  ]);
-  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
+  const [semaforoOptions, setSemaforoOptions] = useState<string[]>([]);
+  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("");
   
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   
   // Language select
   const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  // Get current translations
+  const t = translations[language];
 
   // Language detection effect
   useEffect(() => {
@@ -131,6 +215,24 @@ export default function SemaforoPage() {
 
     detectAndSetLanguage();
   }, []);
+
+  // Update filter options when language changes
+  useEffect(() => {
+    setSemaforoOptions([
+      t.all,
+      t.optimal,
+      t.sixtyDays,
+      t.thirtyDays,
+      t.urgent,
+      t.noInspection,
+    ]);
+    
+    // Reset selections to translated values
+    setSelectedSemaforo(t.all);
+    setSelectedMarca(t.allBrands);
+    setSelectedEje(t.allAxes);
+    setSelectedCliente(t.allOwners);
+  }, [language, t]);
 
   // Refs for dropdown components
   const dropdownRefs = useRef({
@@ -241,7 +343,7 @@ export default function SemaforoPage() {
       }, 500);
     } catch (error) {
       console.error('Error during print:', error);
-      alert('Error al generar la impresión. Por favor intente de nuevo.');
+      alert(t.printError);
       setExporting(false);
     }
   };
@@ -325,7 +427,7 @@ export default function SemaforoPage() {
     let tiresForCliente = [...tires];
     
     // Apply cliente filter first
-    if (selectedCliente !== "Todos") {
+    if (selectedCliente !== t.allOwners && selectedCliente !== t.all) {
       // Get all vehicle IDs that belong to the selected cliente
       const vehicleIds = vehicles
         .filter(vehicle => vehicle.cliente === selectedCliente)
@@ -341,29 +443,29 @@ export default function SemaforoPage() {
     let tempTires = [...tiresForCliente];
     
     // Apply marca filter
-    if (selectedMarca !== "Todas") {
+    if (selectedMarca !== t.allBrands && selectedMarca !== t.all) {
       tempTires = tempTires.filter(tire => tire.marca === selectedMarca);
     }
     
     // Apply eje filter
-    if (selectedEje !== "Todos") {
+    if (selectedEje !== t.allAxes && selectedEje !== t.all) {
       tempTires = tempTires.filter(tire => tire.eje === selectedEje);
     }
     
     // Apply semáforo filter
-    if (selectedSemaforo !== "Todos") {
+    if (selectedSemaforo !== t.all) {
       tempTires = tempTires.filter(tire => {
         const condition = classifyCondition(tire);
         switch (selectedSemaforo) {
-          case "Óptimo":
+          case t.optimal:
             return condition === "optimo";
-          case "60 Días":
+          case t.sixtyDays:
             return condition === "60_dias";
-          case "30 Días":
+          case t.thirtyDays:
             return condition === "30_dias";
-          case "Urgente":
+          case t.urgent:
             return condition === "urgente";
-          case "Sin Inspección":
+          case t.noInspection:
             return condition === "sin_inspeccion";
           default:
             return true;
@@ -376,7 +478,7 @@ export default function SemaforoPage() {
     // Update metrics based on filtered data
     calculateCpkAverages(tempTires);
     calculateTotals(tempTires);
-  }, [tires, vehicles, selectedMarca, selectedEje, selectedSemaforo, selectedCliente, calculateCpkAverages, calculateTotals]);
+  }, [tires, vehicles, selectedMarca, selectedEje, selectedSemaforo, selectedCliente, calculateCpkAverages, calculateTotals, t]);
 
   const fetchTires = useCallback(async (cId: string) => {
     setLoading(true);
@@ -443,15 +545,15 @@ export default function SemaforoPage() {
         new Set(
           data
             .filter(vehicle => vehicle.cliente) // Filter out vehicles with no cliente
-            .map(vehicle => vehicle.cliente || "Sin dueño")
+            .map(vehicle => vehicle.cliente || t.noOwner)
         )
       );
       
-      setClienteOptions(["Todos", ...uniqueClientes]);
+      setClienteOptions([t.allOwners, ...uniqueClientes]);
     } catch (err: unknown) {
       console.error(err);
     }
-  }, []);
+  }, [t.allOwners, t.noOwner]);
 
   const [userPlan, setUserPlan] = useState<string>("");
 
@@ -497,13 +599,13 @@ export default function SemaforoPage() {
   // Extract unique marca and eje values for filter options
   useEffect(() => {
     if (tires.length > 0) {
-      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || "Sin marca")));
-      setMarcasOptions(["Todas", ...uniqueMarcas]);
+      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || t.noBrand)));
+      setMarcasOptions([t.allBrands, ...uniqueMarcas]);
       
-      const uniqueEjes = Array.from(new Set(tires.map(tire => tire.eje || "Sin eje")));
-      setEjeOptions(["Todos", ...uniqueEjes]);
+      const uniqueEjes = Array.from(new Set(tires.map(tire => tire.eje || t.noAxis)));
+      setEjeOptions([t.allAxes, ...uniqueEjes]);
     }
-  }, [tires]);
+  }, [tires, t.allBrands, t.allAxes, t.noBrand, t.noAxis]);
 
   // Apply filters when filter selections change
   useEffect(() => {
@@ -593,12 +695,12 @@ export default function SemaforoPage() {
         <div className="mb-8 bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-lg p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="text-white">
-              <h2 className="text-2xl font-bold">Mi Semáforo</h2>
+              <h2 className="text-2xl font-bold">{t.title}</h2>
               <p className="text-blue-100 mt-1 flex items-center text-sm">
                 <Calendar className="h-4 w-4 mr-2" />
-                Actualizado: {new Date().toLocaleDateString()}
+                {t.updated}: {new Date().toLocaleDateString()}
               </p>
-              {userName && <p className="text-blue-100 mt-1 text-sm">Usuario: {userName}</p>}
+              {userName && <p className="text-blue-100 mt-1 text-sm">{t.user}: {userName}</p>}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex gap-2">
@@ -609,7 +711,7 @@ export default function SemaforoPage() {
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {exporting ? "Exportando..." : "Exportar"}
+                    {exporting ? t.exporting : t.export}
                   </span>
                 </button>
                 <Notificaciones />
@@ -625,10 +727,10 @@ export default function SemaforoPage() {
             <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `$${gastoMes.toLocaleString()}`}
+                {loading ? t.loading : `$${gastoMes.toLocaleString()}`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>
-                Inversión del Mes
+                {t.monthlyInvestment}
               </p>
             </div>
           </div>
@@ -638,10 +740,10 @@ export default function SemaforoPage() {
             <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `$${gastoTotal.toLocaleString()}`}
+                {loading ? t.loading : `$${gastoTotal.toLocaleString()}`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>
-                Inversión Total
+                {t.totalInvestment}
               </p>
             </div>
           </div>
@@ -651,9 +753,9 @@ export default function SemaforoPage() {
             <PieChart className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
+                {loading ? t.loading : cpkPromedio.toLocaleString()}
               </p>
-              <p className="text-sm uppercase tracking-wider text-white">CPK Promedio</p>
+              <p className="text-sm uppercase tracking-wider text-white">{t.averageCpk}</p>
             </div>
           </div>
 
@@ -662,18 +764,18 @@ export default function SemaforoPage() {
             <TrendingUpIcon className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : cpkProyectado.toLocaleString()}
+                {loading ? t.loading : cpkProyectado.toLocaleString()}
               </p>
-              <p className="text-sm uppercase tracking-wider text-white">CPK Proyectado</p>
+              <p className="text-sm uppercase tracking-wider text-white">{t.projectedCpk}</p>
             </div>
           </div>
         </div>
 
         {/* Filter Section - Hide in print with CSS */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6 print:hidden">
+        <div className="bg-white rounded-xl shadow-md p-4 mb-6 print:hidden z-999999999999">
           <div className="flex items-center gap-2 mb-3">
             <Filter className="h-5 w-5 text-gray-500" />
-            <h3 className="text-lg font-medium text-gray-800">Filtros</h3>
+            <h3 className="text-lg font-medium text-gray-800">{t.filters}</h3>
           </div>
           <div
             className={`
@@ -696,7 +798,7 @@ export default function SemaforoPage() {
               
             <FilterDropdown
               id="marca"
-              label="Marca"
+              label={t.brand}
               options={marcasOptions}
               selected={selectedMarca}
               onChange={setSelectedMarca}
@@ -704,7 +806,7 @@ export default function SemaforoPage() {
             
             <FilterDropdown
               id="eje"
-              label="Eje"
+              label={t.axis}
               options={ejeOptions}
               selected={selectedEje}
               onChange={setSelectedEje}
@@ -712,7 +814,7 @@ export default function SemaforoPage() {
             
             <FilterDropdown
               id="semaforo"
-              label="Estado"
+              label={t.status}
               options={semaforoOptions}
               selected={selectedSemaforo}
               onChange={setSelectedSemaforo}

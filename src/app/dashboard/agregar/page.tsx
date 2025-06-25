@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { PlusCircle, Search, Calendar, FilePlus } from "lucide-react";
 import CrearLlanta from "./CrearLlanta";
 import Inspeccion from "./Inspeccion";
@@ -9,32 +10,166 @@ import CargaMasiva from "./CargaMasiva";
 
 type Option = "crear" | "inspeccion" | "evento" | "cargamasiva";
 
+// Types for your data structures
+interface Tire {
+  id: string;
+  // Add other tire properties as needed
+}
+
+interface Vehicle {
+  id: string;
+  // Add other vehicle properties as needed
+}
+
 export default function AgregarPage() {
+  const router = useRouter();
   const [selectedOption, setSelectedOption] = useState<Option>("crear");
+  
+  // Your existing state variables
+  const [tires, setTires] = useState<Tire[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [gastoTotal, setGastoTotal] = useState<number>(0);
+  const [gastoMes, setGastoMes] = useState<number>(0);
+  const [userName, setUserName] = useState<string>("");
+  const [cpkPromedio, setCpkPromedio] = useState<number>(0);
+  const [cpkProyectado, setCpkProyectado] = useState<number>(0);
+  const [exporting, setExporting] = useState(false);
+  
+  // Ref for the content container
+  const contentRef = useRef<HTMLDivElement>(null);
+  
+  // Filter state
+  const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
+  const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
+  
+  // Eje filter options
+  const [ejeOptions, setEjeOptions] = useState<string[]>([]);
+  const [selectedEje, setSelectedEje] = useState<string>("Todos");
+  
+  // Cliente filter options
+  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
+  
+  // Semáforo filter options
+  const [semaforoOptions] = useState<string[]>([
+    "Todos",
+    "Óptimo",
+    "60 Días",
+    "30 Días",
+    "Urgente",
+    "Sin Inspección",
+  ]);
+  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
+  
+  // Dropdown visibility states
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  
+  // Language select
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 10000
+          });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback continues below
+      }
+      
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Translations object
+  const translations = {
+    es: {
+      mainTitle: "Agregar Información",
+      mainSubtitle: "Seleccione una opción para comenzar a registrar datos",
+      createTitle: "Crear Nueva Llanta",
+      createDesc: "Registre una llanta nueva en el sistema",
+      bulkTitle: "Carga Masiva",
+      bulkDesc: "Suba un archivo Excel con varias llantas",
+      inspectionTitle: "Inspección",
+      inspectionDesc: "Registre una inspección para una placa existente",
+      eventTitle: "Evento",
+      eventDesc: "Registre una rotación o un evento personalizado.",
+      formSubtitle: "Complete el formulario para continuar",
+      titleByOption: {
+        crear: "Crear Nueva Llanta",
+        inspeccion: "Registro de Inspección",
+        evento: "Registrar Evento",
+        cargamasiva: "Carga Masiva de Llantas"
+      }
+    },
+    en: {
+      mainTitle: "Add Information",
+      mainSubtitle: "Select an option to start registering data",
+      createTitle: "Create New Tire",
+      createDesc: "Register a new tire in the system",
+      bulkTitle: "Bulk Upload",
+      bulkDesc: "Upload an Excel file with multiple tires",
+      inspectionTitle: "Inspection",
+      inspectionDesc: "Register an inspection for an existing plate",
+      eventTitle: "Event",
+      eventDesc: "Register a rotation or custom event.",
+      formSubtitle: "Complete the form to continue",
+      titleByOption: {
+        crear: "Create New Tire",
+        inspeccion: "Inspection Record",
+        evento: "Register Event",
+        cargamasiva: "Bulk Tire Upload"
+      }
+    }
+  };
+
+  const t = translations[language];
 
   const getTitleByOption = () => {
-    switch (selectedOption) {
-      case "crear":
-        return "Crear Nueva Llanta";
-      case "inspeccion":
-        return "Registro de Inspección";
-      case "evento":
-        return "Registrar Evento";
-      case "cargamasiva":
-        return "Carga Masiva de Llantas";
-    }
+    return t.titleByOption[selectedOption];
   };
 
   return (
     <div className="min-h-screen from-white to-blue-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8" ref={contentRef}>
         {/* Main header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Agregar Información
+            {t.mainTitle}
           </h1>
           <p className="text-gray-600">
-            Seleccione una opción para comenzar a registrar datos
+            {t.mainSubtitle}
           </p>
         </div>
 
@@ -44,32 +179,32 @@ export default function AgregarPage() {
           <Card
             active={selectedOption === "crear"}
             onClick={() => setSelectedOption("crear")}
-            title="Crear Nueva Llanta"
-            description="Registre una llanta nueva en el sistema"
+            title={t.createTitle}
+            description={t.createDesc}
             Icon={PlusCircle}
           />
           {/* Bulk Upload */}
           <Card
             active={selectedOption === "cargamasiva"}
             onClick={() => setSelectedOption("cargamasiva")}
-            title="Carga Masiva"
-            description="Suba un archivo Excel con varias llantas"
+            title={t.bulkTitle}
+            description={t.bulkDesc}
             Icon={FilePlus}
           />
           {/* Inspection */}
           <Card
             active={selectedOption === "inspeccion"}
             onClick={() => setSelectedOption("inspeccion")}
-            title="Inspección"
-            description="Registre una inspección para una placa existente"
+            title={t.inspectionTitle}
+            description={t.inspectionDesc}
             Icon={Search}
           />
           {/* Event */}
           <Card
             active={selectedOption === "evento"}
             onClick={() => setSelectedOption("evento")}
-            title="Evento"
-            description="Registre una rotación o un evento personalizado."
+            title={t.eventTitle}
+            description={t.eventDesc}
             Icon={Calendar}
           />
         </div>
@@ -81,14 +216,14 @@ export default function AgregarPage() {
               {getTitleByOption()}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              Complete el formulario para continuar
+              {t.formSubtitle}
             </p>
           </div>
           <div>
-            {selectedOption === "crear" && <CrearLlanta />}
-            {selectedOption === "cargamasiva" && <CargaMasiva />}
-            {selectedOption === "inspeccion" && <Inspeccion />}
-            {selectedOption === "evento" && <Evento />}
+            {selectedOption === "crear" && <CrearLlanta language={language} />}
+            {selectedOption === "cargamasiva" && <CargaMasiva language={language} />}
+            {selectedOption === "inspeccion" && <Inspeccion language={language} />}
+            {selectedOption === "evento" && <Evento language={language} />}
           </div>
         </div>
       </div>

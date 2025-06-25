@@ -27,7 +27,6 @@ interface Vehicle {
   placa: string;
 }
 
-
 type TireAnalysis = {
   id: string;
   marca: string;
@@ -43,13 +42,94 @@ type TireAnalysis = {
   inspecciones: Inspection[];
 };
 
+// Language translations
+const translations = {
+  es: {
+    title: "Sistema de Gestión de Llantas",
+    criticalAnalysis: "Análisis de Llantas Críticas",
+    plateAnalysis: "Análisis de Llantas por Placa",
+    goToPlateAnalysis: "Ir a Análisis por Placa",
+    viewCriticalTires: "Ver Llantas Críticas",
+    loading: "Cargando...",
+    searching: "Buscando...",
+    search: "Buscar",
+    noCompanyId: "No se encontró el companyId",
+    errorFetchingTires: "Error al obtener las llantas",
+    errorFetchingAnalysis: "Error al obtener el análisis",
+    unexpectedError: "Error inesperado",
+    enterPlate: "Por favor ingrese una placa de vehículo",
+    vehiclePlate: "Placa del Vehículo",
+    platePlaceholder: "Ej. abc-123",
+    noCriticalTires: "No se encontraron llantas que requieran cambio inmediato.",
+    allTiresSafe: "Todas las llantas están dentro de los parámetros seguros.",
+    analysisResults: "Resultados del Análisis",
+    tiresFound: "llantas encontradas",
+    tireFound: "llanta encontrada",
+    plate: "Placa",
+    brand: "Marca",
+    id: "Id",
+    inspectionDate: "Fecha Inspección",
+    position: "Posición",
+    profInt: "Prof. Int (mm)",
+    profCen: "Prof. Cen (mm)",
+    profExt: "Prof. Ext (mm)",
+    average: "Promedio (mm)",
+    recommendations: "Recomendaciones",
+    inspectionHistory: "Historial de Inspecciones",
+    date: "Fecha",
+    immediateChange: "🔴 Cambio inmediato: La llanta tiene un desgaste crítico y debe ser reemplazada.",
+    frequentReview: "🟡 Revisión frecuente: Se recomienda monitorear esta llanta en cada inspección.",
+    goodCondition: "🟢 En buen estado: La llanta está operando dentro de parámetros seguros."
+  },
+  en: {
+    title: "Tire Management System",
+    criticalAnalysis: "Critical Tire Analysis",
+    plateAnalysis: "Tire Analysis by Plate",
+    goToPlateAnalysis: "Go to Plate Analysis",
+    viewCriticalTires: "View Critical Tires",
+    loading: "Loading...",
+    searching: "Searching...",
+    search: "Search",
+    noCompanyId: "Company ID not found",
+    errorFetchingTires: "Error fetching tires",
+    errorFetchingAnalysis: "Error fetching analysis",
+    unexpectedError: "Unexpected error",
+    enterPlate: "Please enter a vehicle plate",
+    vehiclePlate: "Vehicle Plate",
+    platePlaceholder: "Ex. abc-123",
+    noCriticalTires: "No tires requiring immediate replacement were found.",
+    allTiresSafe: "All tires are within safe parameters.",
+    analysisResults: "Analysis Results",
+    tiresFound: "tires found",
+    tireFound: "tire found",
+    plate: "Plate",
+    brand: "Brand",
+    id: "Id",
+    inspectionDate: "Inspection Date",
+    position: "Position",
+    profInt: "Inner Depth (mm)",
+    profCen: "Center Depth (mm)",
+    profExt: "Outer Depth (mm)",
+    average: "Average (mm)",
+    recommendations: "Recommendations",
+    inspectionHistory: "Inspection History",
+    date: "Date",
+    immediateChange: "🔴 Immediate replacement: Tire has critical wear and must be replaced.",
+    frequentReview: "🟡 Frequent review: Monitor this tire at each inspection.",
+    goodCondition: "🟢 Good condition: Tire is operating within safe parameters."
+  }
+};
+
 const IntegratedAnalysisPage: React.FC = () => {
+  const router = useRouter();
   const [tires, setTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCriticalTires, setShowCriticalTires] = useState(false);
-  const router = useRouter();
-  
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+
+  // Language detection
+  const [language, setLanguage] = useState<'en'|'es'>('es');
 
   // Analysis search states
   const [placa, setPlaca] = useState("");
@@ -66,13 +146,53 @@ const IntegratedAnalysisPage: React.FC = () => {
   const [analysis, setAnalysis] = useState<TireAnalysisResponse | null>(null);
   const [searchError, setSearchError] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
-  const [vehicles, setVehicles]     = useState<Vehicle[]>([]);
 
-  // Fetch tires from backend using companyId from localStorage.
+  const t = translations[language];
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language
+      }
+      
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Fetch tires from backend
   useEffect(() => {
     const companyId = localStorage.getItem("companyId");
     if (!companyId) {
-      setError("No se encontró el companyId");
+      setError(t.noCompanyId);
       return;
     }
 
@@ -85,7 +205,7 @@ const IntegratedAnalysisPage: React.FC = () => {
             : `https://api.tirepro.com.co/api/tires?companyId=${companyId}`
         );
         if (!res.ok) {
-          throw new Error("Error al obtener las llantas");
+          throw new Error(t.errorFetchingTires);
         }
         const data: Tire[] = await res.json();
         setTires(data);
@@ -102,28 +222,23 @@ const IntegratedAnalysisPage: React.FC = () => {
 
       } catch (err) {
         if (err instanceof Error) {
-          setSearchError(err.message);
+          setError(err.message);
         } else {
-          setSearchError("Error inesperado");
+          setError(t.unexpectedError);
         }
-      }
-       finally {
+      } finally {
         setLoading(false);
       }
     };
 
     fetchTires();
-  }, [router]);
+  }, [router, t]);
 
-const plateByVehicleId = useMemo(
-  () =>
-    Object.fromEntries(
-      vehicles.map((v) => [v.id, v.placa])
-    ),
-  [vehicles]
-);
+  const plateByVehicleId = useMemo(
+    () => Object.fromEntries(vehicles.map((v) => [v.id, v.placa])),
+    [vehicles]
+  );
 
-  // Filter tires that require immediate change (last inspection has any depth ≤ 2)
   const immediateTires = useMemo(() => {
     return tires.filter((tire) => {
       if (!tire.inspecciones || tire.inspecciones.length === 0) return false;
@@ -136,18 +251,16 @@ const plateByVehicleId = useMemo(
     });
   }, [tires]);
 
-  // Decision tree analysis function for a tire
   const analyzeTire = (tire: Tire): TireAnalysis | null => {
     if (!tire.inspecciones || tire.inspecciones.length === 0) {
       return null;
     }
-    // Get the last three inspections (sorted descending by date)
+    
     const lastInspections = [...tire.inspecciones]
       .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
       .slice(0, 3);
     const latest = lastInspections[0];
 
-    // Convert depth values to numbers and compute average depth
     const profundidadInt = Number(latest.profundidadInt) || 0;
     const profundidadCen = Number(latest.profundidadCen) || 0;
     const profundidadExt = Number(latest.profundidadExt) || 0;
@@ -155,11 +268,11 @@ const plateByVehicleId = useMemo(
 
     const recomendaciones: string[] = [];
     if (promedio <= 2) {
-      recomendaciones.push("🔴 Cambio inmediato: La llanta tiene un desgaste crítico y debe ser reemplazada.");
+      recomendaciones.push(t.immediateChange);
     } else if (promedio <= 4) {
-      recomendaciones.push("🟡 Revisión frecuente: Se recomienda monitorear esta llanta en cada inspección.");
+      recomendaciones.push(t.frequentReview);
     } else {
-      recomendaciones.push("🟢 En buen estado: La llanta está operando dentro de parámetros seguros.");
+      recomendaciones.push(t.goodCondition);
     }
 
     return {
@@ -182,7 +295,7 @@ const plateByVehicleId = useMemo(
     return immediateTires
       .map((tire) => analyzeTire(tire))
       .filter((x) => x !== null) as TireAnalysis[];
-  }, [immediateTires]);
+  }, [immediateTires, t]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,13 +303,12 @@ const plateByVehicleId = useMemo(
     setAnalysis(null);
 
     if (!placa.trim()) {
-      setSearchError("Por favor ingrese una placa de vehículo");
+      setSearchError(t.enterPlate);
       return;
     }
 
     setSearchLoading(true);
     try {
-      // Convert the placa to lowercase before searching.
       const lowerPlaca = placa.trim().toLowerCase();
       const res = await fetch(
         process.env.NEXT_PUBLIC_API_URL
@@ -204,18 +316,17 @@ const plateByVehicleId = useMemo(
           : `https://api.tirepro.com.co/api/tires/analyze?placa=${encodeURIComponent(lowerPlaca)}`
       );
       if (!res.ok) {
-        throw new Error("Error al obtener el análisis");
+        throw new Error(t.errorFetchingAnalysis);
       }
       const data = await res.json();
       setAnalysis(data);
     } catch (err) {
       if (err instanceof Error) {
-        setError(err.message);
+        setSearchError(err.message);
       } else {
-        setError("Error inesperado");
+        setSearchError(t.unexpectedError);
       }
-    }
-     finally {
+    } finally {
       setSearchLoading(false);
     }
   };
@@ -234,12 +345,12 @@ const plateByVehicleId = useMemo(
       {/* Header Navigation */}
       <header className="bg-[#0A183A] text-white py-4 px-6 shadow-lg">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Sistema de Gestión de Llantas</h1>
+          <h1 className="text-2xl font-bold">{t.title}</h1>
           <button 
             onClick={toggleView} 
             className="flex items-center gap-2 bg-[#1E76B6] text-white px-4 py-2 rounded-md hover:bg-[#348CCB] transition-all transform hover:scale-105"
           >
-            <span>{showCriticalTires ? "Ir a Análisis por Placa" : "Ver Llantas Críticas"}</span>
+            <span>{showCriticalTires ? t.goToPlateAnalysis : t.viewCriticalTires}</span>
           </button>
         </div>
       </header>
@@ -250,7 +361,7 @@ const plateByVehicleId = useMemo(
             /* Critical Tires View */
             <>
               <h2 className="text-3xl font-bold mb-6 text-[#0A183A] border-b-2 border-[#1E76B6]/20 pb-3">
-                Análisis de Llantas Críticas
+                {t.criticalAnalysis}
               </h2>
 
               {loading && (
@@ -268,8 +379,8 @@ const plateByVehicleId = useMemo(
 
               {!loading && analyzedTires.length === 0 && (
                 <div className="bg-blue-50 rounded-lg p-8 text-center">
-                  <p className="text-lg text-[#173D68]">No se encontraron llantas que requieran cambio inmediato.</p>
-                  <p className="text-sm text-[#1E76B6] mt-2">Todas las llantas están dentro de los parámetros seguros.</p>
+                  <p className="text-lg text-[#173D68]">{t.noCriticalTires}</p>
+                  <p className="text-sm text-[#1E76B6] mt-2">{t.allTiresSafe}</p>
                 </div>
               )}
 
@@ -278,15 +389,15 @@ const plateByVehicleId = useMemo(
                   <table className="min-w-full border-collapse">
                     <thead className="bg-[#173D68] text-white">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Placa</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Marca</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Id</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Fecha Inspección</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Prof. Int (mm)</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Prof. Cen (mm)</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Prof. Ext (mm)</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Promedio (mm)</th>
-                        <th className="px-4 py-3 text-left text-sm font-semibold">Recomendaciones</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.plate}</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.brand}</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.id}</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.inspectionDate}</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.profInt}</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.profCen}</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.profExt}</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.average}</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">{t.recommendations}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -298,8 +409,8 @@ const plateByVehicleId = useMemo(
                           }`}
                         >
                           <td className="px-4 py-3 text-sm">
-          {plateByVehicleId[tire.vehicleId!] || "—"}
-        </td>
+                            {plateByVehicleId[tire.vehicleId!] || "—"}
+                          </td>
                           <td className="px-4 py-3 text-sm">{tire.marca}</td>
                           <td className="px-4 py-3 text-sm">{tire.placa}</td>
                           <td className="px-4 py-3 text-sm">{tire.ultimaInspeccionFecha}</td>
@@ -349,7 +460,7 @@ const plateByVehicleId = useMemo(
             /* Analysis by Plate View */
             <>
               <h2 className="text-3xl font-bold mb-6 text-[#0A183A] border-b-2 border-[#1E76B6]/20 pb-3">
-                Análisis de Llantas por Placa
+                {t.plateAnalysis}
               </h2>
 
               {/* Search Form */}
@@ -360,14 +471,13 @@ const plateByVehicleId = useMemo(
                 <div className="flex flex-col md:flex-row gap-4 items-end">
                   <div className="flex-1">
                     <label htmlFor="placa" className="block text-sm font-medium text-[#0A183A] mb-2">
-                      Placa del Vehículo
+                      {t.vehiclePlate}
                     </label>
                     <input
                       id="placa"
                       type="text"
-                      placeholder="Ej. abc-123"
+                      placeholder={t.platePlaceholder}
                       value={placa}
-                      // Convert the input to lower case as the user types.
                       onChange={(e) => setPlaca(e.target.value.toLowerCase())}
                       className="w-full px-4 py-3 border-2 border-[#1E76B6]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
                     />
@@ -383,12 +493,12 @@ const plateByVehicleId = useMemo(
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Buscando...
+                        {t.searching}
                       </span>
                     ) : (
                       <>
                         <Search className="w-5 h-5" />
-                        Buscar
+                        {t.search}
                       </>
                     )}
                   </button>
@@ -407,9 +517,9 @@ const plateByVehicleId = useMemo(
               {analysis && (
                 <div className="animate-fadeIn">
                   <h3 className="text-2xl font-bold mb-4 text-[#173D68]">
-                    Resultados del Análisis
+                    {t.analysisResults}
                     <span className="ml-2 text-[#1E76B6]">
-                      {analysis.tires.length} {analysis.tires.length === 1 ? "llanta" : "llantas"} encontradas
+                      {analysis.tires.length} {analysis.tires.length === 1 ? t.tireFound : t.tiresFound}
                     </span>
                   </h3>
 
@@ -422,10 +532,10 @@ const plateByVehicleId = useMemo(
                         <div className="flex justify-between items-start mb-4">
                           <div>
                             <h4 className="font-bold text-lg text-[#0A183A]">
-                              ID: {tireAnalysis.placa}
+                              {t.id}: {tireAnalysis.placa}
                             </h4>
                             <p className="text-[#173D68]">
-                              Posición: <span className="font-medium">{tireAnalysis.posicion}</span>
+                              {t.position}: <span className="font-medium">{tireAnalysis.posicion}</span>
                             </p>
                           </div>
                           
@@ -445,7 +555,7 @@ const plateByVehicleId = useMemo(
                         <div className="mb-4">
                           <h5 className="font-semibold text-[#173D68] mb-2 flex items-center">
                             <TrendingUp className="w-4 h-4 mr-2" />
-                            Recomendaciones
+                            {t.recommendations}
                           </h5>
                           <ul className="space-y-1 text-sm bg-gray-50 p-3 rounded-md">
                             {tireAnalysis.recomendaciones.map((rec: string, recIndex: number) => (
@@ -459,12 +569,12 @@ const plateByVehicleId = useMemo(
 
                         {tireAnalysis.inspecciones.length > 0 && (
                           <div>
-                            <h5 className="font-semibold text-[#173D68] mb-2">Historial de Inspecciones</h5>
+                            <h5 className="font-semibold text-[#173D68] mb-2">{t.inspectionHistory}</h5>
                             <div className="overflow-x-auto bg-gray-50 p-2 rounded-md">
                               <table className="min-w-full text-xs">
                                 <thead>
                                   <tr className="border-b border-gray-300">
-                                    <th className="py-2 px-2 text-left">Fecha</th>
+                                    <th className="py-2 px-2 text-left">{t.date}</th>
                                     <th className="py-2 px-2 text-right">Int (mm)</th>
                                     <th className="py-2 px-2 text-right">Cen (mm)</th>
                                     <th className="py-2 px-2 text-right">Ext (mm)</th>

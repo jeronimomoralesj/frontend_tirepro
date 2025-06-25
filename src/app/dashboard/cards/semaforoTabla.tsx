@@ -1,7 +1,8 @@
 "use client";
 
 import { HelpCircle } from "lucide-react";
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 // Define types for Vehicle, Inspection, and Tire.
 export interface Vehicle {
@@ -31,7 +32,71 @@ interface SemaforoTablaProps {
 // Define the positions (adjust if needed)
 const positions = [1, 2, 3, 4, 5, 6];
 
+// Translations
+const translations = {
+  es: {
+    title: "Semáforo Tabla",
+    tooltip: "Este gráfico muestra tus llantas por posición en cada uno de sus vehículos y su profundidad actual.",
+    placa: "Placa",
+    pos: "Pos"
+  },
+  en: {
+    title: "Traffic Light Table",
+    tooltip: "This chart shows your tires by position in each of your vehicles and their current depth.",
+    placa: "Plate",
+    pos: "Pos"
+  }
+};
+
 const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
+  const router = useRouter();
+  
+  // Language detection state
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language detection
+      }
+      
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Get current translations
+  const t = translations[language];
+
   // Filter out vehicles with placa "fin"
   const filteredVehicles = useMemo(() => {
     return vehicles.filter(vehicle => vehicle.placa.toLowerCase() !== "fin");
@@ -86,7 +151,7 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col">
       {/* Card Title */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Semáforo Tabla</h2>
+        <h2 className="text-xl font-bold">{t.title}</h2>
         <div className="group relative cursor-pointer">
           <HelpCircle
             className="text-white hover:text-gray-200 transition-colors"
@@ -101,7 +166,7 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
             w-60 pointer-events-none
           ">
             <p>
-              Este gráfico muestra tus llantas por posición en cada uno de sus vehículos y su profundidad actual.
+              {t.tooltip}
             </p>
           </div>
         </div>
@@ -110,16 +175,16 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
       {/* Table container with both horizontal and vertical scroll */}
       <div className="overflow-auto relative" style={{ maxHeight: "70vh" }}>
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 z-20">
+          <thead className="sticky top-0 z-0">
             <tr>
               {/* Fixed column header (top-left corner) */}
-              <th className="px-4 py-2 text-left sticky left-0 z-30 bg-gray-100 min-w-[120px]">
-                Placa
+              <th className="px-4 py-2 text-left sticky left-0 z-0 bg-gray-100 min-w-[120px]">
+                {t.placa}
               </th>
               {/* Regular headers (sticky top) */}
               {positions.map((pos) => (
                 <th key={pos} className="px-4 py-2 text-center bg-gray-100 min-w-[80px]">
-                  Pos {pos}
+                  {t.pos} {pos}
                 </th>
               ))}
             </tr>
@@ -128,7 +193,7 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
             {tableData.map((row, idx) => (
               <tr key={idx} className="border-t">
                 {/* Fixed first column */}
-                <td className="px-4 py-2 sticky left-0 bg-white font-bold z-10 min-w-[120px]">
+                <td className="px-4 py-2 sticky left-0 bg-white font-bold z-0 min-w-[120px]">
                   {row.placa.toUpperCase()}
                 </td>
                 {/* Regular cells */}

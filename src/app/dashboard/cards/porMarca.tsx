@@ -1,6 +1,7 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bar } from 'react-chartjs-2';
 import { 
   Chart as ChartJS, 
@@ -23,11 +24,78 @@ ChartJS.register(
   ChartDataLabels
 );
 
+// Language translations
+const translations = {
+  es: {
+    title: "Llantas por Marca",
+    tooltip: "Este gráfico muestra como están distribuidas las llantas por marca, es decir la cantidad de llantas que hay por cada una de las marcas.",
+    totalBrands: "Total de marcas:",
+    quantity: "Cantidad:",
+    quantityLabel: "Cantidad de llantas",
+    brand: "Marca"
+  },
+  en: {
+    title: "Tires by Brand",
+    tooltip: "This chart shows how tires are distributed by brand, that is, the number of tires for each brand.",
+    totalBrands: "Total brands:",
+    quantity: "Quantity:",
+    quantityLabel: "Number of tires",
+    brand: "Brand"
+  }
+};
+
 interface PorMarcaProps {
   groupData: { [marca: string]: number };
 }
 
 const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
+  const router = useRouter();
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language
+      }
+      
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  const t = translations[language];
+
+  // Calculate dynamic height based on number of brands
+  const dynamicHeight = Math.max(300, Object.keys(groupData).length * 40 + 100);
+
   // Prepare data for the Bar chart
   const chartData = {
     labels: Object.keys(groupData),
@@ -45,6 +113,14 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
     indexAxis: "y" as const,
     responsive: true,
     maintainAspectRatio: false,
+    layout: {
+      padding: {
+        left: 0,
+        right: 20,
+        top: 10,
+        bottom: 0
+      }
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -65,53 +141,53 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
               0
             );
             const percentage = Math.round((value / total) * 100);
-            return `Cantidad: ${value} · ${percentage}%`;
+            return `${t.quantity} ${value} · ${percentage}%`;
           },
           title: (tooltipItems: { label: string }[]) =>
-            `Marca ${tooltipItems[0].label}`,
+            `${t.brand} ${tooltipItems[0].label}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,
       },
       datalabels: {
-        color: "white", // Changed to white for better contrast
+        color: "white",
         font: {
           family: "'Inter', sans-serif",
           size: 12,
-          weight: "600" // Made slightly bolder
+          weight: "600"
         },
         formatter: (value: number) => `${value}`,
-        // Center the label within each bar
         anchor: "center",
         align: "center",
-        // Add a slight text shadow for better visibility against the blue background
         textShadow: "0px 1px 2px rgba(0,0,0,0.3)",
-        // Ensure labels are always visible inside the bars
         clamp: true
       },
     },
     scales: {
       x: {
         display: true,
+        beginAtZero: true,
         ticks: {
           color: "#64748b",
           font: { family: "'Inter', sans-serif", size: 12, weight: "500" },
         },
-        grid: { display: false },
+        grid: { 
+          display: true,
+          color: "rgba(226, 232, 240, 0.3)",
+          drawBorder: false,
+        },
         border: { display: false },
       },
       y: {
-        beginAtZero: true,
+        display: true,
         ticks: {
-          stepSize: 1,
           color: "#94a3b8",
           font: { family: "'Inter', sans-serif", size: 11 },
           padding: 8,
+          maxRotation: 0,
         },
         grid: {
-          color: "rgba(226, 232, 240, 0.6)",
-          drawBorder: false,
-          lineWidth: 1,
+          display: false,
         },
         border: { display: false },
       },
@@ -121,7 +197,7 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Llantas por Marca</h2>
+        <h2 className="text-xl font-bold">{t.title}</h2>
         <div 
           className="group relative cursor-pointer"
           title="Información sobre el gráfico"
@@ -138,21 +214,19 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
             transition-opacity duration-300 
             w-56 pointer-events-none
           ">
-            <p>Este gráfico muestra como están distribuidas las llantas por marca,
-              es decir la cantidad de llantas que hay por cada una de las marcas.
-            </p>
+            <p>{t.tooltip}</p>
           </div>
         </div>
       </div>
       <div className="p-6">
-        <div className="h-64 mb-4">
+        <div style={{ height: `${dynamicHeight}px` }} className="mb-4">
           <Bar data={chartData} options={options} />
         </div>
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
           <div className="text-xs text-gray-500">
-            Total de marcas: {Object.keys(groupData).length}
+            {t.totalBrands} {Object.keys(groupData).length}
           </div>
-          <div className="text-xs text-gray-500">Cantidad de llantas</div>
+          <div className="text-xs text-gray-500">{t.quantityLabel}</div>
         </div>
       </div>
     </div>

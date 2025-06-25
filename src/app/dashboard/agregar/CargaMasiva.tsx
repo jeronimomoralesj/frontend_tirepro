@@ -3,7 +3,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FilePlus, Upload, Download, Info } from "lucide-react";
 
-export default function CargaMasiva() {
+interface CargaMasivaProps {
+  language: 'en' | 'es';
+}
+
+export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -19,6 +23,40 @@ export default function CargaMasiva() {
     "eje", "profundidad_int", "profundidad_cen", "profundidad_ext", 
     "costo", "kms", "dimension"
   ];
+
+  // Translations object
+  const translations = {
+    es: {
+      instructions: "Instrucciones para la Carga Masiva",
+      instructionText: "Para subir las llantas asegúrate de tener estos campos y que tengan estos títulos en tu archivo Excel:",
+      downloadTemplate: "Descargar Plantilla Excel",
+      selectFile: "Seleccione un archivo Excel",
+      dragDrop: "o arrastre y suelte aquí",
+      allowedFormats: "Formatos permitidos: .xlsx, .xls",
+      bulkUpload: "Cargar Masivamente",
+      processing: "Procesando...",
+      selectFileError: "Seleccione un archivo Excel (.xls/.xlsx).",
+      companyIdError: "No se encontró companyId en localStorage.",
+      successMessage: "Carga masiva completada con éxito",
+      unexpectedError: "Error inesperado en la carga masiva"
+    },
+    en: {
+      instructions: "Bulk Upload Instructions",
+      instructionText: "To upload tires make sure you have these fields and that they have these titles in your Excel file:",
+      downloadTemplate: "Download Excel Template",
+      selectFile: "Select an Excel file",
+      dragDrop: "or drag and drop here",
+      allowedFormats: "Allowed formats: .xlsx, .xls",
+      bulkUpload: "Bulk Upload",
+      processing: "Processing...",
+      selectFileError: "Please select an Excel file (.xls/.xlsx).",
+      companyIdError: "Company ID not found in localStorage.",
+      successMessage: "Bulk upload completed successfully",
+      unexpectedError: "Unexpected error in bulk upload"
+    }
+  };
+
+  const t = translations[language];
 
   // On mount, pull the companyId from the stored user object
   useEffect(() => {
@@ -44,12 +82,12 @@ export default function CargaMasiva() {
     console.log("Submitting bulk upload. file=", file, "companyId=", companyId);
 
     if (!file) {
-      setMessage("Seleccione un archivo Excel (.xls/.xlsx).");
+      setMessage(t.selectFileError);
       setMessageType("error");
       return;
     }
     if (!companyId) {
-      setMessage("No se encontró companyId en localStorage.");
+      setMessage(t.companyIdError);
       setMessageType("error");
       return;
     }
@@ -70,11 +108,11 @@ export default function CargaMasiva() {
       console.log("Response status", res.status);
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error(errText || `Error ${res.status} en la carga masiva`);
+        throw new Error(errText || `Error ${res.status} ${language === 'es' ? 'en la carga masiva' : 'in bulk upload'}`);
       }
 
       const data = await res.json();
-      setMessage(data.message || "Carga masiva completada con éxito");
+      setMessage(data.message || t.successMessage);
       setMessageType("success");
 
       // reset file input
@@ -86,7 +124,7 @@ export default function CargaMasiva() {
       // Properly type the error
       const errorMessage = err instanceof Error 
         ? err.message 
-        : "Error inesperado en la carga masiva";
+        : t.unexpectedError;
       
       setMessage(errorMessage);
       setMessageType("error");
@@ -111,7 +149,7 @@ export default function CargaMasiva() {
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
-    a.download = 'plantilla_carga_llantas.xls';
+    a.download = language === 'es' ? 'plantilla_carga_llantas.xls' : 'tire_upload_template.xls';
     
     // Append to the document and trigger download
     document.body.appendChild(a);
@@ -137,7 +175,7 @@ export default function CargaMasiva() {
           <div className="flex items-center">
             <Info className="h-5 w-5 text-blue-600 mr-2" />
             <h3 className="font-medium text-blue-800">
-              Instrucciones para la Carga Masiva
+              {t.instructions}
             </h3>
           </div>
           <span className="text-blue-600">
@@ -148,7 +186,7 @@ export default function CargaMasiva() {
         {showDetails && (
           <div className="mt-3 text-sm text-gray-700">
             <p className="mb-2">
-              Para subir las llantas asegúrate de tener estos campos y que tengan estos títulos en tu archivo Excel:
+              {t.instructionText}
             </p>
             
             <div className="grid grid-cols-3 gap-x-2 gap-y-1 mb-3">
@@ -168,7 +206,7 @@ export default function CargaMasiva() {
                 className="flex items-center text-blue-700 hover:text-blue-800"
               >
                 <Download className="h-4 w-4 mr-1" />
-                Descargar Plantilla Excel
+                {t.downloadTemplate}
               </button>
             </div>
           </div>
@@ -195,14 +233,14 @@ export default function CargaMasiva() {
               <span className="text-lg">{file.name}</span>
             ) : (
               <>
-                <p className="text-lg font-semibold">Seleccione un archivo Excel</p>
-                <p className="text-sm mt-2">o arrastre y suelte aquí</p>
+                <p className="text-lg font-semibold">{t.selectFile}</p>
+                <p className="text-sm mt-2">{t.dragDrop}</p>
               </>
             )}
           </div>
           
           <p className="mt-2 text-sm text-[#173D68]/70">
-            Formatos permitidos: .xlsx, .xls
+            {t.allowedFormats}
           </p>
         </div>
         
@@ -212,7 +250,7 @@ export default function CargaMasiva() {
           className="w-full flex justify-center items-center px-6 py-3 bg-[#1E76B6] text-white rounded-md hover:bg-[#348CCB] transition-colors duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
         >
           <FilePlus className="mr-2 w-5 h-5" />
-          {loading ? "Procesando..." : "Cargar Masivamente"}
+          {loading ? t.processing : t.bulkUpload}
         </button>
         
         {message && (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Timer,
@@ -13,7 +14,120 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 
+// Language translations
+const translations = {
+  en: {
+    title: "Tire Inspection System",
+    subtitle: "Record depth measurements and generate detailed reports",
+    vehiclePlate: "Vehicle Plate",
+    vehiclePlateHolder: "Enter vehicle plate",
+    search: "Search",
+    searching: "Searching...",
+    vehicleInfo: "Vehicle Information",
+    unionVehicle: "Union Vehicle",
+    plate: "Plate",
+    type: "Type",
+    tires: "Tires",
+    currentMileage: "Current Mileage",
+    newMileage: "New Mileage",
+    difference: "Difference",
+    tireDetails: "Tire Details",
+    brand: "Brand",
+    position: "Position",
+    depthMeasurements: "Depth Measurements",
+    interior: "Interior",
+    central: "Central",
+    exterior: "Exterior",
+    tireImage: "Tire Image",
+    mainVehicleTires: "Main Vehicle Tires",
+    unionVehicleTires: "Union Vehicle Tires",
+    updateInspections: "Update Inspections",
+    updating: "Updating...",
+    exportInspection: "Export Inspection",
+    exportToPDF: "Export to PDF",
+    generatingPDF: "Generating PDF...",
+    inspectionSavedSuccess: "Inspection has been saved successfully. You can export a PDF report with all data including CPK and projections.",
+    inspectionsUpdatedSuccess: "Inspections updated successfully",
+    noTiresFound: "No tires found for this vehicle.",
+    vehicleNotFound: "Vehicle not found",
+    errorGettingTires: "Error getting tires",
+    enterValidPlate: "Please enter a valid vehicle plate",
+    enterValidDepths: "Please enter valid numeric values for all depths",
+    zeroValuesFound: "zero value field(s) found. Do you want to continue?",
+    unexpectedError: "Unexpected error",
+    unknownError: "Unknown error",
+    errorGeneratingPDF: "Error generating PDF",
+    inspectionReport: "Inspection Report",
+    inspectionDate: "Inspection Date",
+    previousMileage: "Previous Mileage",
+    currentMileageLabel: "Current Mileage",
+    distanceTraveled: "Distance Traveled",
+    tireInspection: "Tire Inspection",
+    wearAnalysis: "Wear Analysis",
+    averageDepth: "Average Depth",
+    cpk: "CPK",
+    depths: "Depths"
+  },
+  es: {
+    title: "Sistema de Inspección de Neumáticos",
+    subtitle: "Registre las mediciones de profundidad y genere reportes detallados",
+    vehiclePlate: "Placa del Vehículo",
+    vehiclePlateHolder: "Ingrese la placa del vehículo",
+    search: "Buscar",
+    searching: "Buscando...",
+    vehicleInfo: "Información del Vehículo",
+    unionVehicle: "Vehículo en Unión",
+    plate: "Placa",
+    type: "Tipo",
+    tires: "Llantas",
+    currentMileage: "Kilometraje Actual",
+    newMileage: "Nuevo Kilometraje",
+    difference: "Diferencia",
+    tireDetails: "Detalles del Neumático",
+    brand: "Marca",
+    position: "Posición",
+    depthMeasurements: "Mediciones de Profundidad",
+    interior: "Interior",
+    central: "Central",
+    exterior: "Exterior",
+    tireImage: "Imagen del Neumático",
+    mainVehicleTires: "Neumáticos - Vehículo Principal",
+    unionVehicleTires: "Neumáticos - Vehículo en Unión",
+    updateInspections: "Actualizar Inspecciones",
+    updating: "Actualizando...",
+    exportInspection: "Exportar Inspección",
+    exportToPDF: "Exportar a PDF",
+    generatingPDF: "Generando PDF...",
+    inspectionSavedSuccess: "La inspección ha sido guardada exitosamente. Puede exportar un reporte en PDF con todos los datos incluyendo CPK y proyecciones.",
+    inspectionsUpdatedSuccess: "Inspecciones actualizadas exitosamente",
+    noTiresFound: "No se encontraron llantas para este vehículo.",
+    vehicleNotFound: "Vehículo no encontrado",
+    errorGettingTires: "Error al obtener las llantas",
+    enterValidPlate: "Por favor ingrese la placa del vehículo",
+    enterValidDepths: "Por favor ingrese valores numéricos válidos para todas las profundidades",
+    zeroValuesFound: "campo(s) con valor 0. ¿Desea continuar?",
+    unexpectedError: "Error inesperado",
+    unknownError: "Error desconocido",
+    errorGeneratingPDF: "Error al generar el PDF",
+    inspectionReport: "Reporte de Inspección",
+    inspectionDate: "Fecha de inspección",
+    previousMileage: "Kilometraje Anterior",
+    currentMileageLabel: "Kilometraje Actual",
+    distanceTraveled: "Distancia Recorrida",
+    tireInspection: "Inspección de Neumáticos",
+    wearAnalysis: "Análisis de Desgaste",
+    averageDepth: "Profundidad Promedio",
+    cpk: "CPK",
+    depths: "Profundidades"
+  }
+};
+
 export default function InspeccionPage() {
+  const router = useRouter();
+  
+  // Language detection state
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+  
   // Input states
   const [placaInput, setPlacaInput] = useState("");
   const [newKilometraje, setNewKilometraje] = useState(0);
@@ -41,7 +155,7 @@ export default function InspeccionPage() {
       cpkProyectado: string;
       projectedKm: number;
       imageBase64: string | null;
-      vehicleId: string; // Add this to identify which vehicle the tire belongs to
+      vehicleId: string;
     }>;
     date: string;
     kmDiff: number;
@@ -54,7 +168,7 @@ export default function InspeccionPage() {
     tipovhc: string;
     tireCount: number;
     kilometrajeActual: number;
-    union?: string; // Add union field
+    union?: string;
   };
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
@@ -79,7 +193,7 @@ export default function InspeccionPage() {
     kilometrosRecorridos: number;
     costo: Array<{valor: number}>;
     inspecciones: Inspection[];
-    vehicleId: string; // Add this to identify which vehicle the tire belongs to
+    vehicleId: string;
   };
 
   const [tires, setTires] = useState<Tire[]>([]);
@@ -99,6 +213,49 @@ export default function InspeccionPage() {
   const [showExportPopup, setShowExportPopup] = useState(false);
   const [inspectionData, setInspectionData] = useState<InspectionData | null>(null);
 
+  // Get current translations
+  const t = translations[language];
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language
+      }
+
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
   // Helper function to convert File to base64 string
   function convertFileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -111,29 +268,17 @@ export default function InspeccionPage() {
 
   // Calculate CPK based on backend logic
   function calculateCpk(tire: Tire, minDepth: number, kmDiff: number) {
-    // Get the updated total km for the tire
     const newTireKm = tire.kilometrosRecorridos + kmDiff;
-
-    // Calculate total cost by summing the costo array
     const totalCost = tire.costo.reduce((sum, entry) => sum + entry.valor, 0);
-
-    // Calculate cost per kilometer (cpk)
     const cpk = newTireKm > 0 ? totalCost / newTireKm : 0;
-
-    // Calculate the projected cost per kilometer (cpkProyectado)
-    const profundidadInicial = tire.profundidadInicial || 8; // Default to 8mm if not set
+    const profundidadInicial = tire.profundidadInicial || 8;
     const denominator = (newTireKm / (profundidadInicial - minDepth)) * profundidadInicial;
     const cpkProyectado = denominator > 0 ? totalCost / denominator : 0;
-
-    // Calculate projected distance until reaching minimum depth (2mm)
     const minAcceptableDepth = 2;
     let projectedKm = 0;
 
     if (minDepth > minAcceptableDepth) {
-      // Calculate wear rate (mm per km)
       const wearRate = (profundidadInicial - minDepth) / newTireKm;
-      
-      // If the tire is wearing, project distance until it reaches minimum acceptable depth
       if (wearRate > 0) {
         projectedKm = Math.round((minDepth - minAcceptableDepth) / wearRate);
       }
@@ -156,26 +301,24 @@ export default function InspeccionPage() {
     setTireUpdates({});
     
     if (!placaInput.trim()) {
-      setError("Por favor ingrese la placa del vehículo");
+      setError(t.enterValidPlate);
       return;
     }
     
     setLoading(true);
     try {
-      // Fetch vehicle by placa
       const vehicleRes = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim())}`
           : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim())}`
       );
       if (!vehicleRes.ok) {
-        throw new Error("Vehículo no encontrado");
+        throw new Error(t.vehicleNotFound);
       }
       const vehicleData = await vehicleRes.json();
       setVehicle(vehicleData);
       setNewKilometraje(vehicleData.kilometrajeActual);
 
-      // Check for union vehicle
       let unionVehicleData = null;
       if (vehicleData.union) {
         try {
@@ -193,20 +336,18 @@ export default function InspeccionPage() {
         }
       }
 
-      // Fetch tires for main vehicle
       const tiresRes = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
           : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
       );
       if (!tiresRes.ok) {
-        throw new Error("Error al obtener las llantas");
+        throw new Error(t.errorGettingTires);
       }
       const tiresData: Tire[] = await tiresRes.json();
       tiresData.sort((a, b) => a.posicion - b.posicion);
       setTires(tiresData);
 
-      // Fetch tires for union vehicle if it exists
       let unionTiresData: Tire[] = [];
       if (unionVehicleData) {
         try {
@@ -225,7 +366,6 @@ export default function InspeccionPage() {
         }
       }
 
-      // Initialize tireUpdates state with default values for all tires
       const allTires = [...tiresData, ...unionTiresData];
       const initialUpdates: { [id: string]: { profundidadInt: number | ""; profundidadCen: number | ""; profundidadExt: number | ""; image: File | null } } = {};
       allTires.forEach((tire) => {
@@ -241,7 +381,7 @@ export default function InspeccionPage() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Error inesperado");
+        setError(t.unexpectedError);
       }
     }
     finally {
@@ -271,7 +411,6 @@ export default function InspeccionPage() {
     try {
       const allTires = [...tires, ...unionTires];
       
-      // 1) Basic numeric validation
       const invalidTires = allTires.filter(tire => {
         const upd = tireUpdates[tire.id];
         return (
@@ -281,10 +420,9 @@ export default function InspeccionPage() {
         );
       });
       if (invalidTires.length > 0) {
-        throw new Error("Por favor ingrese valores numéricos válidos para todas las profundidades");
+        throw new Error(t.enterValidDepths);
       }
 
-      // 2) Count zero-value depth fields
       let zeroCount = 0;
       allTires.forEach(tire => {
         const upd = tireUpdates[tire.id];
@@ -294,7 +432,7 @@ export default function InspeccionPage() {
       });
       if (zeroCount > 0) {
         const proceed = window.confirm(
-          `Se encontraron ${zeroCount} campo${zeroCount > 1 ? "s" : ""} con valor 0. ¿Desea continuar?`
+          `${zeroCount} ${t.zeroValuesFound}`
         );
         if (!proceed) {
           setLoading(false);
@@ -302,17 +440,13 @@ export default function InspeccionPage() {
         }
       }
 
-      // Calculate km difference based on main vehicle
       const kmDiff = vehicle ? Number(newKilometraje) - vehicle.kilometrajeActual : 0;
 
-      // 3) Send updates for all tires (main vehicle and union vehicle)
       const updatePromises = allTires.map(async tire => {
         const upd = tireUpdates[tire.id];
         
-        // Determine the new kilometraje for this tire's vehicle
         let tireNewKilometraje = Number(newKilometraje);
         if (unionVehicle && tire.vehicleId === unionVehicle.id) {
-          // For union vehicle tires, add the km difference to their current km
           tireNewKilometraje = unionVehicle.kilometrajeActual + kmDiff;
         }
         
@@ -345,27 +479,20 @@ export default function InspeccionPage() {
       });
 
       await Promise.all(updatePromises);
-      alert("Inspecciones actualizadas exitosamente");
+      alert(t.inspectionsUpdatedSuccess);
 
-      // Prepare data for the PDF export
       const inspectionDataForPDF = {
         vehicle,
         unionVehicle,
         tires: allTires.map(tire => {
           const updData = tireUpdates[tire.id];
           
-          // Convert string values to numbers
           const profundidadInt = Number(updData.profundidadInt);
           const profundidadCen = Number(updData.profundidadCen);
           const profundidadExt = Number(updData.profundidadExt);
           
-          // Calculate average depth
           const avgDepth = (profundidadInt + profundidadCen + profundidadExt) / 3;
-          
-          // Calculate the minimum depth (most worn part)
           const minDepth = Math.min(profundidadInt, profundidadCen, profundidadExt);
-          
-          // Calculate CPK using the backend-compatible function
           const cpkData = calculateCpk(tire, minDepth, kmDiff);
           
           return {
@@ -397,7 +524,7 @@ export default function InspeccionPage() {
         console.error(err);
         setError(err.message);
       } else {
-        setError("Error desconocido");
+        setError(t.unknownError);
       }
     } finally {
       setLoading(false);
@@ -410,14 +537,12 @@ export default function InspeccionPage() {
     try {
       setLoading(true);
       
-      // Create new PDF document
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4"
       });
       
-      // Define colors and styles
       const colors = {
         primary: [24, 61, 104],
         secondary: [30, 118, 182],
@@ -425,19 +550,15 @@ export default function InspeccionPage() {
         text: [60, 60, 60]
       };
       
-      // Helper function to add page with header, footer and watermark
       function addPageWithTemplate(pageNum, totalPages) {
-        // Add watermark
         doc.setTextColor(230, 230, 230);
         doc.setFontSize(60);
         doc.setFont("helvetica", "bold");
         doc.text("TirePro", 105, 150, { align: "center", angle: 45 });
         
-        // Header
         doc.setFillColor(...colors.primary);
         doc.rect(0, 0, 210, 25, "F");
         
-        // Logo placeholder
         doc.setFillColor(...colors.secondary);
         doc.roundedRect(15, 5, 40, 15, 3, 3, "F");
         doc.setTextColor(255, 255, 255);
@@ -445,62 +566,54 @@ export default function InspeccionPage() {
         doc.setFont("helvetica", "bold");
         doc.text("TirePro", 35, 14, { align: "center" });
         
-        // Report title
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
-        doc.text("Reporte de Inspección", 130, 14, { align: "center" });
+        doc.text(t.inspectionReport, 130, 14, { align: "center" });
         
-        // Footer
         doc.setFillColor(240, 240, 240);
         doc.rect(0, 282, 210, 15, "F");
         
-        // Page number
         doc.setTextColor(...colors.text);
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(`Página ${pageNum} de ${totalPages}`, 105, 290, { align: "center" });
+        doc.text(`${language === 'en' ? 'Page' : 'Página'} ${pageNum} ${language === 'en' ? 'of' : 'de'} ${totalPages}`, 105, 290, { align: "center" });
         
-        // Date
         const currentDate = new Date().toLocaleDateString();
-        doc.text(`Fecha de inspección: ${currentDate}`, 15, 290);
+        doc.text(`${t.inspectionDate}: ${currentDate}`, 15, 290);
         
         return 35;
       }
       
-      // Count pages needed
       const estimatedPages = Math.ceil((2 + (inspectionData.tires.length / 5)));
       
-      // First page
       let yPosition = addPageWithTemplate(1, estimatedPages);
       let currentPage = 1;
       
-      // Add main vehicle info box
       doc.setFillColor(245, 245, 245);
       doc.roundedRect(15, yPosition, 180, 45, 3, 3, "F");
       
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.primary);
-      doc.text("Vehículo Principal", 20, yPosition + 8);
+      doc.text(language === 'en' ? "Main Vehicle" : "Vehículo Principal", 20, yPosition + 8);
       
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
       doc.setTextColor(...colors.text);
       
       yPosition += 8;
-      doc.text(`Placa: ${vehicle.placa}`, 25, yPosition + 10);
-      doc.text(`Tipo: ${vehicle.tipovhc}`, 25, yPosition + 18);
-      doc.text(`Cantidad de Llantas: ${vehicle.tireCount}`, 25, yPosition + 26);
+      doc.text(`${t.plate}: ${vehicle.placa}`, 25, yPosition + 10);
+      doc.text(`${t.type}: ${vehicle.tipovhc}`, 25, yPosition + 18);
+      doc.text(`${t.tires}: ${vehicle.tireCount}`, 25, yPosition + 26);
       
-      doc.text(`Fecha de Inspección: ${inspectionData.date}`, 110, yPosition + 10);
-      doc.text(`Kilometraje Anterior: ${vehicle.kilometrajeActual} km`, 110, yPosition + 18);
-      doc.text(`Kilometraje Actual: ${newKilometraje} km`, 110, yPosition + 26);
-      doc.text(`Distancia Recorrida: ${inspectionData.kmDiff} km`, 110, yPosition + 34);
+      doc.text(`${t.inspectionDate}: ${inspectionData.date}`, 110, yPosition + 10);
+      doc.text(`${t.previousMileage}: ${vehicle.kilometrajeActual} km`, 110, yPosition + 18);
+      doc.text(`${t.currentMileageLabel}: ${newKilometraje} km`, 110, yPosition + 26);
+      doc.text(`${t.distanceTraveled}: ${inspectionData.kmDiff} km`, 110, yPosition + 34);
       
       yPosition += 55;
 
-      // Add union vehicle info if exists
       if (unionVehicle) {
         doc.setFillColor(235, 245, 255);
         doc.roundedRect(15, yPosition, 180, 45, 3, 3, "F");
@@ -508,7 +621,7 @@ export default function InspeccionPage() {
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...colors.secondary);
-        doc.text("Vehículo en Unión", 20, yPosition + 8);
+        doc.text(t.unionVehicle, 20, yPosition + 8);
         
         doc.setFont("helvetica", "normal");
         doc.setFontSize(11);
@@ -517,34 +630,31 @@ export default function InspeccionPage() {
         const unionNewKm = unionVehicle.kilometrajeActual + inspectionData.kmDiff;
         
         yPosition += 8;
-        doc.text(`Placa: ${unionVehicle.placa}`, 25, yPosition + 10);
-        doc.text(`Tipo: ${unionVehicle.tipovhc}`, 25, yPosition + 18);
-        doc.text(`Cantidad de Llantas: ${unionVehicle.tireCount}`, 25, yPosition + 26);
+        doc.text(`${t.plate}: ${unionVehicle.placa}`, 25, yPosition + 10);
+        doc.text(`${t.type}: ${unionVehicle.tipovhc}`, 25, yPosition + 18);
+        doc.text(`${t.tires}: ${unionVehicle.tireCount}`, 25, yPosition + 26);
         
-        doc.text(`Kilometraje Anterior: ${unionVehicle.kilometrajeActual} km`, 110, yPosition + 10);
-        doc.text(`Kilometraje Actual: ${unionNewKm} km`, 110, yPosition + 18);
-        doc.text(`Distancia Recorrida: ${inspectionData.kmDiff} km`, 110, yPosition + 26);
+        doc.text(`${t.previousMileage}: ${unionVehicle.kilometrajeActual} km`, 110, yPosition + 10);
+        doc.text(`${t.currentMileageLabel}: ${unionNewKm} km`, 110, yPosition + 18);
+        doc.text(`${t.distanceTraveled}: ${inspectionData.kmDiff} km`, 110, yPosition + 26);
         
         yPosition += 55;
       }
       
-      // Add tire inspection title
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.primary);
-      doc.text("Inspección de Neumáticos", 20, yPosition);
+      doc.text(t.tireInspection, 20, yPosition);
       yPosition += 10;
       
-      // Group tires by vehicle
       const mainVehicleTires = inspectionData.tires.filter(tire => tire.vehicleId === vehicle.id);
       const unionVehicleTires = inspectionData.tires.filter(tire => unionVehicle && tire.vehicleId === unionVehicle.id);
       
-      // Process main vehicle tires
       if (mainVehicleTires.length > 0) {
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...colors.primary);
-        doc.text(`Neumáticos - ${vehicle.placa}`, 20, yPosition);
+        doc.text(`${language === 'en' ? 'Tires' : 'Neumáticos'} - ${vehicle.placa}`, 20, yPosition);
         yPosition += 10;
         
         for (const tire of mainVehicleTires) {
@@ -555,18 +665,16 @@ export default function InspeccionPage() {
             yPosition = addPageWithTemplate(currentPage, estimatedPages);
           }
           
-          // Render tire block
           yPosition = await renderTireBlock(doc, tire, yPosition, colors);
         }
       }
       
-      // Process union vehicle tires
       if (unionVehicleTires.length > 0) {
         yPosition += 10;
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...colors.secondary);
-        doc.text(`Neumáticos - ${unionVehicle!.placa}`, 20, yPosition);
+        doc.text(`${language === 'en' ? 'Tires' : 'Neumáticos'} - ${unionVehicle!.placa}`, 20, yPosition);
         yPosition += 10;
         
         for (const tire of unionVehicleTires) {
@@ -580,7 +688,6 @@ export default function InspeccionPage() {
           yPosition = await renderTireBlock(doc, tire, yPosition, colors);
         }
       }
-      
       // Helper function to render tire block
       async function renderTireBlock(doc, tire, yPos, colors) {
         const tireBlockHeight = tire.updates.image ? 100 : 60;
@@ -770,9 +877,9 @@ export default function InspeccionPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-[#0A183A] mb-2">
-              Sistema de Inspección de Neumáticos
+              {t.title}
             </h1>
-            <p className="text-gray-600">Registre las mediciones de profundidad y genere reportes detallados</p>
+            <p className="text-gray-600">{t.subtitle}</p>
           </div>
 
           {/* Search Form */}
@@ -780,14 +887,14 @@ export default function InspeccionPage() {
             <div className="flex gap-4 items-end">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-2 text-[#0A183A]">
-                  Placa del Vehículo
+                  {t.vehiclePlate}
                 </label>
                 <input
                   type="text"
                   value={placaInput}
                   onChange={(e) => setPlacaInput(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-[#1E76B6]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                  placeholder="Ingrese la placa del vehículo"
+                  placeholder={t.vehiclePlateHolder}
                 />
               </div>
               <button
@@ -796,7 +903,7 @@ export default function InspeccionPage() {
                 className="px-6 py-3 bg-[#0A183A] text-white rounded-lg hover:bg-[#1E76B6] transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 <Search className="w-5 h-5" />
-                {loading ? "Buscando..." : "Buscar"}
+                {loading ? t.searching : t.search}
               </button>
             </div>
           </form>
@@ -816,14 +923,14 @@ export default function InspeccionPage() {
                 <div>
                   <h2 className="text-xl font-bold mb-4 text-[#0A183A] flex items-center gap-2">
                     <FileText className="w-6 h-6" />
-                    Información del Vehículo
+                    {t.vehicleInfo}
                   </h2>
                   <div className="space-y-2">
-                    <p><span className="font-medium">Placa:</span> {vehicle.placa}</p>
-                    <p><span className="font-medium">Tipo:</span> {vehicle.tipovhc}</p>
-                    <p><span className="font-medium">Llantas:</span> {vehicle.tireCount}</p>
-                    <p><span className="font-medium">Kilometraje Actual:</span> {vehicle.kilometrajeActual} km</p>
-                    {vehicle.union && <p><span className="font-medium">Vehículo en Unión:</span> {vehicle.union}</p>}
+                    <p><span className="font-medium">{t.plate}:</span> {vehicle.placa}</p>
+                    <p><span className="font-medium">{t.type}:</span> {vehicle.tipovhc}</p>
+                    <p><span className="font-medium">{t.tires}:</span> {vehicle.tireCount}</p>
+                    <p><span className="font-medium">{t.currentMileage}:</span> {vehicle.kilometrajeActual} km</p>
+                    {vehicle.union && <p><span className="font-medium">{t.unionVehicle}:</span> {vehicle.union}</p>}
                   </div>
                 </div>
                 
@@ -831,13 +938,13 @@ export default function InspeccionPage() {
                   <div>
                     <h2 className="text-xl font-bold mb-4 text-[#1E76B6] flex items-center gap-2">
                       <Link className="w-6 h-6" />
-                      Vehículo en Unión
+                      {t.unionVehicle}
                     </h2>
                     <div className="space-y-2">
-                      <p><span className="font-medium">Placa:</span> {unionVehicle.placa}</p>
-                      <p><span className="font-medium">Tipo:</span> {unionVehicle.tipovhc}</p>
-                      <p><span className="font-medium">Llantas:</span> {unionVehicle.tireCount}</p>
-                      <p><span className="font-medium">Kilometraje Actual:</span> {unionVehicle.kilometrajeActual} km</p>
+                      <p><span className="font-medium">{t.plate}:</span> {unionVehicle.placa}</p>
+                      <p><span className="font-medium">{t.type}:</span> {unionVehicle.tipovhc}</p>
+                      <p><span className="font-medium">{t.tires}:</span> {unionVehicle.tireCount}</p>
+                      <p><span className="font-medium">{t.currentMileage}:</span> {unionVehicle.kilometrajeActual} km</p>
                     </div>
                   </div>
                 )}
@@ -846,7 +953,7 @@ export default function InspeccionPage() {
               <div className="mt-6">
                 <label className="block text-sm font-medium mb-2 text-[#0A183A]">
                   <Timer className="w-4 h-4 inline mr-2" />
-                  Nuevo Kilometraje
+                  {t.newMileage}
                 </label>
                 <input
                   type="number"
@@ -856,7 +963,7 @@ export default function InspeccionPage() {
                   min={vehicle.kilometrajeActual}
                 />
                 <p className="text-sm text-gray-600 mt-1">
-                  Diferencia: +{newKilometraje - vehicle.kilometrajeActual} km
+                  {t.difference}: +{newKilometraje - vehicle.kilometrajeActual} miles
                 </p>
               </div>
             </div>
@@ -873,9 +980,9 @@ export default function InspeccionPage() {
                 className="mt-6 w-full bg-[#0A183A] text-white py-3 rounded-lg hover:bg-[#1E76B6] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? (
-                  <span className="animate-pulse">Actualizando...</span>
+                  <span className="animate-pulse">{t.updating}...</span>
                 ) : (
-                  "Actualizar Inspecciones"
+                  t.updateInspections
                 )}
               </button>
             </form>
@@ -883,7 +990,7 @@ export default function InspeccionPage() {
 
           {vehicle && tires.length === 0 && !loading && (
             <div className="text-center bg-[#348CCB]/10 p-6 rounded-xl">
-              <p className="text-[#0A183A]">No se encontraron llantas para este vehículo.</p>
+              <p className="text-[#0A183A]">{t.noTiresFound}.</p>
             </div>
           )}
         </div>
@@ -893,7 +1000,7 @@ export default function InspeccionPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-[#0A183A]">Exportar Inspección</h3>
+                <h3 className="text-xl font-bold text-[#0A183A]">{t.exportInspection}</h3>
                 <button 
                   onClick={handleClosePopupAndReset}
                   className="text-gray-500 hover:text-[#0A183A]"
@@ -903,7 +1010,7 @@ export default function InspeccionPage() {
               </div>
               
               <p className="mb-6 text-gray-600">
-                La inspección ha sido guardada exitosamente. Puede exportar un reporte en PDF con todos los datos incluyendo CPK y proyecciones.
+                {t.inspectionSavedSuccess}
               </p>
               
               <button
@@ -912,11 +1019,11 @@ export default function InspeccionPage() {
                 className="w-full py-3 bg-[#0A183A] text-white rounded-lg hover:bg-[#1E76B6] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? (
-                  <span className="animate-pulse">Generando PDF...</span>
+                  <span className="animate-pulse">{t.generatingPDF}F...</span>
                 ) : (
                   <>
                     <Download className="w-5 h-5" />
-                    Exportar a PDF
+                    {t.exportToPDF}
                   </>
                 )}
               </button>

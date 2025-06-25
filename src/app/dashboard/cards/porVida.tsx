@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -9,6 +9,7 @@ import {
   Legend,
 } from "chart.js";
 import { HelpCircle, Activity } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -32,11 +33,81 @@ interface PorVidaProps {
   selectedVida?: string | null;
 }
 
+// Translations
+const translations = {
+  es: {
+    title: "Llantas por Vida",
+    tooltip: "Este gráfico muestra cómo están distribuidas las llantas según su vida útil, por ejemplo: nueva, reencauche1, reencauche2, etc.",
+    noDataAvailable: "No hay datos de vida disponibles",
+    inspectedTires: "llantas inspeccionadas",
+    totalLifeTypes: "Total de tipos de vida:",
+    currentTireStatus: "Estado actual de llantas",
+    tiresLabel: "llantas"
+  },
+  en: {
+    title: "Tires by Life",
+    tooltip: "This chart shows how tires are distributed according to their useful life, for example: new, retread1, retread2, etc.",
+    noDataAvailable: "No life data available",
+    inspectedTires: "inspected tires",
+    totalLifeTypes: "Total life types:",
+    currentTireStatus: "Current tire status",
+    tiresLabel: "tires"
+  }
+};
+
 const PorVida: React.FC<PorVidaProps> = ({ 
   tires, 
   onSelectVida = () => {}, 
   selectedVida = null 
 }) => {
+  const router = useRouter();
+  
+  // Language detection state
+  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language detection
+      }
+      
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
+
+  // Get current translations
+  const t = translations[language];
+
   // Group tires by the latest vida entry
   const grouping = useMemo(() => {
     return tires.reduce((acc: { [key: string]: number }, tire) => {
@@ -99,7 +170,7 @@ const PorVida: React.FC<PorVidaProps> = ({
           label: (context: { raw: number; label: string }) => {
             const value = context.raw;
             const percent = total ? Math.round((value / total) * 100) : 0;
-            return `${context.label}: ${value} llantas · ${percent}%`;
+            return `${context.label}: ${value} ${t.tiresLabel} · ${percent}%`;
           },
         },
       },
@@ -119,7 +190,7 @@ const PorVida: React.FC<PorVidaProps> = ({
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden print:shadow-none print:border-gray-300">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">Llantas por Vida</h2>
+        <h2 className="text-xl font-bold">{t.title}</h2>
         <div className="group relative cursor-pointer print:hidden">
           <HelpCircle
             className="text-white hover:text-gray-200 transition-colors"
@@ -134,8 +205,7 @@ const PorVida: React.FC<PorVidaProps> = ({
             w-60 pointer-events-none
           ">
             <p>
-              Este gráfico muestra cómo están distribuidas las llantas según su vida
-              útil, por ejemplo: nueva, reencauche1, reencauche2, etc.
+              {t.tooltip}
             </p>
           </div>
         </div>
@@ -147,7 +217,7 @@ const PorVida: React.FC<PorVidaProps> = ({
           {total === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-500">
               <Activity size={32} />
-              <p>No hay datos de vida disponibles</p>
+              <p>{t.noDataAvailable}</p>
             </div>
           ) : (
             <div className="relative w-full h-full">
@@ -160,7 +230,7 @@ const PorVida: React.FC<PorVidaProps> = ({
               {/* Center text with improved positioning */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
                 <p className="text-3xl font-bold text-[#0A183A] print:text-2xl">{total}</p>
-                <p className="text-sm text-gray-500 print:text-xs">llantas inspeccionadas</p>
+                <p className="text-sm text-gray-500 print:text-xs">{t.inspectedTires}</p>
               </div>
             </div>
           )}
@@ -198,9 +268,9 @@ const PorVida: React.FC<PorVidaProps> = ({
         {/* Footer */}
         <div className="border-t border-gray-100 pt-4 flex justify-between items-center mt-4 print:pt-2 print:mt-2">
           <div className="text-xs text-gray-500 print:text-xs">
-            Total de tipos de vida: {activeIndices.length}
+            {t.totalLifeTypes} {activeIndices.length}
           </div>
-          <div className="text-xs text-gray-500 print:text-xs">Estado actual de llantas</div>
+          <div className="text-xs text-gray-500 print:text-xs">{t.currentTireStatus}</div>
         </div>
       </div>
     </div>

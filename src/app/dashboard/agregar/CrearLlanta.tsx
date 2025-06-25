@@ -15,12 +15,83 @@ type Vehicle = {
   tireCount: number;
 };
 
+// Translation object
+const translations = {
+  es: {
+    title: "Crear Nueva Llanta",
+    subtitle: "Complete el formulario para registrar una nueva llanta en el sistema",
+    selectVehicle: "Seleccione Vehículo (Placa)",
+    searchVehiclePlaceholder: "Buscar vehículo por placa o tipo...",
+    noVehicleOption: "-- Sin vehículo (opcional) --",
+    noVehiclesFound: "No se encontraron vehículos",
+    selected: "Seleccionado",
+    searchHelp: "Busque y seleccione un vehículo para asociar la llanta (opcional)",
+    tireId: "ID de la Llanta",
+    tireIdPlaceholder: "Ingrese ID o déjelo en blanco para generar aleatorio",
+    brand: "Marca",
+    design: "Diseño",
+    initialDepth: "Profundidad Inicial",
+    dimension: "Dimensión",
+    axis: "Eje",
+    axisDirection: "Dirección",
+    axisTraction: "Tracción",
+    kilometersRun: "Kilómetros Recorridos",
+    cost: "Costo",
+    life: "Vida",
+    lifeNew: "Nueva",
+    lifeRetread1: "Primer Reencauche",
+    lifeRetread2: "Segundo Reencauche",
+    lifeRetread3: "Tercer Reencauche",
+    position: "Posición",
+    createButton: "Crear Nueva Llanta",
+    creatingButton: "Creando Llanta...",
+    createSuccess: "Neumático creado exitosamente",
+    required: "*",
+    errorUnknown: "Error desconocido"
+  },
+  en: {
+    title: "Create New Tire",
+    subtitle: "Complete the form to register a new tire in the system",
+    selectVehicle: "Select Vehicle (License Plate)",
+    searchVehiclePlaceholder: "Search vehicle by license plate or type...",
+    noVehicleOption: "-- No vehicle (optional) --",
+    noVehiclesFound: "No vehicles found",
+    selected: "Selected",
+    searchHelp: "Search and select a vehicle to associate the tire (optional)",
+    tireId: "Tire ID",
+    tireIdPlaceholder: "Enter ID or leave blank to generate random",
+    brand: "Brand",
+    design: "Design",
+    initialDepth: "Initial Depth",
+    dimension: "Dimension",
+    axis: "Axis",
+    axisDirection: "Direction",
+    axisTraction: "Traction",
+    kilometersRun: "Kilometers Run",
+    cost: "Cost",
+    life: "Life",
+    lifeNew: "New",
+    lifeRetread1: "First Retread",
+    lifeRetread2: "Second Retread",
+    lifeRetread3: "Third Retread",
+    position: "Position",
+    createButton: "Create New Tire",
+    creatingButton: "Creating Tire...",
+    createSuccess: "Tire created successfully",
+    required: "*",
+    errorUnknown: "Unknown error"
+  }
+};
+
 export default function TirePage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+
+  // Language detection state
+  const [language, setLanguage] = useState<'en'|'es'>('es');
 
   // Vehicle search state
   const [vehicleSearch, setVehicleSearch] = useState("");
@@ -46,6 +117,49 @@ export default function TirePage() {
   const [companyId, setCompanyId] = useState<string>("");
   const [userVehicles, setUserVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+
+  // Get current translations
+  const t = translations[language];
+
+  // Language detection effect
+  useEffect(() => {
+    const detectAndSetLanguage = async () => {
+      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      if (saved) {
+        setLanguage(saved);
+        return;
+      }
+      
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) return reject('no geo');
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        
+        const resp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
+        );
+        
+        if (resp.ok) {
+          const { countryCode } = await resp.json();
+          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
+          setLanguage(lang);
+          localStorage.setItem('preferredLanguage', lang);
+          return;
+        }
+      } catch {
+        // fallback to browser language detection
+      }
+      
+      // Browser fallback
+      const browser = navigator.language || navigator.languages?.[0] || 'es';
+      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      setLanguage(lang);
+      localStorage.setItem('preferredLanguage', lang);
+    };
+
+    detectAndSetLanguage();
+  }, []);
 
   // Common input focus/blur handlers
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -207,7 +321,7 @@ export default function TirePage() {
         throw new Error(errorData.message || "Failed to create tire");
       }
       const data = await res.json();
-      setSuccess(data.message || "Neumático creado exitosamente");
+      setSuccess(data.message || t.createSuccess);
       
       // Reset form fields
       setTireForm({
@@ -227,7 +341,7 @@ export default function TirePage() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Error desconocido");
+        setError(t.errorUnknown);
       }
     } finally {
       setLoading(false);
@@ -260,8 +374,8 @@ export default function TirePage() {
               }}
             ></div>
             <div className="relative">
-              <h1 className="text-4xl font-bold mb-2 tracking-tight">Crear Nueva Llanta</h1>
-              <p className="text-lg font-medium" style={{ color: '#348CCB' }}>Complete el formulario para registrar una nueva llanta en el sistema</p>
+              <h1 className="text-4xl font-bold mb-2 tracking-tight">{t.title}</h1>
+              <p className="text-lg font-medium" style={{ color: '#348CCB' }}>{t.subtitle}</p>
             </div>
           </div>
 
@@ -290,7 +404,7 @@ export default function TirePage() {
               }}
             >
               <label className="block text-lg font-semibold mb-3" style={{ color: '#0A183A' }}>
-                Seleccione Vehículo (Placa)
+                {t.selectVehicle}
               </label>
               <div className="relative" ref={vehicleDropdownRef}>
                 <div className="relative">
@@ -299,7 +413,7 @@ export default function TirePage() {
                     type="text"
                     value={vehicleSearch}
                     onChange={(e) => handleVehicleSearch(e.target.value)}
-                    placeholder="Buscar vehículo por placa o tipo..."
+                    placeholder={t.searchVehiclePlaceholder}
                     className="w-full pl-12 pr-12 py-4 border-2 rounded-xl shadow-sm 
                     focus:outline-none focus:ring-4 transition-all duration-300
                     bg-white text-lg font-medium"
@@ -340,7 +454,7 @@ export default function TirePage() {
                   >
                     {filteredVehicles.length === 0 ? (
                       <div className="p-4 text-center" style={{ color: '#173D68' }}>
-                        No se encontraron vehículos
+                        {t.noVehiclesFound}
                       </div>
                     ) : (
                       <>
@@ -351,7 +465,7 @@ export default function TirePage() {
                             className="w-full text-left p-2 rounded-lg transition-colors hover:bg-gray-100"
                             style={{ color: '#173D68' }}
                           >
-                            -- Sin vehículo (opcional) --
+                            {t.noVehicleOption}
                           </button>
                         </div>
                         {filteredVehicles.map((vehicle) => (
@@ -380,12 +494,12 @@ export default function TirePage() {
                   }}
                 >
                   <div className="text-sm" style={{ color: '#0A183A' }}>
-                    <strong>Seleccionado:</strong> {selectedVehicle.placa} - {selectedVehicle.tipovhc}
+                    <strong>{t.selected}:</strong> {selectedVehicle.placa} - {selectedVehicle.tipovhc}
                   </div>
                 </div>
               )}
               <p className="text-sm mt-2" style={{ color: '#173D68' }}>
-                Busque y seleccione un vehículo para asociar la llanta (opcional)
+                {t.searchHelp}
               </p>
             </div>
 
@@ -394,14 +508,14 @@ export default function TirePage() {
               {/* ID de la Llanta */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold" style={{ color: '#0A183A' }}>
-                  ID de la Llanta
+                  {t.tireId}
                 </label>
                 <input
                   type="text"
                   name="tirePlaca"
                   value={tireForm.tirePlaca}
                   onChange={handleInputChange}
-                  placeholder="Ingrese ID o déjelo en blanco para generar aleatorio"
+                  placeholder={t.tireIdPlaceholder}
                   className="w-full px-4 py-4 border-2 rounded-xl shadow-sm 
                   focus:outline-none transition-all duration-300
                   bg-white text-lg font-medium"
@@ -417,7 +531,7 @@ export default function TirePage() {
               {/* Marca */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Marca <span className="text-red-500">*</span>
+                  {t.brand} <span className="text-red-500">{t.required}</span>
                 </label>
                 <input
                   type="text"
@@ -435,7 +549,7 @@ export default function TirePage() {
               {/* Diseño */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Diseño <span className="text-red-500">*</span>
+                  {t.design} <span className="text-red-500">{t.required}</span>
                 </label>
                 <input
                   type="text"
@@ -453,7 +567,7 @@ export default function TirePage() {
               {/* Profundidad Inicial */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Profundidad Inicial <span className="text-red-500">*</span>
+                  {t.initialDepth} <span className="text-red-500">{t.required}</span>
                 </label>
                 <input
                   type="number"
@@ -472,7 +586,7 @@ export default function TirePage() {
               {/* Dimensión */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Dimensión <span className="text-red-500">*</span>
+                  {t.dimension} <span className="text-red-500">{t.required}</span>
                 </label>
                 <input
                   type="text"
@@ -490,7 +604,7 @@ export default function TirePage() {
               {/* Eje */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Eje <span className="text-red-500">*</span>
+                  {t.axis} <span className="text-red-500">{t.required}</span>
                 </label>
                 <select
                   name="eje"
@@ -501,15 +615,15 @@ export default function TirePage() {
                   focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
                   bg-white text-[#0A183A] transition-all duration-300 text-lg font-medium"
                 >
-                  <option value="direccion">Dirección</option>
-                  <option value="traccion">Tracción</option>
+                  <option value="direccion">{t.axisDirection}</option>
+                  <option value="traccion">{t.axisTraction}</option>
                 </select>
               </div>
 
               {/* Kilómetros Recorridos */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Kilómetros Recorridos
+                  {t.kilometersRun}
                 </label>
                 <input
                   type="number"
@@ -526,7 +640,7 @@ export default function TirePage() {
               {/* Costo */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Costo <span className="text-red-500">*</span>
+                  {t.cost} <span className="text-red-500">{t.required}</span>
                 </label>
                 <input
                   type="number"
@@ -545,7 +659,7 @@ export default function TirePage() {
               {/* Vida */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Vida <span className="text-red-500">*</span>
+                  {t.life} <span className="text-red-500">{t.required}</span>
                 </label>
                 <select
                   name="vida"
@@ -556,17 +670,18 @@ export default function TirePage() {
                   focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
                   bg-white text-[#0A183A] transition-all duration-300 text-lg font-medium"
                 >
-                  <option value="nueva">Nueva</option>
-                  <option value="reencauche1">Primer Reencauche</option>
-                  <option value="reencauche2">Segundo Reencauche</option>
-                  <option value="reencauche3">Tercer Reencauche</option>
+                  <option value="nueva">{t.lifeNew}</option>
+                  <option value="reencauche1">{t.lifeRetread1}</option>
+                  <option value="reencauche2">{t.lifeRetread2}</option>
+                  <option value="reencauche3">{t.lifeRetread3}</option>
                 </select>
               </div>
+
 
               {/* Posición */}
               <div className="space-y-2">
                 <label className="block text-lg font-semibold text-[#0A183A]">
-                  Posición <span className="text-red-500">*</span>
+                  {t.position} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -600,10 +715,10 @@ export default function TirePage() {
               {loading ? (
                 <>
                   <Loader2 className="animate-spin mr-3" size={24} />
-                  <span>Creando Llanta...</span>
+                  <span>{t.creatingButton}...</span>
                 </>
               ) : (
-                "Crear Nueva Llanta"
+                t.createButton
               )}
             </button>
           </form>
