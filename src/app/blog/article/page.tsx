@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import Head from 'next/head'
 import { useSearchParams } from 'next/navigation'
 import { 
   Menu,
@@ -69,6 +70,63 @@ const ArticleContent = () => {
     return `${minutes} min`
   }
 
+  // Extract plain text from HTML content for meta descriptions
+  const extractTextFromHTML = (html, maxLength = 155) => {
+    if (!html) return ''
+    
+    // Remove HTML tags and decode entities
+    const text = html
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim()
+    
+    return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text
+  }
+
+  // Generate structured data for SEO
+  const generateStructuredData = (article) => {
+    if (!article) return null
+
+    const structuredData = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": article.title,
+      "description": article.subtitle || extractTextFromHTML(article.content, 155),
+      "image": [article.image],
+      "datePublished": article.date,
+      "dateModified": article.date,
+      "author": {
+        "@type": "Organization",
+        "name": article.author
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "TirePro",
+        "logo": {
+          "@type": "ImageObject",
+          "url": `${typeof window !== 'undefined' ? window.location.origin : ''}/logo_text.png`
+        }
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": typeof window !== 'undefined' ? window.location.href : ''
+      },
+      "articleSection": article.category,
+      "keywords": article.hashtags ? article.hashtags.join(', ') : '',
+      "wordCount": article.content ? article.content.split(' ').length : 0,
+      "timeRequired": `PT${article.readTime.replace(' min', '')}M`,
+      "inLanguage": "es-ES"
+    }
+
+    return structuredData
+  }
+
   // Fetch single article from backend
   const fetchArticle = async () => {
     if (!articleId) {
@@ -101,6 +159,52 @@ const ArticleContent = () => {
         setArticle(transformedArticle)
         setError(null)
         
+        // Update page title and meta tags dynamically
+        if (typeof window !== 'undefined') {
+          document.title = `${transformedArticle.title} - TirePro`
+          
+          // Update meta description
+          const metaDescription = document.querySelector('meta[name="description"]')
+          if (metaDescription) {
+            metaDescription.setAttribute('content', 
+              transformedArticle.subtitle || extractTextFromHTML(transformedArticle.content, 155)
+            )
+          }
+
+          // Update Open Graph tags
+          const ogTitle = document.querySelector('meta[property="og:title"]')
+          const ogDescription = document.querySelector('meta[property="og:description"]')
+          const ogImage = document.querySelector('meta[property="og:image"]')
+          const ogUrl = document.querySelector('meta[property="og:url"]')
+
+          if (ogTitle) ogTitle.setAttribute('content', `${transformedArticle.title} - TirePro`)
+          if (ogDescription) ogDescription.setAttribute('content', transformedArticle.subtitle || extractTextFromHTML(transformedArticle.content, 155))
+          if (ogImage) ogImage.setAttribute('content', transformedArticle.image)
+          if (ogUrl) ogUrl.setAttribute('content', window.location.href)
+
+          // Update Twitter Card tags
+          const twitterTitle = document.querySelector('meta[name="twitter:title"]')
+          const twitterDescription = document.querySelector('meta[name="twitter:description"]')
+          const twitterImage = document.querySelector('meta[name="twitter:image"]')
+
+          if (twitterTitle) twitterTitle.setAttribute('content', `${transformedArticle.title} - TirePro`)
+          if (twitterDescription) twitterDescription.setAttribute('content', transformedArticle.subtitle || extractTextFromHTML(transformedArticle.content, 155))
+          if (twitterImage) twitterImage.setAttribute('content', transformedArticle.image)
+
+          // Add structured data
+          const structuredData = generateStructuredData(transformedArticle)
+          if (structuredData) {
+            let scriptTag = document.getElementById('structured-data')
+            if (!scriptTag) {
+              scriptTag = document.createElement('script')
+              scriptTag.id = 'structured-data'
+              scriptTag.type = 'application/ld+json'
+              document.head.appendChild(scriptTag)
+            }
+            scriptTag.textContent = JSON.stringify(structuredData)
+          }
+        }
+        
         // Fetch related articles
         await fetchRelatedArticles(transformedArticle.category)
       } else {
@@ -129,7 +233,7 @@ const ArticleContent = () => {
           .map(article => ({
             id: article.id,
             title: article.title,
-            excerpt: article.subtitle || '',
+            excerpt: article.subtitle || extractTextFromHTML(article.content, 120),
             category: article.category || 'general',
             author: "TirePro Team",
             date: article.createdAt,
@@ -184,360 +288,547 @@ const ArticleContent = () => {
   // Loading component
   if (loading) {
     return (
-      <div className="bg-[#030712] text-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="animate-spin h-12 w-12 text-[#348CCB] mx-auto mb-4" />
-          <p className="text-gray-300">Cargando artículo...</p>
+      <>
+        <Head>
+          <title>Cargando Artículo - TirePro</title>
+          <meta name="description" content="Cargando artículo sobre mantenimiento y gestión de llantas con TirePro" />
+        </Head>
+        <div className="bg-[#030712] text-white min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <Loader className="animate-spin h-12 w-12 text-[#348CCB] mx-auto mb-4" />
+            <p className="text-gray-300">Cargando artículo...</p>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   // Error component
   if (error || !article) {
     return (
-      <div className="bg-[#030712] text-white min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
-            <h2 className="text-xl font-bold text-red-400 mb-2">Error al cargar</h2>
-            <p className="text-gray-300 mb-4">{error}</p>
-            <div className="flex gap-4 justify-center">
-              <button 
-                onClick={fetchArticle}
-                className="px-4 py-2 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all"
-              >
-                Reintentar
-              </button>
-              <Link href="/blog">
-                <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all">
-                  Volver al Blog
+      <>
+        <Head>
+          <title>Error - Artículo no encontrado - TirePro</title>
+          <meta name="description" content="El artículo solicitado no pudo ser encontrado. Explora más contenido sobre mantenimiento de llantas en TirePro." />
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+        <div className="bg-[#030712] text-white min-h-screen flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-4">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
+              <h1 className="text-xl font-bold text-red-400 mb-2">Error al cargar</h1>
+              <p className="text-gray-300 mb-4">{error}</p>
+              <div className="flex gap-4 justify-center">
+                <button 
+                  onClick={fetchArticle}
+                  className="px-4 py-2 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all"
+                >
+                  Reintentar
                 </button>
-              </Link>
+                <Link href="/blog">
+                  <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all">
+                    Volver al Blog
+                  </button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </>
     )
   }
 
+  const pageTitle = `${article.title} - TirePro`
+  const pageDescription = article.subtitle || extractTextFromHTML(article.content, 155)
+  const canonicalUrl = typeof window !== 'undefined' ? window.location.href : ''
+
   return (
-    <div className="bg-[#030712] text-white min-h-screen">
-      {/* Enhanced Article Content Styles */}
-      <style jsx global>{`
-        .article-content {
-          font-size: 1.125rem;
-          line-height: 1.7;
-          color: #d1d5db;
-          max-width: none;
-        }
+    <>
+      <Head>
+        {/* Primary Meta Tags */}
+        <title>{pageTitle}</title>
+        <meta name="title" content={pageTitle} />
+        <meta name="description" content={pageDescription} />
+        <meta name="keywords" content={`${article.hashtags ? article.hashtags.join(', ') + ', ' : ''}llantas, mantenimiento, gestión de flotas, neumáticos, TirePro, ${article.category}`} />
+        <meta name="author" content={article.author} />
+        <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+        <meta name="language" content="es-ES" />
+        <meta name="revisit-after" content="7 days" />
         
-        .article-content h1 {
-          font-size: 2.25rem;
-          font-weight: 700;
-          color: white;
-          margin: 2rem 0 1.5rem 0;
-          line-height: 1.2;
-        }
+        {/* Canonical URL */}
+        <link rel="canonical" href={canonicalUrl} />
         
-        .article-content h2 {
-          font-size: 1.875rem;
-          font-weight: 700;
-          color: white;
-          margin: 1.75rem 0 1rem 0;
-          line-height: 1.3;
-        }
-        
-        .article-content h3 {
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: white;
-          margin: 1.5rem 0 0.75rem 0;
-          line-height: 1.3;
-        }
-        
-        .article-content h4 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: white;
-          margin: 1.25rem 0 0.5rem 0;
-          line-height: 1.3;
-        }
-        
-        .article-content h5 {
-          font-size: 1.125rem;
-          font-weight: 600;
-          color: white;
-          margin: 1rem 0 0.5rem 0;
-          line-height: 1.3;
-        }
-        
-        .article-content h6 {
-          font-size: 1rem;
-          font-weight: 600;
-          color: white;
-          margin: 1rem 0 0.5rem 0;
-          line-height: 1.3;
-        }
-        
-        .article-content p {
-          margin: 1.25rem 0;
-          color: #d1d5db;
-          font-size: 1.125rem;
-          line-height: 1.7;
-        }
-        
-        .article-content strong, .article-content b {
-          font-weight: 700;
-          color: #348CCB;
-        }
-        
-        .article-content em, .article-content i {
-          font-style: italic;
-          color: #e5e7eb;
-        }
-        
-        .article-content br {
-          display: block;
-          margin: 1rem 0;
-          content: "";
-        }
-        
-        .article-content ul {
-          margin: 1.5rem 0;
-          padding-left: 2rem;
-          list-style-type: disc;
-        }
-        
-        .article-content ol {
-          margin: 1.5rem 0;
-          padding-left: 2rem;
-          list-style-type: decimal;
-        }
-        
-        .article-content li {
-          margin: 0.75rem 0;
-          color: #d1d5db;
-          font-size: 1.125rem;
-          line-height: 1.6;
-        }
-        
-        .article-content li::marker {
-          color: #348CCB;
-        }
-        
-        .article-content ul ul,
-        .article-content ol ol,
-        .article-content ul ol,
-        .article-content ol ul {
-          margin: 0.5rem 0;
-          padding-left: 1.5rem;
-        }
-        
-        .article-content blockquote {
-          margin: 2rem 0;
-          padding: 1.5rem;
-          border-left: 4px solid #348CCB;
-          background: rgba(52, 140, 203, 0.1);
-          border-radius: 0 8px 8px 0;
-          font-style: italic;
-          color: #e5e7eb;
-        }
-        
-        .article-content blockquote p {
-          margin: 0.5rem 0;
-        }
-        
-        .article-content code {
-          background: rgba(52, 140, 203, 0.1);
-          color: #348CCB;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-family: 'Courier New', monospace;
-          font-size: 0.9em;
-        }
-        
-        .article-content pre {
-          background: rgba(10, 24, 58, 0.6);
-          border: 1px solid rgba(23, 61, 104, 0.3);
-          border-radius: 8px;
-          padding: 1.5rem;
-          margin: 1.5rem 0;
-          overflow-x: auto;
-        }
-        
-        .article-content pre code {
-          background: none;
-          padding: 0;
-          color: #d1d5db;
-        }
-        
-        .article-content a {
-          color: #348CCB;
-          text-decoration: underline;
-          transition: color 0.2s ease;
-        }
-        
-        .article-content a:hover {
-          color: #1E76B6;
-        }
-        
-        .article-content table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 1.5rem 0;
-          background: rgba(10, 24, 58, 0.3);
-          border-radius: 8px;
-          overflow: hidden;
-        }
-        
-        .article-content th,
-        .article-content td {
-          padding: 0.75rem 1rem;
-          text-align: left;
-          border-bottom: 1px solid rgba(23, 61, 104, 0.3);
-        }
-        
-        .article-content th {
-          background: rgba(52, 140, 203, 0.2);
-          font-weight: 600;
-          color: white;
-        }
-        
-        .article-content tr:last-child td {
-          border-bottom: none;
-        }
-        
-        .article-content hr {
-          border: none;
-          height: 1px;
-          background: linear-gradient(to right, transparent, #348CCB, transparent);
-          margin: 2rem 0;
-        }
-        
-        .article-content img {
-          max-width: 100%;
-          height: auto;
-          border-radius: 8px;
-          margin: 1.5rem 0;
-        }
-        
-        .article-content figure {
-          margin: 1.5rem 0;
-          text-align: center;
-        }
-        
-        .article-content figcaption {
-          margin-top: 0.5rem;
-          font-size: 0.9rem;
-          color: #9ca3af;
-          font-style: italic;
-        }
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="article" />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
+        <meta property="og:image" content={article.image} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={article.title} />
+        <meta property="og:site_name" content="TirePro" />
+        <meta property="og:locale" content="es_ES" />
+        <meta property="article:published_time" content={new Date(article.date).toISOString()} />
+        <meta property="article:modified_time" content={new Date(article.date).toISOString()} />
+        <meta property="article:author" content={article.author} />
+        <meta property="article:section" content={article.category} />
+        {article.hashtags && article.hashtags.map((tag, index) => (
+          <meta key={index} property="article:tag" content={tag} />
+        ))}
 
-        /* Special styling for nested lists */
-        .article-content ul li ul,
-        .article-content ol li ol,
-        .article-content ul li ol,
-        .article-content ol li ul {
-          margin-top: 0.5rem;
-          margin-bottom: 0.5rem;
-        }
+        {/* Twitter */}
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:url" content={canonicalUrl} />
+        <meta property="twitter:title" content={pageTitle} />
+        <meta property="twitter:description" content={pageDescription} />
+        <meta property="twitter:image" content={article.image} />
+        <meta property="twitter:image:alt" content={article.title} />
+        <meta name="twitter:creator" content="@TirePro" />
+        <meta name="twitter:site" content="@TirePro" />
 
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
+        {/* Additional Meta Tags */}
+        <meta name="theme-color" content="#348CCB" />
+        <meta name="msapplication-navbutton-color" content="#348CCB" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        
+        {/* Preload critical resources */}
+        <link rel="preload" href={article.image} as="image" />
+        
+        {/* Breadcrumb Schema */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Inicio",
+                  "item": typeof window !== 'undefined' ? window.location.origin : ''
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": "Blog",
+                  "item": `${typeof window !== 'undefined' ? window.location.origin : ''}/blog`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 3,
+                  "name": article.title,
+                  "item": canonicalUrl
+                }
+              ]
+            })
+          }}
+        />
+      </Head>
+
+      <div className="bg-[#030712] text-white min-h-screen">
+        {/* Enhanced Article Content Styles */}
+        <style jsx global>{`
           .article-content {
+            font-size: 1.125rem;
+            line-height: 1.7;
+            color: #d1d5db;
+            max-width: none;
+          }
+
+          .article-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: rgba(10, 24, 58, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
             font-size: 1rem;
+          }
+          
+          .article-content th,
+          .article-content td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(23, 61, 104, 0.3);
+            vertical-align: top;
+          }
+          
+          .article-content th {
+            background: rgba(52, 140, 203, 0.2);
+            font-weight: 600;
+            color: white;
+            font-size: 0.9rem;
+          }
+          
+          .article-content tr:last-child td {
+            border-bottom: none;
+          }
+
+          /* Mobile table responsiveness */
+          @media (max-width: 768px) {
+            .article-content table {
+              font-size: 0.85rem;
+              margin: 1rem 0;
+            }
+            
+            .article-content th,
+            .article-content td {
+              padding: 0.5rem 0.75rem;
+              font-size: 0.85rem;
+              line-height: 1.4;
+            }
+            
+            .article-content th {
+              font-size: 0.8rem;
+              font-weight: 700;
+            }
+            
+            /* Make table horizontally scrollable on very small screens */
+            .article-content table {
+              display: block;
+              overflow-x: auto;
+              white-space: nowrap;
+              -webkit-overflow-scrolling: touch;
+            }
+            
+            .article-content thead,
+            .article-content tbody,
+            .article-content tr {
+              display: table;
+              width: 100%;
+              table-layout: fixed;
+            }
+            
+            .article-content table thead,
+            .article-content table tbody {
+              width: max-content;
+              min-width: 100%;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            .article-content table {
+              font-size: 0.8rem;
+            }
+            
+            .article-content th,
+            .article-content td {
+              padding: 0.4rem 0.6rem;
+              font-size: 0.8rem;
+            }
+            
+            .article-content th {
+              font-size: 0.75rem;
+            }
           }
           
           .article-content h1 {
-            font-size: 1.875rem;
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: white;
+            margin: 2rem 0 1.5rem 0;
+            line-height: 1.2;
           }
           
           .article-content h2 {
-            font-size: 1.5rem;
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: white;
+            margin: 1.75rem 0 1rem 0;
+            line-height: 1.3;
           }
           
           .article-content h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: white;
+            margin: 1.5rem 0 0.75rem 0;
+            line-height: 1.3;
+          }
+          
+          .article-content h4 {
             font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            margin: 1.25rem 0 0.5rem 0;
+            line-height: 1.3;
           }
           
-          .article-content p,
-          .article-content li {
+          .article-content h5 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: white;
+            margin: 1rem 0 0.5rem 0;
+            line-height: 1.3;
+          }
+          
+          .article-content h6 {
             font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            margin: 1rem 0 0.5rem 0;
+            line-height: 1.3;
           }
           
-          .article-content ul,
+          .article-content p {
+            margin: 1.25rem 0;
+            color: #d1d5db;
+            font-size: 1.125rem;
+            line-height: 1.7;
+          }
+          
+          .article-content strong, .article-content b {
+            font-weight: 700;
+            color: #348CCB;
+          }
+          
+          .article-content em, .article-content i {
+            font-style: italic;
+            color: #e5e7eb;
+          }
+          
+          .article-content br {
+            display: block;
+            margin: 1rem 0;
+            content: "";
+          }
+          
+          .article-content ul {
+            margin: 1.5rem 0;
+            padding-left: 2rem;
+            list-style-type: disc;
+          }
+          
           .article-content ol {
+            margin: 1.5rem 0;
+            padding-left: 2rem;
+            list-style-type: decimal;
+          }
+          
+          .article-content li {
+            margin: 0.75rem 0;
+            color: #d1d5db;
+            font-size: 1.125rem;
+            line-height: 1.6;
+          }
+          
+          .article-content li::marker {
+            color: #348CCB;
+          }
+          
+          .article-content ul ul,
+          .article-content ol ol,
+          .article-content ul ol,
+          .article-content ol ul {
+            margin: 0.5rem 0;
             padding-left: 1.5rem;
           }
-        }
-      `}</style>
+          
+          .article-content blockquote {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            border-left: 4px solid #348CCB;
+            background: rgba(52, 140, 203, 0.1);
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            color: #e5e7eb;
+          }
+          
+          .article-content blockquote p {
+            margin: 0.5rem 0;
+          }
+          
+          .article-content code {
+            background: rgba(52, 140, 203, 0.1);
+            color: #348CCB;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+          }
+          
+          .article-content pre {
+            background: rgba(10, 24, 58, 0.6);
+            border: 1px solid rgba(23, 61, 104, 0.3);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+          }
+          
+          .article-content pre code {
+            background: none;
+            padding: 0;
+            color: #d1d5db;
+          }
+          
+          .article-content a {
+            color: #348CCB;
+            text-decoration: underline;
+            transition: color 0.2s ease;
+          }
+          
+          .article-content a:hover {
+            color: #1E76B6;
+          }
+          
+          .article-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: rgba(10, 24, 58, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+          }
+          
+          .article-content th,
+          .article-content td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(23, 61, 104, 0.3);
+          }
+          
+          .article-content th {
+            background: rgba(52, 140, 203, 0.2);
+            font-weight: 600;
+            color: white;
+          }
+          
+          .article-content tr:last-child td {
+            border-bottom: none;
+          }
+          
+          .article-content hr {
+            border: none;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #348CCB, transparent);
+            margin: 2rem 0;
+          }
+          
+          .article-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+          }
+          
+          .article-content figure {
+            margin: 1.5rem 0;
+            text-align: center;
+          }
+          
+          .article-content figcaption {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #9ca3af;
+            font-style: italic;
+          }
 
-      {/* Mobile Menu Blur Overlay */}
-      <div className={`fixed inset-0 z-40 transition-all duration-500 ${
-        isMobileMenuOpen 
-          ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
-          : 'opacity-0 pointer-events-none'
-      }`} onClick={() => setIsMobileMenuOpen(false)}></div>
+          /* Special styling for nested lists */
+          .article-content ul li ul,
+          .article-content ol li ol,
+          .article-content ul li ol,
+          .article-content ol li ul {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+          }
 
-      {/* Enhanced Floating Liquid Glass Navbar */}
-      <nav className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[calc(100%-3rem)] max-w-6xl z-50 transition-all duration-700 rounded-2xl ${
-        isScrolled 
-          ? 'backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 shadow-2xl' 
-          : 'backdrop-blur-xl bg-gradient-to-r from-white/8 via-transparent to-white/8 border border-white/20 shadow-xl'
-      }`}>
-        <div className="absolute inset-0 bg-gradient-to-r from-[#348CCB]/15 via-transparent to-[#348CCB]/15 opacity-60 rounded-2xl"></div>
-        
-        <div className="px-6 sm:px-8 lg:px-10 relative">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-2 relative z-10">
-              <div className="flex items-center space-x-2">
-                <span className="text-xl font-bold bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
-                  <Link href="/"><div className="flex items-center space-x-2">
-              <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
-              <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
-            </div></Link>
-                </span>
+          /* Responsive adjustments */
+          @media (max-width: 768px) {
+            .article-content {
+              font-size: 1rem;
+            }
+            
+            .article-content h1 {
+              font-size: 1.875rem;
+            }
+            
+            .article-content h2 {
+              font-size: 1.5rem;
+            }
+            
+            .article-content h3 {
+              font-size: 1.25rem;
+            }
+            
+            .article-content p,
+            .article-content li {
+              font-size: 1rem;
+            }
+            
+            .article-content ul,
+            .article-content ol {
+              padding-left: 1.5rem;
+            }
+          }
+        `}</style>
+
+        {/* Mobile Menu Blur Overlay */}
+        <div className={`fixed inset-0 z-40 transition-all duration-500 ${
+          isMobileMenuOpen 
+            ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
+            : 'opacity-0 pointer-events-none'
+        }`} onClick={() => setIsMobileMenuOpen(false)}></div>
+
+        {/* Enhanced Floating Liquid Glass Navbar */}
+        <nav className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[calc(100%-3rem)] max-w-6xl z-50 transition-all duration-700 rounded-2xl ${
+          isScrolled 
+            ? 'backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 shadow-2xl' 
+            : 'backdrop-blur-xl bg-gradient-to-r from-white/8 via-transparent to-white/8 border border-white/20 shadow-xl'
+        }`}>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#348CCB]/15 via-transparent to-[#348CCB]/15 opacity-60 rounded-2xl"></div>
+          
+          <div className="px-6 sm:px-8 lg:px-10 relative">
+            <div className="flex justify-between items-center h-16">
+              {/* Logo */}
+              <div className="flex items-center space-x-2 relative z-10">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xl font-bold bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
+                    <Link href="/"><div className="flex items-center space-x-2">
+                <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
+                <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
+              </div></Link>
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-6 relative z-10">
-              {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
-                <a 
-                  key={i}
-                  href={item === 'Plataforma' ? '#platform' : item === 'Planes' ? '#plans' : `/${item.toLowerCase()}`} 
-                  className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group"
-                >
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
-                  <span className="relative z-10">{item}</span>
-                </a>
-              ))}
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="hidden md:flex items-center space-x-3 relative z-10">
-              <a href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-black backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
-                Ingresar
-              </button></a>
-              <a href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
-                Comenzar
-              </button></a>
-            </div>
-
-            {/* Mobile menu button */}
-            <button 
-              className="md:hidden p-1 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              <div className="relative">
-                <Menu className={`w-6 h-6 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0 rotate-45' : 'opacity-100'}`} />
-                <X className={`w-6 h-6 absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 -rotate-45'}`} />
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center space-x-6 relative z-10">
+                {['Plataforma', 'Blog', 'Planes', 'Contact'].map((item, i) => (
+                  <Link 
+                    key={i}
+                    href={item === 'Plataforma' ? '/#platform' : item === 'Planes' ? '/#plans' : `/${item.toLowerCase()}`}
+                    className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group"
+                  >
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
+                    <span className="relative z-10">{item}</span>
+                  </Link>
+                ))}
               </div>
-            </button>
+
+              {/* CTA Buttons */}
+              <div className="hidden md:flex items-center space-x-3 relative z-10">
+                <Link href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-black backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
+                  Ingresar
+                </button></Link>
+                <Link href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
+                  Comenzar
+                </button></Link>
+              </div>
+
+              {/* Mobile menu button */}
+              <button 
+                className="md:hidden p-1 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                <div className="relative">
+                  <Menu className={`w-6 h-6 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0 rotate-45' : 'opacity-100'}`} />
+                  <X className={`w-6 h-6 absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 -rotate-45'}`} />
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
-
         {/* Enhanced Floating Mobile Menu */}
         <div className={`md:hidden absolute top-full left-1/2 transform -translate-x-1/2 w-full mt-4 z-50 transition-all duration-500 ${
           isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8 pointer-events-none'
@@ -585,21 +876,24 @@ const ArticleContent = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Article Meta */}
           <div className="mb-8">
-            <div className="flex items-center space-x-4 text-sm text-gray-400 mb-4">
-              <span className="px-3 py-1 bg-[#348CCB] text-white text-xs font-medium rounded-full capitalize">
+            
+<div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-400 mb-4">
+              <span className="px-3 py-1 bg-[#348CCB] text-white text-xs font-medium rounded-full capitalize w-fit">
                 {article.category}
               </span>
-              <div className="flex items-center space-x-1">
-                <User size={14} />
-                <span>{article.author}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Calendar size={14} />
-                <span>{new Date(article.date).toLocaleDateString('es-ES')}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Clock size={14} />
-                <span>{article.readTime}</span>
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                <div className="flex items-center space-x-1">
+                  <User size={14} />
+                  <span className="whitespace-nowrap">{article.author}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Calendar size={14} />
+                  <span className="whitespace-nowrap">{new Date(article.date).toLocaleDateString('es-ES')}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Clock size={14} />
+                  <span className="whitespace-nowrap">{article.readTime}</span>
+                </div>
               </div>
             </div>
 
@@ -614,14 +908,14 @@ const ArticleContent = () => {
             )}
 
             {/* Share Button */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
               <div className="flex items-center space-x-2">
                 <BookOpen size={16} className="text-[#348CCB]" />
                 <span className="text-sm text-gray-400">Lectura de {article.readTime}</span>
               </div>
               <button
                 onClick={shareArticle}
-                className="flex items-center space-x-2 px-4 py-2 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-gray-300 hover:text-white hover:border-[#348CCB] transition-all"
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-gray-300 hover:text-white hover:border-[#348CCB] transition-all w-fit"
               >
                 <Share2 size={16} />
                 <span>Compartir</span>
@@ -782,6 +1076,7 @@ const ArticleContent = () => {
         </div>
       </footer>
     </div>
+    </>
   )
 }
 
