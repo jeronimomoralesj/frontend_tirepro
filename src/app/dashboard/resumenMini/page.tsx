@@ -6,7 +6,6 @@ import {
   DollarSign,
   Calendar,
   Download,
-  TrendingUp,
 } from "lucide-react";
 import CarsPage from "../cards/cars";
 import InspeccionVencida from "../cards/inspeccionVencida";
@@ -63,7 +62,6 @@ export default function ResumenMiniPage() {
   const [extrasLoading, setExtrasLoading] = useState(false);
   const [gastoMes, setGastoMes] = useState<number>(0);
   const [userName, setUserName] = useState<string>("");
-  const [cpkProyectado, setCpkProyectado] = useState<number>(0);
   const [exporting, setExporting] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);// total income of the month
 const [ingresosMes, setIngresosMes] = useState<number>(0);
@@ -233,36 +231,13 @@ const formatCurrency = (amount: number) =>
     return totalMes;
   };
 
-  const calculateCpkProjected = (tires: Tire[]) => {
-    let totalCpkProyectado = 0;
-    let validTireCount = 0;
-
-    tires.forEach((tire) => {
-      if (tire.inspecciones && tire.inspecciones.length > 0) {
-        const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-        if (lastInspection.cpkProyectado && !isNaN(lastInspection.cpkProyectado)) {
-          totalCpkProyectado += lastInspection.cpkProyectado;
-          validTireCount++;
-        }
-      }
-    });
-
-    if (validTireCount > 0) {
-      return Number((totalCpkProyectado / validTireCount).toFixed(2));
-    } else {
-      return 0;
-    }
-  };
-
   // Update calculations when data changes
   useEffect(() => {
     if (dataLoaded) {
       const allExtras = Object.values(vehicleExtras).flat();
       const newGastoMes = calculateTotals(tires, allExtras);
-      const newCpkProyectado = calculateCpkProjected(tires);
       
       setGastoMes(newGastoMes);
-      setCpkProyectado(newCpkProyectado);
     }
   }, [tires, vehicleExtras, dataLoaded]);
 

@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import logo from "../../../../public/logo_text.png"
 import logoTire from "../../../../public/logo_tire.png"
-import parse from 'html-react-parser';
 
 // Create a separate component for the article content that uses useSearchParams
 const ArticleContent = () => {

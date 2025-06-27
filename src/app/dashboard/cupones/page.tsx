@@ -80,10 +80,13 @@ export default function CuponesPage() {
         const data = await res.json();
         if (!Array.isArray(data)) throw new Error("Formato inesperado");
         if (!cancelled) setCoupons(data);
-      } catch (err: any) {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : UI.errorFetch);
-      } finally {
+      } catch (err: unknown) {
+  if (!cancelled) {
+    const message =
+      err instanceof Error ? err.message : String(err);
+    setError(message || UI.errorFetch);
+  }
+} finally {
         if (!cancelled) setLoading(false);
       }
     };
@@ -105,14 +108,14 @@ export default function CuponesPage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const CATS = [
-    { id: "all", name: UI.categories.all, icon: Tag },
-    { id: "llantas", name: UI.categories.llantas, icon: Car },
-    { id: "reencauches", name: UI.categories.reencauches, icon: Gift },
-    { id: "baterias", name: UI.categories.baterias, icon: Battery },
-    { id: "gasolina", name: UI.categories.gasolina, icon: Fuel },
-    { id: "aceites", name: UI.categories.aceites, icon: Wrench },
-  ] as const;
+const CATS: { id: "all" | Coupon["category"]; name: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "all", name: UI.categories.all, icon: Tag },
+  { id: "llantas", name: UI.categories.llantas, icon: Car },
+  { id: "reencauches", name: UI.categories.reencauches, icon: Gift },
+  { id: "baterias", name: UI.categories.baterias, icon: Battery },
+  { id: "gasolina", name: UI.categories.gasolina, icon: Fuel },
+  { id: "aceites", name: UI.categories.aceites, icon: Wrench },
+];
 
   // Loading state
   if (loading) {

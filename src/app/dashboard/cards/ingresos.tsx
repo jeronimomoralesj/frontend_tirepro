@@ -149,7 +149,7 @@ export default function IncomeCard() {
       if (res.status === 401) return handleUnauthorized();
       if (!res.ok) throw new Error(`Error ${res.status}`);
       setIncomes(await res.json());
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching incomes:", err);
       setError(err.message || "Error cargando ingresos");
     }
