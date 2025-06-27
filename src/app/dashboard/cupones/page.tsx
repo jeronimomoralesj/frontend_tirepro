@@ -1,339 +1,267 @@
+// app/(tabs)/cupones/page.tsx
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, X, Tag, Calendar, Percent, Gift } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  Copy,
+  Calendar,
+  Tag,
+  Gift,
+  Battery,
+  Fuel,
+  Wrench,
+  Car,
+} from "lucide-react";
 
-export type Cupon = {
+// — UI labels only —
+const UI = {
+  title: "Ofertas Especiales",
+  subtitle: "Descuentos exclusivos para ti",
+  categories: {
+    all: "Todos",
+    llantas: "Llantas",
+    reencauches: "Reencauches",
+    baterias: "Baterías",
+    gasolina: "Gasolina",
+    aceites: "Aceites",
+  },
+  couponDetails: {
+    code: "Código",
+    validUntil: "Válido hasta",
+    copied: "¡Copiado!",
+  },
+  stats: { coupons: "Cupones" },
+  loading: "Cargando...",
+  errorFetch: "Error al cargar ofertas",
+  noCoupons: "No hay cupones disponibles",
+} as const;
+
+type Coupon = {
   id: string;
-  titulo: string;
-  descripcion: string;
-  descuento: number;
-  categoria: "llantas" | "baterias" | "rines" | "aceites" | "accesorios";
-  fechaVencimiento: string;
-  codigo: string;
-  imagen: string;
-  terminos: string[];
-  activo: boolean;
+  titleKey: string;         // actual title text from server
+  descriptionKey: string;   // actual description text from server
+  discount: string;
+  category: "llantas" | "reencauches" | "baterias" | "gasolina" | "aceites";
+  validUntil: string;       // ISO date
+  code: string;
+  color: string;            // tailwind gradient or hex
 };
 
-const CuponesPage: React.FC = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string>("todos");
-  const [selectedCupon, setSelectedCupon] = useState<Cupon | null>(null);
-  const [currentSlide, setCurrentSlide] = useState(0);
+// Pick icon per category
+const getIcon = (cat: Coupon["category"]) =>
+  ({
+    llantas: Car,
+    reencauches: Gift,
+    baterias: Battery,
+    gasolina: Fuel,
+    aceites: Wrench,
+  }[cat] || Tag);
 
-  // Datos dummy de cupones
-  const cupones: Cupon[] = [
-    {
-      id: "1",
-      titulo: "15% OFF en Llantas Continental",
-      descripcion: "Descuento especial en toda nuestra línea de llantas premium",
-      descuento: 15,
-      categoria: "llantas",
-      fechaVencimiento: "2025-07-15",
-      codigo: "LLANTA20",
-      imagen: "https://pbs.twimg.com/media/FDOEw9BX0AI5CMe.jpg",
-      terminos: ["Válido hasta el 15 de julio", "No acumulable con otras ofertas", "Mínimo de compra $500"],
-      activo: true
-    },
-    {
-      id: "2",
-      titulo: "Batería Gratis",
-      descripcion: "Compra 2 baterías y llévate 1 gratis",
-      descuento: 33,
-      categoria: "baterias",
-      fechaVencimiento: "2025-06-30",
-      codigo: "BAT2X1",
-      imagen: "/api/placeholder/300/200",
-      terminos: ["Promoción 2x1", "Válido en baterías seleccionadas", "Stock limitado"],
-      activo: true
-    },
-    {
-      id: "3",
-      titulo: "Rines Deportivos 15% OFF",
-      descripcion: "Descuento en rines deportivos de todas las marcas",
-      descuento: 15,
-      categoria: "rines",
-      fechaVencimiento: "2025-08-01",
-      codigo: "RINES15",
-      imagen: "/api/placeholder/300/200",
-      terminos: ["Válido en rines deportivos", "Instalación incluida", "Garantía de 1 año"],
-      activo: true
-    },
-    {
-      id: "4",
-      titulo: "Cambio de Aceite Premium",
-      descripción: "Cambio completo con aceite sintético premium",
-      descuento: 25,
-      categoria: "aceites",
-      fechaVencimiento: "2025-07-30",
-      codigo: "ACEITE25",
-      imagen: "/api/placeholder/300/200",
-      terminos: ["Incluye filtro de aceite", "Aceite sintético premium", "Revisión gratuita"],
-      activo: true
-    },
-    {
-      id: "5",
-      titulo: "Kit de Accesorios",
-      descripcion: "Combo especial de accesorios para tu vehículo",
-      descuento: 30,
-      categoria: "accesorios",
-      fechaVencimiento: "2025-09-15",
-      codigo: "KIT30",
-      imagen: "/api/placeholder/300/200",
-      terminos: ["Incluye múltiples accesorios", "Instalación gratuita", "Garantía extendida"],
-      activo: true
-    },
-    {
-      id: "6",
-      titulo: "Super Descuento Llantas",
-      descripcion: "Oferta limitada en llantas económicas",
-      descuento: 35,
-      categoria: "llantas",
-      fechaVencimiento: "2025-06-25",
-      codigo: "SUPER35",
-      imagen: "/api/placeholder/300/200",
-      terminos: ["Oferta por tiempo limitado", "Llantas económicas", "Balanceo incluido"],
-      activo: true
-    }
-  ];
+export default function CuponesPage() {
+  const [filter, setFilter] = useState<"all" | Coupon["category"]>("all");
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  const categorias = [
-    { id: "todos", label: "Todos", icon: Gift },
-    { id: "llantas", label: "Llantas", icon: Tag },
-    { id: "baterias", label: "Baterías", icon: Tag },
-    { id: "rines", label: "Rines", icon: Tag },
-    { id: "aceites", label: "Aceites", icon: Tag },
-    { id: "accesorios", label: "Accesorios", icon: Tag }
-  ];
+  // Fetch from real backend on mount
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCoupons = async () => {
+      setLoading(true);
+      setError(null);
 
-  const cuponesFiltrados = useMemo(() => {
-    if (selectedCategory === "todos") return cupones;
-    return cupones.filter(cupon => cupon.categoria === selectedCategory);
-  }, [selectedCategory, cupones]);
-
-  const itemsPerSlide = 3;
-  const totalSlides = Math.ceil(cuponesFiltrados.length / itemsPerSlide);
-
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % totalSlides);
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
-  };
-
-  const getCurrentCupones = () => {
-    const start = currentSlide * itemsPerSlide;
-    return cuponesFiltrados.slice(start, start + itemsPerSlide);
-  };
-
-  const getCategoryColor = (categoria: string) => {
-    const colors: { [key: string]: string } = {
-      llantas: "bg-blue-100 text-blue-800",
-      baterias: "bg-green-100 text-green-800",
-      rines: "bg-purple-100 text-purple-800",
-      aceites: "bg-yellow-100 text-yellow-800",
-      accesorios: "bg-red-100 text-red-800"
+      const base =
+        process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+        "http://localhost:6001";
+      try {
+        const res = await fetch(`${base}/api/coupons`);
+        if (!res.ok) throw new Error(`Error del servidor (${res.status})`);
+        const data = await res.json();
+        if (!Array.isArray(data)) throw new Error("Formato inesperado");
+        if (!cancelled) setCoupons(data);
+      } catch (err: any) {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : UI.errorFetch);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
-    return colors[categoria] || "bg-gray-100 text-gray-800";
+    fetchCoupons();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Filtered list
+  const visible =
+    filter === "all"
+      ? coupons
+      : coupons.filter((c) => c.category === filter);
+
+  const copyCode = async (code: string) => {
+    await navigator.clipboard.writeText(code);
+    setCopied(code);
+    setTimeout(() => setCopied(null), 2000);
   };
 
-  return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-      {/* Header */}
-      <div className="bg-[#173D68] text-white p-5">
-        <h2 className="text-xl font-bold">Cupones y Ofertas</h2>
-        <p className="text-sm opacity-90 mt-1">Encuentra las mejores ofertas para tu vehículo</p>
-      </div>
+  const CATS = [
+    { id: "all", name: UI.categories.all, icon: Tag },
+    { id: "llantas", name: UI.categories.llantas, icon: Car },
+    { id: "reencauches", name: UI.categories.reencauches, icon: Gift },
+    { id: "baterias", name: UI.categories.baterias, icon: Battery },
+    { id: "gasolina", name: UI.categories.gasolina, icon: Fuel },
+    { id: "aceites", name: UI.categories.aceites, icon: Wrench },
+  ] as const;
 
-      {/* Filtros de categoría */}
-      <div className="p-4 border-b border-gray-100">
-        <div className="flex flex-wrap gap-2">
-          {categorias.map((categoria) => {
-            const IconComponent = categoria.icon;
-            return (
-              <button
-                key={categoria.id}
-                onClick={() => {
-                  setSelectedCategory(categoria.id);
-                  setCurrentSlide(0);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCategory === categoria.id
-                    ? "bg-[#173D68] text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                <IconComponent size={16} />
-                {categoria.label}
-              </button>
-            );
-          })}
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gray-600">{UI.loading}</p>
         </div>
       </div>
+    );
+  }
 
-      {/* Carousel */}
-      <div className="p-6">
-        {cuponesFiltrados.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-2">
-            <Gift size={32} />
-            <p>No hay cupones disponibles para esta categoría</p>
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-4xl mb-2">⚠️</div>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold">{UI.title}</h1>
+          <p className="text-xl text-gray-600">{UI.subtitle}</p>
+        </div>
+
+        {/* Category filter */}
+        <div className="flex flex-wrap justify-center gap-3 mb-12">
+          {CATS.map(({ id, name, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setFilter(id as any)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full transition ${
+                filter === id
+                  ? "bg-blue-500 text-white shadow-md"
+                  : "bg-white text-gray-700 hover:bg-gray-100 shadow-sm"
+              }`}
+            >
+              <Icon className="w-4 h-4" /> <span>{name}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Coupons grid / empty */}
+        {visible.length === 0 ? (
+          <div className="text-center py-16">
+            <Tag className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+            <p className="text-gray-500 text-lg">{UI.noCoupons}</p>
           </div>
         ) : (
-          <div className="relative">
-            {/* Navigation buttons */}
-            {totalSlides > 1 && (
-              <>
-                <button
-                  onClick={prevSlide}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-colors"
-                >
-                  <ChevronLeft size={20} className="text-[#173D68]" />
-                </button>
-                <button
-                  onClick={nextSlide}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white shadow-lg rounded-full p-2 hover:bg-gray-50 transition-colors"
-                >
-                  <ChevronRight size={20} className="text-[#173D68]" />
-                </button>
-              </>
-            )}
-
-            {/* Cupones grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {getCurrentCupones().map((cupon) => (
-                <div
-                  key={cupon.id}
-                  onClick={() => setSelectedCupon(cupon)}
-                  className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-lg transition-all hover:scale-105"
-                >
-                  <div className="relative">
-                    <img
-                      src={cupon.imagen}
-                      alt={cupon.titulo}
-                      className="w-full h-32 object-cover rounded-lg mb-3"
-                    />
-                    <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-                      -{cupon.descuento}%
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(cupon.categoria)}`}>
-                      {cupon.categoria.charAt(0).toUpperCase() + cupon.categoria.slice(1)}
-                    </div>
-                    
-                    <h3 className="font-semibold text-gray-900 text-sm">{cupon.titulo}</h3>
-                    <p className="text-xs text-gray-600 line-clamp-2">{cupon.descripcion}</p>
-                    
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <Calendar size={12} />
-                        Vence: {new Date(cupon.fechaVencimiento).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-1 text-xs font-medium text-[#173D68]">
-                        <Percent size={12} />
-                        {cupon.codigo}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Indicators */}
-            {totalSlides > 1 && (
-              <div className="flex justify-center mt-6 gap-2">
-                {Array.from({ length: totalSlides }).map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentSlide(index)}
-                    className={`w-2 h-2 rounded-full transition-colors ${
-                      currentSlide === index ? "bg-[#173D68]" : "bg-gray-300"
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+            {visible.map((c) => (
+              <CouponCard key={c.id} coupon={c} onCopy={copyCode} />
+            ))}
           </div>
         )}
 
         {/* Stats */}
-        <div className="border-t border-gray-100 pt-4 mt-6 flex justify-between items-center text-xs text-gray-500">
-          <div>Total cupones: {cuponesFiltrados.length}</div>
-          <div>Actualizado: {new Date().toLocaleDateString()}</div>
-        </div>
-      </div>
-
-      {/* Modal de detalles del cupón */}
-      {selectedCupon && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-[#173D68] text-white p-4 flex justify-between items-center">
-              <h3 className="font-bold text-lg">Detalles del Cupón</h3>
-              <button
-                onClick={() => setSelectedCupon(null)}
-                className="hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors"
-              >
-                <X size={20} />
-              </button>
+        <div className="text-center">
+          <div className="inline-block bg-white rounded-2xl shadow p-6">
+            <div className="text-3xl font-bold text-blue-500 mb-1">
+              {visible.length}
             </div>
-
-            <div className="p-6 space-y-4">
-              <img
-                src={selectedCupon.imagen}
-                alt={selectedCupon.titulo}
-                className="w-full h-48 object-cover rounded-lg"
-              />
-
-              <div className="space-y-3">
-                <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(selectedCupon.categoria)}`}>
-                  {selectedCupon.categoria.charAt(0).toUpperCase() + selectedCupon.categoria.slice(1)}
-                </div>
-
-                <h2 className="text-xl font-bold text-gray-900">{selectedCupon.titulo}</h2>
-                <p className="text-gray-600">{selectedCupon.descripcion}</p>
-
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                  <div className="text-3xl font-bold text-red-600 mb-2">-{selectedCupon.descuento}%</div>
-                  <div className="text-sm text-gray-600 mb-2">Código de descuento:</div>
-                  <div className="bg-white border-2 border-dashed border-red-300 rounded-lg p-3">
-                    <code className="text-lg font-bold text-[#173D68]">{selectedCupon.codigo}</code>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar size={16} />
-                    Válido hasta: {new Date(selectedCupon.fechaVencimiento).toLocaleDateString()}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Términos y condiciones:</h4>
-                  <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-                    {selectedCupon.terminos.map((termino, index) => (
-                      <li key={index}>{termino}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedCupon.codigo);
-                    // Aquí podrías mostrar un toast de confirmación
-                  }}
-                  className="w-full bg-[#173D68] text-white py-3 rounded-lg font-semibold hover:bg-opacity-90 transition-colors"
-                >
-                  Copiar Código
-                </button>
-              </div>
-            </div>
+            <div className="text-gray-600">{UI.stats.coupons}</div>
           </div>
         </div>
-      )}
+
+        {/* Copy toast */}
+        {copied && (
+          <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg z-50">
+            {UI.couponDetails.copied}
+          </div>
+        )}
+      </div>
     </div>
   );
-};
+}
 
-export default CuponesPage;
+function CouponCard({
+  coupon,
+  onCopy,
+}: {
+  coupon: Coupon;
+  onCopy: (code: string) => void;
+}) {
+  const Icon = getIcon(coupon.category);
+  const isGradient = coupon.color.includes(" ");
+  const style = !isGradient ? { backgroundColor: coupon.color } : undefined;
+
+  return (
+    <div className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition transform hover:scale-105">
+      <div
+        className={`p-6 text-white relative ${
+          isGradient ? "bg-gradient-to-br " + coupon.color : ""
+        }`}
+        style={style}
+      >
+        <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full" />
+        <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-white/10 rounded-full" />
+
+        {/* Icon + discount */}
+        <div className="flex justify-between items-start mb-4 z-10">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <Icon className="w-6 h-6" />
+          </div>
+          <div className="bg-white/90 text-gray-900 px-3 py-1 rounded-full font-bold text-sm">
+            {coupon.discount}
+          </div>
+        </div>
+
+        {/* Title & Description */}
+        <div className="z-10 mb-4">
+          <h3 className="text-lg font-bold mb-1">{coupon.titleKey}</h3>
+          <p className="text-white/90 text-sm">{coupon.descriptionKey}</p>
+        </div>
+
+        {/* Footer */}
+        <div className="z-10 border-t border-white/20 pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white/80 text-xs">{UI.couponDetails.code}</span>
+            <button
+              onClick={() => onCopy(coupon.code)}
+              className="flex items-center gap-1 bg-white/20 hover:bg-white/30 px-2 py-1 rounded-lg transition"
+            >
+              <Copy className="w-3 h-3" />
+              <span className="font-mono text-xs">{coupon.code}</span>
+            </button>
+          </div>
+          <div className="flex items-center text-white/70 text-xs">
+            <Calendar className="w-3 h-3 mr-1" />
+            {UI.couponDetails.validUntil}{" "}
+            {new Date(coupon.validUntil).toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -489,15 +489,24 @@ const BlogAdminPage = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Contenido</label>
-                <textarea
-                  value={newArticle.content}
-                  onChange={(e) => setNewArticle({ ...newArticle, content: e.target.value })}
-                  rows={12}
-                  className="w-full px-4 py-3 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-white focus:outline-none focus:border-[#348CCB] transition-colors resize-none"
-                  placeholder="Contenido del artículo en Markdown..."
-                />
-              </div>
+  <label className="block text-sm font-medium mb-2">Contenido (HTML permitido)</label>
+  <div className="mb-2 text-xs text-gray-400">
+    Etiquetas disponibles: &lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt;, &lt;p&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;img&gt;, &lt;a&gt;, &lt;br&gt;
+  </div>
+  <textarea
+    value={newArticle.content}
+    onChange={(e) => setNewArticle({ ...newArticle, content: e.target.value })}
+    rows={15}
+    className="w-full px-4 py-3 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-white focus:outline-none focus:border-[#348CCB] transition-colors resize-none font-mono text-sm"
+    placeholder="<h2>Título de sección</h2>
+<p>Párrafo normal con <strong>texto en negrita</strong> y <em>cursiva</em>.</p>
+<img src='https://ejemplo.com/imagen.jpg' alt='Descripción' style='width:100%; height:auto; margin:20px 0; border-radius:8px;' />
+<ul>
+  <li>Item de lista</li>
+  <li>Otro item</li>
+</ul>"
+  />
+</div>
               
               <div className="flex justify-end space-x-4">
                 <button

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import logo from "../../../../public/logo_text.png"
 import logoTire from "../../../../public/logo_tire.png"
+import parse from 'html-react-parser';
 
 // Create a separate component for the article content that uses useSearchParams
 const ArticleContent = () => {
@@ -222,7 +223,257 @@ const ArticleContent = () => {
 
   return (
     <div className="bg-[#030712] text-white min-h-screen">
-{/* Mobile Menu Blur Overlay */}
+      {/* Enhanced Article Content Styles */}
+      <style jsx global>{`
+        .article-content {
+          font-size: 1.125rem;
+          line-height: 1.7;
+          color: #d1d5db;
+          max-width: none;
+        }
+        
+        .article-content h1 {
+          font-size: 2.25rem;
+          font-weight: 700;
+          color: white;
+          margin: 2rem 0 1.5rem 0;
+          line-height: 1.2;
+        }
+        
+        .article-content h2 {
+          font-size: 1.875rem;
+          font-weight: 700;
+          color: white;
+          margin: 1.75rem 0 1rem 0;
+          line-height: 1.3;
+        }
+        
+        .article-content h3 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: white;
+          margin: 1.5rem 0 0.75rem 0;
+          line-height: 1.3;
+        }
+        
+        .article-content h4 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: white;
+          margin: 1.25rem 0 0.5rem 0;
+          line-height: 1.3;
+        }
+        
+        .article-content h5 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: white;
+          margin: 1rem 0 0.5rem 0;
+          line-height: 1.3;
+        }
+        
+        .article-content h6 {
+          font-size: 1rem;
+          font-weight: 600;
+          color: white;
+          margin: 1rem 0 0.5rem 0;
+          line-height: 1.3;
+        }
+        
+        .article-content p {
+          margin: 1.25rem 0;
+          color: #d1d5db;
+          font-size: 1.125rem;
+          line-height: 1.7;
+        }
+        
+        .article-content strong, .article-content b {
+          font-weight: 700;
+          color: #348CCB;
+        }
+        
+        .article-content em, .article-content i {
+          font-style: italic;
+          color: #e5e7eb;
+        }
+        
+        .article-content br {
+          display: block;
+          margin: 1rem 0;
+          content: "";
+        }
+        
+        .article-content ul {
+          margin: 1.5rem 0;
+          padding-left: 2rem;
+          list-style-type: disc;
+        }
+        
+        .article-content ol {
+          margin: 1.5rem 0;
+          padding-left: 2rem;
+          list-style-type: decimal;
+        }
+        
+        .article-content li {
+          margin: 0.75rem 0;
+          color: #d1d5db;
+          font-size: 1.125rem;
+          line-height: 1.6;
+        }
+        
+        .article-content li::marker {
+          color: #348CCB;
+        }
+        
+        .article-content ul ul,
+        .article-content ol ol,
+        .article-content ul ol,
+        .article-content ol ul {
+          margin: 0.5rem 0;
+          padding-left: 1.5rem;
+        }
+        
+        .article-content blockquote {
+          margin: 2rem 0;
+          padding: 1.5rem;
+          border-left: 4px solid #348CCB;
+          background: rgba(52, 140, 203, 0.1);
+          border-radius: 0 8px 8px 0;
+          font-style: italic;
+          color: #e5e7eb;
+        }
+        
+        .article-content blockquote p {
+          margin: 0.5rem 0;
+        }
+        
+        .article-content code {
+          background: rgba(52, 140, 203, 0.1);
+          color: #348CCB;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-family: 'Courier New', monospace;
+          font-size: 0.9em;
+        }
+        
+        .article-content pre {
+          background: rgba(10, 24, 58, 0.6);
+          border: 1px solid rgba(23, 61, 104, 0.3);
+          border-radius: 8px;
+          padding: 1.5rem;
+          margin: 1.5rem 0;
+          overflow-x: auto;
+        }
+        
+        .article-content pre code {
+          background: none;
+          padding: 0;
+          color: #d1d5db;
+        }
+        
+        .article-content a {
+          color: #348CCB;
+          text-decoration: underline;
+          transition: color 0.2s ease;
+        }
+        
+        .article-content a:hover {
+          color: #1E76B6;
+        }
+        
+        .article-content table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          background: rgba(10, 24, 58, 0.3);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        
+        .article-content th,
+        .article-content td {
+          padding: 0.75rem 1rem;
+          text-align: left;
+          border-bottom: 1px solid rgba(23, 61, 104, 0.3);
+        }
+        
+        .article-content th {
+          background: rgba(52, 140, 203, 0.2);
+          font-weight: 600;
+          color: white;
+        }
+        
+        .article-content tr:last-child td {
+          border-bottom: none;
+        }
+        
+        .article-content hr {
+          border: none;
+          height: 1px;
+          background: linear-gradient(to right, transparent, #348CCB, transparent);
+          margin: 2rem 0;
+        }
+        
+        .article-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 1.5rem 0;
+        }
+        
+        .article-content figure {
+          margin: 1.5rem 0;
+          text-align: center;
+        }
+        
+        .article-content figcaption {
+          margin-top: 0.5rem;
+          font-size: 0.9rem;
+          color: #9ca3af;
+          font-style: italic;
+        }
+
+        /* Special styling for nested lists */
+        .article-content ul li ul,
+        .article-content ol li ol,
+        .article-content ul li ol,
+        .article-content ol li ul {
+          margin-top: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+          .article-content {
+            font-size: 1rem;
+          }
+          
+          .article-content h1 {
+            font-size: 1.875rem;
+          }
+          
+          .article-content h2 {
+            font-size: 1.5rem;
+          }
+          
+          .article-content h3 {
+            font-size: 1.25rem;
+          }
+          
+          .article-content p,
+          .article-content li {
+            font-size: 1rem;
+          }
+          
+          .article-content ul,
+          .article-content ol {
+            padding-left: 1.5rem;
+          }
+        }
+      `}</style>
+
+      {/* Mobile Menu Blur Overlay */}
       <div className={`fixed inset-0 z-40 transition-all duration-500 ${
         isMobileMenuOpen 
           ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
@@ -389,13 +640,11 @@ const ArticleContent = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
           </div>
 
-          {/* Article Content */}
-          <div className="prose prose-lg prose-invert max-w-none">
+          {/* Article Content - Enhanced HTML Rendering */}
+          <div className="mt-8 mb-12 max-w-none">
             <div 
-              className="text-gray-300 leading-relaxed space-y-6"
-              dangerouslySetInnerHTML={{ 
-                __html: article.content.replace(/\n/g, '<br/>') 
-              }}
+              className="article-content"
+              dangerouslySetInnerHTML={{ __html: article.content }}
             />
           </div>
 
@@ -420,7 +669,6 @@ const ArticleContent = () => {
           )}
         </div>
       </article>
-
       {/* Related Articles */}
       {relatedArticles.length > 0 && (
         <section className="py-16 bg-gradient-to-r from-[#0A183A]/20 to-[#173D68]/10">

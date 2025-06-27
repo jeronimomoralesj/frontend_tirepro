@@ -149,6 +149,29 @@ const TireProLanding = () => {
     }
   ]
 
+    const logos = [
+    {
+      src: "https://www.aerospacewalesforum.com/wp-content/uploads/MIT-logo.png",
+      alt: "MIT",
+      className: "h-16 w-16 object-contain"
+    },
+    {
+      src: "https://images.credly.com/images/7bed2395-04e7-4b08-a630-572ad1774e87/large_blob.png",
+      alt: "CESA",
+      className: "h-12 w-auto object-contain"
+    },
+    {
+      src: "https://preditrix.ai/wp-content/uploads/2025/04/aws-n.png",
+      alt: "AWS Startup",
+      className: "h-12 w-auto object-contain"
+    },
+    {
+      src: "https://www.merquellantas.com/assets/images/logo/Logo-Merquellantas.png",
+      alt: "Merquellantas",
+      className: "h-12 w-auto object-contain"
+    }
+  ]
+
   const faqItems = [
     {
       question: "¿Cómo puede TirePro ayudarme?",
@@ -323,6 +346,30 @@ const TireProLanding = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Logo Section */}
+      <section className="pb-15 bg-gradient-to-b from-transparent to-[#0A183A]/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <p className="text-gray-400 text-lg mb-8">Con el apoyo de organizaciones lideres</p>
+          </div>
+          
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 lg:gap-16">
+            {logos.map((logo, index) => (
+              <div key={index} className="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity duration-300">
+                <img 
+                  src={logo.src} 
+                  alt={logo.alt}
+                  className={`${logo.className} filter brightness-0 invert`}
+                  onError={(e) => {
+                    e.target.style.display = 'none'
+                  }}
+                />
+              </div>
+            ))}
           </div>
         </div>
       </section>

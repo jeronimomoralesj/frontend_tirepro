@@ -11,6 +11,7 @@ import {
 import CarsPage from "../cards/cars";
 import InspeccionVencida from "../cards/inspeccionVencida";
 import CuponesPage from "../cupones/page";
+import IngresosPage from "../cards/ingresos";
 
 export type CostEntry = {
   valor: number;
@@ -64,7 +65,13 @@ export default function ResumenMiniPage() {
   const [userName, setUserName] = useState<string>("");
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
   const [exporting, setExporting] = useState(false);
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);// total income of the month
+const [ingresosMes, setIngresosMes] = useState<number>(0);
+
+// helper to format as COP currency
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(amount);
+
 
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
@@ -352,6 +359,18 @@ export default function ResumenMiniPage() {
       setLoading(false);
       setExtrasLoading(false);
     }
+
+    // after setVehicleExtras(...); but before setLoading(false)
+try {
+  const statsRes = await fetch(`${API_BASE}/incomes/stats`, { headers: getAuthHeaders() });
+  if (!statsRes.ok) throw new Error('Failed to fetch ingresos stats');
+  const statsJson = await statsRes.json();
+  // Prisma aggregate returns { _sum: { amount: number }, ... }
+  setIngresosMes(statsJson._sum.amount ?? 0);
+} catch (err) {
+  console.error('Error fetching ingresos stats:', err);
+}
+
   }, [API_BASE, fetchVehicleExtras]);
 
   // Initialize data on component mount
@@ -430,25 +449,32 @@ export default function ResumenMiniPage() {
             </div>
           </div>
           <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <TrendingUp className="w-5 h-5 text-white" />
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : cpkProyectado.toLocaleString()}
-              </p>
-              <p className="text-sm uppercase tracking-wider text-white">CPK Proyectado</p>
-            </div>
-          </div>
+  <DollarSign className="w-5 h-5 text-white" />
+  <div className="text-left">
+    <p className="text-2xl font-bold text-white">
+      {loading || extrasLoading
+        ? "Cargando..."
+        : formatCurrency(ingresosMes)}
+    </p>
+    <p className="text-sm uppercase tracking-wider text-white">
+      Ingresos del Mes
+    </p>
+  </div>
+</div>
+
         </div>
 
         {/* Main Content - Only InspeccionVencida */}
         <main className="container mx-auto max-w-6xl px-4 py-8">
+          <CarsPage />
+          <br />
+          <IngresosPage />
+          <br />
+          <CuponesPage />
+          <br />
           <div className="grid grid-cols-1 gap-6">
             <InspeccionVencida tires={tires} />
           </div>
-          <br />
-          <CarsPage />
-          <br />
-          <CuponesPage />
 
           {(loading || extrasLoading) && (
             <div className="text-center py-4 text-[#1E76B6] animate-pulse">
