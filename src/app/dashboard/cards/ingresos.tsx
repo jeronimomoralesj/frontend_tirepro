@@ -114,7 +114,13 @@ export default function IncomeCard() {
       }
       
       // Browser fallback
-      const browser = navigator.language || (navigator as any).languages?.[0] || 'es';
+      const browser =
+  navigator.language ||
+  (Array.isArray((navigator as Navigator & { languages?: string[] }).languages)
+    ? (navigator as Navigator & { languages: string[] }).languages[0]
+    : null) ||
+  'es';
+
       const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
       setLanguage(lang);
       localStorage.setItem('preferredLanguage', lang);

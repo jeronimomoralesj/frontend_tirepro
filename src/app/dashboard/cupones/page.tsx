@@ -117,6 +117,7 @@ const CATS: { id: "all" | Coupon["category"]; name: string; icon: React.Componen
   { id: "aceites", name: UI.categories.aceites, icon: Wrench },
 ];
 
+
   // Loading state
   if (loading) {
     return (
@@ -161,7 +162,7 @@ const CATS: { id: "all" | Coupon["category"]; name: string; icon: React.Componen
           {CATS.map(({ id, name, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setFilter(id as any)}
+              onClick={() => setFilter(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full transition ${
                 filter === id
                   ? "bg-blue-500 text-white shadow-md"
