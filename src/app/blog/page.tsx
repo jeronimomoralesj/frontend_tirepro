@@ -136,8 +136,10 @@ const BlogPage = () => {
     return matchesSearch && matchesCategory
   })
 
+  // Get latest article as featured cover
+  const latestArticle = articles.length > 0 ? articles.sort((a, b) => new Date(b.date) - new Date(a.date))[0] : null
   const featuredArticles = filteredArticles.filter(article => article.featured)
-  const regularArticles = filteredArticles.filter(article => !article.featured)
+  const regularArticles = filteredArticles.filter(article => !article.featured && article.id !== latestArticle?.id)
 
   // Loading component
   if (loading) {
@@ -270,19 +272,86 @@ const BlogPage = () => {
           </div>
         </div>
       </nav>
-      {/* Hero Section */}
-      <section className="pt-24 pb-12 bg-gradient-to-b from-[#0A183A]/30 to-transparent">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-gray-100 to-[#348CCB] bg-clip-text text-transparent">
-              Blog TirePro
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-              Conocimiento experto, insights y mejores prácticas para la gestión inteligente de flotas
-            </p>
-          </div>
 
-          {/* Search and Filter */}
+      {/* Featured Cover Article - IMPROVED SIZE AND BLENDING */}
+      {latestArticle && (
+        <section className="py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-24">
+            <Link href={`/blog/article?id=${latestArticle.id}`}>
+              <div className="group relative bg-gradient-to-br from-[#0A183A]/60 to-[#173D68]/40 rounded-3xl overflow-hidden border border-[#173D68]/30 hover:border-[#348CCB]/50 transition-all duration-300 hover:transform hover:scale-[1.01]">
+                <div className="relative h-[400px] md:h-[450px] lg:h-[500px] overflow-hidden">
+                  <img 
+                    src={latestArticle.image} 
+                    alt={latestArticle.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  
+                  {/* Enhanced gradient overlay for better text blending */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/70 to-black/20"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-black/50"></div>
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-black/90"></div>
+                  
+                  {/* Destacado badge */}
+                  <div className="absolute top-6 left-6 z-10">
+                    <div className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white text-sm font-bold rounded-full shadow-lg backdrop-blur-sm border border-white/20">
+                      ✨ Destacado
+                    </div>
+                  </div>
+                  
+                  {/* Content overlay with better positioning */}
+                  <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 lg:p-10 z-10">
+                    <div className="max-w-4xl">
+                      {/* Meta info */}
+                      <div className="flex items-center space-x-6 text-sm text-gray-200 mb-4">
+                        <div className="flex items-center space-x-2">
+                          <User size={16} />
+                          <span>{latestArticle.author}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Calendar size={16} />
+                          <span>{new Date(latestArticle.date).toLocaleDateString('es-ES')}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Clock size={16} />
+                          <span>{latestArticle.readTime}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Title with better sizing */}
+                      <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 text-white leading-tight group-hover:text-[#348CCB] transition-colors duration-300 drop-shadow-lg">
+                        {latestArticle.title}
+                      </h2>
+                      
+                      {/* Excerpt with better contrast */}
+                      <p className="text-base md:text-lg text-gray-100 mb-5 leading-relaxed line-clamp-3 drop-shadow-sm">
+                        {latestArticle.excerpt}
+                      </p>
+                      
+                      {/* Category and CTA */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Tag size={18} className="text-[#348CCB]" />
+                          <span className="text-[#348CCB] font-medium capitalize text-base">
+                            {categories.find(cat => cat.id === latestArticle.category)?.name || latestArticle.category}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-white group-hover:text-[#348CCB] transition-colors">
+                          <span className="text-base font-medium">Leer más</span>
+                          <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* Search and Filter */}
+      <section className="py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="flex flex-col md:flex-row gap-4 mb-8">
               {/* Search */}
@@ -387,10 +456,10 @@ const BlogPage = () => {
       )}
 
       {/* Regular Articles Grid */}
-      <section className="py-12">
+      <section className="pb-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center">
-            {featuredArticles.length > 0 ? 'Más Artículos' : 'Todos los Artículos'}
+            {featuredArticles.length > 0 || latestArticle ? 'Más Artículos' : 'Todos los Artículos'}
           </h2>
           
           {regularArticles.length > 0 ? (
@@ -450,6 +519,7 @@ const BlogPage = () => {
           )}
         </div>
       </section>
+
 
       {/* Footer - Same as original */}
       <footer className="bg-[#0A183A]/30 border-t border-[#173D68]/30 py-16">

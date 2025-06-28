@@ -282,46 +282,63 @@ const ArticleContent = () => {
   }, [])
 
 useEffect(() => {
-  // Execute scripts in the article content after it's rendered
-  const executeScripts = () => {
-    const articleElement = document.querySelector('.article-content');
-    if (!articleElement) return;
+  if (!article) return;
 
-    const scripts = articleElement.querySelectorAll('script');
-    
-    scripts.forEach(script => {
-      const newScript = document.createElement('script');
-      Array.from(script.attributes).forEach(attr => {
-        newScript.setAttribute(attr.name, attr.value);
-      });
-      newScript.textContent = script.textContent;
-      script.parentNode.replaceChild(newScript, script);
-    });
+  const container = document.querySelector('.article-content');
+  if (!container) return;
 
-    const forms = articleElement.querySelectorAll('form');
-    forms.forEach(form => {
-      const buttons = form.querySelectorAll('button[onclick]');
-      buttons.forEach(button => {
-        const onclickAttr = button.getAttribute('onclick');
-        if (onclickAttr) {
-          button.removeAttribute('onclick');
-          button.addEventListener('click', () => {
-            try {
-              eval(onclickAttr);
-            } catch (error) {
-              console.error('Error executing onclick:', error);
-            }
-          });
+  // First, remove onclick attributes to prevent errors
+  const buttons = container.querySelectorAll('button[onclick]');
+  const buttonHandlers = [];
+  
+  buttons.forEach((btn) => {
+    const raw = btn.getAttribute('onclick');
+    if (raw) {
+      buttonHandlers.push({ button: btn, onclick: raw });
+      btn.removeAttribute('onclick');
+    }
+  });
+
+  // Then execute scripts to define functions
+  const scripts = container.querySelectorAll('script');
+  scripts.forEach((oldScript) => {
+    const code = oldScript.textContent || '';
+    if (!code.trim()) return;
+
+    try {
+      // Execute in global scope using eval (safer than innerHTML injection)
+      (function() {
+        eval(code);
+      }).call(window);
+    } catch (err) {
+      console.error('Error evaluating <script>', err);
+    }
+
+    // Remove the original script tag from article content
+    oldScript.remove();
+  });
+
+  // Finally, attach event listeners after functions are defined
+  setTimeout(() => {
+    buttonHandlers.forEach(({ button, onclick }) => {
+      const fnName = onclick.replace(/\(\);?$/, '').trim();
+      
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof window[fnName] === 'function') {
+          try {
+            window[fnName]();
+          } catch (err) {
+            console.error(`Error executing ${fnName}()`, err);
+          }
+        } else {
+          console.warn(`window.${fnName} is not defined`);
         }
       });
     });
-  };
+  }, 50); // Small delay to ensure scripts have executed
 
-  if (article) {
-    setTimeout(executeScripts, 100);
-  }
 }, [article]);
-
 
 useEffect(() => {
   fetchArticle()
