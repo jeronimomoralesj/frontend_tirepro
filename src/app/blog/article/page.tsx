@@ -327,26 +327,6 @@ useEffect(() => {
   fetchArticle()
 }, [articleId])
 
-// 🔽 Add this right below:
-useEffect(() => {
-  if (!article) return;
-
-  const container = document.querySelector('.article-content');
-  if (!container) return;
-
-  // Re-inject all <script> blocks to execute them
-  const scripts = container.querySelectorAll('script');
-  scripts.forEach((oldScript) => {
-    const newScript = document.createElement('script');
-    Array.from(oldScript.attributes).forEach(attr => {
-      newScript.setAttribute(attr.name, attr.value);
-    });
-    newScript.textContent = oldScript.textContent;
-    oldScript.parentNode?.replaceChild(newScript, oldScript);
-  });
-}, [article])
-
-
   // Loading component
   if (loading) {
     return (
@@ -498,12 +478,14 @@ useEffect(() => {
             max-width: none;
           }
 
-          .article-content form {
-  background: rgba(10, 24, 58, 0.3);
-  border: 1px solid rgba(23, 61, 104, 0.3);
-  border-radius: 12px;
-  padding: 2rem;
+.article-content form {
+  background: linear-gradient(135deg, rgba(10, 24, 58, 0.4) 0%, rgba(23, 61, 104, 0.25) 100%);
+  border: 1px solid rgba(52, 140, 203, 0.3);
+  border-radius: 16px;
+  padding: 2.5rem;
   margin: 2rem 0;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .article-content form p {
