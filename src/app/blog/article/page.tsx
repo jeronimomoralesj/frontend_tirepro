@@ -281,9 +281,71 @@ const ArticleContent = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  useEffect(() => {
-    fetchArticle()
-  }, [articleId])
+useEffect(() => {
+  // Execute scripts in the article content after it's rendered
+  const executeScripts = () => {
+    const articleElement = document.querySelector('.article-content');
+    if (!articleElement) return;
+
+    const scripts = articleElement.querySelectorAll('script');
+    
+    scripts.forEach(script => {
+      const newScript = document.createElement('script');
+      Array.from(script.attributes).forEach(attr => {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+      newScript.textContent = script.textContent;
+      script.parentNode.replaceChild(newScript, script);
+    });
+
+    const forms = articleElement.querySelectorAll('form');
+    forms.forEach(form => {
+      const buttons = form.querySelectorAll('button[onclick]');
+      buttons.forEach(button => {
+        const onclickAttr = button.getAttribute('onclick');
+        if (onclickAttr) {
+          button.removeAttribute('onclick');
+          button.addEventListener('click', () => {
+            try {
+              eval(onclickAttr);
+            } catch (error) {
+              console.error('Error executing onclick:', error);
+            }
+          });
+        }
+      });
+    });
+  };
+
+  if (article) {
+    setTimeout(executeScripts, 100);
+  }
+}, [article]);
+
+
+useEffect(() => {
+  fetchArticle()
+}, [articleId])
+
+// 🔽 Add this right below:
+useEffect(() => {
+  if (!article) return;
+
+  const container = document.querySelector('.article-content');
+  if (!container) return;
+
+  // Re-inject all <script> blocks to execute them
+  const scripts = container.querySelectorAll('script');
+  scripts.forEach((oldScript) => {
+    const newScript = document.createElement('script');
+    Array.from(oldScript.attributes).forEach(attr => {
+      newScript.setAttribute(attr.name, attr.value);
+    });
+    newScript.textContent = oldScript.textContent;
+    oldScript.parentNode?.replaceChild(newScript, oldScript);
+  });
+}, [article])
+
 
   // Loading component
   if (loading) {
@@ -435,6 +497,60 @@ const ArticleContent = () => {
             color: #d1d5db;
             max-width: none;
           }
+
+          .article-content form {
+  background: rgba(10, 24, 58, 0.3);
+  border: 1px solid rgba(23, 61, 104, 0.3);
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 2rem 0;
+}
+
+.article-content form p {
+  color: #e5e7eb;
+  font-weight: 600;
+  margin: 1.5rem 0 1rem 0;
+}
+
+.article-content form input[type="radio"] {
+  margin-right: 0.5rem;
+  accent-color: #348CCB;
+}
+
+.article-content form label,
+.article-content form input[type="radio"] + text {
+  color: #d1d5db;
+  cursor: pointer;
+  line-height: 1.6;
+}
+
+.article-content form button {
+  background: linear-gradient(to right, #348CCB, #1E76B6);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+}
+
+.article-content form button:hover {
+  background: linear-gradient(to right, #1E76B6, #348CCB);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(52, 140, 203, 0.3);
+}
+
+.article-content #result {
+  background: rgba(52, 140, 203, 0.1);
+  border: 1px solid rgba(52, 140, 203, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  color: #e5e7eb !important;
+  font-size: 1.1rem !important;
+}
 
           .article-content table {
             width: 100%;
