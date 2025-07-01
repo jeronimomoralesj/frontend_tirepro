@@ -11,7 +11,7 @@ import {
   Legend 
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { HelpCircle, HelpCircleIcon } from 'lucide-react';
+import { HelpCircleIcon } from 'lucide-react';
 
 // Register ChartJS components and plugins
 ChartJS.register(
@@ -35,7 +35,7 @@ const translations = {
 }
 
 interface PorBandaProps{
-    groupData: { [diseno: String]: number }
+    groupData: { [diseno: string]: number }
 }
 
 const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
