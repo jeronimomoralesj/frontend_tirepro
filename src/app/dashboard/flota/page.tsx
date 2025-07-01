@@ -18,6 +18,7 @@ import PromedioEje from "../cards/promedioEje";
 import InspeccionVencidaPage from "../cards/inspeccionVencida";
 import TablaCpk from "../cards/tablaCpk";
 import Notificaciones from "../cards/Notificaciones";
+import PorBanda from "../cards/porBanda";
 
 export type CostEntry = {
   valor: number;
@@ -56,6 +57,7 @@ export type Tire = {
   eje: string;
   vehicleId?: string;
   vida?: VidaEntry[];
+  diseno: string;
 };
 
 export type Vehicle = {
@@ -843,6 +845,14 @@ const exportToPDF = () => {
     return acc;
   }, {});
 
+  // compute group data for tire by banda
+  const tiresGroupByBanda = filteredTires.reduce((acc: { [diseno: string]: number }, tire) => {
+  const banda = tire.diseno || "Sin Banda";
+  acc[banda] = (acc[banda] || 0) + 1;
+  return acc;
+}, {});
+
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -972,13 +982,17 @@ const exportToPDF = () => {
 
           <main className="container mx-auto max-w-6xl px-4 py-8">
             <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
-              <PorMarca groupData={tiresGroupByMarca} />
               <PorVida tires={filteredTires} />
+              <PorBanda groupData={tiresGroupByBanda}/>
             </div>
             <br />
             <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
               <PromedioEje tires={filteredTires} onSelectEje={(eje) => setSelectedEje(eje || "Todos")} selectedEje={selectedEje} />
               <InspeccionVencidaPage tires={filteredTires} />
+            </div>
+            <br />
+            <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-6">
+              <PorMarca groupData={tiresGroupByMarca} />
             </div>
             <br />
             <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-6">

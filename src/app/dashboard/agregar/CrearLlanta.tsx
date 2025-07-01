@@ -360,24 +360,6 @@ export default function TirePage() {
           className="bg-white shadow-2xl rounded-3xl overflow-hidden border-2"
           style={{ borderColor: '#348CCB33' }}
         >
-          {/* Header */}
-          <div 
-            className="p-8 text-white relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(to right, #0A183A, #173D68, #1E76B6)'
-            }}
-          >
-            <div 
-              className="absolute inset-0 opacity-20"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23348CCB' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-              }}
-            ></div>
-            <div className="relative">
-              <h1 className="text-4xl font-bold mb-2 tracking-tight">{t.title}</h1>
-              <p className="text-lg font-medium" style={{ color: '#348CCB' }}>{t.subtitle}</p>
-            </div>
-          </div>
 
           <form onSubmit={handleCreateTire} className="p-8 space-y-8">
             {/* Notification Messages */}

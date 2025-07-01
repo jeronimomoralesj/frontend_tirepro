@@ -16,14 +16,6 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
   const [showDetails, setShowDetails] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Template fields for Excel
-  const requiredFields = [
-    "llanta", "vida", "placa", "kilometraje_actual", "frente", 
-    "marca", "diseno", "tipovhc", "pos", "proact", 
-    "eje", "profundidad_int", "profundidad_cen", "profundidad_ext", 
-    "costo", "kms", "dimension"
-  ];
-
   // Translations object
   const translations = {
     es: {
@@ -38,7 +30,13 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
       selectFileError: "Seleccione un archivo Excel (.xls/.xlsx).",
       companyIdError: "No se encontró companyId en localStorage.",
       successMessage: "Carga masiva completada con éxito",
-      unexpectedError: "Error inesperado en la carga masiva"
+      unexpectedError: "Error inesperado en la carga masiva",
+      fields: [
+    "id", "vida", "placa", "kilometraje_actual", "frente", 
+    "marca", "diseno", "tipovhc", "pos", "proact", 
+    "eje", "profundidad_int", "profundidad_cen", "profundidad_ext", "profundidad_inicial",
+    "costo", "kilometros_llanta", "dimension"
+  ],
     },
     en: {
       instructions: "Bulk Upload Instructions",
@@ -52,7 +50,13 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
       selectFileError: "Please select an Excel file (.xls/.xlsx).",
       companyIdError: "Company ID not found in localStorage.",
       successMessage: "Bulk upload completed successfully",
-      unexpectedError: "Unexpected error in bulk upload"
+      unexpectedError: "Unexpected error in bulk upload",
+      fields: [
+    "id", "retread", "plate", "vehicle_milage", "load_type", 
+    "brand", "tread", "vehicle_type", "pos", "proact", 
+    "axis", "internal_depth", "central_depth", "exterior_depth", "initial_depth",
+    "cost", "tire_milage", "reference",
+  ],
     }
   };
 
@@ -99,7 +103,7 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
     formData.append("file", file);
 
     try {
-      const API_BASE = "https://api.tirepro.com.co/api";
+      const API_BASE = "http://localhost:6001/api";
       const res = await fetch(
         `${API_BASE}/tires/bulk-upload?companyId=${companyId}`,
         { method: "POST", body: formData }
@@ -141,7 +145,7 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
 
   const handleDownloadTemplate = () => {
     // Create a template with headers
-    const headers = requiredFields.join('\t');
+    const headers = t.fields.join('\t');
     const blob = new Blob([headers], { type: 'text/tab-separated-values' });
     
     // Create a download link
@@ -190,7 +194,7 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
             </p>
             
             <div className="grid grid-cols-3 gap-x-2 gap-y-1 mb-3">
-              {requiredFields.map((field, index) => (
+              {t.fields.map((field, index) => (
                 <div key={index} className="px-2 py-1 bg-blue-100 rounded text-blue-800 text-xs">
                   {field}
                 </div>

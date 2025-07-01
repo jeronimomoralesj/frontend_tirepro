@@ -873,13 +873,6 @@ export default function InspeccionPage() {
     <div className="min-h-screen p-4">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#0A183A] mb-2">
-              {t.title}
-            </h1>
-            <p className="text-gray-600">{t.subtitle}</p>
-          </div>
-
           {/* Search Form */}
           <form onSubmit={handleSearch} className="mb-8">
             <div className="flex gap-4 items-end">

@@ -82,6 +82,7 @@ const texts = {
     lifeHistory: "Historial de Vida",
     detailedInfo: "Información Detallada",
     characteristics: "Características",
+    costAnalysis: "Análisis de costos",
     design: "Diseño",
     initialDepth: "Profundidad Inicial",
     kmTraveled: "Km Recorridos",
@@ -137,6 +138,7 @@ const texts = {
     lifeHistory: "Life History",
     detailedInfo: "Detailed Information",
     characteristics: "Characteristics",
+    costAnalysis: "Cost analysis",
     design: "Design",
     initialDepth: "Initial Depth",
     kmTraveled: "Miles Traveled",
@@ -577,7 +579,38 @@ const BuscarPage: React.FC = () => {
                     {t.lifeHistory}
                   </span>
                 </h3>
-                {/* Life history table content */}
+                {selectedTire.vida && selectedTire.vida.length > 0 ? (
+  <div className="overflow-x-auto">
+    <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+      <thead className="bg-gray-50">
+        <tr>
+          <th className="px-6 py-3 text-left text-sm font-semibold text-gray-600">{t.date}</th>
+          <th className="px-6 py-3 text-left text-sm font-semibold text-gray-600">{t.currentStatus}</th>
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-100">
+        {selectedTire.vida.map((entry, index) => {
+          const label = getVidaStatusLabel(entry.valor);
+          return (
+            <tr key={index}>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                {new Date(entry.fecha).toLocaleDateString()}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                <span className={`px-2 py-1 rounded-full font-medium text-white ${label.className}`}>
+                  {label.text}
+                </span>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+) : (
+  <p className="text-gray-500">{t.notAvailable}</p>
+)}
+
               </div>
 
               <div className="mb-8">
@@ -609,6 +642,33 @@ const BuscarPage: React.FC = () => {
                         <p className="font-medium">{getProjectedKilometraje(selectedTire)} miles</p>
                       </div>
                     </div>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-[#173D68] mb-3">{t.costAnalysis}</h4>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                        {selectedTire?.costo?.length > 0 ? (
+                          selectedTire.costo.map((entry, idx) => {
+                            const formattedDate = new Date(entry.fecha).toLocaleString(language, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              hour12: false,
+                            });
+
+                            return (
+                              <div key={idx}>
+                                <p className="text-sm font-medium text-gray-500">Fecha: {formattedDate}</p>
+                                <p className="font-medium">Valor: ${entry.valor.toLocaleString()}</p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-sm text-gray-500">{t.notAvailable}</p>
+                        )}
+                      </div>
                   </div>
                 </div>
               </div>
