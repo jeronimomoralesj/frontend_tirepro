@@ -52,10 +52,10 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
       successMessage: "Bulk upload completed successfully",
       unexpectedError: "Unexpected error in bulk upload",
       fields: [
-    "id", "retread", "plate", "vehicle_milage", "load_type", 
+    "id", "retread", "plate", "vehicle_milage", "cargo_type", 
     "brand", "tread", "vehicle_type", "pos", "proact", 
-    "axis", "internal_depth", "central_depth", "exterior_depth", "initial_depth",
-    "cost", "tire_milage", "reference",
+    "axle", "internal_depth", "central_depth", "exterior_depth", "initial_depth",
+    "cost", "tire_milage", "dimensions",
   ],
     }
   };
@@ -192,6 +192,25 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
             <p className="mb-2">
               {t.instructionText}
             </p>
+
+            {/* Video tutorial */}
+<div className="mb-6">
+  <h3 className="text-lg font-semibold mb-2 text-gray-800">
+    {language === 'es' ? 'Video explicativo sobre la carga masiva' : 'Tutorial video about bulk upload'}
+  </h3>
+  <div className="aspect-w-16 aspect-h-9">
+    <iframe
+      className="w-full h-64 rounded-lg shadow"
+      src={language === 'es'
+        ? "https://www.youtube.com/embed/AgFnH-jGVoc"
+        : "https://www.youtube.com/embed/WbcmncTitEM"}
+      title="Bulk Upload Tutorial"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+    />
+  </div>
+</div>
+
             
             <div className="grid grid-cols-3 gap-x-2 gap-y-1 mb-3">
               {t.fields.map((field, index) => (
