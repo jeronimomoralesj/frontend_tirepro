@@ -20,7 +20,7 @@ import {
   ChevronRight,
   MessageCircleHeart,
 } from "lucide-react";
-import logo from "../../../public/logo_text.png";
+import logo from "../../../public/logo_full.png";
 import Image from "next/image";
 
 // Language translations
@@ -255,7 +255,7 @@ export default function Sidebar({
                   <Image 
                     src={logo} 
                     alt="TirePro Logo" 
-                    className="h-7 w-auto transition-all duration-300 filter drop-shadow-lg" 
+                    className="h-10 w-auto transition-all duration-300 filter drop-shadow-lg" 
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
                                   rounded-lg blur-xl opacity-0 hover:opacity-100 transition-opacity duration-300" />
@@ -322,7 +322,7 @@ export default function Sidebar({
               <Image 
                 src={logo} 
                 alt="TirePro Logo" 
-                className={`${collapsed ? 'h-6' : 'h-8'} w-auto transition-all duration-300
+                className={`${collapsed ? 'h-8' : 'h-10'} w-auto transition-all duration-300
                            filter drop-shadow-lg`} 
               />
               <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 

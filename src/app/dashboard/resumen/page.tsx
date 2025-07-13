@@ -17,7 +17,7 @@ import ReencaucheHistorico from "../cards/reencaucheHistorico";
 import TanqueMilimetro from "../cards/tanqueMilimetro";
 import HistoricChart from "../cards/historicChart";
 import Notificaciones from "../cards/Notificaciones";
-
+import ChatbotWeb from "../chatBot/page";
 export type CostEntry = {
   valor: number;
   fecha: string;
@@ -40,6 +40,7 @@ export type Tire = {
   marca: string;
   eje: string;
   vehicleId?: string;
+  vida?: { valor: string; fecha: string }[];
 };
 
 export type Vehicle = {
@@ -61,33 +62,29 @@ export default function ResumenPage() {
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
   const [exporting, setExporting] = useState(false);
+  const [vidaOptions, setVidaOptions] = useState<string[]>([]);
+  const [selectedVida, setSelectedVida] = useState<string>("");
+  const [bandaOptions, setBandaOptions] = useState<string[]>([]);
+  const [selectedBanda, setSelectedBanda] = useState<string>("");
 
-  
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Filter state
   const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
-  const [selectedMarca, setSelectedMarca] = useState<string>("Todas");
+  const [selectedMarca, setSelectedMarca] = useState<string>("");
 
   // Eje filter options
   const [ejeOptions, setEjeOptions] = useState<string[]>([]);
-  const [selectedEje, setSelectedEje] = useState<string>("Todos");
+  const [selectedEje, setSelectedEje] = useState<string>("");
 
   // Cliente filter options
   const [clienteOptions, setClienteOptions] = useState<string[]>([]);
-  const [selectedCliente, setSelectedCliente] = useState<string>("Todos");
+  const [selectedCliente, setSelectedCliente] = useState<string>("");
 
   // Semáforo filter options
-  const [semaforoOptions] = useState<string[]>([
-    "Todos",
-    "Óptimo",
-    "60 Días",
-    "30 Días",
-    "Urgente",
-    "Sin Inspección",
-  ]);
-  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("Todos");
+  const [semaforoOptions, setSemaforoOptions] = useState<string[]>([]);
+  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("");
 
   // Dropdown visibility states
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -133,13 +130,14 @@ export default function ResumenPage() {
   detectAndSetLanguage();
 }, []);
 
-
   // Refs for dropdown components
   const dropdownRefs = useRef({
     marca: useRef<HTMLDivElement>(null),
     eje: useRef<HTMLDivElement>(null),
     semaforo: useRef<HTMLDivElement>(null),
     cliente: useRef<HTMLDivElement>(null),
+    banda: useRef<HTMLDivElement>(null),
+    vida: useRef<HTMLDivElement>(null),
   }).current;
 
 const translations = {
@@ -154,11 +152,24 @@ const translations = {
     average: "average",
     forecasted: "forecasted",
     filters: "filters",
-    brand: "brand",
-    all: "all",
-    axis: "axis",
-    state: "state", 
-    export: "export"
+    brand: "Brand",
+    all: "All",
+    allOption: "All",
+    axis: "Axis",
+    state: "State", 
+    export: "export",
+    banda: "tread",
+    vida: "life",
+    owner: "Owner",
+    // Filter options
+    filterOptions: {
+      all: "All",
+      optimal: "Optimal",
+      days60: "60 Days",
+      days30: "30 Days",
+      urgent: "Urgent",
+      noInspection: "No Inspection",
+    }
   },
   es:{
     summary: "Mi resumen",
@@ -171,11 +182,24 @@ const translations = {
     average: "promedio",
     forecasted: "proyectado",
     filters: "filtros",
-    brand: "marca",
-    all: "todas",
-    axis: "eje",
-    state: "estado", 
+    brand: "Marca",
+    all: "Todas",
+    allOption: "Todos",
+    axis: "Eje",
+    state: "Estado", 
     export: "exportar",
+    banda: "banda",
+    vida: "vida",
+    owner: "Dueño",
+    // Filter options
+    filterOptions: {
+      all: "Todos",
+      optimal: "Óptimo",
+      days60: "60 Días",
+      days30: "30 Días",
+      urgent: "Urgente",
+      noInspection: "Sin Inspección",
+    }
   }
 }
 
@@ -440,13 +464,13 @@ const exportToPDF = () => {
         const uniqueClientes = Array.from(
           new Set(data.map((vehicle) => vehicle.cliente || ""))
         );
-        setClienteOptions(["Todos", ...uniqueClientes]);
+        setClienteOptions([translations[language].filterOptions.all, ...uniqueClientes]);
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Unexpected error";
         setError((prev) => prev + " " + errorMessage);
       }
     },
-    []
+    [language]
   );
 
   const fetchTires = useCallback(
@@ -501,19 +525,34 @@ const exportToPDF = () => {
 
   const applyFilters = useCallback(() => {
     let tempTires = [...tires];
+    const allOption = language === 'en' ? 'All' : (language === 'es' ? 'Todas' : 'Todos');
 
     // Filter by marca
-    if (selectedMarca !== "Todas") {
+    if (selectedMarca !== allOption && selectedMarca !== '') {
       tempTires = tempTires.filter((tire) => tire.marca === selectedMarca);
     }
 
+    // Filter by banda (diseno)
+    if (selectedBanda !== translations[language].filterOptions.all && selectedBanda !== '') {
+      tempTires = tempTires.filter((tire) => tire["diseno"] === selectedBanda);
+    }
+
     // Filter by eje
-    if (selectedEje !== "Todos") {
+    if (selectedEje !== translations[language].filterOptions.all && selectedEje !== '') {
       tempTires = tempTires.filter((tire) => tire.eje === selectedEje);
     }
 
+    // Filter by vida
+    if (selectedVida !== allOption && selectedVida !== '') {
+      tempTires = tempTires.filter((tire) => {
+        if (!Array.isArray(tire.vida) || tire.vida.length === 0) return false;
+        const lastVida = tire.vida[tire.vida.length - 1].valor?.toLowerCase();
+        return lastVida === selectedVida.toLowerCase();
+      });
+    }
+
     // Filter by cliente (owner)
-    if (selectedCliente !== "Todos") {
+    if (selectedCliente !== translations[language].filterOptions.all && selectedCliente !== '') {
       // Get vehicle IDs that match the selected cliente
       const filteredVehicleIds = vehicles
         .filter((vehicle) => vehicle.cliente === selectedCliente)
@@ -526,32 +565,25 @@ const exportToPDF = () => {
     }
 
     // Filter by semáforo (condition)
-    if (selectedSemaforo !== "Todos") {
+    if (selectedSemaforo !== translations[language].filterOptions.all && selectedSemaforo !== '') {
       tempTires = tempTires.filter((tire) => {
         const condition = classifyCondition(tire);
-        switch (selectedSemaforo) {
-          case "Óptimo":
-            return condition === "optimo";
-          case "60 Días":
-            return condition === "60_dias";
-          case "30 Días":
-            return condition === "30_dias";
-          case "Urgente":
-            return condition === "urgente";
-          case "Sin Inspección":
-            return condition === "sin_inspeccion";
-          default:
-            return true;
-        }
+        const filterMap = {
+          [translations[language].filterOptions.optimal]: "optimo",
+          [translations[language].filterOptions.days60]: "60_dias",
+          [translations[language].filterOptions.days30]: "30_dias",
+          [translations[language].filterOptions.urgent]: "urgente",
+          [translations[language].filterOptions.noInspection]: "sin_inspeccion"
+        };
+        return condition === filterMap[selectedSemaforo];
       });
     }
 
     setFilteredTires(tempTires);
     calculateCpkAverages(tempTires);
-  }, [tires, vehicles, selectedMarca, selectedEje, selectedCliente, selectedSemaforo, calculateCpkAverages]);
+  }, [tires, vehicles, selectedMarca, selectedEje, selectedCliente, selectedVida, selectedBanda, selectedSemaforo, calculateCpkAverages, language]);
 
 const [userPlan, setUserPlan] = useState<string>("");
-
 
 const fetchCompany = useCallback(async (companyId: string) => {
   try {
@@ -569,57 +601,93 @@ const fetchCompany = useCallback(async (companyId: string) => {
   }
 }, []);
 
-// 3) in your existing useEffect, call fetchCompany
-useEffect(() => {
-  const storedUser = localStorage.getItem("user");
-  if (!storedUser) {
-    router.push("/login");
-    return;
-  }
-
-  const user = JSON.parse(storedUser);
-  if (!user.companyId) {
-    setError("No company assigned to user");
-    return;
-  }
-
-  setUserName(user.name || user.email || "User");
-
-  // → NEW:
-  fetchCompany(user.companyId);
-
-  // your existing loads:
-  fetchVehicles(user.companyId);
-  fetchTires(user.companyId);
-}, [router, fetchTires, fetchVehicles, fetchCompany]);
-
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.companyId) {
-        setUserName(user.name || user.email || "User");
-        fetchVehicles(user.companyId);
-        fetchTires(user.companyId);
-      } else {
-        setError("No company assigned to user");
-      }
-    } else {
+    if (!storedUser) {
       router.push("/login");
+      return;
     }
-  }, [router, fetchTires, fetchVehicles]);
 
+    const user = JSON.parse(storedUser);
+    if (!user.companyId) {
+      setError("No company assigned to user");
+      return;
+    }
+
+    setUserName(user.name || user.email || "User");
+    fetchCompany(user.companyId);
+    fetchVehicles(user.companyId);
+    fetchTires(user.companyId);
+  }, [router, fetchTires, fetchVehicles, fetchCompany]);
+
+  // Update filter options when language changes
   useEffect(() => {
     if (tires.length > 0) {
+      const allOption = language === 'en' ? 'All' : (language === 'es' ? 'Todas' : 'Todos');
+      
       const uniqueMarcas = Array.from(new Set(tires.map((tire) => tire.marca || "Sin marca")));
-      setMarcasOptions(["Todas", ...uniqueMarcas]);
+      setMarcasOptions([allOption, ...uniqueMarcas]);
 
       const uniqueEjes = Array.from(new Set(tires.map((tire) => tire.eje || "Sin eje")));
-      setEjeOptions(["Todos", ...uniqueEjes]);
+      setEjeOptions([translations[language].filterOptions.all, ...uniqueEjes]);
+
+      const uniqueBandas = Array.from(
+        new Set(
+          tires.map((tire) => tire["diseno"] || "Sin banda")
+        )
+      );
+      setBandaOptions([translations[language].filterOptions.all, ...uniqueBandas]);
+
+      const uniqueVidas = Array.from(
+        new Set(
+          tires.flatMap((tire) =>
+            Array.isArray(tire.vida)
+              ? tire.vida.map((v) =>
+                  v.valor
+                    ? v.valor.trim().toLowerCase()
+                    : "sin vida"
+                )
+              : []
+          )
+        )
+      ).map(
+        (v) => v.charAt(0).toUpperCase() + v.slice(1) // Capitalize for display
+      );
+      setVidaOptions([allOption, ...uniqueVidas]);
+
+      // Set semaforo options with translations
+      setSemaforoOptions([
+        translations[language].filterOptions.all,
+        translations[language].filterOptions.optimal,
+        translations[language].filterOptions.days60,
+        translations[language].filterOptions.days30,
+        translations[language].filterOptions.urgent,
+        translations[language].filterOptions.noInspection,
+      ]);
+
+      // Reset selected filters to translated values when language changes
+      if (selectedMarca === "" || selectedMarca === "Todas" || selectedMarca === "All") {
+        setSelectedMarca(allOption);
+      }
+      if (selectedEje === "" || selectedEje === "Todos" || selectedEje === "All") {
+        setSelectedEje(translations[language].filterOptions.all);
+      }
+      if (selectedBanda === "" || selectedBanda === "Todos" || selectedBanda === "All") {
+        setSelectedBanda(translations[language].filterOptions.all);
+      }
+      if (selectedVida === "" || selectedVida === "Todas" || selectedVida === "All") {
+        setSelectedVida(allOption);
+      }
+      if (selectedSemaforo === "" || selectedSemaforo === "Todos" || selectedSemaforo === "All") {
+        setSelectedSemaforo(translations[language].filterOptions.all);
+      }
+      if (selectedCliente === "" || selectedCliente === "Todos" || selectedCliente === "All") {
+        setSelectedCliente(translations[language].filterOptions.all);
+      }
 
       setFilteredTires(tires);
     }
-  }, [tires]);
+  }, [tires, language]);
 
   useEffect(() => {
     applyFilters();
@@ -746,7 +814,7 @@ useEffect(() => {
             </div>
           </div>
         </div>
-
+        
         {/* Main Metrics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
@@ -834,6 +902,23 @@ useEffect(() => {
       selected={selectedSemaforo}
       onChange={setSelectedSemaforo}
     />
+    <FilterDropdown
+  id="vida"
+  label="Vida"
+  options={vidaOptions}
+  selected={selectedVida}
+  onChange={setSelectedVida}
+/>
+
+<FilterDropdown
+  id="banda"
+  label="Banda"
+  options={bandaOptions}
+  selected={selectedBanda}
+  onChange={setSelectedBanda}
+/>
+
+
   </div>
 </div>
 
@@ -867,6 +952,7 @@ useEffect(() => {
           )}
         </main>
       </div>
+      <ChatbotWeb />
     </div>
   );
 }

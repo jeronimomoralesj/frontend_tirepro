@@ -62,6 +62,8 @@ const translations = {
     totalInvestment: "Inversión Total",
     averageCpk: "CPK Promedio",
     projectedCpk: "CPK Proyectado",
+    banda: "Banda",
+    vida: "Vida",
     
     // Filters
     filters: "Filtros",
@@ -104,6 +106,8 @@ const translations = {
     totalInvestment: "Total Investment",
     averageCpk: "Average CPM",
     projectedCpk: "Forecasted CPM",
+    banda: "Tread",
+    vida: "Retread",
     
     // Filters
     filters: "Filters",
@@ -148,7 +152,11 @@ export default function SemaforoPage() {
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
   const [exporting, setExporting] = useState(false);
-  
+  const [vidaOptions, setVidaOptions] = useState<string[]>([]);
+  const [selectedVida, setSelectedVida] = useState<string>("");
+  const [bandaOptions, setBandaOptions] = useState<string[]>([]);
+  const [selectedBanda, setSelectedBanda] = useState<string>("");
+
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
   
@@ -232,6 +240,8 @@ export default function SemaforoPage() {
     setSelectedMarca(t.allBrands);
     setSelectedEje(t.allAxes);
     setSelectedCliente(t.allOwners);
+    setSelectedVida(t.all);       
+  setSelectedBanda(t.all);
   }, [language, t]);
 
   // Refs for dropdown components
@@ -239,7 +249,8 @@ export default function SemaforoPage() {
     marca: useRef<HTMLDivElement>(null),
     eje: useRef<HTMLDivElement>(null),
     semaforo: useRef<HTMLDivElement>(null),
-    cliente: useRef<HTMLDivElement>(null)
+    cliente: useRef<HTMLDivElement>(null),
+    banda: useRef<HTMLDivElement>(null),
   }).current;
 
   // Updated exportToPDF function
@@ -446,11 +457,24 @@ export default function SemaforoPage() {
     if (selectedMarca !== t.allBrands && selectedMarca !== t.all) {
       tempTires = tempTires.filter(tire => tire.marca === selectedMarca);
     }
+
+    if (selectedBanda !== t.all) {
+  tempTires = tempTires.filter(tire => tire["diseno"] === selectedBanda);
+}
     
     // Apply eje filter
     if (selectedEje !== t.allAxes && selectedEje !== t.all) {
       tempTires = tempTires.filter(tire => tire.eje === selectedEje);
     }
+
+    // Apply vida filter
+if (selectedVida !== t.all) {
+  tempTires = tempTires.filter(tire => {
+    const lastVida = tire.vida?.[tire.vida.length - 1]?.valor?.toLowerCase();
+    return lastVida === selectedVida.toLowerCase();
+  });
+}
+
     
     // Apply semáforo filter
     if (selectedSemaforo !== t.all) {
@@ -478,7 +502,7 @@ export default function SemaforoPage() {
     // Update metrics based on filtered data
     calculateCpkAverages(tempTires);
     calculateTotals(tempTires);
-  }, [tires, vehicles, selectedMarca, selectedEje, selectedSemaforo, selectedCliente, calculateCpkAverages, calculateTotals, t]);
+  }, [tires, vehicles, selectedMarca, selectedEje, selectedSemaforo,selectedVida, selectedBanda, selectedCliente, calculateCpkAverages, calculateTotals, t]);
 
   const fetchTires = useCallback(async (cId: string) => {
     setLoading(true);
@@ -605,6 +629,21 @@ export default function SemaforoPage() {
       const uniqueEjes = Array.from(new Set(tires.map(tire => tire.eje || t.noAxis)));
       setEjeOptions([t.allAxes, ...uniqueEjes]);
     }
+    const uniqueBandas = Array.from(
+  new Set(
+    tires.map(t => t["diseno"] || "Sin Banda")
+  )
+);
+setBandaOptions([t.all, ...uniqueBandas]);
+    const uniqueVidas = Array.from(
+  new Set(
+    tires
+      .map(t => t.vida?.[t.vida.length - 1]?.valor?.toLowerCase() || "")
+      .filter(Boolean)
+  )
+).map(v => v.charAt(0).toUpperCase() + v.slice(1)); // capitalize
+
+setVidaOptions([t.all, ...uniqueVidas]);
   }, [tires, t.allBrands, t.allAxes, t.noBrand, t.noAxis]);
 
   // Apply filters when filter selections change
@@ -819,6 +858,22 @@ export default function SemaforoPage() {
               selected={selectedSemaforo}
               onChange={setSelectedSemaforo}
             />
+            <FilterDropdown
+  id="vida"
+  label={t.vida}
+  options={vidaOptions}
+  selected={selectedVida}
+  onChange={setSelectedVida}
+/>
+
+<FilterDropdown
+  id="banda"
+  label={t.banda}
+  options={bandaOptions}
+  selected={selectedBanda}
+  onChange={setSelectedBanda}
+/>
+
           </div>
         </div>
 

@@ -16,13 +16,19 @@ export type Tire = {
   vida: VidaEntry[];
   posicion?: string | number;
   diseno?: string; // Added diseno field for banda
+  profundidadInicial?: number; // Added this type
+  desechos?: {
+  causales: string;
+  milimetrosDesechados: number;
+  remanente: number;
+};
+
 };
 
 export type Vehicle = {
   id: string;
   placa: string;
   tipovhc?: string;
-  // ... any other vehicle fields
 };
 
 // --- Language translations ---
@@ -56,7 +62,9 @@ const translations = {
     enterBandDesign: "Ingrese la banda/diseño",
     invalidCost: "Costo inválido",
     noMoreEntries: "No se pueden agregar más entradas. La vida ya está en 'fin'.",
-    position: "Posición"
+    position: "Posición",
+    initialDepth: "Profundidad Inicial (mm)",
+    enterValidDepth: "Ingrese una profundidad inicial válida (mayor a 0)"
   },
   en: {
     updateLife: "Update Life",
@@ -87,7 +95,9 @@ const translations = {
     enterBandDesign: "Enter band/design",
     invalidCost: "Invalid cost",
     noMoreEntries: "No more entries can be added. Life is already at 'end'.",
-    position: "Position"
+    position: "Position",
+    initialDepth: "Initial Depth (mm)",
+    enterValidDepth: "Enter a valid initial depth (greater than 0)"
   }
 };
 
@@ -100,6 +110,9 @@ const VidaPage: React.FC = () => {
   const [tires, setTires] = useState<Tire[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [profundidadValue, setProfundidadValue] = useState("");
+const [causalValue, setCausalValue] = useState("");
+const [milimetrosValue, setMilimetrosValue] = useState("");
 
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
@@ -214,46 +227,56 @@ const VidaPage: React.FC = () => {
   }
 
   // --- Open Modal to update vida for a tire ---
-  function openModal(tire: Tire) {
-    setSelectedTire(tire);
-    setModalError("");
-    setCostValue(""); // Reset cost value
-    // Grab the existing "diseno" from the tire for banda field
-    setBandaValue(tire.diseno || "");
+function openModal(tire: Tire) {
+  setSelectedTire(tire);
+  setModalError("");
+  setCostValue(""); // Reset cost value
+  setBandaValue(tire.diseno || "");
+  setCausalValue("");
+setMilimetrosValue("");
 
-    // If the tire has no vida data, assume current value is "nueva"
-    let lastIndex = 0;
-    if (tire.vida && tire.vida.length > 0) {
-      const lastValue = tire.vida[tire.vida.length - 1].valor.toLowerCase();
-      lastIndex = allowedVida.indexOf(lastValue);
-      if (lastIndex === -1) {
-        lastIndex = 0;
-      }
+  
+  // Initialize profundidad value - if tire has existing profundidad, use it, otherwise empty string
+  const initialProfundidad = tire.profundidadInicial && tire.profundidadInicial > 0 
+    ? tire.profundidadInicial.toString() 
+    : "";
+  setProfundidadValue(initialProfundidad);
+  
+  // If the tire has no vida data, assume current value is "nueva"
+  let lastIndex = 0;
+  if (tire.vida && tire.vida.length > 0) {
+    const lastValue = tire.vida[tire.vida.length - 1].valor.toLowerCase();
+    lastIndex = allowedVida.indexOf(lastValue);
+    if (lastIndex === -1) {
+      lastIndex = 0;
     }
-    let options: string[] = [];
-    if (lastIndex === 0) {
-      // From "nueva", allow only "reencauche1" and "fin"
-      options = [allowedVida[1], allowedVida[allowedVida.length - 1]];
-    } else if (lastIndex === 1) {
-      // From "reencauche1", allow only "reencauche2" and "fin"
-      options = [allowedVida[2], allowedVida[allowedVida.length - 1]];
-    } else if (lastIndex === 2) {
-      // From "reencauche2", allow only "reencauche3" and "fin"
-      options = [allowedVida[3], allowedVida[allowedVida.length - 1]];
-    } else if (lastIndex === 3) {
-      // From "reencauche3", only "fin" remains.
-      options = [allowedVida[4]];
-    } else {
-      options = [];
-    }
-    if (options.length === 0) {
-      setModalError(t.noMoreEntries);
-      setSelectedVida("");
-    } else {
-      setSelectedVida(options[0]);
-    }
-    setShowModal(true);
   }
+  
+  let options: string[] = [];
+  if (lastIndex === 0) {
+    // From "nueva", allow only "reencauche1" and "fin"
+    options = [allowedVida[1], allowedVida[allowedVida.length - 1]];
+  } else if (lastIndex === 1) {
+    // From "reencauche1", allow only "reencauche2" and "fin"
+    options = [allowedVida[2], allowedVida[allowedVida.length - 1]];
+  } else if (lastIndex === 2) {
+    // From "reencauche2", allow only "reencauche3" and "fin"
+    options = [allowedVida[3], allowedVida[allowedVida.length - 1]];
+  } else if (lastIndex === 3) {
+    // From "reencauche3", only "fin" remains.
+    options = [allowedVida[4]];
+  } else {
+    options = [];
+  }
+  
+  if (options.length === 0) {
+    setModalError(t.noMoreEntries);
+    setSelectedVida("");
+  } else {
+    setSelectedVida(options[0]);
+  }
+  setShowModal(true);
+}
 
   // --- Close the modal ---
   function closeModal() {
@@ -262,7 +285,11 @@ const VidaPage: React.FC = () => {
     setSelectedVida("");
     setBandaValue("");
     setCostValue("");
+    setProfundidadValue("");
     setModalError("");
+    setCausalValue("");
+setMilimetrosValue("");
+
   }
 
   // Function to check if the selected vida requires a cost input
@@ -270,57 +297,87 @@ const VidaPage: React.FC = () => {
     return vida.startsWith("reencauche");
   };
 
+  // Function to check if the selected vida requires profundidad input
+  const requiresProfundidad = (vida: string) => {
+    return vida !== "fin";
+  };
+
   // --- Call backend to update vida ---
-  async function handleUpdateVida() {
-    if (!selectedTire) return;
-    if (!selectedVida) return setModalError(t.selectLifeValue);
-    if (!bandaValue.trim()) return setModalError(t.enterBandDesign);
-    
-    // Validate cost if required
-    if (requiresCost(selectedVida)) {
-      const n = parseFloat(costValue);
-      if (isNaN(n) || n <= 0) {
-        return setModalError(t.invalidCost);
-      }
-    }
+async function handleUpdateVida() {
+  if (!selectedTire) return;
+  if (!selectedVida) return setModalError(t.selectLifeValue);
+  if (!bandaValue.trim()) return setModalError(t.enterBandDesign);
 
-    try {
-      setLoading(true);
-      // Build the payload
-      const body: { valor: string; banda: string; costo?: number } = {
-        valor: selectedVida,
-        banda: bandaValue.trim(), // Our new field
-      };
-      if (requiresCost(selectedVida)) {
-        body.costo = parseFloat(costValue); // Just the number, server will wrap {fecha,valor}
-      }
+const body: {
+  valor: string;
+  banda: string;
+  costo?: number;
+  profundidadInicial?: number;
+  desechos?: {
+    causales: string;
+    milimetrosDesechados: number;
+    remanente: number;
+  };
+} = {
+  valor: selectedVida,
+  banda: bandaValue.trim(),
+};
 
-      const res = await fetch(
-        `${API_URL}/api/tires/${selectedTire.id}/vida`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const updated: Tire = await res.json();
 
-      // Merge into state and re-sort
-      setTires(prev => {
-        const out = prev.map(t => t.id === updated.id ? updated : t);
-        return out.sort((a,b)=>{
-          const pa = Number(a.posicion)||Infinity, pb = Number(b.posicion)||Infinity;
-          return pa-pb;
-        });
-      });
-      closeModal();
-    } catch (e: unknown) {
-      setModalError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
+  if (requiresCost(selectedVida)) {
+    const n = parseFloat(costValue);
+    if (isNaN(n) || n <= 0) return setModalError(t.invalidCost);
+    body.costo = n;
   }
+
+  if (selectedVida !== "fin") {
+    const profVal = parseFloat(profundidadValue);
+    if (!profundidadValue || isNaN(profVal) || profVal <= 0) {
+      return setModalError(t.enterValidDepth);
+    }
+    body.profundidadInicial = profVal;
+  }
+
+  if (selectedVida === "fin") {
+    const mm = parseFloat(milimetrosValue);
+    if (!causalValue.trim()) return setModalError("Ingrese la causa de descarte");
+    if (isNaN(mm) || mm < 0) return setModalError("Ingrese los milímetros finales válidos");
+
+    const profundidad = selectedTire.profundidadInicial || 0;
+    body.desechos = {
+      causales: causalValue.trim(),
+      milimetrosDesechados: mm,
+      remanente: Math.max(profundidad - mm, 0),
+    };
+  }
+
+  try {
+    setLoading(true);
+    const res = await fetch(`${API_URL}/api/tires/${selectedTire.id}/vida`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ message: "Unknown error" }));
+      throw new Error(errorData.message || await res.text());
+    }
+
+    const updated: Tire = await res.json();
+
+    setTires(prev =>
+      prev
+        .map(t => (t.id === updated.id ? updated : t))
+        .sort((a, b) => (Number(a.posicion) || Infinity) - (Number(b.posicion) || Infinity))
+    );
+    closeModal();
+  } catch (e: any) {
+    setModalError(e.message || "Unknown error");
+  } finally {
+    setLoading(false);
+  }
+}
 
   return (
     <div className="min-h-screen bg-white">
@@ -556,7 +613,61 @@ const VidaPage: React.FC = () => {
                   </p>
                 </div>
               )}
-              
+
+              {/* PROFUNDIDAD INICIAL (only when NOT "fin") */}
+              {requiresProfundidad(selectedVida) && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-[#0A183A] mb-2">
+                    {t.initialDepth}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={profundidadValue}
+                    onChange={(e) => setProfundidadValue(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
+                    placeholder="Ej: 12.0"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t.enterValidDepth}
+                  </p>
+                </div>
+              )}
+
+              {selectedVida === "fin" && (
+  <>
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-[#0A183A] mb-2">
+        Causal del descarte
+      </label>
+      <input
+        type="text"
+        value={causalValue}
+        onChange={(e) => setCausalValue(e.target.value)}
+        className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
+        placeholder="Ej: Pinchazo irreparable"
+      />
+    </div>
+
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-[#0A183A] mb-2">
+        Milímetros finales
+      </label>
+      <input
+        type="number"
+        step="0.1"
+        value={milimetrosValue}
+        onChange={(e) => setMilimetrosValue(e.target.value)}
+        className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
+        placeholder="Ej: 3.5"
+      />
+    </div>
+  </>
+)}
+
+
               <div className="flex gap-3">
                 <button
                   onClick={closeModal}

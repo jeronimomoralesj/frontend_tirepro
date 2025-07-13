@@ -84,6 +84,8 @@ const translations = {
     brand: "Marca",
     axle: "Eje",
     status: "Estado",
+    life: "Vida",
+    tread: "Banda",
     all: "Todos",
     allBrands: "Todas",
     allAxles: "Todos",
@@ -95,7 +97,9 @@ const translations = {
     noInspection: "Sin Inspección",
     loading: "Cargando neumáticos...",
     noMarca: "Sin marca",
-    noOwner: "Sin dueño"
+    noOwner: "Sin dueño",
+    noTread: "Sin Banda",
+    noLife: "Sin vida"
   },
   en: {
     myFleet: "My Fleet",
@@ -111,6 +115,8 @@ const translations = {
     brand: "Brand",
     axle: "Axle",
     status: "Status",
+    life: "Life",
+    tread: "Tread",
     all: "All",
     allBrands: "All",
     allAxles: "All",
@@ -122,7 +128,9 @@ const translations = {
     noInspection: "No Inspection",
     loading: "Loading tires...",
     noMarca: "No brand",
-    noOwner: "No owner"
+    noOwner: "No owner",
+    noTread: "No Tread",
+    noLife: "No life"
   }
 };
 
@@ -137,7 +145,11 @@ export default function FlotaPage() {
   const [cpkPromedio, setCpkPromedio] = useState<number>(0);
   const [cpkProyectado, setCpkProyectado] = useState<number>(0);
   const [exporting, setExporting] = useState(false);
-  
+  const [vidaOptions, setVidaOptions] = useState<string[]>([]);
+  const [selectedVida, setSelectedVida] = useState<string>("");
+  const [bandaOptions, setBandaOptions] = useState<string[]>([]);
+  const [selectedBanda, setSelectedBanda] = useState<string>("");
+
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
   
@@ -231,7 +243,13 @@ export default function FlotaPage() {
     if (selectedSemaforo === "" || selectedSemaforo === "Todos" || selectedSemaforo === "All") {
       setSelectedSemaforo(t.all);
     }
-  }, [language, t, selectedMarca, selectedEje, selectedCliente, selectedSemaforo]);
+    if (selectedVida === "" || selectedVida === "Todos" || selectedVida === "All") {
+      setSelectedVida(t.all);
+    }
+    if (selectedBanda === "" || selectedBanda === "Todos" || selectedBanda === "All") {
+      setSelectedBanda(t.all);
+    }
+  }, [language, t]);
 
 const exportToPDF = () => {
   try {
@@ -507,6 +525,7 @@ const exportToPDF = () => {
     cpkRange: useRef<HTMLDivElement>(null),
     vida: useRef<HTMLDivElement>(null),
     cliente: useRef<HTMLDivElement>(null),
+    banda: useRef<HTMLDivElement>(null),
   }).current;
 
   const fetchTires = useCallback(async (companyId: string) => {
@@ -643,10 +662,33 @@ const exportToPDF = () => {
         }
       });
       setEjeOptions([t.allAxles, ...Array.from(uniqueEjes)]);
+
+      // Extract unique banda values with translation
+      const uniqueBandas = Array.from(
+        new Set(tires.map(tire => tire.diseno || t.noTread))
+      );
+      setBandaOptions([t.all, ...uniqueBandas]);
+
+      // Extract unique vida values with translation
+      const uniqueVidas = Array.from(
+        new Set(
+          tires.flatMap(tire =>
+            Array.isArray(tire.vida)
+              ? tire.vida.map(v =>
+                  v.valor
+                    ? v.valor.trim().toLowerCase()
+                    : t.noLife.toLowerCase()
+                )
+              : []
+          )
+        )
+      ).map(v => v.charAt(0).toUpperCase() + v.slice(1)); // Capitalize
+
+      setVidaOptions([t.all, ...uniqueVidas]);
       
       setFilteredTires(tires);
     }
-  }, [tires, t.allBrands, t.noMarca, t.allAxles]);
+  }, [tires, t.allBrands, t.noMarca, t.allAxles, t.all, t.noTread, t.noLife]);
 
   // Extract unique vehicle types for filter options
   useEffect(() => {
@@ -678,10 +720,27 @@ const exportToPDF = () => {
         tire.vehicleId && vehicleIds.includes(tire.vehicleId)
       );
     }
+
+    // Apply banda (diseno) filter
+    if (selectedBanda !== t.all) {
+      tempTires = tempTires.filter(tire => {
+        const tireDesign = tire.diseno || t.noTread;
+        return tireDesign === selectedBanda;
+      });
+    }
     
     // Apply marca filter
     if (selectedMarca !== t.allBrands) {
       tempTires = tempTires.filter(tire => tire.marca === selectedMarca);
+    }
+
+    // Apply vida filter
+    if (selectedVida !== t.all) {
+      tempTires = tempTires.filter(tire => {
+        if (!Array.isArray(tire.vida) || tire.vida.length === 0) return false;
+        const lastVida = tire.vida[tire.vida.length - 1].valor?.toLowerCase();
+        return lastVida === selectedVida.toLowerCase();
+      });
     }
     
     // Apply eje filter
@@ -726,7 +785,7 @@ const exportToPDF = () => {
     
     // Update metrics based on filtered data
     calculateCpkAverages(tempTires);
-  }, [selectedMarca, selectedEje, selectedSemaforo, selectedCliente, tires, vehicles, t]);
+  }, [selectedMarca, selectedEje, selectedSemaforo, selectedVida, selectedCliente, selectedBanda, tires, vehicles, t]);
 
   // Apply filters whenever filter selections change
   useEffect(() => {
@@ -977,6 +1036,23 @@ const exportToPDF = () => {
                 selected={selectedSemaforo}
                 onChange={setSelectedSemaforo}
               />
+              <FilterDropdown
+  id="vida"
+  label="Vida"
+  options={vidaOptions}
+  selected={selectedVida}
+  onChange={setSelectedVida}
+/>
+
+<FilterDropdown
+  id="banda"
+  label="Banda"
+  options={bandaOptions}
+  selected={selectedBanda}
+  onChange={setSelectedBanda}
+/>
+
+
             </div>
           </div>
 

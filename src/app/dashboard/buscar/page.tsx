@@ -534,9 +534,9 @@ const BuscarPage: React.FC = () => {
 
       {/* Modal - Keeping it concise for space */}
       {showModal && selectedTire && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-99 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-auto my-8">
-            <div className="sticky top-0 z-10 bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white p-6 rounded-t-2xl flex justify-between items-center">
+            <div className="sticky top-0 z-999 bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white p-6 rounded-t-2xl flex justify-between items-center">
               <h2 className="text-2xl font-bold flex items-center gap-3">
                 <Info className="w-6 h-6" />
                 {t.tireDetails}: {selectedTire.placa}
@@ -570,48 +570,49 @@ const BuscarPage: React.FC = () => {
               </div>
 
               {/* Continue with existing modal content but using t.* for translations */}
-              {/* For brevity, I'll show the key sections - the full modal would use t.* throughout */}
-              
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-[#0A183A] pb-2 border-b border-gray-200 mb-4">
-                  <span className="flex items-center gap-2">
-                    <Repeat className="w-5 h-5" />
-                    {t.lifeHistory}
-                  </span>
-                </h3>
-                {selectedTire.vida && selectedTire.vida.length > 0 ? (
-  <div className="overflow-x-auto">
-    <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-      <thead className="bg-gray-50">
-        <tr>
-          <th className="px-6 py-3 text-left text-sm font-semibold text-gray-600">{t.date}</th>
-          <th className="px-6 py-3 text-left text-sm font-semibold text-gray-600">{t.currentStatus}</th>
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-100">
-        {selectedTire.vida.map((entry, index) => {
-          const label = getVidaStatusLabel(entry.valor);
-          return (
-            <tr key={index}>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                {new Date(entry.fecha).toLocaleDateString()}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <span className={`px-2 py-1 rounded-full font-medium text-white ${label.className}`}>
-                  {label.text}
-                </span>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-) : (
-  <p className="text-gray-500">{t.notAvailable}</p>
-)}
+<div className="mb-8">
+  <h3 className="text-xl font-bold text-[#0A183A] pb-2 border-b border-gray-200 mb-4">
+    <span className="flex items-center gap-2">
+      <Repeat className="w-5 h-5" />
+      {t.lifeHistory}
+    </span>
+  </h3>
 
-              </div>
+  <div className="grid md:grid-cols-2 gap-6">
+    {/* Life Status Timeline as list */}
+    <div>
+      <h4 className="text-lg font-semibold text-[#173D68] mb-3">{t.lifePhases}</h4>
+      <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+        {selectedTire.vida.map((entry, index) => {
+  const label = getVidaStatusLabel(entry.valor);
+  const formattedDate = new Date(entry.fecha).toLocaleDateString();
+
+  // If it's "Nueva", add the CPK from primeraVida
+  const isNueva = entry.valor?.toLowerCase?.() === "nueva";
+  const cpk =
+    isNueva && selectedTire.primeraVida?.[0]?.cpk
+      ? selectedTire.primeraVida[0].cpk.toFixed(2)
+      : null;
+
+  return (
+    <div key={index} className="border-b pb-2 last:border-b-0">
+      <p className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-1 ${label.className}`}>
+        {label.text}
+        {cpk && (
+          <span className="ml-2 text-gray-100 font-normal">
+            · CPK: {cpk}
+          </span>
+        )}
+      </p>
+      <p className="text-sm text-gray-500">{formattedDate}</p>
+    </div>
+  );
+})}
+
+      </div>
+    </div>
+  </div>
+</div>
 
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-[#0A183A] pb-2 border-b border-gray-200 mb-4">

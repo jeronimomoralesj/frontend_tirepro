@@ -91,7 +91,7 @@ const TireProUSLanding = () => {
       icon: Calendar
     },
     {
-      title: "Cost & CPK Tracking",
+      title: "Cost & CPM Tracking",
       description: "Automatic cost-per-kilometer tracking with full investment visibility to track your true results.",
       icon: BarChart3
     },

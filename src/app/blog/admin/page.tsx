@@ -8,10 +8,13 @@ import {
   Edit3,
   Trash2,
   Mail,
-  Shield
+  Shield,
+  BarChart3,
+  FileText
 } from 'lucide-react'
 import logo from "../../../../public/logo_text.png"
 import logoTire from "../../../../public/logo_tire.png"
+import StatsPage from './stats/page'
 
 interface Article {
   id: number
@@ -34,6 +37,8 @@ interface NewArticle {
   hashtags: string[]
 }
 
+type ViewMode = 'blog' | 'stats'
+
 const BlogAdminPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
@@ -43,6 +48,7 @@ const BlogAdminPage = () => {
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
   const [isGeneratingPassword, setIsGeneratingPassword] = useState(false)
   const [passwordGenerated, setPasswordGenerated] = useState(false)
+  const [currentView, setCurrentView] = useState<ViewMode>('blog')
 
   // API URLs with fallback
   const PRIMARY_API_URL = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api` : null
@@ -320,95 +326,130 @@ const BlogAdminPage = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="inline-flex items-center space-x-2 px-4 py-2 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all"
-            >
-              <Plus size={16} />
-              <span>Nuevo Artículo</span>
-            </button>
+            <div className="flex items-center space-x-4">
+              {/* View Toggle */}
+              <div className="flex items-center bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg p-1">
+                <button
+                  onClick={() => setCurrentView('blog')}
+                  className={`inline-flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    currentView === 'blog'
+                      ? 'bg-[#348CCB] text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white hover:bg-[#173D68]/30'
+                  }`}
+                >
+                  <FileText size={16} />
+                  <span>Blog</span>
+                </button>
+                <button
+                  onClick={() => setCurrentView('stats')}
+                  className={`inline-flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    currentView === 'stats'
+                      ? 'bg-[#348CCB] text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white hover:bg-[#173D68]/30'
+                  }`}
+                >
+                  <BarChart3 size={16} />
+                  <span>Estadísticas</span>
+                </button>
+              </div>
+
+              {/* Create Article Button - Only show in blog view */}
+              {currentView === 'blog' && (
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-all"
+                >
+                  <Plus size={16} />
+                  <span>Nuevo Artículo</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Gestión de Artículos</h1>
-          <p className="text-gray-400">Administra el contenido del blog</p>
-        </div>
+      {currentView === 'blog' ? (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">Gestión de Artículos</h1>
+            <p className="text-gray-400">Administra el contenido del blog</p>
+          </div>
 
-        {/* Articles Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {articles.map((article) => (
-            <div
-              key={article.id}
-              className="bg-gradient-to-br from-[#0A183A]/40 to-[#173D68]/20 rounded-2xl overflow-hidden border border-[#173D68]/30"
-            >
-              <div className="relative h-40">
-                <img 
-                  src={article.coverImage} 
-                  alt={article.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-              </div>
-              
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs px-2 py-1 bg-[#348CCB]/20 text-[#348CCB] rounded-full capitalize">
-                    {article.category}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(article.createdAt).toLocaleDateString('es-ES')}
-                  </span>
+          {/* Articles Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {articles.map((article) => (
+              <div
+                key={article.id}
+                className="bg-gradient-to-br from-[#0A183A]/40 to-[#173D68]/20 rounded-2xl overflow-hidden border border-[#173D68]/30"
+              >
+                <div className="relative h-40">
+                  <img 
+                    src={article.coverImage} 
+                    alt={article.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 </div>
                 
-                <h3 className="font-bold mb-2 line-clamp-2 text-sm">
-                  {article.title}
-                </h3>
-                
-                <p className="text-gray-400 text-xs mb-3 line-clamp-2">
-                  {article.subtitle}
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setEditingArticle(article)}
-                      className="p-2 text-blue-400 hover:bg-blue-400/20 rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                    <button
-                      onClick={() => deleteArticle(article.id)}
-                      className="p-2 text-red-400 hover:bg-red-400/20 rounded-lg transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs px-2 py-1 bg-[#348CCB]/20 text-[#348CCB] rounded-full capitalize">
+                      {article.category}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(article.createdAt).toLocaleDateString('es-ES')}
+                    </span>
                   </div>
                   
-                  <div className="flex flex-wrap gap-1">
-                    {article.hashtags.slice(0, 2).map((tag, index) => (
-                      <span key={index} className="text-xs text-[#348CCB]">
-                        #{tag}
-                      </span>
-                    ))}
+                  <h3 className="font-bold mb-2 line-clamp-2 text-sm">
+                    {article.title}
+                  </h3>
+                  
+                  <p className="text-gray-400 text-xs mb-3 line-clamp-2">
+                    {article.subtitle}
+                  </p>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setEditingArticle(article)}
+                        className="p-2 text-blue-400 hover:bg-blue-400/20 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button
+                        onClick={() => deleteArticle(article.id)}
+                        className="p-2 text-red-400 hover:bg-red-400/20 rounded-lg transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1">
+                      {article.hashtags.slice(0, 2).map((tag, index) => (
+                        <span key={index} className="text-xs text-[#348CCB]">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {articles.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-400">No hay artículos publicados</p>
+            ))}
           </div>
-        )}
-      </div>
+
+          {articles.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-400">No hay artículos publicados</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <StatsPage />
+      )}
 
       {/* Create Article Modal */}
       {showCreateForm && (
@@ -489,24 +530,24 @@ const BlogAdminPage = () => {
               </div>
               
               <div>
-  <label className="block text-sm font-medium mb-2">Contenido (HTML permitido)</label>
-  <div className="mb-2 text-xs text-gray-400">
-    Etiquetas disponibles: &lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt;, &lt;p&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;img&gt;, &lt;a&gt;, &lt;br&gt;
-  </div>
-  <textarea
-    value={newArticle.content}
-    onChange={(e) => setNewArticle({ ...newArticle, content: e.target.value })}
-    rows={15}
-    className="w-full px-4 py-3 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-white focus:outline-none focus:border-[#348CCB] transition-colors resize-none font-mono text-sm"
-    placeholder="<h2>Título de sección</h2>
+                <label className="block text-sm font-medium mb-2">Contenido (HTML permitido)</label>
+                <div className="mb-2 text-xs text-gray-400">
+                  Etiquetas disponibles: &lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt;, &lt;p&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;img&gt;, &lt;a&gt;, &lt;br&gt;
+                </div>
+                <textarea
+                  value={newArticle.content}
+                  onChange={(e) => setNewArticle({ ...newArticle, content: e.target.value })}
+                  rows={15}
+                  className="w-full px-4 py-3 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-white focus:outline-none focus:border-[#348CCB] transition-colors resize-none font-mono text-sm"
+                  placeholder="<h2>Título de sección</h2>
 <p>Párrafo normal con <strong>texto en negrita</strong> y <em>cursiva</em>.</p>
 <img src='https://ejemplo.com/imagen.jpg' alt='Descripción' style='width:100%; height:auto; margin:20px 0; border-radius:8px;' />
 <ul>
   <li>Item de lista</li>
   <li>Otro item</li>
 </ul>"
-  />
-</div>
+                />
+              </div>
               
               <div className="flex justify-end space-x-4">
                 <button
