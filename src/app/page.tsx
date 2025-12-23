@@ -5,369 +5,380 @@ import {
   Calendar, 
   BarChart3, 
   Clock, 
-  MapPin, 
-  Users,
+  MapPin,
   Menu,
   X,
   Download,
-  Smartphone,
-  MessageCircle,
-  Plus,
-  Minus,
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Zap,
+  Shield,
+  TrendingUp,
+  Users,
+  Sparkles,
+  ChevronRight,
+  AlertCircle,
+  DollarSign,
+  Target,
+  Activity,
 } from 'lucide-react'
-import Link from 'next/link'
+import landing from "../../public/landing.png"
 import Image from 'next/image'
-import logo from "../../public/logo_text.png"
-import logoTire from "../../public/logo_tire.png"
-import landingImage from "../../public/landing.png" 
-import phone from "../../public/2.png"
-
+import logo from "../../public/logo_full.png"
 const TireProLanding = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [openFaq, setOpenFaq] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Detect user location and redirect US users
-  useEffect(() => {
-    const detectLocation = async () => {
-      try {
-        // First try to get location from browser API
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              // Use a geolocation API to get country from coordinates
-              try {
-                const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`)
-                const data = await response.json()
-                const country = data.countryCode
-                
-                // Redirect US users to /us
-                if (country === 'US') {
-                  window.location.href = '/us'
-                  return
-                }
-              } catch (error) {
-                console.log('Geolocation API error:', error)
-                // Fallback to browser language detection
-                detectLanguageFromBrowser()
-              }
-              setIsLoading(false)
-            },
-            (error) => {
-              console.log('Geolocation error:', error)
-              // Fallback to browser language detection
-              detectLanguageFromBrowser()
-              setIsLoading(false)
-            }
-          )
-        } else {
-          // Fallback to browser language detection
-          detectLanguageFromBrowser()
-          setIsLoading(false)
-        }
-      } catch (error) {
-        console.log('Location detection error:', error)
-        detectLanguageFromBrowser()
-        setIsLoading(false)
-      }
-    }
-
-    const detectLanguageFromBrowser = () => {
-      const browserLang = navigator.language || navigator.languages[0]
-      // Redirect if browser language is English
-      if (browserLang.startsWith('en')) {
-        window.location.href = '/us'
-        return
-      }
-      setIsLoading(false)
-    }
-
-    detectLocation()
-  }, [])
+  const [activeQuestion, setActiveQuestion] = useState(null)
+  const [activePlan, setActivePlan] = useState(1)
+  const [activeTestimonial, setActiveTestimonial] = useState(0)
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50)
+      setIsScrolled(window.scrollY > 20)
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   useEffect(() => {
-    if (isMobileMenuOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isMobileMenuOpen])
+    const interval = setInterval(() => {
+      setActiveTestimonial((prev) => (prev + 1) % testimonials.length)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   const features = [
     {
+      icon: Calendar,
       title: "Inspecciones Digitales",
-      description: "Automatiza inspecciones con IA y mantén registro completo del estado de cada llanta.",
-      icon: Calendar
+      description: "IA que automatiza inspecciones y mantiene un historial completo del estado de cada llanta",
+      stat: "10x más rápido"
     },
     {
-      title: "Costos y CPK",
-      description: "Seguimiento automático del costo por kilómetro con visibilidad total de tu inversión.",
-      icon: BarChart3
+      icon: BarChart3,
+      title: "Análisis de Costos",
+      description: "Seguimiento automático del costo por kilómetro con visibilidad total de tu inversión",
+      stat: "25% ahorro"
     },
     {
-      title: "Control de Posiciones", 
-      description: "Gestiona y reorganiza llantas por vehículo con interfaz visual intuitiva.",
-      icon: MapPin
+      icon: MapPin,
+      title: "Control de Posiciones",
+      description: "Gestiona y reorganiza llantas por vehículo con interfaz visual e intuitiva",
+      stat: "100% visual"
     },
     {
-      title: "Análisis Predictivo",
-      description: "IA que predice cuándo cambiar llantas antes de fallas críticas.",
-      icon: Clock
+      icon: Clock,
+      title: "Predicción Inteligente",
+      description: "IA que predice cuándo cambiar llantas antes de fallas críticas",
+      stat: "95% precisión"
     }
   ]
 
   const plans = [
     {
-      name: "Mini",
-      subtitle: "Para uno a uno (menos de 5 carros)",
-      features: ["Análisis con IA", "Un usuario", "Llantas ilimitadas", "Monitoreo de llantas"],
-      highlighted: false
+      name: "Inicio",
+      description: "Para flotas pequeñas que están comenzando",
+      price: "Gratis",
+      priceDetail: "Para siempre",
+      vehicles: "Hasta 10 vehículos",
+      features: [
+        "Hasta 10 vehículos",
+        "Un usuario",
+        "Análisis básico con IA",
+        "Llantas ilimitadas",
+        "Monitoreo básico",
+        "Reportes mensuales",
+        "Soporte por email"
+      ],
+      cta: "Comenzar gratis",
+      popular: false
     },
     {
-      name: "Pro",
-      subtitle: "Para grandes flotas (más de 5 carros)", 
-      features: ["Análisis con IA", "Usuarios ilimitados", "Reportes avanzados", "Monitoreo y alertas de llantas"],
-      highlighted: true
+      name: "Crecimiento",
+      description: "Para flotas en expansión",
+      price: "$300.000",
+      priceDetail: "/mes",
+      vehicles: "De 10 a 50 vehículos",
+      features: [
+        "10-50 vehículos",
+        "Hasta 5 usuarios",
+        "Análisis avanzado con IA",
+        "Llantas ilimitadas",
+        "Alertas predictivas en tiempo real",
+        "Reportes semanales personalizados",
+        "Dashboard avanzado",
+        "Soporte prioritario",
+        "Integración con sistemas"
+      ],
+      cta: "Comenzar ahora",
+      popular: true
     },
     {
-      name: "Retail",
-      subtitle: "Para distribuidores",
-      features: ["Todo de Pro", "Gestión de clientes", "Análisis por cliente"],
-      highlighted: false
+      name: "Empresarial",
+      description: "Para grandes flotas y distribuidores",
+      price: "$1.000.000",
+      priceDetail: "/mes",
+      vehicles: "Más de 50 vehículos",
+      features: [
+        "Vehículos ilimitados",
+        "Usuarios ilimitados",
+        "IA personalizada para tu flota",
+        "Gestión multi-cliente",
+        "Análisis predictivo avanzado",
+        "Reportes en tiempo real",
+        "API completa",
+        "Gerente de cuenta dedicado",
+        "Capacitación incluida",
+        "SLA garantizado"
+      ],
+      cta: "Contactar ventas",
+      popular: false
     }
   ]
 
-    const logos = [
+  const benefits = [
     {
-      src: "https://www.aerospacewalesforum.com/wp-content/uploads/MIT-logo.png",
-      alt: "MIT",
-      className: "h-16 w-16 object-contain"
+      icon: DollarSign,
+      title: "Reduce costos hasta 25%",
+      description: "Optimiza la vida útil de cada llanta y evita gastos innecesarios"
     },
     {
-      src: "https://images.credly.com/images/7bed2395-04e7-4b08-a630-572ad1774e87/large_blob.png",
-      alt: "CESA",
-      className: "h-12 w-auto object-contain"
+      icon: Target,
+      title: "Toma decisiones inteligentes",
+      description: "Datos en tiempo real para saber exactamente cuándo actuar"
     },
     {
-      src: "https://preditrix.ai/wp-content/uploads/2025/04/aws-n.png",
-      alt: "AWS Startup",
-      className: "h-12 w-auto object-contain"
+      icon: Zap,
+      title: "Ahorra tiempo",
+      description: "Automatiza inspecciones que antes tomaban horas"
     },
     {
-      src: "https://www.merquellantas.com/assets/images/logo/Logo-Merquellantas.png",
-      alt: "Merquellantas",
-      className: "h-12 w-auto object-contain"
+      icon: Activity,
+      title: "Predice problemas",
+      description: "Evita fallas críticas antes de que ocurran"
     }
   ]
 
-  const faqItems = [
+  const testimonials = [
     {
-      question: "¿Cómo puede TirePro ayudarme?",
-      answer: "TirePro hace un analisis de todas tus llantas y te hace recomendaciones para que tu le saques el mayo rendimiento a cada llanta y sepas que llanta comprar para que asi te ahorres unos pesos extra."
+      quote: "TirePro nos ayudó a reducir nuestros costos en llantas en un 23% en solo 6 meses.",
+      author: "Carlos Méndez",
+      role: "Director de Operaciones",
+      company: "TransLogística SA"
     },
     {
-      question: "¿Qué dispositivos necesito?",
-      answer: "Necesitas un smartphone, tablet o un computador. La plataforma funciona offline en los celulares y sincroniza cuando tienes conexión. En la pagina web funciona con conexion a internet"
+      quote: "La herramienta es increíblemente fácil de usar y las predicciones son muy precisas.",
+      author: "María González",
+      role: "Gerente de Flota",
+      company: "Distribuidora Nacional"
     },
     {
-      question: "¿Cuánto tiempo toma implementar TirePro?",
-      answer: "La configuración inicial toma menos de 10 minutos. Carga tus vehiculos y haz una carga masiva (mira la pagina de carga masiva para ver los requerimientos)."
-    },
-    {
-      question: "¿Hay límite de vehículos o llantas?",
-      answer: "No, todos nuestros planes incluyen vehículos y llantas ilimitadas y completamente gratis."
+      quote: "Ahora sabemos exactamente cuándo cambiar cada llanta. Ya no hay sorpresas.",
+      author: "Juan Rodríguez",
+      role: "Jefe de Mantenimiento",
+      company: "Cargas Express"
     }
   ]
 
-  const appFeatures = [
-    { title: "Inspecciones Offline", desc: "Funciona sin conexión, sincroniza después" },
-    { title: "Datos en Tiempo Real", desc: "Información actualizada al instante" },
-    { title: "Equipo Conectado", desc: "Todos tus técnicos en una sola plataforma" }
+  const faqs = [
+    {
+      q: "¿Cómo reduce TirePro mis costos?",
+      a: "TirePro analiza el desgaste de tus llantas con IA, predice el momento óptimo de reemplazo y te ayuda a maximizar la vida útil de cada llanta. Además, identifica patrones de desgaste irregular que indican problemas mecánicos, permitiéndote actuar antes de generar gastos mayores."
+    },
+    {
+      q: "¿Qué necesito para empezar?",
+      a: "Solo necesitas un smartphone o computador. La app móvil funciona offline y sincroniza cuando hay conexión. La configuración toma menos de 10 minutos. Carga tus vehículos, toma fotos de las llantas y TirePro se encarga del resto."
+    },
+    {
+      q: "¿Cómo funciona el plan gratuito?",
+      a: "El plan Inicio es 100% gratuito para siempre y te permite gestionar hasta 10 vehículos con un usuario. Incluye todas las funcionalidades básicas de análisis con IA y monitoreo. Si tu flota crece, puedes actualizar en cualquier momento."
+    },
+    {
+      q: "¿Puedo cambiar de plan después?",
+      a: "Sí, puedes cambiar de plan en cualquier momento. Si tu flota crece y superas los 10 vehículos, te notificaremos automáticamente. El cambio es instantáneo y mantienes toda tu información histórica."
+    },
+    {
+      q: "¿Qué incluye el soporte?",
+      a: "Todos los planes incluyen soporte técnico. El plan Inicio tiene soporte por email en 24-48 horas. Los planes Crecimiento y Empresarial tienen soporte prioritario con respuesta en menos de 4 horas, además de un gerente de cuenta dedicado en el plan Empresarial."
+    },
+    {
+      q: "¿Los datos están seguros?",
+      a: "Sí, todos los datos están encriptados y almacenados en servidores seguros en la nube. Cumplimos con todas las normativas de protección de datos y realizamos backups diarios automáticos."
+    }
   ]
 
-  // Show loading state while detecting location
-  if (isLoading) {
-    return (
-      <div className="bg-[#030712] text-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#348CCB] mx-auto mb-4"></div>
-          <p className="text-gray-300">Cargando...</p>
-        </div>
-      </div>
-    )
-  }
+  const process = [
+    {
+      step: "01",
+      title: "Registra tu flota",
+      description: "Carga tus vehículos en minutos con nuestra interfaz intuitiva"
+    },
+    {
+      step: "02",
+      title: "Inspecciona con IA",
+      description: "Toma fotos de las llantas y nuestra IA las analiza automáticamente"
+    },
+    {
+      step: "03",
+      title: "Recibe recomendaciones",
+      description: "Obtén alertas y predicciones precisas sobre cuándo actuar"
+    },
+    {
+      step: "04",
+      title: "Optimiza y ahorra",
+      description: "Reduce costos y maximiza la vida útil de cada llanta"
+    }
+  ]
 
   return (
-    <div className="bg-[#030712] text-white min-h-screen overflow-x-hidden relative">
-      {/* Mobile Menu Blur Overlay */}
-      <div className={`fixed inset-0 z-40 transition-all duration-500 ${
-        isMobileMenuOpen 
-          ? 'backdrop-blur-3xl bg-black/60 opacity-100' 
-          : 'opacity-0 pointer-events-none'
-      }`} onClick={() => setIsMobileMenuOpen(false)}></div>
-
-      {/* Enhanced Floating Liquid Glass Navbar */}
-      <nav className={`fixed top-6 left-1/2 transform -translate-x-1/2 w-[calc(100%-3rem)] max-w-6xl z-50 transition-all duration-700 rounded-2xl ${
-        isScrolled 
-          ? 'backdrop-blur-2xl bg-gradient-to-r from-white/15 via-white/8 to-white/15 border border-white/30 shadow-2xl' 
-          : 'backdrop-blur-xl bg-gradient-to-r from-white/8 via-transparent to-white/8 border border-white/20 shadow-xl'
+    <div className="bg-black text-white min-h-screen">
+      {/* Navigation */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'
       }`}>
-        <div className="absolute inset-0 bg-gradient-to-r from-[#348CCB]/15 via-transparent to-[#348CCB]/15 opacity-60 rounded-2xl"></div>
-        
-        <div className="px-6 sm:px-8 lg:px-10 relative">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-2 relative z-10">
-              <div className="flex items-center space-x-2">
-                <span className="text-xl font-bold bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
-                  <Link href="/"><div className="flex items-center space-x-2">
-              <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
-              <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
-            </div></Link>
-                </span>
-              </div>
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center space-x-3">
+              <span className="text-xl font-semibold"><Image src={logo} height={60} alt='logo' className='filter brightness-0 invert'/></span>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-6 relative z-10">
-              <a href="#platform" className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group">
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
-                <span className="relative z-10">Plataforma</span>
-              </a>
-              <a href="/blog" className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group">
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
-                <span className="relative z-10">Blog</span>
-              </a>
-              <a href="#plans" className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group">
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
-                <span className="relative z-10">Planes</span>
-              </a>
-              <a href="/contact" className="relative px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 group">
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-white/15 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm border border-white/20"></div>
-                <span className="relative z-10">Contacto</span>
+            <div className="hidden md:flex items-center space-x-8">
+              <a href="#producto" className="text-sm text-gray-400 hover:text-white transition-colors">Producto</a>
+              <a href="#beneficios" className="text-sm text-gray-400 hover:text-white transition-colors">Beneficios</a>
+              <a href="#planes" className="text-sm text-gray-400 hover:text-white transition-colors">Planes</a>
+              <a href="#preguntas" className="text-sm text-gray-400 hover:text-white transition-colors">Preguntas</a>
+              <a href="/login" className="text-sm text-gray-400 hover:text-white transition-colors">Ingresar</a>
+              <a href="/login" className="text-sm text-gray-400 hover:text-white transition-colors">Desarrolladores</a>
+              <a href="/companyregister">
+                <button className="bg-white text-black px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-100 transition-all">
+                  Comenzar
+                </button>
               </a>
             </div>
 
-            {/* CTA Buttons */}
-            <div className="hidden md:flex items-center space-x-3 relative z-10">
-              <a href='/login'><button className="px-4 py-2 rounded-xl border border-[#348CCB]/60 text-black backdrop-blur-lg bg-white/10 hover:bg-[#348CCB]/20 hover:border-[#348CCB] transition-all duration-300 hover:shadow-lg">
-                Ingresar
-              </button></a>
-              <a href='/companyregister'><button className="px-4 py-2 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-xl backdrop-blur-sm hover:shadow-xl hover:shadow-[#348CCB]/30 transition-all duration-300 hover:scale-105">
-                Comenzar
-              </button></a>
-            </div>
-
-            {/* Mobile menu button */}
             <button 
-              className="md:hidden p-1 rounded-xl backdrop-blur-lg bg-white/15 hover:bg-white/25 transition-all duration-300 relative z-50 border border-white/20"
+              className="md:hidden p-2"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              <div className="relative">
-                <Menu className={`w-6 h-6 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0 rotate-45' : 'opacity-100'}`} />
-                <X className={`w-6 h-6 absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 -rotate-45'}`} />
-              </div>
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
 
-        {/* Enhanced Floating Mobile Menu */}
-        <div className={`md:hidden absolute top-full left-1/2 transform -translate-x-1/2 w-full mt-4 z-50 transition-all duration-500 ${
-          isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8 pointer-events-none'
-        }`}>
-          <div className="mx-4 rounded-3xl backdrop-blur-3xl bg-gradient-to-br from-white/25 via-white/15 to-white/20 border-2 border-white/40 shadow-2xl overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/20 via-transparent to-[#1E76B6]/20 rounded-3xl"></div>
-            
-            <div className="relative p-5 space-y-6">
-              <a href="#platform" className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30" onClick={() => setIsMobileMenuOpen(false)}>
-                Plataforma
-              </a>
-              <a href="/blog" className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30" onClick={() => setIsMobileMenuOpen(false)}>
-                Blog
-              </a>
-              <a href="#plans" className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30" onClick={() => setIsMobileMenuOpen(false)}>
-                Planes
-              </a>
-              <a href="/contact" className="block py-2 px-6 rounded-2xl text-white font-medium text-lg transition-all duration-300 hover:bg-white/20 backdrop-blur-sm border border-white/10 hover:border-white/30" onClick={() => setIsMobileMenuOpen(false)}>
-                Contacto
-              </a>
-              
-              <div className="pt-2 border-t border-white/30 space-y-4">
-                <a href='/login'><button className="w-full py-2 px-6 rounded-2xl border-2 border-[#348CCB]/70 text-black font-semibold text-lg backdrop-blur-sm bg-white/15 hover:bg-[#348CCB]/20 transition-all duration-300 mb-3">
-                  Ingresar
-                </button></a>
-                <a href='/companyregister'><button className="w-full py-2 px-6 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white rounded-2xl backdrop-blur-sm hover:shadow-xl font-semibold text-lg transition-all duration-300">
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-black border-t border-white/10">
+            <div className="px-6 py-4 space-y-4">
+              <a href="#producto" className="block text-gray-400 hover:text-white transition-colors">Producto</a>
+              <a href="#beneficios" className="block text-gray-400 hover:text-white transition-colors">Beneficios</a>
+              <a href="#planes" className="block text-gray-400 hover:text-white transition-colors">Planes</a>
+              <a href="#preguntas" className="block text-gray-400 hover:text-white transition-colors">Preguntas</a>
+              <a href="/login" className="block text-gray-400 hover:text-white transition-colors">Ingresar</a>
+              <a href="/companyregister">
+                <button className="w-full bg-white text-black px-6 py-3 rounded-full text-sm font-medium">
                   Comenzar
-                </button></a>
-              </div>
+                </button>
+              </a>
             </div>
           </div>
-        </div>
+        )}
       </nav>
 
       {/* Hero Section */}
-      <section id="hero" className="relative min-h-screen flex items-center pt-20">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_#136eb2_0%,_rgba(19,110,178,0.4)_40%,_transparent_60%)]"></div>
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight bg-gradient-to-r from-white via-gray-100 to-[#348CCB] bg-clip-text text-transparent">
-                Reduce hasta un 25% tus costos en llantas
-              </h1>
-              <p className="text-xl text-gray-300 leading-relaxed">
-                IA que analiza desgaste, anticipa fallas y optimiza tu inversión en llantas.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button className="bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white px-8 py-4 rounded-xl text-lg font-semibold hover:shadow-lg hover:shadow-[#348CCB]/25 transition-all transform hover:scale-105">
-                  Empieza Gratis
-                </button>
-              </div>
+      <section className="pt-32 pb-20 px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="max-w-4xl mx-auto text-center space-y-8">
+            <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full border border-white/20 bg-white/5 mb-4">
+              <Sparkles size={16} className="text-blue-400" />
+              <span className="text-sm text-gray-300">Impulsado por Inteligencia Artificial</span>
             </div>
-             
-            <div className="relative">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/20 backdrop-blur-sm">
-                <div className="aspect-video w-full bg-gradient-to-br from-[#348CCB]/20 to-[#1E76B6]/10 flex items-center justify-center rounded-3xl border border-white/10">
-                  <div className="w-full h-full flex items-center justify-center p-8">
-                      <span className="text-white/60 text-lg font-medium"><Image src={landingImage} alt='Foto Landing'/></span>
-                  </div>
-                </div>
-              </div>
+            
+            <h1 className="text-5xl md:text-7xl font-semibold leading-tight tracking-tight">
+              Reduce hasta un 25%
+              <br />
+              <span className="text-gray-500">tus costos en llantas</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
+              Inteligencia artificial que analiza, predice y optimiza cada aspecto de tu flota
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+              <a href="/companyregister">
+                <button className="bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-all flex items-center space-x-2">
+                  <span>Comenzar gratis</span>
+                  <ArrowRight size={20} />
+                </button>
+              </a>
+              <a href="#producto">
+                <button className="border border-white/20 px-8 py-4 rounded-full font-medium hover:bg-white/5 transition-all">
+                  Ver cómo funciona
+                </button>
+              </a>
+            </div>
+            <p className="text-sm text-gray-500">Plan Inicio gratis para siempre • Sin tarjeta de crédito</p>
+          </div>
+
+          {/* Hero Dashboard Preview */}
+          <div className="mt-20 relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-3xl"></div>
+            <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+              <Image 
+                src={landing} 
+                alt="Dashboard"
+                className="w-full h-full object-cover opacity-80"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Logo Section */}
-      <section className="pb-15 bg-gradient-to-b from-transparent to-[#0A183A]/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <p className="text-gray-400 text-lg mb-8">Con el apoyo de organizaciones lideres</p>
+      {/* Stats Section */}
+      <section className="py-20 px-6 lg:px-8 border-y border-white/10">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="text-4xl md:text-5xl font-semibold mb-2 bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">25%</div>
+              <div className="text-gray-500 text-sm">Reducción de costos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl md:text-5xl font-semibold mb-2 bg-gradient-to-r from-green-400 to-green-600 bg-clip-text text-transparent">95%</div>
+              <div className="text-gray-500 text-sm">Precisión en predicciones</div>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl md:text-5xl font-semibold mb-2 bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent">10x</div>
+              <div className="text-gray-500 text-sm">Más rápido que manual</div>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl md:text-5xl font-semibold mb-2 bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">24/7</div>
+              <div className="text-gray-500 text-sm">Monitoreo continuo</div>
+            </div>
           </div>
-          
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 lg:gap-16">
-            {logos.map((logo, index) => (
-              <div key={index} className="flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity duration-300">
-                <img 
-                  src={logo.src} 
-                  alt={logo.alt}
-                  className={`${logo.className} filter brightness-0 invert`}
-                  onError={(e) => {
-                    e.target.style.display = 'none'
-                  }}
-                />
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="py-32 px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-semibold mb-4">
+              Cómo funciona
+            </h2>
+            <p className="text-xl text-gray-500">Simplificamos la gestión de tu flota en 4 pasos</p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-8">
+            {process.map((item, index) => (
+              <div key={index} className="relative">
+                <div className="mb-6">
+                  <div className="text-6xl font-bold text-white/10">{item.step}</div>
+                </div>
+                <h3 className="text-xl font-semibold mb-3">{item.title}</h3>
+                <p className="text-gray-500">{item.description}</p>
+                {index < process.length - 1 && (
+                  <div className="hidden md:block absolute top-12 -right-4 text-gray-700">
+                    <ChevronRight size={24} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -375,204 +386,294 @@ const TireProLanding = () => {
       </section>
 
       {/* Features Section */}
-      <section id="platform" className="py-20 bg-gradient-to-b from-[#0A183A]/20 to-transparent">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
-              Cómo Funciona TirePro
+      <section id="producto" className="py-32 px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-semibold mb-4">
+              Tecnología de punta
             </h2>
-            <p className="text-xl text-gray-300">Tecnología que optimiza cada aspecto de tu flota</p>
+            <p className="text-xl text-gray-500">Herramientas diseñadas para optimizar cada aspecto</p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => {
-              const IconComponent = feature.icon
-              return (
-                <div 
-                  key={index}
-                  className="group relative p-6 rounded-3xl backdrop-blur-2xl bg-gradient-to-br from-white/15 via-white/8 to-white/12 border border-white/25 hover:border-[#348CCB]/60 transition-all duration-500 hover:transform hover:scale-105"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#348CCB]/10 to-[#1E76B6]/10 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-                  
-                  <div className="relative">
-                    <div className="bg-gradient-to-br from-[#348CCB] to-[#1E76B6] p-4 rounded-2xl w-fit mb-4 shadow-xl">
-                      <IconComponent size={24} className="text-white" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-3">{feature.title}</h3>
-                    <p className="text-gray-300 text-sm leading-relaxed">{feature.description}</p>
+          <div className="grid md:grid-cols-2 gap-6">
+            {features.map((feature, index) => (
+              <div 
+                key={index}
+                className="group relative p-8 rounded-3xl border border-white/10 hover:border-white/20 transition-all duration-300 bg-gradient-to-br from-white/5 to-transparent hover:from-white/10"
+              >
+                <div className="flex items-start justify-between mb-6">
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center">
+                    <feature.icon size={28} className="text-white" />
+                  </div>
+                  <div className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-sm font-medium">
+                    {feature.stat}
                   </div>
                 </div>
-              )
-            })}
+                <h3 className="text-2xl font-semibold mb-3">{feature.title}</h3>
+                <p className="text-gray-500 leading-relaxed">{feature.description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Download App Section */}
-      <section className="py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
-              Lleva TirePro Contigo
-            </h2>
-            <p className="text-xl text-gray-300">Inspecciona y gestiona tu flota desde cualquier lugar</p>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <div className="space-y-6">
-                {appFeatures.map((item, i) => {
-                  const icons = [Smartphone, Download, Users]
-                  const IconComponent = icons[i]
-                  return (
-                    <div key={i} className="flex items-start space-x-4">
-                      <div className="bg-gradient-to-br from-[#348CCB] to-[#1E76B6] p-4 rounded-2xl shadow-xl flex-shrink-0">
-                        <IconComponent size={20} className="text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                        <p className="text-gray-300">{item.desc}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+      {/* Benefits Section */}
+      <section id="beneficios" className="py-32 px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-4xl md:text-5xl font-semibold mb-6 leading-tight">
+                Por qué elegir
+                <br />
+                <span className="text-gray-500">TirePro</span>
+              </h2>
+              <p className="text-xl text-gray-400 mb-12">
+                Más que un software, es tu socio estratégico para optimizar cada peso invertido en llantas
+              </p>
               
-              <div className="flex flex-col sm:flex-row gap-4">
-                <a href='https://apps.apple.com/us/app/tirepro/id6741497732'><button className="flex items-center justify-center space-x-3 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white px-6 py-4 rounded-xl font-semibold hover:shadow-lg transition-all">
-                  <Download size={20} />
-                  <span>Descargar para iOS</span>
-                </button></a>
-                <button className="flex items-center justify-center space-x-3 border border-[#348CCB]/50 text-[#348CCB] px-6 py-4 rounded-xl font-semibold backdrop-blur-sm bg-white/5 hover:bg-[#348CCB]/20 transition-all">
-                  <Download size={20} />
-                  <span>Descargar para Android</span>
-                </button>
+              <div className="space-y-6">
+                {benefits.map((benefit, index) => (
+                  <div key={index} className="flex items-start space-x-4 p-4 rounded-2xl hover:bg-white/5 transition-all">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <benefit.icon size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold mb-1">{benefit.title}</h3>
+                      <p className="text-gray-500">{benefit.description}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-           <div className="relative">
-  <div className="
-    rounded-3xl
-    overflow-hidden
-    backdrop-blur-2xl
-    bg-gradient-to-br from-white/15 to-white/8
-    border border-white/25
-    p-8
-    max-w-sm
-    mx-auto
-    flex
-    justify-center
-    items-center
-  ">
-    <Image
-      src={phone}
-      alt="Phone"
-      className="object-contain"
-    />
-  </div>
-</div>
+            <div className="relative">
+              <div className="aspect-square rounded-3xl border border-white/10 overflow-hidden">
+                <img 
+                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=800&fit=crop" 
+                  alt="Analytics"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="absolute -bottom-6 -right-6 w-48 h-48 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-3xl blur-2xl"></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
+      {/* Testimonials Carousel */}
+      <section className="py-32 px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-semibold mb-4">
+              Lo que dicen nuestros clientes
+            </h2>
+          </div>
+
+          <div className="relative">
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-12">
+              {testimonials.map((testimonial, index) => (
+                <div
+                  key={index}
+                  className={`transition-all duration-500 ${
+                    index === activeTestimonial ? 'opacity-100' : 'opacity-0 absolute inset-0 p-12'
+                  }`}
+                >
+                  <p className="text-2xl md:text-3xl font-light mb-8 leading-relaxed">
+                    "{testimonial.quote}"
+                  </p>
+                  <div>
+                    <div className="font-semibold">{testimonial.author}</div>
+                    <div className="text-gray-500">{testimonial.role}</div>
+                    <div className="text-gray-600 text-sm">{testimonial.company}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex justify-center space-x-2 mt-8">
+              {testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveTestimonial(index)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    index === activeTestimonial ? 'bg-white w-8' : 'bg-white/30'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* App Section */}
+      <section className="py-32 px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="order-2 lg:order-1 relative">
+              <div className="aspect-[9/16] max-w-sm mx-auto bg-gradient-to-br from-gray-800 to-gray-900 rounded-[3rem] border border-white/10 p-3 shadow-2xl">
+                <div className="w-full h-full bg-black rounded-[2.5rem] overflow-hidden">
+                  <img 
+                    src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=800&fit=crop" 
+                    alt="App móvil"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+              <div className="absolute top-1/2 -left-6 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl"></div>
+            </div>
+
+            <div className="order-1 lg:order-2 space-y-8">
+              <h2 className="text-4xl md:text-5xl font-semibold leading-tight">
+                Tu flota en
+                <br />
+                <span className="text-gray-500">tu bolsillo</span>
+              </h2>
+              <p className="text-xl text-gray-400 leading-relaxed">
+                Inspecciona y gestiona desde cualquier lugar. La app funciona offline y sincroniza automáticamente cuando hay conexión.
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                    <Check size={16} className="text-white" />
+                  </div>
+                  <span className="text-gray-300">Modo offline completo</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                    <Check size={16} className="text-white" />
+                  </div>
+                  <span className="text-gray-300">Sincronización automática</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                    <Check size={16} className="text-white" />
+                  </div>
+                  <span className="text-gray-300">Disponible iOS y Android</span>
+                </div>
+              </div>
+
+              <div className="pt-4 flex flex-col sm:flex-row gap-4">
+                <a href="https://apps.apple.com/us/app/tirepro/id6741497732">
+                  <button className="bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-all flex items-center space-x-2">
+                    <Download size={20} />
+                    <span>App Store</span>
+                  </button>
+                </a>
+                <button className="border border-white/20 px-8 py-4 rounded-full font-medium hover:bg-white/5 transition-all flex items-center space-x-2">
+                  <Download size={20} />
+                  <span>Google Play</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="plans" className="py-20 bg-gradient-to-b from-[#0A183A]/20 to-transparent">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-[#348CCB] to-[#5CB3E8] bg-clip-text text-transparent">
-              Planes TirePro
+      <section id="planes" className="py-32 px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-semibold mb-4">
+              Planes para cada etapa
             </h2>
-            <p className="text-xl text-gray-300">Comienza gratis, escala cuando necesites</p>
+            <p className="text-xl text-gray-500">Comienza gratis y escala cuando tu flota crezca</p>
           </div>
-          
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {plans.map((plan, index) => (
-              <div
+              <div 
                 key={index}
-                className={`relative backdrop-blur-2xl bg-gradient-to-br from-white/15 via-white/8 to-white/12 rounded-3xl border transition-all duration-500 hover:transform hover:scale-105 ${
-                  plan.highlighted
-                    ? 'border-[#348CCB] shadow-xl shadow-[#348CCB]/25'
-                    : 'border-white/25 hover:border-[#348CCB]/60'
+                onMouseEnter={() => setActivePlan(index)}
+                className={`rounded-3xl border p-8 transition-all duration-300 ${
+                  plan.popular
+                    ? 'border-blue-500 bg-gradient-to-b from-blue-500/10 to-transparent scale-105 shadow-2xl shadow-blue-500/20' 
+                    : activePlan === index
+                    ? 'border-white/20 bg-white/5'
+                    : 'border-white/10 hover:border-white/20 hover:bg-white/5'
                 }`}
               >
-                {plan.highlighted && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white px-6 py-2 rounded-full text-sm font-semibold shadow-lg">
-                      Recomendado
-                    </span>
+                {plan.popular && (
+                  <div className="inline-block px-4 py-1 rounded-full bg-blue-500 text-white text-sm font-medium mb-4">
+                    Más popular
                   </div>
                 )}
                 
-                <div className="p-8">
-                  <div className="text-center mb-6">
-                    <h3 className={`text-2xl font-bold mb-2 ${
-                      plan.highlighted ? 'text-[#348CCB]' : 'text-white'
-                    }`}>
-                      {plan.name}
-                    </h3>
-                    <p className="text-gray-400">{plan.subtitle}</p>
+                <div className="mb-8">
+                  <h3 className="text-2xl font-semibold mb-2">{plan.name}</h3>
+                  <p className="text-gray-500 text-sm mb-6">{plan.description}</p>
+                  <div className="mb-2">
+                    <span className="text-4xl font-semibold">{plan.price}</span>
+                    <span className="text-gray-500 text-lg">{plan.priceDetail}</span>
                   </div>
-                  
-                  <ul className="space-y-3 mb-8">
-                    {plan.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center">
-                        <div className="w-2 h-2 bg-[#348CCB] rounded-full mr-3 flex-shrink-0"></div>
-                        <span className="text-gray-300 text-sm">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  
-                  <a href='/companyregister'><button className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 ${
-                    plan.highlighted
-                      ? 'bg-gradient-to-r from-[#348CCB] to-[#1E76B6] text-white hover:shadow-lg hover:shadow-[#348CCB]/25'
-                      : 'border border-[#348CCB]/50 text-[#348CCB] backdrop-blur-sm bg-white/5 hover:bg-[#348CCB]/20'
-                  }`}>
-                    Comenzar
-                  </button></a>
-                  <h3 className="text-gray-200 text-center mt-5">100% Gratis</h3>
+                  <p className="text-gray-600 text-sm">{plan.vehicles}</p>
                 </div>
+
+                <ul className="space-y-4 mb-8">
+                  {plan.features.map((feature, i) => (
+                    <li key={i} className="flex items-start space-x-3">
+                      <Check size={20} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-400 text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <a href={plan.name === "Empresarial" ? "/contact" : "/companyregister"}>
+                  <button className={`w-full py-3 rounded-full font-medium transition-all ${
+                    plan.popular
+                      ? 'bg-blue-500 text-white hover:bg-blue-600'
+                      : 'border border-white/20 hover:bg-white/5'
+                  }`}>
+                    {plan.cta}
+                  </button>
+                </a>
               </div>
             ))}
+          </div>
+
+          {/* Pricing comparison note */}
+          <div className="mt-16 text-center">
+            <div className="inline-flex items-center space-x-2 px-6 py-3 rounded-full border border-white/20 bg-white/5">
+              <AlertCircle size={20} className="text-blue-400" />
+              <span className="text-sm text-gray-400">Todos los planes incluyen llantas ilimitadas y actualizaciones gratis</span>
+            </div>
           </div>
         </div>
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-white to-[#348CCB] bg-clip-text text-transparent">
-              Preguntas Frecuentes
+      <section id="preguntas" className="py-32 px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-semibold mb-4">
+              Preguntas frecuentes
             </h2>
-            <p className="text-xl text-gray-300">Resolvemos tus dudas sobre TirePro</p>
+            <p className="text-xl text-gray-500">Todo lo que necesitas saber sobre TirePro</p>
           </div>
 
           <div className="space-y-4">
-            {faqItems.map((faq, index) => (
+            {faqs.map((faq, index) => (
               <div 
                 key={index}
-                className="backdrop-blur-2xl bg-gradient-to-br from-white/15 via-white/8 to-white/12 rounded-3xl border border-white/25 overflow-hidden transition-all duration-300 hover:border-[#348CCB]/60"
+                className="border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all"
               >
                 <button
-                  className="w-full p-6 text-left flex items-center justify-between hover:bg-white/10 transition-all duration-300"
-                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  className="w-full p-6 text-left flex items-center justify-between hover:bg-white/5 transition-all"
+                  onClick={() => setActiveQuestion(activeQuestion === index ? null : index)}
                 >
-                  <span className="font-semibold text-white pr-4">{faq.question}</span>
-                  <div className="flex-shrink-0">
-                    {openFaq === index ? (
-                      <Minus size={20} className="text-[#348CCB]" />
-                    ) : (
-                      <Plus size={20} className="text-[#348CCB]" />
-                    )}
-                  </div>
+                  <span className="font-medium pr-8">{faq.q}</span>
+                  <ChevronDown 
+                    size={20} 
+                    className={`flex-shrink-0 transition-transform ${
+                      activeQuestion === index ? 'rotate-180' : ''
+                    }`}
+                  />
                 </button>
-                
                 <div className={`overflow-hidden transition-all duration-300 ${
-                  openFaq === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  activeQuestion === index ? 'max-h-96' : 'max-h-0'
                 }`}>
-                  <div className="px-6 pb-6 py-5">
-                    <p className="text-gray-300 leading-relaxed">{faq.answer}</p>
+                  <div className="px-6 pb-6">
+                    <p className="text-gray-400 leading-relaxed">{faq.a}</p>
                   </div>
                 </div>
               </div>
@@ -581,35 +682,105 @@ const TireProLanding = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="backdrop-blur-2xl bg-gradient-to-br from-white/10 via-white/8 to-white/12 border-t border-white/25 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div className="md:col-span-2">
-              <div className="flex items-center space-x-2 mb-4">
-                <span className="text-xl font-bold text-white"><Link href="/"><div className="flex items-center space-x-2">
-              <Image src={logoTire} alt="TirePro" width={32} height={32} className='p-2 filter brightness-0 invert'/>
-              <Image src={logo} alt="TirePro" width={120} height={32} className="filter brightness-0 invert"/>
-            </div></Link></span>
-              </div>
-              <p className="text-gray-400 mb-4">
-                Plataforma inteligente para la gestión y optimización de flotas de vehículos.
+      {/* Final CTA Section */}
+      <section className="py-32 px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="relative rounded-3xl overflow-hidden border border-white/10">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-transparent"></div>
+            <div className="relative p-12 md:p-20 text-center space-y-8">
+              <h2 className="text-4xl md:text-6xl font-semibold leading-tight">
+                Comienza a ahorrar
+                <br />
+                <span className="text-gray-400">hoy mismo</span>
+              </h2>
+              <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+                Únete a las flotas que ya están optimizando sus costos con TirePro. Sin tarjeta de crédito, sin compromiso.
               </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                <a href="/companyregister">
+                  <button className="bg-white text-black px-10 py-4 rounded-full font-medium hover:bg-gray-100 transition-all inline-flex items-center space-x-2 text-lg">
+                    <span>Crear cuenta gratis</span>
+                    <ArrowRight size={22} />
+                  </button>
+                </a>
+                <a href="/contact">
+                  <button className="border border-white/20 px-10 py-4 rounded-full font-medium hover:bg-white/5 transition-all text-lg">
+                    Hablar con ventas
+                  </button>
+                </a>
+              </div>
+              <div className="flex items-center justify-center space-x-8 pt-4 text-sm text-gray-500">
+                <div className="flex items-center space-x-2">
+                  <Check size={16} className="text-green-500" />
+                  <span>Gratis para siempre</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Check size={16} className="text-green-500" />
+                  <span>Sin tarjeta requerida</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Check size={16} className="text-green-500" />
+                  <span>Configuración en 10 min</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 py-12 px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-4 gap-12 mb-12">
+            <div>
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2"/>
+                    <circle cx="12" cy="12" r="3" fill="white"/>
+                  </svg>
+                </div>
+                <span className="font-semibold">TirePro</span>
+              </div>
+              <p className="text-sm text-gray-500 mb-6">
+                Optimización inteligente para flotas de vehículos
+              </p>
+              <div className="flex space-x-4">
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </a>
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+                </a>
+                <a href="#" className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all">
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/></svg>
+                </a>
+              </div>
             </div>
 
             <div>
-              <h4 className="text-white font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li><a href="/legal#terms-section" className="hover:text-[#348CCB] transition-colors">Términos</a></li>
-                <li><a href="/legal#privacy-section" className="hover:text-[#348CCB] transition-colors">Privacidad</a></li>
-                <li><a href="/contact" className="hover:text-[#348CCB] transition-colors">Contacto</a></li>
-                <li><a href="/delete" className="hover:text-[#348CCB] transition-colors">Eliminar datos</a></li>
+              <h4 className="font-medium mb-4">Producto</h4>
+              <ul className="space-y-2 text-sm text-gray-500">
+                <li><a href="#producto" className="hover:text-white transition-colors">Características</a></li>
+                <li><a href="#planes" className="hover:text-white transition-colors">Planes y precios</a></li>
+                <li><a href="https://apps.apple.com/us/app/tirepro/id6741497732" className="hover:text-white transition-colors">Descargar app</a></li>
+                <li><a href="/blog" className="hover:text-white transition-colors">Blog</a></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-white font-semibold mb-4">Información de contácto</h4>
-              <ul className="space-y-2 text-gray-400 text-sm">
+              <h4 className="font-medium mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm text-gray-500">
+                <li><a href="/legal#terms-section" className="hover:text-white transition-colors">Términos de servicio</a></li>
+                <li><a href="/legal#privacy-section" className="hover:text-white transition-colors">Política de privacidad</a></li>
+                <li><a href="/delete" className="hover:text-white transition-colors">Eliminar datos</a></li>
+                <li><a href="/contact" className="hover:text-white transition-colors">Contacto</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-4">Contacto</h4>
+              <ul className="space-y-2 text-sm text-gray-500">
                 <li>info@tirepro.com.co</li>
                 <li>+57 315 134 9122</li>
                 <li>Bogotá, Colombia</li>
@@ -617,48 +788,25 @@ const TireProLanding = () => {
             </div>
           </div>
 
-          <div className="border-t border-white/25 mt-12 pt-8 text-center">
-            <p className="text-gray-400">
-              © 2025 TirePro. Todos los derechos reservados.
-            </p>
+          <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
+            <p>© 2025 TirePro. Todos los derechos reservados.</p>
+            <p className="mt-4 md:mt-0">Hecho con ❤️ en Colombia</p>
           </div>
         </div>
       </footer>
-      {/* Floating WhatsApp Button */}
-<a
-  href="https://wa.me/3151349122"
-  target="_blank"
-  rel="noopener noreferrer"
-  title="Chat on WhatsApp"
-  className="group fixed bottom-6 right-6 z-50 w-14 h-14 flex items-center justify-center"
->
-  {/* Liquid‐glass shell */}
-  <span
-    className="
-      absolute inset-0 rounded-full
-      bg-white/10 backdrop-blur-2xl
-      border border-white/30
-      before:absolute before:inset-0 before:rounded-full
-      before:bg-gradient-to-br before:from-white/30 before:via-white/10 before:to-transparent
-      before:opacity-0 before:transition-opacity before:duration-500
-      group-hover:before:opacity-50
-      shadow-lg shadow-[#1E76B640]
-      transition-transform duration-300
-      group-hover:scale-105
-    "
-  />
-  {/* Centered icon */}
-  <MessageCircle
-    className="
-      relative z-10 w-6 h-6
-      text-white drop-shadow-md
-      transition-colors duration-300
-      group-hover:text-[#348CCB]
-    "
-  />
-</a>
 
-
+      {/* WhatsApp Floating Button */}
+      <a
+        href="https://wa.me/3151349122"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-8 right-8 w-16 h-16 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-2xl transition-all hover:scale-110 z-50 group"
+      >
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+        <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-pulse"></span>
+      </a>
     </div>
   )
 }

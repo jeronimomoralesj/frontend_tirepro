@@ -447,9 +447,6 @@ try {
           <br />
           <CuponesPage />
           <br />
-          <div className="grid grid-cols-1 gap-6">
-            <InspeccionVencida tires={tires} />
-          </div>
 
           {(loading || extrasLoading) && (
             <div className="text-center py-4 text-[#1E76B6] animate-pulse">

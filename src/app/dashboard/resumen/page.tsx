@@ -934,12 +934,13 @@ const fetchCompany = useCallback(async (companyId: string) => {
             />
           </div>
           <br />
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
             <SemaforoPie tires={filteredTires} language={language}  />
             <ReencaucheHistorico tires={filteredTires} language={language} />
-            <TanqueMilimetro tires={filteredTires} language={language} />
+            
           </div>
-
+          <br />
+        <TanqueMilimetro tires={filteredTires} language={language} />
           {loading && (
             <div className="text-center py-4 text-[#1E76B6] animate-pulse">
               Cargando neumáticos...

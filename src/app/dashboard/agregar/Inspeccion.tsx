@@ -12,6 +12,7 @@ import {
   Link
 } from "lucide-react";
 import jsPDF from "jspdf";
+import * as ImagePicker from 'expo-image-picker';
 
 // Language translations
 const translations = {
@@ -201,7 +202,7 @@ export default function InspeccionPage() {
       profundidadInt: number | "";
       profundidadCen: number | "";
       profundidadExt: number | "";
-      image: File | null
+      image: string | null
     }
   }>({});
 
@@ -213,6 +214,7 @@ export default function InspeccionPage() {
 
   // Get current translations
   const t = translations[language];
+  
 
   // Language detection effect
   useEffect(() => {

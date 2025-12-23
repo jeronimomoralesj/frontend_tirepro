@@ -1064,7 +1064,6 @@ const exportToPDF = () => {
             <br />
             <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
               <PromedioEje tires={filteredTires} onSelectEje={(eje) => setSelectedEje(eje || "Todos")} selectedEje={selectedEje} />
-              <InspeccionVencidaPage tires={filteredTires} />
             </div>
             <br />
             <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-6">

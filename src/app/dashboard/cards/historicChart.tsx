@@ -14,7 +14,7 @@ import {
   TooltipItem,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, TrendingUp, Calendar } from "lucide-react";
 import { format } from "date-fns";
 
 ChartJS.register(
@@ -60,6 +60,7 @@ const translations = {
     profundidadExt: "Exterior Depth",
     tooltipDate:    "Date",
     tooltipValue:   (label: string, value: number) => `${label}: ${value}`,
+    selectVariable: "Select metric",
   },
   es: {
     title:          "Histórico de Inspecciones",
@@ -73,13 +74,12 @@ const translations = {
     profundidadExt: "Profundidad Ext",
     tooltipDate:    "Fecha",
     tooltipValue:   (label: string, value: number) => `${label}: ${value.toFixed(2)}`,
+    selectVariable: "Seleccionar métrica",
   }
 };
 
-
 type VariableType = "cpk" | "cpkProyectado" | "profundidadInt" | "profundidadCen" | "profundidadExt";
 
-// Google Analytics tracking function
 const trackEvent = (eventName: string, eventParams: Record<string, unknown>) => {
   if (typeof window !== 'undefined' && 'gtag' in window) {
     // @ts-expect-error - gtag may not be recognized by TypeScript
@@ -91,7 +91,6 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
   const t = translations[language];
   const [selectedVariable, setSelectedVariable] = useState<VariableType>("cpk");
 
-  // Display name for the selected variable
   const variableDisplayName = useMemo(() => {
     switch(selectedVariable) {
       case "cpk": return "CPK";
@@ -103,24 +102,18 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
     }
   }, [selectedVariable]);
 
-  // Extract all inspections and group by date
   const { inspectionDays, dailyAverages } = useMemo(() => {
-    // Create a map of dates to arrays of inspection values for the selected variable
     const dateValueMap: Record<string, number[]> = {};
     
-    // Process all inspections from all tires
     tires.forEach(tire => {
       if (!tire.inspecciones?.length) return;
       
       tire.inspecciones.forEach(inspection => {
-        // Only consider inspections that have a value for the selected variable
         const value = inspection[selectedVariable];
         if (value === undefined || value === null) return;
         
-        // Format the date to YYYY-MM-DD
         const dateKey = format(new Date(inspection.fecha), "yyyy-MM-dd");
         
-        // Add the value to the array for this date
         if (!dateValueMap[dateKey]) {
           dateValueMap[dateKey] = [];
         }
@@ -128,10 +121,8 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
       });
     });
     
-    // Sort the dates chronologically
     const inspectionDays = Object.keys(dateValueMap).sort();
     
-    // Calculate averages for each day
     const dailyAverages = inspectionDays.map(day => {
       const values = dateValueMap[day];
       const sum = values.reduce((acc, val) => acc + val, 0);
@@ -141,9 +132,7 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
     return { inspectionDays, dailyAverages };
   }, [tires, selectedVariable]);
 
-  // Build chart data
   const chartData = useMemo(() => {
-    // Only show 3 visible point markers: first, middle, last
     const pointRadius = dailyAverages.map((_, idx) => {
       if (idx === 0 || idx === Math.floor(inspectionDays.length / 2) || idx === inspectionDays.length - 1) {
         return 5;
@@ -158,19 +147,22 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
           label: variableDisplayName,
           data: dailyAverages,
           borderColor: "#1E76B6",
-          backgroundColor: "rgba(30,118,182,0.2)",
+          backgroundColor: "rgba(30,118,182,0.1)",
           fill: true,
           tension: 0.4,
-          cubicInterpolationMode: "monotone",
+          cubicInterpolationMode: "monotone" as const,
           pointRadius,
           pointBackgroundColor: "#1E76B6",
           pointHoverRadius: 7,
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
+          pointHoverBorderWidth: 3,
+          borderWidth: 2.5,
         },
       ],
     };
   }, [inspectionDays, dailyAverages, variableDisplayName]);
 
-  // Track chart interactions
   const handleChartClick = useCallback(() => {
     trackEvent('historicc_interaction', {
       component: 'historic_chart',
@@ -179,11 +171,9 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
     });
   }, [selectedVariable]);
 
-  // Track variable selection
   const handleVariableChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const newVariable = e.target.value as VariableType;
     
-    // Track the selection change
     trackEvent('variable_historic', {
       component: 'historic_chart',
       variable: newVariable,
@@ -193,39 +183,37 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
     setSelectedVariable(newVariable);
   }, [selectedVariable]);
 
-  // Track help icon clicks
   const handleHelpClick = useCallback(() => {
     trackEvent('help_historic_click', {
       component: 'historic_chart',
       section: 'header',
       context: 'inspecciones_historico'
     });
-    
-    // You can add the actual help functionality here
   }, []);
 
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    onClick: handleChartClick, // Track clicks on the chart
+    onClick: handleChartClick,
     plugins: {
       legend: { display: false },
       tooltip: {
         enabled: true,
-        backgroundColor: "white",
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
         titleColor: "#1e293b",
         bodyColor: "#334155",
-        titleFont: { family: "'Inter', sans-serif", size: 13, weight: "bold" },
+        titleFont: { family: "'Inter', sans-serif", size: 13, weight: "600" as const },
         bodyFont: { family: "'Inter', sans-serif", size: 12 },
-        padding: 10,
-        cornerRadius: 8,
+        padding: 12,
+        cornerRadius: 10,
         displayColors: false,
         callbacks: {
-          title: (tooltipItems: TooltipItem<"line">[]) => `Fecha: ${tooltipItems[0].label}`,
-          label: (tooltipItem: TooltipItem<"line">) => `${variableDisplayName}: ${tooltipItem.raw.toFixed(2)}`,
+          title: (tooltipItems: TooltipItem<"line">[]) => `${t.tooltipDate}: ${tooltipItems[0].label}`,
+          label: (tooltipItem: TooltipItem<"line">) => `${variableDisplayName}: ${Number(tooltipItem.raw).toFixed(2)}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,
+        caretPadding: 8,
       },
       datalabels: {
         display: false,
@@ -235,15 +223,14 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
       x: {
         ticks: { 
           color: "#64748b",
-          // Show fewer labels on x-axis for better readability
-          maxTicksLimit: 8,
+          font: { size: 10 },
+          maxTicksLimit: 6,
           callback: function (
             this: { getLabelForValue(value: string | number): string },
             val: string | number,
             index: number
           ): string {
-            // show only every Nth label
-            return index % Math.ceil(inspectionDays.length / 8) === 0
+            return index % Math.ceil(inspectionDays.length / 6) === 0
               ? this.getLabelForValue(val)
               : "";
           },        
@@ -253,9 +240,13 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
       },
       y: {
         beginAtZero: true,
-        ticks: { color: "#94a3b8", padding: 8 },
+        ticks: { 
+          color: "#94a3b8", 
+          padding: 8,
+          font: { size: 10 },
+        },
         grid: {
-          color: "rgba(226, 232, 240, 0.6)",
+          color: "rgba(226, 232, 240, 0.4)",
           drawBorder: false,
           lineWidth: 1,
         },
@@ -264,31 +255,52 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
     },
   };
 
-  // Show a message if there's no data
   if (inspectionDays.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-        <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={handleHelpClick} aria-label="Ayuda sobre el histórico de inspecciones">
-              <HelpCircle size={24} className="text-white" />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full flex flex-col">
+        <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={20} className="text-white/90" />
+              <h2 className="text-base sm:text-lg font-semibold">{t.title}</h2>
+            </div>
+            <button 
+              onClick={handleHelpClick} 
+              className="hover:bg-white/10 p-1.5 rounded-lg transition-colors"
+              aria-label="Ayuda sobre el histórico de inspecciones"
+            >
+              <HelpCircle size={18} className="text-white/90" />
             </button>
-            <h2 className="text-xl font-bold">{t.title}</h2>
           </div>
-          <select
-            value={selectedVariable}
-            onChange={handleVariableChange}
-            className="bg-white/10 text-white rounded p-2 text-sm"
-          >
-            <option value="cpk" className="text-black">{t.cpk}</option>
-            <option value="cpkProyectado" className="text-black">{t.cpkProjected}</option>
-            <option value="profundidadInt" className="text-black">{t.profundidadInt}</option>
-            <option value="profundidadCen" className="text-black">{t.profundidadCen}</option>
-            <option value="profundidadExt" className="text-black">{t.profundidadExt}</option>
-          </select>
+          <div className="relative">
+            <select
+              value={selectedVariable}
+              onChange={handleVariableChange}
+              className="w-full bg-white/10 backdrop-blur-sm text-white text-sm rounded-lg px-3 py-2 
+                       border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 
+                       transition-all cursor-pointer appearance-none pr-8"
+            >
+              <option value="cpk" className="text-gray-800 bg-white">{t.cpk}</option>
+              <option value="cpkProyectado" className="text-gray-800 bg-white">{t.cpkProjected}</option>
+              <option value="profundidadInt" className="text-gray-800 bg-white">{t.profundidadInt}</option>
+              <option value="profundidadCen" className="text-gray-800 bg-white">{t.profundidadCen}</option>
+              <option value="profundidadExt" className="text-gray-800 bg-white">{t.profundidadExt}</option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
+              </svg>
+            </div>
+          </div>
         </div>
-        <div className="p-6 flex items-center justify-center h-64">
-          <p className="text-gray-500">{t.noData} {variableDisplayName}</p>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center">
+            <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+              <Calendar size={32} className="text-gray-400" />
+            </div>
+            <p className="text-gray-500 text-sm">{t.noData}</p>
+            <p className="text-gray-400 text-xs mt-1">{variableDisplayName}</p>
+          </div>
         </div>
       </div>
     );
@@ -296,61 +308,74 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
 
   return (
     <div 
-      className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+      className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full flex flex-col"
       data-analytics-component="historic-chart"
     >
-      {/* Header */}
-      <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={20} className="text-white/90" />
+            <h2 className="text-base sm:text-lg font-semibold">{t.title}</h2>
+          </div>
           <button
             onClick={handleHelpClick}
+            className="hover:bg-white/10 p-1.5 rounded-lg transition-colors"
             aria-label="Ayuda sobre el histórico de inspecciones"
             data-analytics-id="help-icon-historic"
           >
-            <HelpCircle size={24} className="text-white" />
+            <HelpCircle size={18} className="text-white/90" />
           </button>
-          <h2 className="text-xl font-bold">{t.title}</h2>
         </div>
-        <select
-          value={selectedVariable}
-          onChange={handleVariableChange}
-          className="bg-white/10 text-white rounded p-2 text-sm"
-          data-analytics-id="variable-selector"
-        >
-          <option value="cpk" className="text-black" data-analytics-option="cpk">
-            {t.cpk}
-          </option>
-          <option value="cpkProyectado" className="text-black" data-analytics-option="cpk-proyectado">
-            {t.cpkProjected}
-          </option>
-          <option value="profundidadInt" className="text-black" data-analytics-option="profundidad-int">
-            {t.profundidadInt}
-          </option>
-          <option value="profundidadCen" className="text-black" data-analytics-option="profundidad-cen">
-            {t.profundidadCen}
-          </option>
-          <option value="profundidadExt" className="text-black" data-analytics-option="profundidad-ext">
-            {t.profundidadExt}
-          </option>
-        </select>
+        <div className="relative">
+          <select
+            value={selectedVariable}
+            onChange={handleVariableChange}
+            className="w-full bg-white/10 backdrop-blur-sm text-white text-sm rounded-lg px-3 py-2 
+                     border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 
+                     transition-all cursor-pointer appearance-none pr-8"
+            data-analytics-id="variable-selector"
+          >
+            <option value="cpk" className="text-gray-800 bg-white" data-analytics-option="cpk">
+              {t.cpk}
+            </option>
+            <option value="cpkProyectado" className="text-gray-800 bg-white" data-analytics-option="cpk-proyectado">
+              {t.cpkProjected}
+            </option>
+            <option value="profundidadInt" className="text-gray-800 bg-white" data-analytics-option="profundidad-int">
+              {t.profundidadInt}
+            </option>
+            <option value="profundidadCen" className="text-gray-800 bg-white" data-analytics-option="profundidad-cen">
+              {t.profundidadCen}
+            </option>
+            <option value="profundidadExt" className="text-gray-800 bg-white" data-analytics-option="profundidad-ext">
+              {t.profundidadExt}
+            </option>
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
+            </svg>
+          </div>
+        </div>
       </div>
 
-      {/* Chart */}
-      <div className="p-6">
+      <div className="flex-1 p-4 sm:p-5">
         <div 
-          className="h-64 mb-4"
+          className="h-48 sm:h-56 mb-3"
           data-analytics-id="chart-container"
           data-analytics-variable={selectedVariable}
         >
           <Line data={chartData} options={options} />
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
-          <div className="text-xs text-gray-500">
-            {t.totalDays}: {inspectionDays.length}
+        <div className="border-t border-gray-100 pt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg">
+            <Calendar size={14} className="text-blue-600" />
+            <span className="text-xs font-medium text-blue-700">
+              {t.totalDays}: <span className="font-bold">{inspectionDays.length}</span>
+            </span>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 italic">
             {t.footerNote}
           </div>
         </div>

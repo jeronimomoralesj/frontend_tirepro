@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageCircleHeart,
+  Map,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -34,7 +35,7 @@ const translations = {
     vehicles: "Vehicles",
     search: "Search",
     add_driver: "Add Driver",
-    community: "Community",
+    trips: "Trips",
     settings: "Settings",
     logout: "Logout",
     language: "Language"
@@ -48,7 +49,7 @@ const translations = {
     vehicles: "Vehículos",
     search: "Buscar",
     add_driver: "Agregar",
-    community: "Comunidad",
+    trips: "Viajes",
     settings: "Ajustes",
     logout: "Cerrar sesión",
     language: "Idioma"
@@ -186,9 +187,9 @@ export default function Sidebar({
         icon: LayoutDashboard,
       },
       {
-        name: t('community'),
-        path: "/dashboard/comunidad",
-        icon: MessageCircleHeart,
+        name: t('trips'),
+        path: "/dashboard/trips",
+        icon: Map,
       },
     ];
   } else if (isAdmin) {

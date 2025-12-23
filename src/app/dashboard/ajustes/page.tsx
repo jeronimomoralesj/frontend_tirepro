@@ -324,36 +324,98 @@ const AjustesPage: React.FC = () => {
   }
 
   async function handleAddUser(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newUserData.name || !newUserData.email || !newUserData.password) {
-      showNotification(t.completeAllFields, "error");
-      return;
-    }
-    if (!user) return;
-    const payload = { ...newUserData, companyId: user.companyId };
-    try {
-      setLoading(true);
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
-          : `https://api.tirepro.com.co/api/users/register`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-      if (!res.ok) throw new Error(t.errorCreatingUser);
-      const result = await res.json();
-      showNotification(result.message, "success");
-      fetchUsers(user.companyId);
-      setNewUserData({ name: "", email: "", password: "", role: "regular" });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
-    }
+  e.preventDefault();
+  
+  // Enhanced validation
+  if (!newUserData.name || !newUserData.email || !newUserData.password) {
+    showNotification(t.completeAllFields, "error");
+    return;
   }
+
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(newUserData.email)) {
+    showNotification("Please enter a valid email address", "error");
+    return;
+  }
+
+  // Password validation
+  if (newUserData.password.length < 6) {
+    showNotification("Password must be at least 6 characters long", "error");
+    return;
+  }
+
+  if (!user) return;
+
+  // Get the token from localStorage
+  const token = localStorage.getItem("token");
+  if (!token) {
+    showNotification("Authentication token missing. Please log in again.", "error");
+    localStorage.clear();
+    router.push("/login");
+    return;
+  }
+
+  const payload = { 
+    ...newUserData, 
+    companyId: user.companyId,
+    // Ensure email is lowercase
+    email: newUserData.email.toLowerCase().trim(),
+    name: newUserData.name.trim()
+  };
+
+  try {
+    setLoading(true);
+    
+    console.log("Sending payload:", payload); // Debug log
+    
+    const res = await fetch(
+      process.env.NEXT_PUBLIC_API_URL
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
+        : `https://api.tirepro.com.co/api/users/register`,
+      {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`, // Add authentication
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    // Log the response for debugging
+    console.log("Response status:", res.status);
+    
+    if (!res.ok) {
+      // Try to get error details from response
+      let errorMessage = t.errorCreatingUser;
+      try {
+        const errorData = await res.json();
+        console.log("Error response:", errorData); // Debug log
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (parseError) {
+        // If response is not JSON, use default message
+        console.log("Could not parse error response");
+      }
+      throw new Error(errorMessage);
+    }
+    
+    const result = await res.json();
+    console.log("Success response:", result); // Debug log
+    
+    showNotification(result.message || "User created successfully", "success");
+    fetchUsers(user.companyId);
+    setNewUserData({ name: "", email: "", password: "", role: "regular" });
+    
+  } catch (err) {
+    console.error("Error creating user:", err); // Debug log
+    const errorMessage = err instanceof Error ? err.message : t.errorCreatingUser;
+    showNotification(errorMessage, "error");
+    setError(errorMessage);
+  } finally {
+    setLoading(false);
+  }
+}
 
   async function handleAddPlate(userId: string) {
     const plate = plateInputs[userId];
