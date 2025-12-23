@@ -87,10 +87,6 @@ export default function ChatBot() {
   useEffect(() => {
     // Simulate fetching user data and tires
     const fetchUserData = async () => {
-      // Mock user data
-      const userData = { companyId: 'company123' };
-      
-      // Mock tire data
       setTires(mockTires);
     };
 
