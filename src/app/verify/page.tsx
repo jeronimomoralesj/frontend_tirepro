@@ -31,7 +31,7 @@ export default function VerifyPage() {
         setTimeout(() => {
           router.push('/login');
         }, 3000);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus('error');
         setMessage(err.message || 'Verification failed. Try again later.');
       }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { AlertTriangle, Search, TrendingUp, AlertCircle, Sparkles, Zap, Brain, Activity, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import CriticalTires from "./critical";

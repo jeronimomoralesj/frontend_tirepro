@@ -2,14 +2,34 @@
 
 import React, { useEffect, useState } from "react";
 
+type LifecycleEvent = {
+  fecha: string;
+  valor: string;
+  observacion?: string;
+};
+
+type CostEntry = {
+  fecha: string;
+  valor: number;
+  descripcion?: string;
+};
+
+type Inspection = {
+  fecha: string;
+  profundidadInt: string | number;
+  profundidadCen: string | number;
+  profundidadExt: string | number;
+  observaciones?: string;
+};
+
 type Tire = {
-  vida: any[];
+  vida: LifecycleEvent[];
   marca: string;
   profundidadInicial: number;
   kilometrosRecorridos: number;
-  costo: any[];
+  costo: CostEntry[];
   diseno: string;
-  inspecciones: any[];
+  inspecciones: Inspection[];
 };
 
 type User = {
@@ -39,8 +59,9 @@ export default function StatsPage() {
         if (!res.ok) throw new Error("Failed to fetch tires");
         const data = await res.json();
         setTires(data);
-      } catch (err: any) {
-        setTireError(err.message);
+      } catch (err) {
+        const error = err as Error;
+        setTireError(error.message);
       } finally {
         setTireLoading(false);
       }
@@ -52,8 +73,9 @@ export default function StatsPage() {
         if (!res.ok) throw new Error("Failed to fetch users");
         const data = await res.json();
         setUsers(data);
-      } catch (err: any) {
-        setUserError(err.message);
+      } catch (err) {
+        const error = err as Error;
+        setUserError(error.message);
       } finally {
         setUserLoading(false);
       }
@@ -64,12 +86,12 @@ export default function StatsPage() {
   }, []);
 
   // Helper Functions
-  const groupBy = <T extends Record<string, any>>(
+  const groupBy = <T extends Record<string, unknown>>(
     items: T[],
     key: keyof T
   ): Record<string, T[]> => {
     return items.reduce((acc, item) => {
-      const k = item[key] || "Desconocido";
+      const k = String(item[key] || "Desconocido");
       acc[k] = acc[k] || [];
       acc[k].push(item);
       return acc;
@@ -77,7 +99,7 @@ export default function StatsPage() {
   };
 
   const calcCPK = (tire: Tire) => {
-    const cost = (tire.costo || []).reduce((sum: number, c: any) => sum + (c.valor || 0), 0);
+    const cost = (tire.costo || []).reduce((sum: number, c: CostEntry) => sum + (c.valor || 0), 0);
     const km = tire.kilometrosRecorridos || 0;
     return km > 0 ? cost / km : 0;
   };
@@ -281,7 +303,7 @@ function QuickStatCard({
   icon: string; 
   color: string; 
 }) {
-  const colorClasses = {
+  const colorClasses: Record<string, string> = {
     blue: "bg-blue-500",
     green: "bg-green-500",
     red: "bg-red-500",

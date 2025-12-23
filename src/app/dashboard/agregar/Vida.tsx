@@ -372,7 +372,7 @@ const body: {
         .sort((a, b) => (Number(a.posicion) || Infinity) - (Number(b.posicion) || Infinity))
     );
     closeModal();
-  } catch (e: any) {
+  } catch (e: unknown) {
     setModalError(e.message || "Unknown error");
   } finally {
     setLoading(false);

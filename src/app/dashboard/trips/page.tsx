@@ -6,7 +6,6 @@ import { useState } from 'react'
 import {
   Calendar,
   DollarSign,
-  TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
   Plus,

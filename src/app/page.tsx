@@ -13,9 +13,6 @@ import {
   Check,
   ChevronDown,
   Zap,
-  Shield,
-  TrendingUp,
-  Users,
   Sparkles,
   ChevronRight,
   AlertCircle,
@@ -479,7 +476,7 @@ const TireProLanding = () => {
                   }`}
                 >
                   <p className="text-2xl md:text-3xl font-light mb-8 leading-relaxed">
-                    "{testimonial.quote}"
+                    {testimonial.quote}
                   </p>
                   <div>
                     <div className="font-semibold">{testimonial.author}</div>

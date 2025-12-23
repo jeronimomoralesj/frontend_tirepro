@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
+type OpenCageResult = {
+  formatted: string
+  geometry: {
+    lat: number
+    lng: number
+  }
+}
 
 type Props = {
   onClose: () => void
@@ -78,17 +85,26 @@ const NewTripForm = ({ onClose, onSave, language = 'en' }: Props) => {
   const [endQuery, setEndQuery] = useState('')
   const [startCoords, setStartCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [endCoords, setEndCoords] = useState<{ lat: number; lng: number } | null>(null)
-  const [startSuggestions, setStartSuggestions] = useState<any[]>([])
-  const [endSuggestions, setEndSuggestions] = useState<any[]>([])
+  const [startSuggestions, setStartSuggestions] = useState<OpenCageResult[]>([])
+  const [endSuggestions, setEndSuggestions] = useState<OpenCageResult[]>([])
 
   const API_KEY = process.env.NEXT_PUBLIC_OPENCAGE_KEY
 
-  const fetchSuggestions = async (query: string, setter: (data: any[]) => void) => {
-    if (!query || query.length < 3 || !API_KEY) return
-    const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(query)}&key=${API_KEY}&limit=5&language=${language}`)
-    const data = await res.json()
-    setter(data.results || [])
-  }
+  const fetchSuggestions = async (
+  query: string,
+  setter: (data: OpenCageResult[]) => void
+) => {
+  if (!query || query.length < 3 || !API_KEY) return
+
+  const res = await fetch(
+    `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(
+      query
+    )}&key=${API_KEY}&limit=5&language=${language}`
+  )
+
+  const data: { results: OpenCageResult[] } = await res.json()
+  setter(data.results || [])
+}
 
   useEffect(() => {
     const timeout = setTimeout(() => fetchSuggestions(startQuery, setStartSuggestions), 500)

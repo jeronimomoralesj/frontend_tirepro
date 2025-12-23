@@ -8,7 +8,6 @@ import {
   Download,
 } from "lucide-react";
 import CarsPage from "../cards/cars";
-import InspeccionVencida from "../cards/inspeccionVencida";
 import CuponesPage from "../cupones/page";
 import IngresosPage from "../cards/ingresos";
 

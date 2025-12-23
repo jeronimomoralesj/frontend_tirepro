@@ -1,7 +1,13 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { MapPin, Navigation, Clock, Map, AlertCircle, Zap } from 'lucide-react'
+import { Navigation, Clock, Map, AlertCircle, Zap } from 'lucide-react'
+
+type LeafletMapInstance = {
+  remove: () => void
+  fitBounds: (bounds: unknown) => void
+  distance: (a: [number, number], b: [number, number]) => number
+}
 
 type Coords = {
   lat: number
@@ -15,7 +21,7 @@ type TripMapProps = {
 
 const TripMap: React.FC<TripMapProps> = ({ start, end }) => {
   const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
+  const mapInstanceRef = useRef<LeafletMapInstance | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [routeInfo, setRouteInfo] = useState<{
     distance: string
@@ -176,17 +182,6 @@ const TripMap: React.FC<TripMapProps> = ({ start, end }) => {
       } catch (error) {
         console.error('Route error:', error)
         setDirectionsError('Unable to calculate route. Showing direct path.')
-        
-        // Fall back to simple straight line
-        const straightLine = L.polyline([
-          [start.lat, start.lng],
-          [end.lat, end.lng]
-        ], {
-          color: '#94a3b8',
-          weight: 2,
-          opacity: 0.7,
-          dashArray: '5, 10'
-        }).addTo(map)
 
         // Calculate approximate distance
         const distance = map.distance([start.lat, start.lng], [end.lat, end.lng])

@@ -12,7 +12,6 @@ import {
   Link
 } from "lucide-react";
 import jsPDF from "jspdf";
-import * as ImagePicker from 'expo-image-picker';
 
 // Language translations
 const translations = {

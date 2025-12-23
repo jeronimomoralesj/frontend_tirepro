@@ -15,7 +15,6 @@ import {
 import PorMarca from "../cards/porMarca";
 import PorVida from "../cards/porVida";
 import PromedioEje from "../cards/promedioEje";
-import InspeccionVencidaPage from "../cards/inspeccionVencida";
 import TablaCpk from "../cards/tablaCpk";
 import Notificaciones from "../cards/Notificaciones";
 import PorBanda from "../cards/porBanda";

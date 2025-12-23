@@ -9,7 +9,6 @@ import {
   Car,
   LogOut,
   User,
-  Menu,
   X,
   Building,
   UserPlus,
@@ -21,7 +20,6 @@ import {
   Users,
   PlusCircle,
   ChevronRight,
-  Check
 } from "lucide-react";
 import CambiarContrasena from "./CambiarContraseña";
 
@@ -393,7 +391,7 @@ const AjustesPage: React.FC = () => {
         const errorData = await res.json();
         console.log("Error response:", errorData); // Debug log
         errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch (parseError) {
+      } catch{
         // If response is not JSON, use default message
         console.log("Could not parse error response");
       }

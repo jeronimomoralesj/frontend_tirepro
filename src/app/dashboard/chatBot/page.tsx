@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { BotIcon, SendIcon, SparklesIcon, UserIcon, XIcon, TireIcon } from 'lucide-react';
+import { BotIcon, SendIcon, SparklesIcon, UserIcon, XIcon } from 'lucide-react';
 
 // Mock LLM function - replace with your actual implementation
 const callLLM = async (prompt: string): Promise<string> => {
@@ -51,7 +51,6 @@ export default function ChatBot() {
     }
   ]);
   const [tires, setTires] = useState<Tire[]>([]);
-  const [companyId, setCompanyId] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
 
   // Mock tire data - replace with actual API call
@@ -90,7 +89,6 @@ export default function ChatBot() {
     const fetchUserData = async () => {
       // Mock user data
       const userData = { companyId: 'company123' };
-      setCompanyId(userData.companyId);
       
       // Mock tire data
       setTires(mockTires);
@@ -193,7 +191,7 @@ Mantén tu respuesta concisa y profesional. Responde en español.`;
         text: botText, 
         timestamp: new Date() 
       }]);
-    } catch (error) {
+    } catch {
       setMessages((prev) => [...prev, { 
         role: 'bot', 
         text: 'Lo siento, hubo un error procesando tu consulta. Intenta de nuevo.', 
