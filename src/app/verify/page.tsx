@@ -1,13 +1,11 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 
-export default function VerifyPage() {
+function VerifyContent() {
   const [message, setMessage] = useState('Verifying your email...');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const router = useRouter();
@@ -23,15 +21,16 @@ export default function VerifyPage() {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/verify?token=${token}`);
         const data = await res.json();
-
+        
         if (!res.ok) throw new Error(data.message || 'Verification failed');
-
+        
         setStatus('success');
         setMessage('Email verified successfully! Redirecting to login...');
+        
         setTimeout(() => {
           router.push('/login');
         }, 3000);
-      } catch (err: unknown) {
+      } catch (err: any) {
         setStatus('error');
         setMessage(err.message || 'Verification failed. Try again later.');
       }
@@ -59,5 +58,17 @@ export default function VerifyPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#030712] text-white">
+        <p className="text-lg">Loading...</p>
+      </div>
+    }>
+      <VerifyContent />
+    </Suspense>
   );
 }
