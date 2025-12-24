@@ -30,9 +30,9 @@ function VerifyContent() {
         setTimeout(() => {
           router.push('/login');
         }, 3000);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus('error');
-        setMessage(err.message || 'Verification failed. Try again later.');
+        setMessage(err instanceof Error ? err.message : 'Verification failed. Try again later.');
       }
     };
 
