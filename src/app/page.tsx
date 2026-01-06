@@ -245,8 +245,8 @@ const TireProLanding = () => {
               <a href="#beneficios" className="text-sm text-gray-400 hover:text-white transition-colors">Beneficios</a>
               <a href="#planes" className="text-sm text-gray-400 hover:text-white transition-colors">Planes</a>
               <a href="#preguntas" className="text-sm text-gray-400 hover:text-white transition-colors">Preguntas</a>
+              <a href="/blog" className="text-sm text-gray-400 hover:text-white transition-colors">Blog</a>
               <a href="/login" className="text-sm text-gray-400 hover:text-white transition-colors">Ingresar</a>
-              <a href="/login" className="text-sm text-gray-400 hover:text-white transition-colors">Desarrolladores</a>
               <a href="/companyregister">
                 <button className="bg-white text-black px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-100 transition-all">
                   Comenzar
