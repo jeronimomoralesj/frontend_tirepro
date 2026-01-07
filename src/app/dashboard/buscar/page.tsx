@@ -631,6 +631,14 @@ const BuscarPage: React.FC = () => {
                         <p className="font-medium">{selectedTire.profundidadInicial} mm</p>
                       </div>
                       <div>
+                        <p className="text-sm font-medium text-gray-500">fecha instalación:</p>
+                        <p className="font-medium">{selectedTire.fechaInstalacion}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Dias rodando:</p>
+                        <p className="font-medium">{selectedTire.diasAcumulados}</p>
+                      </div>
+                      <div>
                         <p className="text-sm font-medium text-gray-500">{t.kmTraveled}:</p>
                         <p className="font-medium">{selectedTire.kilometrosRecorridos.toLocaleString()} miles</p>
                       </div>
@@ -690,6 +698,8 @@ const BuscarPage: React.FC = () => {
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.outerDepth}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.cpk}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.projectedCpk}</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT Proyectada</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.image}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b"></th>
                         </tr>
@@ -717,6 +727,8 @@ const BuscarPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3">{insp.cpk ?? "N/A"}</td>
                             <td className="px-4 py-3">{insp.cpkProyectado ?? "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cpt ?? "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cptProyectado ?? "N/A"}</td>
                             <td className="px-4 py-3">
                               {insp.imageUrl ? (
                                 <a href={insp.imageUrl} target="_blank" rel="noopener noreferrer">

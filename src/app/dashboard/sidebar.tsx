@@ -23,38 +23,6 @@ import {
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
 
-// Language translations
-const translations = {
-  en: {
-    dashboard: "Dashboard",
-    fleet: "Fleet",
-    stop_light: "Stop Light",
-    add: "Add",
-    analyst: "Analyst",
-    vehicles: "Vehicles",
-    search: "Search",
-    add_driver: "Add Driver",
-    trips: "Trips",
-    settings: "Settings",
-    logout: "Logout",
-    language: "Language"
-  },
-  es: {
-    dashboard: "Resumen",
-    fleet: "Flota",
-    stop_light: "Semáforo",
-    add: "Agregar",
-    analyst: "Analista",
-    vehicles: "Vehículos",
-    search: "Buscar",
-    add_driver: "Agregar",
-    trips: "Viajes",
-    settings: "Ajustes",
-    logout: "Cerrar sesión",
-    language: "Idioma"
-  }
-};
-
 export default function Sidebar({
   collapsed,
   setCollapsed,
@@ -69,79 +37,6 @@ export default function Sidebar({
   const pathname = usePathname();
   const [user, setUser] = useState<{ name: string; role: string; companyId: string } | null>(null);
   const [company, setCompany] = useState<{ name: string; profileImage?: string; plan: string } | null>(null);
-  const [language, setLanguage] = useState<'en' | 'es'>('es');
-
-  // Language detection and initialization
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      // Check if language is already saved
-      const savedLanguage = localStorage.getItem('preferredLanguage') as 'en' | 'es';
-      if (savedLanguage) {
-        setLanguage(savedLanguage);
-        return;
-      }
-
-      try {
-        // Step 1: Try to get user's GPS location
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) {
-            reject(new Error('Geolocation not supported'));
-            return;
-          }
-          
-          navigator.geolocation.getCurrentPosition(
-            resolve,
-            reject,
-            { timeout: 10000, enableHighAccuracy: false }
-          );
-        });
-
-        // Step 2: Convert GPS coordinates to country using reverse geocoding
-        const response = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          const countryCode = data.countryCode;
-          
-          // Step 3: Set language based on country
-          if (countryCode === 'US' || countryCode === 'CA') {
-            setLanguage('en');
-            localStorage.setItem('preferredLanguage', 'en');
-          } else {
-            // All other countries default to Spanish
-            setLanguage('es');
-            localStorage.setItem('preferredLanguage', 'es');
-          }
-          return;
-        }
-      } catch (error) {
-        console.log('Geolocation failed, falling back to browser language:',
-    error);
-      }
-
-      // Step 4: Fallback to browser language detection
-      try {
-        const browserLang = navigator.language || navigator.languages?.[0] || 'es';
-        const detectedLang = browserLang.toLowerCase().startsWith('en') ? 'en' : 'es';
-        setLanguage(detectedLang);
-        localStorage.setItem('preferredLanguage', detectedLang);
-      } catch (error) {
-        // Step 5: Final fallback to Spanish
-        setLanguage('es');
-        localStorage.setItem('preferredLanguage', 'es');
-        console.log(error);
-      }
-    };
-
-    detectAndSetLanguage();
-  }, []);
-
-  // Get translation function
-  const t = (key: keyof typeof translations.en) => {
-    return translations[language][key];
-  };
 
   // load user from localStorage
   useEffect(() => {
@@ -181,12 +76,12 @@ export default function Sidebar({
     // Mini plan: only resumenMini
     links = [
       {
-        name: t('dashboard'),
+        name: "Resumen",
         path: "/dashboard/resumenMini",
         icon: LayoutDashboard,
       },
       {
-        name: t('trips'),
+        name: "Viajes",
         path: "/dashboard/trips",
         icon: Map,
       },
@@ -194,18 +89,18 @@ export default function Sidebar({
   } else if (isAdmin) {
     // Admin on pro/retail
     links = [
-      { name: t('dashboard'), path: "/dashboard/resumen", icon: LayoutDashboard },
-      { name: t('fleet'), path: "/dashboard/flota", icon: LifeBuoy },
-      { name: t('stop_light'), path: "/dashboard/semaforo", icon: ChartPie },
-      { name: t('add'), path: "/dashboard/agregar", icon: Plus },
-      { name: t('analyst'), path: "/dashboard/analista", icon: Glasses },
-      { name: t('vehicles'), path: "/dashboard/vehiculo", icon: Car },
-      { name: t('search'), path: "/dashboard/buscar", icon: Search },
+      { name: "Resumen", path: "/dashboard/resumen", icon: LayoutDashboard },
+      { name: "Flota", path: "/dashboard/flota", icon: LifeBuoy },
+      { name: "Semáforo", path: "/dashboard/semaforo", icon: ChartPie },
+      { name: "Agregar", path: "/dashboard/agregar", icon: Plus },
+      { name: "Analista", path: "/dashboard/analista", icon: Glasses },
+      { name: "Vehículos", path: "/dashboard/vehiculo", icon: Car },
+      { name: "Buscar", path: "/dashboard/buscar", icon: Search },
     ];
   } else {
     // Regular user on pro/retail
     links = [
-      { name: t('add_driver'), path: "/dashboard/agregarConductor", icon: Plus },
+      { name: "Agregar", path: "/dashboard/agregarConductor", icon: Plus },
     ];
   }
 
@@ -244,23 +139,22 @@ export default function Sidebar({
         
         <div className="px-4 relative h-full">
           <div className="flex justify-between items-center h-full">
-            {/* Logo - Centered */}
+            {/* Company Logo - Centered */}
             <div className="flex-1 flex justify-center items-center relative z-10">
-              <Link
-                href="/dashboard"
-                onClick={handleLinkClick}
-                className="flex items-center hover:scale-105 transition-all duration-300"
-              >
-                <div className="relative">
-                  <Image 
-                    src={logo} 
-                    alt="TirePro Logo" 
-                    className="h-10 w-auto transition-all duration-300 filter drop-shadow-lg" 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
-                                  rounded-lg blur-xl opacity-0 hover:opacity-100 transition-opacity duration-300" />
-                </div>
-              </Link>
+              <div className="relative w-10 h-10 rounded-xl overflow-hidden 
+                              border-2 border-white/40 shadow-2xl
+                              bg-gradient-to-br from-white/30 to-white/10
+                              hover:scale-105 transition-all duration-300">
+                {company.profileImage ? (
+                  <img src={company.profileImage} alt="Company Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
+                                  flex items-center justify-center backdrop-blur-xl">
+                    <User className="w-5 h-5 text-gray-700" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
+              </div>
             </div>
             
             {/* Mobile menu button */}
@@ -279,7 +173,7 @@ export default function Sidebar({
         </div>
       </nav>
 
-      {/* Desktop Sidebar - Made thinner */}
+      {/* Desktop Sidebar */}
       <aside
         className={`
           fixed top-4 left-4 h-[calc(100vh-2rem)] z-40 
@@ -307,79 +201,81 @@ export default function Sidebar({
           after:pointer-events-none
         `}
       >
-        {/* Logo section with glass morphism - Made more compact */}
-        <div className="relative flex items-center justify-between p-4 
-                        border-b border-white/20 backdrop-blur-xl
-                        bg-gradient-to-r from-white/30 to-white/10">
-          <Link
-            href="/dashboard"
-            onClick={handleLinkClick}
-            className={`flex items-center transition-all duration-300 
-                       ${collapsed ? 'justify-center w-full' : 'justify-start'}
-                       hover:scale-105`}
-          >
-            <div className="relative">
-              <Image 
-                src={logo} 
-                alt="TirePro Logo" 
-                className={`${collapsed ? 'h-8' : 'h-10'} w-auto transition-all duration-300
-                           filter drop-shadow-lg`} 
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
-                              rounded-lg blur-xl opacity-0 hover:opacity-100 transition-opacity duration-300" />
-            </div>
-          </Link>
-          
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="flex p-2 rounded-xl 
-                       bg-white/20 backdrop-blur-xl border border-white/30
-                       hover:bg-white/30 hover:scale-105 
-                       text-gray-700 transition-all duration-300 ease-out
-                       shadow-lg hover:shadow-xl"
-          >
-            {collapsed ? 
-              <ChevronRight className="h-4 w-4" /> : 
-              <ChevronLeft className="h-4 w-4" />
-            }
-          </button>
-        </div>
-
-        {/* User/Company info with enhanced glass effect - Made more compact */}
+        {/* Company Logo Section - Compact */}
         <div className={`
-          relative flex items-center ${collapsed ? 'justify-center' : 'justify-start'}
-          p-4 border-b border-white/20
-          bg-gradient-to-br from-white/40 via-white/20 to-white/10
+          relative flex flex-col items-center justify-center
+          ${collapsed ? 'p-2' : 'p-3'}
+          border-b border-white/20
+          bg-gradient-to-br from-blue/40 via-white/20 to-white/10
           backdrop-blur-xl
+          transition-all duration-500
         `}>
-          <div className="relative w-10 h-10 rounded-xl overflow-hidden 
-                          border-2 border-white/40 shadow-2xl
-                          bg-gradient-to-br from-white/30 to-white/10">
+          <div className={`
+            relative rounded-2xl overflow-hidden
+            border 
+            transition-all duration-500
+            ${collapsed ? 'w-10 h-10' : 'w-full h-20'}
+          `}>
             {company.profileImage ? (
-              <img src={company.profileImage} alt="Logo" className="w-full h-full object-cover" />
+              <img 
+                src={company.profileImage} 
+                alt="Company Logo" 
+                className="w-full h-full object-contain p-1" 
+              />
             ) : (
               <div className="w-full h-full bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
                               flex items-center justify-center backdrop-blur-xl">
-                <User className="w-5 h-5 text-gray-700" />
+                <User className={`${collapsed ? 'w-5 h-5' : 'w-12 h-12'} text-gray-700 transition-all duration-500`} />
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
           </div>
           
           {!collapsed && (
-            <div className="ml-3 truncate">
-              <p className="text-sm font-semibold text-gray-800 drop-shadow-sm">
+            <div className="mt-2 text-center w-full">
+              <p className="text-sm font-bold text-gray-800 drop-shadow-sm truncate px-2">
                 {company.name}
               </p>
-              <p className="text-xs text-gray-600 mt-0.5 drop-shadow-sm">
+              <p className="text-xs text-gray-600 drop-shadow-sm">
                 {user.name}
               </p>
             </div>
           )}
         </div>
 
-        {/* Navigation with liquid glass buttons - More compact */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+        {/* Collapse button - Compact */}
+        {!collapsed && (
+          <div className="px-3 py-1 flex justify-end">
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="flex p-1.5 rounded-lg 
+                         bg-white/20 backdrop-blur-xl border border-white/30
+                         hover:bg-white/30 hover:scale-105 
+                         text-gray-700 transition-all duration-300 ease-out
+                         shadow-lg hover:shadow-xl"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {collapsed && (
+          <div className="px-2 py-1 flex justify-center">
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="flex p-1.5 rounded-lg 
+                         bg-white/20 backdrop-blur-xl border border-white/30
+                         hover:bg-white/30 hover:scale-105 
+                         text-gray-700 transition-all duration-300 ease-out
+                         shadow-lg hover:shadow-xl"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Navigation with liquid glass buttons - Compact spacing */}
+        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
           {links.map(({ name, path, icon: Icon }) => {
             const active = pathname === path;
             return (
@@ -388,8 +284,8 @@ export default function Sidebar({
                 href={path}
                 onClick={handleLinkClick}
                 className={`
-                  group relative flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-3'}
-                  py-2.5 text-sm font-medium rounded-xl transition-all duration-300
+                  group relative flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-2.5'}
+                  py-2 text-sm font-medium rounded-xl transition-all duration-300
                   ${active 
                     ? 'bg-gradient-to-r from-[#0A183A]/90 to-[#1E76B6]/90 text-white shadow-2xl border border-white/20' 
                     : 'text-gray-700 hover:bg-white/30 hover:backdrop-blur-xl hover:shadow-xl hover:border-white/30 border border-transparent'
@@ -415,17 +311,17 @@ export default function Sidebar({
                   transition-colors duration-300
                 `}>
                   <div className={`
-                    rounded-lg p-2 transition-all duration-300
+                    rounded-lg p-1.5 transition-all duration-300
                     ${active 
                       ? 'bg-white/20 backdrop-blur-xl shadow-lg' 
                       : 'bg-white/40 backdrop-blur-xl group-hover:bg-white/60 group-hover:shadow-lg'
                     }
                   `}>
-                    <Icon className={`${collapsed ? 'h-4 w-4' : 'h-4 w-4'} transition-all duration-300`} />
+                    <Icon className="h-4 w-4 transition-all duration-300" />
                   </div>
                   
                   {!collapsed && (
-                    <span className="ml-3 font-medium drop-shadow-sm">
+                    <span className="ml-2.5 font-medium drop-shadow-sm">
                       {name}
                     </span>
                   )}
@@ -435,66 +331,92 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Footer with glass morphism - More compact */}
+        {/* Footer with TirePro logo and actions - Compact */}
         <div className={`
-          p-3 border-t border-white/20 
+          border-t border-white/20 
           bg-gradient-to-br from-white/40 via-white/20 to-white/10
           backdrop-blur-xl
-          ${collapsed ? 'space-y-2' : 'space-y-1'}
         `}>
-
           {/* Settings link for admin users */}
           {company.plan !== "mini" && isAdmin && (
-            <Link
-              href="/dashboard/ajustes"
-              onClick={handleLinkClick}
-              className={`
-                group relative flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-3'}
-                py-2.5 text-sm font-medium rounded-xl 
-                text-gray-700 hover:bg-white/30 hover:backdrop-blur-xl 
-                hover:shadow-lg border border-transparent hover:border-white/30
-                transition-all duration-300 hover:scale-[1.02]
-              `}
-            >
-              <div className="absolute inset-0 rounded-xl bg-white/20 backdrop-blur-xl opacity-0 
-                              group-hover:opacity-100 transition-all duration-300" />
-              
-              <div className="relative z-10 flex items-center">
-                <div className="bg-white/40 backdrop-blur-xl rounded-lg p-2 
-                                group-hover:bg-white/60 group-hover:shadow-lg transition-all duration-300">
-                  <Settings className={`${collapsed ? 'h-4 w-4' : 'h-4 w-4'} text-gray-600`} />
+            <div className="p-2">
+              <Link
+                href="/dashboard/ajustes"
+                onClick={handleLinkClick}
+                className={`
+                  group relative flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-2.5'}
+                  py-2 text-sm font-medium rounded-xl 
+                  text-gray-700 hover:bg-white/30 hover:backdrop-blur-xl 
+                  hover:shadow-lg border border-transparent hover:border-white/30
+                  transition-all duration-300 hover:scale-[1.02]
+                `}
+              >
+                <div className="absolute inset-0 rounded-xl bg-white/20 backdrop-blur-xl opacity-0 
+                                group-hover:opacity-100 transition-all duration-300" />
+                
+                <div className="relative z-10 flex items-center">
+                  <div className="bg-white/40 backdrop-blur-xl rounded-lg p-1.5 
+                                  group-hover:bg-white/60 group-hover:shadow-lg transition-all duration-300">
+                    <Settings className="h-4 w-4 text-gray-600" />
+                  </div>
+                  {!collapsed && <span className="ml-2.5 drop-shadow-sm">Ajustes</span>}
                 </div>
-                {!collapsed && <span className="ml-3 drop-shadow-sm">{t('settings')}</span>}
-              </div>
-            </Link>
+              </Link>
+            </div>
           )}
           
           {/* Logout button */}
-          <button
-            onClick={handleLogout}
-            className={`
-              group relative w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-3'}
-              py-2.5 text-sm font-medium rounded-xl 
-              text-gray-700 hover:bg-red-50/40 hover:backdrop-blur-xl 
-              hover:shadow-lg border border-transparent hover:border-red-200/30
-              transition-all duration-300 hover:scale-[1.02]
-            `}
-          >
-            <div className="absolute inset-0 rounded-xl bg-red-50/30 backdrop-blur-xl opacity-0 
-                            group-hover:opacity-100 transition-all duration-300" />
-            
-            <div className="relative z-10 flex items-center">
-              <div className="bg-red-100/60 backdrop-blur-xl rounded-lg p-2 
-                              group-hover:bg-red-200/60 group-hover:shadow-lg transition-all duration-300">
-                <LogOut className={`${collapsed ? 'h-4 w-4' : 'h-4 w-4'} text-red-500`} />
+          <div className="p-2">
+            <button
+              onClick={handleLogout}
+              className={`
+                group relative w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-start px-2.5'}
+                py-2 text-sm font-medium rounded-xl 
+                text-gray-700 hover:bg-red-50/40 hover:backdrop-blur-xl 
+                hover:shadow-lg border border-transparent hover:border-red-200/30
+                transition-all duration-300 hover:scale-[1.02]
+              `}
+            >
+              <div className="absolute inset-0 rounded-xl bg-red-50/30 backdrop-blur-xl opacity-0 
+                              group-hover:opacity-100 transition-all duration-300" />
+              
+              <div className="relative z-10 flex items-center">
+                <div className="bg-[#1E76B6] backdrop-blur-xl rounded-lg p-1.5 
+                                group-hover:bg-red-200/60 group-hover:shadow-lg transition-all duration-300">
+                  <LogOut className="h-4 w-4 text-white" />
+                </div>
+                {!collapsed && (
+                  <span className="ml-2.5 group-hover:text-[#1E76B6] transition-colors duration-300 drop-shadow-sm">
+                    Cerrar sesión
+                  </span>
+                )}
               </div>
-              {!collapsed && (
-                <span className="ml-3 group-hover:text-red-600 transition-colors duration-300 drop-shadow-sm">
-                  {t('logout')}
-                </span>
-              )}
-            </div>
-          </button>
+            </button>
+          </div>
+
+          {/* TirePro Logo at bottom - Compact */}
+          <div className={`
+            flex items-center justify-center p-2
+            border-t border-white/20
+            bg-gradient-to-r from-white/30 to-white/10
+          `}>
+            <Link
+              href="/dashboard"
+              onClick={handleLinkClick}
+              className="flex items-center hover:scale-105 transition-all duration-300"
+            >
+              <div className="relative">
+                <Image 
+                  src={logo} 
+                  alt="TirePro Logo" 
+                  className={`${collapsed ? 'h-5' : 'h-10'} w-auto transition-all duration-300
+                             filter drop-shadow-lg`} 
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
+                                rounded-lg blur-xl opacity-0 hover:opacity-100 transition-opacity duration-300" />
+              </div>
+            </Link>
+          </div>
         </div>
       </aside>
 
@@ -505,44 +427,34 @@ export default function Sidebar({
         bg-white/90 backdrop-blur-3xl
       `}>
         <div className="flex flex-col h-full">
-          {/* Mobile Header with Close Button */}
-          <div className="flex justify-between items-center p-6 border-b border-white/20">
-            <Link
-              href="/dashboard"
-              onClick={handleLinkClick}
-              className="flex items-center hover:scale-105 transition-all duration-300"
-            >
-              <Image 
-                src={logo} 
-                alt="TirePro Logo" 
-                className="h-10 w-auto filter drop-shadow-lg" 
-              />
-            </Link>
-            
+          {/* Mobile Company Logo Header - Full width */}
+          <div className="flex flex-col items-center p-6 border-b border-white/20">
             <button
               onClick={toggleMobileMenu}
-              className="p-3 rounded-2xl bg-white/20 backdrop-blur-xl border border-white/30
-                         hover:bg-white/30 transition-all duration-300"
+              className="self-end p-3 rounded-2xl bg-white/20 backdrop-blur-xl border border-white/30
+                         hover:bg-white/30 transition-all duration-300 mb-4"
             >
               <X className="h-6 w-6 text-gray-800" />
             </button>
-          </div>
 
-          {/* Mobile User Info */}
-          <div className="flex items-center p-6 border-b border-white/20">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden border-2 border-white/40 shadow-lg
-                            bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20">
+            {/* Large Company Logo */}
+            <div className="relative w-full h-40 rounded-2xl overflow-hidden 
+                            border-2 border-white/40 shadow-2xl
+                            bg-gradient-to-br from-white/30 to-white/10 mb-4">
               {company.profileImage ? (
-                <img src={company.profileImage} alt="Logo" className="w-full h-full object-cover" />
+                <img src={company.profileImage} alt="Company Logo" className="w-full h-full object-contain p-4" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-gray-700" />
+                <div className="w-full h-full bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 
+                                flex items-center justify-center backdrop-blur-xl">
+                  <User className="w-20 h-20 text-gray-700" />
                 </div>
               )}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-semibold text-gray-800">{company.name}</p>
-              <p className="text-xs text-gray-600">{user.name}</p>
+
+            <div className="text-center w-full">
+              <p className="text-l font-bold text-gray-800">{company.name}</p>
+              <p className="text-m text-gray-600 mt-1">{user.name}</p>
             </div>
           </div>
 
@@ -582,33 +494,45 @@ export default function Sidebar({
           </nav>
 
           {/* Mobile Footer */}
-          <div className="p-6 border-t border-white/20 space-y-3">
-            {company.plan !== "mini" && isAdmin && (
-              <Link
-                href="/dashboard/ajustes"
-                onClick={handleLinkClick}
-                className="flex items-center px-4 py-3 text-base font-medium rounded-2xl
-                           text-gray-700 hover:bg-white/40 hover:shadow-lg transition-all duration-300"
+          <div className="border-t border-white/20">
+            <div className="p-6 space-y-3">
+              {company.plan !== "mini" && isAdmin && (
+                <Link
+                  href="/dashboard/ajustes"
+                  onClick={handleLinkClick}
+                  className="flex items-center px-4 py-3 text-base font-medium rounded-2xl
+                             text-gray-700 hover:bg-white/40 hover:shadow-lg transition-all duration-300"
+                >
+                  <div className="bg-white/40 backdrop-blur-xl rounded-xl p-2">
+                    <Settings className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <span className="ml-3">Ajustes</span>
+                </Link>
+              )}
+              
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center px-4 py-3 text-base font-medium rounded-2xl
+                           text-gray-700 hover:bg-red-50/40 hover:shadow-lg transition-all duration-300"
               >
-                <div className="bg-white/40 backdrop-blur-xl rounded-xl p-2">
-                  <Settings className="h-5 w-5 text-gray-600" />
+                <div className="bg-red-100/60 backdrop-blur-xl rounded-xl p-2">
+                  <LogOut className="h-5 w-5 text-red-500" />
                 </div>
-                <span className="ml-3">Ajustes</span>
-              </Link>
-            )}
-            
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center px-4 py-3 text-base font-medium rounded-2xl
-                         text-gray-700 hover:bg-red-50/40 hover:shadow-lg transition-all duration-300"
-            >
-              <div className="bg-red-100/60 backdrop-blur-xl rounded-xl p-2">
-                <LogOut className="h-5 w-5 text-red-500" />
-              </div>
-              <span className="ml-3 hover:text-red-600 transition-colors duration-300">
-                Cerrar sesión
-              </span>
-            </button>
+                <span className="ml-3 hover:text-red-600 transition-colors duration-300">
+                  Cerrar sesión
+                </span>
+              </button>
+            </div>
+
+            {/* TirePro Logo at bottom of mobile */}
+            <div className="flex items-center justify-center p-4 border-t border-white/20
+                            bg-gradient-to-r from-white/30 to-white/10">
+              <Image 
+                src={logo} 
+                alt="TirePro Logo" 
+                className="h-8 w-auto filter drop-shadow-lg" 
+              />
+            </div>
           </div>
         </div>
       </div>

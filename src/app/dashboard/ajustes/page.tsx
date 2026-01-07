@@ -20,6 +20,7 @@ import {
   Users,
   PlusCircle,
   ChevronRight,
+  Upload
 } from "lucide-react";
 import CambiarContrasena from "./CambiarContraseña";
 
@@ -173,7 +174,7 @@ const AjustesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const [showChange, setShowChange] = useState(false);
   const [language, setLanguage] = useState<'en'|'es'>('es');
-
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [newUserData, setNewUserData] = useState({
     name: "",
     email: "",
@@ -477,6 +478,47 @@ const AjustesPage: React.FC = () => {
     }
   }
 
+  //Upload company logo
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !company) return;
+
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  const reader = new FileReader();
+
+  reader.onloadend = async () => {
+    const base64 = reader.result as string;
+    setLogoPreview(base64);
+
+    const res = await fetch(
+      process.env.NEXT_PUBLIC_API_URL
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${company.id}/logo`
+        : `https://api.tirepro.com.co/api/companies/${company.id}/logo`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ imageBase64: base64 }),
+      }
+    );
+
+    if (!res.ok) {
+      showNotification("Error updating company logo", "error");
+      return;
+    }
+
+    const updatedCompany = await res.json();
+    setCompany(updatedCompany);
+    showNotification("Logo updated successfully", "success");
+  };
+
+  reader.readAsDataURL(file);
+};
+
   function handleLogout() {
     localStorage.clear();
     window.location.href = "/login";
@@ -706,17 +748,34 @@ const AjustesPage: React.FC = () => {
               <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
                 {/* Header Section */}
                 <div className="text-center mb-8 sm:mb-10 lg:mb-12">
-                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 mx-auto mb-4 sm:mb-6">
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 mx-auto mb-4 sm:mb-6 group">
                     <div className="absolute inset-0 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-3xl transform rotate-3 opacity-20"></div>
+
                     <div className="relative w-full h-full bg-white rounded-3xl shadow-xl border border-gray-100 flex items-center justify-center overflow-hidden">
                       <img
-                        src={company.profileImage}
+                        src={logoPreview || company.profileImage}
                         alt={`${company.name} Logo`}
                         className="w-3/4 h-3/4 object-cover rounded-2xl"
                       />
+
+                      {user?.role === "admin" && (
+                        <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                          <Upload className="h-6 w-6 text-white" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLogoUpload}
+                          />
+                        </label>
+                      )}
                     </div>
                   </div>
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">{company.name}</h2>
+
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">
+                    {company.name}
+                  </h2>
+
                   <div className="inline-flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-full text-sm sm:text-base font-semibold shadow-lg">
                     <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
                     {company.plan} Plan
