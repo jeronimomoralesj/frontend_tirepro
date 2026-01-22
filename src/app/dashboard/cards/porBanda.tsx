@@ -11,7 +11,7 @@ import {
   Legend 
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { HelpCircleIcon } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 
 // Register ChartJS components and plugins
 ChartJS.register(
@@ -27,10 +27,14 @@ const translations = {
     es:{
         title: "Llantas por banda",
         tooltip: "Este gráfico muestra como están distribuidas las llantas por banda, es decir la cantidad de llantas que hay por cada una de las bandas.",
+        quantity: "Cantidad:",
+        brand: "Banda:",
     },
     en: {
         title: "Tire by tread",
         tooltip: "This chart shows how tires are distributed by tread, that is, the number of tires for each tread.",
+        quantity: "Quantity:",
+        brand: "Tread:",
     }
 }
 
@@ -83,9 +87,9 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
   const t = translations[language];
 
   //calculate the dynamic height
-  const dynamicHeight = Math.max(300, Object.keys(groupData).length*40 + 100);
+  const dynamicHeight = Math.max(300, Object.keys(groupData).length*50 + 80);
 
-  // Prepare data for the bar chart
+  // Prepare data for the horizontal bar chart
   const chartData = {
     labels: Object.keys(groupData),
     datasets: [
@@ -93,22 +97,21 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
             data: Object.values(groupData),
             backgroundColor: Object.keys(groupData).map(() => "#173D68"),
             borderRadius: 8,
-            barPercentage: 0.6,
+            barPercentage: 0.7,
         }
     ]
   }
 
-  // Data for the chart
-
   const options = {
+    indexAxis: 'y' as const, // This makes the bars horizontal
     responsive: true,
     maintainAspectRatio: false,
     layout:{
         padding: {
-            left: 0,
-            right: 20,
+            left: 10,
+            right: 60,
             top: 10,
-            bottom: 0,
+            bottom: 10,
         }
     },
     plugins: {
@@ -118,7 +121,7 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
         backgroundColor: "white",
         titleColor: "#1e293b",
         bodyColor: "#334155",
-        titleFont: { family: "'Inter', sans-serif", size: 13, weight: "bold" },
+        titleFont: { family: "'Inter', sans-serif", size: 13, weight: "bold" as const },
         bodyFont: { family: "'Inter', sans-serif", size: 12 },
         padding: 10,
         cornerRadius: 8,
@@ -144,22 +147,21 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
         font: {
           family: "'Inter', sans-serif",
           size: 12,
-          weight: "600"
+          weight: "600" as const
         },
         formatter: (value: number) => `${value}`,
-        anchor: "center",
-        align: "center",
-        textShadow: "0px 1px 2px rgba(0,0,0,0.3)",
+        anchor: "center" as const,
+        align: "center" as const,
         clamp: true
       },
     },
     scales: {
-      y: {
+      x: {
         display: true,
         beginAtZero: true,
         ticks: {
           color: "#64748b",
-          font: { family: "'Inter', sans-serif", size: 12, weight: "500" },
+          font: { family: "'Inter', sans-serif", size: 12, weight: "500" as const },
         },
         grid: { 
           display: true,
@@ -168,13 +170,12 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
         },
         border: { display: false },
       },
-      x: {
+      y: {
         display: true,
         ticks: {
-          color: "#94a3b8",
-          font: { family: "'Inter', sans-serif", size: 11 },
+          color: "#334155",
+          font: { family: "'Inter', sans-serif", size: 12, weight: "500" as const },
           padding: 8,
-          maxRotation: 0,
         },
         grid: {
           display: false,
@@ -192,7 +193,7 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
                 className='group relative cursor-pointer'
                 title = "Informacion sobre el gráfico"
             >
-                <HelpCircleIcon 
+                <HelpCircle 
                     className='text-white hover:text-gray-200 transition-colors'
                     size={24}
                 />
@@ -214,7 +215,6 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
             <div style={{ height: `${dynamicHeight}px` }} className='mb-4'>
                 <Bar data={chartData} options={options}/>
             </div>
-
         </div>
     </div>
   )

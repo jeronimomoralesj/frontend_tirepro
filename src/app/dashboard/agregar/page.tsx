@@ -1,13 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { PlusCircle, Search, Calendar, FilePlus } from "lucide-react";
+import { PlusCircle, Search, FilePlus, SwitchCameraIcon, Recycle, Calendar1 } from "lucide-react";
 import CrearLlanta from "./CrearLlanta";
 import Inspeccion from "./Inspeccion";
 import Evento from "./Evento";
 import CargaMasiva from "./CargaMasiva";
+import VidaPage from "./Vida";
+import Posicion from "./Posicion";
+import EventosPage from "./Other";
 
-type Option = "crear" | "inspeccion" | "evento" | "cargamasiva";
+type Option = "crear" | "inspeccion" | "evento" | "cargamasiva" | "vida" | "rotacion";
 
 export default function AgregarPage() {
   const [selectedOption, setSelectedOption] = useState<Option>("crear");
@@ -122,7 +125,7 @@ export default function AgregarPage() {
         </div>
 
         {/* Options Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
           {/* Create */}
           <Card
             active={selectedOption === "crear"}
@@ -147,13 +150,33 @@ export default function AgregarPage() {
             description={t.inspectionDesc}
             Icon={Search}
           />
-          {/* Event */}
+        </div>
+
+        {/* Options Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          {/* Create */}
+          <Card
+            active={selectedOption === "vida"}
+            onClick={() => setSelectedOption("vida")}
+            title="Vida"
+            description="Registre un cambio en reencauche o fin de vida."
+            Icon={Recycle}
+          />
+          {/* Bulk Upload */}
+          <Card
+            active={selectedOption === "rotacion"}
+            onClick={() => setSelectedOption("rotacion")}
+            title="Rotación"
+            description="Agregue un cambio de posición."
+            Icon={SwitchCameraIcon}
+          />
+          {/* Inspection */}
           <Card
             active={selectedOption === "evento"}
             onClick={() => setSelectedOption("evento")}
-            title={t.eventTitle}
-            description={t.eventDesc}
-            Icon={Calendar}
+            title="Evento personalizado"
+            description="Registre un evento personalizado."
+            Icon={Calendar1}
           />
         </div>
 
@@ -171,7 +194,9 @@ export default function AgregarPage() {
             {selectedOption === "crear" && <CrearLlanta language={language} />}
             {selectedOption === "cargamasiva" && <CargaMasiva language={language} />}
             {selectedOption === "inspeccion" && <Inspeccion language={language} />}
-            {selectedOption === "evento" && <Evento language={language} />}
+            {selectedOption === "vida" && <VidaPage language={language} />}
+            {selectedOption === "rotacion" && <Posicion language={language} />}
+            {selectedOption === "evento" && <EventosPage language={language} />}
           </div>
         </div>
       </div>

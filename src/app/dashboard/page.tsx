@@ -34,9 +34,9 @@ export default function DashboardPage() {
         const company = await res.json() as { plan: string };
 
         // 3) Route based on plan + role
-        if (company.plan === 'mini') {
-          router.replace('/dashboard/resumenMini');
-        } else if (role === 'admin') {
+        if (company.plan === 'distribuidor') {
+          router.replace('/dashboard/distribuidor');
+        } else if (company.plan === 'pro') {
           router.replace('/dashboard/resumen');
         } else {
           router.replace('/dashboard/agregarConductor');

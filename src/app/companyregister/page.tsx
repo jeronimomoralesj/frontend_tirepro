@@ -51,7 +51,7 @@ export default function CompanyRegisterPage() {
       subtitle: "Gestión para clientes",
       description: "Solución completa para distribuidores que manejan múltiples clientes",
       icon: Building2,
-      plan: "retail",
+      plan: "distribuidor",
       gradient: "from-purple-500/20 to-pink-500/20",
       iconColor: "text-purple-400",
       borderColor: "border-purple-500/30 hover:border-purple-400/60"

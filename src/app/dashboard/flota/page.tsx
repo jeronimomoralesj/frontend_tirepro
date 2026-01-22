@@ -1058,11 +1058,11 @@ const exportToPDF = () => {
           <main className="container mx-auto max-w-6xl px-4 py-8">
             <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
               <PorVida tires={filteredTires} />
-              <PorBanda groupData={tiresGroupByBanda}/>
+              <PromedioEje tires={filteredTires} onSelectEje={(eje) => setSelectedEje(eje || "Todos")} selectedEje={selectedEje} />
             </div>
             <br />
-            <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
-              <PromedioEje tires={filteredTires} onSelectEje={(eje) => setSelectedEje(eje || "Todos")} selectedEje={selectedEje} />
+            <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-6">
+                <PorBanda groupData={tiresGroupByBanda}/>
             </div>
             <br />
             <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-6">

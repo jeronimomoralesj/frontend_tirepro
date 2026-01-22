@@ -20,7 +20,10 @@ import {
   Users,
   PlusCircle,
   ChevronRight,
-  Upload
+  Upload,
+  Search,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import CambiarContrasena from "./CambiarContraseña";
 
@@ -45,122 +48,11 @@ export type CompanyData = {
   vehicleCount: number;
 };
 
-// Language translations
-const translations = {
-  es: {
-    settings: "Ajustes",
-    dashboard: "Dashboard",
-    logout: "Cerrar Sesión",
-    menu: "Menú",
-    loading: "Cargando...",
-    profile: "Perfil",
-    myProfile: "Mi Perfil",
-    company: "Empresa",
-    users: "Usuarios",
-    newUser: "Nuevo Usuario",
-    new: "Nuevo",
-    userInfo: "Información de Usuario",
-    personalData: "Tus datos personales y acceso",
-    userId: "ID de Usuario",
-    fullName: "Nombre Completo",
-    email: "Correo Electrónico",
-    userRole: "Rol del Usuario",
-    assignedPlates: "Placas de Vehículos Asignadas",
-    noPlatesAssigned: "No hay placas de vehículos asignadas",
-    accountSecurity: "Seguridad de la Cuenta",
-    changePassword: "Cambiar Contraseña",
-    hideChangePassword: "Ocultar Cambio de Contraseña",
-    administrator: "Administrador",
-    regularUser: "Usuario Regular",
-    companyInfo: "Información de Empresa",
-    organizationData: "Datos de tu organización",
-    plan: "Plan",
-    vehicles: "Vehículos",
-    tires: "Llantas",
-    additionalConfig: "Configuración adicional",
-    contactSupport: "Para cambiar la configuración de la empresa, contacta a soporte técnico.",
-    userManagement: "Gestión de Usuarios",
-    manageUsers: "Administra los usuarios de tu empresa",
-    noUsers: "No hay usuarios",
-    startAddingUser: "Comienza agregando un nuevo usuario a tu empresa.",
-    addUser: "Agregar Usuario",
-    assignedPlatesLabel: "Placas Asignadas",
-    noPlatesAssignedUser: "No hay placas asignadas",
-    newPlate: "Nueva placa",
-    addPlate: "Agregar Placa",
-    addNewUser: "Agregar Nuevo Usuario",
-    name: "Nombre",
-    password: "Contraseña",
-    role: "Rol",
-    createUser: "Crear Usuario",
-    completeAllFields: "Complete todos los campos para crear un usuario",
-    errorCreatingUser: "Error al crear el usuario",
-    errorDeletingUser: "Error al eliminar el usuario",
-    userDeletedSuccess: "Usuario eliminado exitosamente",
-    enterValidPlate: "Ingrese una placa válida.",
-    errorAddingPlate: "Error al agregar la placa",
-    plateAddedSuccess: "Placa agregada exitosamente",
-    errorRemovingPlate: "Error al remover la placa",
-    plateRemovedSuccess: "Placa removida exitosamente",
-    accountInfo: "Administra la información de tu cuenta y empresa"
-  },
-  en: {
-    settings: "Settings",
-    dashboard: "Dashboard",
-    logout: "Sign Out",
-    menu: "Menu",
-    loading: "Loading...",
-    profile: "Profile",
-    myProfile: "My Profile",
-    company: "Company",
-    users: "Users",
-    newUser: "New User",
-    new: "New",
-    userInfo: "User Information",
-    personalData: "Your personal data and access",
-    userId: "User ID",
-    fullName: "Full Name",
-    email: "Email Address",
-    userRole: "User Role",
-    assignedPlates: "Assigned Vehicle Plates",
-    noPlatesAssigned: "No vehicle plates assigned",
-    accountSecurity: "Account Security",
-    changePassword: "Change Password",
-    hideChangePassword: "Hide Change Password",
-    administrator: "Administrator",
-    regularUser: "Regular User",
-    companyInfo: "Company Information",
-    organizationData: "Your organization data",
-    plan: "Plan",
-    vehicles: "Vehicles",
-    tires: "Tires",
-    additionalConfig: "Additional Configuration",
-    contactSupport: "To change company settings, contact technical support.",
-    userManagement: "User Management",
-    manageUsers: "Manage your company users",
-    noUsers: "No users",
-    startAddingUser: "Start by adding a new user to your company.",
-    addUser: "Add User",
-    assignedPlatesLabel: "Assigned Plates",
-    noPlatesAssignedUser: "No plates assigned",
-    newPlate: "New plate",
-    addPlate: "Add Plate",
-    addNewUser: "Add New User",
-    name: "Name",
-    password: "Password",
-    role: "Role",
-    createUser: "Create User",
-    completeAllFields: "Complete all fields to create a user",
-    errorCreatingUser: "Error creating user",
-    errorDeletingUser: "Error deleting user",
-    userDeletedSuccess: "User deleted successfully",
-    enterValidPlate: "Enter a valid plate.",
-    errorAddingPlate: "Error adding plate",
-    plateAddedSuccess: "Plate added successfully",
-    errorRemovingPlate: "Error removing plate",
-    plateRemovedSuccess: "Plate removed successfully",
-    accountInfo: "Manage your account and company information"
-  }
+export type DistributorCompany = {
+  id: string;
+  name: string;
+  plan: string;
+  profileImage: string;
 };
 
 const AjustesPage: React.FC = () => {
@@ -173,7 +65,6 @@ const AjustesPage: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   const [showChange, setShowChange] = useState(false);
-  const [language, setLanguage] = useState<'en'|'es'>('es');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [newUserData, setNewUserData] = useState({
     name: "",
@@ -182,45 +73,16 @@ const AjustesPage: React.FC = () => {
     role: "regular",
   });
   const [plateInputs, setPlateInputs] = useState<{ [userId: string]: string }>({});
-
-  const t = translations[language];
-
-  // Language detection
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout:10000 });
-        });
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode==='US'||countryCode==='CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback
-      }
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
-    };
-    detectAndSetLanguage();
-  }, []);
+  
+  // Distributor search states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<DistributorCompany[]>([]);
+  const [selectedDistributors, setSelectedDistributors] = useState<DistributorCompany[]>([]);
+  const [connectedDistributors, setConnectedDistributors] = useState<DistributorCompany[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [grantingAccess, setGrantingAccess] = useState(false);
 
   function showNotification(message: string, type: "success" | "error") {
-    // Apple-style notification
     const notification = document.createElement('div');
     notification.className = `fixed top-4 right-4 z-50 min-w-80 max-w-md p-4 rounded-2xl shadow-2xl transition-all duration-500 transform translate-x-full ${
       type === 'success' 
@@ -262,6 +124,7 @@ const AjustesPage: React.FC = () => {
         fetchCompany(parsedUser.companyId);
         if (parsedUser.role === "admin") {
           fetchUsers(parsedUser.companyId);
+          fetchConnectedDistributors(parsedUser.companyId);
         }
       } else {
         setError("No company assigned to user");
@@ -273,6 +136,175 @@ const AjustesPage: React.FC = () => {
     setLoading(false);
   }, [router]);
 
+  // Debounced search for distributors
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      searchCompanies(searchQuery);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  async function searchCompanies(query: string) {
+    if (!user) return;
+    
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      setSearchLoading(true);
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/search/by-name?q=${encodeURIComponent(query)}&exclude=${user.companyId}`
+          : `https://api.tirepro.com.co/api/companies/search/by-name?q=${encodeURIComponent(query)}&exclude=${user.companyId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) throw new Error("Error al buscar distribuidores");
+      
+      const data = await res.json();
+      // Filter only distributors
+      const distributors = data.filter(
+  (c: DistributorCompany) => c.plan === 'distribuidor'
+);
+      setSearchResults(distributors);
+    } catch (err) {
+      console.error("Error searching companies:", err);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  async function fetchConnectedDistributors(companyId: string) {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}/distributors`
+          : `https://api.tirepro.com.co/api/companies/${companyId}/distributors`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setConnectedDistributors(data);
+      }
+    } catch (err) {
+      console.error("Error fetching connected distributors:", err);
+    }
+  }
+
+  function addDistributor(distributor: DistributorCompany) {
+    setSelectedDistributors(prev =>
+      prev.some(d => d.id === distributor.id)
+        ? prev
+        : [...prev, distributor]
+    );
+  }
+
+  function removeDistributor(distributorId: string) {
+    setSelectedDistributors(prev => prev.filter(d => d.id !== distributorId));
+  }
+
+  async function grantAccess(distributorId: string) {
+  if (!user) return;
+
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  const res = await fetch(
+    process.env.NEXT_PUBLIC_API_URL
+      ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${user.companyId}/distributors/${distributorId}`
+      : `https://api.tirepro.com.co/api/companies/${user.companyId}/distributors/${distributorId}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || 'Failed to grant distributor access');
+  }
+}
+  async function handleGrantAccess() {
+    if (selectedDistributors.length === 0) {
+      showNotification("Selecciona al menos un distribuidor", "error");
+      return;
+    }
+
+    try {
+      setGrantingAccess(true);
+      await Promise.all(
+        selectedDistributors.map(d => grantAccess(d.id))
+      );
+      
+      showNotification("Acceso otorgado exitosamente", "success");
+      setSelectedDistributors([]);
+      setSearchQuery("");
+      setSearchResults([]);
+      
+      if (user) {
+        fetchConnectedDistributors(user.companyId);
+      }
+    } catch (err) {
+      showNotification("Error al otorgar acceso", "error");
+    } finally {
+      setGrantingAccess(false);
+    }
+  }
+
+  async function revokeAccess(distributorId: string) {
+  if (!user) return;
+
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  try {
+    const res = await fetch(
+      process.env.NEXT_PUBLIC_API_URL
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${user.companyId}/distributors/${distributorId}`
+        : `https://api.tirepro.com.co/api/companies/${user.companyId}/distributors/${distributorId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || 'Failed to revoke distributor access');
+    }
+
+    showNotification("Acceso revocado exitosamente", "success");
+    fetchConnectedDistributors(user.companyId);
+  } catch (err) {
+    console.error(err);
+    showNotification("Error al revocar acceso", "error");
+  }
+}
+
   async function handleDeleteUser(userId: string) {
     try {
       setLoading(true);
@@ -282,8 +314,8 @@ const AjustesPage: React.FC = () => {
           : `https://api.tirepro.com.co/api/users/${userId}`,
         { method: "DELETE" }
       );
-      if (!res.ok) throw new Error(t.errorDeletingUser);
-      showNotification(t.userDeletedSuccess, "success");
+      if (!res.ok) throw new Error("Error al eliminar el usuario");
+      showNotification("Usuario eliminado exitosamente", "success");
       if (user) fetchUsers(user.companyId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -323,103 +355,87 @@ const AjustesPage: React.FC = () => {
   }
 
   async function handleAddUser(e: React.FormEvent) {
-  e.preventDefault();
-  
-  // Enhanced validation
-  if (!newUserData.name || !newUserData.email || !newUserData.password) {
-    showNotification(t.completeAllFields, "error");
-    return;
-  }
-
-  // Email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(newUserData.email)) {
-    showNotification("Please enter a valid email address", "error");
-    return;
-  }
-
-  // Password validation
-  if (newUserData.password.length < 6) {
-    showNotification("Password must be at least 6 characters long", "error");
-    return;
-  }
-
-  if (!user) return;
-
-  // Get the token from localStorage
-  const token = localStorage.getItem("token");
-  if (!token) {
-    showNotification("Authentication token missing. Please log in again.", "error");
-    localStorage.clear();
-    router.push("/login");
-    return;
-  }
-
-  const payload = { 
-    ...newUserData, 
-    companyId: user.companyId,
-    // Ensure email is lowercase
-    email: newUserData.email.toLowerCase().trim(),
-    name: newUserData.name.trim()
-  };
-
-  try {
-    setLoading(true);
+    e.preventDefault();
     
-    console.log("Sending payload:", payload); // Debug log
-    
-    const res = await fetch(
-      process.env.NEXT_PUBLIC_API_URL
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
-        : `https://api.tirepro.com.co/api/users/register`,
-      {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`, // Add authentication
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    // Log the response for debugging
-    console.log("Response status:", res.status);
-    
-    if (!res.ok) {
-      // Try to get error details from response
-      let errorMessage = t.errorCreatingUser;
-      try {
-        const errorData = await res.json();
-        console.log("Error response:", errorData); // Debug log
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch{
-        // If response is not JSON, use default message
-        console.log("Could not parse error response");
-      }
-      throw new Error(errorMessage);
+    if (!newUserData.name || !newUserData.email || !newUserData.password) {
+      showNotification("Complete todos los campos para crear un usuario", "error");
+      return;
     }
-    
-    const result = await res.json();
-    console.log("Success response:", result); // Debug log
-    
-    showNotification(result.message || "User created successfully", "success");
-    fetchUsers(user.companyId);
-    setNewUserData({ name: "", email: "", password: "", role: "regular" });
-    
-  } catch (err) {
-    console.error("Error creating user:", err); // Debug log
-    const errorMessage = err instanceof Error ? err.message : t.errorCreatingUser;
-    showNotification(errorMessage, "error");
-    setError(errorMessage);
-  } finally {
-    setLoading(false);
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUserData.email)) {
+      showNotification("Ingrese un correo electrónico válido", "error");
+      return;
+    }
+
+    if (newUserData.password.length < 6) {
+      showNotification("La contraseña debe tener al menos 6 caracteres", "error");
+      return;
+    }
+
+    if (!user) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      showNotification("Token de autenticación faltante. Por favor inicie sesión nuevamente.", "error");
+      localStorage.clear();
+      router.push("/login");
+      return;
+    }
+
+    const payload = { 
+      ...newUserData, 
+      companyId: user.companyId,
+      email: newUserData.email.toLowerCase().trim(),
+      name: newUserData.name.trim()
+    };
+
+    try {
+      setLoading(true);
+      
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
+          : `https://api.tirepro.com.co/api/users/register`,
+        {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+      
+      if (!res.ok) {
+        let errorMessage = "Error al crear el usuario";
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch {
+          // Use default message
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const result = await res.json();
+      showNotification(result.message || "Usuario creado exitosamente", "success");
+      fetchUsers(user.companyId);
+      setNewUserData({ name: "", email: "", password: "", role: "regular" });
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Error al crear el usuario";
+      showNotification(errorMessage, "error");
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   async function handleAddPlate(userId: string) {
     const plate = plateInputs[userId];
     if (!plate || plate.trim() === "") {
-      showNotification(t.enterValidPlate, "error");
+      showNotification("Ingrese una placa válida.", "error");
       return;
     }
     try {
@@ -434,7 +450,7 @@ const AjustesPage: React.FC = () => {
           body: JSON.stringify({ plate: plate.trim() }),
         }
       );
-      if (!res.ok) throw new Error(t.errorAddingPlate);
+      if (!res.ok) throw new Error("Error al agregar la placa");
       const updatedUser = await res.json();
       setUsers((prevUsers) =>
         prevUsers.map((u) =>
@@ -442,7 +458,7 @@ const AjustesPage: React.FC = () => {
         )
       );
       setPlateInputs((prev) => ({ ...prev, [userId]: "" }));
-      showNotification(t.plateAddedSuccess, "success");
+      showNotification("Placa agregada exitosamente", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -463,14 +479,14 @@ const AjustesPage: React.FC = () => {
           body: JSON.stringify({ plate }),
         }
       );
-      if (!res.ok) throw new Error(t.errorRemovingPlate);
+      if (!res.ok) throw new Error("Error al remover la placa");
       const updatedUser = await res.json();
       setUsers((prevUsers) =>
         prevUsers.map((u) =>
           u.id === userId ? { ...u, plates: updatedUser.plates } : u
         )
       );
-      showNotification(t.plateRemovedSuccess, "success");
+      showNotification("Placa removida exitosamente", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -478,46 +494,45 @@ const AjustesPage: React.FC = () => {
     }
   }
 
-  //Upload company logo
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !company) return;
+    const file = e.target.files?.[0];
+    if (!file || !company) return;
 
-  const token = localStorage.getItem("token");
-  if (!token) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
-  const reader = new FileReader();
+    const reader = new FileReader();
 
-  reader.onloadend = async () => {
-    const base64 = reader.result as string;
-    setLogoPreview(base64);
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      setLogoPreview(base64);
 
-    const res = await fetch(
-      process.env.NEXT_PUBLIC_API_URL
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${company.id}/logo`
-        : `https://api.tirepro.com.co/api/companies/${company.id}/logo`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ imageBase64: base64 }),
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${company.id}/logo`
+          : `https://api.tirepro.com.co/api/companies/${company.id}/logo`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ imageBase64: base64 }),
+        }
+      );
+
+      if (!res.ok) {
+        showNotification("Error al actualizar el logo de la empresa", "error");
+        return;
       }
-    );
 
-    if (!res.ok) {
-      showNotification("Error updating company logo", "error");
-      return;
-    }
+      const updatedCompany = await res.json();
+      setCompany(updatedCompany);
+      showNotification("Logo actualizado exitosamente", "success");
+    };
 
-    const updatedCompany = await res.json();
-    setCompany(updatedCompany);
-    showNotification("Logo updated successfully", "success");
+    reader.readAsDataURL(file);
   };
-
-  reader.readAsDataURL(file);
-};
 
   function handleLogout() {
     localStorage.clear();
@@ -536,7 +551,7 @@ const AjustesPage: React.FC = () => {
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={toggleMobileMenu} />
           <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">{t.menu}</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Menú</h2>
               <button
                 onClick={toggleMobileMenu}
                 className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -551,14 +566,14 @@ const AjustesPage: React.FC = () => {
                 onClick={toggleMobileMenu}
               >
                 <LayoutDashboard className="h-5 w-5 mr-3" />
-                {t.dashboard}
+                Dashboard
               </Link>
               <button
                 onClick={handleLogout}
                 className="flex items-center w-full px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors"
               >
                 <LogOut className="h-5 w-5 mr-3" />
-                {t.logout}
+                Cerrar Sesión
               </button>
             </div>
           </div>
@@ -571,9 +586,9 @@ const AjustesPage: React.FC = () => {
           {/* Header */}
           <div className="py-6 sm:py-8 lg:py-10">
             <div className="text-center">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">{t.settings}</h1>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">Ajustes</h1>
               <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
-                {t.accountInfo}
+                Administra la información de tu cuenta y empresa
               </p>
             </div>
           </div>
@@ -591,7 +606,7 @@ const AjustesPage: React.FC = () => {
           {/* Tab Navigation */}
           <div className="mb-6 sm:mb-8">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-2">
-              <nav className="grid grid-cols-2 sm:grid-cols-4 gap-1" aria-label="Tabs">
+              <nav className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1" aria-label="Tabs">
                 <button
                   onClick={() => setActiveTab("profile")}
                   className={`flex items-center justify-center px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium rounded-xl transition-all ${
@@ -601,8 +616,7 @@ const AjustesPage: React.FC = () => {
                   }`}
                 >
                   <User className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">{t.profile}</span>
-                  <span className="sm:hidden">Profile</span>
+                  <span className="hidden sm:inline">Perfil</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("company")}
@@ -613,8 +627,7 @@ const AjustesPage: React.FC = () => {
                   }`}
                 >
                   <Building className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">{t.company}</span>
-                  <span className="sm:hidden">Company</span>
+                  <span className="hidden sm:inline">Empresa</span>
                 </button>
                 {user?.role === "admin" && (
                   <>
@@ -627,8 +640,7 @@ const AjustesPage: React.FC = () => {
                       }`}
                     >
                       <Users className="h-4 w-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">{t.users}</span>
-                      <span className="sm:hidden">Users</span>
+                      <span className="hidden sm:inline">Usuarios</span>
                     </button>
                     <button
                       onClick={() => setActiveTab("addUser")}
@@ -639,9 +651,22 @@ const AjustesPage: React.FC = () => {
                       }`}
                     >
                       <UserPlus className="h-4 w-4 mr-1 sm:mr-2" />
-                      <span className="hidden lg:inline">{t.newUser}</span>
+                      <span className="hidden lg:inline">Nuevo Usuario</span>
                       <span className="lg:hidden">+</span>
                     </button>
+                    {company?.plan !== "distribuidor" && (
+                    <button
+                      onClick={() => setActiveTab("distributors")}
+                      className={`flex items-center justify-center px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium rounded-xl transition-all ${
+                        activeTab === "distributors"
+                          ? "bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white shadow-lg"
+                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                      }`}
+                    >
+                      <Search className="h-4 w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Distribuidores</span>
+                    </button>
+                    )}
                   </>
                 )}
               </nav>
@@ -664,22 +689,22 @@ const AjustesPage: React.FC = () => {
                 <div className="space-y-4 sm:space-y-6">
                   {/* User Details */}
                   <div className="bg-gray-50 rounded-2xl p-4 sm:p-6">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">{t.userInfo}</h3>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Información de Usuario</h3>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">{t.fullName}</label>
+                        <label className="text-sm font-medium text-gray-600">Nombre Completo</label>
                         <div className="bg-white p-3 rounded-xl border border-gray-200">
                           <p className="text-gray-900 text-sm sm:text-base">{user.name}</p>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">{t.email}</label>
+                        <label className="text-sm font-medium text-gray-600">Correo Electrónico</label>
                         <div className="bg-white p-3 rounded-xl border border-gray-200">
                           <p className="text-gray-900 text-sm sm:text-base break-all">{user.email}</p>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">{t.userRole}</label>
+                        <label className="text-sm font-medium text-gray-600">Rol del Usuario</label>
                         <div className="bg-white p-3 rounded-xl border border-gray-200">
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
                             user.role === "admin" 
@@ -687,12 +712,12 @@ const AjustesPage: React.FC = () => {
                               : "bg-[#1E76B6] text-white"
                           }`}>
                             <Shield className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                            {user.role === "admin" ? t.administrator : t.regularUser}
+                            {user.role === "admin" ? "Administrador" : "Usuario Regular"}
                           </span>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">{t.assignedPlates}</label>
+                        <label className="text-sm font-medium text-gray-600">Placas de Vehículos Asignadas</label>
                         <div className="bg-white p-3 rounded-xl border border-gray-200 min-h-12">
                           {user.plates && user.plates.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
@@ -707,7 +732,7 @@ const AjustesPage: React.FC = () => {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-gray-500 text-sm">{t.noPlatesAssigned}</p>
+                            <p className="text-gray-500 text-sm">No hay placas de vehículos asignadas</p>
                           )}
                         </div>
                       </div>
@@ -716,7 +741,7 @@ const AjustesPage: React.FC = () => {
 
                   {/* Security Section */}
                   <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 border border-gray-100 shadow-sm">
-                    <h3 className="text-lg sm:text-xl font-semibold text-[#0A183A] mb-4 sm:mb-6">{t.accountSecurity}</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold text-[#0A183A] mb-4 sm:mb-6">Seguridad de la Cuenta</h3>
                     <button
                       onClick={() => setShowChange(!showChange)}
                       className="flex items-center justify-between w-full p-3 sm:p-4 lg:p-5 bg-white rounded-xl sm:rounded-2xl border border-gray-200 hover:border-[#348CCB] hover:bg-gray-50 transition-all duration-300 group"
@@ -726,8 +751,8 @@ const AjustesPage: React.FC = () => {
                           <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                         </div>
                         <div className="text-left">
-                          <p className="font-medium sm:font-semibold text-[#0A183A] text-sm sm:text-base">{t.changePassword}</p>
-                          <p className="text-xs sm:text-sm text-gray-600 mt-1">Update your password</p>
+                          <p className="font-medium sm:font-semibold text-[#0A183A] text-sm sm:text-base">Cambiar Contraseña</p>
+                          <p className="text-xs sm:text-sm text-gray-600 mt-1">Actualiza tu contraseña</p>
                         </div>
                       </div>
                       <ChevronRight className={`h-5 w-5 sm:h-6 sm:w-6 text-gray-400 transition-transform duration-300 ${showChange ? 'rotate-90' : ''}`} />
@@ -743,7 +768,7 @@ const AjustesPage: React.FC = () => {
               </div>
             )}
 
-              {/* Company tab */}
+            {/* Company tab */}
             {activeTab === "company" && company && (
               <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
                 {/* Header Section */}
@@ -778,7 +803,7 @@ const AjustesPage: React.FC = () => {
 
                   <div className="inline-flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-full text-sm sm:text-base font-semibold shadow-lg">
                     <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
-                    {company.plan} Plan
+                    Plan {company.plan}
                   </div>
                 </div>
 
@@ -792,7 +817,7 @@ const AjustesPage: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A]">{company.userCount}</div>
-                        <div className="text-xs sm:text-sm text-gray-500 font-medium">{t.users}</div>
+                        <div className="text-xs sm:text-sm text-gray-500 font-medium">Usuarios</div>
                       </div>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -808,7 +833,7 @@ const AjustesPage: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A]">{company.vehicleCount}</div>
-                        <div className="text-xs sm:text-sm text-gray-500 font-medium">{t.vehicles}</div>
+                        <div className="text-xs sm:text-sm text-gray-500 font-medium">Vehículos</div>
                       </div>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -827,7 +852,7 @@ const AjustesPage: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A]">{company.tireCount}</div>
-                        <div className="text-xs sm:text-sm text-gray-500 font-medium">{t.tires}</div>
+                        <div className="text-xs sm:text-sm text-gray-500 font-medium">Llantas</div>
                       </div>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -845,8 +870,8 @@ const AjustesPage: React.FC = () => {
                           <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                         </div>
                         <div>
-                          <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-1">{t.additionalConfig}</h3>
-                          <p className="text-gray-300 text-sm sm:text-base">{t.contactSupport}</p>
+                          <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-1">Configuración adicional</h3>
+                          <p className="text-gray-300 text-sm sm:text-base">Para cambiar la configuración de la empresa, contacta a soporte técnico.</p>
                         </div>
                       </div>
                     </div>
@@ -854,16 +879,16 @@ const AjustesPage: React.FC = () => {
                       <div className="bg-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/10 hover:bg-white/10 transition-all duration-300">
                         <div className="flex items-center mb-2 sm:mb-3">
                           <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-[#348CCB] mr-2" />
-                          <span className="text-sm sm:text-base font-medium">Security Settings</span>
+                          <span className="text-sm sm:text-base font-medium">Configuración de Seguridad</span>
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-400">Manage access and permissions</p>
+                        <p className="text-xs sm:text-sm text-gray-400">Administrar acceso y permisos</p>
                       </div>
                       <div className="bg-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/10 hover:bg-white/10 transition-all duration-300">
                         <div className="flex items-center mb-2 sm:mb-3">
                           <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-[#348CCB] mr-2" />
-                          <span className="text-sm sm:text-base font-medium">Contact Support</span>
+                          <span className="text-sm sm:text-base font-medium">Contactar Soporte</span>
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-400">Get help with configuration</p>
+                        <p className="text-xs sm:text-sm text-gray-400">Obtener ayuda con la configuración</p>
                       </div>
                     </div>
                   </div>
@@ -879,8 +904,8 @@ const AjustesPage: React.FC = () => {
                   <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
                     <Users className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
                   </div>
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">{t.userManagement}</h2>
-                  <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto px-4">{t.manageUsers}</p>
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">Gestión de Usuarios</h2>
+                  <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto px-4">Administra los usuarios de tu empresa</p>
                 </div>
 
                 {users.length === 0 ? (
@@ -888,14 +913,14 @@ const AjustesPage: React.FC = () => {
                     <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
                       <Users className="h-12 w-12 sm:h-16 sm:w-16 lg:h-20 lg:w-20 text-gray-300" />
                     </div>
-                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0A183A] mb-3 sm:mb-4">{t.noUsers}</h3>
-                    <p className="text-gray-600 text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto px-4">{t.startAddingUser}</p>
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0A183A] mb-3 sm:mb-4">No hay usuarios</h3>
+                    <p className="text-gray-600 text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto px-4">Comienza agregando un nuevo usuario a tu empresa.</p>
                     <button
                       onClick={() => setActiveTab("addUser")}
                       className="inline-flex items-center px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white font-semibold rounded-xl sm:rounded-2xl hover:shadow-2xl hover:shadow-[#1E76B6]/25 transition-all duration-300 transform hover:-translate-y-1 text-sm sm:text-base"
                     >
                       <UserPlus className="mr-2 sm:mr-3 h-4 w-4 sm:h-5 sm:w-5" />
-                      {t.addUser}
+                      Agregar Usuario
                     </button>
                   </div>
                 ) : (
@@ -918,7 +943,7 @@ const AjustesPage: React.FC = () => {
                                     : "bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white"
                                 }`}>
                                   <Shield className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  {u.role === "admin" ? t.administrator : t.regularUser}
+                                  {u.role === "admin" ? "Administrador" : "Usuario Regular"}
                                 </span>
                               </div>
                             </div>
@@ -937,7 +962,7 @@ const AjustesPage: React.FC = () => {
                           <div className="mb-4 sm:mb-6">
                             <h4 className="text-base sm:text-lg font-semibold text-[#0A183A] mb-3 sm:mb-4 flex items-center">
                               <Tag className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-[#1E76B6]" />
-                              {t.assignedPlatesLabel}
+                              Placas Asignadas
                             </h4>
                             {u.plates && u.plates.length > 0 ? (
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
@@ -957,7 +982,7 @@ const AjustesPage: React.FC = () => {
                             ) : (
                               <div className="text-center py-6 sm:py-8 bg-gray-50 rounded-xl sm:rounded-2xl border-2 border-dashed border-gray-200">
                                 <Tag className="h-8 w-8 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-2 sm:mb-3" />
-                                <p className="text-gray-500 font-medium text-sm sm:text-base">{t.noPlatesAssignedUser}</p>
+                                <p className="text-gray-500 font-medium text-sm sm:text-base">No hay placas asignadas</p>
                               </div>
                             )}
                           </div>
@@ -966,12 +991,12 @@ const AjustesPage: React.FC = () => {
                           <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
                             <h5 className="text-sm sm:text-base font-semibold text-[#0A183A] mb-3 sm:mb-4 flex items-center">
                               <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-[#348CCB]" />
-                              Add New Plate
+                              Agregar Nueva Placa
                             </h5>
                             <div className="flex flex-col sm:flex-row gap-3">
                               <input
                                 type="text"
-                                placeholder={t.newPlate}
+                                placeholder="Nueva placa"
                                 value={plateInputs[u.id] || ""}
                                 onChange={(e) =>
                                   setPlateInputs((prev) => ({
@@ -986,7 +1011,7 @@ const AjustesPage: React.FC = () => {
                                 className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white font-semibold rounded-xl sm:rounded-2xl hover:shadow-lg hover:shadow-[#1E76B6]/25 transition-all duration-200 transform hover:-translate-y-0.5 flex items-center justify-center"
                               >
                                 <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5 sm:mr-2" />
-                                <span className="hidden sm:inline">Add</span>
+                                <span className="hidden sm:inline">Agregar</span>
                               </button>
                             </div>
                           </div>
@@ -1006,8 +1031,8 @@ const AjustesPage: React.FC = () => {
                   <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
                     <UserPlus className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
                   </div>
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">{t.addNewUser}</h2>
-                  <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto px-4">Complete the form to add a new user to your organization</p>
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">Agregar Nuevo Usuario</h2>
+                  <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto px-4">Complete el formulario para agregar un nuevo usuario a su organización</p>
                 </div>
 
                 {/* Form */}
@@ -1018,49 +1043,49 @@ const AjustesPage: React.FC = () => {
                         {/* Name Field */}
                         <div>
                           <label className="block text-sm sm:text-base font-semibold text-[#0A183A] mb-2">
-                            {t.name} <span className="text-red-500">*</span>
+                            Nombre <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
                             value={newUserData.name}
                             onChange={(e) => setNewUserData({ ...newUserData, name: e.target.value })}
                             className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white text-sm sm:text-base"
-                            placeholder="Enter full name"
+                            placeholder="Ingrese el nombre completo"
                           />
                         </div>
 
                         {/* Email Field */}
                         <div>
                           <label className="block text-sm sm:text-base font-semibold text-[#0A183A] mb-2">
-                            {t.email} <span className="text-red-500">*</span>
+                            Correo Electrónico <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="email"
                             value={newUserData.email}
                             onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
                             className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white text-sm sm:text-base"
-                            placeholder="user@example.com"
+                            placeholder="usuario@ejemplo.com"
                           />
                         </div>
 
                         {/* Password Field */}
                         <div>
                           <label className="block text-sm sm:text-base font-semibold text-[#0A183A] mb-2">
-                            {t.password} <span className="text-red-500">*</span>
+                            Contraseña <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="password"
                             value={newUserData.password}
                             onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
                             className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white text-sm sm:text-base"
-                            placeholder="Secure password"
+                            placeholder="Contraseña segura"
                           />
                         </div>
 
                         {/* Role Field */}
                         <div>
                           <label className="block text-sm sm:text-base font-semibold text-[#0A183A] mb-2">
-                            {t.role} <span className="text-red-500">*</span>
+                            Rol <span className="text-red-500">*</span>
                           </label>
                           <select
                             value={newUserData.role}
@@ -1069,8 +1094,8 @@ const AjustesPage: React.FC = () => {
                             }
                             className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white text-sm sm:text-base"
                           >
-                            <option value="regular">{t.regularUser}</option>
-                            <option value="admin">{t.administrator}</option>
+                            <option value="regular">Usuario Regular</option>
+                            <option value="admin">Administrador</option>
                           </select>
                         </div>
                       </div>
@@ -1085,12 +1110,12 @@ const AjustesPage: React.FC = () => {
                           {loading ? (
                             <div className="flex items-center justify-center">
                               <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                              Creating...
+                              Creando...
                             </div>
                           ) : (
                             <div className="flex items-center justify-center">
                               <UserPlus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                              {t.createUser}
+                              Crear Usuario
                             </div>
                           )}
                         </button>
@@ -1098,6 +1123,186 @@ const AjustesPage: React.FC = () => {
                     </form>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Distributors tab (Admin only) */}
+            {activeTab === "distributors" && user?.role === "admin" && company?.plan !== "distribuidor" && (
+              <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
+                {/* Header */}
+                <div className="text-center mb-8 sm:mb-10 lg:mb-12">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
+                    <Search className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">Buscar Distribuidor</h2>
+                  <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto px-4">Encuentra y otorga acceso a distribuidores</p>
+                </div>
+
+                {/* Search Bar */}
+                <div className="max-w-2xl mx-auto mb-8">
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar distribuidor por nombre..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-white text-sm sm:text-base"
+                    />
+                    {searchLoading && (
+                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                        <div className="w-5 h-5 border-2 border-[#1E76B6] border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Search Results */}
+                {searchQuery.length >= 2 && searchResults.length > 0 && (
+                  <div className="max-w-2xl mx-auto mb-8">
+                    <h3 className="text-lg font-semibold text-[#0A183A] mb-4">Resultados de Búsqueda</h3>
+                    <div className="space-y-3">
+                      {searchResults.map((distributor) => (
+                        <div
+                          key={distributor.id}
+                          onClick={() => addDistributor(distributor)}
+                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl hover:border-[#1E76B6] hover:shadow-lg transition-all duration-200 cursor-pointer"
+                        >
+                          <div className="flex items-center">
+                            <img
+                              src={distributor.profileImage}
+                              alt={distributor.name}
+                              className="w-12 h-12 rounded-xl object-cover mr-4"
+                            />
+                            <div>
+                              <h4 className="font-semibold text-[#0A183A]">{distributor.name}</h4>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#1E76B6] text-white mt-1">
+                                Distribuidor
+                              </span>
+                            </div>
+                          </div>
+                          <PlusCircle className="h-6 w-6 text-[#1E76B6]" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && (
+                  <div className="text-center py-12 max-w-2xl mx-auto">
+                    <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">No se encontraron distribuidores</p>
+                  </div>
+                )}
+
+                {/* Selected Distributors */}
+                {selectedDistributors.length > 0 && (
+                  <div className="max-w-2xl mx-auto mb-8">
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+                      <h3 className="text-lg font-semibold text-[#0A183A] mb-4">Distribuidores Seleccionados</h3>
+                      <div className="space-y-3 mb-6">
+                        {selectedDistributors.map((distributor) => (
+                          <div
+                            key={distributor.id}
+                            className="flex items-center justify-between p-4 bg-white rounded-xl"
+                          >
+                            <div className="flex items-center">
+                              <img
+                                src={distributor.profileImage}
+                                alt={distributor.name}
+                                className="w-10 h-10 rounded-lg object-cover mr-3"
+                              />
+                              <span className="font-medium text-[#0A183A]">{distributor.name}</span>
+                            </div>
+                            <button
+                              onClick={() => removeDistributor(distributor.id)}
+                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <XCircle className="h-5 w-5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={handleGrantAccess}
+                        disabled={grantingAccess}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-[#1E76B6]/25 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      >
+                        {grantingAccess ? (
+                          <div className="flex items-center justify-center">
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                            Otorgando Acceso...
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center">
+                            <CheckCircle className="mr-2 h-5 w-5" />
+                            Otorgar Acceso ({selectedDistributors.length})
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Connected Distributors */}
+<div className="max-w-2xl mx-auto">
+  <h3 className="text-lg font-semibold text-[#0A183A] mb-4">
+    Distribuidores Conectados
+  </h3>
+
+  {connectedDistributors.length > 0 ? (
+    <div className="space-y-3">
+      {connectedDistributors.map((access) => {
+        const company = access.distributor;
+
+        return (
+          <div
+            key={company.id}
+            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl"
+          >
+            <div className="flex items-center">
+              <img
+                src={company.profileImage}
+                alt={company.name}
+                className="w-12 h-12 rounded-xl object-cover mr-4"
+              />
+
+              <div>
+                <h4 className="font-semibold text-[#0A183A]">
+                  {company.name}
+                </h4>
+
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Conectado
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() =>
+                revokeAccess(access.distributorId)
+              }
+              className="px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all font-medium text-sm"
+            >
+              Revocar Acceso
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  ) : (
+    <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+      <Building className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+      <p className="text-gray-500 font-medium">
+        No hay distribuidores conectados
+      </p>
+      <p className="text-gray-400 text-sm mt-2">
+        Busca y otorga acceso a distribuidores arriba
+      </p>
+    </div>
+  )}
+</div>
               </div>
             )}
           </div>

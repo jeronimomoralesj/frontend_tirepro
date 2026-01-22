@@ -640,7 +640,7 @@ const BuscarPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">{t.kmTraveled}:</p>
-                        <p className="font-medium">{selectedTire.kilometrosRecorridos.toLocaleString()} miles</p>
+                        <p className="font-medium">{selectedTire.kilometrosRecorridos.toLocaleString()} Km</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">{t.currentStatus}:</p>
@@ -648,7 +648,7 @@ const BuscarPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">{t.projectedKm}:</p>
-                        <p className="font-medium">{getProjectedKilometraje(selectedTire)} miles</p>
+                        <p className="font-medium">{getProjectedKilometraje(selectedTire)} Km</p>
                       </div>
                     </div>
                   </div>

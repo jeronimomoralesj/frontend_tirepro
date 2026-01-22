@@ -72,18 +72,18 @@ export default function Sidebar({
   // Build links based on company.plan first
   let links: { name: string; path: string; icon: React.ComponentType }[];
 
-  if (company.plan === "mini") {
+  if (company.plan === "distribuidor") {
     // Mini plan: only resumenMini
     links = [
       {
         name: "Resumen",
-        path: "/dashboard/resumenMini",
+        path: "/dashboard/distribuidor",
         icon: LayoutDashboard,
       },
       {
-        name: "Viajes",
-        path: "/dashboard/trips",
-        icon: Map,
+        name: "Agregar",
+        path: "/dashboard/agregar",
+        icon: Plus,
       },
     ];
   } else if (isAdmin) {
