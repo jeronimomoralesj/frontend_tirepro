@@ -119,7 +119,7 @@ const [vidaStats, setVidaStats] = useState({
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
       const res = await fetch(
-        `${apiUrl}/api/companies/me/clients`,
+        `https://api.tirepro.com.co/api/companies/me/clients`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
