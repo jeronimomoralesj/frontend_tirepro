@@ -339,7 +339,7 @@ const totalReencauche =
             <div className="relative">
               <button
                 onClick={() => setShowClientDropdown(!showClientDropdown)}
-                className="px-4 py-2.5 bg-white bg-opacity-10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-opacity-20 transition-colors flex items-center gap-2 min-w-[200px] justify-between"
+                className="px-4 py-2.5 bg-black bg-opacity-10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-opacity-20 transition-colors flex items-center gap-2 min-w-[200px] justify-between"
               >
                 <span>Cliente: {selectedClient}</span>
                 <ChevronDownIcon />

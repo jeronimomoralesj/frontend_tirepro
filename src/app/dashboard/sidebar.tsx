@@ -73,7 +73,6 @@ export default function Sidebar({
   let links: { name: string; path: string; icon: React.ComponentType }[];
 
   if (company.plan === "distribuidor") {
-    // Mini plan: only resumenMini
     links = [
       {
         name: "Resumen",
@@ -82,7 +81,7 @@ export default function Sidebar({
       },
       {
         name: "Agregar",
-        path: "/dashboard/agregar",
+        path: "/dashboard/agregarDist",
         icon: Plus,
       },
     ];
