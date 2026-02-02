@@ -70,17 +70,17 @@ function RegisterForm() {
       }
 
       const response = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
-          : "https://api.tirepro.com.co/api/users/register",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ name, email, password, companyId, role }),
-        }
-      );
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`  // Changed users -> auth
+    : "https://api.tirepro.com.co/api/auth/register",  // Changed users -> auth
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, email, password, companyId, role }),
+  }
+);
 
       const data = await response.json();
 
