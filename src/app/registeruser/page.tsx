@@ -366,7 +366,7 @@ function RegisterForm() {
                     <div>
                       <h4 className="font-semibold text-emerald-400 mb-1">¡Perfecto!</h4>
                       <p className="text-emerald-300 text-sm">
-                        Tu cuenta ha sido creada exitosamente. Recibirás un correo de TirePro en el cual se te pedirá verificar tu cuenta para poder proceder.
+                        Tu cuenta ha sido creada exitosamente.
                       </p>
                     </div>
                   </div>
