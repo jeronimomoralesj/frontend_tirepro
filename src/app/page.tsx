@@ -13,16 +13,17 @@ import {
   Check,
   ChevronDown,
   Zap,
-  Sparkles,
   ChevronRight,
   AlertCircle,
   DollarSign,
   Target,
   Activity,
 } from 'lucide-react'
-import landing from "../../public/landing.png"
+import landing from "../../public/first.png"
 import Image from 'next/image'
+import pcImage from "../../public/pc.png"
 import logo from "../../public/logo_full.png"
+import phoneImage from "../../public/phoneImg.png"
 const TireProLanding = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -285,11 +286,6 @@ const TireProLanding = () => {
       <section className="pt-32 pb-20 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="max-w-4xl mx-auto text-center space-y-8">
-            <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full border border-white/20 bg-white/5 mb-4">
-              <Sparkles size={16} className="text-blue-400" />
-              <span className="text-sm text-gray-300">Impulsado por Inteligencia Artificial</span>
-            </div>
-            
             <h1 className="text-5xl md:text-7xl font-semibold leading-tight tracking-tight">
               Reduce hasta un 25%
               <br />
@@ -420,9 +416,9 @@ const TireProLanding = () => {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-4xl md:text-5xl font-semibold mb-6 leading-tight">
-                Por qué elegir
+                ¿Por qué elegir
                 <br />
-                <span className="text-gray-500">TirePro</span>
+                <span className="text-gray-500">TirePro?</span>
               </h2>
               <p className="text-xl text-gray-400 mb-12">
                 Más que un software, es tu socio estratégico para optimizar cada peso invertido en llantas
@@ -445,8 +441,8 @@ const TireProLanding = () => {
 
             <div className="relative">
               <div className="aspect-square rounded-3xl border border-white/10 overflow-hidden">
-                <img 
-                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=800&fit=crop" 
+                <Image 
+                  src={pcImage} 
                   alt="Analytics"
                   className="w-full h-full object-cover"
                 />
@@ -509,8 +505,8 @@ const TireProLanding = () => {
             <div className="order-2 lg:order-1 relative">
               <div className="aspect-[9/16] max-w-sm mx-auto bg-gradient-to-br from-gray-800 to-gray-900 rounded-[3rem] border border-white/10 p-3 shadow-2xl">
                 <div className="w-full h-full bg-black rounded-[2.5rem] overflow-hidden">
-                  <img 
-                    src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=800&fit=crop" 
+                  <Image 
+                    src={phoneImage}
                     alt="App móvil"
                     className="w-full h-full object-cover"
                   />
@@ -637,6 +633,16 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
+
+      <div>
+        <hr className='mb-10 ml-20 mr-20'/>
+        <p className='text-center'>Si necesitas ayuda tambien puedes contactar a uno de nuestros aliado:</p>
+        <div className='flex justify-center mt-10'>
+          <img className='rounded-3xl h-20 m-2' src='https://i0.wp.com/reencauchadoraremax.com/wp-content/uploads/2023/01/Logo30Anos_Mesa-de-trabajo-1-copia.jpg?fit=500%2C166&ssl=1'/>
+          <img className='rounded-3xl h-20 m-2' src='https://media.licdn.com/dms/image/v2/C4E0BAQFZkpMWoNQU1w/company-logo_200_200/company-logo_200_200/0/1630609548810?e=2147483647&v=beta&t=kVePfprWik91OQyyu6sgafGDp8uFGurAk0wG23Wac2Y'/>
+        </div>
+        <hr className='mt-10 ml-20 mr-20'/>
+      </div>
 
       {/* FAQ Section */}
       <section id="preguntas" className="py-32 px-6 lg:px-8">
