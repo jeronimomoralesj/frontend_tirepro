@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { FilePlus, Upload, Download, Info } from "lucide-react";
 
 interface CargaMasivaProps {
-  language: 'en' | 'es';
+  language: 'es';
 }
 
 export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
@@ -36,26 +36,6 @@ export default function CargaMasiva({ language = 'es' }: CargaMasivaProps) {
     "marca", "diseno", "tipovhc", "pos", "proact", 
     "eje", "profundidad_int", "profundidad_cen", "profundidad_ext", "profundidad_inicial",
     "costo", "kilometros_llanta", "dimension"
-  ],
-    },
-    en: {
-      instructions: "Bulk Upload Instructions",
-      instructionText: "To upload tires make sure you have these fields and that they have these titles in your Excel file:",
-      downloadTemplate: "Download Excel Template",
-      selectFile: "Select an Excel file",
-      dragDrop: "or drag and drop here",
-      allowedFormats: "Allowed formats: .xlsx, .xls",
-      bulkUpload: "Bulk Upload",
-      processing: "Processing...",
-      selectFileError: "Please select an Excel file (.xls/.xlsx).",
-      companyIdError: "Company ID not found in localStorage.",
-      successMessage: "Bulk upload completed successfully",
-      unexpectedError: "Unexpected error in bulk upload",
-      fields: [
-    "id", "retread", "plate", "vehicle_milage", "cargo_type", 
-    "brand", "tread", "vehicle_type", "pos", "proact", 
-    "axle", "internal_depth", "central_depth", "exterior_depth", "initial_depth",
-    "cost", "tire_milage", "dimensions",
   ],
     }
   };
