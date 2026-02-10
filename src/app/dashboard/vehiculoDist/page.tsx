@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Database, Trash2, X, Truck, Link2, ChevronDown } from "lucide-react";
+import { Plus, Database, Trash2, X, Truck, Link2, ChevronDown, Edit } from "lucide-react";
 
 type Company = {
   id: string;
@@ -31,6 +31,7 @@ const t = {
   connectedVehicles: "Vehículos Conectados",
   individualVehicles: "Vehículos Individuales",
   createVehicle: "Crear Vehículo",
+  editVehicle: "Editar Vehículo",
   selectClient: "Cliente",
   allClients: "Todos",
   selectClientForVehicle: "Seleccionar Cliente",
@@ -44,6 +45,7 @@ const t = {
   uniones: "Uniones",
   ninguna: "Ninguna",
   unir: "Unir",
+  editar: "Editar",
   eliminar: "Eliminar",
   placaOtroVehiculo: "Placa del otro vehiculo",
   kilometrajeActual: "Kilometraje Actual",
@@ -53,16 +55,19 @@ const t = {
   nombreCliente: "Nombre del cliente",
   cancelar: "Cancelar",
   crear: "Crear",
+  guardarCambios: "Guardar Cambios",
   eliminarVehiculo: "¿Eliminar {placa}?",
   eliminarConexion: "¿Eliminar conexión?",
   eliminarConexionConfirm: "¿Está seguro que desea eliminar esta conexión entre vehículos?",
   eliminarConexionBtn: "Eliminar Conexión",
   sinPlaca: "SIN PLACA",
   sinTipo: "Sin tipo",
+  noSeEditaManualmente: "No se puede editar manualmente",
   errorCompanyId: "No companyId found on user",
   errorParsingUser: "Error parsing user data",
   errorFetchVehicles: "Failed to fetch vehicles",
   errorCreateVehicle: "Failed to create vehicle",
+  errorUpdateVehicle: "Failed to update vehicle",
   errorDeleteVehicle: "Failed to delete vehicle",
   errorAddUnion: "Fallo al añadir unión",
   errorRemoveUnion: "Fallo al eliminar unión",
@@ -96,6 +101,24 @@ export default function VehiculoPage() {
     sourceId: string;
     targetPlaca: string;
   } | null>(null);
+
+  // State for editing
+  const [vehicleToEdit, setVehicleToEdit] = useState<Vehicle | null>(null);
+  const [editFormData, setEditFormData] = useState<{
+    placa: string;
+    kilometrajeActual: number;
+    carga: string;
+    pesoCarga: number;
+    tipovhc: string;
+    cliente: string;
+  }>({
+    placa: "",
+    kilometrajeActual: 0,
+    carga: "",
+    pesoCarga: 0,
+    tipovhc: "2_ejes_trailer",
+    cliente: ""
+  });
 
   // Form state for creating a vehicle
   const [placa, setPlaca] = useState("");
@@ -317,6 +340,58 @@ export default function VehiculoPage() {
     }
   }
 
+  async function handleEditVehicle(e: FormEvent) {
+    e.preventDefault();
+    if (!vehicleToEdit) return;
+    
+    setError("");
+    
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicleToEdit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placa: editFormData.placa,
+          kilometrajeActual: editFormData.kilometrajeActual,
+          carga: editFormData.carga,
+          pesoCarga: editFormData.pesoCarga,
+          tipovhc: editFormData.tipovhc,
+          cliente: editFormData.cliente.trim() || null
+        }),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || t.errorUpdateVehicle);
+      }
+      
+      const responseData = await res.json();
+      const updatedVehicle = responseData.vehicle;
+      
+      const safeVehicle = {
+        ...updatedVehicle,
+        union: Array.isArray(updatedVehicle.union) ? updatedVehicle.union : [],
+      };
+      
+      setVehicles((prev) => prev.map(v => v.id === safeVehicle.id ? safeVehicle : v));
+      setVehicleToEdit(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unexpected error");
+    }
+  }
+
+  function openEditModal(vehicle: Vehicle) {
+    setVehicleToEdit(vehicle);
+    setEditFormData({
+      placa: vehicle.placa,
+      kilometrajeActual: vehicle.kilometrajeActual,
+      carga: vehicle.carga,
+      pesoCarga: vehicle.pesoCarga,
+      tipovhc: vehicle.tipovhc,
+      cliente: vehicle.cliente || ""
+    });
+  }
+
   async function handleDeleteVehicle(vehicleId: string) {
     setError("");
     try {
@@ -445,14 +520,21 @@ export default function VehiculoPage() {
       <div className="mt-4 space-y-2">
         <div className="flex gap-2">
           <button
+            onClick={() => openEditModal(vehicle)}
+            className="flex-1 bg-[#348CCB]/10 text-[#348CCB] px-3 py-2 rounded hover:bg-[#348CCB]/20 flex items-center justify-center text-sm"
+          >
+            <Edit className="w-4 h-4 mr-1" />
+            {t.editar}
+          </button>
+          <button
             onClick={() => toggleUnionInput(vehicle.id)}
-            className="flex-1 bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-2 rounded hover:bg-[#1E76B6]/20 flex items-center justify-center"
+            className="flex-1 bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-2 rounded hover:bg-[#1E76B6]/20 flex items-center justify-center text-sm"
           >
             {t.unir}
           </button>
           <button
             onClick={() => setVehicleToDelete(vehicle)}
-            className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 flex items-center justify-center"
+            className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 flex items-center justify-center text-sm"
           >
             {t.eliminar}
           </button>
@@ -604,6 +686,7 @@ export default function VehiculoPage() {
           )}
         </section>
 
+        {/* Create Vehicle Modal */}
         {isFormOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
@@ -714,6 +797,107 @@ export default function VehiculoPage() {
           </div>
         )}
 
+        {/* Edit Vehicle Modal */}
+        {vehicleToEdit && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
+              <div className="bg-[#348CCB] text-white p-4 flex justify-between items-center rounded-t-lg">
+                <h2>{t.editVehicle}</h2>
+                <button onClick={() => setVehicleToEdit(null)}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleEditVehicle} className="p-4 space-y-4">
+                <div>
+                  <label className="block mb-1">{t.placa}</label>
+                  <input
+                    type="text"
+                    value={editFormData.placa}
+                    onChange={(e) => setEditFormData({ ...editFormData, placa: e.target.value.toLowerCase() })}
+                    required
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">{t.kilometrajeActual}</label>
+                  <input
+                    type="number"
+                    value={editFormData.kilometrajeActual}
+                    onChange={(e) => setEditFormData({ ...editFormData, kilometrajeActual: parseInt(e.target.value) || 0 })}
+                    required
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">{t.carga}</label>
+                  <input
+                    type="text"
+                    value={editFormData.carga}
+                    onChange={(e) => setEditFormData({ ...editFormData, carga: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">{t.pesoCarga}</label>
+                  <input
+                    type="number"
+                    value={editFormData.pesoCarga}
+                    onChange={(e) => setEditFormData({ ...editFormData, pesoCarga: parseFloat(e.target.value) || 0 })}
+                    required
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1">{t.tipoVehiculo}</label>
+                  <select
+                    value={editFormData.tipovhc}
+                    onChange={(e) => setEditFormData({ ...editFormData, tipovhc: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border rounded-md"
+                  >
+                    <option value="2_ejes_trailer">{t.vehicleTypes["2_ejes_trailer"]}</option>
+                    <option value="1_eje_cabezote">{t.vehicleTypes["1_eje_cabezote"]}</option>
+                    <option value="3_ejes_trailer">{t.vehicleTypes["3_ejes_trailer"]}</option>
+                    <option value="2_ejes_cabezote">{t.vehicleTypes["2_ejes_cabezote"]}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1">{t.duenoOpcional}</label>
+                  <input
+                    type="text"
+                    value={editFormData.cliente}
+                    onChange={(e) => setEditFormData({ ...editFormData, cliente: e.target.value })}
+                    placeholder={t.nombreCliente}
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">{t.llantas}:</span>
+                    <span className="font-semibold text-gray-900">{vehicleToEdit.tireCount || 0}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{t.noSeEditaManualmente}</p>
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setVehicleToEdit(null)}
+                    className="flex-1 border px-4 py-2 rounded"
+                  >
+                    {t.cancelar}
+                  </button>
+                  <button type="submit" className="flex-1 bg-[#348CCB] text-white px-4 py-2 rounded hover:bg-[#1E76B6]">
+                    {t.guardarCambios}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Vehicle Modal */}
         {vehicleToDelete && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
             <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full p-6">

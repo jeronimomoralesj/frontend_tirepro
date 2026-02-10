@@ -91,41 +91,6 @@ const translations = {
     lastCost: "Último Costo",
     lastEvent: "Último Evento",
     currentLife: "Vida Actual"
-  },
-  en: {
-    title: "All Tires Details",
-    exportExcel: "Export Excel",
-    searchPlaceholder: "Search by plate, brand, design or vehicle...",
-    noResultsFound: "No results found for the search.",
-    noTiresAvailable: "No tires available",
-    vehiclePlate: "Vehicle Plate",
-    tirePlate: "Tire Plate",
-    brand: "Brand",
-    design: "Design",
-    dimension: "Dimension",
-    axle: "Axle",
-    position: "Position",
-    kmTraveled: "Km Traveled",
-    kmProjected: "Km Projected",
-    life: "Life",
-    lastInspection: "Last Inspection",
-    cpk: "CPK",
-    cpkProjected: "CPK Proj",
-    depthInt: "Depth Int",
-    depthCenter: "Depth Center",
-    depthExt: "Depth Ext",
-    wear: "Wear (%)",
-    cost: "Cost",
-    event: "Event",
-    results: "Results",
-    of: "of",
-    tires: "tires",
-    totalTires: "Total tires",
-    updated: "Updated",
-    firstLife: "First Life",
-    lastCost: "Last Cost",
-    lastEvent: "Last Event",
-    currentLife: "Current Life"
   }
 };
 
@@ -140,43 +105,14 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
   
   // Language select
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   // Language detection effect
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
+      const saved = 'es';
+      setLanguage(saved);
       
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback to browser language
-      }
-      
-      // Browser fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
     };
 
     detectAndSetLanguage();

@@ -6,7 +6,6 @@ const Addfloat = () => {
   const [message, setMessage] = useState('');
 
   const toggleChat = () => setIsOpen(!isOpen);
-
   const handleSendMessage = () => {
     if (message.trim()) {
       // Future implementation for sending messages

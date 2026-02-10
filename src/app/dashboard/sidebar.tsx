@@ -18,7 +18,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Map,
+  Truck,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -87,7 +87,7 @@ export default function Sidebar({
       {
         name: "Vehiculos",
         path: "/dashboard/vehiculoDist",
-        icon: Plus,
+        icon: Truck,
       },
     ];
   } else if (isAdmin) {
