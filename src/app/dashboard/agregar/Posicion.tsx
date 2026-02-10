@@ -86,7 +86,7 @@ interface GeocodingResponse {
 }
 
 // Language translations
-const translations: Record<'es' | 'en', Translation> = {
+const translations: Record<'es', Translation> = {
   es: {
     title: "Asignar Posiciones de Llantas",
     searchVehicle: "Buscar Vehículo",
@@ -126,45 +126,6 @@ const translations: Record<'es' | 'en', Translation> = {
     updateError: "Error al actualizar posiciones",
     unknownError: "Error desconocido"
   },
-  en: {
-    title: "Assign Tire Positions",
-    searchVehicle: "Search Vehicle",
-    enterPlate: "Enter vehicle license plate",
-    search: "Search",
-    searching: "Searching...",
-    vehicleData: "Vehicle Data",
-    plate: "Plate:",
-    type: "Type:",
-    totalTires: "Total Tires:",
-    assigned: "Assigned:",
-    inventory: "Inventory:",
-    availableTires: "Available Tires",
-    inventoryTires: "Inventory Tires",
-    tireConfig: "Tire Configuration",
-    axis: "Axis",
-    pos: "Pos",
-    inventoryZone: "Inventory Zone",
-    dragToInventory: "Drag tires here to send to inventory",
-    inventoryPos: "Inventory tires will have position 0",
-    availableZone: "Available Tires Zone - Drag unassigned tires here",
-    saveChanges: "Save Changes",
-    saving: "Saving...",
-    cancelChanges: "Cancel Changes",
-    exportChanges: "Export Changes",
-    changesFor: "change(s) for",
-    tire: "Tire",
-    orig: "Orig.",
-    new: "New",
-    noExport: "Don't export",
-    exportPDF: "Export PDF",
-    noTires: "No tires",
-    noInventoryTires: "No inventory tires",
-    noVehicleFound: "No vehicle found with this plate.",
-    noTiresFound: "No tires found associated with this vehicle.",
-    positionsUpdated: "Positions updated successfully.",
-    updateError: "Error updating positions",
-    unknownError: "Unknown error"
-  }
 };
 
 // Constants
@@ -500,7 +461,7 @@ const ExportModal: React.FC<{
 
 // Main Component
 const Posicion = () => {
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
   const [placa, setPlaca] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [allTires, setAllTires] = useState<Tire[]>([]);
@@ -513,37 +474,8 @@ const Posicion = () => {
   // Language detection
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      
-      try {
-        const pos = await new Promise<GeolocationResponse>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const data: GeocodingResponse = await resp.json();
-          const lang = (data.countryCode === 'US' || data.countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // Browser fallback
-      }
-      
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
 
     detectAndSetLanguage();

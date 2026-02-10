@@ -31,7 +31,6 @@ export type Vehicle = {
   tipovhc?: string;
 };
 
-// --- Language translations ---
 const translations = {
   es: {
     updateLife: "Actualizar Vida",
@@ -65,39 +64,6 @@ const translations = {
     position: "Posición",
     initialDepth: "Profundidad Inicial (mm)",
     enterValidDepth: "Ingrese una profundidad inicial válida (mayor a 0)"
-  },
-  en: {
-    updateLife: "Update Life",
-    searchVehicle: "Search Vehicle",
-    enterPlate: "Enter vehicle plate",
-    searching: "Searching...",
-    search: "Search",
-    vehicleData: "Vehicle Data",
-    plate: "Plate",
-    type: "Type",
-    tiresFound: "Tires Found",
-    brand: "Brand",
-    currentLife: "Current Life",
-    bandDesign: "Band/Design",
-    updateLifeBtn: "Update Life",
-    none: "None",
-    selectNewValue: "Select new value",
-    rechargeCost: "Retread cost (COP)",
-    enterValidCost: "Enter a valid cost (greater than 0)",
-    cancel: "Cancel",
-    update: "Update",
-    saving: "Saving...",
-    vehicleNotFound: "Vehicle not found",
-    errorGettingTires: "Error getting tires",
-    unexpectedError: "Unexpected error",
-    enterVehiclePlate: "Please enter the vehicle plate",
-    selectLifeValue: "Select a life value",
-    enterBandDesign: "Enter band/design",
-    invalidCost: "Invalid cost",
-    noMoreEntries: "No more entries can be added. Life is already at 'end'.",
-    position: "Position",
-    initialDepth: "Initial Depth (mm)",
-    enterValidDepth: "Enter a valid initial depth (greater than 0)"
   }
 };
 
@@ -118,7 +84,7 @@ const [milimetrosValue, setMilimetrosValue] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Language state
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   // For the modal update
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
@@ -131,38 +97,8 @@ const [milimetrosValue, setMilimetrosValue] = useState("");
   // Language detection effect
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      // Note: Using in-memory storage instead of localStorage for Claude.ai compatibility
-      // In a real environment, you would use localStorage here
-      
-      try {
-        // Try geolocation first
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { 
-            timeout: 10000 
-          });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          // In real environment: localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // Geolocation failed, fallback to browser language
-      }
-      
-      // Browser language fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
+      const lang = 'es';
       setLanguage(lang);
-      // In real environment: localStorage.setItem('preferredLanguage', lang);
     };
 
     detectAndSetLanguage();

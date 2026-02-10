@@ -6,7 +6,7 @@ import Posicion from "./Posicion";
 import OtherEvent from "./Other";
 
 interface EventoProps {
-  language: 'en' | 'es';
+  language: 'es';
 }
 
 export default function Evento({ language = 'es' }: EventoProps) {
@@ -33,28 +33,6 @@ export default function Evento({ language = 'es' }: EventoProps) {
         evento: {
           title: "Otro evento",
           description: "Agregar otros eventos como pinchazo, etc."
-        }
-      }
-    },
-    en: {
-      titleByOption: {
-        vida: "Update Life",
-        posicion: "New Rotation Record",
-        evento: "Register Other Event"
-      },
-      defaultTitle: "Select an option",
-      cards: {
-        vida: {
-          title: "Change Life",
-          description: "Change tire to retread or end of life"
-        },
-        posicion: {
-          title: "Add Rotation",
-          description: "Add a rotation to your Vehicles"
-        },
-        evento: {
-          title: "Other Event",
-          description: "Add other events like puncture, etc."
         }
       }
     }

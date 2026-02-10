@@ -89,41 +89,12 @@ export default function ResumenPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   // language select
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   useEffect(() => {
   const detectAndSetLanguage = async () => {
-    const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-    if (saved) {
-      setLanguage(saved);
-      return;
-    }
-
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        if (!navigator.geolocation) return reject('no geo');
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout:10000 });
-      });
-
-      const resp = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-      );
-      if (resp.ok) {
-        const { countryCode } = await resp.json();
-        const lang = (countryCode==='US'||countryCode==='CA') ? 'en' : 'es';
-        setLanguage(lang);
-        localStorage.setItem('preferredLanguage', lang);
-        return;
-      }
-    } catch {
-      // fallback …
-    }
-
-    // Browser‐fallback
-    const browser = navigator.language || navigator.languages?.[0] || 'es';
-    const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-    setLanguage(lang);
-    localStorage.setItem('preferredLanguage', lang);
+    const saved = 'es';
+    setLanguage(saved);
   };
 
   detectAndSetLanguage();
@@ -140,36 +111,6 @@ export default function ResumenPage() {
   }).current;
 
 const translations = {
-  en: {
-    summary: "My Summary",
-    update: "Updated",
-    welcome: "Welcome",
-    investment: "investment",
-    month: "monthly",
-    total: "total",
-    cpm: "CPM",
-    average: "average",
-    forecasted: "forecasted",
-    filters: "filters",
-    brand: "Brand",
-    all: "All",
-    allOption: "All",
-    axis: "Axis",
-    state: "State", 
-    export: "export",
-    banda: "tread",
-    vida: "life",
-    owner: "Owner",
-    // Filter options
-    filterOptions: {
-      all: "All",
-      optimal: "Optimal",
-      days60: "60 Days",
-      days30: "30 Days",
-      urgent: "Urgent",
-      noInspection: "No Inspection",
-    }
-  },
   es:{
     summary: "Mi resumen",
     update: "Actualizado",

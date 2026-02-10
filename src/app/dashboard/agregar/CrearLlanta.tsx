@@ -92,10 +92,8 @@ export default function TirePage() {
   // Language detection effect
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const lang = 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-    detectAndSetLanguage();
+    const lang = 'es';
+    setLanguage(lang);
     };
     detectAndSetLanguage();
   }, []);

@@ -109,62 +109,6 @@ const texts = {
     notRegistered: "No Registrada",
     cpk: "CPK",
     projectedCpk: "CPK Proyectado",
-  },
-  en: {
-    searchTire: "Search Tire",
-    searchDescription: "Search by vehicle plate or tire identifier",
-    searchMode: "Search mode",
-    searchByPlate: "Search by Vehicle Plate",
-    vehiclePlate: "Vehicle Plate",
-    tireId: "Tire ID",
-    enterPlate: "Enter vehicle plate",
-    enterId: "Enter tire id",
-    search: "Search",
-    loading: "Loading data...",
-    enterValue: "Please enter a value to search",
-    companyNotFound: "Company information not found",
-    vehicleNotFound: "Vehicle not found",
-    tireNotFound: "Tire not found",
-    errorTires: "Error getting tires",
-    unexpectedError: "Unexpected error",
-    tireFound: "Tire Found",
-    tiresFound: "Tires Found",
-    viewDetails: "View Details",
-    tireDetails: "Tire Details",
-    brand: "Brand",
-    position: "Position",
-    dimension: "Dimension",
-    axis: "Axis",
-    lifeHistory: "Life History",
-    detailedInfo: "Detailed Information",
-    characteristics: "Characteristics",
-    costAnalysis: "Cost analysis",
-    design: "Design",
-    initialDepth: "Initial Depth",
-    kmTraveled: "Miles Traveled",
-    currentStatus: "Current Status",
-    projectedKm: "Projected mileage",
-    lastCost: "Last Cost",
-    recentEvents: "Recent Events",
-    inspectionHistory: "Inspection History",
-    date: "Date",
-    innerDepth: "Inner Depth",
-    centerDepth: "Center Depth",
-    outerDepth: "Outer Depth",
-    image: "Image",
-    notAvailable: "Not available",
-    close: "Close",
-    deleteConfirm: "Are you sure you want to delete this inspection?",
-    deleteError: "Could not delete inspection",
-    lastInspection: "Last inspection",
-    new: "New",
-    retread1: "First Retread",
-    retread2: "Second Retread",
-    retread3: "Third Retread",
-    discard: "Discarded",
-    notRegistered: "Not Registered",
-    cpk: "CPM",
-    projectedCpk: "Forecasted CPK",
   }
 };
 
@@ -176,38 +120,13 @@ const BuscarPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   // Language detection
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout:10000 });
-        });
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode==='US'||countryCode==='CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback
-      }
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
     detectAndSetLanguage();
   }, []);

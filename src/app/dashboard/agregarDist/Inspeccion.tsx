@@ -15,58 +15,6 @@ import jsPDF from "jspdf";
 
 // Language translations
 const translations = {
-  en: {
-    title: "Tire Inspection System",
-    subtitle: "Record depth measurements and generate detailed reports",
-    vehiclePlate: "Vehicle Plate",
-    vehiclePlateHolder: "Enter vehicle plate",
-    search: "Search",
-    searching: "Searching...",
-    vehicleInfo: "Vehicle Information",
-    unionVehicle: "Union Vehicle",
-    plate: "Plate",
-    type: "Type",
-    tires: "Tires",
-    currentMileage: "Current Mileage",
-    newMileage: "New Mileage",
-    difference: "Difference",
-    tireDetails: "Tire Details",
-    brand: "Brand",
-    position: "Position",
-    depthMeasurements: "Depth Measurements",
-    interior: "Interior",
-    central: "Central",
-    exterior: "Exterior",
-    tireImage: "Tire Image",
-    mainVehicleTires: "Main Vehicle Tires",
-    unionVehicleTires: "Union Vehicle Tires",
-    updateInspections: "Update Inspections",
-    updating: "Updating...",
-    exportInspection: "Export Inspection",
-    exportToPDF: "Export to PDF",
-    generatingPDF: "Generating PDF...",
-    inspectionSavedSuccess: "Inspection has been saved successfully. You can export a PDF report with all data including CPK and projections.",
-    inspectionsUpdatedSuccess: "Inspections updated successfully",
-    noTiresFound: "No tires found for this vehicle.",
-    vehicleNotFound: "Vehicle not found",
-    errorGettingTires: "Error getting tires",
-    enterValidPlate: "Please enter a valid vehicle plate",
-    enterValidDepths: "Please enter valid numeric values for all depths",
-    zeroValuesFound: "zero value field(s) found. Do you want to continue?",
-    unexpectedError: "Unexpected error",
-    unknownError: "Unknown error",
-    errorGeneratingPDF: "Error generating PDF",
-    inspectionReport: "Inspection Report",
-    inspectionDate: "Inspection Date",
-    previousMileage: "Previous Mileage",
-    currentMileageLabel: "Current Mileage",
-    distanceTraveled: "Distance Traveled",
-    tireInspection: "Tire Inspection",
-    wearAnalysis: "Wear Analysis",
-    averageDepth: "Average Depth",
-    cpk: "CPK",
-    depths: "Depths"
-  },
   es: {
     title: "Sistema de Inspección de Neumáticos",
     subtitle: "Registre las mediciones de profundidad y genere reportes detallados",
@@ -124,7 +72,7 @@ const translations = {
 export default function InspeccionPage() {
   
   // Language detection state
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
   
   // Input states
   const [placaInput, setPlacaInput] = useState("");
@@ -218,38 +166,8 @@ export default function InspeccionPage() {
   // Language detection effect
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback to browser language
-      }
-
-      // Browser fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
 
     detectAndSetLanguage();

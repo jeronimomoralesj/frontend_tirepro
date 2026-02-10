@@ -19,45 +19,13 @@ export default function AgregarPage() {
   const contentRef = useRef<HTMLDivElement>(null);
   
   // Language select
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   // Language detection effect
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 10000
-          });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback continues below
-      }
-      
-      // Browser fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
 
     detectAndSetLanguage();
@@ -82,25 +50,6 @@ export default function AgregarPage() {
         inspeccion: "Registro de Inspección",
         evento: "Registrar Evento",
         cargamasiva: "Carga Masiva de Llantas"
-      }
-    },
-    en: {
-      mainTitle: "Add Information",
-      mainSubtitle: "Select an option to start registering data",
-      createTitle: "Create New Tire",
-      createDesc: "Register a new tire in the system",
-      bulkTitle: "Bulk Upload",
-      bulkDesc: "Upload an Excel file with multiple tires",
-      inspectionTitle: "Inspection",
-      inspectionDesc: "Register an inspection for an existing plate",
-      eventTitle: "Event",
-      eventDesc: "Register a rotation or custom event.",
-      formSubtitle: "Complete the form to continue",
-      titleByOption: {
-        crear: "Create New Tire",
-        inspeccion: "Inspection Record",
-        evento: "Register Event",
-        cargamasiva: "Bulk Tire Upload"
       }
     }
   };
