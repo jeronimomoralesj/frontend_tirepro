@@ -69,10 +69,10 @@ const t = {
   alertPlacaUnion: "Ingrese placa para unir",
   pleaseSelectClient: "Por favor seleccione un cliente",
   vehicleTypes: {
-    "2_ejes": "Trailer 2 ejes",
+    "2_ejes_trailer": "Trailer 2 ejes",
     "2_ejes_cabezote": "Cabezote 2 ejes",
-    "3_ejes": "Trailer 3 ejes",
-    "3_ejes_cabezote": "Cabezote 3 ejes"
+    "3_ejes_trailer": "Trailer 3 ejes",
+    "1_eje_cabezote": "Cabezote 1 eje"
   }
 };
 
@@ -680,10 +680,10 @@ export default function VehiculoPage() {
                     required
                     className="w-full px-3 py-2 border rounded-md"
                   >
-                    <option value="2_ejes">{t.vehicleTypes["2_ejes"]}</option>
+                    <option value="2_ejes_trailer">{t.vehicleTypes["2_ejes_trailer"]}</option>
+                    <option value="1_eje_cabezote">{t.vehicleTypes["1_eje_cabezote"]}</option>
+                    <option value="3_ejes_trailer">{t.vehicleTypes["3_ejes_trailer"]}</option>
                     <option value="2_ejes_cabezote">{t.vehicleTypes["2_ejes_cabezote"]}</option>
-                    <option value="3_ejes">{t.vehicleTypes["3_ejes"]}</option>
-                    <option value="3_ejes_cabezote">{t.vehicleTypes["3_ejes_cabezote"]}</option>
                   </select>
                 </div>
                 <div>
