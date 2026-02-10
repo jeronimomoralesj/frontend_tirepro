@@ -84,6 +84,11 @@ export default function Sidebar({
         path: "/dashboard/agregarDist",
         icon: Plus,
       },
+      {
+        name: "Vehiculos",
+        path: "/dashboard/vehiculoDist",
+        icon: Plus,
+      },
     ];
   } else if (isAdmin) {
     // Admin on pro/retail
@@ -219,7 +224,7 @@ export default function Sidebar({
               <img 
                 src={company.profileImage} 
                 alt="Company Logo" 
-                className="w-full h-full object-contain p-1" 
+                className="w-full h-full object-contain p-5" 
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-r from-[#0A183A]/20 to-[#1E76B6]/20 

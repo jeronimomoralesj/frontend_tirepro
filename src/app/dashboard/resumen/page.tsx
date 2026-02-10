@@ -17,7 +17,6 @@ import ReencaucheHistorico from "../cards/reencaucheHistorico";
 import TanqueMilimetro from "../cards/tanqueMilimetro";
 import HistoricChart from "../cards/historicChart";
 import Notificaciones from "../cards/Notificaciones";
-import ChatbotWeb from "../chatBot/page";
 export type CostEntry = {
   valor: number;
   fecha: string;
@@ -953,7 +952,6 @@ const fetchCompany = useCallback(async (companyId: string) => {
           )}
         </main>
       </div>
-      <ChatbotWeb />
     </div>
   );
 }

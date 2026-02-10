@@ -1,9 +1,13 @@
-
 "use client";
 
 import React, { useState, useEffect, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Database, Trash2, X, Truck, Link2 } from "lucide-react";
+import { Plus, Database, Trash2, X, Truck, Link2, ChevronDown } from "lucide-react";
+
+type Company = {
+  id: string;
+  name: string;
+};
 
 type Vehicle = {
   id: string;
@@ -19,100 +23,56 @@ type Vehicle = {
 };
 
 // Translations
-const translations = {
-  es: {
-    title: "Gestión de Vehículos",
-    addVehicle: "Añadir Vehículo",
-    vehicleList: "Lista de Vehículos",
-    noVehicles: "No se encontraron vehículos.",
-    connectedVehicles: "Vehículos Conectados",
-    individualVehicles: "Vehículos Individuales",
-    createVehicle: "Crear Vehículo",
-    placa: "Placa",
-    kilometraje: "Kilometraje",
-    carga: "Carga",
-    peso: "Peso",
-    llantas: "Llantas",
-    dueno: "Dueño",
-    uniones: "Uniones",
-    ninguna: "Ninguna",
-    unir: "Unir",
-    eliminar: "Eliminar",
-    placaOtroVehiculo: "Placa del otro vehiculo",
-    kilometrajeActual: "Kilometraje Actual",
-    pesoCarga: "Peso de Carga (kg)",
-    tipoVehiculo: "Tipo de Vehículo",
-    duenoOpcional: "Dueño (opcional)",
-    nombreCliente: "Nombre del cliente",
-    cancelar: "Cancelar",
-    crear: "Crear",
-    eliminarVehiculo: "¿Eliminar {placa}?",
-    eliminarConexion: "¿Eliminar conexión?",
-    eliminarConexionConfirm: "¿Está seguro que desea eliminar esta conexión entre vehículos?",
-    eliminarConexionBtn: "Eliminar Conexión",
-    sinPlaca: "SIN PLACA",
-    sinTipo: "Sin tipo",
-    errorCompanyId: "No companyId found on user",
-    errorParsingUser: "Error parsing user data",
-    errorFetchVehicles: "Failed to fetch vehicles",
-    errorCreateVehicle: "Failed to create vehicle",
-    errorDeleteVehicle: "Failed to delete vehicle",
-    errorAddUnion: "Fallo al añadir unión",
-    errorRemoveUnion: "Fallo al eliminar unión",
-    alertPlacaUnion: "Ingrese placa para unir",
-    vehicleTypes: {
-      "2_ejes": "Trailer 2 ejes",
-      "2_ejes_cabezote": "Cabezote 2 ejes",
-      "3_ejes": "Trailer 3 ejes",
-      "3_ejes_cabezote": "Cabezote 3 ejes"
-    }
-  },
-  en: {
-    title: "Vehicle Management",
-    addVehicle: "Add Vehicle",
-    vehicleList: "Vehicle List",
-    noVehicles: "No vehicles found.",
-    connectedVehicles: "Connected Vehicles",
-    individualVehicles: "Individual Vehicles",
-    createVehicle: "Create Vehicle",
-    placa: "License Plate",
-    kilometraje: "Mileage",
-    carga: "Load",
-    peso: "Weight",
-    llantas: "Tires",
-    dueno: "Owner",
-    uniones: "Connections",
-    ninguna: "None",
-    unir: "Connect",
-    eliminar: "Delete",
-    placaOtroVehiculo: "Other vehicle's plate",
-    kilometrajeActual: "Current Mileage",
-    pesoCarga: "Load Weight (kg)",
-    tipoVehiculo: "Vehicle Type",
-    duenoOpcional: "Owner (optional)",
-    nombreCliente: "Client name",
-    cancelar: "Cancel",
-    crear: "Create",
-    eliminarVehiculo: "Delete {placa}?",
-    eliminarConexion: "Delete connection?",
-    eliminarConexionConfirm: "Are you sure you want to delete this connection between vehicles?",
-    eliminarConexionBtn: "Delete Connection",
-    sinPlaca: "NO PLATE",
-    sinTipo: "No type",
-    errorCompanyId: "No companyId found on user",
-    errorParsingUser: "Error parsing user data",
-    errorFetchVehicles: "Failed to fetch vehicles",
-    errorCreateVehicle: "Failed to create vehicle",
-    errorDeleteVehicle: "Failed to delete vehicle",
-    errorAddUnion: "Failed to add connection",
-    errorRemoveUnion: "Failed to remove connection",
-    alertPlacaUnion: "Enter plate to connect",
-    vehicleTypes: {
-      "2_ejes": "2-axle Trailer",
-      "2_ejes_cabezote": "2-axle Truck",
-      "3_ejes": "3-axle Trailer",
-      "3_ejes_cabezote": "3-axle Truck"
-    }
+const t = {
+  title: "Gestión de Vehículos",
+  addVehicle: "Añadir Vehículo",
+  vehicleList: "Lista de Vehículos",
+  noVehicles: "No se encontraron vehículos.",
+  connectedVehicles: "Vehículos Conectados",
+  individualVehicles: "Vehículos Individuales",
+  createVehicle: "Crear Vehículo",
+  selectClient: "Cliente",
+  allClients: "Todos",
+  selectClientForVehicle: "Seleccionar Cliente",
+  selectClientPlaceholder: "Seleccione un cliente para el vehículo",
+  placa: "Placa",
+  kilometraje: "Kilometraje",
+  carga: "Carga",
+  peso: "Peso",
+  llantas: "Llantas",
+  dueno: "Dueño",
+  uniones: "Uniones",
+  ninguna: "Ninguna",
+  unir: "Unir",
+  eliminar: "Eliminar",
+  placaOtroVehiculo: "Placa del otro vehiculo",
+  kilometrajeActual: "Kilometraje Actual",
+  pesoCarga: "Peso de Carga (kg)",
+  tipoVehiculo: "Tipo de Vehículo",
+  duenoOpcional: "Dueño (opcional)",
+  nombreCliente: "Nombre del cliente",
+  cancelar: "Cancelar",
+  crear: "Crear",
+  eliminarVehiculo: "¿Eliminar {placa}?",
+  eliminarConexion: "¿Eliminar conexión?",
+  eliminarConexionConfirm: "¿Está seguro que desea eliminar esta conexión entre vehículos?",
+  eliminarConexionBtn: "Eliminar Conexión",
+  sinPlaca: "SIN PLACA",
+  sinTipo: "Sin tipo",
+  errorCompanyId: "No companyId found on user",
+  errorParsingUser: "Error parsing user data",
+  errorFetchVehicles: "Failed to fetch vehicles",
+  errorCreateVehicle: "Failed to create vehicle",
+  errorDeleteVehicle: "Failed to delete vehicle",
+  errorAddUnion: "Fallo al añadir unión",
+  errorRemoveUnion: "Fallo al eliminar unión",
+  alertPlacaUnion: "Ingrese placa para unir",
+  pleaseSelectClient: "Por favor seleccione un cliente",
+  vehicleTypes: {
+    "2_ejes": "Trailer 2 ejes",
+    "2_ejes_cabezote": "Cabezote 2 ejes",
+    "3_ejes": "Trailer 3 ejes",
+    "3_ejes_cabezote": "Cabezote 3 ejes"
   }
 };
 
@@ -122,7 +82,11 @@ export default function VehiculoPage() {
   const [loadingVehicles, setLoadingVehicles] = useState(false);
   const [error, setError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+
+  // Company/Client state
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<string>("Todos");
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
   // State for delete confirmation modal
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
@@ -135,11 +99,12 @@ export default function VehiculoPage() {
 
   // Form state for creating a vehicle
   const [placa, setPlaca] = useState("");
-  const [kilometrajeActual, setKilometrajeActual] = useState<number>(0);
+  const [kilometrajeActual, setKilometrajeActual] = useState<number>();
   const [carga, setCarga] = useState("");
-  const [pesoCarga, setPesoCarga] = useState<number>(0);
+  const [pesoCarga, setPesoCarga] = useState<number>();
   const [tipovhc, setTipovhc] = useState("2_ejes");
   const [cliente, setCliente] = useState("");
+  const [formSelectedCompany, setFormSelectedCompany] = useState<string>("");
 
   // Union placa inputs per vehicle
   const [plateInputs, setPlateInputs] = useState<{ [vehicleId: string]: string }>({});
@@ -147,48 +112,11 @@ export default function VehiculoPage() {
   // Flag to show/hide union inputs
   const [showUnionInput, setShowUnionInput] = useState<{ [key: string]: boolean }>({});
 
-  // Retrieve the companyId from stored user data
-  const [companyId, setCompanyId] = useState<string>("");
-
   const API_BASE =
     process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") 
     ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
     : "https://api.tirepro.com.co/api";
-
-  const t = translations[language];
   
-  // Language detection
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout:10000 });
-        });
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode==='US'||countryCode==='CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {}
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
-    };
-    detectAndSetLanguage();
-  }, []);
-
   // Organize vehicles by their connections
   const organizedVehicles = useMemo(() => {
     const processed = new Set<string>();
@@ -216,93 +144,178 @@ export default function VehiculoPage() {
     return groups;
   }, [vehicles]);
 
+  // Fetch companies on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.companyId) {
-          setCompanyId(user.companyId);
-          fetchVehicles(user.companyId);
-        } else {
-          setError(t.errorCompanyId);
-        }
-      } catch {
-        setError(t.errorParsingUser);
-        router.push("/login");
+    fetchCompanies();
+  }, []);
+
+  // Fetch vehicles when selected company changes
+  useEffect(() => {
+    if (selectedCompany !== "Todos") {
+      const company = companies.find(c => c.name === selectedCompany);
+      if (company) {
+        fetchVehicles(company.id);
       }
     } else {
-      router.push("/login");
+      // Fetch all vehicles from all companies
+      fetchAllVehicles();
     }
-  }, [router, t]);
+  }, [selectedCompany, companies]);
 
-async function fetchVehicles(companyId: string) {
-  setLoadingVehicles(true);
-  setError("");
-  try {
-    const res = await fetch(`${API_BASE}/vehicles?companyId=${companyId}`);
-    if (!res.ok) throw new Error(t.errorFetchVehicles);
-    
-    const data = await res.json();
-    const safeData = data.map(vehicle => ({
-      ...vehicle,
-      union: Array.isArray(vehicle.union) ? vehicle.union : [],
-    }));
-    
-    setVehicles(safeData);
-  } catch (err: unknown) {
-    setError(err instanceof Error ? err.message : "Unexpected error");
-  } finally {
-    setLoadingVehicles(false);
+  async function fetchCompanies() {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("No se encontró token de autenticación");
+        return;
+      }
+
+      const res = await fetch(
+        `${API_BASE}/companies/me/clients`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) throw new Error("Error fetching companies");
+
+      const data = await res.json();
+
+      const companyList: Company[] = data.map((access: any) => ({
+        id: access.company.id,
+        name: access.company.name,
+      }));
+
+      setCompanies(companyList);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Error fetching companies");
+    }
   }
-}
 
-async function handleCreateVehicle(e: FormEvent) {
-  e.preventDefault();
-  setError("");
-  
-  try {
-    const res = await fetch(`${API_BASE}/vehicles/create`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        placa,
-        kilometrajeActual,
-        carga,
-        pesoCarga,
-        tipovhc,
-        companyId,
-        cliente: cliente.trim() || null  
-      }),
-    });
+  async function fetchVehicles(companyId: string) {
+    setLoadingVehicles(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles?companyId=${companyId}`);
+      if (!res.ok) throw new Error(t.errorFetchVehicles);
+      
+      const data = await res.json();
+      const safeData = data.map(vehicle => ({
+        ...vehicle,
+        union: Array.isArray(vehicle.union) ? vehicle.union : [],
+      }));
+      
+      setVehicles(safeData);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unexpected error");
+    } finally {
+      setLoadingVehicles(false);
+    }
+  }
+
+  async function fetchAllVehicles() {
+    setLoadingVehicles(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token || companies.length === 0) {
+        setLoadingVehicles(false);
+        return;
+      }
+
+      const allVehicles: Vehicle[] = [];
+
+      await Promise.all(
+        companies.map(async (company) => {
+          const res = await fetch(
+            `${API_BASE}/vehicles?companyId=${company.id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          if (res.ok) {
+            const vehicles: Vehicle[] = await res.json();
+            const safeVehicles = vehicles.map(vehicle => ({
+              ...vehicle,
+              union: Array.isArray(vehicle.union) ? vehicle.union : [],
+            }));
+            allVehicles.push(...safeVehicles);
+          }
+        })
+      );
+
+      setVehicles(allVehicles);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unexpected error");
+    } finally {
+      setLoadingVehicles(false);
+    }
+  }
+
+  async function handleCreateVehicle(e: FormEvent) {
+    e.preventDefault();
+    setError("");
     
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || t.errorCreateVehicle);
+    // Validate company selection
+    if (!formSelectedCompany) {
+      setError(t.pleaseSelectClient);
+      return;
+    }
+
+    // Get the selected company ID
+    const company = companies.find(c => c.name === formSelectedCompany);
+    if (!company) {
+      setError("Company not found");
+      return;
     }
     
-    const responseData = await res.json();
-    const newVehicle = responseData.vehicle;
-    
-    const safeVehicle = {
-      ...newVehicle,
-      union: Array.isArray(newVehicle.union) ? newVehicle.union : [],
-    };
-    
-    setVehicles((prev) => [...prev, safeVehicle]);
-    
-    // reset form
-    setPlaca("");
-    setKilometrajeActual(0);
-    setCarga("");
-    setPesoCarga(0);
-    setTipovhc("2_ejes");
-    setCliente("");
-    setIsFormOpen(false);
-  } catch (err: unknown) {
-    setError(err instanceof Error ? err.message : "Unexpected error");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placa,
+          kilometrajeActual,
+          carga,
+          pesoCarga,
+          tipovhc,
+          companyId: company.id,
+          cliente: cliente.trim() || null  
+        }),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || t.errorCreateVehicle);
+      }
+      
+      const responseData = await res.json();
+      const newVehicle = responseData.vehicle;
+      
+      const safeVehicle = {
+        ...newVehicle,
+        union: Array.isArray(newVehicle.union) ? newVehicle.union : [],
+      };
+      
+      setVehicles((prev) => [...prev, safeVehicle]);
+      
+      // reset form
+      setPlaca("");
+      setKilometrajeActual(0);
+      setCarga("");
+      setPesoCarga(0);
+      setTipovhc("2_ejes");
+      setCliente("");
+      setFormSelectedCompany("");
+      setIsFormOpen(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unexpected error");
+    }
   }
-}
 
   async function handleDeleteVehicle(vehicleId: string) {
     setError("");
@@ -388,96 +401,131 @@ async function handleCreateVehicle(e: FormEvent) {
     }));
   }
 
-const VehicleCard = ({ vehicle, isConnected = false, connectionIndex = 0, onRemoveConnection = null }) => (
-  <div 
-    className="relative border border-[#348CCB]/20 rounded-lg shadow-md p-4 flex flex-col justify-between bg-white max-w-xs w-full "
-    style={{ zIndex: 5 }}
-  >
-    {isConnected && connectionIndex > 0 && onRemoveConnection && (
-      <div 
-        className="absolute left-0 top-1/2 transform -translate-x-full -translate-y-1/2 w-4 md:w-6 h-1 bg-[#1E76B6] cursor-pointer hover:bg-[#0A183A]"
-        onClick={onRemoveConnection}
-      />
-    )}
-    
-    <div className="space-y-2">
-      <div className="flex justify-between items-center border-b pb-2">
-        <span className="font-bold text-[#173D68]">{vehicle.placa?.toUpperCase() || t.sinPlaca}</span>
-        <span className="bg-[#1E76B6]/10 text-[#1E76B6] px-2 py-1 rounded text-xs">
-          {vehicle.tipovhc || t.sinTipo}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-2 pt-2 text-sm">
-        <span>{t.kilometraje}:</span>
-        <span className="text-right">{vehicle.kilometrajeActual || 0} km</span>
-        <span>{t.carga}:</span>
-        <span className="text-right">{vehicle.carga || "N/A"}</span>
-        <span>{t.peso}:</span>
-        <span className="text-right">{vehicle.pesoCarga || 0} kg</span>
-        <span>{t.llantas}:</span>
-        <span className="text-right">{vehicle.tireCount || 0}</span>
-        <span>{t.dueno}:</span>
-        <span className="text-right">
-          {vehicle.cliente ? vehicle.cliente : "Propio"}
-        </span>
-        <span>{t.uniones}:</span>
-        <span className="text-right">
-          {vehicle.union && Array.isArray(vehicle.union) && vehicle.union.length > 0 
-            ? vehicle.union.join(", ") 
-            : t.ninguna}
-        </span>
-      </div>
-    </div>
-
-    <div className="mt-4 space-y-2">
-      <div className="flex gap-2">
-        <button
-          onClick={() => toggleUnionInput(vehicle.id)}
-          className="flex-1 bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-2 rounded hover:bg-[#1E76B6]/20 flex items-center justify-center"
-        >
-          {t.unir}
-        </button>
-        <button
-          onClick={() => setVehicleToDelete(vehicle)}
-          className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 flex items-center justify-center"
-        >
-          {t.eliminar}
-        </button>
+  const VehicleCard = ({ vehicle, isConnected = false, connectionIndex = 0, onRemoveConnection = null }) => (
+    <div 
+      className="relative border border-[#348CCB]/20 rounded-lg shadow-md p-4 flex flex-col justify-between bg-white max-w-xs w-full "
+      style={{ zIndex: 5 }}
+    >
+      {isConnected && connectionIndex > 0 && onRemoveConnection && (
+        <div 
+          className="absolute left-0 top-1/2 transform -translate-x-full -translate-y-1/2 w-4 md:w-6 h-1 bg-[#1E76B6] cursor-pointer hover:bg-[#0A183A]"
+          onClick={onRemoveConnection}
+        />
+      )}
+      
+      <div className="space-y-2">
+        <div className="flex justify-between items-center border-b pb-2">
+          <span className="font-bold text-[#173D68]">{vehicle.placa?.toUpperCase() || t.sinPlaca}</span>
+          <span className="bg-[#1E76B6]/10 text-[#1E76B6] px-2 py-1 rounded text-xs">
+            {vehicle.tipovhc || t.sinTipo}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 pt-2 text-sm">
+          <span>{t.kilometraje}:</span>
+          <span className="text-right">{vehicle.kilometrajeActual} km</span>
+          <span>{t.carga}:</span>
+          <span className="text-right">{vehicle.carga || "N/A"}</span>
+          <span>{t.peso}:</span>
+          <span className="text-right">{vehicle.pesoCarga} kg</span>
+          <span>{t.llantas}:</span>
+          <span className="text-right">{vehicle.tireCount}</span>
+          <span>{t.dueno}:</span>
+          <span className="text-right">
+            {vehicle.cliente ? vehicle.cliente : "Propio"}
+          </span>
+          <span>{t.uniones}:</span>
+          <span className="text-right">
+            {vehicle.union && Array.isArray(vehicle.union) && vehicle.union.length > 0 
+              ? vehicle.union.join(", ") 
+              : t.ninguna}
+          </span>
+        </div>
       </div>
 
-      {showUnionInput[vehicle.id] && (
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            placeholder={t.placaOtroVehiculo}
-            value={plateInputs[vehicle.id] || ""}
-            onChange={(e) => handlePlateInputChange(vehicle.id, e.target.value)}
-            className="flex-1 px-2 py-1 border rounded-md"
-          />
+      <div className="mt-4 space-y-2">
+        <div className="flex gap-2">
           <button
-            onClick={() => addUnion(vehicle.id)}
-            className="px-2 bg-[#1E76B6] text-white rounded hover:bg-[#173D68]"
+            onClick={() => toggleUnionInput(vehicle.id)}
+            className="flex-1 bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-2 rounded hover:bg-[#1E76B6]/20 flex items-center justify-center"
           >
-            ➕
+            {t.unir}
+          </button>
+          <button
+            onClick={() => setVehicleToDelete(vehicle)}
+            className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 flex items-center justify-center"
+          >
+            {t.eliminar}
           </button>
         </div>
-      )}
+
+        {showUnionInput[vehicle.id] && (
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              placeholder={t.placaOtroVehiculo}
+              value={plateInputs[vehicle.id] || ""}
+              onChange={(e) => handlePlateInputChange(vehicle.id, e.target.value)}
+              className="flex-1 px-2 py-1 border rounded-md"
+            />
+            <button
+              onClick={() => addUnion(vehicle.id)}
+              className="px-2 bg-[#1E76B6] text-white rounded hover:bg-[#173D68]"
+            >
+              ➕
+            </button>
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+
+  const companyOptions = [t.allClients, ...companies.map(c => c.name)];
 
   return (
     <div className="min-h-screen text-[#0A183A] antialiased bg-gray-50">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
           <h1 className="text-2xl md:text-3xl font-bold">{t.title}</h1>
-          <button
-            onClick={() => setIsFormOpen(!isFormOpen)}
-            className="bg-[#1E76B6] text-white px-4 py-2 rounded-lg hover:bg-[#348CCB] flex items-center"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            {t.addVehicle}
-          </button>
+          <div className="flex gap-3 items-center">
+            {/* Company Filter */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
+                className="px-4 py-2 bg-white border-2 border-[#348CCB]/30 text-[#0A183A] rounded-lg hover:bg-gray-50 flex items-center gap-2 min-w-[200px] justify-between"
+              >
+                <span className="text-sm font-medium">{t.selectClient}: {selectedCompany}</span>
+                <ChevronDown size={16} />
+              </button>
+              {showCompanyDropdown && (
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg py-2 z-10 max-h-80 overflow-y-auto border-2 border-[#348CCB]/30">
+                  {companyOptions.map((company) => (
+                    <button
+                      key={company}
+                      type="button"
+                      className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                        selectedCompany === company ? "bg-blue-50 text-blue-700 font-medium" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedCompany(company);
+                        setShowCompanyDropdown(false);
+                      }}
+                    >
+                      {company}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={() => setIsFormOpen(!isFormOpen)}
+              className="bg-[#1E76B6] text-white px-4 py-2 rounded-lg hover:bg-[#348CCB] flex items-center"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              {t.addVehicle}
+            </button>
+          </div>
         </header>
 
         {error && (
@@ -566,6 +614,24 @@ const VehicleCard = ({ vehicle, isConnected = false, connectionIndex = 0, onRemo
                 </button>
               </div>
               <form onSubmit={handleCreateVehicle} className="p-4 space-y-4">
+                {/* Client Selection */}
+                <div>
+                  <label className="block mb-1 font-semibold">{t.selectClientForVehicle} <span className="text-red-500">*</span></label>
+                  <select
+                    value={formSelectedCompany}
+                    onChange={(e) => setFormSelectedCompany(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 border-2 border-[#348CCB]/30 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-[#1E76B6]"
+                  >
+                    <option value="">{t.selectClientPlaceholder}</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.name}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
                 <div>
                   <label className="block mb-1">{t.placa}</label>
                   <input
@@ -672,6 +738,7 @@ const VehicleCard = ({ vehicle, isConnected = false, connectionIndex = 0, onRemo
             </div>
           </div>
         )}
+        
         {/* Union Deletion Confirmation */}
         {unionToDelete && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
