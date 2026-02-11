@@ -30,32 +30,6 @@ const translations = {
     retry: "Reintentar",
     errorSaving: "Error guardando ingreso",
     errorDeleting: "Error eliminando ingreso"
-  },
-  en: {
-    title: "Income Management",
-    tooltip: "Manage and track all your income. You can add, edit and delete income records.",
-    totalIncome: "Total income:",
-    addIncome: "Add Income",
-    noIncomesTitle: "No income records",
-    noIncomesDesc: "Start by adding your first income to begin tracking your finances.",
-    addFirstIncome: "Add First Income",
-    editIncome: "Edit Income",
-    newIncome: "New Income",
-    titleField: "Title",
-    dateField: "Date",
-    amountField: "Amount",
-    noteField: "Note",
-    titlePlaceholder: "Income name",
-    amountPlaceholder: "0.00",
-    notePlaceholder: "Additional information (optional)",
-    cancel: "Cancel",
-    save: "Save",
-    saving: "Saving...",
-    deleteConfirm: "Delete this income?",
-    connectionError: "Connection error",
-    retry: "Retry",
-    errorSaving: "Error saving income",
-    errorDeleting: "Error deleting income"
   }
 };
 
@@ -70,7 +44,7 @@ type Income = {
 };
 
 export default function IncomeCard() {
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [totalIncome, setTotalIncome] = useState(0);
   const [showModal, setShowModal] = useState(false);
@@ -85,45 +59,8 @@ export default function IncomeCard() {
   useEffect(() => {
     const detectAndSetLanguage = async () => {
       // Check for saved language preference
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      
-      try {
-        // Try geolocation-based detection
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback to browser language
-      }
-      
-      // Browser fallback
-      const browser =
-  navigator.language ||
-  (Array.isArray((navigator as Navigator & { languages?: string[] }).languages)
-    ? (navigator as Navigator & { languages: string[] }).languages[0]
-    : null) ||
-  'es';
-
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
 
     detectAndSetLanguage();

@@ -16,21 +16,10 @@ type ViewMode = "individual" | "acumulado";
 
 interface ReencaucheHistoricoProps {
   tires: Tire[];
-  language?: "en" | "es";
+  language?: "es";
 }
 
 const translations = {
-  en: {
-    title: "Retreading History",
-    individualView: "Individual View",
-    cumulativeView: "Cumulative View",
-    month: "Month",
-    retreadsQuantity: "Number of Retreads",
-    cumulativeTotal: "Cumulative Total",
-    tooltipIndividual: "This table shows how many retreads you have had over the last months.",
-    tooltipCumulative: " The cumulative view accumulates the total up to each month.",
-    totalRetreads: "Total Retreads"
-  },
   es: {
     title: "Reencauche Histórico",
     individualView: "Vista Individual",

@@ -31,7 +31,7 @@ export default function ManageUsers() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all"); // "all", "admin", "regular"
+  const [selectedFilter, setSelectedFilter] = useState("all");
 
   useEffect(() => {
     if (!auth.user?.companyId) return;

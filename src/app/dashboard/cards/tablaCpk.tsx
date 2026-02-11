@@ -44,19 +44,6 @@ const translations = {
     brand: "Marca",
     noResults: "No se encontraron resultados para la búsqueda.",
     noData: "No hay datos de CPK disponibles."
-  },
-  en: {
-    title: "Best CPK",
-    helpTooltip: "This table shows a historical ranking of your tires with the best CPK",
-    searchPlaceholder: "Search by plate or brand...",
-    id: "ID",
-    cpk: "CPK",
-    cpkProjected: "CPK Proj",
-    life: "Life",
-    position: "Position",
-    brand: "Brand",
-    noResults: "No results found for the search.",
-    noData: "No CPK data available."
   }
 };
 
@@ -64,43 +51,13 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
   const [searchTerm, setSearchTerm] = useState("");
   
   // Language state and detection
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   // Language detection effect
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback to browser language
-      }
-      
-      // Browser fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
 
     detectAndSetLanguage();
@@ -146,22 +103,6 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
     );
   }, [sortedTires, searchTerm]);
 
-  // Language toggle component
-  const LanguageToggle = () => (
-    <div className="flex items-center space-x-2">
-      <button
-        onClick={() => {
-          const newLang = language === 'es' ? 'en' : 'es';
-          setLanguage(newLang);
-          localStorage.setItem('preferredLanguage', newLang);
-        }}
-        className="px-3 py-1.5 bg-white/20 text-white rounded hover:bg-white/30 transition flex items-center text-sm"
-      >
-        {language === 'es' ? 'EN' : 'ES'}
-      </button>
-    </div>
-  );
-
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
@@ -185,7 +126,6 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
             </div>
           </div>
         </div>
-        <LanguageToggle />
       </div>
       
       <div className="p-4 border-b border-gray-200">

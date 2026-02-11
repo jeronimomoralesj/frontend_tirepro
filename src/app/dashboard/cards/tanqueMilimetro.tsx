@@ -20,17 +20,11 @@ export type Tire = {
 
 interface TanqueMilimetroProps {
   tires: Tire[];
-  language?: "en" | "es"; // Language prop
+  language?: "es"; // Language prop
 }
 
 // Translation object
 const translations = {
-  en: {
-    title: "Tank per Millimeter",
-    averageWear: "Average Wear",
-    totalTires: "Total Tires",
-    tooltipText: "Percentage of available usage for all tires in the fleet. Example: if 30% remains, it means only 30% of the average useful life remains for all tires."
-  },
   es: {
     title: "Tanque por Milímetro",
     averageWear: "Desgaste Promedio",
@@ -41,7 +35,7 @@ const translations = {
 
 const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({ 
   tires, 
-  language = "es" // Default to Spanish
+  language = "es"
 }) => {
   const t = translations[language];
 

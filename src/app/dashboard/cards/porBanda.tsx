@@ -30,12 +30,6 @@ const translations = {
         quantity: "Cantidad:",
         brand: "Banda:",
     },
-    en: {
-        title: "Tire by tread",
-        tooltip: "This chart shows how tires are distributed by tread, that is, the number of tires for each tread.",
-        quantity: "Quantity:",
-        brand: "Tread:",
-    }
 }
 
 interface PorBandaProps{
@@ -43,42 +37,12 @@ interface PorBandaProps{
 }
 
 const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-         
-      }
-      
-      // Browser fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
 
     detectAndSetLanguage();

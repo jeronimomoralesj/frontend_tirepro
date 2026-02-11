@@ -20,23 +20,7 @@ export type Tire = {
 };
 
 const translations = {
-  en: {
-    title: "Status",
-    tooltip:
-      "This donut chart shows how many tires are in each condition bucket.",
-    noData: "No inspections available",
-    inspected: "tires inspected",
-    totalConditions: "Total conditions",
-    footerText: "Current tire status",
-    tire: "tires",
-    labels: {
-      buenEstado: "Optimal",
-      dias60: "60 Days",
-      dias30: "30 Days",
-      cambioInmediato: "Urgent",
-    },
-  },
-  es: {
+ es: {
     title: "Semáforo",
     tooltip:
       "Esta gráfica en dona muestra las proyecciones de cambio de sus llantas.",
@@ -58,7 +42,7 @@ interface SemaforoPieProps {
   tires: Tire[];
   onSelectCondition?: (condition: string | null) => void;
   selectedCondition?: string | null;
-  language: "en" | "es";
+  language: "es";
 }
 
 const SemaforoPie: React.FC<SemaforoPieProps> = ({ 

@@ -42,15 +42,6 @@ const translations = {
     totalLifeTypes: "Total de tipos de vida:",
     currentTireStatus: "Estado actual de llantas",
     tiresLabel: "llantas"
-  },
-  en: {
-    title: "Tires by Life",
-    tooltip: "This chart shows how tires are distributed according to their useful life, for example: new, retread1, retread2, etc.",
-    noDataAvailable: "No life data available",
-    inspectedTires: "inspected tires",
-    totalLifeTypes: "Total life types:",
-    currentTireStatus: "Current tire status",
-    tiresLabel: "tires"
   }
 };
 
@@ -61,43 +52,13 @@ const PorVida: React.FC<PorVidaProps> = ({
 }) => {
   
   // Language detection state
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   // Language detection effect
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback to browser language detection
-      }
-      
-      // Browser fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
 
     detectAndSetLanguage();

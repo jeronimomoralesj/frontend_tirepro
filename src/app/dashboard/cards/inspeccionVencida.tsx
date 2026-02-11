@@ -20,22 +20,6 @@ const translations = {
     noInspections: "No inspecciones",
     totalExpired: "Total con inspección vencida:",
     updated: "Actualizado:"
-  },
-  en: {
-    title: "Expired Inspection",
-    tooltip: "In this space you find the tires that have not been inspected in your selected period, that is, if you selected daily, the tires have not been inspected during the day.",
-    loading: "Loading...",
-    noCompanyId: "Company ID not found",
-    fetchError: "Error fetching tire data",
-    unknownError: "Unknown error",
-    noExpiredInspections: "No tires with expired inspection",
-    tireId: "Tire ID",
-    position: "Position",
-    brand: "Brand",
-    lastInspection: "Last Inspection",
-    noInspections: "No inspections",
-    totalExpired: "Total with expired inspection:",
-    updated: "Updated:"
   }
 };
 
@@ -61,42 +45,12 @@ const InspeccionVencidaPage: React.FC = () => {
   const [tires, setTires] = useState<Tire[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback to browser language
-      }
-      
-      // Browser fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
+      const saved = 'es';
+      setLanguage(saved);
     };
 
     detectAndSetLanguage();
@@ -222,7 +176,6 @@ const InspeccionVencidaPage: React.FC = () => {
                           <td className="px-4 py-3 text-sm text-gray-700">
                             {lastInspection
                               ? new Date(lastInspection.fecha).toLocaleDateString(
-                                  language === 'en' ? 'en-US' : 'es-ES'
                                 )
                               : t.noInspections}
                           </td>
@@ -239,7 +192,6 @@ const InspeccionVencidaPage: React.FC = () => {
               </div>
               <div className="text-xs text-gray-500">
                 {t.updated} {new Date().toLocaleDateString(
-                  language === 'en' ? 'en-US' : 'es-ES'
                 )}
               </div>
             </div>

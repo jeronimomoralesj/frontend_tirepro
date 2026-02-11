@@ -44,24 +44,10 @@ export type Tire = {
 
 interface HistoricChartProps {
   tires: Tire[];
-  language: "en" | "es";
+  language: "es";
 }
 
 const translations = {
-  en: {
-    title:          "Inspection History",
-    noData:         "No inspection data available for",
-    totalDays:      "Total Days",
-    footerNote:     "Showing only days with inspections",
-    cpk:            "CPM",
-    cpkProjected:   "Forecasted CPM",
-    profundidadInt: "Interior Depth",
-    profundidadCen: "Center Depth",
-    profundidadExt: "Exterior Depth",
-    tooltipDate:    "Date",
-    tooltipValue:   (label: string, value: number) => `${label}: ${value}`,
-    selectVariable: "Select metric",
-  },
   es: {
     title:          "Histórico de Inspecciones",
     noData:         "No hay datos de inspección disponibles para",

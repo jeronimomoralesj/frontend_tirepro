@@ -48,12 +48,12 @@ const translations = {
 export default function Notificaciones() {
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState<Notification[]>([]);
-  const [language, setLanguage] = useState<'en'|'es'>('es');
+  const [language, setLanguage] = useState<'es'>('es');
 
   // Language detection effect
   useEffect(() => {
     const detectAndSetLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage') as 'en'|'es';
+      const saved = 'es';
       if (saved) {
         setLanguage(saved);
         return;
