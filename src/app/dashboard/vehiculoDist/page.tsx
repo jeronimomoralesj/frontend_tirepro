@@ -768,6 +768,7 @@ export default function VehiculoPage() {
                     <option value="1_eje_cabezote">{t.vehicleTypes["1_eje_cabezote"]}</option>
                     <option value="3_ejes_trailer">{t.vehicleTypes["3_ejes_trailer"]}</option>
                     <option value="2_ejes_cabezote">{t.vehicleTypes["2_ejes_cabezote"]}</option>
+                    <option value="furgon">{t.vehicleTypes["furgon"]}</option>
                   </select>
                 </div>
                 <div>
@@ -861,6 +862,7 @@ export default function VehiculoPage() {
                     <option value="1_eje_cabezote">{t.vehicleTypes["1_eje_cabezote"]}</option>
                     <option value="3_ejes_trailer">{t.vehicleTypes["3_ejes_trailer"]}</option>
                     <option value="2_ejes_cabezote">{t.vehicleTypes["2_ejes_cabezote"]}</option>
+                    <option value="furgon">{t.vehicleTypes["furgon"]}</option>
                   </select>
                 </div>
                 <div>
