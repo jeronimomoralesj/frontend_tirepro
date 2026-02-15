@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback } from "react";
 type Company = {
   id: string;
   name: string;
+  vehicleCount: number;
+  tireCount: number;
 };
 
 type Notification = {
@@ -107,44 +109,76 @@ const [vidaStats, setVidaStats] = useState({
   // Metrics state
   const [totalClients, setTotalClients] = useState(0);
 
-  const fetchCompanies = useCallback(async () => {
-    try {
-      setLoading(true);
+const fetchCompanies = useCallback(async () => {
+  try {
+    setLoading(true);
 
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("No se encontró token de autenticación");
-        return;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
-      const res = await fetch(
-        `https://api.tirepro.com.co/api/companies/me/clients`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!res.ok) throw new Error("Error fetching companies");
-
-     const data = await res.json();
-
-        const companies: Company[] = data.map((access: any) => ({
-        id: access.company.id,
-        name: access.company.name,
-        }));
-
-        setCompanies(companies);
-        setTotalClients(companies.length);
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error cargando clientes");
-    } finally {
-      setLoading(false);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("No se encontró token de autenticación");
+      return;
     }
-  }, []);
+
+    const res = await fetch(
+      `https://api.tirepro.com.co/api/companies/me/clients`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!res.ok) throw new Error("Error fetching companies");
+    const data = await res.json();
+
+    console.log("Raw API response:", data);
+
+    // Fetch real counts for each company
+    const companiesWithCounts = await Promise.all(
+      data.map(async (access: any) => {
+        try {
+          // Fetch vehicles count
+          const vehiclesRes = await fetch(
+            `https://api.tirepro.com.co/api/vehicles?companyId=${access.company.id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const vehicles = vehiclesRes.ok ? await vehiclesRes.json() : [];
+
+          // Fetch tires count
+          const tiresRes = await fetch(
+            `https://api.tirepro.com.co/api/tires?companyId=${access.company.id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const tires = tiresRes.ok ? await tiresRes.json() : [];
+
+          return {
+            id: access.company.id,
+            name: access.company.name,
+            vehicleCount: vehicles.length,
+            tireCount: tires.length,
+          };
+        } catch (err) {
+          console.error(`Error fetching counts for ${access.company.name}:`, err);
+          return {
+            id: access.company.id,
+            name: access.company.name,
+            vehicleCount: 0,
+            tireCount: 0,
+          };
+        }
+      })
+    );
+
+    console.log("Companies with counts:", companiesWithCounts);
+    setCompanies(companiesWithCounts);
+    setTotalClients(companiesWithCounts.length);
+
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Error cargando clientes");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     fetchCompanies();
@@ -585,8 +619,8 @@ const totalReencauche =
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-900 mb-1">{company.name}</h4>
                       <div className="text-sm text-gray-600 space-y-1">
-                        <p>🚛 0 vehículos</p>
-                        <p>⚫ 0 neumáticos</p>
+                        <p>🚛 {company.vehicleCount} vehículos</p>
+                        <p>⚫ {company.tireCount} neumáticos</p>
                       </div>
                     </div>
                   </div>
