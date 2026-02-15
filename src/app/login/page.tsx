@@ -16,7 +16,6 @@ import {
   Shield,
   Zap,
   Users,
-  Check,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -25,53 +24,6 @@ import logoTire from "../../../public/logo_tire.png";
 
 // Language content object
 const content = {
-  en: {
-    // Navigation
-    platform: "Platform",
-    blog: "Blog",
-    plans: "Plans",
-    contact: "Contact",
-    login: "Login",
-    getStarted: "Get Started",
-    developers: "Developers",
-    
-    // Main content
-    welcomeBack: "Welcome",
-    back: "back!",
-    loginSubtitle: "Sign in to access your control panel and manage your data intelligently",
-    
-    // Features
-    secureDataHandling: "Secure data handling",
-    endToEndEncryption: "End-to-end encryption",
-    realTimeAnalysis: "Analyze your tires in real time",
-    continuousMonitoring: "Continuous monitoring and smart alerts",
-    support247: "24/7 Support",
-    specializedTechnicalAssistance: "Specialized technical assistance",
-    
-    // Form
-    backToHome: "Back to home",
-    signIn: "Sign In",
-    accessYourAccount: "Access your TirePro account",
-    email: "Email",
-    emailPlaceholder: "name@tirepro.com",
-    password: "Password",
-    passwordPlaceholder: "••••••••",
-    forgotPassword: "Forgot my password",
-    signingIn: "Signing in...",
-    signInButton: "Sign In",
-    
-    // Errors
-    invalidCredentials: "Invalid credentials",
-    invalidCredentialsMessage: "Please verify your email and password.",
-    authenticationError: "Authentication error",
-    invalidCredentialsLong: "The entered credentials are invalid. Please verify your email and password.",
-    understood: "Understood",
-    unexpectedError: "An unexpected error occurred",
-    
-    // Registration
-    noAccount: "Don't have an account?",
-    registerCompany: "Register your company"
-  },
   es: {
     // Navigation
     platform: "Plataforma",
@@ -130,7 +82,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [language, setLanguage] = useState("es");
-  const [isUSLocation, setIsUSLocation] = useState(false);
   const auth = useAuth();
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -144,52 +95,12 @@ export default function LoginPage() {
       { key: 'plans', href: '/#plans' },
       { key: 'contact', href: '/contact' }
     ];
-
-    if (!isUSLocation) {
-      baseItems.splice(1, 0, { key: 'blog', href: '/blog' });
-    }
-
     return baseItems;
   };
 
   useEffect(() => {
     const detectLanguageFromLocation = async () => {
-      try {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 10000,
-            enableHighAccuracy: true,
-            maximumAge: 300000
-          });
-        });
-
-        const response = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          const countryCode = data.countryCode;
-          
-          if (countryCode === 'US') {
-            setLanguage('en');
-            setIsUSLocation(true);
-          } else {
-            setLanguage('es');
-            setIsUSLocation(false);
-          }
-        }
-      } catch (error) {
-        const browserLang = navigator.language || navigator.languages?.[0] || 'es';
-        
-        if (browserLang.startsWith('en')) {
-          setLanguage('en');
-          setIsUSLocation(true);
-        } else {
-          setLanguage('es');
-          setIsUSLocation(false);
-        }
-      }
+      setLanguage('es');
     };
 
     detectLanguageFromLocation();

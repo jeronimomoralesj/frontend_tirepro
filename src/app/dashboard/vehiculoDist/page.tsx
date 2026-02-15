@@ -77,7 +77,8 @@ const t = {
     "2_ejes_trailer": "Trailer 2 ejes",
     "2_ejes_cabezote": "Cabezote 2 ejes",
     "3_ejes_trailer": "Trailer 3 ejes",
-    "1_eje_cabezote": "Cabezote 1 eje"
+    "1_eje_cabezote": "Cabezote 1 eje",
+    "furgon": "Furgón"
   }
 };
 

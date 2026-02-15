@@ -78,7 +78,8 @@ export default function VehiculoPage() {
     "2_ejes_trailer": "Trailer 2 ejes",
     "2_ejes_cabezote": "Cabezote 2 ejes",
     "3_ejes_trailer": "Trailer 3 ejes",
-    "1_eje_cabezote": "Cabezote 1 eje"
+    "1_eje_cabezote": "Cabezote 1 eje",
+    "furgon": "Furgón"
   };
 
   // Organize vehicles by their connections
@@ -570,6 +571,7 @@ export default function VehiculoPage() {
                     <option value="2_ejes_cabezote">Cabezote 2 ejes</option>
                     <option value="3_ejes_trailer">Trailer 3 ejes</option>
                     <option value="1_eje_cabezote">Cabezote 1 eje</option>
+                    <option value="furgon">Furgón</option>
                   </select>
                 </div>
                 <div>
@@ -663,6 +665,7 @@ export default function VehiculoPage() {
                     <option value="2_ejes_cabezote">Cabezote 2 ejes</option>
                     <option value="3_ejes_trailer">Trailer 3 ejes</option>
                     <option value="1_eje_cabezote">Cabezote 1 eje</option>
+                    <option value="furgon">Furgón</option>
                   </select>
                 </div>
                 <div>
