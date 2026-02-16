@@ -366,8 +366,7 @@ const BuscarDist: React.FC = () => {
                       <ChevronDown className="text-gray-500" />
                     </button>
                     {showCompanyDropdown && (
-                      <div className="absolute z-9999 mt-2 w-full bg-white rounded-lg shadow-lg py-2 max-h-60 overflow-y-auto">
-                        {companyOptions.map((company) => (
+                        <div className="absolute left-0 right-0 z-[100] mt-1 w-full bg-white rounded-lg shadow-2xl py-2 max-h-60 overflow-y-auto border border-gray-200">                        {companyOptions.map((company) => (
                           <button
                             key={company}
                             type="button"

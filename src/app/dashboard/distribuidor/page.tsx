@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import SemaforoTabla, { Vehicle, Tire } from "../cards/semaforoTabla";
 import PorMarca from "../cards/porMarca";
 import PorBanda from "../cards/porBanda";
+import TablaCpk from "../cards/tablaCpk";
+import type { Tire as TablaCpkTire } from "../cards/tablaCpk";
 
 type Company = {
   id: string;
@@ -108,6 +110,9 @@ export default function DistribuidorPage() {
   // State for PorMarca and PorBanda charts
   const [marcaData, setMarcaData] = useState<{ [marca: string]: number }>({});
   const [bandaData, setBandaData] = useState<{ [banda: string]: number }>({});
+  
+  // State for TablaCpk
+  const [cpkTires, setCpkTires] = useState<TablaCpkTire[]>([]);
 
   const API_BASE =
     process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") 
@@ -347,6 +352,7 @@ export default function DistribuidorPage() {
         setAllTires([]);
         setMarcaData({});
         setBandaData({});
+        setCpkTires([]);
         return;
       }
 
@@ -386,6 +392,9 @@ export default function DistribuidorPage() {
       
       // Calculate marca and banda distributions
       calculateMarcaAndBandaData(tiresData);
+      
+      // Prepare CPK data
+      prepareCpkData(tiresData, vehiclesData);
     } catch (err) {
       console.error("Error fetching vehicles and tires:", err);
     } finally {
@@ -417,6 +426,22 @@ export default function DistribuidorPage() {
 
     setMarcaData(marcaCount);
     setBandaData(bandaCount);
+  };
+
+  const prepareCpkData = (tires: Tire[], vehicles: Vehicle[]) => {
+    // Create a map of vehicleId to placa for quick lookup
+    const vehicleMap = new Map(vehicles.map(v => [v.id, v.placa]));
+    
+    const cpkTiresFormatted: TablaCpkTire[] = tires.map((tire: any) => ({
+      id: tire.id,
+      placa: tire.vehicleId ? (vehicleMap.get(tire.vehicleId) || 'N/A') : 'N/A',
+      marca: tire.marca || 'N/A',
+      posicion: tire.posicion || 0,
+      vida: tire.vida || [],
+      inspecciones: tire.inspecciones || [],
+    }));
+
+    setCpkTires(cpkTiresFormatted);
   };
 
   useEffect(() => {
@@ -729,6 +754,19 @@ export default function DistribuidorPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* TablaCpk - Best CPK Table */}
+        <div className="mb-6">
+          {loadingSemaforo ? (
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+              <div className="text-center text-blue-600 animate-pulse">
+                Cargando datos de CPK...
+              </div>
+            </div>
+          ) : (
+            <TablaCpk tires={cpkTires} />
+          )}
         </div>
 
         {/* Client List */}
