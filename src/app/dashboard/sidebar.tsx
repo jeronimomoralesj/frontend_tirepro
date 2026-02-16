@@ -85,6 +85,11 @@ export default function Sidebar({
         icon: Plus,
       },
       {
+        name: "Buscar",
+        path: "/dashboard/buscarDist",
+        icon: Search,
+      },
+      {
         name: "Vehiculos",
         path: "/dashboard/vehiculoDist",
         icon: Truck,

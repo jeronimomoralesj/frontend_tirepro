@@ -97,6 +97,10 @@ const [notifications, setNotifications] = useState<Notification[]>([]);
 const [activeAlerts, setActiveAlerts] = useState(0);
 const [avgCpk, setAvgCpk] = useState<number>(0);
 const [avgCpt, setAvgCpt] = useState<number>(0);
+const API_BASE =
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") 
+    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+    : "https://api.tirepro.com.co/api";
 
 const [vidaStats, setVidaStats] = useState({
   nueva: 0,
@@ -120,7 +124,7 @@ const fetchCompanies = useCallback(async () => {
     }
 
     const res = await fetch(
-      `https://api.tirepro.com.co/api/companies/me/clients`,
+      `${API_BASE}/companies/me/clients`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -139,14 +143,14 @@ const fetchCompanies = useCallback(async () => {
         try {
           // Fetch vehicles count
           const vehiclesRes = await fetch(
-            `https://api.tirepro.com.co/api/vehicles?companyId=${access.company.id}`,
+            `${API_BASE}/vehicles?companyId=${access.company.id}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const vehicles = vehiclesRes.ok ? await vehiclesRes.json() : [];
 
           // Fetch tires count
           const tiresRes = await fetch(
-            `https://api.tirepro.com.co/api/tires?companyId=${access.company.id}`,
+            `${API_BASE}/tires?companyId=${access.company.id}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const tires = tiresRes.ok ? await tiresRes.json() : [];
@@ -206,9 +210,8 @@ const fetchNotifications = useCallback(async (companies: Company[]) => {
 
     const companyIds = companies.map(c => c.id);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
 
-const res = await fetch(`${apiUrl}/api/notifications/by-companies`, {
+const res = await fetch(`${API_BASE}/notifications/by-companies`, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -240,15 +243,12 @@ const fetchAllTires = useCallback(async (companies: Company[]) => {
     const token = localStorage.getItem("token");
     if (!token || companies.length === 0) return;
 
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
-
     const allTires: Tire[] = [];
 
     await Promise.all(
       companies.map(async (company) => {
         const res = await fetch(
-          `${apiUrl}/api/tires?companyId=${company.id}`,
+          `${API_BASE}/tires?companyId=${company.id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
