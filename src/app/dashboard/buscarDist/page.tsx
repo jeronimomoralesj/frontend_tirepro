@@ -345,12 +345,12 @@ const BuscarDist: React.FC = () => {
               {t.searchDescription}
             </p>
           </div>
-          <div className="p-8">
+          <div className="p-8 z-99999">
             <form onSubmit={handleSearch}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 z-99999">
                 {/* Client Selector */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 z-99999">
                     {t.selectClient}
                   </label>
                   <div className="relative">
@@ -366,7 +366,7 @@ const BuscarDist: React.FC = () => {
                       <ChevronDown className="text-gray-500" />
                     </button>
                     {showCompanyDropdown && (
-                      <div className="absolute z-10 mt-2 w-full bg-white rounded-lg shadow-lg py-2 max-h-60 overflow-y-auto">
+                      <div className="absolute z-9999 mt-2 w-full bg-white rounded-lg shadow-lg py-2 max-h-60 overflow-y-auto">
                         {companyOptions.map((company) => (
                           <button
                             key={company}

@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import SemaforoTabla, { Vehicle, Tire } from "../cards/semaforoTabla";
+import PorMarca from "../cards/porMarca";
+import PorBanda from "../cards/porBanda";
 
 type Company = {
   id: string;
@@ -19,7 +22,7 @@ type Notification = {
     id: string;
     name: string;
   };
-  vehicle?: {   // Add this
+  vehicle?: {
     id: string;
     placa: string;
   };
@@ -30,12 +33,11 @@ type Inspection = {
   cpkProyectado: number;
 };
 
-type Tire = {
+type TireWithInspection = {
   id: string;
   inspecciones: Inspection[];
   vida?: { valor: string; fecha: string }[];
 };
-
 
 // SVG Icons
 const UsersIcon = () => (
@@ -93,96 +95,105 @@ export default function DistribuidorPage() {
   const [userName, setUserName] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>("Todos");
   const [showClientDropdown, setShowClientDropdown] = useState(false);
-const [notifications, setNotifications] = useState<Notification[]>([]);
-const [activeAlerts, setActiveAlerts] = useState(0);
-const [avgCpk, setAvgCpk] = useState<number>(0);
-const [avgCpt, setAvgCpt] = useState<number>(0);
-const API_BASE =
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [activeAlerts, setActiveAlerts] = useState(0);
+  const [avgCpk, setAvgCpk] = useState<number>(0);
+  const [avgCpt, setAvgCpt] = useState<number>(0);
+  
+  // State for SemaforoTabla
+  const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
+  const [allTires, setAllTires] = useState<Tire[]>([]);
+  const [loadingSemaforo, setLoadingSemaforo] = useState(false);
+  
+  // State for PorMarca and PorBanda charts
+  const [marcaData, setMarcaData] = useState<{ [marca: string]: number }>({});
+  const [bandaData, setBandaData] = useState<{ [banda: string]: number }>({});
+
+  const API_BASE =
     process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") 
-    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
-    : "https://api.tirepro.com.co/api";
+      ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+      : "https://api.tirepro.com.co/api";
 
-const [vidaStats, setVidaStats] = useState({
-  nueva: 0,
-  reencauche1: 0,
-  reencauche2: 0,
-  reencauche3: 0,
-  total: 0,
-});
+  const [vidaStats, setVidaStats] = useState({
+    nueva: 0,
+    reencauche1: 0,
+    reencauche2: 0,
+    reencauche3: 0,
+    total: 0,
+  });
 
-  // Metrics state
   const [totalClients, setTotalClients] = useState(0);
 
-const fetchCompanies = useCallback(async () => {
-  try {
-    setLoading(true);
+  const fetchCompanies = useCallback(async () => {
+    try {
+      setLoading(true);
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setError("No se encontró token de autenticación");
-      return;
-    }
-
-    const res = await fetch(
-      `${API_BASE}/companies/me/clients`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("No se encontró token de autenticación");
+        return;
       }
-    );
 
-    if (!res.ok) throw new Error("Error fetching companies");
-    const data = await res.json();
-
-    console.log("Raw API response:", data);
-
-    // Fetch real counts for each company
-    const companiesWithCounts = await Promise.all(
-      data.map(async (access: any) => {
-        try {
-          // Fetch vehicles count
-          const vehiclesRes = await fetch(
-            `${API_BASE}/vehicles?companyId=${access.company.id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const vehicles = vehiclesRes.ok ? await vehiclesRes.json() : [];
-
-          // Fetch tires count
-          const tiresRes = await fetch(
-            `${API_BASE}/tires?companyId=${access.company.id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const tires = tiresRes.ok ? await tiresRes.json() : [];
-
-          return {
-            id: access.company.id,
-            name: access.company.name,
-            vehicleCount: vehicles.length,
-            tireCount: tires.length,
-          };
-        } catch (err) {
-          console.error(`Error fetching counts for ${access.company.name}:`, err);
-          return {
-            id: access.company.id,
-            name: access.company.name,
-            vehicleCount: 0,
-            tireCount: 0,
-          };
+      const res = await fetch(
+        `${API_BASE}/companies/me/clients`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      })
-    );
+      );
 
-    console.log("Companies with counts:", companiesWithCounts);
-    setCompanies(companiesWithCounts);
-    setTotalClients(companiesWithCounts.length);
+      if (!res.ok) throw new Error("Error fetching companies");
+      const data = await res.json();
 
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "Error cargando clientes");
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      console.log("Raw API response:", data);
+
+      // Fetch real counts for each company
+      const companiesWithCounts = await Promise.all(
+        data.map(async (access: any) => {
+          try {
+            // Fetch vehicles count
+            const vehiclesRes = await fetch(
+              `${API_BASE}/vehicles?companyId=${access.company.id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const vehicles = vehiclesRes.ok ? await vehiclesRes.json() : [];
+
+            // Fetch tires count
+            const tiresRes = await fetch(
+              `${API_BASE}/tires?companyId=${access.company.id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const tires = tiresRes.ok ? await tiresRes.json() : [];
+
+            return {
+              id: access.company.id,
+              name: access.company.name,
+              vehicleCount: vehicles.length,
+              tireCount: tires.length,
+            };
+          } catch (err) {
+            console.error(`Error fetching counts for ${access.company.name}:`, err);
+            return {
+              id: access.company.id,
+              name: access.company.name,
+              vehicleCount: 0,
+              tireCount: 0,
+            };
+          }
+        })
+      );
+
+      console.log("Companies with counts:", companiesWithCounts);
+      setCompanies(companiesWithCounts);
+      setTotalClients(companiesWithCounts.length);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error cargando clientes");
+    } finally {
+      setLoading(false);
+    }
+  }, [API_BASE]);
 
   useEffect(() => {
     fetchCompanies();
@@ -202,153 +213,227 @@ const fetchCompanies = useCallback(async () => {
     ? companies 
     : companies.filter(c => c.name === selectedClient);
 
+  const fetchNotifications = useCallback(async (companies: Company[]) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token || companies.length === 0) return;
 
-const fetchNotifications = useCallback(async (companies: Company[]) => {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token || companies.length === 0) return;
+      const companyIds = companies.map(c => c.id);
 
-    const companyIds = companies.map(c => c.id);
+      const res = await fetch(`${API_BASE}/notifications/by-companies`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ companyIds }),
+      });
 
+      if (!res.ok) throw new Error("Error fetching notifications");
 
-const res = await fetch(`${API_BASE}/notifications/by-companies`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify({ companyIds }),
-});
+      const data: Notification[] = await res.json();
 
-    if (!res.ok) throw new Error("Error fetching notifications");
+      setNotifications(data);
+      setActiveAlerts(data.length);
 
-    const data: Notification[] = await res.json();
-
-    setNotifications(data);
-    setActiveAlerts(data.length);
-
-  } catch (err) {
-    console.error(err);
-  }
-}, []);
-
-useEffect(() => {
-  if (filteredCompanies.length > 0) {
-    fetchNotifications(filteredCompanies);
-  }
-}, [filteredCompanies, fetchNotifications]);
-
-const fetchAllTires = useCallback(async (companies: Company[]) => {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token || companies.length === 0) return;
-
-    const allTires: Tire[] = [];
-
-    await Promise.all(
-      companies.map(async (company) => {
-        const res = await fetch(
-          `${API_BASE}/tires?companyId=${company.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-
-        if (!res.ok) return;
-
-        const tires: Tire[] = await res.json();
-        allTires.push(...tires);
-      })
-    );
-
-    calculateGlobalCpk(allTires);
-    calculateVidaDistribution(allTires);
-  } catch (e) {
-    console.error("Error fetching distributor tires", e);
-  }
-}, []);
-
-const calculateGlobalCpk = (tires: Tire[]) => {
-  let totalCpk = 0;
-  let totalCpt = 0;
-  let count = 0;
-
-  tires.forEach((tire) => {
-    if (!tire.inspecciones || tire.inspecciones.length === 0) return;
-
-    const last =
-      tire.inspecciones[tire.inspecciones.length - 1];
-
-    if (!isNaN(last.cpk)) {
-      totalCpk += last.cpk;
-      totalCpt += last.cpkProyectado || 0;
-      count++;
+    } catch (err) {
+      console.error(err);
     }
-  });
+  }, [API_BASE]);
 
-  if (count > 0) {
-    setAvgCpk(Number((totalCpk / count).toFixed(2)));
-    setAvgCpt(Number((totalCpt / count).toFixed(2)));
-  } else {
-    setAvgCpk(0);
-    setAvgCpt(0);
-  }
-};
+  useEffect(() => {
+    if (filteredCompanies.length > 0) {
+      fetchNotifications(filteredCompanies);
+    }
+  }, [filteredCompanies, fetchNotifications]);
 
-const calculateVidaDistribution = (tires: Tire[]) => {
-  let nueva = 0;
-  let r1 = 0;
-  let r2 = 0;
-  let r3 = 0;
+  const fetchAllTires = useCallback(async (companies: Company[]) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token || companies.length === 0) return;
 
-  tires.forEach((tire) => {
-    if (!tire.vida || tire.vida.length === 0) return;
+      const allTiresData: TireWithInspection[] = [];
 
-    const lastVida =
-      tire.vida[tire.vida.length - 1].valor.toLowerCase();
+      await Promise.all(
+        companies.map(async (company) => {
+          const res = await fetch(
+            `${API_BASE}/tires?companyId=${company.id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
 
-    if (lastVida === "nueva") nueva++;
-    else if (lastVida.includes("reencauche 1") || lastVida.includes("reencauche1")) r1++;
-    else if (lastVida.includes("reencauche 2") || lastVida.includes("reencauche2")) r2++;
-    else if (lastVida.includes("reencauche 3") || lastVida.includes("reencauche3")) r3++;
-  });
+          if (!res.ok) return;
 
-  const total = nueva + r1 + r2 + r3;
+          const tires: TireWithInspection[] = await res.json();
+          allTiresData.push(...tires);
+        })
+      );
 
-  setVidaStats({
-    nueva,
-    reencauche1: r1,
-    reencauche2: r2,
-    reencauche3: r3,
-    total,
-  });
-};
+      calculateGlobalCpk(allTiresData);
+      calculateVidaDistribution(allTiresData);
+    } catch (e) {
+      console.error("Error fetching distributor tires", e);
+    }
+  }, [API_BASE]);
 
-useEffect(() => {
-  if (filteredCompanies.length > 0) {
-    fetchAllTires(filteredCompanies);
-  }
-}, [filteredCompanies, fetchAllTires]);
+  const calculateGlobalCpk = (tires: TireWithInspection[]) => {
+    let totalCpk = 0;
+    let totalCpt = 0;
+    let count = 0;
 
-const reencPct =
-  vidaStats.total > 0
-    ? ((vidaStats.reencauche / vidaStats.total) * 100).toFixed(1)
-    : "0.0";
+    tires.forEach((tire) => {
+      if (!tire.inspecciones || tire.inspecciones.length === 0) return;
 
-const nuevaPct =
-  vidaStats.total > 0
-    ? ((vidaStats.nueva / vidaStats.total) * 100).toFixed(1)
-    : "0.0";
+      const last = tire.inspecciones[tire.inspecciones.length - 1];
 
-const pct = (value: number) =>
-  vidaStats.total > 0
-    ? ((value / vidaStats.total) * 100).toFixed(1)
-    : "0.0";
+      if (!isNaN(last.cpk)) {
+        totalCpk += last.cpk;
+        totalCpt += last.cpkProyectado || 0;
+        count++;
+      }
+    });
 
-const totalReencauche =
-  vidaStats.reencauche1 +
-  vidaStats.reencauche2 +
-  vidaStats.reencauche3;
+    if (count > 0) {
+      setAvgCpk(Number((totalCpk / count).toFixed(2)));
+      setAvgCpt(Number((totalCpt / count).toFixed(2)));
+    } else {
+      setAvgCpk(0);
+      setAvgCpt(0);
+    }
+  };
+
+  const calculateVidaDistribution = (tires: TireWithInspection[]) => {
+    let nueva = 0;
+    let r1 = 0;
+    let r2 = 0;
+    let r3 = 0;
+
+    tires.forEach((tire) => {
+      if (!tire.vida || tire.vida.length === 0) return;
+
+      const lastVida = tire.vida[tire.vida.length - 1].valor.toLowerCase();
+
+      if (lastVida === "nueva") nueva++;
+      else if (lastVida.includes("reencauche 1") || lastVida.includes("reencauche1")) r1++;
+      else if (lastVida.includes("reencauche 2") || lastVida.includes("reencauche2")) r2++;
+      else if (lastVida.includes("reencauche 3") || lastVida.includes("reencauche3")) r3++;
+    });
+
+    const total = nueva + r1 + r2 + r3;
+
+    setVidaStats({
+      nueva,
+      reencauche1: r1,
+      reencauche2: r2,
+      reencauche3: r3,
+      total,
+    });
+  };
+
+  useEffect(() => {
+    if (filteredCompanies.length > 0) {
+      fetchAllTires(filteredCompanies);
+    }
+  }, [filteredCompanies, fetchAllTires]);
+
+  // Fetch vehicles and tires for SemaforoTabla
+  const fetchVehiclesAndTires = useCallback(async (companies: Company[]) => {
+    try {
+      setLoadingSemaforo(true);
+      const token = localStorage.getItem("token");
+      if (!token || companies.length === 0) {
+        setAllVehicles([]);
+        setAllTires([]);
+        setMarcaData({});
+        setBandaData({});
+        return;
+      }
+
+      const vehiclesData: Vehicle[] = [];
+      const tiresData: Tire[] = [];
+
+      await Promise.all(
+        companies.map(async (company) => {
+          try {
+            // Fetch vehicles
+            const vehiclesRes = await fetch(
+              `${API_BASE}/vehicles?companyId=${company.id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (vehiclesRes.ok) {
+              const vehicles = await vehiclesRes.json();
+              vehiclesData.push(...vehicles);
+            }
+
+            // Fetch tires
+            const tiresRes = await fetch(
+              `${API_BASE}/tires?companyId=${company.id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (tiresRes.ok) {
+              const tires = await tiresRes.json();
+              tiresData.push(...tires);
+            }
+          } catch (err) {
+            console.error(`Error fetching data for company ${company.name}:`, err);
+          }
+        })
+      );
+
+      setAllVehicles(vehiclesData);
+      setAllTires(tiresData);
+      
+      // Calculate marca and banda distributions
+      calculateMarcaAndBandaData(tiresData);
+    } catch (err) {
+      console.error("Error fetching vehicles and tires:", err);
+    } finally {
+      setLoadingSemaforo(false);
+    }
+  }, [API_BASE]);
+
+  const calculateMarcaAndBandaData = (tires: Tire[]) => {
+    const marcaCount: { [marca: string]: number } = {};
+    const bandaCount: { [banda: string]: number } = {};
+
+    tires.forEach((tire: any) => {
+      // Count by marca
+      if (tire.marca) {
+        const marca = tire.marca.trim();
+        if (marca) {
+          marcaCount[marca] = (marcaCount[marca] || 0) + 1;
+        }
+      }
+
+      // Count by banda (diseno)
+      if (tire.diseno) {
+        const banda = tire.diseno.trim();
+        if (banda) {
+          bandaCount[banda] = (bandaCount[banda] || 0) + 1;
+        }
+      }
+    });
+
+    setMarcaData(marcaCount);
+    setBandaData(bandaCount);
+  };
+
+  useEffect(() => {
+    if (filteredCompanies.length > 0) {
+      fetchVehiclesAndTires(filteredCompanies);
+    }
+  }, [filteredCompanies, fetchVehiclesAndTires]);
+
+  const pct = (value: number) =>
+    vidaStats.total > 0
+      ? ((value / vidaStats.total) * 100).toFixed(1)
+      : "0.0";
+
+  const totalReencauche =
+    vidaStats.reencauche1 +
+    vidaStats.reencauche2 +
+    vidaStats.reencauche3;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
@@ -417,7 +502,7 @@ const totalReencauche =
             <div className="text-left">
               <p className="text-3xl font-bold text-white">
                 {loading ? "..." : activeAlerts}
-                </p>
+              </p>
               <p className="text-sm uppercase tracking-wider text-yellow-200">
                 Alertas Activas
               </p>
@@ -429,7 +514,7 @@ const totalReencauche =
             <div className="text-left">
               <p className="text-3xl font-bold text-white">
                 {loading ? "..." : `${avgCpk} / ${avgCpt}`}
-                </p>
+              </p>
               <p className="text-sm uppercase tracking-wider text-white">
                 CPK / CPT Promedio
               </p>
@@ -438,21 +523,32 @@ const totalReencauche =
 
           <div className="flex items-center space-x-3 bg-blue-800 p-5 rounded-xl shadow-lg">
             <div className="text-white">
-                <PackageIcon />
+              <PackageIcon />
             </div>
-
             <div className="text-left">
-                <p className="text-3xl font-bold text-white">
+              <p className="text-3xl font-bold text-white">
                 {loading
-                    ? "..."
-                    : `${totalReencauche} / ${vidaStats.nueva}`}
-                </p>
-
-                <p className="text-sm uppercase tracking-wider text-white">
+                  ? "..."
+                  : `${totalReencauche} / ${vidaStats.nueva}`}
+              </p>
+              <p className="text-sm uppercase tracking-wider text-white">
                 Reencauche / Nueva
-                </p>
+              </p>
             </div>
+          </div>
+        </div>
+
+        {/* SemaforoTabla Card - Full Width */}
+        <div className="mb-6">
+          {loadingSemaforo ? (
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+              <div className="text-center text-blue-600 animate-pulse">
+                Cargando datos de neumáticos...
+              </div>
             </div>
+          ) : (
+            <SemaforoTabla vehicles={allVehicles} tires={allTires} />
+          )}
         </div>
 
         {/* Charts Section */}
@@ -464,136 +560,175 @@ const totalReencauche =
               <h3 className="text-lg font-semibold text-gray-800">Alertas por Cliente</h3>
             </div>
             <div className="space-y-3 max-h-96 overflow-y-auto">
-  {notifications.length === 0 ? (
-    <p className="text-gray-500 text-center py-8">
-      No hay alertas para mostrar
-    </p>
-  ) : (
-    notifications.map((n) => (
-      <div
-        key={n.id}
-        className="border-l-4 border-red-500 bg-red-50 p-3 rounded"
-      >
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">
-              {n.company.name}
-            </p>
-            {n.vehicle && (
-          <p className="text-xs text-gray-500">
-            Vehículo: {n.vehicle.placa.toUpperCase()}
-          </p>
-        )}
-            <p className="text-sm text-gray-700 mt-1">
-              {n.title}
-            </p>
-            <p className="text-xs text-gray-500">
-              {n.message}
-            </p>
-          </div>
-          <span className="text-xs text-gray-400">
-            {new Date(n.timestamp).toLocaleDateString()}
-          </span>
-        </div>
-      </div>
-    ))
-  )}
-</div>
-
+              {notifications.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  No hay alertas para mostrar
+                </p>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    className="border-l-4 border-red-500 bg-red-50 p-3 rounded"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">
+                          {n.company.name}
+                        </p>
+                        {n.vehicle && (
+                          <p className="text-xs text-gray-500">
+                            Vehículo: {n.vehicle.placa.toUpperCase()}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-700 mt-1">
+                          {n.title}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {n.message}
+                        </p>
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(n.timestamp).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           {/* Tire Type Distribution */}
-<div className="bg-white rounded-xl shadow-md p-6">
-  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-    Distribución de Neumáticos
-  </h3>
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Distribución de Neumáticos
+            </h3>
+            <div className="space-y-4">
+              {/* Reencauche 1 */}
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Reencauche 1
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {vidaStats.reencauche1} ({pct(vidaStats.reencauche1)}%)
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className="bg-gradient-to-r from-blue-900 to-blue-800 h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${pct(vidaStats.reencauche1)}%` }}
+                  />
+                </div>
+              </div>
 
-  <div className="space-y-4">
-    {/* Reencauche 1 */}
-    <div>
-      <div className="flex justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">
-          Reencauche 1
-        </span>
-        <span className="text-sm font-bold text-gray-900">
-          {vidaStats.reencauche1} ({pct(vidaStats.reencauche1)}%)
-        </span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-3">
-        <div
-          className="bg-gradient-to-r from-blue-900 to-blue-800 h-3 rounded-full transition-all duration-500"
-          style={{ width: `${pct(vidaStats.reencauche1)}%` }}
-        />
-      </div>
-    </div>
+              {/* Reencauche 2 */}
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Reencauche 2
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {vidaStats.reencauche2} ({pct(vidaStats.reencauche2)}%)
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className="bg-gradient-to-r from-blue-800 to-blue-700 h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${pct(vidaStats.reencauche2)}%` }}
+                  />
+                </div>
+              </div>
 
-    {/* Reencauche 2 */}
-    <div>
-      <div className="flex justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">
-          Reencauche 2
-        </span>
-        <span className="text-sm font-bold text-gray-900">
-          {vidaStats.reencauche2} ({pct(vidaStats.reencauche2)}%)
-        </span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-3">
-        <div
-          className="bg-gradient-to-r from-blue-800 to-blue-700 h-3 rounded-full transition-all duration-500"
-          style={{ width: `${pct(vidaStats.reencauche2)}%` }}
-        />
-      </div>
-    </div>
+              {/* Reencauche 3 */}
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Reencauche 3
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {vidaStats.reencauche3} ({pct(vidaStats.reencauche3)}%)
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className="bg-gradient-to-r from-blue-700 to-blue-600 h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${pct(vidaStats.reencauche3)}%` }}
+                  />
+                </div>
+              </div>
 
-    {/* Reencauche 3 */}
-    <div>
-      <div className="flex justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">
-          Reencauche 3
-        </span>
-        <span className="text-sm font-bold text-gray-900">
-          {vidaStats.reencauche3} ({pct(vidaStats.reencauche3)}%)
-        </span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-3">
-        <div
-          className="bg-gradient-to-r from-blue-700 to-blue-600 h-3 rounded-full transition-all duration-500"
-          style={{ width: `${pct(vidaStats.reencauche3)}%` }}
-        />
-      </div>
-    </div>
+              {/* Nueva */}
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Nueva
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {vidaStats.nueva} ({pct(vidaStats.nueva)}%)
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className="bg-gradient-to-r from-blue-600 to-blue-500 h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${pct(vidaStats.nueva)}%` }}
+                  />
+                </div>
+              </div>
 
-    {/* Nueva */}
-    <div>
-      <div className="flex justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">
-          Nueva
-        </span>
-        <span className="text-sm font-bold text-gray-900">
-          {vidaStats.nueva} ({pct(vidaStats.nueva)}%)
-        </span>
-      </div>
-      <div className="w-full bg-gray-200 rounded-full h-3">
-        <div
-          className="bg-gradient-to-r from-blue-600 to-blue-500 h-3 rounded-full transition-all duration-500"
-          style={{ width: `${pct(vidaStats.nueva)}%` }}
-        />
-      </div>
-    </div>
+              {/* Total */}
+              <div className="pt-4 border-t border-gray-200">
+                <div className="flex justify-between">
+                  <span className="text-sm font-semibold text-gray-900">
+                    Total
+                  </span>
+                  <span className="text-sm font-bold text-blue-600">
+                    {vidaStats.total} neumáticos
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-    {/* Total */}
-    <div className="pt-4 border-t border-gray-200">
-      <div className="flex justify-between">
-        <span className="text-sm font-semibold text-gray-900">
-          Total
-        </span>
-        <span className="text-sm font-bold text-blue-600">
-          {vidaStats.total} neumáticos
-        </span>
-      </div>
-    </div>
-  </div>
-</div>
+        {/* Brand and Design Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* PorMarca Chart */}
+          <div>
+            {loadingSemaforo ? (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                <div className="text-center text-blue-600 animate-pulse">
+                  Cargando datos de marcas...
+                </div>
+              </div>
+            ) : Object.keys(marcaData).length > 0 ? (
+              <PorMarca groupData={marcaData} />
+            ) : (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                <div className="text-center text-gray-500">
+                  No hay datos de marcas para mostrar
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* PorBanda Chart */}
+          <div>
+            {loadingSemaforo ? (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                <div className="text-center text-blue-600 animate-pulse">
+                  Cargando datos de bandas...
+                </div>
+              </div>
+            ) : Object.keys(bandaData).length > 0 ? (
+              <PorBanda groupData={bandaData} />
+            ) : (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                <div className="text-center text-gray-500">
+                  No hay datos de bandas para mostrar
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Client List */}
