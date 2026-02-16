@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import SemaforoTabla, { Vehicle, Tire } from "../cards/semaforoTabla";
 import PorMarca from "../cards/porMarca";
 import PorBanda from "../cards/porBanda";
@@ -90,6 +90,12 @@ const ChevronDownIcon = () => (
   </svg>
 );
 
+const SearchIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  </svg>
+);
+
 export default function DistribuidorPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
@@ -97,6 +103,7 @@ export default function DistribuidorPage() {
   const [userName, setUserName] = useState<string>("");
   const [selectedClient, setSelectedClient] = useState<string>("Todos");
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activeAlerts, setActiveAlerts] = useState(0);
   const [avgCpk, setAvgCpk] = useState<number>(0);
@@ -129,6 +136,7 @@ export default function DistribuidorPage() {
 
   const [totalClients, setTotalClients] = useState(0);
 
+  // Fetch companies only once on mount
   const fetchCompanies = useCallback(async () => {
     try {
       setLoading(true);
@@ -200,6 +208,7 @@ export default function DistribuidorPage() {
     }
   }, [API_BASE]);
 
+  // Fetch companies only on mount
   useEffect(() => {
     fetchCompanies();
   }, [fetchCompanies]);
@@ -212,243 +221,267 @@ export default function DistribuidorPage() {
     }
   }, []);
 
-  const clientOptions = ["Todos", ...companies.map(c => c.name)];
-
-  const filteredCompanies = selectedClient === "Todos" 
-    ? companies 
-    : companies.filter(c => c.name === selectedClient);
-
-  const fetchNotifications = useCallback(async (companies: Company[]) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token || companies.length === 0) return;
-
-      const companyIds = companies.map(c => c.id);
-
-      const res = await fetch(`${API_BASE}/notifications/by-companies`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ companyIds }),
-      });
-
-      if (!res.ok) throw new Error("Error fetching notifications");
-
-      const data: Notification[] = await res.json();
-
-      setNotifications(data);
-      setActiveAlerts(data.length);
-
-    } catch (err) {
-      console.error(err);
+  // Memoized filtered companies based on selected client
+  const filteredCompanies = useMemo(() => {
+    if (selectedClient === "Todos") {
+      return companies;
     }
-  }, [API_BASE]);
+    return companies.filter(c => c.name === selectedClient);
+  }, [companies, selectedClient]);
 
+  // Memoized filtered client options for search
+  const filteredClientOptions = useMemo(() => {
+    const allOptions = ["Todos", ...companies.map(c => c.name)];
+    
+    if (!clientSearchTerm.trim()) {
+      return allOptions;
+    }
+    
+    return allOptions.filter(option => 
+      option.toLowerCase().includes(clientSearchTerm.toLowerCase())
+    );
+  }, [companies, clientSearchTerm]);
+
+  // Fetch notifications when filtered companies change
   useEffect(() => {
-    if (filteredCompanies.length > 0) {
-      fetchNotifications(filteredCompanies);
-    }
-  }, [filteredCompanies, fetchNotifications]);
-
-  const fetchAllTires = useCallback(async (companies: Company[]) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token || companies.length === 0) return;
-
-      const allTiresData: TireWithInspection[] = [];
-
-      await Promise.all(
-        companies.map(async (company) => {
-          const res = await fetch(
-            `${API_BASE}/tires?companyId=${company.id}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-
-          if (!res.ok) return;
-
-          const tires: TireWithInspection[] = await res.json();
-          allTiresData.push(...tires);
-        })
-      );
-
-      calculateGlobalCpk(allTiresData);
-      calculateVidaDistribution(allTiresData);
-    } catch (e) {
-      console.error("Error fetching distributor tires", e);
-    }
-  }, [API_BASE]);
-
-  const calculateGlobalCpk = (tires: TireWithInspection[]) => {
-    let totalCpk = 0;
-    let totalCpt = 0;
-    let count = 0;
-
-    tires.forEach((tire) => {
-      if (!tire.inspecciones || tire.inspecciones.length === 0) return;
-
-      const last = tire.inspecciones[tire.inspecciones.length - 1];
-
-      if (!isNaN(last.cpk)) {
-        totalCpk += last.cpk;
-        totalCpt += last.cpkProyectado || 0;
-        count++;
+    const fetchNotifications = async () => {
+      if (filteredCompanies.length === 0) {
+        setNotifications([]);
+        setActiveAlerts(0);
+        return;
       }
-    });
 
-    if (count > 0) {
-      setAvgCpk(Number((totalCpk / count).toFixed(2)));
-      setAvgCpt(Number((totalCpt / count).toFixed(2)));
-    } else {
-      setAvgCpk(0);
-      setAvgCpt(0);
-    }
-  };
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
 
-  const calculateVidaDistribution = (tires: TireWithInspection[]) => {
-    let nueva = 0;
-    let r1 = 0;
-    let r2 = 0;
-    let r3 = 0;
+        const companyIds = filteredCompanies.map(c => c.id);
 
-    tires.forEach((tire) => {
-      if (!tire.vida || tire.vida.length === 0) return;
+        const res = await fetch(`${API_BASE}/notifications/by-companies`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ companyIds }),
+        });
 
-      const lastVida = tire.vida[tire.vida.length - 1].valor.toLowerCase();
+        if (!res.ok) throw new Error("Error fetching notifications");
 
-      if (lastVida === "nueva") nueva++;
-      else if (lastVida.includes("reencauche 1") || lastVida.includes("reencauche1")) r1++;
-      else if (lastVida.includes("reencauche 2") || lastVida.includes("reencauche2")) r2++;
-      else if (lastVida.includes("reencauche 3") || lastVida.includes("reencauche3")) r3++;
-    });
+        const data: Notification[] = await res.json();
 
-    const total = nueva + r1 + r2 + r3;
+        setNotifications(data);
+        setActiveAlerts(data.length);
 
-    setVidaStats({
-      nueva,
-      reencauche1: r1,
-      reencauche2: r2,
-      reencauche3: r3,
-      total,
-    });
-  };
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
+      }
+    };
 
+    fetchNotifications();
+  }, [filteredCompanies, API_BASE]);
+
+  // Fetch all tires and calculate stats when filtered companies change
   useEffect(() => {
-    if (filteredCompanies.length > 0) {
-      fetchAllTires(filteredCompanies);
-    }
-  }, [filteredCompanies, fetchAllTires]);
+    const fetchAllTires = async () => {
+      if (filteredCompanies.length === 0) {
+        setAvgCpk(0);
+        setAvgCpt(0);
+        setVidaStats({
+          nueva: 0,
+          reencauche1: 0,
+          reencauche2: 0,
+          reencauche3: 0,
+          total: 0,
+        });
+        return;
+      }
 
-  // Fetch vehicles and tires for SemaforoTabla
-  const fetchVehiclesAndTires = useCallback(async (companies: Company[]) => {
-    try {
-      setLoadingSemaforo(true);
-      const token = localStorage.getItem("token");
-      if (!token || companies.length === 0) {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const allTiresData: TireWithInspection[] = [];
+
+        await Promise.all(
+          filteredCompanies.map(async (company) => {
+            const res = await fetch(
+              `${API_BASE}/tires?companyId=${company.id}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            if (!res.ok) return;
+
+            const tires: TireWithInspection[] = await res.json();
+            allTiresData.push(...tires);
+          })
+        );
+
+        // Calculate CPK
+        let totalCpk = 0;
+        let totalCpt = 0;
+        let count = 0;
+
+        allTiresData.forEach((tire) => {
+          if (!tire.inspecciones || tire.inspecciones.length === 0) return;
+
+          const last = tire.inspecciones[tire.inspecciones.length - 1];
+
+          if (!isNaN(last.cpk)) {
+            totalCpk += last.cpk;
+            totalCpt += last.cpkProyectado || 0;
+            count++;
+          }
+        });
+
+        if (count > 0) {
+          setAvgCpk(Number((totalCpk / count).toFixed(2)));
+          setAvgCpt(Number((totalCpt / count).toFixed(2)));
+        } else {
+          setAvgCpk(0);
+          setAvgCpt(0);
+        }
+
+        // Calculate vida distribution
+        let nueva = 0;
+        let r1 = 0;
+        let r2 = 0;
+        let r3 = 0;
+
+        allTiresData.forEach((tire) => {
+          if (!tire.vida || tire.vida.length === 0) return;
+
+          const lastVida = tire.vida[tire.vida.length - 1].valor.toLowerCase();
+
+          if (lastVida === "nueva") nueva++;
+          else if (lastVida.includes("reencauche 1") || lastVida.includes("reencauche1")) r1++;
+          else if (lastVida.includes("reencauche 2") || lastVida.includes("reencauche2")) r2++;
+          else if (lastVida.includes("reencauche 3") || lastVida.includes("reencauche3")) r3++;
+        });
+
+        const total = nueva + r1 + r2 + r3;
+
+        setVidaStats({
+          nueva,
+          reencauche1: r1,
+          reencauche2: r2,
+          reencauche3: r3,
+          total,
+        });
+
+      } catch (e) {
+        console.error("Error fetching distributor tires", e);
+      }
+    };
+
+    fetchAllTires();
+  }, [filteredCompanies, API_BASE]);
+
+  // Fetch vehicles and tires for SemaforoTabla when filtered companies change
+  useEffect(() => {
+    const fetchVehiclesAndTires = async () => {
+      if (filteredCompanies.length === 0) {
         setAllVehicles([]);
         setAllTires([]);
         setMarcaData({});
         setBandaData({});
         setCpkTires([]);
+        setLoadingSemaforo(false);
         return;
       }
 
-      const vehiclesData: Vehicle[] = [];
-      const tiresData: Tire[] = [];
+      try {
+        setLoadingSemaforo(true);
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setLoadingSemaforo(false);
+          return;
+        }
 
-      await Promise.all(
-        companies.map(async (company) => {
-          try {
-            // Fetch vehicles
-            const vehiclesRes = await fetch(
-              `${API_BASE}/vehicles?companyId=${company.id}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (vehiclesRes.ok) {
-              const vehicles = await vehiclesRes.json();
-              vehiclesData.push(...vehicles);
-            }
+        const vehiclesData: Vehicle[] = [];
+        const tiresData: Tire[] = [];
 
-            // Fetch tires
-            const tiresRes = await fetch(
-              `${API_BASE}/tires?companyId=${company.id}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (tiresRes.ok) {
-              const tires = await tiresRes.json();
-              tiresData.push(...tires);
+        await Promise.all(
+          filteredCompanies.map(async (company) => {
+            try {
+              // Fetch vehicles
+              const vehiclesRes = await fetch(
+                `${API_BASE}/vehicles?companyId=${company.id}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              if (vehiclesRes.ok) {
+                const vehicles = await vehiclesRes.json();
+                vehiclesData.push(...vehicles);
+              }
+
+              // Fetch tires
+              const tiresRes = await fetch(
+                `${API_BASE}/tires?companyId=${company.id}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              if (tiresRes.ok) {
+                const tires = await tiresRes.json();
+                tiresData.push(...tires);
+              }
+            } catch (err) {
+              console.error(`Error fetching data for company ${company.name}:`, err);
             }
-          } catch (err) {
-            console.error(`Error fetching data for company ${company.name}:`, err);
+          })
+        );
+
+        setAllVehicles(vehiclesData);
+        setAllTires(tiresData);
+        
+        // Calculate marca and banda distributions
+        const marcaCount: { [marca: string]: number } = {};
+        const bandaCount: { [banda: string]: number } = {};
+
+        tiresData.forEach((tire: any) => {
+          // Count by marca
+          if (tire.marca) {
+            const marca = tire.marca.trim();
+            if (marca) {
+              marcaCount[marca] = (marcaCount[marca] || 0) + 1;
+            }
           }
-        })
-      );
 
-      setAllVehicles(vehiclesData);
-      setAllTires(tiresData);
-      
-      // Calculate marca and banda distributions
-      calculateMarcaAndBandaData(tiresData);
-      
-      // Prepare CPK data
-      prepareCpkData(tiresData, vehiclesData);
-    } catch (err) {
-      console.error("Error fetching vehicles and tires:", err);
-    } finally {
-      setLoadingSemaforo(false);
-    }
-  }, [API_BASE]);
+          // Count by banda (diseno)
+          if (tire.diseno) {
+            const banda = tire.diseno.trim();
+            if (banda) {
+              bandaCount[banda] = (bandaCount[banda] || 0) + 1;
+            }
+          }
+        });
 
-  const calculateMarcaAndBandaData = (tires: Tire[]) => {
-    const marcaCount: { [marca: string]: number } = {};
-    const bandaCount: { [banda: string]: number } = {};
+        setMarcaData(marcaCount);
+        setBandaData(bandaCount);
+        
+        // Prepare CPK data
+        const vehicleMap = new Map(vehiclesData.map(v => [v.id, v.placa]));
+        
+        const cpkTiresFormatted: TablaCpkTire[] = tiresData.map((tire: any) => ({
+          id: tire.id,
+          placa: tire.vehicleId ? (vehicleMap.get(tire.vehicleId) || 'N/A') : 'N/A',
+          marca: tire.marca || 'N/A',
+          posicion: tire.posicion || 0,
+          vida: tire.vida || [],
+          inspecciones: tire.inspecciones || [],
+        }));
 
-    tires.forEach((tire: any) => {
-      // Count by marca
-      if (tire.marca) {
-        const marca = tire.marca.trim();
-        if (marca) {
-          marcaCount[marca] = (marcaCount[marca] || 0) + 1;
-        }
+        setCpkTires(cpkTiresFormatted);
+
+      } catch (err) {
+        console.error("Error fetching vehicles and tires:", err);
+      } finally {
+        setLoadingSemaforo(false);
       }
+    };
 
-      // Count by banda (diseno)
-      if (tire.diseno) {
-        const banda = tire.diseno.trim();
-        if (banda) {
-          bandaCount[banda] = (bandaCount[banda] || 0) + 1;
-        }
-      }
-    });
-
-    setMarcaData(marcaCount);
-    setBandaData(bandaCount);
-  };
-
-  const prepareCpkData = (tires: Tire[], vehicles: Vehicle[]) => {
-    // Create a map of vehicleId to placa for quick lookup
-    const vehicleMap = new Map(vehicles.map(v => [v.id, v.placa]));
-    
-    const cpkTiresFormatted: TablaCpkTire[] = tires.map((tire: any) => ({
-      id: tire.id,
-      placa: tire.vehicleId ? (vehicleMap.get(tire.vehicleId) || 'N/A') : 'N/A',
-      marca: tire.marca || 'N/A',
-      posicion: tire.posicion || 0,
-      vida: tire.vida || [],
-      inspecciones: tire.inspecciones || [],
-    }));
-
-    setCpkTires(cpkTiresFormatted);
-  };
-
-  useEffect(() => {
-    if (filteredCompanies.length > 0) {
-      fetchVehiclesAndTires(filteredCompanies);
-    }
-  }, [filteredCompanies, fetchVehiclesAndTires]);
+    fetchVehiclesAndTires();
+  }, [filteredCompanies, API_BASE]);
 
   const pct = (value: number) =>
     vidaStats.total > 0
@@ -479,7 +512,7 @@ export default function DistribuidorPage() {
               )}
             </div>
             
-            {/* Client Filter */}
+            {/* Client Filter with Search */}
             <div className="relative">
               <button
                 onClick={() => setShowClientDropdown(!showClientDropdown)}
@@ -489,21 +522,48 @@ export default function DistribuidorPage() {
                 <ChevronDownIcon />
               </button>
               {showClientDropdown && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg py-2 z-10 max-h-80 overflow-y-auto">
-                  {clientOptions.map((client) => (
-                    <button
-                      key={client}
-                      className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                        selectedClient === client ? "bg-blue-50 text-blue-700 font-medium" : ""
-                      }`}
-                      onClick={() => {
-                        setSelectedClient(client);
-                        setShowClientDropdown(false);
-                      }}
-                    >
-                      {client}
-                    </button>
-                  ))}
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg py-2 z-10">
+                  {/* Search Input */}
+                  <div className="px-3 pb-2">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <SearchIcon />
+                      </div>
+                      <input
+                        type="text"
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Buscar cliente..."
+                        value={clientSearchTerm}
+                        onChange={(e) => setClientSearchTerm(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Dropdown List */}
+                  <div className="max-h-64 overflow-y-auto">
+                    {filteredClientOptions.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                        No se encontraron clientes
+                      </div>
+                    ) : (
+                      filteredClientOptions.map((client) => (
+                        <button
+                          key={client}
+                          className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                            selectedClient === client ? "bg-blue-50 text-blue-700 font-medium" : ""
+                          }`}
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setShowClientDropdown(false);
+                            setClientSearchTerm("");
+                          }}
+                        >
+                          {client}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>

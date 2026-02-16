@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
   Car,
@@ -121,6 +121,8 @@ const texts = {
     cpk: "CPK",
     projectedCpk: "CPK Proyectado",
     client: "Cliente",
+    searchClient: "Buscar cliente...",
+    noClientsFound: "No se encontraron clientes",
   }
 };
 
@@ -135,8 +137,48 @@ const BuscarDist: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [companySearchTerm, setCompanySearchTerm] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
 
   const t = texts[language];
+
+  // Update dropdown position
+  const updateDropdownPosition = () => {
+    if (dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowCompanyDropdown(false);
+      }
+    };
+
+    const handleScroll = () => {
+      if (showCompanyDropdown) {
+        updateDropdownPosition();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleScroll);
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [showCompanyDropdown]);
 
   // Fetch companies (clients) on mount
   useEffect(() => {
@@ -189,7 +231,7 @@ const BuscarDist: React.FC = () => {
       return;
     }
 
-    if (!selectedCompany || selectedCompany === t.allClients) {
+    if (!selectedCompany) {
       setError(t.pleaseSelectClient);
       return;
     }
@@ -329,14 +371,17 @@ const BuscarDist: React.FC = () => {
     }
   };
 
-  const companyOptions = [t.allClients, ...companies.map(c => c.name)];
+  // Filter companies based on search term
+  const filteredCompanies = companies.filter(company =>
+    company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen text-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search Card */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-10 border border-gray-100">
-          <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-6">
+        <div className="bg-white rounded-2xl shadow-xl mb-10 border border-gray-100" style={{ overflow: 'visible' }}>
+          <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-6 rounded-t-2xl">
             <h2 className="text-2xl font-bold flex items-center gap-3">
               <Search className="w-6 h-6" />
               {t.searchTire}
@@ -345,45 +390,91 @@ const BuscarDist: React.FC = () => {
               {t.searchDescription}
             </p>
           </div>
-          <div className="p-8 z-99999">
+          <div className="p-8" style={{ overflow: 'visible' }}>
             <form onSubmit={handleSearch}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 z-99999">
-                {/* Client Selector */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 z-99999">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" style={{ overflow: 'visible' }}>
+                {/* Client Selector with Search */}
+                <div className="relative" ref={dropdownRef}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t.selectClient}
                   </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent flex items-center justify-between"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCompanyDropdown(!showCompanyDropdown);
+                      if (!showCompanyDropdown) {
+                        updateDropdownPosition();
+                      }
+                    }}
+                    className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent flex items-center justify-between hover:border-[#1E76B6] transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-gray-400" />
+                      <span className={selectedCompany ? "text-gray-800" : "text-gray-500"}>
+                        {selectedCompany || t.selectClient}
+                      </span>
+                    </div>
+                    <ChevronDown className={`text-gray-500 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showCompanyDropdown && (
+                    <div 
+                      className="fixed bg-white rounded-lg shadow-2xl border-2 border-gray-200 overflow-hidden" 
+                      style={{ 
+                        maxHeight: '320px',
+                        width: dropdownPosition.width || 'auto',
+                        top: dropdownPosition.top,
+                        left: dropdownPosition.left,
+                        zIndex: 99999
+                      }}
                     >
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-gray-400" />
-                        <span>{selectedCompany || t.allClients}</span>
+                      {/* Search Input */}
+                      <div className="p-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder={t.searchClient}
+                            value={companySearchTerm}
+                            onChange={(e) => setCompanySearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
                       </div>
-                      <ChevronDown className="text-gray-500" />
-                    </button>
-                    {showCompanyDropdown && (
-                        <div className="absolute left-0 right-0 z-[100] mt-1 w-full bg-white rounded-lg shadow-2xl py-2 max-h-60 overflow-y-auto border border-gray-200">                        {companyOptions.map((company) => (
-                          <button
-                            key={company}
-                            type="button"
-                            className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                              selectedCompany === company ? "bg-blue-50 text-blue-700 font-medium" : ""
-                            }`}
-                            onClick={() => {
-                              setSelectedCompany(company);
-                              setShowCompanyDropdown(false);
-                            }}
-                          >
-                            {company}
-                          </button>
-                        ))}
+                      
+                      {/* Dropdown List */}
+                      <div className="overflow-y-auto" style={{ maxHeight: '256px' }}>
+                        {filteredCompanies.length > 0 ? (
+                          filteredCompanies.map((company) => (
+                            <button
+                              key={company.id}
+                              type="button"
+                              className={`block w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors ${
+                                selectedCompany === company.name 
+                                  ? "bg-blue-100 text-blue-700 font-semibold" 
+                                  : "text-gray-700"
+                              }`}
+                              onClick={() => {
+                                setSelectedCompany(company.name);
+                                setShowCompanyDropdown(false);
+                                setCompanySearchTerm("");
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-gray-400" />
+                                {company.name}
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                            {t.noClientsFound}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Vehicle Plate Input */}
@@ -639,7 +730,7 @@ const BuscarDist: React.FC = () => {
                     <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                       {selectedTire?.costo?.length > 0 ? (
                         selectedTire.costo.map((entry, idx) => {
-                          const formattedDate = new Date(entry.fecha).toLocaleString(language, {
+                          const formattedDate = new Date(entry.fecha).toLocaleDateString(language, {
                             year: 'numeric',
                             month: 'short',
                             day: '2-digit',
