@@ -230,7 +230,6 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <h2 className="text-xl font-bold">{t.title}</h2>
         <div className="flex items-center space-x-3">
-          <LanguageToggle />
           <button
             onClick={exportToExcel}
             disabled={exporting}

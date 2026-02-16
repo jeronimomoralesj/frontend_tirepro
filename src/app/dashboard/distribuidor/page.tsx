@@ -6,6 +6,14 @@ import PorMarca from "../cards/porMarca";
 import PorBanda from "../cards/porBanda";
 import TablaCpk from "../cards/tablaCpk";
 import type { Tire as TablaCpkTire } from "../cards/tablaCpk";
+import DetallesLlantas from "../cards/detallesLlantas";
+import type { Tire as DetallesLlantasTire } from "../cards/detallesLlantas";
+import ReencaucheHistorico from "../cards/reencaucheHistorico";
+import type { Tire as ReencaucheTire } from "../cards/reencaucheHistorico";
+import HistoricChart from "../cards/historicChart";
+import type { Tire as HistoricTire } from "../cards/historicChart";
+import TanqueMilimetro from "../cards/tanqueMilimetro";
+import type { Tire as TanqueTire } from "../cards/tanqueMilimetro";
 
 type Company = {
   id: string;
@@ -120,6 +128,12 @@ export default function DistribuidorPage() {
   
   // State for TablaCpk
   const [cpkTires, setCpkTires] = useState<TablaCpkTire[]>([]);
+  
+  // State for DetallesLlantas, ReencaucheHistorico, HistoricChart, and TanqueMilimetro
+  const [detailTires, setDetailTires] = useState<DetallesLlantasTire[]>([]);
+  const [reencaucheTires, setReencaucheTires] = useState<ReencaucheTire[]>([]);
+  const [historicTires, setHistoricTires] = useState<HistoricTire[]>([]);
+  const [tanqueTires, setTanqueTires] = useState<TanqueTire[]>([]);
 
   const API_BASE =
     process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") 
@@ -472,6 +486,52 @@ export default function DistribuidorPage() {
         }));
 
         setCpkTires(cpkTiresFormatted);
+        
+        // Prepare data for DetallesLlantas
+        const detailTiresFormatted: DetallesLlantasTire[] = tiresData.map((tire: any) => ({
+          id: tire.id,
+          placa: tire.placa || 'N/A',
+          marca: tire.marca || 'N/A',
+          diseno: tire.diseno || 'N/A',
+          profundidadInicial: tire.profundidadInicial || 0,
+          dimension: tire.dimension || 'N/A',
+          eje: tire.eje || 'N/A',
+          posicion: tire.posicion || 0,
+          kilometrosRecorridos: tire.kilometrosRecorridos || 0,
+          costo: tire.costo || [],
+          vida: tire.vida || [],
+          inspecciones: tire.inspecciones || [],
+          primeraVida: tire.primeraVida || [],
+          eventos: tire.eventos || [],
+          vehicleId: tire.vehicleId,
+        }));
+        
+        setDetailTires(detailTiresFormatted);
+        
+        // Prepare data for ReencaucheHistorico
+        const reencaucheTiresFormatted: ReencaucheTire[] = tiresData.map((tire: any) => ({
+          id: tire.id,
+          vida: tire.vida || [],
+        }));
+        
+        setReencaucheTires(reencaucheTiresFormatted);
+        
+        // Prepare data for HistoricChart
+        const historicTiresFormatted: HistoricTire[] = tiresData.map((tire: any) => ({
+          id: tire.id,
+          inspecciones: tire.inspecciones || [],
+        }));
+        
+        setHistoricTires(historicTiresFormatted);
+        
+        // Prepare data for TanqueMilimetro
+        const tanqueTiresFormatted: TanqueTire[] = tiresData.map((tire: any) => ({
+          id: tire.id,
+          profundidadInicial: tire.profundidadInicial || 0,
+          inspecciones: tire.inspecciones || [],
+        }));
+        
+        setTanqueTires(tanqueTiresFormatted);
 
       } catch (err) {
         console.error("Error fetching vehicles and tires:", err);
@@ -826,6 +886,61 @@ export default function DistribuidorPage() {
             </div>
           ) : (
             <TablaCpk tires={cpkTires} />
+          )}
+        </div>
+
+        {/* TanqueMilimetro and Analytics Cards Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* TanqueMilimetro */}
+          <div>
+            {loadingSemaforo ? (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                <div className="text-center text-blue-600 animate-pulse">
+                  Cargando datos...
+                </div>
+              </div>
+            ) : (
+              <TanqueMilimetro tires={tanqueTires} language="es" />
+            )}
+          </div>
+
+          {/* ReencaucheHistorico */}
+          <div>
+            {loadingSemaforo ? (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                <div className="text-center text-blue-600 animate-pulse">
+                  Cargando histórico...
+                </div>
+              </div>
+            ) : (
+              <ReencaucheHistorico tires={reencaucheTires} language="es" />
+            )}
+          </div>
+
+          {/* HistoricChart */}
+          <div>
+            {loadingSemaforo ? (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                <div className="text-center text-blue-600 animate-pulse">
+                  Cargando gráfico...
+                </div>
+              </div>
+            ) : (
+              <HistoricChart tires={historicTires} language="es" />
+            )}
+          </div>
+        </div>
+
+        {/* DetallesLlantas - Full Width */}
+        <div className="mb-6">
+          {loadingSemaforo ? (
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+              <div className="text-center text-blue-600 animate-pulse">
+                Cargando detalles de llantas...
+              </div>
+            </div>
+          ) : (
+            <DetallesLlantas tires={detailTires} vehicles={allVehicles} />
           )}
         </div>
 
