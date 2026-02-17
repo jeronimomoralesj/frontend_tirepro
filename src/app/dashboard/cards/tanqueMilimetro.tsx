@@ -3,7 +3,6 @@
 import React from "react";
 import { HelpCircle } from "lucide-react";
 
-// Define the structure of an inspection entry.
 export type Inspection = {
   profundidadInt: number;
   profundidadCen: number;
@@ -11,7 +10,6 @@ export type Inspection = {
   fecha: string;
 };
 
-// Define the structure of a tire.
 export type Tire = {
   id: string;
   profundidadInicial: number;
@@ -20,26 +18,25 @@ export type Tire = {
 
 interface TanqueMilimetroProps {
   tires: Tire[];
-  language?: "es"; // Language prop
+  language?: "es";
 }
 
-// Translation object
 const translations = {
   es: {
     title: "Tanque por Milímetro",
     averageWear: "Desgaste Promedio",
     totalTires: "Total de Llantas",
-    tooltipText: "Porcentaje de uso disponible de todas las llantas en la flota. Ejemplo: si queda un 30% restante, significa que solo queda un 30% de la vida útil en promedio de todas las llantas."
-  }
+    tooltipText:
+      "Porcentaje de uso disponible de todas las llantas en la flota. Ejemplo: si queda un 30% restante, significa que solo queda un 30% de la vida útil en promedio de todas las llantas.",
+  },
 };
 
-const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({ 
-  tires, 
-  language = "es"
+const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({
+  tires,
+  language = "es",
 }) => {
   const t = translations[language];
 
-  // Calculate progress for each tire (only if there is at least one inspection)
   const progresses = tires.reduce((acc: number[], tire) => {
     if (tire.inspecciones && tire.inspecciones.length > 0) {
       const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
@@ -48,61 +45,73 @@ const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({
         lastInspection.profundidadCen,
         lastInspection.profundidadExt
       );
-      const progress = 1 - ((tire.profundidadInicial - smallestDepth) / tire.profundidadInicial);
+      const progress =
+        1 -
+        (tire.profundidadInicial - smallestDepth) / tire.profundidadInicial;
       acc.push(progress);
     }
     return acc;
   }, []);
 
-  // Calculate the average progress across all tires with inspection data.
   const averageProgress =
     progresses.length > 0
       ? progresses.reduce((sum, p) => sum + p, 0) / progresses.length
       : 0;
-  
-  // Convert to percentage and round to two decimal places
+
   const progressPercentage = (averageProgress * 100).toFixed(2);
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-      <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">{t.title}</h2>
-        <div className="group relative cursor-pointer">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden w-full">
+      {/* Header */}
+      <div className="bg-[#173D68] text-white px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-2">
+        <h2 className="text-base sm:text-xl font-bold leading-tight truncate">
+          {t.title}
+        </h2>
+        <div className="group relative cursor-pointer flex-shrink-0">
           <HelpCircle
             className="text-white hover:text-gray-200 transition-colors"
-            size={24}
+            size={20}
           />
-          <div className="
-            absolute z-10 -top-2 right-full 
-            bg-[#0A183A] text-white 
-            text-xs p-3 rounded-lg 
-            opacity-0 group-hover:opacity-100 
-            transition-opacity duration-300 
-            w-60 pointer-events-none
-          ">
-            <p>
-              {t.tooltipText}
-            </p>
+          {/* Tooltip — flips to left on small screens */}
+          <div
+            className="
+              absolute z-10 top-full mt-2 right-0
+              sm:-top-2 sm:right-full sm:top-auto sm:mt-0 sm:mr-2
+              bg-[#0A183A] text-white
+              text-xs p-3 rounded-lg
+              opacity-0 group-hover:opacity-100
+              transition-opacity duration-300
+              w-56 sm:w-60 pointer-events-none
+              shadow-xl
+            "
+          >
+            <p>{t.tooltipText}</p>
           </div>
         </div>
       </div>
-      
-      <div className="p-6">
+
+      {/* Body */}
+      <div className="p-4 sm:p-6">
         <div className="mb-4">
-          <div className="flex justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">{t.averageWear}</span>
-            <span className="text-sm font-medium text-gray-700">{progressPercentage}%</span>
+          <div className="flex justify-between mb-2 gap-2">
+            <span className="text-xs sm:text-sm font-medium text-gray-700 truncate">
+              {t.averageWear}
+            </span>
+            <span className="text-xs sm:text-sm font-semibold text-gray-800 flex-shrink-0">
+              {progressPercentage}%
+            </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4">
             <div
-              className="bg-[#1E76B6] h-4 rounded-full"
+              className="bg-[#1E76B6] h-3 sm:h-4 rounded-full transition-all duration-500"
               style={{ width: `${averageProgress * 100}%` }}
-            ></div>
+            />
           </div>
         </div>
-        <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
+        <div className="border-t border-gray-100 pt-3 sm:pt-4 flex justify-between items-center">
           <div className="text-xs text-gray-500">
-            {t.totalTires}: {tires.length}
+            {t.totalTires}:{" "}
+            <span className="font-semibold text-gray-700">{tires.length}</span>
           </div>
         </div>
       </div>

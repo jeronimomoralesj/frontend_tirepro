@@ -3,7 +3,6 @@
 import { HelpCircle } from "lucide-react";
 import React, { useMemo, useState, useEffect } from "react";
 
-// Define types for Vehicle, Inspection, and Tire.
 export interface Vehicle {
   id: string;
   placa: string;
@@ -28,57 +27,45 @@ interface SemaforoTablaProps {
   tires: Tire[];
 }
 
-// Define the positions (adjust if needed)
-const positions = [1, 2, 3, 4, 5, 6,7,8,9,10,11,12,13,14,15,16,17];
+const positions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 
-// Translations
 const translations = {
   es: {
     title: "Semáforo Tabla",
-    tooltip: "Este gráfico muestra tus llantas por posición en cada uno de sus vehículos y su profundidad actual.",
+    tooltip:
+      "Este gráfico muestra tus llantas por posición en cada uno de sus vehículos y su profundidad actual.",
     placa: "Placa",
-    pos: "Pos"
-  }
+    pos: "P",
+    noData: "No hay datos disponibles",
+  },
 };
 
 const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
-  // Language detection state
-  const [language, setLanguage] = useState<'es'>('es');
+  const [language, setLanguage] = useState<"es">("es");
 
-  // Language detection effect
   useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = 'es';
-      setLanguage(saved);
-    };
-
-    detectAndSetLanguage();
+    setLanguage("es");
   }, []);
 
-  // Get current translations
   const t = translations[language];
 
-  // Filter out vehicles with placa "fin"
-  const filteredVehicles = useMemo(() => {
-    return vehicles.filter(vehicle => vehicle.placa.toLowerCase() !== "fin");
-  }, [vehicles]);
+  const filteredVehicles = useMemo(
+    () => vehicles.filter((v) => v.placa.toLowerCase() !== "fin"),
+    [vehicles]
+  );
 
-  // Prepare table data: for each vehicle, build a row where each cell (by position)
-  // shows the smallest depth (in mm) from the last inspection of tires matching that position.
   const tableData = useMemo(() => {
-    // First, identify vehicles that have at least one tire
-    const vehiclesWithTires = filteredVehicles.filter(vehicle => 
-      tires.some(tire => tire.vehicleId === vehicle.id)
+    const vehiclesWithTires = filteredVehicles.filter((vehicle) =>
+      tires.some((tire) => tire.vehicleId === vehicle.id)
     );
 
     return vehiclesWithTires.map((vehicle) => {
-      const row = {
+      const row: { placa: string; depths: { [pos: number]: number | null } } = {
         placa: vehicle.placa,
-        depths: {} as { [position: number]: number | null },
+        depths: {},
       };
 
       positions.forEach((pos) => {
-        // Filter tires that belong to this vehicle with the given position and have at least one inspection.
         const tiresForPos = tires.filter(
           (tire) =>
             tire.vehicleId === vehicle.id &&
@@ -88,16 +75,14 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
         );
 
         if (tiresForPos.length > 0) {
-          // For each matching tire, get the minimal depth from its latest inspection.
           const depthValues = tiresForPos.map((tire) => {
-            const lastInspection = tire.inspecciones![tire.inspecciones!.length - 1];
+            const last = tire.inspecciones![tire.inspecciones!.length - 1];
             return Math.min(
-              lastInspection.profundidadInt,
-              lastInspection.profundidadCen,
-              lastInspection.profundidadExt
+              last.profundidadInt,
+              last.profundidadCen,
+              last.profundidadExt
             );
           });
-          // Store the smallest depth among all tires for this vehicle and position.
           row.depths[pos] = Math.min(...depthValues);
         } else {
           row.depths[pos] = null;
@@ -108,81 +93,156 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
     });
   }, [filteredVehicles, tires]);
 
+  const activePositions = positions.filter((pos) =>
+    tableData.some((row) => row.depths[pos] !== null)
+  );
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col">
-      {/* Card Title */}
-      <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">{t.title}</h2>
-        <div className="group relative cursor-pointer">
+    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col w-full">
+      {/* Header */}
+      <div className="bg-[#173D68] text-white px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between shrink-0 gap-2">
+        <h2 className="text-base sm:text-xl font-bold truncate">{t.title}</h2>
+        <div className="group relative cursor-pointer shrink-0">
           <HelpCircle
             className="text-white hover:text-gray-200 transition-colors"
-            size={24}
+            size={20}
           />
-          <div className="
-            absolute z-10 -top-2 right-full 
-            bg-[#0A183A] text-white 
-            text-xs p-3 rounded-lg 
-            opacity-0 group-hover:opacity-100 
-            transition-opacity duration-300 
-            w-60 pointer-events-none
-          ">
-            <p>
-              {t.tooltip}
-            </p>
+          {/* Tooltip — drops below on mobile, goes left on sm+ */}
+          <div
+            className="
+              absolute z-20 top-full mt-2 right-0
+              sm:-top-2 sm:right-full sm:top-auto sm:mt-0 sm:mr-2
+              bg-[#0A183A] text-white text-xs p-3 rounded-lg
+              opacity-0 group-hover:opacity-100
+              transition-opacity duration-300
+              w-52 sm:w-60 pointer-events-none shadow-xl
+            "
+          >
+            <p>{t.tooltip}</p>
           </div>
         </div>
       </div>
-      
-      {/* Table container with both horizontal and vertical scroll */}
-      <div className="overflow-auto relative" style={{ maxHeight: "70vh" }}>
-        <table className="w-full border-collapse">
-          <thead className="sticky top-0 z-0">
-            <tr>
-              {/* Fixed column header (top-left corner) */}
-              <th className="px-4 py-2 text-left sticky left-0 z-0 bg-gray-100 min-w-[120px]">
-                {t.placa}
-              </th>
-              {/* Regular headers (sticky top) */}
-              {positions.map((pos) => (
-                <th key={pos} className="px-4 py-2 text-center bg-gray-100 min-w-[80px]">
-                  {t.pos} {pos}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tableData.map((row, idx) => (
-              <tr key={idx} className="border-t">
-                {/* Fixed first column */}
-                <td className="px-4 py-2 sticky left-0 bg-white font-bold z-0 min-w-[120px]">
-                  {row.placa.toUpperCase()}
-                </td>
-                {/* Regular cells */}
-                {positions.map((pos) => {
-                  const value = row.depths[pos];
-                  let bg = "bg-gray-200 text-gray-700"; // default
-                  if (value !== null) {
-                    if (value <= 3) bg = "bg-red-100 text-red-800";
-                    else if (value <= 6) bg = "bg-yellow-100 text-yellow-800";
-                    else bg = "bg-green-100 text-green-800";
-                  }
 
-                  return (
-                    <td key={pos} className="px-4 py-2 text-center min-w-[80px]">
-                      {value !== null ? (
-                        <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${bg}`}>
-                          {value}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  );
-                })}
+      {/* Legend — compact, always visible above the table */}
+      <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border-b border-gray-200 shrink-0 flex-wrap">
+        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-400" />
+          &gt; 6 mm
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400" />
+          3 – 6 mm
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400" />
+          ≤ 3 mm
+        </span>
+      </div>
+
+      {/* Scrollable table — both axes, capped height */}
+      <div
+        className="overflow-auto flex-1"
+        style={{ maxHeight: "65vh" }}
+      >
+        {tableData.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+            {t.noData}
+          </div>
+        ) : (
+          <table
+            className="border-collapse text-xs sm:text-sm"
+            style={{ minWidth: "max-content", width: "100%" }}
+          >
+            <thead className="sticky top-0 z-10">
+              <tr>
+                {/* Sticky placa column header */}
+                <th
+                  className="
+                    sticky left-0 z-20
+                    px-3 sm:px-4 py-2
+                    text-left
+                    bg-gray-100 border-b border-gray-200
+                    font-semibold text-gray-700 whitespace-nowrap
+                    min-w-[90px] sm:min-w-[120px]
+                    shadow-[2px_0_4px_-1px_rgba(0,0,0,0.08)]
+                  "
+                >
+                  {t.placa}
+                </th>
+                {activePositions.map((pos) => (
+                  <th
+                    key={pos}
+                    className="
+                      px-2 sm:px-3 py-2 text-center
+                      bg-gray-100 border-b border-gray-200
+                      font-semibold text-gray-700 whitespace-nowrap
+                      min-w-[44px] sm:min-w-[64px]
+                    "
+                  >
+                    {t.pos}{pos}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {tableData.map((row, idx) => (
+                <tr
+                  key={idx}
+                  className="border-t border-gray-100 hover:bg-gray-50/60 transition-colors"
+                >
+                  {/* Sticky placa cell */}
+                  <td
+                    className="
+                      sticky left-0 z-10 bg-white
+                      px-3 sm:px-4 py-2
+                      font-bold whitespace-nowrap
+                      text-xs sm:text-sm
+                      border-r border-gray-100
+                      min-w-[90px] sm:min-w-[120px]
+                      shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]
+                    "
+                  >
+                    {row.placa.toUpperCase()}
+                  </td>
+
+                  {activePositions.map((pos) => {
+                    const value = row.depths[pos];
+
+                    let bg = "";
+                    if (value === null) {
+                      bg = "";
+                    } else if (value <= 3) {
+                      bg = "bg-red-100 text-red-800";
+                    } else if (value <= 6) {
+                      bg = "bg-yellow-100 text-yellow-800";
+                    } else {
+                      bg = "bg-green-100 text-green-800";
+                    }
+
+                    return (
+                      <td
+                        key={pos}
+                        className="px-2 sm:px-3 py-2 text-center min-w-[44px] sm:min-w-[64px]"
+                      >
+                        {value !== null ? (
+                          <span
+                            className={`inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-semibold rounded-full ${bg} min-w-[28px]`}
+                          >
+                            {value}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs select-none">
+                            —
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

@@ -93,8 +93,8 @@ const SearchIcon = () => (
 
 // ─── Skeleton Loader ───────────────────────────────────────────────────────────
 const LoadingCard = ({ label }: { label: string }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
-    <div className="flex items-center justify-center gap-2">
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 h-full">
+    <div className="flex items-center justify-center gap-2 h-full min-h-[120px]">
       <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
       <span className="text-blue-600 text-sm font-medium">{label}</span>
     </div>
@@ -111,14 +111,13 @@ interface KpiCardProps {
   label: string;
   labelColor?: string;
   loading?: boolean;
-  wide?: boolean;
 }
 const KpiCard = ({
   icon, iconColor = "text-white", bg,
   primary, secondary, label, labelColor = "text-white/70",
-  loading, wide,
+  loading,
 }: KpiCardProps) => (
-  <div className={`flex items-center gap-3 ${bg} p-3 sm:p-4 lg:p-5 rounded-2xl shadow-lg ${wide ? "col-span-2 lg:col-span-1" : ""}`}>
+  <div className={`flex items-center gap-3 ${bg} p-3 sm:p-4 lg:p-5 rounded-2xl shadow-lg`}>
     <div className={`${iconColor} flex-shrink-0`}>{icon}</div>
     <div className="min-w-0 flex-1">
       <p className="text-base sm:text-lg lg:text-2xl font-bold text-white leading-none truncate">
@@ -137,26 +136,26 @@ const KpiCard = ({
 );
 
 // ─── ScrollableCard ────────────────────────────────────────────────────────────
-// Wraps cards that contain inherently wide tables (SemaforoTabla = 17 positions,
-// DetallesLlantas = 19 columns, TablaCpk = wide).
-// On mobile a "swipe" hint strip is shown; the inner content scrolls horizontally.
 const ScrollableCard = ({ children }: { children: React.ReactNode }) => (
   <div className="w-full rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-    {/* Swipe hint — only on small screens */}
     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border-b border-gray-100 sm:hidden">
       <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
       </svg>
       <span className="text-[10px] text-slate-400 font-medium">Desliza horizontalmente para ver más</span>
     </div>
-    {/*
-      overflow-x-auto  → horizontal scroll when the table is wider than the viewport
-      overflow-y-visible → don't clip tooltips / dropdowns vertically
-      The inner card keeps its own rounded corners via the parent clip above.
-    */}
     <div className="overflow-x-auto">
       {children}
     </div>
+  </div>
+);
+
+// ─── PairRow ───────────────────────────────────────────────────────────────────
+// Every two cards share one row. On mobile they stack (1 col), on sm+ they sit
+// side-by-side (2 cols). Both children fill equal width and match height.
+const PairRow = ({ children }: { children: React.ReactNode }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 items-stretch">
+    {children}
   </div>
 );
 
@@ -431,35 +430,25 @@ export default function DistribuidorPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    /*
-      ┌─────────────────────────────────────────────────────────────────┐
-      │  LAYOUT CONTRACT                                                │
-      │                                                                 │
-      │  Mobile  : sidebar is a full-screen overlay. No shift needed.   │
-      │            Mobile nav bar is ~72px tall (h-14 + top-4).         │
-      │            → pt-[4.75rem] clears it.                            │
-      │                                                                 │
-      │  Desktop : sidebar is fixed-position, left-4, rounded.          │
-      │            Collapsed  = w-16  (64px) + left-4 (16px) = 80px    │
-      │            Expanded   = w-60 (240px) + left-4 (16px) = 256px   │
-      │            We use lg:pl-24 (96px) as a safe collapsed default.  │
-      │            To support expanded sidebar, pass a `sidebarOpen`    │
-      │            boolean prop and toggle between lg:pl-24 / lg:pl-68. │
-      └─────────────────────────────────────────────────────────────────┘
-    */
     <div className="min-h-screen bg-slate-50">
+      {/*
+        Layout note:
+        - The DashboardLayout's <main> already applies lg:ml-20 / lg:ml-64 and p-6.
+        - We just need our own internal spacing here; no sidebar offset required.
+        - Mobile: pt-[4.75rem] clears the floating nav bar (~72px).
+        - Desktop: pt-0 because DashboardLayout already has pt-16 lg:pt-4.
+      */}
       <div className="
-        w-full max-w-[1600px] mx-auto
-        px-3 pt-[4.75rem] pb-6
-        sm:px-4 sm:pt-[5.25rem]
-        lg:pl-24 lg:pr-6 lg:pt-6
-        space-y-4 sm:space-y-5 lg:space-y-6
+        w-full
+        px-0 pt-[4.75rem] pb-6
+        sm:pt-[5.25rem]
+        lg:pt-0
+        space-y-4 sm:space-y-5
       ">
 
-        {/* ── Header ────────────────────────────────────────────────────────── */}
+        {/* ── Header ─────────────────────────────────────────────────────────── */}
         <header className="bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-xl overflow-visible">
           <div className="p-4 sm:p-5 lg:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
             <div className="text-white min-w-0">
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight truncate leading-tight">
                 Panel Distribuidor
@@ -477,7 +466,7 @@ export default function DistribuidorPage() {
               </div>
             </div>
 
-            {/* Client selector dropdown */}
+            {/* Client selector */}
             <div className="relative w-full sm:w-auto sm:min-w-[200px] lg:min-w-[220px]">
               <button
                 onClick={() => setShowClientDropdown(!showClientDropdown)}
@@ -542,8 +531,8 @@ export default function DistribuidorPage() {
           </div>
         </header>
 
-        {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* ── KPI Cards — 2×2 grid (4 cards, always 2 per row) ─────────────── */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <KpiCard
             bg="bg-[#0A183A]" icon={<UsersIcon />}
             primary={String(totalClients)} label="Clientes totales" loading={loading}
@@ -553,12 +542,11 @@ export default function DistribuidorPage() {
             primary={String(activeAlerts)} label="Alertas activas"
             labelColor="text-yellow-200/80" loading={loading}
           />
-          {/* Wide card: spans full 2 cols on mobile, 1 on lg */}
           <KpiCard
             bg="bg-[#1E76B6]" icon={<TrendingUpIcon />}
             primary={fmtCOP(avgCpkProyectado)}
             secondary={fmtCOP(avgCptProyectado)}
-            label="CPK Proy · CPT Proy" loading={loading} wide
+            label="CPK Proy · CPT Proy" loading={loading}
           />
           <KpiCard
             bg="bg-[#0d2257]" icon={<PackageIcon />}
@@ -568,24 +556,21 @@ export default function DistribuidorPage() {
           />
         </div>
 
-        {/* ── SemaforoTabla ─────────────────────────────────────────────────── */}
-        {/*
-          SemaforoTabla renders positions 1-17, each min-w-[80px] = ~1360px minimum.
-          ScrollableCard lets it scroll horizontally on narrow viewports safely.
-        */}
-        {loadingSemaforo ? (
-          <LoadingCard label="Cargando datos de neumáticos..." />
-        ) : (
-          <ScrollableCard>
-            <SemaforoTabla vehicles={allVehicles} tires={allTires} />
-          </ScrollableCard>
-        )}
-
-        {/* ── Alerts + Vida Distribution ────────────────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
+        {/* ── Row 1: SemaforoTabla + Alerts ────────────────────────────────── */}
+        <PairRow>
+          {/* SemaforoTabla — wide table, needs horizontal scroll */}
+          <div className="min-w-0">
+            {loadingSemaforo ? (
+              <LoadingCard label="Cargando datos de neumáticos..." />
+            ) : (
+              <ScrollableCard>
+                <SemaforoTabla vehicles={allVehicles} tires={allTires} />
+              </ScrollableCard>
+            )}
+          </div>
 
           {/* Alerts panel */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 lg:p-6 flex flex-col min-h-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 flex flex-col min-h-0">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-red-500 flex-shrink-0"><BellIcon /></span>
               <h2 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight">
@@ -597,7 +582,7 @@ export default function DistribuidorPage() {
                 </span>
               )}
             </div>
-            <div className="overflow-y-auto max-h-60 sm:max-h-72 space-y-2 pr-0.5">
+            <div className="overflow-y-auto max-h-72 space-y-2 pr-0.5 flex-1">
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-gray-400">
                   <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -628,9 +613,12 @@ export default function DistribuidorPage() {
               )}
             </div>
           </div>
+        </PairRow>
 
+        {/* ── Row 2: Vida Distribution + PorMarca ──────────────────────────── */}
+        <PairRow>
           {/* Vida distribution */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 lg:p-6 flex flex-col">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 flex flex-col">
             <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-4 leading-tight">
               Distribución de Neumáticos
             </h2>
@@ -658,11 +646,9 @@ export default function DistribuidorPage() {
               <span className="text-xs sm:text-sm font-bold text-[#1E76B6]">{vidaStats.total} neumáticos</span>
             </div>
           </div>
-        </div>
 
-        {/* ── PorMarca + PorBanda ───────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
-          <div className="min-w-0 w-full">
+          {/* PorMarca */}
+          <div className="min-w-0">
             {loadingSemaforo ? (
               <LoadingCard label="Cargando marcas..." />
             ) : Object.keys(marcaData).length > 0 ? (
@@ -671,7 +657,12 @@ export default function DistribuidorPage() {
               <LoadingCard label="Sin datos de marcas" />
             )}
           </div>
-          <div className="min-w-0 w-full">
+        </PairRow>
+
+        {/* ── Row 3: PorBanda + TablaCpk ───────────────────────────────────── */}
+        <PairRow>
+          {/* PorBanda */}
+          <div className="min-w-0">
             {loadingSemaforo ? (
               <LoadingCard label="Cargando bandas..." />
             ) : Object.keys(bandaData).length > 0 ? (
@@ -680,26 +671,21 @@ export default function DistribuidorPage() {
               <LoadingCard label="Sin datos de bandas" />
             )}
           </div>
-        </div>
 
-        {/* ── TablaCpk ─────────────────────────────────────────────────────── */}
-        {/* TablaCpk also has multiple columns — safe scroll wrapper */}
-        {loadingSemaforo ? (
-          <LoadingCard label="Cargando datos de CPK..." />
-        ) : (
-          <ScrollableCard>
-            <TablaCpk tires={cpkTires} />
-          </ScrollableCard>
-        )}
+          {/* TablaCpk */}
+          <div className="min-w-0">
+            {loadingSemaforo ? (
+              <LoadingCard label="Cargando datos de CPK..." />
+            ) : (
+              <ScrollableCard>
+                <TablaCpk tires={cpkTires} />
+              </ScrollableCard>
+            )}
+          </div>
+        </PairRow>
 
-        {/* ── TanqueMilimetro + ReencaucheHistorico + HistoricChart ──────────── */}
-        {/*
-          Chart cards are naturally responsive (maintainAspectRatio: false + fixed height).
-          HistoricChart has h-48 / h-56 internally — fine as-is.
-          Grid: 1col → 2col(sm) → 3col(xl).
-          HistoricChart spans 2 cols on sm so the chart has enough horizontal room.
-        */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+        {/* ── Row 4: TanqueMilimetro + ReencaucheHistorico ─────────────────── */}
+        <PairRow>
           <div className="min-w-0">
             {loadingSemaforo ? (
               <LoadingCard label="Cargando datos..." />
@@ -714,31 +700,31 @@ export default function DistribuidorPage() {
               <ReencaucheHistorico tires={reencaucheTires} language="es" />
             )}
           </div>
-          <div className="min-w-0 sm:col-span-2 xl:col-span-1">
+        </PairRow>
+
+        {/* ── Row 5: HistoricChart + DetallesLlantas ────────────────────────── */}
+        <PairRow>
+          <div className="min-w-0">
             {loadingSemaforo ? (
               <LoadingCard label="Cargando gráfico..." />
             ) : (
               <HistoricChart tires={historicTires} language="es" />
             )}
           </div>
-        </div>
 
-        {/* ── DetallesLlantas ───────────────────────────────────────────────── */}
-        {/*
-          DetallesLlantas has 19 columns; the component already does overflow-x-auto
-          internally (max-h-96 scroll) but the outer card needs to not clip it.
-          ScrollableCard adds the swipe hint on mobile and ensures the outer
-          container doesn't break the page layout.
-        */}
-        {loadingSemaforo ? (
-          <LoadingCard label="Cargando detalles de llantas..." />
-        ) : (
-          <ScrollableCard>
-            <DetallesLlantas tires={detailTires} vehicles={allVehicles} />
-          </ScrollableCard>
-        )}
+          {/* DetallesLlantas — wide table, needs horizontal scroll */}
+          <div className="min-w-0">
+            {loadingSemaforo ? (
+              <LoadingCard label="Cargando detalles de llantas..." />
+            ) : (
+              <ScrollableCard>
+                <DetallesLlantas tires={detailTires} vehicles={allVehicles} />
+              </ScrollableCard>
+            )}
+          </div>
+        </PairRow>
 
-        {/* ── Client List ───────────────────────────────────────────────────── */}
+        {/* ── Row 6: Client List — full width ──────────────────────────────── */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm sm:text-base font-semibold text-gray-900">
@@ -759,8 +745,8 @@ export default function DistribuidorPage() {
           ) : filteredCompanies.length === 0 ? (
             <div className="text-center py-10 text-gray-400 text-sm">Sin clientes para mostrar</div>
           ) : (
-            /* 1 col → 2 col (≥400px) → 3 col (md) → 4 col (xl) */
-            <div className="grid grid-cols-1 min-[400px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            /* 2 cols on mobile → 3 on md → 4 on xl */
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {filteredCompanies.map((company) => (
                 <button
                   key={company.id}
@@ -796,7 +782,7 @@ export default function DistribuidorPage() {
           )}
         </div>
 
-        {/* ── Error ─────────────────────────────────────────────────────────── */}
+        {/* ── Error ────────────────────────────────────────────────────────── */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
             <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
