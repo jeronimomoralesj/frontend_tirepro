@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import * as XLSX from "xlsx";
 import {
   Download,
   AlertTriangle,
@@ -8,8 +9,6 @@ import {
   CheckCircle2,
   Search,
 } from "lucide-react";
-// Note: XLSX import would be needed in actual implementation
-// import * as XLSX from "xlsx";
 
 export type CostEntry = {
   valor: number;
@@ -23,6 +22,7 @@ export type Inspection = {
   fecha: string;
   cpk?: number;
   cpkProyectado?: number;
+  kilometrosEstimados?: number;
 };
 
 export type Tire = {
@@ -49,13 +49,10 @@ interface Vehicle {
 }
 
 interface DetallesLlantasProps {
-  /** Neumáticos ya filtrados */
   tires: Tire[];
-  /** Lista de vehículos para resolver placa via vehicleId */
   vehicles: Vehicle[];
 }
 
-// Translations object
 const translations = {
   es: {
     title: "Detalles de Todas las Llantas",
@@ -75,10 +72,10 @@ const translations = {
     life: "Vida",
     lastInspection: "Última Inspección",
     cpk: "CPK",
-    cpkProjected: "CPK Proy",
-    depthInt: "Profundidad Int",
-    depthCenter: "Profundidad Cen",
-    depthExt: "Profundidad Ext",
+    cpkProjected: "CPK Proyectado",
+    depthInt: "Prof. Int",
+    depthCenter: "Prof. Cen",
+    depthExt: "Prof. Ext",
     wear: "Desgaste (%)",
     cost: "Costo",
     event: "Evento",
@@ -90,155 +87,203 @@ const translations = {
     firstLife: "Primera Vida",
     lastCost: "Último Costo",
     lastEvent: "Último Evento",
-    currentLife: "Vida Actual"
-  }
+    currentLife: "Vida Actual",
+  },
 };
 
-const DetallesLlantas: React.FC<DetallesLlantasProps> = ({
-  tires,
-  vehicles,
-}) => {
+// ─────────────────────────────────────────────
+// CORE HELPERS
+// ─────────────────────────────────────────────
+
+/**
+ * Derive projected KM from stored inspection data.
+ *
+ * Priority:
+ *  1. If cpkProyectado > 0 and totalCost > 0  → totalCost / cpkProyectado
+ *  2. If kmProyectados is stored directly on the inspection  → use it
+ *  3. Fallback: depth-ratio formula as last resort
+ */
+function getKmProyectados(
+  tire: Tire,
+  insp: Inspection | undefined
+): number | "-" {
+  if (!insp) return "-";
+
+  const totalCost = Array.isArray(tire.costo)
+    ? tire.costo.reduce((s, c) => s + (c?.valor ?? 0), 0)
+    : 0;
+
+  // 1. Derive from CPK proyectado (most accurate — comes from the backend formula)
+  if (insp.cpkProyectado && insp.cpkProyectado > 0 && totalCost > 0) {
+    return Math.round(totalCost / insp.cpkProyectado);
+  }
+
+  // 2. If the inspection stores it explicitly
+  if ((insp as any).kmProyectados && (insp as any).kmProyectados > 0) {
+    return Math.round((insp as any).kmProyectados);
+  }
+
+  // 3. Last resort depth-ratio (only when we have no CPK data at all)
+  const depths = [insp.profundidadInt, insp.profundidadCen, insp.profundidadExt];
+  const minDepth = Math.min(...depths);
+  if (tire.profundidadInicial > 0 && minDepth > 0 && tire.kilometrosRecorridos > 0) {
+    const mmWorn = tire.profundidadInicial - minDepth;
+    if (mmWorn > 0) {
+      const kmPerMm = tire.kilometrosRecorridos / mmWorn;
+      const mmLeft = Math.max(minDepth - 2, 0);
+      return Math.round(tire.kilometrosRecorridos + kmPerMm * mmLeft);
+    }
+  }
+
+  return "-";
+}
+
+/**
+ * Calculate wear percentage. Returns formatted string or "-".
+ */
+function getDesgastePct(tire: Tire, insp: Inspection | undefined): string {
+  if (!insp) return "-";
+  const depths = [insp.profundidadInt, insp.profundidadCen, insp.profundidadExt];
+  const minDepth = Math.min(...depths);
+  if (tire.profundidadInicial <= 0) return "-";
+  if (minDepth <= 0) return "100%";
+  return ((1 - minDepth / tire.profundidadInicial) * 100).toFixed(1) + "%";
+}
+
+/** Format numbers with thousand separators */
+function fmt(value: number | string | "-"): string {
+  if (value === "-") return "-";
+  if (typeof value === "string") return value;
+  return value.toLocaleString("es-CO");
+}
+
+/** Format currency in COP */
+function fmtCOP(value: number | string | "-"): string {
+  if (value === "-") return "-";
+  if (typeof value === "string") return value;
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+/** Format CPK – round to 0 decimals and add $ sign */
+function fmtCPK(value: number | undefined | null): string {
+  if (value == null || value === 0) return "-";
+  return "$" + Math.round(value).toLocaleString("es-CO");
+}
+
+// ─────────────────────────────────────────────
+// COMPONENT
+// ─────────────────────────────────────────────
+
+const DetallesLlantas: React.FC<DetallesLlantasProps> = ({ tires, vehicles }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [exporting, setExporting] = useState(false);
-  
-  // Ref for the content container
+  const [language] = useState<"es">("es");
   const contentRef = useRef<HTMLDivElement>(null);
-  
-  // Language select
-  const [language, setLanguage] = useState<'es'>('es');
-
-  // Language detection effect
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = 'es';
-      setLanguage(saved);
-      
-    };
-
-    detectAndSetLanguage();
-  }, []);
-
-  // Get current translations
   const t = translations[language];
 
-  // Filtrar tanto por campos de neumático como por placa de vehículo
+  // ── Search filter ──────────────────────────
   const searchFilteredTires = useMemo(() => {
     const q = searchTerm.toLowerCase();
-    return tires.filter((t) => {
+    return tires.filter((tire) => {
       const vehPlaca =
-        vehicles.find((v) => v.id === t.vehicleId)?.placa?.toLowerCase() || "";
+        vehicles.find((v) => v.id === tire.vehicleId)?.placa?.toLowerCase() || "";
       return (
-        t.placa.toLowerCase().includes(q) ||
-        t.marca.toLowerCase().includes(q) ||
-        t.diseno.toLowerCase().includes(q) ||
-        t.dimension.toLowerCase().includes(q) ||
-        t.eje.toLowerCase().includes(q) ||
+        tire.placa.toLowerCase().includes(q) ||
+        tire.marca.toLowerCase().includes(q) ||
+        tire.diseno.toLowerCase().includes(q) ||
+        tire.dimension.toLowerCase().includes(q) ||
+        tire.eje.toLowerCase().includes(q) ||
         vehPlaca.includes(q)
       );
     });
   }, [tires, vehicles, searchTerm]);
 
+  // ── Excel export ───────────────────────────
   const exportToExcel = () => {
     setExporting(true);
-    
-    const exportData = searchFilteredTires.map((tire) => {
-      const vehPlaca =
-        vehicles.find((v) => v.id === tire.vehicleId)?.placa || "-";
-      const vida = tire.vida.at(-1)?.valor || "-";
-      const insp = tire.inspecciones.at(-1);
-      const costo = tire.costo.at(-1)?.valor ?? "-";
-      const evento = tire.eventos.at(-1)?.valor || "-";
-      const primeraVida = tire.primeraVida.at(-1);
 
-      const depths = insp
-        ? [insp.profundidadInt, insp.profundidadCen, insp.profundidadExt]
-        : [0, 0, 0];
-      const minDepth = Math.min(...depths);
+    try {
+      const exportData = searchFilteredTires.map((tire) => {
+        const vehPlaca =
+          vehicles.find((v) => v.id === tire.vehicleId)?.placa || "-";
+        const vida = tire.vida.at(-1)?.valor || "-";
+        const insp = tire.inspecciones.at(-1);
+        const costoRaw = tire.costo.at(-1)?.valor;
+        const costo = costoRaw != null ? costoRaw : "-";
+        const evento = tire.eventos.at(-1)?.valor || "-";
+        const primeraVida = tire.primeraVida.at(-1);
+        const kmProyectados = getKmProyectados(tire, insp);
+        const desgastePct = getDesgastePct(tire, insp);
 
-      const desgastePct =
-        tire.profundidadInicial > 0
-          ? minDepth <= 0
-            ? "100%"
-            : ((1 - minDepth / tire.profundidadInicial) * 100).toFixed(2) + "%"
-          : "-";
+        return {
+          [t.vehiclePlate]: vehPlaca,
+          [t.tirePlate]: tire.placa,
+          [t.brand]: tire.marca,
+          [t.design]: tire.diseno,
+          [t.dimension]: tire.dimension,
+          [t.axle]: tire.eje,
+          [t.position]: tire.posicion,
+          [t.kmTraveled]: tire.kilometrosRecorridos,
+          [t.kmProjected]: kmProyectados === "-" ? "-" : kmProyectados,
+          [t.currentLife]: vida,
+          [t.lastInspection]: insp
+            ? new Date(insp.fecha).toLocaleDateString("es-CO")
+            : "-",
+          [t.cpk]: insp?.cpk != null ? Math.round(insp.cpk) : "-",
+          [t.cpkProjected]:
+            insp?.cpkProyectado != null ? Math.round(insp.cpkProyectado) : "-",
+          [t.depthInt]: insp?.profundidadInt ?? "-",
+          [t.depthCenter]: insp?.profundidadCen ?? "-",
+          [t.depthExt]: insp?.profundidadExt ?? "-",
+          [t.wear]: desgastePct,
+          [t.lastCost]: costo,
+          [t.lastEvent]: evento,
+          [t.firstLife]: primeraVida ? JSON.stringify(primeraVida) : "-",
+        };
+      });
 
-      const kmProyectados =
-        tire.profundidadInicial > 0 && minDepth > 0
-          ? Math.round(
-              tire.kilometrosRecorridos * (tire.profundidadInicial / minDepth)
-            )
-          : "-";
+      const ws = XLSX.utils.json_to_sheet(exportData);
 
-      return {
-        [t.vehiclePlate]: vehPlaca,
-        [t.tirePlate]: tire.placa,
-        [t.brand]: tire.marca,
-        [t.design]: tire.diseno,
-        [t.dimension]: tire.dimension,
-        [t.axle]: tire.eje,
-        [t.position]: tire.posicion,
-        [t.kmTraveled]: tire.kilometrosRecorridos,
-        [t.kmProjected]: kmProyectados,
-        [t.currentLife]: vida,
-        [t.lastInspection]: insp
-          ? new Date(insp.fecha).toLocaleDateString()
-          : "-",
-        [t.cpk]: insp?.cpk ?? "-",
-        [t.cpkProjected]: insp?.cpkProyectado ?? "-",
-        [t.depthInt]: insp?.profundidadInt ?? "-",
-        [t.depthCenter]: insp?.profundidadCen ?? "-",
-        [t.depthExt]: insp?.profundidadExt ?? "-",
-        [t.wear]: desgastePct,
-        [t.lastCost]: costo,
-        [t.lastEvent]: evento,
-        [t.firstLife]: primeraVida ? JSON.stringify(primeraVida) : "-",
-      };
-    });
+      // Auto-size columns
+      const colWidths = Object.keys(exportData[0] || {}).map((key) => ({
+        wch: Math.max(
+          key.length,
+          ...exportData.map((row) => String((row as any)[key] ?? "").length)
+        ) + 2,
+      }));
+      ws["!cols"] = colWidths;
 
-    // Note: In actual implementation, you would use XLSX here:
-    // const ws = XLSX.utils.json_to_sheet(exportData);
-    // const wb = XLSX.utils.book_new();
-    // XLSX.utils.book_append_sheet(wb, ws, language === 'es' ? 'Llantas' : 'Tires');
-    // XLSX.writeFile(wb, `${language === 'es' ? 'detalles_llantas' : 'tire_details'}.xlsx`);
-    
-    // For demo purposes, we'll just console.log the data
-    console.log('Export data prepared:', exportData);
-    alert(language === 'es' ? 'Datos preparados para exportar (ver consola)' : 'Export data prepared (check console)');
-    
-    setTimeout(() => setExporting(false), 1000);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Llantas");
+      XLSX.writeFile(wb, `detalles_llantas_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (err) {
+      console.error("Export error:", err);
+    } finally {
+      setTimeout(() => setExporting(false), 800);
+    }
   };
 
-  // Language toggle component
-  const LanguageToggle = () => (
-    <div className="flex items-center space-x-2">
-      <button
-        onClick={() => {
-          const newLang = language === 'es' ? 'en' : 'es';
-          setLanguage(newLang);
-          localStorage.setItem('preferredLanguage', newLang);
-        }}
-        className="px-3 py-1.5 bg-white/20 text-white rounded hover:bg-white/30 transition flex items-center text-sm"
-      >
-        {language === 'es' ? 'EN' : 'ES'}
-      </button>
-    </div>
-  );
-
+  // ─────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-      {/* Header + Export */}
+      {/* Header */}
       <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
         <h2 className="text-xl font-bold">{t.title}</h2>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={exportToExcel}
-            disabled={exporting}
-            className="px-3 py-1.5 bg-[#1E76B6] text-white rounded hover:bg-[#0A183A] transition flex items-center text-sm disabled:opacity-50"
-          >
-            <Download className="mr-1.5" size={16} /> 
-            {exporting ? (language === 'es' ? 'Exportando...' : 'Exporting...') : t.exportExcel}
-          </button>
-        </div>
+        <button
+          onClick={exportToExcel}
+          disabled={exporting || searchFilteredTires.length === 0}
+          className="px-3 py-1.5 bg-[#1E76B6] text-white rounded hover:bg-[#0A183A] transition flex items-center text-sm disabled:opacity-50"
+        >
+          <Download className="mr-1.5" size={16} />
+          {exporting ? "Exportando..." : t.exportExcel}
+        </button>
       </div>
 
       {/* Search */}
@@ -258,7 +303,7 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({
         </div>
       </div>
 
-      {/* Table or Empty State */}
+      {/* Table / Empty state */}
       <div className="p-6" ref={contentRef}>
         {searchFilteredTires.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-2">
@@ -278,27 +323,27 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({
           <>
             <div className="overflow-x-auto overflow-y-auto max-h-96 rounded-lg mb-4">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-[#173D68] text-white sticky top-0">
+                <thead className="bg-[#173D68] text-white sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-2 text-left">{t.vehiclePlate}</th>
-                    <th className="px-4 py-2 text-left">{t.tirePlate}</th>
-                    <th className="px-4 py-2 text-left">{t.brand}</th>
-                    <th className="px-4 py-2 text-left">{t.design}</th>
-                    <th className="px-4 py-2 text-left">{t.dimension}</th>
-                    <th className="px-4 py-2 text-left">{t.axle}</th>
-                    <th className="px-4 py-2 text-left">{t.position}</th>
-                    <th className="px-4 py-2 text-left">{t.kmTraveled}</th>
-                    <th className="px-4 py-2 text-left">{t.kmProjected}</th>
-                    <th className="px-4 py-2 text-left">{t.life}</th>
-                    <th className="px-4 py-2 text-left">{t.lastInspection}</th>
-                    <th className="px-4 py-2 text-left">{t.cpk}</th>
-                    <th className="px-4 py-2 text-left">{t.cpkProjected}</th>
-                    <th className="px-4 py-2 text-left">{t.depthInt}</th>
-                    <th className="px-4 py-2 text-left">{t.depthCenter}</th>
-                    <th className="px-4 py-2 text-left">{t.depthExt}</th>
-                    <th className="px-4 py-2 text-left">{t.wear}</th>
-                    <th className="px-4 py-2 text-left">{t.cost}</th>
-                    <th className="px-4 py-2 text-left">{t.event}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.vehiclePlate}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.tirePlate}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.brand}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.design}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.dimension}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.axle}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.position}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.kmTraveled}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.kmProjected}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.life}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.lastInspection}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.cpk}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.cpkProjected}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.depthInt}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.depthCenter}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.depthExt}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.wear}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.cost}</th>
+                    <th className="px-4 py-2 text-left whitespace-nowrap">{t.event}</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -307,60 +352,62 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({
                       vehicles.find((v) => v.id === tire.vehicleId)?.placa || "-";
                     const vida = tire.vida.at(-1)?.valor || "-";
                     const insp = tire.inspecciones.at(-1);
-                    const costo = tire.costo.at(-1)?.valor ?? "-";
+                    const costoRaw = tire.costo.at(-1)?.valor;
                     const evento = tire.eventos.at(-1)?.valor || "-";
-
-                    const depths = insp
-                      ? [insp.profundidadInt, insp.profundidadCen, insp.profundidadExt]
-                      : [0, 0, 0];
-                    const minDepth = Math.min(...depths);
-
-                    const desgastePct =
-                      tire.profundidadInicial > 0
-                        ? ((1 - minDepth / tire.profundidadInicial) * 100).toFixed(2) + "%"
-                        : "-";
-
-                    const kmProyectados =
-                      tire.profundidadInicial > 0 && minDepth > 0
-                        ? Math.round(
-                            tire.kilometrosRecorridos *
-                              (tire.profundidadInicial / minDepth)
-                          )
-                        : "-";
+                    const kmProyectados = getKmProyectados(tire, insp);
+                    const desgastePct = getDesgastePct(tire, insp);
 
                     return (
                       <tr key={tire.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2">{vehPlaca}</td>
-                        <td className="px-4 py-2">{tire.placa}</td>
-                        <td className="px-4 py-2">{tire.marca}</td>
-                        <td className="px-4 py-2">{tire.diseno}</td>
-                        <td className="px-4 py-2">{tire.dimension}</td>
-                        <td className="px-4 py-2">{tire.eje}</td>
-                        <td className="px-4 py-2">{tire.posicion}</td>
-                        <td className="px-4 py-2">{tire.kilometrosRecorridos}</td>
-                        <td className="px-4 py-2">{kmProyectados}</td>
-                        <td className="px-4 py-2">{vida}</td>
-                        <td className="px-4 py-2">
-                          {insp
-                            ? new Date(insp.fecha).toLocaleDateString()
-                            : "-"}
+                        <td className="px-4 py-2 whitespace-nowrap">{vehPlaca}</td>
+                        <td className="px-4 py-2 whitespace-nowrap font-mono text-xs">{tire.placa}</td>
+                        <td className="px-4 py-2 whitespace-nowrap capitalize">{tire.marca}</td>
+                        <td className="px-4 py-2 whitespace-nowrap capitalize">{tire.diseno}</td>
+                        <td className="px-4 py-2 whitespace-nowrap uppercase">{tire.dimension}</td>
+                        <td className="px-4 py-2 whitespace-nowrap capitalize">{tire.eje}</td>
+                        <td className="px-4 py-2 text-center">{tire.posicion}</td>
+                        <td className="px-4 py-2 text-right font-mono">
+                          {fmt(tire.kilometrosRecorridos)}
                         </td>
-                        <td className="px-4 py-2">{insp?.cpk ?? "-"}</td>
-                        <td className="px-4 py-2">
-                          {insp?.cpkProyectado ?? "-"}
+                        <td className="px-4 py-2 text-right font-mono font-semibold text-[#173D68]">
+                          {fmt(kmProyectados)}
                         </td>
-                        <td className="px-4 py-2">
-                          {insp?.profundidadInt ?? "-"}
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 capitalize">
+                            {vida}
+                          </span>
                         </td>
-                        <td className="px-4 py-2">
-                          {insp?.profundidadCen ?? "-"}
+                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                          {insp ? new Date(insp.fecha).toLocaleDateString("es-CO") : "-"}
                         </td>
-                        <td className="px-4 py-2">
-                          {insp?.profundidadExt ?? "-"}
+                        <td className="px-4 py-2 text-right font-mono text-xs">
+                          {fmtCPK(insp?.cpk)}
                         </td>
-                        <td className="px-4 py-2">{desgastePct}</td>
-                        <td className="px-4 py-2">{costo}</td>
-                        <td className="px-4 py-2">{evento}</td>
+                        <td className="px-4 py-2 text-right font-mono text-xs">
+                          {fmtCPK(insp?.cpkProyectado)}
+                        </td>
+                        <td className="px-4 py-2 text-center">{insp?.profundidadInt ?? "-"}</td>
+                        <td className="px-4 py-2 text-center">{insp?.profundidadCen ?? "-"}</td>
+                        <td className="px-4 py-2 text-center">{insp?.profundidadExt ?? "-"}</td>
+                        <td className="px-4 py-2 text-right">
+                          <span
+                            className={`font-medium ${
+                              parseFloat(desgastePct) >= 80
+                                ? "text-red-600"
+                                : parseFloat(desgastePct) >= 60
+                                ? "text-yellow-600"
+                                : "text-green-600"
+                            }`}
+                          >
+                            {desgastePct}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                          {costoRaw != null ? fmtCOP(costoRaw) : "-"}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                          {evento}
+                        </td>
                       </tr>
                     );
                   })}
@@ -376,7 +423,7 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({
                   : `${t.totalTires}: ${tires.length}`}
               </div>
               <div className="text-xs text-gray-500">
-                {t.updated}: {new Date().toLocaleDateString()}
+                {t.updated}: {new Date().toLocaleDateString("es-CO")}
               </div>
             </div>
           </>
