@@ -93,6 +93,13 @@ const TireProLanding = () => {
         // Transform backend data
         const transformedArticles = data.map(article => ({
           id: article.id,
+          slug: article.slug || article.title
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // quita tildes
+          .replace(/[^a-z0-9\s-]/g, '')
+          .trim()
+          .replace(/\s+/g, '-'),
           title: article.title,
           excerpt: article.subtitle || '', 
           content: article.content,
@@ -550,7 +557,7 @@ const TireProLanding = () => {
           ) : articles.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {articles.map((article) => (
-                <Link key={article.id} href={`/blog/article?id=${article.id}`}>
+                <Link key={article.id} href={`/blog/${article.slug}`}>
                   <article className="group relative bg-gradient-to-br from-gray-900/50 to-black/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 hover:border-blue-500/50 transition-all duration-300 hover:transform hover:scale-105">
                     <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden">
                       <Image

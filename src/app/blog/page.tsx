@@ -67,6 +67,7 @@ const BlogPage = () => {
         // Transform backend data to match frontend structure
         const transformedArticles = data.map(article => ({
           id: article.id,
+          slug: article.slug,
           title: article.title,
           excerpt: article.subtitle || '', // Use subtitle as excerpt
           content: article.content,
@@ -277,7 +278,7 @@ const BlogPage = () => {
       {latestArticle && (
         <section className="py-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-24">
-            <Link href={`/blog/article?id=${latestArticle.id}`}>
+            <Link href={`/blog/${latestArticle.slug}`}>
               <div className="group relative bg-gradient-to-br from-[#0A183A]/60 to-[#173D68]/40 rounded-3xl overflow-hidden border border-[#173D68]/30 hover:border-[#348CCB]/50 transition-all duration-300 hover:transform hover:scale-[1.01]">
                 <div className="relative h-[400px] md:h-[450px] lg:h-[500px] overflow-hidden">
                   <img 
@@ -397,7 +398,7 @@ const BlogPage = () => {
             
             <div className="grid md:grid-cols-2 gap-8">
               {featuredArticles.map((article) => (
-                <Link key={article.id} href={`/blog/article?id=${article.id}`}>
+                <Link key={article.id} href={`/blog/${article.slug}`}>
                   <div className="group relative bg-gradient-to-br from-[#0A183A]/60 to-[#173D68]/40 rounded-2xl overflow-hidden border border-[#173D68]/30 hover:border-[#348CCB]/50 transition-all duration-300 hover:transform hover:scale-[1.02]">
                     <div className="relative h-64 overflow-hidden">
                       <img 
@@ -465,7 +466,7 @@ const BlogPage = () => {
           {regularArticles.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {regularArticles.map((article) => (
-                <Link key={article.id} href={`/blog/article?id=${article.id}`}>
+                <Link key={article.id} href={`/blog/${article.slug}`}>
                   <div className="group bg-gradient-to-br from-[#0A183A]/40 to-[#173D68]/20 rounded-2xl overflow-hidden border border-[#173D68]/30 hover:border-[#348CCB]/50 transition-all duration-300 hover:transform hover:scale-[1.02]">
                     <div className="relative h-48 overflow-hidden">
                       <img 
