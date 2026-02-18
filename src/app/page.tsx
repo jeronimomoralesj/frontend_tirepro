@@ -976,6 +976,27 @@ const TireProLanding = () => {
         </div>
       </section>
 
+      { /* Calculadora section */}
+      <section
+        id="calculadora"
+        className="py-6 sm:py-12 md:py-22 px-1 sm:px-2 lg:px-4 w-full"
+        aria-labelledby="faq-heading"
+        itemScope
+        itemType="https://schema.org/FAQPage"
+      >
+        <h2 id="faq-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-3 sm:mb-4 text-center">
+              Quieres ver como se esta comportando tu CPK?
+            </h2>
+          <p className="text-lg sm:text-xl text-gray-500 text-center">
+              Usa nuestra calculadora gratiuta para ver como tus diferentes métricas se estan comportando verdaderamente
+            </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 text-center">
+        <a href='/calculadora'><button className="w-full sm:w-auto bg-white text-black px-8 sm:px-10 py-3 sm:py-4 rounded-full font-medium hover:bg-gray-100 transition-all inline-flex items-center justify-center space-x-2 text-base sm:text-lg">
+                    <span>Ir a la calculadora</span>
+                  </button></a>
+          </div>
+      </section>
+
       {/* Final CTA Section */}
       <section
         className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 w-full"

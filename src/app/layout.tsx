@@ -6,7 +6,6 @@ import { AuthProvider } from "./context/AuthProvider";
 import "./globals.css";
 import type { Metadata } from "next";
 import RouteTracker from "../components/RouteTracker";
-import CookieConsentBanner from "../components/CookieConsentBanner";
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!;
 
@@ -525,7 +524,6 @@ export default function RootLayout({
         </head>
         <body>
           <RouteTracker />
-          <CookieConsentBanner />
           {children}
         </body>
       </html>
