@@ -6,16 +6,36 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : 'http://localhost:6001/api'
 
+export const revalidate = 86400 // 24 hours
+
 async function getArticle(slug: string) {
   try {
     const res = await fetch(`${API_URL}/blog/slug/${slug}`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 86400 },
     })
     if (!res.ok) return null
     return res.json()
   } catch {
     return null
   }
+}
+
+export async function generateStaticParams() {
+  const urls = process.env.NEXT_PUBLIC_API_URL
+    ? [`${process.env.NEXT_PUBLIC_API_URL}/api`, 'https://api.tirepro.com.co/api']
+    : ['https://api.tirepro.com.co/api']
+
+  for (const base of urls) {
+    try {
+      const res = await fetch(`${base}/blog`)
+      if (!res.ok) continue
+      const posts = await res.json()
+      return posts
+        .filter((p: any) => p.slug)
+        .map((p: any) => ({ slug: p.slug }))
+    } catch { continue }
+  }
+  return []
 }
 
 export async function generateMetadata({
