@@ -90,13 +90,12 @@ const TireProLanding = () => {
       if (response.ok) {
         const data = await response.json()
        
-        // Transform backend data
         const transformedArticles = data.map(article => ({
           id: article.id,
           slug: article.slug || article.title
           .toLowerCase()
           .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // quita tildes
+          .replace(/[\u0300-\u036f]/g, '')
           .replace(/[^a-z0-9\s-]/g, '')
           .trim()
           .replace(/\s+/g, '-'),
@@ -112,7 +111,6 @@ const TireProLanding = () => {
           hashtags: article.hashtags || []
         }))
        
-        // Sort by date descending and take last 3
         const sortedArticles = transformedArticles.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3)
         setArticles(sortedArticles)
         setErrorArticles(null)
@@ -127,7 +125,6 @@ const TireProLanding = () => {
     }
   }
 
-  // Calculate estimated read time
   const calculateReadTime = (content) => {
     const wordsPerMinute = 200
     const wordCount = content ? content.split(' ').length : 0
@@ -145,28 +142,24 @@ const TireProLanding = () => {
       title: "Inspecciones Digitales con IA",
       description: "Inteligencia artificial que automatiza inspecciones de llantas y mantiene un historial completo del estado de cada neumático de tu flota",
       stat: "10x más rápido",
-      keywords: "inspecciones digitales llantas, IA neumáticos, automatización inspecciones"
     },
     {
       icon: BarChart3,
       title: "Análisis de Costos por Kilómetro",
       description: "Seguimiento automático del costo por kilómetro con visibilidad total de tu inversión en llantas y mantenimiento preventivo",
       stat: "25% ahorro",
-      keywords: "análisis costos llantas, costo por kilómetro, ROI neumáticos"
     },
     {
       icon: MapPin,
       title: "Control de Posiciones de Llantas",
       description: "Gestiona y reorganiza llantas por vehículo con interfaz visual e intuitiva para optimizar rotaciones y maximizar vida útil",
       stat: "100% visual",
-      keywords: "control posiciones llantas, rotación neumáticos, gestión visual"
     },
     {
       icon: Clock,
       title: "Predicción Inteligente de Desgaste",
       description: "IA que predice cuándo cambiar llantas antes de fallas críticas usando machine learning y análisis predictivo avanzado",
       stat: "95% precisión",
-      keywords: "predicción desgaste llantas, IA predictiva, mantenimiento preventivo"
     }
   ]
 
@@ -188,7 +181,6 @@ const TireProLanding = () => {
       ],
       cta: "Comenzar gratis",
       popular: false,
-      schema: "free-tier"
     },
     {
       name: "Plan Crecimiento",
@@ -209,7 +201,6 @@ const TireProLanding = () => {
       ],
       cta: "Comenzar ahora",
       popular: true,
-      schema: "growth-tier"
     },
     {
       name: "Plan Empresarial",
@@ -231,7 +222,6 @@ const TireProLanding = () => {
       ],
       cta: "Contactar ventas",
       popular: false,
-      schema: "enterprise-tier"
     }
   ]
 
@@ -240,25 +230,21 @@ const TireProLanding = () => {
       icon: DollarSign,
       title: "Reduce costos hasta 25%",
       description: "Optimiza la vida útil de cada llanta y evita gastos innecesarios en reemplazos prematuros",
-      keywords: "reducción costos llantas, ahorro mantenimiento flotas"
     },
     {
       icon: Target,
       title: "Toma decisiones inteligentes",
       description: "Datos en tiempo real para saber exactamente cuándo actuar y prevenir fallas",
-      keywords: "decisiones basadas en datos, análisis tiempo real"
     },
     {
       icon: Zap,
       title: "Ahorra tiempo",
       description: "Automatiza inspecciones que antes tomaban horas con nuestra tecnología de IA",
-      keywords: "automatización inspecciones, eficiencia operativa"
     },
     {
       icon: Activity,
       title: "Predice problemas",
       description: "Evita fallas críticas antes de que ocurran con análisis predictivo",
-      keywords: "mantenimiento predictivo, prevención fallas"
     }
   ]
 
@@ -290,32 +276,26 @@ const TireProLanding = () => {
     {
       q: "¿Cómo reduce TirePro mis costos de llantas y mantenimiento?",
       a: "TirePro analiza el desgaste de tus llantas con IA, predice el momento óptimo de reemplazo y te ayuda a maximizar la vida útil de cada llanta. Además, identifica patrones de desgaste irregular que indican problemas mecánicos, permitiéndote actuar antes de generar gastos mayores. Nuestros clientes reportan ahorros del 20-25% en costos de llantas.",
-      keywords: "ahorro costos llantas, optimización mantenimiento"
     },
     {
       q: "¿Qué necesito para empezar a usar TirePro?",
       a: "Solo necesitas un smartphone o computador. La app móvil funciona offline y sincroniza cuando hay conexión. La configuración toma menos de 10 minutos. Carga tus vehículos, toma fotos de las llantas y TirePro se encarga del resto con análisis automático mediante inteligencia artificial.",
-      keywords: "comenzar TirePro, requisitos sistema, configuración rápida"
     },
     {
       q: "¿Cómo funciona el plan gratuito de TirePro?",
       a: "El plan Inicio es 100% gratuito para siempre y te permite gestionar hasta 10 vehículos con un usuario. Incluye todas las funcionalidades básicas de análisis con IA, inspecciones digitales y monitoreo. Si tu flota crece, puedes actualizar en cualquier momento a nuestros planes de pago.",
-      keywords: "plan gratis, software gratuito gestión llantas"
     },
     {
       q: "¿Puedo cambiar de plan después o cancelar?",
       a: "Sí, puedes cambiar de plan en cualquier momento sin penalizaciones. Si tu flota crece y superas los 10 vehículos, te notificaremos automáticamente. El cambio es instantáneo y mantienes toda tu información histórica. No hay contratos de permanencia.",
-      keywords: "cambiar plan, flexibilidad, sin permanencia"
     },
     {
       q: "¿Qué incluye el soporte técnico de TirePro?",
       a: "Todos los planes incluyen soporte técnico. El plan Inicio tiene soporte por email en 24-48 horas. Los planes Crecimiento y Empresarial tienen soporte prioritario con respuesta en menos de 4 horas, además de un gerente de cuenta dedicado en el plan Empresarial con capacitación incluida.",
-      keywords: "soporte técnico, atención al cliente, servicio"
     },
     {
       q: "¿Los datos de mi flota están seguros en TirePro?",
       a: "Sí, todos los datos están encriptados con estándares bancarios y almacenados en servidores seguros en la nube. Cumplimos con todas las normativas de protección de datos de Colombia y realizamos backups diarios automáticos. Tu información está 100% protegida.",
-      keywords: "seguridad datos, protección información, cumplimiento normativo"
     }
   ]
 
@@ -324,31 +304,29 @@ const TireProLanding = () => {
       step: "01",
       title: "Registra tu flota",
       description: "Carga tus vehículos en minutos con nuestra interfaz intuitiva y comienza a gestionar tus llantas",
-      keywords: "registro flota, onboarding rápido"
     },
     {
       step: "02",
       title: "Inspecciona con IA",
       description: "Toma fotos de las llantas y nuestra IA las analiza automáticamente detectando desgaste y problemas",
-      keywords: "inspección IA, análisis automático llantas"
     },
     {
       step: "03",
       title: "Recibe recomendaciones",
       description: "Obtén alertas y predicciones precisas sobre cuándo actuar y realizar mantenimientos",
-      keywords: "alertas predictivas, recomendaciones IA"
     },
     {
       step: "04",
       title: "Optimiza y ahorra",
       description: "Reduce costos y maximiza la vida útil de cada llanta con decisiones basadas en datos",
-      keywords: "optimización costos, ROI llantas"
     }
   ]
 
   return (
-    <div className="bg-black text-white min-h-screen">
-      {/* Semantic HTML - Navigation with proper ARIA labels */}
+    /* ROOT: overflow-x-hidden is the primary fix to prevent horizontal scrolling */
+    <div className="bg-black text-white min-h-screen overflow-x-hidden w-full">
+
+      {/* Navigation */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'
@@ -358,7 +336,7 @@ const TireProLanding = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 min-w-0">
               <a href="/" aria-label="TirePro - Inicio">
                 <Image
                   src={logo}
@@ -377,13 +355,13 @@ const TireProLanding = () => {
               <a href="/blog" className="text-sm text-gray-400 hover:text-white transition-colors">Blog</a>
               <a href="/login" className="text-sm text-gray-400 hover:text-white transition-colors">Ingresar</a>
               <a href="/companyregister">
-                <button className="bg-white text-black px-4 xl:px-6 py-2 sm:py-2.5 rounded-full text-sm font-medium hover:bg-gray-100 transition-all">
+                <button className="bg-white text-black px-4 xl:px-6 py-2 sm:py-2.5 rounded-full text-sm font-medium hover:bg-gray-100 transition-all whitespace-nowrap">
                   Comenzar Gratis
                 </button>
               </a>
             </div>
             <button
-              className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
+              className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Abrir menú de navegación"
               aria-expanded={isMobileMenuOpen}
@@ -409,20 +387,21 @@ const TireProLanding = () => {
           </div>
         )}
       </nav>
-      {/* Hero Section - SEO Optimized with H1 */}
-      <header className="pt-24 sm:pt-28 md:pt-32 lg:pt-36 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8">
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold leading-tight tracking-tight px-4">
+
+      {/* Hero Section */}
+      <header className="pt-24 sm:pt-28 md:pt-32 lg:pt-36 pb-12 sm:pb-16 md:pb-20 px-4 sm:px-6 lg:px-8 w-full">
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8 w-full">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold leading-tight tracking-tight">
               Software de Gestión de Llantas con IA para Flotas en Colombia
               <br />
               <span className="text-gray-500">Reduce hasta 25% tus costos</span>
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto leading-relaxed px-4">
+            <p className="text-lg sm:text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
               TirePro es el sistema líder de gestión inteligente de neumáticos con inteligencia artificial.
               Inspecciones digitales automatizadas, análisis predictivo y alertas en tiempo real para optimizar tu flota.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 px-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4">
               <a href="/companyregister" className="w-full sm:w-auto">
                 <button
                   className="w-full sm:w-auto bg-white text-black px-6 sm:px-8 py-3 sm:py-4 rounded-full font-medium hover:bg-gray-100 transition-all flex items-center justify-center space-x-2"
@@ -438,14 +417,16 @@ const TireProLanding = () => {
                 </button>
               </a>
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 px-4">
+            <p className="text-xs sm:text-sm text-gray-500">
               Plan Inicio gratis para siempre • Sin tarjeta de crédito • Configuración en 10 minutos
             </p>
           </div>
-          {/* Hero Dashboard Preview with semantic markup */}
-          <figure className="mt-12 sm:mt-16 md:mt-20 relative px-4">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-3xl" aria-hidden="true"></div>
-            <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black rounded-2xl sm:rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+
+          {/* Hero image — clamp decorative blur so it never overflows */}
+          <figure className="mt-12 sm:mt-16 md:mt-20 relative w-full">
+            {/* Decorative blur: contained with overflow-hidden on parent */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-3xl pointer-events-none" aria-hidden="true"></div>
+            <div className="relative w-full aspect-video bg-gradient-to-br from-gray-900 to-black rounded-2xl sm:rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
               <Image
                 src={landing}
                 alt="Dashboard TirePro - Gestión inteligente de llantas con IA mostrando análisis predictivo, control de costos y alertas en tiempo real"
@@ -460,13 +441,14 @@ const TireProLanding = () => {
           </figure>
         </div>
       </header>
-      {/* Stats Section with semantic markup */}
+
+      {/* Stats Section */}
       <section
-        className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 lg:px-8 border-y border-white/10"
+        className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 lg:px-8 border-y border-white/10 w-full"
         aria-labelledby="stats-heading"
       >
         <h2 id="stats-heading" className="sr-only">Estadísticas de TirePro</h2>
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto w-full">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             <div className="text-center">
               <div className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-2 bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
@@ -495,12 +477,13 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
-      {/* How it works - Semantic section */}
+
+      {/* How it works */}
       <section
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 w-full"
         aria-labelledby="process-heading"
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto w-full">
           <header className="text-center mb-12 sm:mb-16 md:mb-20">
             <h2 id="process-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-3 sm:mb-4">
               Cómo Funciona TirePro
@@ -530,17 +513,17 @@ const TireProLanding = () => {
         </div>
       </section>
 
-      {/* New Section: Recent Blog Posts - SEO Optimized */}
+      {/* Recent Blog Posts */}
       <section
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent w-full"
         aria-labelledby="blog-heading"
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto w-full">
           <header className="text-center mb-12 sm:mb-16 md:mb-20">
             <h2 id="blog-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-3 sm:mb-4">
               Artículos Recientes del Blog
             </h2>
-            <p className="text-lg sm:text-xl text-gray-500 px-4">
+            <p className="text-lg sm:text-xl text-gray-500">
               Descubre consejos expertos sobre gestión de llantas, mantenimiento de flotas y optimización con IA
             </p>
           </header>
@@ -558,11 +541,11 @@ const TireProLanding = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {articles.map((article) => (
                 <Link key={article.id} href={`/blog/${article.slug}`}>
-                  <article className="group relative bg-gradient-to-br from-gray-900/50 to-black/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 hover:border-blue-500/50 transition-all duration-300 hover:transform hover:scale-105">
+                  <article className="group relative bg-gradient-to-br from-gray-900/50 to-black/50 rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 hover:border-blue-500/50 transition-all duration-300 hover:scale-105">
                     <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden">
                       <Image
                         src={article.image}
-                        alt={`Imagen de portada para el artículo: ${article.title} - Blog TirePro sobre gestión de llantas con IA`}
+                        alt={`Imagen de portada para el artículo: ${article.title}`}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         width={800}
                         height={400}
@@ -571,17 +554,17 @@ const TireProLanding = () => {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
                     </div>
                     <div className="p-4 sm:p-6">
-                      <div className="flex items-center space-x-4 text-xs sm:text-sm text-gray-400 mb-3 sm:mb-4">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-400 mb-3 sm:mb-4">
                         <div className="flex items-center space-x-1">
-                          <User size={14} className="sm:w-4 sm:h-4" />
+                          <User size={14} />
                           <span>{article.author}</span>
                         </div>
                         <div className="flex items-center space-x-1">
-                          <Calendar size={14} className="sm:w-4 sm:h-4" />
+                          <Calendar size={14} />
                           <span>{new Date(article.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                         </div>
                         <div className="flex items-center space-x-1">
-                          <Clock size={14} className="sm:w-4 sm:h-4" />
+                          <Clock size={14} />
                           <span>{article.readTime} de lectura</span>
                         </div>
                       </div>
@@ -593,12 +576,12 @@ const TireProLanding = () => {
                       </p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-1">
-                          <Tag size={14} className="text-blue-400 sm:w-4 sm:h-4" />
+                          <Tag size={14} className="text-blue-400" />
                           <span className="text-xs sm:text-sm text-blue-400 capitalize">
                             {article.category.charAt(0).toUpperCase() + article.category.slice(1)}
                           </span>
                         </div>
-                        <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-400 transition-colors sm:w-5 sm:h-5" />
+                        <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-400 transition-colors" />
                       </div>
                     </div>
                   </article>
@@ -615,25 +598,25 @@ const TireProLanding = () => {
             <a href="/blog">
               <button className="bg-white text-black px-6 sm:px-8 py-3 sm:py-4 rounded-full font-medium hover:bg-gray-100 transition-all inline-flex items-center space-x-2 text-sm sm:text-base">
                 <span>Ver Todos los Artículos</span>
-                <ArrowRight size={18} className="sm:w-5 sm:h-5" />
+                <ArrowRight size={18} />
               </button>
             </a>
           </div>
         </div>
       </section>
 
-      {/* Features Section - SEO optimized */}
+      {/* Features Section */}
       <section
         id="producto"
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent w-full"
         aria-labelledby="features-heading"
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto w-full">
           <header className="text-center mb-12 sm:mb-16 md:mb-20">
             <h2 id="features-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-3 sm:mb-4">
               Tecnología de Punta en Gestión de Llantas
             </h2>
-            <p className="text-lg sm:text-xl text-gray-500 px-4">
+            <p className="text-lg sm:text-xl text-gray-500">
               Herramientas con IA diseñadas para optimizar cada aspecto de tu flota
             </p>
           </header>
@@ -645,7 +628,7 @@ const TireProLanding = () => {
               >
                 <div className="flex items-start justify-between mb-4 sm:mb-6">
                   <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <feature.icon size={24} className="text-white sm:w-7 sm:h-7" />
+                    <feature.icon size={24} className="text-white" />
                   </div>
                   <div className="px-2.5 sm:px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs sm:text-sm font-medium whitespace-nowrap ml-2">
                     {feature.stat}
@@ -658,29 +641,29 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
+
       {/* Benefits Section */}
       <section
         id="beneficios"
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 w-full"
         aria-labelledby="benefits-heading"
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto w-full">
           <div className="grid lg:grid-cols-2 gap-10 sm:gap-12 lg:gap-16 items-center">
-            <div>
+            <div className="min-w-0">
               <h2 id="benefits-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-4 sm:mb-6 leading-tight">
                 ¿Por qué elegir TirePro para tu flota?
               </h2>
               <p className="text-lg sm:text-xl text-gray-400 mb-8 sm:mb-12">
                 Más que un software, TirePro es tu socio estratégico para optimizar cada peso invertido en llantas y mantenimiento
               </p>
-             
               <div className="space-y-4 sm:space-y-6">
                 {benefits.map((benefit, index) => (
                   <article key={index} className="flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl hover:bg-white/5 transition-all">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
-                      <benefit.icon size={20} className="text-white sm:w-6 sm:h-6" />
+                      <benefit.icon size={20} className="text-white" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="text-base sm:text-lg font-semibold mb-1">{benefit.title}</h3>
                       <p className="text-sm sm:text-base text-gray-500">{benefit.description}</p>
                     </div>
@@ -688,15 +671,17 @@ const TireProLanding = () => {
                 ))}
               </div>
             </div>
-            <figure className="relative order-first lg:order-last">
-              <div className="aspect-square rounded-2xl sm:rounded-3xl border border-white/10 overflow-hidden">
+            {/* Benefits image: contained, no negative offsets */}
+            <figure className="relative order-first lg:order-last w-full">
+              <div className="aspect-square rounded-2xl sm:rounded-3xl border border-white/10 overflow-hidden w-full">
                 <Image
                   src={pcImage}
                   alt="Dashboard de análisis TirePro mostrando métricas de rendimiento, costos y predicciones de mantenimiento para flotas"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 sm:w-48 sm:h-48 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl sm:rounded-3xl blur-2xl" aria-hidden="true"></div>
+              {/* Decorative blur clamped inside the figure */}
+              <div className="absolute bottom-0 right-0 w-32 h-32 sm:w-48 sm:h-48 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl sm:rounded-3xl blur-2xl pointer-events-none" aria-hidden="true"></div>
               <figcaption className="sr-only">
                 Análisis avanzado de datos de llantas en tiempo real
               </figcaption>
@@ -704,12 +689,13 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
-      {/* Testimonials - With Schema Markup */}
+
+      {/* Testimonials */}
       <section
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent w-full"
         aria-labelledby="testimonials-heading"
       >
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto w-full">
           <header className="text-center mb-12 sm:mb-16">
             <h2 id="testimonials-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-3 sm:mb-4">
               Lo que dicen nuestros clientes
@@ -741,14 +727,13 @@ const TireProLanding = () => {
                 </article>
               ))}
             </div>
-           
             <div className="flex justify-center space-x-2 mt-6 sm:mt-8" role="tablist" aria-label="Navegación de testimonios">
               {testimonials.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setActiveTestimonial(index)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    index === activeTestimonial ? 'bg-white w-8' : 'bg-white/30'
+                  className={`h-2 rounded-full transition-all ${
+                    index === activeTestimonial ? 'bg-white w-8' : 'bg-white/30 w-2'
                   }`}
                   role="tab"
                   aria-label={`Testimonial ${index + 1}`}
@@ -759,15 +744,16 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
+
       {/* App Section */}
       <section
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 w-full"
         aria-labelledby="mobile-app-heading"
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto w-full">
           <div className="grid lg:grid-cols-2 gap-10 sm:gap-12 lg:gap-16 items-center">
-            <figure className="order-2 lg:order-1 relative">
-              <div className="aspect-[9/16] max-w-[280px] sm:max-w-sm mx-auto bg-gradient-to-br from-gray-800 to-gray-900 rounded-[2.5rem] sm:rounded-[3rem] border border-white/10 p-2 sm:p-3 shadow-2xl">
+            <figure className="order-2 lg:order-1 relative w-full flex justify-center">
+              <div className="aspect-[9/16] w-full max-w-[280px] sm:max-w-sm bg-gradient-to-br from-gray-800 to-gray-900 rounded-[2.5rem] sm:rounded-[3rem] border border-white/10 p-2 sm:p-3 shadow-2xl">
                 <div className="w-full h-full bg-black rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden">
                   <Image
                     src={phoneImage}
@@ -776,12 +762,13 @@ const TireProLanding = () => {
                   />
                 </div>
               </div>
-              <div className="absolute top-1/2 -left-6 w-24 h-24 sm:w-32 sm:h-32 bg-blue-500/20 rounded-full blur-3xl" aria-hidden="true"></div>
+              {/* Decorative blur kept within figure bounds */}
+              <div className="absolute top-1/2 left-0 w-24 h-24 sm:w-32 sm:h-32 bg-blue-500/20 rounded-full blur-3xl pointer-events-none -translate-y-1/2" aria-hidden="true"></div>
               <figcaption className="sr-only">
                 Aplicación móvil de TirePro mostrando funciones de inspección y gestión
               </figcaption>
             </figure>
-            <div className="order-1 lg:order-2 space-y-6 sm:space-y-8">
+            <div className="order-1 lg:order-2 space-y-6 sm:space-y-8 min-w-0">
               <h2 id="mobile-app-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold leading-tight">
                 Tu flota en
                 <br />
@@ -791,23 +778,22 @@ const TireProLanding = () => {
                 App móvil TirePro para inspecciones de llantas desde cualquier lugar.
                 Funciona offline con sincronización automática. Disponible para iOS y Android.
               </p>
-             
               <ul className="space-y-3 sm:space-y-4">
                 <li className="flex items-center space-x-3">
                   <div className="w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Check size={14} className="text-white sm:w-4 sm:h-4" />
+                    <Check size={14} className="text-white" />
                   </div>
                   <span className="text-gray-300 text-sm sm:text-base">Modo offline completo para inspecciones sin internet</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <div className="w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Check size={14} className="text-white sm:w-4 sm:h-4" />
+                    <Check size={14} className="text-white" />
                   </div>
                   <span className="text-gray-300 text-sm sm:text-base">Sincronización automática en segundo plano</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <div className="w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Check size={14} className="text-white sm:w-4 sm:h-4" />
+                    <Check size={14} className="text-white" />
                   </div>
                   <span className="text-gray-300 text-sm sm:text-base">Disponible para iOS y Android</span>
                 </li>
@@ -815,12 +801,12 @@ const TireProLanding = () => {
               <div className="pt-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <a href="https://apps.apple.com/us/app/tirepro/id6741497732" className="w-full sm:w-auto">
                   <button className="w-full sm:w-auto bg-white text-black px-6 sm:px-8 py-3 sm:py-4 rounded-full font-medium hover:bg-gray-100 transition-all flex items-center justify-center space-x-2">
-                    <Download size={18} className="sm:w-5 sm:h-5" />
+                    <Download size={18} />
                     <span className="text-sm sm:text-base">Descargar en App Store</span>
                   </button>
                 </a>
                 <button className="w-full sm:w-auto border border-white/20 px-6 sm:px-8 py-3 sm:py-4 rounded-full font-medium hover:bg-white/5 transition-all flex items-center justify-center space-x-2">
-                  <Download size={18} className="sm:w-5 sm:h-5" />
+                  <Download size={18} />
                   <span className="text-sm sm:text-base">Descargar en Google Play</span>
                 </button>
               </div>
@@ -828,18 +814,19 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
-      {/* Pricing Section - Schema optimized */}
+
+      {/* Pricing Section */}
       <section
         id="planes"
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent w-full"
         aria-labelledby="pricing-heading"
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto w-full">
           <header className="text-center mb-12 sm:mb-16 md:mb-20">
             <h2 id="pricing-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-3 sm:mb-4">
               Planes de Gestión de Llantas para Cada Etapa
             </h2>
-            <p className="text-lg sm:text-xl text-gray-500 px-4">
+            <p className="text-lg sm:text-xl text-gray-500">
               Comienza gratis y escala cuando tu flota crezca
             </p>
           </header>
@@ -863,7 +850,6 @@ const TireProLanding = () => {
                     Más Popular
                   </div>
                 )}
-               
                 <header className="mb-6 sm:mb-8">
                   <h3 className="text-xl sm:text-2xl font-semibold mb-2" itemProp="name">{plan.name}</h3>
                   <p className="text-gray-500 text-xs sm:text-sm mb-4 sm:mb-6" itemProp="description">{plan.description}</p>
@@ -877,7 +863,7 @@ const TireProLanding = () => {
                 <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-start space-x-2 sm:space-x-3">
-                      <Check size={18} className="text-blue-500 flex-shrink-0 mt-0.5 sm:w-5 sm:h-5" />
+                      <Check size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
                       <span className="text-gray-400 text-xs sm:text-sm">{feature}</span>
                     </li>
                   ))}
@@ -894,9 +880,9 @@ const TireProLanding = () => {
               </article>
             ))}
           </div>
-          <div className="mt-12 sm:mt-16 text-center px-4">
+          <div className="mt-12 sm:mt-16 text-center">
             <div className="inline-flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 rounded-full border border-white/20 bg-white/5">
-              <AlertCircle size={18} className="text-blue-400 flex-shrink-0 sm:w-5 sm:h-5" />
+              <AlertCircle size={18} className="text-blue-400 flex-shrink-0" />
               <span className="text-xs sm:text-sm text-gray-400">
                 Todos los planes incluyen llantas ilimitadas y actualizaciones gratis
               </span>
@@ -904,21 +890,22 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
+
       {/* Partners Section */}
-      <aside className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8" aria-label="Socios comerciales">
+      <aside className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 w-full" aria-label="Socios comerciales">
         <hr className='mb-6 sm:mb-10 border-white/10'/>
-        <p className='text-center text-sm sm:text-base px-4'>
+        <p className='text-center text-sm sm:text-base'>
           ¿Necesitas ayuda con tus llantas? Contáctanos o habla con uno de nuestros aliados distribuidores:
         </p>
         <div className='flex flex-col sm:flex-row justify-center items-center gap-4 mt-6 sm:mt-10'>
           <img
-            className='rounded-2xl sm:rounded-3xl h-16 sm:h-20 object-contain'
+            className='rounded-2xl sm:rounded-3xl h-16 sm:h-20 object-contain max-w-full'
             src='https://i0.wp.com/reencauchadoraremax.com/wp-content/uploads/2023/01/Logo30Anos_Mesa-de-trabajo-1-copia.jpg?fit=500%2C166&ssl=1'
             alt="Reencauchadora Remax - Aliado TirePro Colombia"
             loading="lazy"
           />
           <img
-            className='rounded-2xl sm:rounded-3xl h-16 sm:h-20 object-contain'
+            className='rounded-2xl sm:rounded-3xl h-16 sm:h-20 object-contain max-w-full'
             src='https://media.licdn.com/dms/image/v2/C4E0BAQFZkpMWoNQU1w/company-logo_200_200/company-logo_200_200/0/1630609548810?e=2147483647&v=beta&t=kVePfprWik91OQyyu6sgafGDp8uFGurAk0wG23Wac2Y'
             alt="Aliado distribuidor TirePro Colombia"
             loading="lazy"
@@ -926,20 +913,21 @@ const TireProLanding = () => {
         </div>
         <hr className='mt-6 sm:mt-10 border-white/10'/>
       </aside>
-      {/* FAQ Section - Fully structured for SEO */}
+
+      {/* FAQ Section */}
       <section
         id="preguntas"
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 w-full"
         aria-labelledby="faq-heading"
         itemScope
         itemType="https://schema.org/FAQPage"
       >
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto w-full">
           <header className="text-center mb-12 sm:mb-16 md:mb-20">
             <h2 id="faq-heading" className="text-3xl sm:text-4xl md:text-5xl font-semibold mb-3 sm:mb-4">
               Preguntas Frecuentes sobre TirePro
             </h2>
-            <p className="text-lg sm:text-xl text-gray-500 px-4">
+            <p className="text-lg sm:text-xl text-gray-500">
               Todo lo que necesitas saber sobre el software de gestión de llantas
             </p>
           </header>
@@ -962,7 +950,7 @@ const TireProLanding = () => {
                   </span>
                   <ChevronDown
                     size={18}
-                    className={`flex-shrink-0 transition-transform sm:w-5 sm:h-5 ${
+                    className={`flex-shrink-0 transition-transform ${
                       activeQuestion === index ? 'rotate-180' : ''
                     }`}
                     aria-hidden="true"
@@ -987,21 +975,22 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
+
       {/* Final CTA Section */}
       <section
-        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8"
+        className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 w-full"
         aria-labelledby="cta-heading"
       >
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl mx-auto w-full">
           <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-transparent" aria-hidden="true"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-transparent pointer-events-none" aria-hidden="true"></div>
             <div className="relative p-8 sm:p-12 md:p-16 lg:p-20 text-center space-y-6 sm:space-y-8">
               <h2 id="cta-heading" className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight">
                 Comienza a ahorrar en llantas
                 <br />
                 <span className="text-gray-400">hoy mismo con TirePro</span>
               </h2>
-              <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-2xl mx-auto px-4">
+              <p className="text-base sm:text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">
                 Únete a las flotas colombianas que ya están optimizando sus costos con TirePro.
                 Sin tarjeta de crédito, sin compromiso, sin instalación compleja.
               </p>
@@ -1009,7 +998,7 @@ const TireProLanding = () => {
                 <a href="/companyregister" className="w-full sm:w-auto">
                   <button className="w-full sm:w-auto bg-white text-black px-8 sm:px-10 py-3 sm:py-4 rounded-full font-medium hover:bg-gray-100 transition-all inline-flex items-center justify-center space-x-2 text-base sm:text-lg">
                     <span>Crear Cuenta Gratis</span>
-                    <ArrowRight size={20} className="sm:w-5 sm:h-5" />
+                    <ArrowRight size={20} />
                   </button>
                 </a>
                 <a href="/contact" className="w-full sm:w-auto">
@@ -1020,15 +1009,15 @@ const TireProLanding = () => {
               </div>
               <ul className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 pt-4 text-xs sm:text-sm text-gray-500">
                 <li className="flex items-center space-x-2">
-                  <Check size={14} className="text-green-500 flex-shrink-0 sm:w-4 sm:h-4" />
+                  <Check size={14} className="text-green-500 flex-shrink-0" />
                   <span>Gratis para siempre</span>
                 </li>
                 <li className="flex items-center space-x-2">
-                  <Check size={14} className="text-green-500 flex-shrink-0 sm:w-4 sm:h-4" />
+                  <Check size={14} className="text-green-500 flex-shrink-0" />
                   <span>Sin tarjeta requerida</span>
                 </li>
                 <li className="flex items-center space-x-2">
-                  <Check size={14} className="text-green-500 flex-shrink-0 sm:w-4 sm:h-4" />
+                  <Check size={14} className="text-green-500 flex-shrink-0" />
                   <span>Configuración en 10 min</span>
                 </li>
               </ul>
@@ -1036,13 +1025,14 @@ const TireProLanding = () => {
           </div>
         </div>
       </section>
-      {/* Footer - Semantic and SEO optimized */}
-      <footer className="border-t border-white/10 py-8 sm:py-12 px-4 sm:px-6 lg:px-8" role="contentinfo">
-        <div className="max-w-7xl mx-auto">
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full" role="contentinfo">
+        <div className="max-w-7xl mx-auto w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 mb-8 sm:mb-12">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2"/>
                     <circle cx="12" cy="12" r="3" fill="white"/>
@@ -1100,15 +1090,16 @@ const TireProLanding = () => {
           </div>
         </div>
       </footer>
-      {/* WhatsApp Floating Button - Accessibility enhanced */}
+
+      {/* WhatsApp Floating Button */}
       <a
         href="https://wa.me/3151349122?text=Hola,%20me%20gustaría%20saber%20más%20sobre%20TirePro"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 w-14 h-14 sm:w-16 sm:h-16 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-2xl transition-all hover:scale-110 z-50 group"
+        className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 w-14 h-14 sm:w-16 sm:h-16 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-2xl transition-all hover:scale-110 z-50"
         aria-label="Contáctanos por WhatsApp para consultas sobre TirePro"
       >
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="white" className="sm:w-8 sm:h-8" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
         </svg>
         <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded-full animate-pulse" aria-hidden="true"></span>
@@ -1116,4 +1107,5 @@ const TireProLanding = () => {
     </div>
   )
 }
-export default TireProLanding
+
+export default TireProLanding;
