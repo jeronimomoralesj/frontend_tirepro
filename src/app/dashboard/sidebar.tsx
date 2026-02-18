@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Truck,
+  User2Icon,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -88,6 +89,11 @@ export default function Sidebar({
         name: "Buscar",
         path: "/dashboard/buscarDist",
         icon: Search,
+      },
+      {
+        name: "Clientes",
+        path: "/dashboard/clientes",
+        icon: User2Icon,
       },
       {
         name: "Vehiculos",
