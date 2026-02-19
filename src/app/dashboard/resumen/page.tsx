@@ -116,7 +116,7 @@ const translations = {
     update: "Actualizado",
     welcome: "Bienvenido",
     investment: "inversión",
-    month: "mensual",
+    month: "del mes",
     total: "total",
     cpm: "CPK",
     average: "promedio",
@@ -761,10 +761,10 @@ const fetchCompany = useCallback(async (companyId: string) => {
             <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `$${gastoMes.toLocaleString()}`}
+                {loading ? "Cargando..." : `${(gastoMes / 1000000).toFixed(1)}M COP`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>
-                {translations[language].month} {translations[language].investment}
+                {translations[language].investment} {translations[language].month}
               </p>
             </div>
           </div>
@@ -772,10 +772,10 @@ const fetchCompany = useCallback(async (companyId: string) => {
             <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `$${gastoTotal.toLocaleString()}`}
+                {loading ? "Cargando..." : `${(gastoTotal / 1000000).toFixed(1)}M COP`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>
-                {translations[language].total} {translations[language].investment}
+                  {translations[language].investment} {translations[language].total}
               </p>
             </div>
           </div>

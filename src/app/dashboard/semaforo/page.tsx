@@ -766,7 +766,8 @@ setVidaOptions([t.all, ...uniqueVidas]);
             <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? t.loading : `$${gastoMes.toLocaleString()}`}
+                {loading ? t.loading : gastoMes >= 1000000 ? `${(gastoMes / 1000000).toFixed(1)}M COP` : `${(gastoMes / 1000).toFixed(0)}K COP`}
+
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>
                 {t.monthlyInvestment}
@@ -779,7 +780,7 @@ setVidaOptions([t.all, ...uniqueVidas]);
             <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? t.loading : `$${gastoTotal.toLocaleString()}`}
+                {loading ? t.loading : gastoTotal >= 1000000 ? `${(gastoTotal / 1000000).toFixed(1)}M COP` : `${(gastoTotal / 1000).toFixed(0)}K COP`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>
                 {t.totalInvestment}
