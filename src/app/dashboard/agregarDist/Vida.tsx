@@ -31,7 +31,6 @@ export type Vehicle = {
   tipovhc?: string;
 };
 
-// --- Language translations ---
 const translations = {
   es: {
     updateLife: "Actualizar Vida",
@@ -65,39 +64,6 @@ const translations = {
     position: "Posición",
     initialDepth: "Profundidad Inicial (mm)",
     enterValidDepth: "Ingrese una profundidad inicial válida (mayor a 0)"
-  },
-  en: {
-    updateLife: "Update Life",
-    searchVehicle: "Search Vehicle",
-    enterPlate: "Enter vehicle plate",
-    searching: "Searching...",
-    search: "Search",
-    vehicleData: "Vehicle Data",
-    plate: "Plate",
-    type: "Type",
-    tiresFound: "Tires Found",
-    brand: "Brand",
-    currentLife: "Current Life",
-    bandDesign: "Band/Design",
-    updateLifeBtn: "Update Life",
-    none: "None",
-    selectNewValue: "Select new value",
-    rechargeCost: "Retread cost (COP)",
-    enterValidCost: "Enter a valid cost (greater than 0)",
-    cancel: "Cancel",
-    update: "Update",
-    saving: "Saving...",
-    vehicleNotFound: "Vehicle not found",
-    errorGettingTires: "Error getting tires",
-    unexpectedError: "Unexpected error",
-    enterVehiclePlate: "Please enter the vehicle plate",
-    selectLifeValue: "Select a life value",
-    enterBandDesign: "Enter band/design",
-    invalidCost: "Invalid cost",
-    noMoreEntries: "No more entries can be added. Life is already at 'end'.",
-    position: "Position",
-    initialDepth: "Initial Depth (mm)",
-    enterValidDepth: "Enter a valid initial depth (greater than 0)"
   }
 };
 
@@ -158,7 +124,7 @@ const [milimetrosValue, setMilimetrosValue] = useState("");
     try {
       // Fetch vehicle by plate
       const vehicleRes = await fetch(
-        `${API_URL}/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim())}`
+        `${API_URL}/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}`
       );
       if (!vehicleRes.ok) {
         throw new Error(t.vehicleNotFound);
@@ -362,7 +328,7 @@ const body: {
                 type="text"
                 placeholder={t.enterPlate}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
               />
             </div>

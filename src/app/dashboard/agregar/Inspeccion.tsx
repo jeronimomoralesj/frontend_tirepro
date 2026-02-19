@@ -229,8 +229,8 @@ export default function InspeccionPage() {
     try {
       const vehicleRes = await fetch(
         process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim())}`
-          : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim())}`
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim().toLowerCase())}`
+          : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim().toLowerCase())}`
       );
       if (!vehicleRes.ok) {
         throw new Error(t.vehicleNotFound);
@@ -839,7 +839,7 @@ export default function InspeccionPage() {
                     {t.vehicleInfo}
                   </h2>
                   <div className="space-y-2">
-                    <p><span className="font-medium">{t.plate}:</span> {vehicle.placa}</p>
+                    <p><span className="font-medium">{t.plate}:</span> {vehicle.placa.toUpperCase()}</p>
                     <p><span className="font-medium">{t.type}:</span> {vehicle.tipovhc}</p>
                     <p><span className="font-medium">{t.tires}:</span> {vehicle.tireCount}</p>
                     <p><span className="font-medium">{t.currentMileage}:</span> {vehicle.kilometrajeActual} km</p>

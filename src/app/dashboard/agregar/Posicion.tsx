@@ -791,7 +791,7 @@ const Posicion = () => {
     if (!placa.trim()) return;
 
     await apiCall(async () => {
-      const vehicleResponse = await fetch(`${API_BASE}/vehicles/placa?placa=${placa}`, {
+      const vehicleResponse = await fetch(`${API_BASE}/vehicles/placa?placa=${placa.toLowerCase()}`, {
         headers: getAuthHeaders()
       });
       const vehicleData = await vehicleResponse.json();
@@ -941,9 +941,9 @@ const Posicion = () => {
           method: 'POST',
           headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            vehiclePlaca: placa,
-            tireIds: externalTires.map(t => t.id)
-          })
+          vehiclePlaca: placa.toLowerCase(),
+          tireIds: externalTires.map(t => t.id)
+        })
         });
         if (!assignResponse.ok) {
           const errData = await assignResponse.json().catch(() => ({}));
@@ -968,7 +968,7 @@ const Posicion = () => {
       const response = await fetch(`${API_BASE}/tires/update-positions`, {
         method: 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ placa, updates })
+        body: JSON.stringify({ placa: placa.toLowerCase(), updates })
       });
 
       if (!response.ok) {
@@ -1016,7 +1016,7 @@ const Posicion = () => {
                   type="text"
                   placeholder={t.enterPlate}
                   value={placa}
-                  onChange={(e) => setPlaca(e.target.value.toLowerCase())}
+                  onChange={(e) => setPlaca(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
                 />
               </div>
@@ -1047,7 +1047,7 @@ const Posicion = () => {
               <div className="flex flex-wrap gap-x-6 gap-y-2">
                 <p className="flex items-center">
                   <span className="font-semibold text-[#173D68] mr-2">{t.plate}</span>
-                  <span className="bg-[#1E76B6] text-white px-3 py-1 rounded-md">{vehicle.placa}</span>
+                  <span className="bg-[#1E76B6] text-white px-3 py-1 rounded-md">{vehicle.placa.toUpperCase()}</span>
                 </p>
                 {vehicle.tipovhc && (
                   <p>

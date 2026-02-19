@@ -124,7 +124,7 @@ const [milimetrosValue, setMilimetrosValue] = useState("");
     try {
       // Fetch vehicle by plate
       const vehicleRes = await fetch(
-        `${API_URL}/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim())}`
+        `${API_URL}/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}`
       );
       if (!vehicleRes.ok) {
         throw new Error(t.vehicleNotFound);
@@ -328,7 +328,7 @@ const body: {
                 type="text"
                 placeholder={t.enterPlate}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
               />
             </div>

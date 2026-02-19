@@ -159,7 +159,7 @@ export default function VehiculoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          placa,
+          placa: placa.toLowerCase(),
           kilometrajeActual,
           carga,
           pesoCarga,
@@ -208,7 +208,7 @@ export default function VehiculoPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          placa: editFormData.placa,
+          placa: editFormData.placa.toLowerCase(),
           kilometrajeActual: editFormData.kilometrajeActual,
           carga: editFormData.carga,
           pesoCarga: editFormData.pesoCarga,
@@ -524,7 +524,7 @@ export default function VehiculoPage() {
                   <input
                     type="text"
                     value={placa}
-                    onChange={(e) => setPlaca(e.target.value.toLowerCase())}
+                    onChange={(e) => setPlaca(e.target.value)}
                     required
                     className="w-full px-3 py-2 border rounded-md"
                   />
@@ -618,7 +618,7 @@ export default function VehiculoPage() {
                   <input
                     type="text"
                     value={editFormData.placa}
-                    onChange={(e) => setEditFormData({ ...editFormData, placa: e.target.value.toLowerCase() })}
+                    onChange={(e) => setEditFormData({ ...editFormData, placa: e.target.value })}
                     required
                     className="w-full px-3 py-2 border rounded-md"
                   />
