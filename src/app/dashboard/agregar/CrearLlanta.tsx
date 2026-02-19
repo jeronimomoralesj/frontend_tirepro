@@ -72,14 +72,14 @@ export default function TirePage() {
     tirePlaca: "",
     marca: "",
     diseno: "",
-    profundidadInicial: 0,
+    profundidadInicial: "" as number | "",
     dimension: "",
     eje: "direccion",
-    kilometrosRecorridos: 0,
-    costo: 0,
+    kilometrosRecorridos: "" as number | "",
+    costo: "" as number | "",
     vida: "nueva",
     posicion: ""
-  });
+});
 
   // Company and vehicle selection state
   const [companyId, setCompanyId] = useState<string>("");
@@ -111,16 +111,16 @@ export default function TirePage() {
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setTireForm(prev => ({
-      ...prev,
-      [name]: name === "profundidadInicial" ||
-              name === "kilometrosRecorridos" ||
-              name === "costo" 
-                ? parseFloat(value) || 0 
-                : value
-    }));
-  };
+  const { name, value } = e.target;
+  setTireForm(prev => ({
+    ...prev,
+    [name]: name === "profundidadInicial" ||
+            name === "kilometrosRecorridos" ||
+            name === "costo"
+              ? value === "" ? "" : parseFloat(value)
+              : value
+  }));
+};
 
   // Handle vehicle search
   const handleVehicleSearch = (searchValue: string) => {
@@ -231,11 +231,11 @@ export default function TirePage() {
       placa: finalPlaca.toLowerCase(),
       marca: tireForm.marca.toLowerCase(),
       diseno: tireForm.diseno.toLowerCase(),
-      profundidadInicial: tireForm.profundidadInicial,
+      profundidadInicial: Number(tireForm.profundidadInicial) || 0,
       dimension: tireForm.dimension.toLowerCase(),
       eje: tireForm.eje.toLowerCase(),
-      kilometrosRecorridos: tireForm.kilometrosRecorridos,
-      costo: [{ valor: tireForm.costo, fecha: currentDate }],
+      kilometrosRecorridos: Number(tireForm.kilometrosRecorridos) || 0,
+      costo: [{ valor: Number(tireForm.costo) || 0, fecha: currentDate }],
       vida: [{ valor: tireForm.vida.toLowerCase(), fecha: currentDate }],
       posicion: Number(tireForm.posicion),
       companyId,

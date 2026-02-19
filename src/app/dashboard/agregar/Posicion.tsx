@@ -503,29 +503,67 @@ const VehicleVisualization: React.FC<{
   t: Translation;
 }> = ({ tires, onTireDrop, t }) => {
   const layout = React.useMemo(() => {
-    const activeTires = tires.filter(t => t.position && t.position !== "0");
-    const count = activeTires.length || 0;
+  const activeTires = tires.filter(t => t.position && t.position !== "0");
 
-    // Default: 2 axles, 2 tires total (1 per axle)
-    if (count === 0) {
-      return [["1"], ["2"]];
+  if (activeTires.length === 0) {
+    return [["1", "2"]];
+  }
+
+  const maxPos = Math.max(...activeTires.map(t => parseInt(t.position!)));
+  const total = maxPos;
+
+  // Truck axle configs (max 3 axles):
+  // - Steer axle (front): always 2 tires (1 per side)
+  // - Drive/rear axles: can be 2 or 4 tires (2 per side = dual tires)
+  //
+  // We distribute positions across max 3 axles:
+  // 2 tires  → 1 axle  of 2
+  // 4 tires  → 2 axles of 2
+  // 6 tires  → 3 axles of 2
+  // 8 tires  → steer(2) + 2 drive axles of 4 → [2, 3, 3] won't work cleanly
+  //          → better: [2, 4, 4] but that's 10... so [2, 2, 4] = 8 ✓
+  // 10 tires → [2, 4, 4] ✓
+  // 12 tires → [4, 4, 4] ✓
+  //
+  // General rule: fill axles back-to-front with 4s, keep front axle at 2
+
+  let axleSizes: number[];
+
+  if (total <= 2) {
+    axleSizes = [total];
+  } else if (total <= 4) {
+    axleSizes = [2, total - 2];
+  } else if (total <= 6) {
+    axleSizes = [2, 2, total - 4];
+  } else if (total <= 8) {
+    // e.g. 8 → front 2, then split rest between 2 axles
+    const rear = total - 2;
+    const axle2 = Math.floor(rear / 2);
+    const axle3 = rear - axle2;
+    axleSizes = [2, axle2, axle3];
+  } else if (total <= 10) {
+    axleSizes = [2, 4, total - 6];
+  } else {
+    // 12 max → [4, 4, 4]
+    axleSizes = [4, 4, 4];
+  }
+
+  // Cap at 3 axles
+  axleSizes = axleSizes.slice(0, 3);
+
+  const axisLayout: string[][] = [];
+  let counter = 1;
+  for (const size of axleSizes) {
+    const axle: string[] = [];
+    for (let j = 0; j < size; j++) {
+      axle.push(counter.toString());
+      counter++;
     }
+    axisLayout.push(axle);
+  }
 
-    const axisCount = count <= 8 ? 2 : count <= 12 ? 3 : Math.ceil(count / 4);
-    const axisLayout: string[][] = [];
-    let positionCounter = 1;
-
-    for (let i = 0; i < axisCount; i++) {
-      const tiresPerSide = i === 0 ? 1 : count > 6 && i > 0 ? 2 : 1;
-      const axle: string[] = [];
-      for (let j = 0; j < tiresPerSide * 2; j++) {
-        axle.push(positionCounter.toString());
-        positionCounter++;
-      }
-      axisLayout.push(axle);
-    }
-    return axisLayout;
-  }, [tires]);
+  return axisLayout;
+}, [tires]);
 
   const tireMap = React.useMemo(() => {
     const map: Record<string, Tire> = {};

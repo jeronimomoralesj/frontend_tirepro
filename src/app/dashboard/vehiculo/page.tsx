@@ -53,9 +53,9 @@ export default function VehiculoPage() {
 
   // Form state for creating a vehicle
   const [placa, setPlaca] = useState("");
-  const [kilometrajeActual, setKilometrajeActual] = useState<number>(0);
+  const [kilometrajeActual, setKilometrajeActual] = useState<number>();
   const [carga, setCarga] = useState("");
-  const [pesoCarga, setPesoCarga] = useState<number>(0);
+  const [pesoCarga, setPesoCarga] = useState<number>();
   const [tipovhc, setTipovhc] = useState("2_ejes_trailer");
   const [cliente, setCliente] = useState("");
 
@@ -540,7 +540,7 @@ export default function VehiculoPage() {
                   />
                 </div>
                 <div>
-                  <label className="block mb-1">Carga</label>
+                  <label className="block mb-1">Carga (ej: gas, liquido)</label>
                   <input
                     type="text"
                     value={carga}
