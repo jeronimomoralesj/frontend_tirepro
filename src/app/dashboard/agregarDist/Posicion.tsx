@@ -352,19 +352,14 @@ const DropZone: React.FC<{
   className?: string;
   style?: React.CSSProperties;
 }> = ({ onDrop, children, className = "", style }) => {
-  const ref = useRef<HTMLDivElement>(null);
   const [{ isOver }, dropRef] = useDrop(() => ({
     accept: ItemTypes.TIRE,
     drop: (item: { id: string }) => onDrop(item.id),
     collect: (monitor) => ({ isOver: !!monitor.isOver() }),
-  }));
-
-  useEffect(() => {
-    if (ref.current) dropRef(ref.current);
-  }, [dropRef]);
+  }), [onDrop]); // 👈 ADD onDrop as dependency
 
   return (
-    <div ref={ref} style={style} className={`transition-all duration-200 ${isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : ""} ${className}`}>
+    <div ref={dropRef} style={style} className={`transition-all duration-200 ${isOver ? "border-orange-400 bg-orange-100" : ""} ${className}`}>
       {children}
     </div>
   );

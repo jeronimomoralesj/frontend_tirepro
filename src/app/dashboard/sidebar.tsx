@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Truck,
   User2Icon,
+  TrashIcon,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -94,6 +95,11 @@ export default function Sidebar({
         name: "Clientes",
         path: "/dashboard/clientes",
         icon: User2Icon,
+      },
+      {
+        name: "Desechos",
+        path: "/dashboard/desechosDist",
+        icon: TrashIcon,
       },
       {
         name: "Vehiculos",

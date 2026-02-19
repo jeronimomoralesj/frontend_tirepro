@@ -352,19 +352,14 @@ const DropZone: React.FC<{
   className?: string;
   style?: React.CSSProperties;
 }> = ({ onDrop, children, className = "", style }) => {
-  const ref = useRef<HTMLDivElement>(null);
   const [{ isOver }, dropRef] = useDrop(() => ({
     accept: ItemTypes.TIRE,
     drop: (item: { id: string }) => onDrop(item.id),
     collect: (monitor) => ({ isOver: !!monitor.isOver() }),
-  }));
-
-  useEffect(() => {
-    if (ref.current) dropRef(ref.current);
-  }, [dropRef]);
+  }), [onDrop]); // 👈 ADD onDrop as dependency
 
   return (
-    <div ref={ref} style={style} className={`transition-all duration-200 ${isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : ""} ${className}`}>
+    <div ref={dropRef} style={style} className={`transition-all duration-200 ${isOver ? "border-orange-400 bg-orange-100" : ""} ${className}`}>
       {children}
     </div>
   );
@@ -501,79 +496,102 @@ const VehicleVisualization: React.FC<{
   tires: Tire[];
   onTireDrop: (tireId: string, position: string) => void;
   t: Translation;
-}> = ({ tires, onTireDrop, t }) => {
-  const layout = React.useMemo(() => {
-  const activeTires = tires.filter(t => t.position && t.position !== "0");
+  fixedLayout: string[][] | null;
+  onLayoutChange: (layout: string[][]) => void;
+}> = ({ tires, onTireDrop, t, fixedLayout, onLayoutChange }) => {
 
-  if (activeTires.length === 0) {
-    return [["1", "2"]];
-  }
+  const computedLayout = React.useMemo(() => {
+    const activeTires = tires.filter(t => t.position && t.position !== "0");
 
-  const maxPos = Math.max(...activeTires.map(t => parseInt(t.position!)));
-  const total = maxPos;
+    if (activeTires.length === 0) return [["1", "2"]];
 
-  // Truck axle configs (max 3 axles):
-  // - Steer axle (front): always 2 tires (1 per side)
-  // - Drive/rear axles: can be 2 or 4 tires (2 per side = dual tires)
-  //
-  // We distribute positions across max 3 axles:
-  // 2 tires  → 1 axle  of 2
-  // 4 tires  → 2 axles of 2
-  // 6 tires  → 3 axles of 2
-  // 8 tires  → steer(2) + 2 drive axles of 4 → [2, 3, 3] won't work cleanly
-  //          → better: [2, 4, 4] but that's 10... so [2, 2, 4] = 8 ✓
-  // 10 tires → [2, 4, 4] ✓
-  // 12 tires → [4, 4, 4] ✓
-  //
-  // General rule: fill axles back-to-front with 4s, keep front axle at 2
+    const maxPos = Math.max(...activeTires.map(t => parseInt(t.position!)));
+    const total = maxPos;
 
-  let axleSizes: number[];
+    let axleSizes: number[];
+    if (total <= 2) axleSizes = [total];
+    else if (total <= 4) axleSizes = [2, total - 2];
+    else if (total <= 6) axleSizes = [2, 2, total - 4];
+    else if (total <= 8) {
+      const rear = total - 2;
+      axleSizes = [2, Math.floor(rear / 2), rear - Math.floor(rear / 2)];
+    } else if (total <= 10) axleSizes = [2, 4, total - 6];
+    else axleSizes = [4, 4, 4];
 
-  if (total <= 2) {
-    axleSizes = [total];
-  } else if (total <= 4) {
-    axleSizes = [2, total - 2];
-  } else if (total <= 6) {
-    axleSizes = [2, 2, total - 4];
-  } else if (total <= 8) {
-    // e.g. 8 → front 2, then split rest between 2 axles
-    const rear = total - 2;
-    const axle2 = Math.floor(rear / 2);
-    const axle3 = rear - axle2;
-    axleSizes = [2, axle2, axle3];
-  } else if (total <= 10) {
-    axleSizes = [2, 4, total - 6];
-  } else {
-    // 12 max → [4, 4, 4]
-    axleSizes = [4, 4, 4];
-  }
+    axleSizes = axleSizes.slice(0, 3);
 
-  // Cap at 3 axles
-  axleSizes = axleSizes.slice(0, 3);
-
-  const axisLayout: string[][] = [];
-  let counter = 1;
-  for (const size of axleSizes) {
-    const axle: string[] = [];
-    for (let j = 0; j < size; j++) {
-      axle.push(counter.toString());
-      counter++;
+    const layout: string[][] = [];
+    let counter = 1;
+    for (const size of axleSizes) {
+      const axle: string[] = [];
+      for (let j = 0; j < size; j++) axle.push(counter.toString());
+      counter += size;
+      layout.push(axle);
     }
-    axisLayout.push(axle);
-  }
+    return layout;
+  }, [tires]);
 
-  return axisLayout;
-}, [tires]);
+  // On first compute, lock the layout
+  const layout = React.useMemo(() => {
+    if (fixedLayout) return fixedLayout;
+    return computedLayout;
+  }, [fixedLayout, computedLayout]);
+
+  // Lock it once computed (first time tires load)
+  React.useEffect(() => {
+  if (!fixedLayout && computedLayout.length > 0) {
+    onLayoutChange(computedLayout);
+  }
+}, [computedLayout, fixedLayout, onLayoutChange]);
 
   const tireMap = React.useMemo(() => {
     const map: Record<string, Tire> = {};
     tires.forEach(t => {
-      if (t.position && t.position !== "0") {
-        map[t.position] = t;
-      }
+      if (t.position && t.position !== "0") map[t.position] = t;
     });
     return map;
   }, [tires]);
+
+  // Recalculate position numbers from layout
+  const layoutWithPositions = React.useMemo(() => {
+    let counter = 1;
+    return layout.map(axle => {
+      const positions = axle.map((_, i) => (counter + i).toString());
+      counter += axle.length;
+      return positions;
+    });
+  }, [layout]);
+
+  const addAxle = () => {
+    if (layout.length >= 3) return;
+    const lastPos = layoutWithPositions.flat();
+    const nextStart = lastPos.length > 0 ? parseInt(lastPos[lastPos.length - 1]) + 1 : 1;
+    const newAxle = [nextStart.toString(), (nextStart + 1).toString()];
+    onLayoutChange([...layout, newAxle]);
+  };
+
+  const removeAxle = (axleIdx: number) => {
+    if (layout.length <= 1) return;
+    const newLayout = layout.filter((_, i) => i !== axleIdx);
+    onLayoutChange(newLayout);
+  };
+
+  const toggleDual = (axleIdx: number) => {
+    const newLayout = layout.map((axle, i) => {
+      if (i !== axleIdx) return axle;
+      // Toggle between 2 tires (single) and 4 tires (dual)
+      if (axle.length === 2) return [...axle, ...axle]; // will be recalculated anyway
+      return axle.slice(0, 2);
+    });
+    // Rebuild with correct position numbers
+    let counter = 1;
+    const rebuilt = newLayout.map(axle => {
+      const positions = axle.map((_, j) => (counter + j).toString());
+      counter += axle.length;
+      return positions;
+    });
+    onLayoutChange(rebuilt);
+  };
 
   return (
     <div className="bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 p-6 rounded-lg border-l-4 border-[#1E76B6] mb-6 shadow-sm">
@@ -586,17 +604,46 @@ const VehicleVisualization: React.FC<{
         </p>
       )}
       <div className="flex flex-col gap-8">
-        {layout.map((positions, idx) => (
-          <VehicleAxis
-            key={idx}
-            axleIdx={idx}
-            positions={positions}
-            tireMap={tireMap}
-            onTireDrop={onTireDrop}
-            t={t}
-          />
+        {layoutWithPositions.map((positions, idx) => (
+          <div key={idx} className="relative">
+            <VehicleAxis
+              axleIdx={idx}
+              positions={positions}
+              tireMap={tireMap}
+              onTireDrop={onTireDrop}
+              t={t}
+            />
+            {/* Per-axle controls */}
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <button
+                onClick={() => toggleDual(idx)}
+                className="text-xs px-2 py-1 rounded bg-[#1E76B6]/10 text-[#1E76B6] hover:bg-[#1E76B6]/20 transition-colors"
+                title={positions.length === 2 ? "Cambiar a doble llanta" : "Cambiar a llanta simple"}
+              >
+                {positions.length === 2 ? "→ Doble" : "→ Simple"}
+              </button>
+              {layout.length > 1 && (
+                <button
+                  onClick={() => removeAxle(idx)}
+                  className="text-xs px-2 py-1 rounded bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                >
+                  Quitar eje
+                </button>
+              )}
+            </div>
+          </div>
         ))}
       </div>
+
+      {/* Add axle button */}
+      {layout.length < 3 && (
+        <button
+          onClick={addAxle}
+          className="mt-6 w-full py-2 border-2 border-dashed border-[#1E76B6]/40 rounded-lg text-[#1E76B6] text-sm font-medium hover:bg-[#1E76B6]/5 transition-colors flex items-center justify-center gap-2"
+        >
+          + Agregar Eje
+        </button>
+      )}
     </div>
   );
 };
@@ -604,7 +651,7 @@ const VehicleVisualization: React.FC<{
 const StatusMessage: React.FC<{ message: string; type: 'success' | 'error' }> = ({ message, type }) => (
   <div className={`mb-6 p-4 rounded-lg flex items-start border-l-4 ${
     type === 'success'
-      ? 'bg-green-50 border-green-500 text-green-700'
+      ? 'bg-blue-50 border-blue-500 text-blue-700'
       : 'bg-red-50 border-red-500 text-red-700'
   }`}>
     {type === 'error' && <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />}
@@ -727,7 +774,7 @@ const Posicion = () => {
   // Company inventory state — lives here so handleVehicleDrop can access it
   const [companyInventory, setCompanyInventory] = useState<Tire[]>([]);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
-
+const [fixedLayout, setFixedLayout] = useState<string[][] | null>(null);
   const { loading, error, success, setSuccess, apiCall } = useApiCall();
 
   const t = translations[language];
@@ -822,6 +869,7 @@ const Posicion = () => {
         originalStateMap[tire.id] = tire.position || null;
       });
 
+      setFixedLayout(null);
       setAllTires(processedTires);
       setOriginalState(originalStateMap);
     });
@@ -1115,6 +1163,8 @@ const Posicion = () => {
               tires={allTires}
               onTireDrop={handleDrop}
               t={t}
+              fixedLayout={fixedLayout}
+              onLayoutChange={setFixedLayout}
             />
           )}
 
@@ -1124,8 +1174,7 @@ const Posicion = () => {
               onDrop={(tireId) => handleDrop(tireId, "none")}
               className="p-6 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 min-h-[10rem] mb-6 hover:border-orange-400 hover:bg-orange-100 transition-colors"
             >
-              <div className="text-center text-orange-600 flex flex-col items-center gap-2">
-                {/* Removed pointer-events-none */}
+              <div className="text-center text-orange-600 flex flex-col items-center gap-2 pointer-events-none">
                 <Package className="h-8 w-8 text-orange-400" />
                 <div className="font-semibold text-base">Devolver al Inventario</div>
                 <div className="text-sm text-orange-500">Arrastra aquí una llanta para quitarla del vehículo</div>
