@@ -617,8 +617,8 @@ const BuscarPage: React.FC = () => {
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.outerDepth}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.cpk}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.projectedCpk}</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT Proyectada</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT (mes)</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT Proyectada (mes)</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">KMs recorridos</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.image}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b"></th>
@@ -645,10 +645,10 @@ const BuscarPage: React.FC = () => {
                                 {insp.profundidadExt} mm
                               </span>
                             </td>
-                            <td className="px-4 py-3">{insp.cpk ?? "N/A"}</td>
-                            <td className="px-4 py-3">{insp.cpkProyectado ?? "N/A"}</td>
-                            <td className="px-4 py-3">{insp.cpt ?? "N/A"}</td>
-                            <td className="px-4 py-3">{insp.cptProyectado ?? "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cpk != null ? `$${Number(insp.cpk).toFixed(2)}` : "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cpkProyectado != null ? `$${Number(insp.cpkProyectado).toFixed(2)}` : "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cpt != null ? `$${Number(insp.cpt).toFixed(2)}` : "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cptProyectado != null ? `$${Number(insp.cptProyectado).toFixed(2)}` : "N/A"}</td>
                             <td className="px-4 py-3">{insp.kilometrosRecorridos ?? insp.kilometrosEstimados ?? "N/A"}</td>
                             <td className="px-4 py-3">
                               {insp.imageUrl ? (
