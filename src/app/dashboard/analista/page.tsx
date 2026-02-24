@@ -331,7 +331,13 @@ const IntegratedAnalysisPage: React.FC = () => {
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
-                        {analysis.tires.map((tireAnalysis, index) => (
+                        {[...analysis.tires]
+                          .sort((a, b) => {
+                            const numA = Number(a.posicion) || 0;
+                            const numB = Number(b.posicion) || 0;
+                            return numA - numB;
+                          })
+                          .map((tireAnalysis, index) => (
                           <div
                             key={`${tireAnalysis.placa}-${index}`}
                             className="group relative p-4 sm:p-5 md:p-6 bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] overflow-hidden"

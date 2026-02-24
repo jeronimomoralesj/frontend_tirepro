@@ -249,10 +249,10 @@ const BuscarDist: React.FC = () => {
       const vehicleRes = await fetch(
         process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(
-              searchTerm.trim()
+              searchTerm.trim().toLowerCase()
             )}&companyId=${company.id}`
           : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(
-              searchTerm.trim()
+              searchTerm.trim().toLowerCase()
             )}&companyId=${company.id}`
       );
 
@@ -491,7 +491,7 @@ const BuscarDist: React.FC = () => {
                         type="text"
                         placeholder={t.enterPlate}
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent"
                       />
                     </div>
@@ -773,6 +773,7 @@ const BuscarDist: React.FC = () => {
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.projectedCpk}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT Proyectada</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">KMs recorridos</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.image}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b"></th>
                         </tr>
@@ -798,11 +799,12 @@ const BuscarDist: React.FC = () => {
                                   {insp.profundidadExt} mm
                                 </span>
                               </td>
-                              <td className="px-4 py-3">{insp.cpk ?? "N/A"}</td>
-                              <td className="px-4 py-3">{insp.cpkProyectado ?? "N/A"}</td>
-                              <td className="px-4 py-3">{insp.cpt ?? "N/A"}</td>
-                              <td className="px-4 py-3">{insp.cptProyectado ?? "N/A"}</td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3">{insp.cpk != null ? `$${Number(insp.cpk).toFixed(2)}` : "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cpkProyectado != null ? `$${Number(insp.cpkProyectado).toFixed(2)}` : "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cpt != null ? `$${Number(insp.cpt).toFixed(2)}` : "N/A"}</td>
+                            <td className="px-4 py-3">{insp.cptProyectado != null ? `$${Number(insp.cptProyectado).toFixed(2)}` : "N/A"}</td>
+                            <td className="px-4 py-3">{insp.kilometrosRecorridos ?? insp.kilometrosEstimados ?? "N/A"}</td>
+                            <td className="px-4 py-3">
                                 {insp.imageUrl ? (
                                   <a href={insp.imageUrl} target="_blank" rel="noopener noreferrer">
                                     <img

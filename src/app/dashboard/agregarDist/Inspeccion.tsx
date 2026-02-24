@@ -876,7 +876,7 @@ export default function InspeccionPage() {
                   min={vehicle.kilometrajeActual}
                 />
                 <p className="text-sm text-gray-600 mt-1">
-                  {t.difference}: +{newKilometraje - vehicle.kilometrajeActual} miles
+                  {t.difference}: +{newKilometraje - vehicle.kilometrajeActual} kms
                 </p>
               </div>
             </div>

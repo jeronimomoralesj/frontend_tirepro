@@ -156,10 +156,10 @@ const BuscarPage: React.FC = () => {
         const vehicleRes = await fetch(
           process.env.NEXT_PUBLIC_API_URL
             ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(
-                searchTerm.trim()
+                searchTerm.trim().toLowerCase()
               )}&companyId=${companyId}`
             : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(
-                searchTerm.trim()
+                searchTerm.trim().toLowerCase()
               )}&companyId=${companyId}`
         );
         if (!vehicleRes.ok) {
@@ -341,7 +341,7 @@ const BuscarPage: React.FC = () => {
                         }
                         value={searchTerm}
                         onChange={(e) =>
-                          setSearchTerm(e.target.value.toLowerCase())
+                          setSearchTerm(e.target.value)
                         }
                         className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent"
                       />

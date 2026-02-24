@@ -21,6 +21,7 @@ import {
   Truck,
   User2Icon,
   TrashIcon,
+  GlassesIcon,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -95,6 +96,11 @@ export default function Sidebar({
         name: "Clientes",
         path: "/dashboard/clientes",
         icon: User2Icon,
+      },
+      {
+        name: "Analista",
+        path: "/dashboard/analistaDist",
+        icon: GlassesIcon,
       },
       {
         name: "Desechos",
