@@ -619,6 +619,7 @@ const BuscarPage: React.FC = () => {
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.projectedCpk}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT Proyectada</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">KMs recorridos</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.image}</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b"></th>
                         </tr>
@@ -648,6 +649,7 @@ const BuscarPage: React.FC = () => {
                             <td className="px-4 py-3">{insp.cpkProyectado ?? "N/A"}</td>
                             <td className="px-4 py-3">{insp.cpt ?? "N/A"}</td>
                             <td className="px-4 py-3">{insp.cptProyectado ?? "N/A"}</td>
+                            <td className="px-4 py-3">{insp.kilometrosRecorridos ?? insp.kilometrosEstimados ?? "N/A"}</td>
                             <td className="px-4 py-3">
                               {insp.imageUrl ? (
                                 <a href={insp.imageUrl} target="_blank" rel="noopener noreferrer">

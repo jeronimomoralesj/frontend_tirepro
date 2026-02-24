@@ -367,7 +367,7 @@ export default function InspeccionPage() {
         
         let tireNewKilometraje = Number(newKilometraje);
         if (unionVehicle && tire.vehicleId === unionVehicle.id) {
-          tireNewKilometraje = unionVehicle.kilometrajeActual + kmDiff;
+          tireNewKilometraje = Number(newKilometraje);
         }
         
         const payload = {
@@ -398,7 +398,7 @@ export default function InspeccionPage() {
         return res.json();
       });
 
-      await Promise.all(updatePromises);
+      for (const promise of updatePromises) { await promise; }
       alert(t.inspectionsUpdatedSuccess);
 
       const inspectionDataForPDF = {
