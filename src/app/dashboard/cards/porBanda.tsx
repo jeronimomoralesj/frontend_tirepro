@@ -11,9 +11,11 @@ import {
   Legend,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, ArrowDownUp, ArrowUpDown, ArrowUpAZ } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
+
+type SortMode = "desc" | "asc" | "alpha";
 
 const translations = {
   es: {
@@ -22,6 +24,9 @@ const translations = {
       "Este gráfico muestra como están distribuidas las llantas por banda, es decir la cantidad de llantas que hay por cada una de las bandas.",
     quantity: "Cantidad:",
     brand: "Banda:",
+    sortDesc: "Mayor a menor",
+    sortAsc: "Menor a mayor",
+    sortAlpha: "Alfabético",
   },
 };
 
@@ -31,6 +36,7 @@ interface PorBandaProps {
 
 const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
   const [language, setLanguage] = useState<"es">("es");
+  const [sortMode, setSortMode] = useState<SortMode>("desc");
 
   useEffect(() => {
     setLanguage("es");
@@ -38,17 +44,24 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
 
   const t = translations[language];
 
-  const entryCount = Object.keys(groupData).length;
+  const sortedEntries = Object.entries(groupData).sort(([aKey, aVal], [bKey, bVal]) => {
+    if (sortMode === "desc") return bVal - aVal;
+    if (sortMode === "asc") return aVal - bVal;
+    return aKey.localeCompare(bKey);
+  });
 
-  // Responsive height: minimum 200px on small screens, scales with data count
+  const sortedLabels = sortedEntries.map(([k]) => k);
+  const sortedValues = sortedEntries.map(([, v]) => v);
+
+  const entryCount = sortedEntries.length;
   const dynamicHeight = Math.max(200, entryCount * 48 + 60);
 
   const chartData = {
-    labels: Object.keys(groupData),
+    labels: sortedLabels,
     datasets: [
       {
-        data: Object.values(groupData),
-        backgroundColor: Object.keys(groupData).map(() => "#173D68"),
+        data: sortedValues,
+        backgroundColor: sortedLabels.map(() => "#173D68"),
         borderRadius: 8,
         barPercentage: 0.7,
       },
@@ -77,7 +90,7 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
         callbacks: {
           label: (context: { raw: number }) => {
             const value = context.raw;
-            const total = chartData.datasets[0].data.reduce((s: number, v: number) => s + v, 0);
+            const total = sortedValues.reduce((s, v) => s + v, 0);
             const pct = Math.round((value / total) * 100);
             return `${t.quantity} ${value} · ${pct}%`;
           },
@@ -119,6 +132,12 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
     },
   };
 
+  const sortOptions: { mode: SortMode; label: string; icon: React.ReactNode }[] = [
+    { mode: "desc",  label: t.sortDesc,  icon: <ArrowDownUp size={13} /> },
+    { mode: "asc",   label: t.sortAsc,   icon: <ArrowUpDown size={13} /> },
+    { mode: "alpha", label: t.sortAlpha, icon: <ArrowUpAZ size={13} /> },
+  ];
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden w-full">
       {/* Header */}
@@ -126,19 +145,33 @@ const PorBanda: React.FC<PorBandaProps> = ({ groupData }) => {
         <h2 className="text-lg sm:text-xl font-bold">{t.title}</h2>
         <div className="group relative cursor-pointer shrink-0 ml-2" title="Informacion sobre el gráfico">
           <HelpCircle className="text-white hover:text-gray-200 transition-colors" size={22} />
-          {/* Tooltip — flips left on small screens via right-full, capped width */}
           <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
             <p>{t.tooltip}</p>
           </div>
         </div>
       </div>
 
-      {/* Chart area — scrollable vertically when there are many bands */}
+      {/* Sort Controls */}
+      <div className="px-4 sm:px-6 pt-4 flex gap-2 flex-wrap">
+        {sortOptions.map(({ mode, label, icon }) => (
+          <button
+            key={mode}
+            onClick={() => setSortMode(mode)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 ${
+              sortMode === mode
+                ? "bg-[#173D68] text-white border-[#173D68] shadow-sm"
+                : "bg-white text-gray-500 border-gray-200 hover:border-[#173D68] hover:text-[#173D68]"
+            }`}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Chart area */}
       <div className="p-4 sm:p-6">
-        <div
-          className="overflow-y-auto"
-          style={{ maxHeight: "70vh" }}
-        >
+        <div className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
           <div style={{ height: `${dynamicHeight}px`, minWidth: "260px" }}>
             <Bar data={chartData} options={options} />
           </div>

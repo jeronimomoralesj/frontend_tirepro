@@ -10,8 +10,8 @@ export default function robots(): MetadataRoute.Robots {
         '/verify/', 
         '/login', 
         '/registeruser', 
-        '/context/', // Internal logic
-        '/delete',    // User data deletion page
+        '/context/',
+        '/delete',
       ],
     },
     sitemap: 'https://www.tirepro.com.co/sitemap.xml',

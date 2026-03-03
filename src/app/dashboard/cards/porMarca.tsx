@@ -11,9 +11,11 @@ import {
   Legend,
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, ArrowDownUp, ArrowUpDown, ArrowUpAZ } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
+
+type SortMode = "desc" | "asc" | "alpha";
 
 const translations = {
   es: {
@@ -24,6 +26,9 @@ const translations = {
     quantity: "Cantidad:",
     quantityLabel: "Cantidad de llantas",
     brand: "Marca",
+    sortDesc: "Mayor a menor",
+    sortAsc: "Menor a mayor",
+    sortAlpha: "Alfabético",
   },
 };
 
@@ -33,6 +38,7 @@ interface PorMarcaProps {
 
 const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
   const [language, setLanguage] = useState<"es">("es");
+  const [sortMode, setSortMode] = useState<SortMode>("desc");
 
   useEffect(() => {
     setLanguage("es");
@@ -40,15 +46,25 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
 
   const t = translations[language];
 
-  const entryCount = Object.keys(groupData).length;
+  // Sort entries based on selected mode
+  const sortedEntries = Object.entries(groupData).sort(([aKey, aVal], [bKey, bVal]) => {
+    if (sortMode === "desc") return bVal - aVal;
+    if (sortMode === "asc") return aVal - bVal;
+    return aKey.localeCompare(bKey);
+  });
+
+  const sortedLabels = sortedEntries.map(([k]) => k);
+  const sortedValues = sortedEntries.map(([, v]) => v);
+
+  const entryCount = sortedEntries.length;
   const dynamicHeight = Math.max(200, entryCount * 40 + 80);
 
   const chartData = {
-    labels: Object.keys(groupData),
+    labels: sortedLabels,
     datasets: [
       {
-        data: Object.values(groupData),
-        backgroundColor: Object.keys(groupData).map(() => "#173D68"),
+        data: sortedValues,
+        backgroundColor: sortedLabels.map(() => "#173D68"),
         borderRadius: 8,
         barPercentage: 0.6,
       },
@@ -77,7 +93,7 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
         callbacks: {
           label: (context: { raw: number }) => {
             const value = context.raw;
-            const total = chartData.datasets[0].data.reduce((s: number, v: number) => s + v, 0);
+            const total = sortedValues.reduce((s, v) => s + v, 0);
             const pct = Math.round((value / total) * 100);
             return `${t.quantity} ${value} · ${pct}%`;
           },
@@ -120,6 +136,12 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
     },
   };
 
+  const sortOptions: { mode: SortMode; label: string; icon: React.ReactNode }[] = [
+    { mode: "desc", label: t.sortDesc, icon: <ArrowDownUp size={13} /> },
+    { mode: "asc",  label: t.sortAsc,  icon: <ArrowUpDown size={13} /> },
+    { mode: "alpha", label: t.sortAlpha, icon: <ArrowUpAZ size={13} /> },
+  ];
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden w-full">
       {/* Header */}
@@ -133,7 +155,25 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
         </div>
       </div>
 
-      {/* Chart — scrollable when many brands */}
+      {/* Sort Controls */}
+      <div className="px-4 sm:px-6 pt-4 flex gap-2 flex-wrap">
+        {sortOptions.map(({ mode, label, icon }) => (
+          <button
+            key={mode}
+            onClick={() => setSortMode(mode)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 ${
+              sortMode === mode
+                ? "bg-[#173D68] text-white border-[#173D68] shadow-sm"
+                : "bg-white text-gray-500 border-gray-200 hover:border-[#173D68] hover:text-[#173D68]"
+            }`}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Chart */}
       <div className="p-4 sm:p-6">
         <div className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
           <div style={{ height: `${dynamicHeight}px`, minWidth: "240px" }}>
