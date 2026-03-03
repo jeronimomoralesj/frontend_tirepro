@@ -1,700 +1,875 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend,
+  AreaChart, Area,
+} from "recharts";
 
-// ─── Types matching Prisma schema ────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type LifecycleEntry = { valor: string; fecha: string };
-type CostEntry = { valor: number; fecha: string };
-type Inspection = {
+type CostEntry    = { valor: number; fecha: string };
+type VidaEntry    = { valor: string; fecha: string };
+type Inspection   = {
   fecha: string;
-  profundidadInt: number;
-  profundidadCen: number;
-  profundidadExt: number;
-  cpk: number;
-  cpkProyectado: number;
-  cpt?: number;
-  cptProyectado?: number;
-  diasEnUso?: number;
-  mesesEnUso?: number;
-  kilometrosRecorridos?: number;
-  kmActualVehiculo?: number;
-  imageUrl?: string;
+  profundidadInt: number; profundidadCen: number; profundidadExt: number;
+  cpk: number; cpkProyectado: number;
+  cpt?: number; cptProyectado?: number;
+  diasEnUso?: number; mesesEnUso?: number;
+  kilometrosRecorridos?: number; kmActualVehiculo?: number;
 };
-type PrimeraVida = { diseno: string; cpk: number; costo: number; kilometros: number };
-type Desechos = { causales: string; milimetrosDesechados: number; remanente: number; fecha: string };
+type PrimeraVida  = { diseno: string; cpk: number; costo: number; kilometros: number };
+type Desechos     = { causales: string; milimetrosDesechados: number; remanente: number; fecha: string };
 
 type Tire = {
-  id: string;
-  companyId: string;
-  vehicleId?: string | null;
-  placa: string;
-  vida: LifecycleEntry[];
-  marca: string;
-  diseno: string;
-  profundidadInicial: number;
-  dimension: string;
-  eje: string;
-  costo: CostEntry[];
-  posicion: number;
-  inspecciones: Inspection[];
-  primeraVida: PrimeraVida[];
-  kilometrosRecorridos: number;
-  fechaInstalacion?: string | null;
-  diasAcumulados: number;
+  id: string; companyId: string; vehicleId?: string | null; placa: string;
+  vida: VidaEntry[]; marca: string; diseno: string;
+  profundidadInicial: number; dimension: string; eje: string;
+  costo: CostEntry[]; posicion: number; inspecciones: Inspection[];
+  primeraVida: PrimeraVida[]; kilometrosRecorridos: number;
+  fechaInstalacion?: string | null; diasAcumulados: number;
   eventos: { valor: string; fecha: string }[];
   desechos?: Desechos | null;
 };
 
 type Vehicle = {
-  id: string;
-  placa: string;
-  kilometrajeActual: number;
-  tipovhc: string;
-  tireCount: number;
-  cliente?: string | null;
-  companyId: string;
+  id: string; placa: string; kilometrajeActual: number;
+  tipovhc: string; tireCount: number; cliente?: string | null;
+  companyId: string; union: string[];
 };
 
 type User = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  companyId: string;
-  puntos: number;
-  isVerified: boolean;
+  id: string; name: string; email: string; role: string;
+  companyId: string; puntos: number; isVerified: boolean;
   preferredLanguage?: string | null;
 };
 
 type Company = {
-  id: string;
-  name: string;
-  plan: string;
-  tireCount: number;
-  userCount: number;
-  vehicleCount: number;
-  periodicity: number;
+  id: string; name: string; plan: string;
+  tireCount: number; userCount: number; vehicleCount: number;
+  periodicity: number; profileImage?: string;
 };
 
-type Notification = {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  seen: boolean;
-  timestamp: string;
-  tireId?: string | null;
-  vehicleId?: string | null;
-  companyId?: string | null;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const API = process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
+const ML  = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+const C = {
+  navy:"#0A183A", dark:"#173D68", mid:"#1E76B6", sky:"#348CCB",
+  teal:"#0d9488", amber:"#d97706", red:"#dc2626", green:"#059669",
+  slate:"#475569", purple:"#7c3aed",
+};
+const CC = [C.mid,C.teal,C.amber,C.red,C.green,C.purple,C.sky,"#f59e0b","#ec4899","#84cc16","#06b6d4","#f97316"];
+
+const norm = (t: Tire): Tire => ({
+  ...t,
+  vida: Array.isArray(t.vida) ? t.vida : [],
+  costo: Array.isArray(t.costo) ? t.costo : [],
+  inspecciones: Array.isArray(t.inspecciones) ? t.inspecciones : [],
+  primeraVida: Array.isArray(t.primeraVida) ? t.primeraVida : [],
+  eventos: Array.isArray(t.eventos) ? t.eventos : [],
+});
+
+const lastVida = (t: Tire) =>
+  t.vida.length ? t.vida[t.vida.length - 1].valor.toLowerCase() : "nueva";
+
+const active = (t: Tire) => lastVida(t) !== "fin";
+
+const latestInsp = (t: Tire): Inspection | null => {
+  if (!t.inspecciones.length) return null;
+  return [...t.inspecciones].sort((a, b) =>
+    new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const minD  = (i: Inspection) => Math.min(i.profundidadInt ?? 99, i.profundidadCen ?? 99, i.profundidadExt ?? 99);
+const avgD  = (i: Inspection) => (i.profundidadInt + i.profundidadCen + i.profundidadExt) / 3;
+const tcost = (t: Tire)       => t.costo.reduce((s, c) => s + (c.valor || 0), 0);
+const safeAvg = (a: number[]) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 
-const getLastVida = (tire: Tire): string => {
-  if (!Array.isArray(tire.vida) || tire.vida.length === 0) return "nueva";
-  return tire.vida[tire.vida.length - 1].valor.toLowerCase();
-};
-
-const isActive = (tire: Tire): boolean => getLastVida(tire) !== "fin";
-
-const getLatestInspection = (tire: Tire): Inspection | null => {
-  if (!Array.isArray(tire.inspecciones) || tire.inspecciones.length === 0) return null;
-  return [...tire.inspecciones].sort(
-    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-  )[0];
-};
-
-const getMinDepth = (insp: Inspection): number =>
-  Math.min(insp.profundidadInt ?? Infinity, insp.profundidadCen ?? Infinity, insp.profundidadExt ?? Infinity);
-
-const getTotalCost = (tire: Tire): number =>
-  (Array.isArray(tire.costo) ? tire.costo : []).reduce((s, c) => s + (c.valor || 0), 0);
-
-const calcCPK = (tire: Tire): number => {
-  const km = tire.kilometrosRecorridos || 0;
-  const cost = getTotalCost(tire);
-  return km > 0 ? cost / km : 0;
-};
-
-const classifyCondition = (tire: Tire): "optimo" | "60_dias" | "30_dias" | "urgente" | "sin_inspeccion" => {
-  const last = getLatestInspection(tire);
-  if (!last) return "sin_inspeccion";
-  const min = getMinDepth(last);
-  if (min > 7) return "optimo";
-  if (min > 6) return "60_dias";
-  if (min > 5) return "30_dias";
+const sem = (t: Tire): "optimo"|"60d"|"30d"|"urgente"|"sin" => {
+  const l = latestInsp(t);
+  if (!l) return "sin";
+  const m = minD(l);
+  if (m > 7) return "optimo";
+  if (m > 6) return "60d";
+  if (m > 5) return "30d";
   return "urgente";
 };
 
-const fmt = (n: number, decimals = 0) =>
-  n.toLocaleString("es-CO", { maximumFractionDigits: decimals });
+const fmt  = (n: number, d = 0) => isNaN(n) ? "0" : n.toLocaleString("es-CO", { maximumFractionDigits: d });
+const fmtM = (n: number) =>
+  n >= 1_000_000 ? `${(n/1_000_000).toFixed(2)}M`
+  : n >= 1_000   ? `${(n/1_000).toFixed(1)}K`
+  : fmt(n);
 
-const fmtCOP = (n: number) =>
-  n >= 1_000_000
-    ? `${(n / 1_000_000).toFixed(1)}M COP`
-    : n >= 1_000
-    ? `${(n / 1_000).toFixed(0)}K COP`
-    : `${fmt(n)} COP`;
+// ─── UI ───────────────────────────────────────────────────────────────────────
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+const Spinner = () => (
+  <div className="flex items-center justify-center py-24 gap-4">
+    <div className="w-11 h-11 rounded-full border-4 border-[#1E76B6]/20 border-t-[#1E76B6] animate-spin" />
+    <span className="text-[#1E76B6] font-semibold text-sm">Cargando datos globales…</span>
+  </div>
+);
 
-function KPICard({
-  label,
-  value,
-  sub,
-  accent,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  accent: string;
-  icon: React.ReactNode;
+function KPI({ label, value, sub, color, icon }: {
+  label:string; value:string|number; sub?:string; color:string; icon:string;
 }) {
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl p-5 shadow-lg flex flex-col justify-between gap-2"
-      style={{ background: accent }}
-    >
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-semibold uppercase tracking-widest text-white/70">{label}</p>
-        <span className="text-white/60">{icon}</span>
+    <div className="relative overflow-hidden rounded-2xl p-5 flex flex-col gap-2 shadow-md" style={{ background:color }}>
+      <div className="absolute -right-2 -top-2 text-6xl opacity-[0.07] select-none">{icon}</div>
+      <p className="text-[10px] font-black uppercase tracking-widest text-white/60">{label}</p>
+      <p className="text-3xl font-black text-white leading-none">{value}</p>
+      {sub && <p className="text-xs text-white/50">{sub}</p>}
+    </div>
+  );
+}
+
+function Card({ title, children, className="" }: { title:string; children:React.ReactNode; className?:string }) {
+  return (
+    <div className={`bg-white rounded-2xl shadow-md overflow-hidden ${className}`}>
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h3 className="text-[11px] font-black uppercase tracking-widest text-[#0A183A]">{title}</h3>
       </div>
-      <p className="text-3xl font-extrabold text-white leading-none">{value}</p>
-      {sub && <p className="text-xs text-white/60">{sub}</p>}
+      <div className="p-6">{children}</div>
     </div>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function RankBar({ label, value, max, color, suffix="" }: {
+  label:string; value:number; max:number; color:string; suffix?:string;
+}) {
+  const pct = max > 0 ? Math.min((value/max)*100, 100) : 0;
   return (
-    <h2 className="text-lg font-bold text-[#0A183A] mb-4 flex items-center gap-2">
-      {children}
-    </h2>
-  );
-}
-
-function StatRow({ label, value, bar, barColor }: { label: string; value: string | number; bar?: number; barColor?: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-2 border-b border-gray-100 last:border-0">
-      <span className="text-sm text-gray-600 flex-1 truncate">{label}</span>
-      <div className="flex items-center gap-3">
-        {bar !== undefined && (
-          <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${Math.min(bar, 100)}%`, background: barColor || "#1E76B6" }}
-            />
-          </div>
-        )}
-        <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">{value}</span>
+    <div className="flex items-center gap-3 py-1.5 group">
+      <span className="text-sm text-gray-600 w-40 truncate shrink-0 group-hover:text-gray-900 transition-colors">{label}</span>
+      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width:`${pct}%`, background:color }} />
       </div>
+      <span className="text-sm font-bold text-gray-800 w-20 text-right tabular-nums shrink-0">
+        {fmt(value)}{suffix}
+      </span>
     </div>
   );
 }
 
-function PillBadge({ label, count, color }: { label: string; count: number; color: string }) {
+const Tip = ({ active: a, payload, label }: any) => {
+  if (!a || !payload?.length) return null;
   return (
-    <div className="flex items-center justify-between px-4 py-3 rounded-xl border" style={{ borderColor: color + "40", background: color + "10" }}>
-      <span className="text-sm font-medium" style={{ color }}>{label}</span>
-      <span className="text-xl font-extrabold" style={{ color }}>{count}</span>
+    <div className="bg-[#0A183A] text-white text-xs rounded-xl px-3 py-2.5 shadow-2xl border border-white/10">
+      {label && <p className="font-bold mb-1.5 text-white/70">{label}</p>}
+      {payload.map((p: any, i: number) => (
+        <p key={i} style={{ color: p.color || "#93c5fd" }}>
+          {p.name}: <span className="font-bold">{typeof p.value === "number" ? fmt(p.value) : p.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+};
+
+function DataTable({ cols, rows }: { cols:string[]; rows:(string|number|React.ReactNode)[][] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b-2 border-gray-100">
+            {cols.map(c => (
+              <th key={c} className="text-left py-2.5 px-3 text-[10px] font-black uppercase tracking-widest text-gray-400">{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
+              {row.map((cell, j) => <td key={j} className="py-2.5 px-3 text-gray-700">{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function StatsPage() {
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [company, setCompany] = useState<Company | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errors, setErrors] = useState<string[]>([]);
-
-  const API = process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
-
-  const safeJson = async (res: Response, label: string) => {
-    if (!res.ok) throw new Error(`${label}: ${res.status}`);
-    return res.json();
+function PlanBadge({ plan }: { plan:string }) {
+  const m: Record<string,{bg:string;tx:string}> = {
+    premium:      { bg:"#059669", tx:"#fff" },
+    retail:       { bg:"#1E76B6", tx:"#fff" },
+    distribuidor: { bg:"#7c3aed", tx:"#fff" },
+    basic:        { bg:"#e5e7eb", tx:"#374151" },
   };
+  const s = m[plan?.toLowerCase()] || m.basic;
+  return (
+    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold capitalize"
+      style={{ background: s.bg+"20", color: s.bg === "#e5e7eb" ? s.tx : s.bg, border:`1px solid ${s.bg}40` }}>
+      {plan}
+    </span>
+  );
+}
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    setErrors([]);
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
-    const storedUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-    if (!storedUser) { setLoading(false); return; }
-    const currentUser: User = JSON.parse(storedUser);
-    const { companyId } = currentUser;
+type TabId = "overview"|"tires"|"vehicles"|"companies"|"users";
 
-    const errs: string[] = [];
+const TABS: { id:TabId; label:string; icon:string }[] = [
+  { id:"overview",  label:"Resumen",   icon:"📊" },
+  { id:"tires",     label:"Llantas",   icon:"🛞" },
+  { id:"vehicles",  label:"Vehículos", icon:"🚛" },
+  { id:"companies", label:"Compañías", icon:"🏢" },
+  { id:"users",     label:"Usuarios",  icon:"👥" },
+];
 
-    const results = await Promise.allSettled([
-      fetch(`${API}/api/tires?companyId=${companyId}`).then(r => safeJson(r, "tires")),
-      fetch(`${API}/api/vehicles?companyId=${companyId}`).then(r => safeJson(r, "vehicles")),
-      fetch(`${API}/api/users?companyId=${companyId}`).then(r => safeJson(r, "users")),
-      fetch(`${API}/api/companies/${companyId}`).then(r => safeJson(r, "company")),
-      fetch(`${API}/api/notifications?companyId=${companyId}`).then(r => safeJson(r, "notifications")),
+export default function AdminDashboard() {
+  const [tires,     setTires]     = useState<Tire[]>([]);
+  const [vehicles,  setVehicles]  = useState<Vehicle[]>([]);
+  const [users,     setUsers]     = useState<User[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [errs,      setErrs]      = useState<string[]>([]);
+  const [tab,       setTab]       = useState<TabId>("overview");
+  const [lastFetch, setLastFetch] = useState<Date|null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setErrs([]);
+    const e: string[] = [];
+
+    const safe = async <T,>(url: string, label: string): Promise<T[]> => {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = await r.json();
+        return Array.isArray(d) ? d : [];
+      } catch (err: any) { e.push(`${label}: ${err.message}`); return []; }
+    };
+
+    const [tr, vr, ur, cr] = await Promise.all([
+      safe<Tire>    (`${API}/api/tires/all`,     "Llantas"),
+      safe<Vehicle> (`${API}/api/vehicles/all`,  "Vehículos"),
+      safe<User>    (`${API}/api/users/all`,     "Usuarios"),
+      safe<Company> (`${API}/api/companies/all`, "Compañías"),
     ]);
 
-    if (results[0].status === "fulfilled") {
-      const raw: Tire[] = results[0].value;
-      setTires(raw.map(t => ({
-        ...t,
-        vida: Array.isArray(t.vida) ? t.vida : [],
-        costo: Array.isArray(t.costo) ? t.costo : [],
-        inspecciones: Array.isArray(t.inspecciones) ? t.inspecciones : [],
-        primeraVida: Array.isArray(t.primeraVida) ? t.primeraVida : [],
-        eventos: Array.isArray(t.eventos) ? t.eventos : [],
-      })));
-    } else { errs.push("No se pudieron cargar llantas"); }
-
-    if (results[1].status === "fulfilled") setVehicles(results[1].value);
-    else errs.push("No se pudieron cargar vehículos");
-
-    if (results[2].status === "fulfilled") setUsers(results[2].value);
-    else errs.push("No se pudieron cargar usuarios");
-
-    if (results[3].status === "fulfilled") setCompany(results[3].value);
-    else errs.push("No se pudo cargar la compañía");
-
-    if (results[4].status === "fulfilled") setNotifications(results[4].value);
-    // notifications failure is silent
-
-    if (errs.length) setErrors(errs);
+    setTires(tr.map(norm));
+    setVehicles(vr);
+    setUsers(ur);
+    setCompanies(cr);
+    if (e.length) setErrs(e);
+    setLastFetch(new Date());
     setLoading(false);
-  }, [API]);
+  }, []);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { load(); }, [load]);
 
-  // ─── Tire KPIs ────────────────────────────────────────────────────────────
-  const activeTires = tires.filter(isActive);
-  const retiredTires = tires.filter(t => !isActive(t));
-  const totalKm = activeTires.reduce((s, t) => s + (t.kilometrosRecorridos || 0), 0);
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const S = useMemo(() => {
+    const act  = tires.filter(active);
+    const ret  = tires.filter(t => !active(t));
+    const wi   = act.filter(t => latestInsp(t) !== null);
+    const now  = new Date();
 
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
+    // Semáforo
+    const sc = { optimo:0, "60d":0, "30d":0, urgente:0, sin:0 };
+    act.forEach(t => sc[sem(t)]++);
 
-  const gastoTotal = tires.reduce((s, t) => s + getTotalCost(t), 0);
-  const gastoMes = tires.reduce((s, t) => {
-    return s + (Array.isArray(t.costo) ? t.costo : []).reduce((ss, c) => {
+    // Financial
+    const totalInv = tires.reduce((s, t) => s + tcost(t), 0);
+    const monthSp  = tires.reduce((s, t) =>
+      s + t.costo.reduce((ss, c) => {
+        const d = new Date(c.fecha);
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+          ? ss + c.valor : ss;
+      }, 0), 0);
+
+    // Monthly spend last 12
+    const msp: Record<string,number> = {};
+    tires.forEach(t => t.costo.forEach(c => {
       const d = new Date(c.fecha);
-      return d.getFullYear() === currentYear && d.getMonth() === currentMonth ? ss + (c.valor || 0) : ss;
-    }, 0);
-  }, 0);
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      msp[k] = (msp[k]||0) + c.valor;
+    }));
+    const sp12 = Array.from({length:12},(_,i) => {
+      const d = new Date(now.getFullYear(), now.getMonth()-(11-i), 1);
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      return { mes:ML[d.getMonth()], gasto:msp[k]||0 };
+    });
 
-  const tiresWithInspections = activeTires.filter(t => getLatestInspection(t) !== null);
-  const avgCPK = tiresWithInspections.length
-    ? tiresWithInspections.reduce((s, t) => {
-        const last = getLatestInspection(t);
-        return s + (last?.cpk || 0);
-      }, 0) / tiresWithInspections.length
-    : 0;
+    // CPK / CPT
+    const cpks = wi.map(t => latestInsp(t)!.cpk).filter(v => v>0 && isFinite(v));
+    const cpkp = wi.map(t => latestInsp(t)!.cpkProyectado).filter(v => v>0 && isFinite(v));
+    const cpts = wi.map(t => latestInsp(t)!.cpt||0).filter(v => v>0);
+    const avgCPK  = safeAvg(cpks);
+    const avgCPKP = safeAvg(cpkp);
+    const avgCPT  = safeAvg(cpts);
 
-  const avgCPKProyectado = tiresWithInspections.length
-    ? tiresWithInspections.reduce((s, t) => {
-        const last = getLatestInspection(t);
-        return s + (last?.cpkProyectado || 0);
-      }, 0) / tiresWithInspections.length
-    : 0;
+    // KM / depth
+    const totalKm  = act.reduce((s,t) => s + (t.kilometrosRecorridos||0), 0);
+    const depVals  = wi.map(t => avgD(latestInsp(t)!));
+    const avgDepth = safeAvg(depVals);
+    const critical = act.filter(t => { const l=latestInsp(t); return l && minD(l)<=2; }).length;
 
-  // Semáforo
-  const semaforoCount = {
-    optimo: 0, "60_dias": 0, "30_dias": 0, urgente: 0, sin_inspeccion: 0,
-  };
-  activeTires.forEach(t => { semaforoCount[classifyCondition(t)]++; });
+    // By brand
+    const bb: Record<string,{count:number;totalCost:number;totalKm:number;cpks:number[];depths:number[]}> = {};
+    act.forEach(t => {
+      const b = (t.marca||"Desconocido").toUpperCase();
+      if (!bb[b]) bb[b] = {count:0,totalCost:0,totalKm:0,cpks:[],depths:[]};
+      bb[b].count++; bb[b].totalCost += tcost(t); bb[b].totalKm += t.kilometrosRecorridos||0;
+      const l = latestInsp(t);
+      if (l) { if (l.cpk>0) bb[b].cpks.push(l.cpk); bb[b].depths.push(avgD(l)); }
+    });
 
-  // Critical = urgente + depth ≤ 2
-  const criticalDepth = activeTires.filter(t => {
-    const last = getLatestInspection(t);
-    return last && getMinDepth(last) <= 2;
-  }).length;
+    const cnt = (key: keyof Tire) => {
+      const m: Record<string,number> = {};
+      act.forEach(t => { const v = (t[key] as string)||"N/A"; m[v]=(m[v]||0)+1; });
+      return m;
+    };
+    const byDiseno    = cnt("diseno");
+    const byDimension = cnt("dimension");
+    const byEje       = cnt("eje");
 
-  // Vida distribution
-  const vidaCount: Record<string, number> = {};
-  activeTires.forEach(t => {
-    const v = getLastVida(t);
-    vidaCount[v] = (vidaCount[v] || 0) + 1;
-  });
+    const byVida: Record<string,number> = {};
+    act.forEach(t => { const v=lastVida(t); byVida[v]=(byVida[v]||0)+1; });
 
-  // By brand
-  const byBrand: Record<string, Tire[]> = {};
-  activeTires.forEach(t => {
-    const b = t.marca || "Desconocido";
-    byBrand[b] = byBrand[b] || [];
-    byBrand[b].push(t);
-  });
+    const rCount = act.filter(t => lastVida(t).startsWith("reencauche")).length;
+    const rRate  = act.length ? (rCount/act.length)*100 : 0;
+    const rSave  = act.filter(t=>t.primeraVida.length>0&&t.costo.length>1)
+      .reduce((s,t) => s + Math.max((t.primeraVida[0]?.costo||0)-(t.costo[t.costo.length-1]?.valor||0), 0), 0);
 
-  // By eje
-  const byEje: Record<string, Tire[]> = {};
-  activeTires.forEach(t => {
-    const e = t.eje || "Sin eje";
-    byEje[e] = byEje[e] || [];
-    byEje[e].push(t);
-  });
+    // Desechos
+    const dTires = ret.filter(t => t.desechos);
+    const desByR: Record<string,number> = {};
+    let totRem = 0;
+    dTires.forEach(t => {
+      const r = t.desechos!.causales||"Desconocido";
+      desByR[r] = (desByR[r]||0)+1;
+      totRem += t.desechos!.remanente||0;
+    });
+    const avgMmD = dTires.length ? safeAvg(dTires.map(t => t.desechos!.milimetrosDesechados||0)) : 0;
 
-  // Avg depth
-  const avgDepth =
-    tiresWithInspections.length
-      ? tiresWithInspections.reduce((s, t) => {
-          const last = getLatestInspection(t)!;
-          return s + (last.profundidadInt + last.profundidadCen + last.profundidadExt) / 3;
-        }, 0) / tiresWithInspections.length
-      : 0;
+    // Inspection per month
+    const ipm: Record<string,number> = {};
+    tires.forEach(t => t.inspecciones.forEach(i => {
+      const d = new Date(i.fecha);
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      ipm[k] = (ipm[k]||0)+1;
+    }));
+    const insp12 = Array.from({length:12},(_,i) => {
+      const d = new Date(now.getFullYear(), now.getMonth()-(11-i), 1);
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      return { mes:ML[d.getMonth()], inspecciones:ipm[k]||0 };
+    });
+    const totalInsp = tires.reduce((s,t) => s+t.inspecciones.length, 0);
 
-  // Reencauche tires
-  const reencaucheTires = activeTires.filter(t =>
-    getLastVida(t).startsWith("reencauche")
-  ).length;
+    // CPK by brand
+    const cpkByBrand = Object.entries(bb)
+      .map(([b,v]) => ({ brand:b, cpk:v.cpks.length?safeAvg(v.cpks):0, count:v.count }))
+      .filter(x => x.cpk>0).sort((a,b) => a.cpk-b.cpk).slice(0,14);
 
-  // ─── Vehicle KPIs ─────────────────────────────────────────────────────────
-  const vehiclesByType: Record<string, number> = {};
-  vehicles.forEach(v => {
-    const t = v.tipovhc || "Desconocido";
-    vehiclesByType[t] = (vehiclesByType[t] || 0) + 1;
-  });
+    // Depth trend
+    const dpm: Record<string,number[]> = {};
+    tires.forEach(t => t.inspecciones.forEach(i => {
+      const d = new Date(i.fecha);
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      if (!dpm[k]) dpm[k]=[];
+      dpm[k].push(avgD(i));
+    }));
+    const dep12 = Array.from({length:12},(_,i) => {
+      const d = new Date(now.getFullYear(), now.getMonth()-(11-i), 1);
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      const vals = dpm[k]||[];
+      return { mes:ML[d.getMonth()], profundidad:vals.length?safeAvg(vals):null };
+    });
 
-  const avgKmVehicle = vehicles.length
-    ? vehicles.reduce((s, v) => s + (v.kilometrajeActual || 0), 0) / vehicles.length
-    : 0;
+    // Vehicles
+    const vbt: Record<string,number> = {};
+    vehicles.forEach(v => { const t=v.tipovhc||"Desconocido"; vbt[t]=(vbt[t]||0)+1; });
+    const avgKmV  = safeAvg(vehicles.map(v => v.kilometrajeActual||0));
+    const vwt     = vehicles.filter(v => v.tireCount>0).length;
+    const vEmpty  = vehicles.length - vwt;
+    const vUnion  = vehicles.filter(v => Array.isArray(v.union)&&v.union.length>0).length;
+    const vbc: Record<string,number> = {};
+    vehicles.forEach(v => { const c=v.cliente||"Sin cliente"; vbc[c]=(vbc[c]||0)+1; });
 
-  const vehiclesWithTires = vehicles.filter(v => v.tireCount > 0).length;
+    // Companies
+    const cbp: Record<string,number> = {};
+    companies.forEach(c => { cbp[c.plan]=(cbp[c.plan]||0)+1; });
+    const topCo = [...companies].sort((a,b) => (b.tireCount||0)-(a.tireCount||0)).slice(0,15);
 
-  const vehiclesByCliente: Record<string, number> = {};
-  vehicles.forEach(v => {
-    const c = v.cliente || "Sin cliente";
-    vehiclesByCliente[c] = (vehiclesByCliente[c] || 0) + 1;
-  });
+    // Users
+    const ubr: Record<string,number> = {};
+    users.forEach(u => { ubr[u.role]=(ubr[u.role]||0)+1; });
+    const verified   = users.filter(u => u.isVerified).length;
+    const totPuntos  = users.reduce((s,u) => s+(u.puntos||0), 0);
+    const ubl: Record<string,number> = {};
+    users.forEach(u => { const l=u.preferredLanguage||"es"; ubl[l]=(ubl[l]||0)+1; });
+    const ubco: Record<string,number> = {};
+    users.forEach(u => { ubco[u.companyId]=(ubco[u.companyId]||0)+1; });
+    const topUCo = Object.entries(ubco).sort((a,b)=>b[1]-a[1]).slice(0,10)
+      .map(([cid,cnt]) => ({ name:companies.find(c=>c.id===cid)?.name||cid.slice(0,8), count:cnt }));
 
-  // ─── User KPIs ────────────────────────────────────────────────────────────
-  const usersByRole: Record<string, number> = {};
-  users.forEach(u => {
-    usersByRole[u.role] = (usersByRole[u.role] || 0) + 1;
-  });
+    return {
+      totalTires:tires.length, activeTires:act.length, retiredTires:ret.length,
+      critical, withInsp:wi.length, totalInsp,
+      rCount, rRate, rSave,
+      totalInv, monthSp, avgCPK, avgCPKP, avgCPT,
+      totalKm, avgDepth,
+      desByR, totRem, avgMmD,
+      sc, bb, byDiseno, byDimension, byEje, byVida,
+      sp12, insp12, dep12, cpkByBrand,
+      vbt, avgKmV, vwt, vEmpty, vUnion, vbc,
+      cbp, topCo,
+      ubr, verified, totPuntos, ubl, topUCo,
+    };
+  }, [tires, vehicles, users, companies]);
 
-  const verifiedUsers = users.filter(u => u.isVerified).length;
-  const totalPoints = users.reduce((s, u) => s + (u.puntos || 0), 0);
-
-  // ─── Notifications ────────────────────────────────────────────────────────
-  const unseenNotifications = notifications.filter(n => !n.seen).length;
-  const criticalNotifications = notifications.filter(n => n.type === "critical").length;
-  const warningNotifications = notifications.filter(n => n.type === "warning").length;
-
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#f0f4f8] font-sans">
-      {/* Top bar */}
-      <div className="bg-gradient-to-r from-[#0A183A] to-[#1E76B6] px-6 py-5 shadow-xl">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-[#f0f4f8]" style={{ fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+
+      {/* Header */}
+      <div style={{ background:`linear-gradient(135deg,${C.navy} 0%,${C.dark} 55%,${C.mid} 100%)` }}
+        className="px-6 py-5 shadow-2xl">
+        <div className="max-w-screen-2xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
-              Panel de Estadísticas
-            </h1>
-            {company && (
-              <p className="text-blue-200 text-sm mt-0.5">
-                {company.name} · Plan <span className="capitalize font-semibold">{company.plan}</span>
-              </p>
-            )}
+            <h1 className="text-2xl font-black text-white tracking-tight">TirePro · Admin Dashboard</h1>
+            <p className="text-blue-200 text-xs mt-0.5">
+              {loading ? "Cargando…" : `${fmt(tires.length)} llantas · ${fmt(vehicles.length)} vehículos · ${fmt(companies.length)} compañías · ${fmt(users.length)} usuarios`}
+              {lastFetch && !loading && <span className="ml-2 opacity-50">· {lastFetch.toLocaleTimeString("es-CO")}</span>}
+            </p>
           </div>
-          <p className="text-blue-200 text-sm hidden sm:block">
-            {now.toLocaleDateString("es-CO", { dateStyle: "long" })}
-          </p>
+          <button onClick={load} disabled={loading}
+            className="self-start sm:self-auto px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white text-sm font-bold transition flex items-center gap-2">
+            <span className={loading?"animate-spin":""}>↻</span> Actualizar
+          </button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Tabs */}
+      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-20">
+        <div className="max-w-screen-2xl mx-auto px-4 flex overflow-x-auto">
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`flex items-center gap-1.5 px-5 py-3.5 text-sm font-bold whitespace-nowrap border-b-2 transition-all ${
+                tab===t.id
+                  ? "border-[#1E76B6] text-[#1E76B6] bg-blue-50/50"
+                  : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+              }`}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Errors */}
-        {errors.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-            {errors.map((e, i) => (
-              <p key={i} className="text-red-700 text-sm">⚠️ {e}</p>
-            ))}
+      {/* Content */}
+      <div className="max-w-screen-2xl mx-auto px-4 py-8">
+
+        {errs.length > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 space-y-1">
+            {errs.map((e,i) => <p key={i} className="text-red-700 text-sm font-medium">⚠️ {e}</p>)}
           </div>
         )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1E76B6]" />
-            <span className="ml-3 text-[#1E76B6] font-medium">Cargando estadísticas…</span>
-          </div>
-        )}
+        {loading ? <Spinner /> : (
+          <div className="space-y-6">
 
-        {!loading && (
-          <>
-            {/* ── Global KPIs ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-              <KPICard label="Llantas activas" value={activeTires.length} accent="#0A183A" icon={<span className="text-xl">🛞</span>} />
-              <KPICard label="Vehículos" value={vehicles.length} accent="#173D68" icon={<span className="text-xl">🚛</span>} />
-              <KPICard label="Usuarios" value={users.length} accent="#1E76B6" icon={<span className="text-xl">👥</span>} />
-              <KPICard label="Críticas (≤2mm)" value={criticalDepth} sub="Requieren cambio" accent="#b91c1c" icon={<span className="text-xl">⚠️</span>} />
-              <KPICard label="Alertas sin ver" value={unseenNotifications} accent="#d97706" icon={<span className="text-xl">🔔</span>} />
-              <KPICard label="Reencauches" value={reencaucheTires} accent="#065f46" icon={<span className="text-xl">♻️</span>} />
-            </div>
-
-            {/* ── Financiero ── */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <SectionTitle>💰 Resumen Financiero</SectionTitle>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Gasto del mes</p>
-                  <p className="text-2xl font-extrabold text-[#0A183A]">{fmtCOP(gastoMes)}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Inversión total</p>
-                  <p className="text-2xl font-extrabold text-[#0A183A]">{fmtCOP(gastoTotal)}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">CPK promedio</p>
-                  <p className="text-2xl font-extrabold text-[#1E76B6]">${fmt(avgCPK, 0)}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">CPK proyectado</p>
-                  <p className="text-2xl font-extrabold text-[#173D68]">${fmt(avgCPKProyectado, 0)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Llantas ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-              {/* Semáforo */}
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <SectionTitle>🚦 Estado de Llantas (Semáforo)</SectionTitle>
-                <div className="grid grid-cols-2 gap-3">
-                  <PillBadge label="Óptimo (>7mm)" count={semaforoCount.optimo} color="#059669" />
-                  <PillBadge label="60 días (>6mm)" count={semaforoCount["60_dias"]} color="#2563eb" />
-                  <PillBadge label="30 días (>5mm)" count={semaforoCount["30_dias"]} color="#d97706" />
-                  <PillBadge label="Urgente (≤5mm)" count={semaforoCount.urgente} color="#dc2626" />
-                  <PillBadge label="Sin inspección" count={semaforoCount.sin_inspeccion} color="#6b7280" />
-                  <PillBadge label="Retiradas" count={retiredTires.length} color="#374151" />
-                </div>
+            {/* ══════ OVERVIEW ══════ */}
+            {tab==="overview" && <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                <KPI label="Llantas totales"  value={fmt(S.totalTires)}     color={C.navy}   icon="🛞" />
+                <KPI label="Activas"          value={fmt(S.activeTires)}    color={C.dark}   icon="✅" />
+                <KPI label="Vehículos"        value={fmt(vehicles.length)}  color={C.mid}    icon="🚛" />
+                <KPI label="Compañías"        value={fmt(companies.length)} color={C.teal}   icon="🏢" />
+                <KPI label="Usuarios"         value={fmt(users.length)}     color={C.slate}  icon="👥" />
+                <KPI label="Críticas ≤ 2mm"   value={fmt(S.critical)}       color={C.red}    icon="🚨" sub="Cambio urgente" />
               </div>
 
-              {/* Vida */}
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <SectionTitle>🔄 Distribución por Vida</SectionTitle>
-                <div className="space-y-1">
-                  {Object.entries(vidaCount).sort((a, b) => b[1] - a[1]).map(([v, c]) => (
-                    <StatRow
-                      key={v}
-                      label={v.charAt(0).toUpperCase() + v.slice(1)}
-                      value={c}
-                      bar={(c / activeTires.length) * 100}
-                    />
-                  ))}
-                  {Object.keys(vidaCount).length === 0 && (
-                    <p className="text-gray-400 text-sm">Sin datos</p>
-                  )}
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-3">
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">KM totales</p>
-                    <p className="text-xl font-bold text-[#0A183A]">{fmt(totalKm)}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Prof. promedio</p>
-                    <p className="text-xl font-bold text-[#1E76B6]">{avgDepth.toFixed(1)} mm</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* By Brand */}
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <SectionTitle>🏷️ Por Marca</SectionTitle>
-                <div className="space-y-1">
-                  {Object.entries(byBrand)
-                    .sort((a, b) => b[1].length - a[1].length)
-                    .map(([brand, group]) => {
-                      const brandCPK =
-                        group.filter(t => getLatestInspection(t)).length > 0
-                          ? group.reduce((s, t) => {
-                              const l = getLatestInspection(t);
-                              return s + (l?.cpk || 0);
-                            }, 0) / group.filter(t => getLatestInspection(t)).length
-                          : 0;
-                      return (
-                        <StatRow
-                          key={brand}
-                          label={brand}
-                          value={`${group.length} · CPK $${fmt(brandCPK, 0)}`}
-                          bar={(group.length / activeTires.length) * 100}
-                        />
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* By Eje */}
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <SectionTitle>⚙️ Por Eje</SectionTitle>
-                <div className="space-y-1">
-                  {Object.entries(byEje)
-                    .sort((a, b) => b[1].length - a[1].length)
-                    .map(([eje, group]) => (
-                      <StatRow
-                        key={eje}
-                        label={eje}
-                        value={group.length}
-                        bar={(group.length / activeTires.length) * 100}
-                      />
-                    ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Vehículos ── */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <SectionTitle>🚚 Estadísticas de Vehículos</SectionTitle>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4 text-center">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Total vehículos</p>
-                  <p className="text-3xl font-extrabold text-[#0A183A]">{vehicles.length}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4 text-center">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Con llantas</p>
-                  <p className="text-3xl font-extrabold text-[#1E76B6]">{vehiclesWithTires}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4 text-center">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">KM promedio</p>
-                  <p className="text-3xl font-extrabold text-[#173D68]">{fmt(avgKmVehicle, 0)}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4 text-center">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Tipos distintos</p>
-                  <p className="text-3xl font-extrabold text-[#065f46]">{Object.keys(vehiclesByType).length}</p>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <KPI label="Inversión total COP" value={fmtM(S.totalInv)}    color={C.navy}  icon="💰" />
+                <KPI label="Gasto este mes"       value={fmtM(S.monthSp)}    color={C.dark}  icon="📅" />
+                <KPI label="CPK promedio"         value={`$${fmtM(S.avgCPK)}`}  color={C.mid}  icon="📈" sub="Costo / km" />
+                <KPI label="CPK proyectado"       value={`$${fmtM(S.avgCPKP)}`} color={C.teal} icon="🔭" sub="Al límite legal" />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wider">Por tipo de vehículo</h3>
-                  <div className="space-y-1">
-                    {Object.entries(vehiclesByType)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([type, count]) => (
-                        <StatRow
-                          key={type}
-                          label={type}
-                          value={count}
-                          bar={(count / vehicles.length) * 100}
-                          barColor="#1E76B6"
-                        />
-                      ))}
-                  </div>
-                </div>
-                {Object.keys(vehiclesByCliente).length > 1 && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wider">Por cliente</h3>
-                    <div className="space-y-1">
-                      {Object.entries(vehiclesByCliente)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([cliente, count]) => (
-                          <StatRow
-                            key={cliente}
-                            label={cliente}
-                            value={count}
-                            bar={(count / vehicles.length) * 100}
-                            barColor="#173D68"
-                          />
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+                <Card title="Gasto mensual — últimos 12 meses">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={S.sp12} margin={{top:4,right:8,left:-10,bottom:0}}>
+                      <defs>
+                        <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor={C.mid} stopOpacity={0.25}/>
+                          <stop offset="95%" stopColor={C.mid} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                      <XAxis dataKey="mes" tick={{fontSize:11,fill:"#94a3b8"}}/>
+                      <YAxis tickFormatter={fmtM} tick={{fontSize:10,fill:"#94a3b8"}}/>
+                      <Tooltip content={<Tip/>} formatter={(v:number) => fmtM(v)}/>
+                      <Area dataKey="gasto" name="Gasto COP" stroke={C.mid} fill="url(#gg)" strokeWidth={2.5} dot={false}/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </Card>
 
-            {/* ── Usuarios ── */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <SectionTitle>👥 Estadísticas de Usuarios</SectionTitle>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4 text-center">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Total</p>
-                  <p className="text-3xl font-extrabold text-[#0A183A]">{users.length}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4 text-center">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Verificados</p>
-                  <p className="text-3xl font-extrabold text-[#059669]">{verifiedUsers}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4 text-center">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Sin verificar</p>
-                  <p className="text-3xl font-extrabold text-[#d97706]">{users.length - verifiedUsers}</p>
-                </div>
-                <div className="rounded-xl bg-[#f8faff] border border-blue-100 p-4 text-center">
-                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Puntos totales</p>
-                  <p className="text-3xl font-extrabold text-[#1E76B6]">{fmt(totalPoints)}</p>
-                </div>
+                <Card title="Inspecciones por mes — últimos 12 meses">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={S.insp12} margin={{top:4,right:8,left:-10,bottom:0}}>
+                      <defs>
+                        <linearGradient id="gi" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor={C.teal} stopOpacity={0.25}/>
+                          <stop offset="95%" stopColor={C.teal} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                      <XAxis dataKey="mes" tick={{fontSize:11,fill:"#94a3b8"}}/>
+                      <YAxis tick={{fontSize:10,fill:"#94a3b8"}}/>
+                      <Tooltip content={<Tip/>}/>
+                      <Area dataKey="inspecciones" name="Inspecciones" stroke={C.teal} fill="url(#gi)" strokeWidth={2.5} dot={false}/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </Card>
               </div>
 
-              <h3 className="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wider">Por rol</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Object.entries(usersByRole).map(([role, count]) => (
-                  <div key={role} className="rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs capitalize text-gray-500 mb-1">{role}</p>
-                    <p className="text-2xl font-bold text-[#0A183A]">{count}</p>
-                    <p className="text-xs text-gray-400">{((count / users.length) * 100).toFixed(0)}% del total</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ── Notificaciones ── */}
-            {notifications.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <SectionTitle>🔔 Notificaciones</SectionTitle>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                  <PillBadge label="Total" count={notifications.length} color="#6b7280" />
-                  <PillBadge label="Sin ver" count={unseenNotifications} color="#2563eb" />
-                  <PillBadge label="Críticas" count={criticalNotifications} color="#dc2626" />
-                  <PillBadge label="Advertencias" count={warningNotifications} color="#d97706" />
-                </div>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {notifications
-                    .filter(n => !n.seen)
-                    .slice(0, 10)
-                    .map(n => (
-                      <div
-                        key={n.id}
-                        className={`flex items-start gap-3 p-3 rounded-lg text-sm ${
-                          n.type === "critical"
-                            ? "bg-red-50 border border-red-100"
-                            : n.type === "warning"
-                            ? "bg-amber-50 border border-amber-100"
-                            : "bg-blue-50 border border-blue-100"
-                        }`}
-                      >
-                        <span className="mt-0.5">
-                          {n.type === "critical" ? "🔴" : n.type === "warning" ? "🟡" : "🔵"}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-gray-800">{n.title}</p>
-                          <p className="text-gray-600 text-xs">{n.message}</p>
-                        </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card title="Semáforo de condición">
+                  <div className="space-y-2 mb-4">
+                    {([
+                      ["optimo","Óptimo (> 7 mm)",   C.green],
+                      ["60d",  "~60 días (> 6 mm)",  C.mid  ],
+                      ["30d",  "~30 días (> 5 mm)",  C.amber],
+                      ["urgente","Urgente (≤ 5 mm)", C.red  ],
+                      ["sin",  "Sin inspección",      C.slate],
+                    ] as const).map(([k,lbl,col]) => (
+                      <div key={k} className="flex items-center justify-between px-3 py-2 rounded-lg"
+                        style={{background:col+"12",border:`1px solid ${col}25`}}>
+                        <span className="text-sm font-semibold" style={{color:col}}>{lbl}</span>
+                        <span className="text-xl font-black" style={{color:col}}>{S.sc[k]}</span>
                       </div>
                     ))}
-                </div>
-              </div>
-            )}
+                  </div>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={[
+                        {name:"Óptimo",    value:S.sc.optimo},
+                        {name:"60 días",   value:S.sc["60d"]},
+                        {name:"30 días",   value:S.sc["30d"]},
+                        {name:"Urgente",   value:S.sc.urgente},
+                        {name:"Sin insp.", value:S.sc.sin},
+                      ]} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" nameKey="name">
+                        {[C.green,C.mid,C.amber,C.red,C.slate].map((c,i) => <Cell key={i} fill={c}/>)}
+                      </Pie>
+                      <Tooltip content={<Tip/>}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Card>
 
-            {/* ── Compañía ── */}
-            {company && (
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <SectionTitle>🏢 Información de la Compañía</SectionTitle>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                  <StatRow label="Plan" value={company.plan} />
-                  <StatRow label="Llantas (BD)" value={company.tireCount} />
-                  <StatRow label="Vehículos (BD)" value={company.vehicleCount} />
-                  <StatRow label="Usuarios (BD)" value={company.userCount} />
-                  <StatRow label="Periodicidad" value={`${company.periodicity} mes(es)`} />
-                </div>
-              </div>
-            )}
+                <Card title="Distribución por vida">
+                  {Object.entries(S.byVida).sort((a,b)=>b[1]-a[1]).map(([v,c],i) => (
+                    <RankBar key={v} label={v.charAt(0).toUpperCase()+v.slice(1)}
+                      value={c} max={S.activeTires} color={CC[i%CC.length]}/>
+                  ))}
+                  <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-3">
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400">Reencauche %</p>
+                      <p className="text-2xl font-black text-[#0d9488]">{S.rRate.toFixed(1)}%</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400">Ahorro aprox.</p>
+                      <p className="text-2xl font-black text-[#059669]">${fmtM(S.rSave)}</p>
+                    </div>
+                  </div>
+                </Card>
 
-          </>
+                <Card title="Profundidad promedio mensual (mm)">
+                  <ResponsiveContainer width="100%" height={290}>
+                    <LineChart data={S.dep12} margin={{top:4,right:8,left:-10,bottom:0}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+                      <XAxis dataKey="mes" tick={{fontSize:11,fill:"#94a3b8"}}/>
+                      <YAxis domain={[0,"auto"]} tick={{fontSize:10,fill:"#94a3b8"}}/>
+                      <Tooltip content={<Tip/>} formatter={(v:number) => `${v?.toFixed(1)} mm`}/>
+                      <Line dataKey="profundidad" name="Profundidad" stroke={C.amber}
+                        strokeWidth={2.5} dot={{r:3,fill:C.amber}} connectNulls/>
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <Card title="Total inspecciones">
+                  <p className="text-4xl font-black text-[#0A183A]">{fmt(S.totalInsp)}</p>
+                  <p className="text-sm text-gray-400 mt-1">en toda la historia</p>
+                </Card>
+                <Card title="KM acumulados">
+                  <p className="text-4xl font-black text-[#1E76B6]">{fmtM(S.totalKm)}</p>
+                  <p className="text-sm text-gray-400 mt-1">flota activa</p>
+                </Card>
+                <Card title="Prof. prom. actual">
+                  <p className="text-4xl font-black text-[#d97706]">{S.avgDepth.toFixed(1)} mm</p>
+                  <p className="text-sm text-gray-400 mt-1">promedio flota activa</p>
+                </Card>
+                <Card title="CPT promedio">
+                  <p className="text-4xl font-black text-[#059669]">${fmtM(S.avgCPT)}</p>
+                  <p className="text-sm text-gray-400 mt-1">costo por mes</p>
+                </Card>
+              </div>
+            </>}
+
+            {/* ══════ LLANTAS ══════ */}
+            {tab==="tires" && <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <KPI label="Activas"        value={S.activeTires}    color={C.navy}  icon="🛞"/>
+                <KPI label="Retiradas"      value={S.retiredTires}   color={C.slate} icon="🗑️"/>
+                <KPI label="Con inspección" value={S.withInsp}       color={C.mid}   icon="🔍"/>
+                <KPI label="Reencauchadas"  value={S.rCount}         color={C.teal}  icon="♻️"
+                  sub={`${S.rRate.toFixed(1)}% de activas`}/>
+              </div>
+
+              <Card title="CPK promedio por marca — menor es más eficiente">
+                <ResponsiveContainer width="100%" height={Math.max(220,S.cpkByBrand.length*30)}>
+                  <BarChart data={S.cpkByBrand} layout="vertical" margin={{left:8,right:50,top:4,bottom:0}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false}/>
+                    <XAxis type="number" tickFormatter={v=>`$${fmtM(v)}`} tick={{fontSize:10,fill:"#94a3b8"}}/>
+                    <YAxis dataKey="brand" type="category" tick={{fontSize:11,fill:"#475569"}} width={95}/>
+                    <Tooltip content={<Tip/>} formatter={(v:number) => `$${fmt(v,0)}`}/>
+                    <Bar dataKey="cpk" name="CPK" radius={[0,6,6,0]}
+                      label={{position:"right",fontSize:10,formatter:(v:number)=>`$${fmtM(v)}`}}>
+                      {S.cpkByBrand.map((_,i) => <Cell key={i} fill={CC[i%CC.length]}/>)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+
+              <Card title="Detalle por marca">
+                <DataTable
+                  cols={["Marca","Llantas","KM total","Inversión","CPK prom.","Prof. prom."]}
+                  rows={Object.entries(S.bb).sort((a,b)=>b[1].count-a[1].count).map(([b,v]) => [
+                    <span key={b} className="font-bold text-[#0A183A]">{b}</span>,
+                    fmt(v.count),
+                    fmtM(v.totalKm),
+                    `$${fmtM(v.totalCost)}`,
+                    v.cpks.length ? `$${fmt(safeAvg(v.cpks),0)}` : "—",
+                    v.depths.length ? `${safeAvg(v.depths).toFixed(1)} mm` : "—",
+                  ])}
+                />
+              </Card>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card title="Top diseños / bandas">
+                  {Object.entries(S.byDiseno).sort((a,b)=>b[1]-a[1]).slice(0,18)
+                    .map(([d,c],i) => (
+                      <RankBar key={d} label={d} value={c}
+                        max={Math.max(...Object.values(S.byDiseno))} color={CC[i%CC.length]}/>
+                    ))}
+                </Card>
+                <Card title="Distribución por dimensión">
+                  {Object.entries(S.byDimension).sort((a,b)=>b[1]-a[1]).slice(0,18)
+                    .map(([d,c],i) => (
+                      <RankBar key={d} label={d} value={c}
+                        max={Math.max(...Object.values(S.byDimension))} color={CC[i%CC.length]}/>
+                    ))}
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card title="Distribución por eje">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie data={Object.entries(S.byEje).map(([k,v])=>({name:k,value:v}))}
+                        cx="50%" cy="50%" outerRadius={75} dataKey="value" nameKey="name"
+                        label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                        {Object.keys(S.byEje).map((_,i) => <Cell key={i} fill={CC[i%CC.length]}/>)}
+                      </Pie>
+                      <Tooltip content={<Tip/>}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {Object.entries(S.byEje).sort((a,b)=>b[1]-a[1]).map(([e,c],i) => (
+                    <RankBar key={e} label={e} value={c}
+                      max={Math.max(...Object.values(S.byEje))} color={CC[i%CC.length]}/>
+                  ))}
+                </Card>
+
+                <Card title="Análisis de desechos">
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="rounded-xl bg-red-50 border border-red-100 p-3 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-red-400 mb-1">Retiradas</p>
+                      <p className="text-2xl font-black text-red-600">{S.retiredTires}</p>
+                    </div>
+                    <div className="rounded-xl bg-orange-50 border border-orange-100 p-3 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-orange-400 mb-1">Prom. mm</p>
+                      <p className="text-2xl font-black text-orange-600">{S.avgMmD.toFixed(1)}</p>
+                    </div>
+                    <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-amber-500 mb-1">Remanente</p>
+                      <p className="text-2xl font-black text-amber-600">${fmtM(S.totRem)}</p>
+                    </div>
+                  </div>
+                  {Object.keys(S.desByR).length > 0 ? (
+                    <>
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Causales de desecho</p>
+                      {Object.entries(S.desByR).sort((a,b)=>b[1]-a[1]).map(([r,c]) => (
+                        <RankBar key={r} label={r} value={c}
+                          max={Math.max(...Object.values(S.desByR))} color={C.red}/>
+                      ))}
+                    </>
+                  ) : <p className="text-gray-400 text-sm">Sin causales registradas.</p>}
+                </Card>
+              </div>
+            </>}
+
+            {/* ══════ VEHÍCULOS ══════ */}
+            {tab==="vehicles" && <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <KPI label="Total vehículos" value={vehicles.length} color={C.navy}  icon="🚛"/>
+                <KPI label="Con llantas"     value={S.vwt}           color={C.mid}   icon="✅"/>
+                <KPI label="Sin llantas"     value={S.vEmpty}        color={C.amber} icon="⬜"/>
+                <KPI label="En unión"        value={S.vUnion}        color={C.teal}  icon="🔗" sub="Cabezote + trailer"/>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card title="Tipo de vehículo">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={Object.entries(S.vbt).map(([k,v])=>({name:k,value:v}))}
+                        cx="50%" cy="50%" outerRadius={85} innerRadius={42} dataKey="value" nameKey="name">
+                        {Object.keys(S.vbt).map((_,i) => <Cell key={i} fill={CC[i%CC.length]}/>)}
+                      </Pie>
+                      <Tooltip content={<Tip/>}/>
+                      <Legend iconType="circle" iconSize={8}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="mt-2 space-y-0.5">
+                    {Object.entries(S.vbt).sort((a,b)=>b[1]-a[1]).map(([t,c],i) => (
+                      <RankBar key={t} label={t} value={c}
+                        max={Math.max(...Object.values(S.vbt))} color={CC[i%CC.length]}/>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card title="Por cliente">
+                  {Object.entries(S.vbc).sort((a,b)=>b[1]-a[1]).slice(0,15).map(([c,n],i) => (
+                    <RankBar key={c} label={c} value={n}
+                      max={Math.max(...Object.values(S.vbc))} color={CC[i%CC.length]}/>
+                  ))}
+                </Card>
+              </div>
+
+              <Card title="Top 30 vehículos por kilometraje">
+                <DataTable
+                  cols={["Placa","Tipo","KM actual","Llantas","Cliente","Compañía"]}
+                  rows={[...vehicles].sort((a,b)=>(b.kilometrajeActual||0)-(a.kilometrajeActual||0)).slice(0,30).map(v => [
+                    <span key={v.id} className="font-mono font-bold text-[#0A183A]">{v.placa.toUpperCase()}</span>,
+                    v.tipovhc,
+                    <span key="km" className="font-semibold text-[#1E76B6]">{fmt(v.kilometrajeActual||0)} km</span>,
+                    v.tireCount,
+                    v.cliente || <span key="cl" className="text-gray-400">—</span>,
+                    <span key="co" className="text-xs text-gray-500">{companies.find(c=>c.id===v.companyId)?.name||"—"}</span>,
+                  ])}
+                />
+              </Card>
+            </>}
+
+            {/* ══════ COMPAÑÍAS ══════ */}
+            {tab==="companies" && <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <KPI label="Total compañías" value={companies.length}                                        color={C.navy}   icon="🏢"/>
+                <KPI label="Premium"          value={S.cbp["premium"]      || 0}                             color={C.green}  icon="⭐"/>
+                <KPI label="Distribuidores"   value={S.cbp["distribuidor"] || 0}                             color={C.purple} icon="🔗"/>
+                <KPI label="Basic / retail"   value={(S.cbp["basic"]||0)+(S.cbp["retail"]||0)}               color={C.slate}  icon="📋"/>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card title="Distribución por plan">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={Object.entries(S.cbp).map(([k,v])=>({name:k,value:v}))}
+                        cx="50%" cy="50%" outerRadius={85} innerRadius={42} dataKey="value" nameKey="name"
+                        label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                        {Object.keys(S.cbp).map((_,i) => <Cell key={i} fill={CC[i%CC.length]}/>)}
+                      </Pie>
+                      <Tooltip content={<Tip/>}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {Object.entries(S.cbp).sort((a,b)=>b[1]-a[1]).map(([p,c],i) => (
+                    <RankBar key={p} label={p.charAt(0).toUpperCase()+p.slice(1)} value={c}
+                      max={Math.max(...Object.values(S.cbp))} color={CC[i%CC.length]}/>
+                  ))}
+                </Card>
+
+                <Card title="Top compañías por llantas">
+                  {S.topCo.map((c,i) => (
+                    <RankBar key={c.id} label={c.name} value={c.tireCount}
+                      max={S.topCo[0]?.tireCount||1} color={CC[i%CC.length]}/>
+                  ))}
+                </Card>
+              </div>
+
+              <Card title="Todas las compañías">
+                <DataTable
+                  cols={["Compañía","Plan","Llantas","Vehículos","Usuarios","Periodicidad"]}
+                  rows={[...companies].sort((a,b)=>(b.tireCount||0)-(a.tireCount||0)).map(c => [
+                    <span key={c.id} className="font-bold text-[#0A183A]">{c.name}</span>,
+                    <PlanBadge key="p" plan={c.plan}/>,
+                    <span key="t" className="font-semibold text-[#1E76B6]">{c.tireCount}</span>,
+                    c.vehicleCount, c.userCount,
+                    `${c.periodicity} mes(es)`,
+                  ])}
+                />
+              </Card>
+            </>}
+
+            {/* ══════ USUARIOS ══════ */}
+            {tab==="users" && <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <KPI label="Total usuarios" value={users.length}               color={C.navy}  icon="👥"/>
+                <KPI label="Verificados"    value={S.verified}                 color={C.green} icon="✅"
+                  sub={`${users.length?((S.verified/users.length)*100).toFixed(0):0}% del total`}/>
+                <KPI label="Sin verificar"  value={users.length-S.verified}    color={C.amber} icon="⏳"/>
+                <KPI label="Puntos totales" value={fmtM(S.totPuntos)}          color={C.mid}   icon="⭐"/>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card title="Por rol">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <PieChart>
+                      <Pie data={Object.entries(S.ubr).map(([k,v])=>({name:k,value:v}))}
+                        cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name"
+                        label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                        {Object.keys(S.ubr).map((_,i) => <Cell key={i} fill={CC[i%CC.length]}/>)}
+                      </Pie>
+                      <Tooltip content={<Tip/>}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="mt-3 space-y-0.5">
+                    {Object.entries(S.ubr).sort((a,b)=>b[1]-a[1]).map(([r,c],i) => (
+                      <RankBar key={r} label={r.charAt(0).toUpperCase()+r.slice(1)} value={c}
+                        max={Math.max(...Object.values(S.ubr))} color={CC[i%CC.length]}
+                        suffix={` (${users.length?((c/users.length)*100).toFixed(0):0}%)`}/>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card title="Usuarios por compañía (top 10)">
+                  {S.topUCo.map((c,i) => (
+                    <RankBar key={c.name} label={c.name} value={c.count}
+                      max={S.topUCo[0]?.count||1} color={CC[i%CC.length]}/>
+                  ))}
+                </Card>
+              </div>
+
+              <Card title="Top 30 usuarios por puntos">
+                <DataTable
+                  cols={["#","Nombre","Email","Rol","Puntos","Verificado","Idioma"]}
+                  rows={[...users].sort((a,b)=>(b.puntos||0)-(a.puntos||0)).slice(0,30).map((u,i) => [
+                    <span key={i} className="text-gray-400 font-mono text-xs">{i+1}</span>,
+                    <span key="n" className="font-semibold text-[#0A183A]">{u.name}</span>,
+                    <span key="e" className="text-xs text-gray-500">{u.email}</span>,
+                    <span key="r" className="capitalize text-gray-600">{u.role}</span>,
+                    <span key="p" className="font-bold text-[#1E76B6]">{fmt(u.puntos||0)}</span>,
+                    u.isVerified ? "✅" : "⏳",
+                    u.preferredLanguage || "es",
+                  ])}
+                />
+              </Card>
+            </>}
+
+          </div>
         )}
       </div>
     </div>
