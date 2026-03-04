@@ -3,13 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  DollarSign,
   Calendar,
   Download,
   Filter,
   ChevronDown,
-  PieChart,
-  TrendingUp,
 } from "lucide-react";
 import SemaforoPie from "../cards/semaforoPie";
 import PromedioEje from "../cards/promedioEje";
@@ -65,7 +62,8 @@ export default function ResumenPage() {
   const [selectedVida, setSelectedVida] = useState<string>("");
   const [bandaOptions, setBandaOptions] = useState<string[]>([]);
   const [selectedBanda, setSelectedBanda] = useState<string>("");
-
+  const [cptPromedio, setCptPromedio] = useState<number>(0);
+  const [cptProyectadoVal, setCptProyectadoVal] = useState<number>(0);
   // Ref for the content container
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -359,32 +357,39 @@ const exportToPDF = () => {
   }, []);
 
   const calculateCpkAverages = useCallback((tires: Tire[]) => {
-    let totalCpk = 0;
-    let totalCpkProyectado = 0;
-    let validTireCount = 0;
+  let totalCpk = 0;
+  let totalCpkProyectado = 0;
+  let totalCpt = 0;
+  let totalCptProyectado = 0;
+  let validCpkCount = 0;
+  let validCptCount = 0;
 
-    tires.forEach((tire) => {
-      if (tire.inspecciones && tire.inspecciones.length > 0) {
-        const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-        if (lastInspection.cpk && !isNaN(lastInspection.cpk)) {
-          totalCpk += lastInspection.cpk;
-          validTireCount++;
-        }
-        if (lastInspection.cpkProyectado && !isNaN(lastInspection.cpkProyectado)) {
-          totalCpkProyectado += lastInspection.cpkProyectado;
-        }
+  tires.forEach((tire) => {
+    if (tire.inspecciones && tire.inspecciones.length > 0) {
+      const last = tire.inspecciones[tire.inspecciones.length - 1];
+
+      if (last.cpk && !isNaN(last.cpk)) {
+        totalCpk += last.cpk;
+        validCpkCount++;
       }
-    });
-
-    if (validTireCount > 0) {
-      setCpkPromedio(Number((totalCpk / validTireCount).toFixed(2)));
-      setCpkProyectado(Number((totalCpkProyectado / validTireCount).toFixed(2)));
-    } else {
-      setCpkPromedio(0);
-      setCpkProyectado(0);
+      if (last.cpkProyectado && !isNaN(last.cpkProyectado)) {
+        totalCpkProyectado += last.cpkProyectado;
+      }
+      if ((last as any).cpt && !isNaN((last as any).cpt)) {
+        totalCpt += (last as any).cpt;
+        validCptCount++;
+      }
+      if ((last as any).cptProyectado && !isNaN((last as any).cptProyectado)) {
+        totalCptProyectado += (last as any).cptProyectado;
+      }
     }
-    
-  }, []);
+  });
+
+  setCpkPromedio(validCpkCount > 0 ? Number((totalCpk / validCpkCount).toFixed(2)) : 0);
+  setCpkProyectado(validCpkCount > 0 ? Number((totalCpkProyectado / validCpkCount).toFixed(2)) : 0);
+  setCptPromedio(validCptCount > 0 ? Number((totalCpt / validCptCount).toFixed(2)) : 0);
+  setCptProyectadoVal(validCptCount > 0 ? Number((totalCptProyectado / validCptCount).toFixed(2)) : 0);
+}, []);
 
   const fetchVehicles = useCallback(
     async (companyId: string) => {
@@ -524,6 +529,14 @@ const exportToPDF = () => {
   }, [tires, vehicles, selectedMarca, selectedEje, selectedCliente, selectedVida, selectedBanda, selectedSemaforo, calculateCpkAverages, language]);
 
 const [userPlan, setUserPlan] = useState<string>("");
+
+const fmtCOP = (n: number) =>
+  new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(n);
 
 const fetchCompany = useCallback(async (companyId: string) => {
   try {
@@ -758,7 +771,6 @@ const fetchCompany = useCallback(async (companyId: string) => {
         {/* Main Metrics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
-            <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : `${(gastoMes / 1000000).toFixed(1)}M COP`}
@@ -769,7 +781,6 @@ const fetchCompany = useCallback(async (companyId: string) => {
             </div>
           </div>
           <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
                 {loading ? "Cargando..." : `${(gastoTotal / 1000000).toFixed(1)}M COP`}
@@ -779,22 +790,27 @@ const fetchCompany = useCallback(async (companyId: string) => {
               </p>
             </div>
           </div>
+          {/* CPK / CPT Promedio */}
           <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <PieChart className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
+                {loading ? "Cargando..." : `${fmtCOP(cpkPromedio)} / ${fmtCOP(cptPromedio)}`}
               </p>
-              <p className="text-sm uppercase tracking-wider text-white">{translations[language].average} {translations[language].cpm}</p>
+              <p className="text-sm uppercase tracking-wider text-white">
+                {translations[language].average} CPK / CPT
+              </p>
             </div>
           </div>
+
+          {/* CPK / CPT Proyectado */}
           <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <TrendingUp className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : cpkProyectado.toLocaleString()}
+                {loading ? "Cargando..." : `${fmtCOP(cpkProyectado)} / ${fmtCOP(cptProyectadoVal)}`}
               </p>
-              <p className="text-sm uppercase tracking-wider text-white">{translations[language].forecasted} {translations[language].cpm}</p>
+              <p className="text-sm uppercase tracking-wider text-white">
+                {translations[language].forecasted} CPK / CPT
+              </p>
             </div>
           </div>
         </div>

@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Search, TrendingUp, AlertCircle, Sparkles, Zap, Brain, Activity, Trash2 } from "lucide-react";
+import { Search, TrendingUp, AlertCircle, Sparkles, Zap, Brain, Activity, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import CriticalTires from "./critical";
 import Desechos from "./desechos";
 
 export type Inspection = {
@@ -35,7 +34,7 @@ const IntegratedAnalysisPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [currentView, setCurrentView] = useState<'plate' | 'critical' | 'waste'>('plate');
+  const [currentView, setCurrentView] = useState<'plate' | 'waste'>('plate');
 
   // Analysis search states
   const [placa, setPlaca] = useState("");
@@ -137,7 +136,7 @@ const IntegratedAnalysisPage: React.FC = () => {
     }
   };
 
-  const handleViewChange = (view: 'plate' | 'critical' | 'waste') => {
+  const handleViewChange = (view: 'plate' | 'waste') => {
     setCurrentView(view);
     if (view !== 'plate') {
       setAnalysis(null);
@@ -186,21 +185,6 @@ const IntegratedAnalysisPage: React.FC = () => {
               </button>
 
               <button 
-                onClick={() => handleViewChange('critical')}
-                className={`group relative flex items-center justify-center sm:justify-start gap-2 sm:gap-3 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-xl sm:rounded-2xl border border-white/20 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl text-xs sm:text-sm md:text-base ${
-                  currentView === 'critical' 
-                    ? 'bg-white/20 backdrop-blur-sm text-white' 
-                    : 'bg-white/10 backdrop-blur-sm text-white hover:bg-white/20'
-                }`}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 rounded-xl sm:rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative flex items-center gap-2 sm:gap-3">
-                  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                  <span className="font-medium whitespace-nowrap">Llantas Críticas</span>
-                </div>
-              </button>
-
-              <button 
                 onClick={() => handleViewChange('waste')}
                 className={`group relative flex items-center justify-center sm:justify-start gap-2 sm:gap-3 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-xl sm:rounded-2xl border border-white/20 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl text-xs sm:text-sm md:text-base ${
                   currentView === 'waste' 
@@ -225,14 +209,6 @@ const IntegratedAnalysisPage: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-indigo-50/50 pointer-events-none"></div>
           
           <div className="relative z-10">
-            {currentView === 'critical' && (
-              <CriticalTires 
-                tires={tires}
-                vehicles={vehicles}
-                loading={loading}
-                error={error}
-              />
-            )}
 
             {currentView === 'waste' && (
               <Desechos 

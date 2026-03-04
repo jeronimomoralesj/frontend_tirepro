@@ -5,12 +5,8 @@ import { useRouter } from "next/navigation";
 import { 
   Calendar,
   Download,
-  Layers, 
-  Truck,
   Filter,
   ChevronDown,
-  PieChart,
-  TrendingUpIcon,
 } from "lucide-react";
 import PorMarca from "../cards/porMarca";
 import PorVida from "../cards/porVida";
@@ -888,7 +884,6 @@ const exportToPDF = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Vehículos Card */}
             <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
-              <Truck className="w-5 h-5 text-white" />
               <div className="text-left">
                 <p className="text-2xl font-bold text-white">{filteredVehicles.length}</p>
                 <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>{t.vehicles}</p>
@@ -897,7 +892,6 @@ const exportToPDF = () => {
 
             {/* Llantas Card */}
             <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-              <Layers className="w-5 h-5 text-white" />
               <div className="text-left">
                 <p className="text-2xl font-bold text-white">{filteredTires.length}</p>
                 <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>{t.tires}</p>
@@ -906,7 +900,6 @@ const exportToPDF = () => {
 
             {/* CPK Promedio Card */}
             <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-              <PieChart className="w-5 h-5 text-white" />
               <div className="text-left">
                 <p className="text-2xl font-bold text-white">
                   {loading ? "Cargando..." : cpkPromedio.toLocaleString()}
@@ -917,7 +910,6 @@ const exportToPDF = () => {
 
             {/* CPK Proyectado Card */}
             <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-              <TrendingUpIcon className="w-5 h-5 text-white" />
               <div className="text-left">
                 <p className="text-2xl font-bold text-white">
                   {loading ? "Cargando..." : cpkProyectado.toLocaleString()}

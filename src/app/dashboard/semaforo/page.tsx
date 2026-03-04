@@ -3,13 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {  
-  DollarSign,
   Calendar,
   Download,
   Filter,
   ChevronDown,
-  PieChart,
-  TrendingUpIcon,
 } from "lucide-react";
 import SemaforoPie from "../cards/semaforoPie";
 import PromedioEje from "../cards/promedioEje";
@@ -736,10 +733,9 @@ setVidaOptions([t.all, ...uniqueVidas]);
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Inversión del Mes Card */}
           <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
-            <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? t.loading : gastoMes >= 1000000 ? `${(gastoMes / 1000000).toFixed(1)}M COP` : `${(gastoMes / 1000).toFixed(0)}K COP`}
+                ${loading ? t.loading : gastoMes >= 1000000 ? `${(gastoMes / 1000000).toFixed(1)}M COP` : `${(gastoMes / 1000).toFixed(0)}K COP`}
 
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>
@@ -750,10 +746,9 @@ setVidaOptions([t.all, ...uniqueVidas]);
 
           {/* Inversión Total Card */}
           <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <DollarSign className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? t.loading : gastoTotal >= 1000000 ? `${(gastoTotal / 1000000).toFixed(1)}M COP` : `${(gastoTotal / 1000).toFixed(0)}K COP`}
+                ${loading ? t.loading : gastoTotal >= 1000000 ? `${(gastoTotal / 1000000).toFixed(1)}M COP` : `${(gastoTotal / 1000).toFixed(0)}K COP`}
               </p>
               <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>
                 {t.totalInvestment}
@@ -763,10 +758,9 @@ setVidaOptions([t.all, ...uniqueVidas]);
 
           {/* CPK Promedio Card */}
           <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <PieChart className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? t.loading : cpkPromedio.toLocaleString()}
+                ${loading ? t.loading : cpkPromedio.toLocaleString()}
               </p>
               <p className="text-sm uppercase tracking-wider text-white">{t.averageCpk}</p>
             </div>
@@ -774,10 +768,9 @@ setVidaOptions([t.all, ...uniqueVidas]);
 
           {/* CPK Proyectado Card */}
           <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <TrendingUpIcon className="w-5 h-5 text-white" />
             <div className="text-left">
               <p className="text-2xl font-bold text-white">
-                {loading ? t.loading : cpkProyectado.toLocaleString()}
+                ${loading ? t.loading : cpkProyectado.toLocaleString()}
               </p>
               <p className="text-sm uppercase tracking-wider text-white">{t.projectedCpk}</p>
             </div>
