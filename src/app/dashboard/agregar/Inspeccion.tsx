@@ -187,29 +187,29 @@ export default function InspeccionPage() {
   }
 
   // Calculate CPK based on backend logic
-  function calculateCpk(tire: Tire, minDepth: number, kmDiff: number) {
-    const newTireKm = tire.kilometrosRecorridos + kmDiff;
-    const totalCost = tire.costo.reduce((sum, entry) => sum + entry.valor, 0);
-    const cpk = newTireKm > 0 ? totalCost / newTireKm : 0;
-    const profundidadInicial = tire.profundidadInicial || 8;
-    const denominator = (newTireKm / (profundidadInicial - minDepth)) * profundidadInicial;
-    const cpkProyectado = denominator > 0 ? totalCost / denominator : 0;
-    const minAcceptableDepth = 2;
-    let projectedKm = 0;
+  function calculateCpk(tire: Tire, minDepth: number, newKilometraje: number) {
+  const newTireKm = newKilometraje; // ← use vehicle odometer directly
+  const totalCost = tire.costo.reduce((sum, entry) => sum + entry.valor, 0);
+  const cpk = newTireKm > 0 ? totalCost / newTireKm : 0;
+  const profundidadInicial = tire.profundidadInicial || 8;
+  const denominator = (newTireKm / (profundidadInicial - minDepth)) * profundidadInicial;
+  const cpkProyectado = denominator > 0 ? totalCost / denominator : 0;
+  const minAcceptableDepth = 2;
+  let projectedKm = 0;
 
-    if (minDepth > minAcceptableDepth) {
-      const wearRate = (profundidadInicial - minDepth) / newTireKm;
-      if (wearRate > 0) {
-        projectedKm = Math.round((minDepth - minAcceptableDepth) / wearRate);
-      }
+  if (minDepth > minAcceptableDepth) {
+    const wearRate = (profundidadInicial - minDepth) / newTireKm;
+    if (wearRate > 0) {
+      projectedKm = Math.round((minDepth - minAcceptableDepth) / wearRate);
     }
-
-    return {
-      cpk: cpk.toFixed(3),
-      cpkProyectado: cpkProyectado.toFixed(3),
-      projectedKm
-    };
   }
+
+  return {
+    cpk: cpk.toFixed(3),
+    cpkProyectado: cpkProyectado.toFixed(3),
+    projectedKm
+  };
+}
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -369,14 +369,15 @@ export default function InspeccionPage() {
         if (unionVehicle && tire.vehicleId === unionVehicle.id) {
           tireNewKilometraje = Number(newKilometraje);
         }
-        
-        const payload = {
-          profundidadInt: Number(upd.profundidadInt),
-          profundidadCen: Number(upd.profundidadCen),
-          profundidadExt: Number(upd.profundidadExt),
-          newKilometraje: tireNewKilometraje,
-          imageUrl: upd.image ? await convertFileToBase64(upd.image) : ""
-        };
+
+const payload = {
+  profundidadInt: Number(upd.profundidadInt),
+  profundidadCen: Number(upd.profundidadCen),
+  profundidadExt: Number(upd.profundidadExt),
+  newKilometraje: tireNewKilometraje,
+  kmDelta: kmDiff,  // ← ADD THIS — computed once before any updates run
+  imageUrl: upd.image ? await convertFileToBase64(upd.image) : ""
+};
 
         const res = await fetch(
           process.env.NEXT_PUBLIC_API_URL
