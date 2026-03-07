@@ -22,8 +22,14 @@ export type Inspection = {
   profundidadExt: number;
   cpk?: number;
   cpkProyectado?: number;
+  cpt?: number;
+  cptProyectado?: number;
   imageUrl?: string;
   fecha: string;
+  kilometrosRecorridos?: number;
+  mesesEnUso?: number;
+  diasEnUso?: number;
+  kmActualVehiculo?: number;
 };
 
 export type Tire = {
@@ -37,7 +43,9 @@ export type Tire = {
   costo: { valor: number; fecha: string }[];
   posicion: number;
   inspecciones?: Inspection[];
-  primeraVida?: string[];
+  primeraVida?: Array<{ cpk?: number }>;
+  fechaInstalacion?: string;
+  diasAcumulados?: number;
   kilometrosRecorridos: number;
   eventos?: { valor: string; fecha: string }[];
   tipovhc?: string;
@@ -121,6 +129,30 @@ const BuscarPage: React.FC = () => {
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [language, setLanguage] = useState<'es'>('es');
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    marca: string;
+    diseno: string;
+    dimension: string;
+    eje: string;
+    kilometrosRecorridos: number;
+    profundidadInicial: number;
+  }>({
+    marca: '', diseno: '', dimension: '', eje: '',
+    kilometrosRecorridos: 0, profundidadInicial: 0,
+  });
+  const [editingInspection, setEditingInspection] = useState<{
+    fecha: string;
+    profundidadInt: number;
+    profundidadCen: number;
+    profundidadExt: number;
+  } | null>(null);
+  const [editingCosto, setEditingCosto] = useState<{
+    fecha: string;
+    newValor: number;
+  } | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSuccess, setEditSuccess] = useState('');
 
   // Language detection
   useEffect(() => {
@@ -212,9 +244,13 @@ const BuscarPage: React.FC = () => {
   };
 
   const closeModal = () => {
-    setSelectedTire(null);
-    setShowModal(false);
-  };
+  setSelectedTire(null);
+  setShowModal(false);
+  setEditMode(false);
+  setEditingInspection(null);
+  setEditingCosto(null);
+  setEditSuccess('');
+};
 
   const getProjectedKilometraje = (tire: Tire): string => {
     if (!tire.inspecciones || tire.inspecciones.length === 0) return "N/A";
@@ -284,6 +320,60 @@ const BuscarPage: React.FC = () => {
       alert(t.deleteError);
     }
   };
+
+  const openEditMode = (tire: Tire) => {
+  setEditForm({
+    marca: tire.marca,
+    diseno: tire.diseno,
+    dimension: tire.dimension,
+    eje: tire.eje,
+    kilometrosRecorridos: tire.kilometrosRecorridos,
+    profundidadInicial: tire.profundidadInicial,
+  });
+  setEditingInspection(null);
+  setEditingCosto(null);
+  setEditSuccess('');
+  setEditMode(true);
+};
+
+const handleEditSubmit = async () => {
+  if (!selectedTire) return;
+  setEditLoading(true);
+  setEditSuccess('');
+  try {
+    const payload: any = {
+      marca: editForm.marca,
+      diseno: editForm.diseno,
+      dimension: editForm.dimension,
+      eje: editForm.eje,
+      kilometrosRecorridos: editForm.kilometrosRecorridos,
+      profundidadInicial: editForm.profundidadInicial,
+    };
+    if (editingInspection) payload.inspectionEdit = editingInspection;
+    if (editingCosto) payload.costoEdit = editingCosto;
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'https://api.tirepro.com.co'}/api/tires/${selectedTire.id}/edit`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    if (!res.ok) throw new Error('Error al guardar cambios');
+    const updated: Tire = await res.json();
+    setSelectedTire(updated);
+    setTires(ts => ts.map(t => t.id === updated.id ? updated : t));
+    setEditSuccess('¡Cambios guardados exitosamente!');
+    setEditMode(false);
+    setEditingInspection(null);
+    setEditingCosto(null);
+  } catch (err) {
+    alert(err instanceof Error ? err.message : 'Error inesperado');
+  } finally {
+    setEditLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen text-gray-800">
@@ -468,6 +558,196 @@ const BuscarPage: React.FC = () => {
               </button>
             </div>
             <div className="p-6 sm:p-8">
+              {/* Edit Toggle Button */}
+<div className="flex justify-end mb-4">
+  <button
+    onClick={() => editMode ? setEditMode(false) : openEditMode(selectedTire)}
+    className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors ${
+      editMode
+        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+        : 'bg-[#1E76B6] text-white hover:bg-[#348CCB]'
+    }`}
+  >
+    {editMode ? <><X className="w-4 h-4" /> Cancelar edición</> : <>Editar llanta</>}
+  </button>
+</div>
+
+{/* Edit Panel */}
+{editMode && (
+  <div className="bg-[#EBF4FB] border-2 border-[#1E76B6] rounded-xl p-6 mb-8">
+    <h3 className="text-lg font-bold text-[#0A183A] mb-4">Editar Información</h3>
+
+    {editSuccess && (
+      <div className="bg-green-100 border border-green-400 text-green-800 rounded-lg p-3 mb-4 text-sm">
+        {editSuccess}
+      </div>
+    )}
+
+    {/* Core fields */}
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+      {[
+        { label: 'Marca', key: 'marca', type: 'text' },
+        { label: 'Diseño', key: 'diseno', type: 'text' },
+        { label: 'Dimensión', key: 'dimension', type: 'text' },
+        { label: 'Eje', key: 'eje', type: 'text' },
+        { label: 'Km Recorridos', key: 'kilometrosRecorridos', type: 'number' },
+        { label: 'Prof. Inicial (mm)', key: 'profundidadInicial', type: 'number' },
+      ].map(({ label, key, type }) => (
+        <div key={key}>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+          <input
+            type={type}
+            value={(editForm as any)[key]}
+            onChange={(e) =>
+              setEditForm(f => ({
+                ...f,
+                [key]: type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value,
+              }))
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+          />
+        </div>
+      ))}
+    </div>
+
+    {/* Costo editor */}
+    {selectedTire.costo && selectedTire.costo.length > 0 && (
+      <div className="mb-6">
+        <h4 className="text-sm font-bold text-gray-700 mb-2">Editar Costo</h4>
+        <div className="space-y-2">
+          {selectedTire.costo.map((entry, idx) => (
+            <div key={idx} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-gray-200">
+              <span className="text-xs text-gray-500 min-w-[120px]">
+                {new Date(entry.fecha).toLocaleDateString()}
+              </span>
+              <span className="text-xs text-gray-400">${entry.valor.toLocaleString()}</span>
+              <button
+                type="button"
+                onClick={() =>
+                  setEditingCosto(prev =>
+                    prev?.fecha === entry.fecha ? null : { fecha: entry.fecha, newValor: entry.valor }
+                  )
+                }
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                  editingCosto?.fecha === entry.fecha
+                    ? 'bg-[#1E76B6] text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-[#EBF4FB]'
+                }`}
+              >
+                {editingCosto?.fecha === entry.fecha ? 'Editando' : 'Editar'}
+              </button>
+              {editingCosto?.fecha === entry.fecha && (
+                <input
+                  type="number"
+                  value={editingCosto.newValor}
+                  onChange={(e) =>
+                    setEditingCosto(c => c ? { ...c, newValor: parseFloat(e.target.value) || 0 } : c)
+                  }
+                  className="flex-1 px-3 py-1 border border-[#348CCB] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                  placeholder="Nuevo valor"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+        {editingCosto && (
+          <p className="text-xs text-[#173D68] mt-2">
+            ⚠️ Solo se recalcularán CPK/CPT de inspecciones del mismo día o posteriores a {new Date(editingCosto.fecha).toLocaleDateString()}
+          </p>
+        )}
+      </div>
+    )}
+
+    {/* Inspection depth editor */}
+    {selectedTire.inspecciones && selectedTire.inspecciones.length > 0 && (
+      <div className="mb-6">
+        <h4 className="text-sm font-bold text-gray-700 mb-2">Editar Profundidad de Inspección</h4>
+        <div className="space-y-2 max-h-48 overflow-y-auto">
+          {[...selectedTire.inspecciones]
+            .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+            .map((insp, idx) => (
+              <div key={idx} className="bg-white rounded-lg p-3 border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-600">
+                    {new Date(insp.fecha).toLocaleDateString()} —
+                    Int:{insp.profundidadInt}mm Cen:{insp.profundidadCen}mm Ext:{insp.profundidadExt}mm
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingInspection(prev =>
+                        prev?.fecha === insp.fecha ? null : {
+                          fecha: insp.fecha,
+                          profundidadInt: insp.profundidadInt,
+                          profundidadCen: insp.profundidadCen,
+                          profundidadExt: insp.profundidadExt,
+                        }
+                      )
+                    }
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      editingInspection?.fecha === insp.fecha
+                        ? 'bg-[#1E76B6] text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-[#EBF4FB]'
+                    }`}
+                  >
+                    {editingInspection?.fecha === insp.fecha ? 'Editando' : 'Editar'}
+                  </button>
+                </div>
+                {editingInspection?.fecha === insp.fecha && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['profundidadInt', 'profundidadCen', 'profundidadExt'] as const).map((field) => (
+                      <div key={field}>
+                        <label className="block text-xs text-gray-500 mb-1">
+                          {field === 'profundidadInt' ? 'Interior' : field === 'profundidadCen' ? 'Central' : 'Exterior'}
+                        </label>
+                        <input
+                          type="number"
+                          value={editingInspection[field]}
+                          onChange={(e) =>
+                            setEditingInspection(prev =>
+                              prev ? { ...prev, [field]: parseFloat(e.target.value) || 0 } : prev
+                            )
+                          }
+                          className="w-full px-2 py-1 border border-[#348CCB] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+        </div>
+        {editingInspection && (
+          <p className="text-xs text-[#173D68] mt-2">
+            ⚠️ Se recalcularán CPK/CPT solo para la inspección del {new Date(editingInspection.fecha).toLocaleDateString()}
+          </p>
+        )}
+      </div>
+    )}
+
+    {/* Save / Cancel */}
+    <div className="flex justify-end gap-3">
+      <button
+        type="button"
+        onClick={() => { setEditMode(false); setEditingInspection(null); setEditingCosto(null); }}
+        className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        onClick={handleEditSubmit}
+        disabled={editLoading}
+        className="px-5 py-2 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+      >
+        {editLoading
+          ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Guardando...</>
+          : 'Guardar Cambios'
+        }
+      </button>
+    </div>
+  </div>
+)}
               {/* Summary Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                 <div className="bg-gray-100 rounded-lg p-4">
