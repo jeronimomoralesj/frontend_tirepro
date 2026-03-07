@@ -30,6 +30,7 @@ export type Inspection = {
   mesesEnUso?: number;
   diasEnUso?: number;
   kmActualVehiculo?: number;
+  kmProyectado?: number;
 };
 
 export type Tire = {
@@ -253,19 +254,23 @@ const BuscarPage: React.FC = () => {
 };
 
   const getProjectedKilometraje = (tire: Tire): string => {
-    if (!tire.inspecciones || tire.inspecciones.length === 0) return "N/A";
-    const latest = tire.inspecciones[tire.inspecciones.length - 1];
-    const minProf = Math.min(
-      latest.profundidadInt,
-      latest.profundidadCen,
-      latest.profundidadExt
-    );
-    const initial = tire.profundidadInicial;
-    const usedDepth = initial - minProf;
-    if (usedDepth <= 0) return "∞";
-    const projected = (tire.kilometrosRecorridos / usedDepth) * initial;
-    return Math.round(projected).toLocaleString();
-  };
+  if (!tire.inspecciones || tire.inspecciones.length === 0) return "N/A";
+  const latest = [...tire.inspecciones].sort(
+    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+  )[0];
+  // Prefer the stored backend value if available
+  if (latest.kmProyectado && latest.kmProyectado > 0) {
+    return Math.round(latest.kmProyectado).toLocaleString();
+  }
+  // Fallback: recalculate using same formula as backend
+  const minProf = Math.min(latest.profundidadInt, latest.profundidadCen, latest.profundidadExt);
+  const km = tire.kilometrosRecorridos;
+  const mmWorn = tire.profundidadInicial - minProf;
+  const mmLeft = Math.max(minProf - 2, 0);
+  if (mmWorn <= 0 || km <= 0) return "∞";
+  const projectedKm = km + (km / mmWorn) * mmLeft;
+  return Math.round(projectedKm).toLocaleString();
+};
 
   const calculateAvgTreadDepth = (tire: Tire) => {
     if (!tire.inspecciones || tire.inspecciones.length === 0) return "N/A";
