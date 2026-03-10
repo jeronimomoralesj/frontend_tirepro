@@ -10,7 +10,7 @@ async function getArticles() {
   ]
   for (const base of urls) {
     try {
-      const res = await fetch(`${base}/blog`, { next: { revalidate: 162000 } })
+      const res = await fetch(`${base}/blog`, { next: { revalidate: 1 } })
       if (!res.ok) continue
       const data = await res.json()
       return data
