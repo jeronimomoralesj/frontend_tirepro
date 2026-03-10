@@ -1,19 +1,19 @@
 // src/app/blog/page.tsx — Server Component
 import BlogClient from './BlogClient'
 
-export const revalidate = 1 // 24 hours
+export const revalidate = 86400 // 24 hours
 
 const PRIMARY = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : null
 const FALLBACK = 'https://api.tirepro.com.co/api'
 
-async function fetchWithTimeout(url: string, timeoutMs = 1): Promise<Response> {
+async function fetchWithTimeout(url: string, timeoutMs = 5000): Promise<Response> {
   const controller = new AbortController()
   const id = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(url, {
-      next: { revalidate: 1 },
+      next: { revalidate: 86400 },
       signal: controller.signal,
     })
     clearTimeout(id)
@@ -49,7 +49,7 @@ async function getAllArticles() {
 
   for (const base of urls) {
     try {
-      const res = await fetchWithTimeout(`${base}/blog`, 1)
+      const res = await fetchWithTimeout(`${base}/blog`, 5000)
       if (!res.ok) continue
       const data = await res.json()
       if (!Array.isArray(data)) continue

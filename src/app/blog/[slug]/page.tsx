@@ -6,12 +6,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : 'http://localhost:6001/api'
 
-export const revalidate = 1 // 24 hours
+export const revalidate = 86400 // 24 hours
 
 async function getArticle(slug: string) {
   try {
     const res = await fetch(`${API_URL}/blog/slug/${slug}`, {
-      next: { revalidate: 1 },
+      next: { revalidate: 86400 },
     })
     if (!res.ok) return null
     return res.json()
