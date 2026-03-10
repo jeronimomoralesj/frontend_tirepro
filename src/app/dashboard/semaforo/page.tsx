@@ -2,882 +2,585 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {  
-  Calendar,
-  Download,
-  Filter,
-  ChevronDown,
+import {
+  Activity, Download, Filter, ChevronDown, Loader2,
+  AlertCircle, X, Calendar, SlidersHorizontal,
 } from "lucide-react";
-import SemaforoPie from "../cards/semaforoPie";
-import PromedioEje from "../cards/promedioEje";
-import SemaforoTabla from "../cards/semaforoTabla";
-import PorVida from "../cards/porVida";
-import DetallesLlantas from "../cards/detallesLlantas";
+
+import SemaforoPie         from "../cards/semaforoPie";
+import PromedioEje         from "../cards/promedioEje";
+import SemaforoTabla       from "../cards/semaforoTabla";
+import PorVida             from "../cards/porVida";
+import DetallesLlantas     from "../cards/detallesLlantas";
 import ReencaucheHistorico from "../cards/reencaucheHistorico";
-import Notificaciones from "../cards/Notificaciones";
+import Notificaciones      from "../cards/Notificaciones";
 
-export type CostEntry = {
-  valor: number;
-  fecha: string;
+// =============================================================================
+// Types
+// =============================================================================
+
+export type RawCosto = { valor: number; fecha: string | Date };
+export type RawInspeccion = {
+  id: string; tireId: string; fecha: string | Date;
+  profundidadInt: number; profundidadCen: number; profundidadExt: number;
+  cpk: number | null; cpkProyectado: number | null; cpt: number | null; cptProyectado: number | null;
+  diasEnUso: number | null; mesesEnUso: number | null; kilometrosEstimados: number | null;
+  kmActualVehiculo: number | null; kmEfectivos: number | null; kmProyectado: number | null; imageUrl: string | null;
 };
-
+export type RawEvento = {
+  id: string; tireId: string; tipo: string; fecha: string | Date;
+  notas: string | null; metadata: Record<string, unknown> | null;
+};
+export type RawTire = {
+  id: string; companyId: string; vehicleId: string | null; placa: string;
+  marca: string; diseno: string; dimension: string; eje: string; posicion: number;
+  profundidadInicial: number; fechaInstalacion: string | Date | null; diasAcumulados: number;
+  kilometrosRecorridos: number; currentCpk: number | null; currentCpt: number | null;
+  currentProfundidad: number | null; cpkTrend: number | null; projectedKmRemaining: number | null;
+  projectedDateEOL: string | Date | null; healthScore: number | null; alertLevel: string;
+  lastInspeccionDate: string | Date | null; primeraVida: unknown[]; desechos: unknown | null;
+  createdAt: string | Date; updatedAt: string | Date;
+  costos: RawCosto[]; inspecciones: RawInspeccion[]; eventos: RawEvento[];
+};
+export type CostEntry   = { valor: number; fecha: string };
+export type Inspection  = {
+  cpk: number; cpkProyectado: number; cpt: number; cptProyectado: number;
+  fecha: string; imageUrl: string;
+  profundidadCen: number; profundidadExt: number; profundidadInt: number;
+};
+export type VidaEntry = { valor: string; fecha: string };
 export type Tire = {
-  id: string;
-  costo: CostEntry[];
-  inspecciones?: {
-    cpk?: number;
-    cpkProyectado?: number;
-    profundidadInt: number;
-    profundidadCen: number;
-    profundidadExt: number;
-    fecha: string;
-  }[];
-  marca: string;
-  eje: string;
-  vehicleId?: string;
+  id: string; marca: string; diseno: string; dimension: string;
+  eje: string; posicion: number; vehicleId?: string | null;
+  costo: CostEntry[]; inspecciones: Inspection[]; vida: VidaEntry[];
+  [key: string]: unknown;
 };
+export type Vehicle = { id: string; placa: string; tireCount?: number; cliente?: string };
 
-export type Vehicle = {
-  id: string;
-  placa: string;
-  tireCount: number;
-  cliente?: string;
-};
+// =============================================================================
+// Helpers
+// =============================================================================
 
-// Translation object
-const translations = {
-  es: {
-    // Header
-    title: "Mi Semáforo",
-    updated: "Actualizado",
-    user: "Usuario",
-    export: "Exportar",
-    exporting: "Exportando...",
-    
-    // Metrics
-    monthlyInvestment: "Inversión del Mes",
-    totalInvestment: "Inversión Total",
-    averageCpk: "CPK Promedio",
-    projectedCpk: "CPK Proyectado",
-    banda: "Banda",
-    vida: "Vida",
-    
-    // Filters
-    filters: "Filtros",
-    owner: "Dueño",
-    brand: "Marca",
-    axis: "Eje",
-    status: "Estado",
-    all: "Todos",
-    allBrands: "Todas",
-    allAxes: "Todos",
-    allOwners: "Todos",
-    
-    // Status options
-    optimal: "Óptimo",
-    sixtyDays: "60 Días",
-    thirtyDays: "30 Días",
-    urgent: "Urgente",
-    noInspection: "Sin Inspección",
-    
-    // Loading and errors
-    loading: "Cargando...",
-    loadingTires: "Cargando neumáticos...",
-    printError: "Error al generar la impresión. Por favor intente de nuevo.",
-    
-    // Other
-    noOwner: "Sin dueño",
-    noBrand: "Sin marca",
-    noAxis: "Sin eje"
-  },
-  en: {
-    // Header
-    title: "Stop Light",
-    updated: "Updated",
-    user: "User",
-    export: "Export",
-    exporting: "Exporting...",
-    
-    // Metrics
-    monthlyInvestment: "Monthly Investment",
-    totalInvestment: "Total Investment",
-    averageCpk: "Average CPM",
-    projectedCpk: "Forecasted CPM",
-    banda: "Tread",
-    vida: "Retread",
-    
-    // Filters
-    filters: "Filters",
-    owner: "Owner",
-    brand: "Brand",
-    axis: "Axis",
-    status: "Status",
-    all: "All",
-    allBrands: "All",
-    allAxes: "All",
-    allOwners: "All",
-    
-    // Status options
-    optimal: "Optimal",
-    sixtyDays: "60 Days",
-    thirtyDays: "30 Days",
-    urgent: "Urgent",
-    noInspection: "No Inspection",
-    
-    // Loading and errors
-    loading: "Loading...",
-    loadingTires: "Loading tires...",
-    printError: "Error generating print. Please try again.",
-    
-    // Other
-    noOwner: "No owner",
-    noBrand: "No brand",
-    noAxis: "No axis"
-  }
-};
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "https://api.tirepro.com.co/api";
 
-export default function SemaforoPage() {
-  const router = useRouter();
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [gastoTotal, setGastoTotal] = useState<number>(0);
-  const [gastoMes, setGastoMes] = useState<number>(0);
-  const [userName, setUserName] = useState<string>("");
-  const [cpkPromedio, setCpkPromedio] = useState<number>(0);
-  const [cpkProyectado, setCpkProyectado] = useState<number>(0);
-  const [exporting, setExporting] = useState(false);
-  const [vidaOptions, setVidaOptions] = useState<string[]>([]);
-  const [selectedVida, setSelectedVida] = useState<string>("");
-  const [bandaOptions, setBandaOptions] = useState<string[]>([]);
-  const [selectedBanda, setSelectedBanda] = useState<string>("");
-
-  // Ref for the content container
-  const contentRef = useRef<HTMLDivElement>(null);
-  
-  // Filter state
-  const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
-  const [selectedMarca, setSelectedMarca] = useState<string>("");
-  
-  // Eje filter options
-  const [ejeOptions, setEjeOptions] = useState<string[]>([]);
-  const [selectedEje, setSelectedEje] = useState<string>("");
-  
-  // Cliente filter options
-  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
-  const [selectedCliente, setSelectedCliente] = useState<string>("");
-  
-  // Semáforo filter options
-  const [semaforoOptions, setSemaforoOptions] = useState<string[]>([]);
-  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("");
-  
-  // Dropdown visibility states
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  
-  // Language select
-  const [language, setLanguage] = useState<'en'|'es'>('es');
-
-  // Get current translations
-  const t = translations[language];
-
-  // Language detection effect
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = 'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-    };
-    detectAndSetLanguage();
-  }, []);
-
-  // Update filter options when language changes
-  useEffect(() => {
-    setSemaforoOptions([
-      t.all,
-      t.optimal,
-      t.sixtyDays,
-      t.thirtyDays,
-      t.urgent,
-      t.noInspection,
-    ]);
-    
-    // Reset selections to translated values
-    setSelectedSemaforo(t.all);
-    setSelectedMarca(t.allBrands);
-    setSelectedEje(t.allAxes);
-    setSelectedCliente(t.allOwners);
-    setSelectedVida(t.all);       
-  setSelectedBanda(t.all);
-  }, [language, t]);
-
-  // Refs for dropdown components
-  const dropdownRefs = useRef({
-    marca: useRef<HTMLDivElement>(null),
-    eje: useRef<HTMLDivElement>(null),
-    semaforo: useRef<HTMLDivElement>(null),
-    cliente: useRef<HTMLDivElement>(null),
-    banda: useRef<HTMLDivElement>(null),
-  }).current;
-
-  // Updated exportToPDF function
-  const exportToPDF = () => {
-    try {
-      setExporting(true);
-      
-      // Create a print-specific stylesheet
-      const style = document.createElement('style');
-      style.type = 'text/css';
-      style.id = 'print-style';
-      
-      // Hide everything except the content we want to print
-      style.innerHTML = `
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 10mm;
-          }
-          
-          body {
-            visibility: hidden;
-          }
-          
-          .min-h-screen {
-            min-height: initial !important;
-          }
-          
-          #content-to-print,
-          #content-to-print * {
-            visibility: visible;
-          }
-          
-          #content-to-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          
-          /* Fix potential color issues */
-          .bg-gradient-to-r {
-            background: linear-gradient(to right, #0A183A, #1E76B6) !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#0A183A\\] {
-            background-color: #0A183A !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#173D68\\] {
-            background-color: #173D68 !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .bg-\\[\\#348CCB\\] {
-            background-color: #348CCB !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          .text-white {
-            color: white !important;
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          
-          /* Ensure charts are visible */
-          canvas {
-            max-width: 100%;
-            height: auto !important;
-          }
-        }
-      `;
-      
-      // Add the style to the document head
-      document.head.appendChild(style);
-      
-      // Add temporary ID to content container
-      if (contentRef.current) {
-        contentRef.current.id = 'content-to-print';
-      }
-      
-      // Short delay to ensure styles are applied
-      setTimeout(() => {
-        // Trigger browser print dialog
-        window.print();
-        
-        // Clean up
-        setTimeout(() => {
-          document.head.removeChild(style);
-          if (contentRef.current) {
-            contentRef.current.removeAttribute('id');
-          }
-          setExporting(false);
-        }, 500);
-      }, 500);
-    } catch (error) {
-      console.error('Error during print:', error);
-      alert(t.printError);
-      setExporting(false);
-    }
-  };
-
-  const calculateTotals = useCallback((tires: Tire[]) => {
-    let total = 0;
-    let totalMes = 0;
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    tires.forEach((tire) => {
-      if (Array.isArray(tire.costo)) {
-        tire.costo.forEach((entry) => {
-          // Make sure entry.valor is a number
-          const valor = typeof entry.valor === 'number' ? entry.valor : 0;
-          total += valor;
-          
-          if (typeof entry.fecha === 'string') {
-            const entryDate = new Date(entry.fecha);
-            if (
-              entryDate.getFullYear() === currentYear &&
-              entryDate.getMonth() === currentMonth
-            ) {
-              totalMes += valor;
-            }
-          }
-        });
-      }
-    });
-
-    setGastoTotal(total);
-    setGastoMes(totalMes);
-  }, []);
-
-  const calculateCpkAverages = useCallback((tires: Tire[]) => {
-    let totalCpk = 0;
-    let totalCpkProyectado = 0;
-    let validTireCount = 0;
-
-    tires.forEach((tire) => {
-      if (tire.inspecciones && tire.inspecciones.length > 0) {
-        // Get the last inspection for each tire
-        const lastInspection = tire.inspecciones[tire.inspecciones.length - 1];
-        
-        // Make sure the CPK values exist and are valid numbers
-        if (lastInspection.cpk && !isNaN(lastInspection.cpk)) {
-          totalCpk += lastInspection.cpk;
-          validTireCount++;
-        }
-        
-        if (lastInspection.cpkProyectado && !isNaN(lastInspection.cpkProyectado)) {
-          totalCpkProyectado += lastInspection.cpkProyectado;
-        }
-      }
-    });
-
-    // Calculate averages if we have valid tires
-    if (validTireCount > 0) {
-      setCpkPromedio(Number((totalCpk / validTireCount).toFixed(2)));
-      setCpkProyectado(Number((totalCpkProyectado / validTireCount).toFixed(2)));
-    } else {
-      setCpkPromedio(0);
-      setCpkProyectado(0);
-    }
-  }, []);
-
-  function classifyCondition(tire: Tire): string {
-    if (!tire.inspecciones || tire.inspecciones.length === 0) return "sin_inspeccion";
-    const last = tire.inspecciones[tire.inspecciones.length - 1];
-    const min = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
-    if (min > 7) return "optimo";
-    if (min > 6) return "60_dias";
-    if (min > 5) return "30_dias";
-    return "urgente";
-  }
-
-  // Apply filters whenever filter selections change
-  const applyFilters = useCallback(() => {
-    // First, filter tires based on cliente selection
-    let tiresForCliente = [...tires];
-    
-    // Apply cliente filter first
-    if (selectedCliente !== t.allOwners && selectedCliente !== t.all) {
-      // Get all vehicle IDs that belong to the selected cliente
-      const vehicleIds = vehicles
-        .filter(vehicle => vehicle.cliente === selectedCliente)
-        .map(vehicle => vehicle.id);
-      
-      // Filter tires to only include those from the matching vehicles
-      tiresForCliente = tiresForCliente.filter(tire => 
-        tire.vehicleId && vehicleIds.includes(tire.vehicleId)
-      );
-    }
-    
-    // Then apply other filters
-    let tempTires = [...tiresForCliente];
-    
-    // Apply marca filter
-    if (selectedMarca !== t.allBrands && selectedMarca !== t.all) {
-      tempTires = tempTires.filter(tire => tire.marca === selectedMarca);
-    }
-
-    if (selectedBanda !== t.all) {
-  tempTires = tempTires.filter(tire => tire["diseno"] === selectedBanda);
-}
-    
-    // Apply eje filter
-    if (selectedEje !== t.allAxes && selectedEje !== t.all) {
-      tempTires = tempTires.filter(tire => tire.eje === selectedEje);
-    }
-
-    // Apply vida filter
-if (selectedVida !== t.all) {
-  tempTires = tempTires.filter(tire => {
-    const lastVida = tire.vida?.[tire.vida.length - 1]?.valor?.toLowerCase();
-    return lastVida === selectedVida.toLowerCase();
+function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers ?? {}),
+    },
   });
 }
 
-    
-    // Apply semáforo filter
-    if (selectedSemaforo !== t.all) {
-      tempTires = tempTires.filter(tire => {
-        const condition = classifyCondition(tire);
-        switch (selectedSemaforo) {
-          case t.optimal:
-            return condition === "optimo";
-          case t.sixtyDays:
-            return condition === "60_dias";
-          case t.thirtyDays:
-            return condition === "30_dias";
-          case t.urgent:
-            return condition === "urgente";
-          case t.noInspection:
-            return condition === "sin_inspeccion";
-          default:
-            return true;
-        }
+const FILTER_ALL = "Todos";
+
+const fmtCOP = (n: number) =>
+  new Intl.NumberFormat("es-CO", {
+    style: "currency", currency: "COP",
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(n);
+
+function toISOString(d: string | Date | null | undefined): string {
+  if (!d) return new Date().toISOString();
+  return d instanceof Date ? d.toISOString() : new Date(d).toISOString();
+}
+
+function extractVida(eventos: RawEvento[]): VidaEntry[] {
+  const VIDA = new Set(["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"]);
+  return eventos
+    .filter((e) => e.notas && VIDA.has(e.notas.toLowerCase()))
+    .map((e) => ({ valor: e.notas!.toLowerCase(), fecha: toISOString(e.fecha) }));
+}
+
+function normaliseRawTire(raw: RawTire): Tire {
+  const costo: CostEntry[] = [...raw.costos]
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .map((c) => ({ valor: typeof c.valor === "number" ? c.valor : 0, fecha: toISOString(c.fecha) }));
+  const inspecciones: Inspection[] = [...raw.inspecciones]
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .map((i) => ({
+      fecha: toISOString(i.fecha),
+      profundidadInt: i.profundidadInt ?? 0, profundidadCen: i.profundidadCen ?? 0, profundidadExt: i.profundidadExt ?? 0,
+      cpk: i.cpk ?? 0, cpkProyectado: i.cpkProyectado ?? 0, cpt: i.cpt ?? 0, cptProyectado: i.cptProyectado ?? 0,
+      imageUrl: i.imageUrl ?? "",
+    }));
+  return { ...raw, costo, inspecciones, vida: extractVida(raw.eventos), _costos: raw.costos, _eventos: raw.eventos } as unknown as Tire;
+}
+
+function classifyCondition(tire: Tire): string {
+  if (!tire.inspecciones?.length) return "sin_inspeccion";
+  const last = tire.inspecciones[tire.inspecciones.length - 1];
+  const min = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+  if (min > 7) return "optimo";
+  if (min > 6) return "60_dias";
+  if (min > 5) return "30_dias";
+  return "urgente";
+}
+
+// =============================================================================
+// MetricCard
+// =============================================================================
+
+function MetricCard({ value, label, loading, variant = "primary" }: {
+  value: string; label: string; loading: boolean;
+  variant?: "primary" | "secondary" | "accent";
+}) {
+  const bgs = {
+    primary:   "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
+    secondary: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
+    accent:    "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)",
+  };
+  return (
+    <div
+      className="rounded-2xl p-5 flex flex-col justify-between"
+      style={{ background: bgs[variant], boxShadow: "0 4px 20px rgba(10,24,58,0.18)", minHeight: 100 }}
+    >
+      {loading ? (
+        <div className="flex items-center gap-2 text-white/70">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Cargando…</span>
+        </div>
+      ) : (
+        <p className="text-2xl font-black text-white tracking-tight leading-none break-all">{value}</p>
+      )}
+      <p className="text-[11px] font-bold uppercase tracking-widest text-white/60 mt-2">{label}</p>
+    </div>
+  );
+}
+
+// =============================================================================
+// FilterDropdown
+// =============================================================================
+
+function FilterDropdown({ id, label, options, selected, onChange, activeDropdown, setActiveDropdown, dropdownRef }: {
+  id: string; label: string; options: string[]; selected: string;
+  onChange: (v: string) => void; activeDropdown: string | null;
+  setActiveDropdown: (v: string | null) => void; dropdownRef: React.RefObject<HTMLDivElement>;
+}) {
+  const isOpen     = activeDropdown === id;
+  const isFiltered = selected && selected !== FILTER_ALL && selected !== "Todas";
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setActiveDropdown(isOpen ? null : id); }}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+        style={{
+          background: isFiltered ? "rgba(30,118,182,0.1)" : "rgba(10,24,58,0.03)",
+          border: isFiltered ? "1px solid rgba(30,118,182,0.4)" : "1px solid rgba(52,140,203,0.2)",
+          color: isFiltered ? "#1E76B6" : "#0A183A",
+          minHeight: 44,
+        }}
+      >
+        <span className="truncate text-left flex-1 min-w-0">
+          <span className="text-[#348CCB] mr-1">{label}:</span>
+          <span className="truncate">{selected || FILTER_ALL}</span>
+        </span>
+        <ChevronDown
+          className="w-3.5 h-3.5 flex-shrink-0 transition-transform"
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", color: "#1E76B6" }}
+        />
+      </button>
+      {isOpen && (
+        <div
+          className="absolute z-30 mt-1 w-full rounded-xl py-1 overflow-auto"
+          style={{
+            background: "white", border: "1px solid rgba(52,140,203,0.2)",
+            boxShadow: "0 8px 24px rgba(10,24,58,0.12)", maxHeight: "min(208px, 40vh)",
+          }}
+        >
+          {options.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => { onChange(opt); setActiveDropdown(null); }}
+              className="block w-full text-left px-4 py-2.5 sm:py-2 text-sm transition-colors hover:bg-[#F0F7FF]"
+              style={{ color: selected === opt ? "#1E76B6" : "#0A183A", fontWeight: selected === opt ? 700 : 400, minHeight: 40 }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Page
+// =============================================================================
+
+export default function SemaforoPage() {
+  const router = useRouter();
+
+  const [tires,         setTires]         = useState<Tire[]>([]);
+  const [vehicles,      setVehicles]      = useState<Vehicle[]>([]);
+  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
+  const [error,         setError]         = useState("");
+  const [loading,       setLoading]       = useState(false);
+  const [exporting,     setExporting]     = useState(false);
+  const [userName,      setUserName]      = useState("");
+  const [userPlan,      setUserPlan]      = useState("");
+  const [filtersOpen,   setFiltersOpen]   = useState(false);
+
+  const [gastoTotal,    setGastoTotal]    = useState(0);
+  const [gastoMes,      setGastoMes]      = useState(0);
+  const [cpkPromedio,   setCpkPromedio]   = useState(0);
+  const [cpkProyectado, setCpkProyectado] = useState(0);
+
+  const [marcasOptions,    setMarcasOptions]    = useState<string[]>([]);
+  const [selectedMarca,    setSelectedMarca]    = useState(FILTER_ALL);
+  const [ejeOptions,       setEjeOptions]       = useState<string[]>([]);
+  const [selectedEje,      setSelectedEje]      = useState(FILTER_ALL);
+  const [clienteOptions,   setClienteOptions]   = useState<string[]>([]);
+  const [selectedCliente,  setSelectedCliente]  = useState(FILTER_ALL);
+  const [semaforoOptions,  setSemaforoOptions]  = useState<string[]>([]);
+  const [selectedSemaforo, setSelectedSemaforo] = useState(FILTER_ALL);
+  const [bandaOptions,     setBandaOptions]     = useState<string[]>([]);
+  const [selectedBanda,    setSelectedBanda]    = useState(FILTER_ALL);
+  const [vidaOptions,      setVidaOptions]      = useState<string[]>([]);
+  const [selectedVida,     setSelectedVida]     = useState(FILTER_ALL);
+
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const dropdownRefs = useRef({
+    marca:    useRef<HTMLDivElement>(null),
+    eje:      useRef<HTMLDivElement>(null),
+    semaforo: useRef<HTMLDivElement>(null),
+    cliente:  useRef<HTMLDivElement>(null),
+    banda:    useRef<HTMLDivElement>(null),
+    vida:     useRef<HTMLDivElement>(null),
+  }).current;
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (!activeDropdown) return;
+      const ref = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
+      if (ref?.current && !ref.current.contains(e.target as Node)) setActiveDropdown(null);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [activeDropdown, dropdownRefs]);
+
+  const calculateTotals = useCallback((tyres: Tire[]) => {
+    let total = 0, mes = 0;
+    const now = new Date();
+    tyres.forEach((tire) => {
+      (tire.costo ?? []).forEach((entry) => {
+        const v = typeof entry.valor === "number" ? entry.valor : 0;
+        total += v;
+        const d = new Date(entry.fecha);
+        if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) mes += v;
       });
-    }
+    });
+    setGastoTotal(total); setGastoMes(mes);
+  }, []);
 
-    setFilteredTires(tempTires);
-    
-    // Update metrics based on filtered data
-    calculateCpkAverages(tempTires);
-    calculateTotals(tempTires);
-  }, [tires, vehicles, selectedMarca, selectedEje, selectedSemaforo,selectedVida, selectedBanda, selectedCliente, calculateCpkAverages, calculateTotals, t]);
+  const calculateCpkAverages = useCallback((tyres: Tire[]) => {
+    let totalCpk = 0, totalCpkP = 0, cnt = 0;
+    tyres.forEach((tire) => {
+      if (!tire.inspecciones?.length) return;
+      const last = tire.inspecciones[tire.inspecciones.length - 1];
+      if (last.cpk && !isNaN(last.cpk))                     { totalCpk  += last.cpk;           cnt++; }
+      if (last.cpkProyectado && !isNaN(last.cpkProyectado)) { totalCpkP += last.cpkProyectado;        }
+    });
+    setCpkPromedio(  cnt > 0 ? Number((totalCpk  / cnt).toFixed(2)) : 0);
+    setCpkProyectado(cnt > 0 ? Number((totalCpkP / cnt).toFixed(2)) : 0);
+  }, []);
 
-  const fetchTires = useCallback(async (cId: string) => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${cId}`
-          : `https://api.tirepro.com.co/api/tires?companyId=${cId}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch tires");
-      }
-      const data: Tire[] = await res.json();
-      
-      // Ensure all necessary properties exist and are in the correct format
-      const sanitizedData = data.map(tire => ({
-        ...tire,
-        inspecciones: Array.isArray(tire.inspecciones) ? tire.inspecciones : [],
-        costo: Array.isArray(tire.costo) ? tire.costo.map(c => ({
-          valor: typeof c.valor === 'number' ? c.valor : 0,
-          fecha: typeof c.fecha === 'string' ? c.fecha : new Date().toISOString()
-        })) : [],
-        // Ensure vida is an array
-        vida: Array.isArray(tire.vida) ? tire.vida : []
-      }));
-      
-      // Filter out tires whose last vida entry is "fin"
-      const activeTires = sanitizedData.filter(tire => {
-        if (tire.vida && tire.vida.length > 0) {
-          const lastVida = tire.vida[tire.vida.length - 1].valor?.toLowerCase();
-          return lastVida !== "fin";
-        }
-        return true; // Keep tires without vida entries
-      });
-      
-      setTires(activeTires);
-      setFilteredTires(activeTires);
-      calculateTotals(activeTires);
-      calculateCpkAverages(activeTires);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Unexpected error";
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [calculateTotals, calculateCpkAverages]);
-
-  const fetchVehicles = useCallback(async (cId: string) => {
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${cId}`
-          : `https://api.tirepro.com.co/api/vehicles?companyId=${cId}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch vehicles");
-      }
-      const data: Vehicle[] = await res.json();
-      setVehicles(data);
-      
-      // Extract unique cliente values for the filter dropdown
-      const uniqueClientes = Array.from(
-        new Set(
-          data
-            .filter(vehicle => vehicle.cliente) // Filter out vehicles with no cliente
-            .map(vehicle => vehicle.cliente || t.noOwner)
-        )
-      );
-      
-      setClienteOptions([t.allOwners, ...uniqueClientes]);
-    } catch (err: unknown) {
-      console.error(err);
-    }
-  }, [t.allOwners, t.noOwner]);
-
-  const [userPlan, setUserPlan] = useState<string>("");
-
-  // fetchCompany helper
   const fetchCompany = useCallback(async (companyId: string) => {
     try {
-      const url = process.env.NEXT_PUBLIC_API_URL
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
-        : `https://api.tirepro.com.co/api/companies/${companyId}`;
+      const res = await authFetch(`${API_BASE}/companies/${companyId}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setUserPlan(data.plan ?? "");
+    } catch { setError("No se pudo cargar la configuración de la compañía"); }
+  }, []);
 
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch company");
-      const company = await res.json();
-      setUserPlan(company.plan);
-    } catch (err) {
-      console.error(err);
-      setError("No se pudo cargar la configuración de la compañía");
+  const fetchVehicles = useCallback(async (companyId: string) => {
+    try {
+      const res = await authFetch(`${API_BASE}/vehicles?companyId=${companyId}`);
+      if (!res.ok) throw new Error();
+      const data: Vehicle[] = await res.json();
+      setVehicles(data);
+      const clientes = Array.from(new Set(data.map((v) => v.cliente ?? "").filter(Boolean)));
+      setClienteOptions([FILTER_ALL, ...clientes]);
+    } catch (err: unknown) {
+      setError((p) => (p + " " + (err instanceof Error ? err.message : "")).trim());
     }
   }, []);
 
-  // Main effect for user initialization
+  const fetchTires = useCallback(async (companyId: string) => {
+    setLoading(true); setError("");
+    try {
+      const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
+      if (!res.ok) throw new Error(`Failed to fetch tires (${res.status})`);
+      const raw: RawTire[] = await res.json();
+      const normalised = raw.map(normaliseRawTire);
+      const active = normalised.filter((t) => {
+        if (!t.vida?.length) return true;
+        return t.vida[t.vida.length - 1].valor.toLowerCase() !== "fin";
+      });
+      setTires(active); calculateTotals(active); calculateCpkAverages(active);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado al cargar llantas");
+    } finally { setLoading(false); }
+  }, [calculateTotals, calculateCpkAverages]);
+
+  useEffect(() => {
+    if (!tires.length) return;
+    setMarcasOptions([FILTER_ALL, ...Array.from(new Set(tires.map((t) => t.marca ?? "Sin marca")))]);
+    setEjeOptions([FILTER_ALL, ...Array.from(new Set(tires.map((t) => t.eje ?? "Sin eje")))]);
+    setBandaOptions([FILTER_ALL, ...Array.from(new Set(tires.map((t) => (t.diseno as string) ?? "Sin banda")))]);
+    setVidaOptions([FILTER_ALL, ...Array.from(new Set(tires.flatMap((t) => (t.vida ?? []).map((v) => {
+      const s = v.valor?.trim() ?? "Sin vida"; return s.charAt(0).toUpperCase() + s.slice(1);
+    }))))]);
+    setSemaforoOptions([FILTER_ALL, "Óptimo", "60 Días", "30 Días", "Urgente", "Sin Inspección"]);
+    setFilteredTires(tires);
+  }, [tires]);
+
+  const applyFilters = useCallback(() => {
+    let result = [...tires];
+    if (selectedMarca    !== FILTER_ALL && selectedMarca)    result = result.filter((t) => t.marca  === selectedMarca);
+    if (selectedBanda    !== FILTER_ALL && selectedBanda)    result = result.filter((t) => t.diseno === selectedBanda);
+    if (selectedEje      !== FILTER_ALL && selectedEje)      result = result.filter((t) => t.eje    === selectedEje);
+    if (selectedVida     !== FILTER_ALL && selectedVida) {
+      result = result.filter((t) => {
+        if (!t.vida?.length) return false;
+        return t.vida[t.vida.length - 1].valor.toLowerCase() === selectedVida.toLowerCase();
+      });
+    }
+    if (selectedCliente  !== FILTER_ALL && selectedCliente) {
+      const ids = vehicles.filter((v) => v.cliente === selectedCliente).map((v) => v.id);
+      result = result.filter((t) => t.vehicleId && ids.includes(t.vehicleId as string));
+    }
+    if (selectedSemaforo !== FILTER_ALL && selectedSemaforo) {
+      const map: Record<string, string> = {
+        "Óptimo": "optimo", "60 Días": "60_dias", "30 Días": "30_dias",
+        "Urgente": "urgente", "Sin Inspección": "sin_inspeccion",
+      };
+      result = result.filter((t) => classifyCondition(t) === map[selectedSemaforo]);
+    }
+    setFilteredTires(result); calculateCpkAverages(result); calculateTotals(result);
+  }, [tires, vehicles, selectedMarca, selectedBanda, selectedEje, selectedVida, selectedCliente, selectedSemaforo, calculateCpkAverages, calculateTotals]);
+
+  useEffect(() => { applyFilters(); }, [applyFilters]);
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      router.push("/login");
-      return;
-    }
-
-    const user = JSON.parse(storedUser);
-    if (!user.companyId) {
-      setError("No company assigned to user");
-      return;
-    }
-
-    setUserName(user.name || user.email || "User");
-
-    // Load company data and other resources
-    fetchCompany(user.companyId);
-    fetchVehicles(user.companyId);
-    fetchTires(user.companyId);
+    if (!storedUser) { router.push("/login"); return; }
+    let user: { companyId?: string; name?: string; email?: string };
+    try { user = JSON.parse(storedUser); } catch { router.push("/login"); return; }
+    if (!user.companyId) { setError("No company assigned to user"); return; }
+    setUserName(user.name ?? user.email ?? "");
+    fetchCompany(user.companyId); fetchVehicles(user.companyId); fetchTires(user.companyId);
   }, [router, fetchTires, fetchVehicles, fetchCompany]);
 
-  // Extract unique marca and eje values for filter options
-  useEffect(() => {
-    if (tires.length > 0) {
-      const uniqueMarcas = Array.from(new Set(tires.map(tire => tire.marca || t.noBrand)));
-      setMarcasOptions([t.allBrands, ...uniqueMarcas]);
-      
-      const uniqueEjes = Array.from(new Set(tires.map(tire => tire.eje || t.noAxis)));
-      setEjeOptions([t.allAxes, ...uniqueEjes]);
-    }
-    const uniqueBandas = Array.from(
-  new Set(
-    tires.map(t => t["diseno"] || "Sin Banda")
-  )
-);
-setBandaOptions([t.all, ...uniqueBandas]);
-    const uniqueVidas = Array.from(
-  new Set(
-    tires
-      .map(t => t.vida?.[t.vida.length - 1]?.valor?.toLowerCase() || "")
-      .filter(Boolean)
-  )
-).map(v => v.charAt(0).toUpperCase() + v.slice(1)); // capitalize
-
-setVidaOptions([t.all, ...uniqueVidas]);
-  }, [tires, t.allBrands, t.allAxes, t.noBrand, t.noAxis]);
-
-  // Apply filters when filter selections change
-  useEffect(() => {
-    applyFilters();
-  }, [applyFilters]);
-
-  // Handle clicking outside dropdowns
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (activeDropdown) {
-        const currentRef = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
-        if (currentRef && currentRef.current && !(currentRef.current).contains(event.target as Node)) {
-          setActiveDropdown(null);
-        }
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [activeDropdown, dropdownRefs]);
-
-  // Toggle dropdown visibility
-  const toggleDropdown = (dropdown: string) => {
-    setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
+  const exportToPDF = () => {
+    try {
+      setExporting(true);
+      const style = document.createElement("style");
+      style.type  = "text/css";
+      style.innerHTML = `@media print { body * { visibility: hidden } #ctp, #ctp * { visibility: visible } #ctp { position: absolute; left: 0; top: 0; width: 100% } }`;
+      document.head.appendChild(style);
+      if (contentRef.current) contentRef.current.id = "ctp";
+      setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+        setTimeout(() => {
+          window.print();
+          setTimeout(() => {
+            document.head.removeChild(style);
+            if (contentRef.current) contentRef.current.removeAttribute("id");
+            setExporting(false);
+          }, 500);
+        }, 300);
+      }, 500);
+    } catch { setExporting(false); }
   };
 
-  // Custom dropdown component
-  const FilterDropdown = ({ 
-    id,
-    label, 
-    options, 
-    selected, 
-    onChange
-  }: { 
-    id: string;
-    label: string; 
-    options: string[]; 
-    selected: string; 
-    onChange: (value: string) => void;
-  }) => {
-    const isOpen = activeDropdown === id;
-    
-    return (
-      <div 
-        className="relative" 
-        ref={dropdownRefs[id as keyof typeof dropdownRefs]}
+  const clearFilters = () => {
+    setSelectedMarca(FILTER_ALL); setSelectedEje(FILTER_ALL);
+    setSelectedBanda(FILTER_ALL); setSelectedVida(FILTER_ALL);
+    setSelectedCliente(FILTER_ALL); setSelectedSemaforo(FILTER_ALL);
+  };
+
+  const activeFiltersCount = [selectedMarca, selectedBanda, selectedEje, selectedVida, selectedCliente, selectedSemaforo]
+    .filter((v) => v && v !== FILTER_ALL && v !== "Todas").length;
+
+  const filterCols = userPlan === "retail"
+    ? "grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+    : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5";
+
+  // =============================================================================
+  // Render
+  // =============================================================================
+  return (
+    /*
+     * FIX A: `overflow-hidden` (not overflow-x-hidden) on the root.
+     * Do NOT use w-full here — the sidebar parent already constrains width.
+     * overflow-hidden ensures nothing bleeds out horizontally.
+     */
+    <div className="min-h-screen overflow-hidden" style={{ background: "#ffffff" }}>
+
+      {/* Sticky top bar */}
+      <div
+        className="sticky top-0 z-40 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3"
+        style={{
+          background: "rgba(255,255,255,0.92)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(52,140,203,0.15)",
+        }}
       >
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleDropdown(id);
-          }}
-          className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 flex items-center justify-between w-full"
-        >
-          <span className="truncate">{label}: {selected}</span>
-          <ChevronDown className="h-4 w-4 ml-2" />
-        </button>
-        
-        {isOpen && (
-          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-auto">
-            {options.map((option) => (
-              <button
-                key={option}
-                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                  selected === option ? "bg-blue-50 text-blue-700 font-medium" : ""
-                }`}
-                onClick={() => {
-                  onChange(option);
-                  setActiveDropdown(null);
-                }}
-              >
-                {option}
-              </button>
-            ))}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <div className="p-2 rounded-xl flex-shrink-0" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+            <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-black text-[#0A183A] text-base sm:text-lg leading-none tracking-tight truncate">
+              Mi Semáforo
+            </h1>
+            <p className="text-[10px] sm:text-xs text-[#348CCB] mt-0.5 flex items-center gap-1 truncate">
+              <Calendar className="w-3 h-3 flex-shrink-0" />
+              Actualizado: {new Date().toLocaleDateString("es-CO")}
+              {userName && <span className="hidden sm:inline"> · Bienvenido, {userName}</span>}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <button
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="flex sm:hidden items-center gap-1 px-2.5 py-2 rounded-xl text-sm font-bold transition-all relative"
+            style={{
+              background: filtersOpen || activeFiltersCount > 0 ? "rgba(30,118,182,0.12)" : "rgba(10,24,58,0.05)",
+              border: "1px solid rgba(52,140,203,0.25)",
+              color: "#1E76B6",
+            }}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            {activeFiltersCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center text-white" style={{ background: "#1E76B6" }}>
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={exportToPDF}
+            disabled={exporting}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+          >
+            {exporting
+              ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /><span className="hidden sm:inline ml-1">Exportando…</span></>
+              : <><Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /><span className="hidden sm:inline ml-1">Exportar</span></>}
+          </button>
+          <Notificaciones />
+        </div>
+      </div>
+
+      {/*
+       * FIX B: `flex flex-col gap-*` instead of `space-y-*`.
+       * space-y uses a `>*+*` margin selector — it does NOT set min-width:0
+       * on children, so block-level children (including grid items that
+       * contain DetallesLlantas) can still expand to their intrinsic width.
+       * flex children DO get min-width:0 by default, which breaks the cycle.
+       */}
+      <div
+        className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-4 sm:gap-5 lg:gap-6"
+        ref={contentRef}
+      >
+
+        {/* Error banner */}
+        {error && (
+          <div
+            className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+            style={{ background: "rgba(10,24,58,0.06)", border: "1px solid rgba(10,24,58,0.2)" }}
+          >
+            <AlertCircle className="w-4 h-4 text-[#173D68] flex-shrink-0 mt-0.5" />
+            <span className="flex-1 text-[#0A183A]">{error}</span>
+            <button onClick={() => setError("")} className="text-[#348CCB] hover:text-[#0A183A] flex-shrink-0">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
-      </div>
-    );
-  };
 
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={contentRef}>
-        {/* Header Section */}
-        <div className="mb-8 bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-lg p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="text-white">
-              <h2 className="text-2xl font-bold">{t.title}</h2>
-              <p className="text-blue-100 mt-1 flex items-center text-sm">
-                <Calendar className="h-4 w-4 mr-2" />
-                {t.updated}: {new Date().toLocaleDateString()}
-              </p>
-              {userName && <p className="text-blue-100 mt-1 text-sm">{t.user}: {userName}</p>}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex gap-2">
-                <button
-                  className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
-                  onClick={exportToPDF}
-                  disabled={exporting}
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {exporting ? t.exporting : t.export}
-                  </span>
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard loading={loading} value={`${(gastoMes / 1_000_000).toFixed(1)}M COP`}   label="Inversión del Mes"  variant="primary"   />
+          <MetricCard loading={loading} value={`${(gastoTotal / 1_000_000).toFixed(1)}M COP`} label="Inversión Total"    variant="secondary" />
+          <MetricCard loading={loading} value={fmtCOP(cpkPromedio)}                            label="CPK Promedio"       variant="accent"    />
+          <MetricCard loading={loading} value={fmtCOP(cpkProyectado)}                          label="CPK Proyectado"     variant="secondary" />
+        </div>
+
+        {/* Filter panel */}
+        <div
+          className={`rounded-2xl print:hidden ${filtersOpen ? "block" : "hidden sm:block"}`}
+          style={{ background: "white", border: "1px solid rgba(52,140,203,0.18)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}
+        >
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+              <p className="text-sm font-bold text-[#0A183A]">Filtros</p>
+              {activeFiltersCount > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(30,118,182,0.12)", color: "#1E76B6" }}>
+                  {activeFiltersCount} activo{activeFiltersCount > 1 ? "s" : ""}
+                </span>
+              )}
+              {activeFiltersCount > 0 && (
+                <button onClick={clearFilters} className="ml-auto text-xs font-semibold text-[#1E76B6] hover:opacity-70 transition-opacity whitespace-nowrap">
+                  Limpiar filtros
                 </button>
-                <Notificaciones />
-              </div>
+              )}
+            </div>
+            <div className={`grid ${filterCols} gap-2 sm:gap-2.5`}>
+              {userPlan === "retail" && (
+                <FilterDropdown id="cliente" label="Dueño"  options={clienteOptions}  selected={selectedCliente}  onChange={setSelectedCliente}  activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} dropdownRef={dropdownRefs.cliente}  />
+              )}
+              <FilterDropdown id="marca"    label="Marca"   options={marcasOptions}   selected={selectedMarca}    onChange={setSelectedMarca}    activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} dropdownRef={dropdownRefs.marca}    />
+              <FilterDropdown id="eje"      label="Eje"     options={ejeOptions}      selected={selectedEje}      onChange={setSelectedEje}      activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} dropdownRef={dropdownRefs.eje}      />
+              <FilterDropdown id="semaforo" label="Estado"  options={semaforoOptions} selected={selectedSemaforo} onChange={setSelectedSemaforo} activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} dropdownRef={dropdownRefs.semaforo} />
+              <FilterDropdown id="vida"     label="Vida"    options={vidaOptions}     selected={selectedVida}     onChange={setSelectedVida}     activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} dropdownRef={dropdownRefs.vida}     />
+              <FilterDropdown id="banda"    label="Banda"   options={bandaOptions}    selected={selectedBanda}    onChange={setSelectedBanda}    activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} dropdownRef={dropdownRefs.banda}    />
             </div>
           </div>
         </div>
 
-        {/* Main Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Inversión del Mes Card */}
-          <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                ${loading ? t.loading : gastoMes >= 1000000 ? `${(gastoMes / 1000000).toFixed(1)}M COP` : `${(gastoMes / 1000).toFixed(0)}K COP`}
-
-              </p>
-              <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>
-                {t.monthlyInvestment}
-              </p>
-            </div>
-          </div>
-
-          {/* Inversión Total Card */}
-          <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                ${loading ? t.loading : gastoTotal >= 1000000 ? `${(gastoTotal / 1000000).toFixed(1)}M COP` : `${(gastoTotal / 1000).toFixed(0)}K COP`}
-              </p>
-              <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>
-                {t.totalInvestment}
-              </p>
-            </div>
-          </div>
-
-          {/* CPK Promedio Card */}
-          <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                ${loading ? t.loading : cpkPromedio.toLocaleString()}
-              </p>
-              <p className="text-sm uppercase tracking-wider text-white">{t.averageCpk}</p>
-            </div>
-          </div>
-
-          {/* CPK Proyectado Card */}
-          <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                ${loading ? t.loading : cpkProyectado.toLocaleString()}
-              </p>
-              <p className="text-sm uppercase tracking-wider text-white">{t.projectedCpk}</p>
-            </div>
-          </div>
+        {/* Charts row 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <SemaforoTabla vehicles={vehicles} tires={filteredTires} />
+          <PromedioEje tires={filteredTires} onSelectEje={(eje) => setSelectedEje(eje || FILTER_ALL)} selectedEje={selectedEje} language="es" />
         </div>
 
-        {/* Filter Section - Hide in print with CSS */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6 print:hidden z-999999999999">
-          <div className="flex items-center gap-2 mb-3">
-            <Filter className="h-5 w-5 text-gray-500" />
-            <h3 className="text-lg font-medium text-gray-800">{t.filters}</h3>
-          </div>
-          <div
-            className={`
-              grid
-              grid-cols-1
-              sm:grid-cols-2
-              ${userPlan === "retail" ? "lg:grid-cols-4" : "lg:grid-cols-3"}
-              gap-3
-            `}
-          >
-            {userPlan === "retail" && (
-              <FilterDropdown
-                id="cliente"
-                label="Dueño"
-                options={clienteOptions}
-                selected={selectedCliente}
-                onChange={setSelectedCliente}
-              />
-            )}
-              
-            <FilterDropdown
-              id="marca"
-              label={t.brand}
-              options={marcasOptions}
-              selected={selectedMarca}
-              onChange={setSelectedMarca}
-            />
-            
-            <FilterDropdown
-              id="eje"
-              label={t.axis}
-              options={ejeOptions}
-              selected={selectedEje}
-              onChange={setSelectedEje}
-            />
-            
-            <FilterDropdown
-              id="semaforo"
-              label={t.status}
-              options={semaforoOptions}
-              selected={selectedSemaforo}
-              onChange={setSelectedSemaforo}
-            />
-            <FilterDropdown
-  id="vida"
-  label={t.vida}
-  options={vidaOptions}
-  selected={selectedVida}
-  onChange={setSelectedVida}
-/>
-
-<FilterDropdown
-  id="banda"
-  label={t.banda}
-  options={bandaOptions}
-  selected={selectedBanda}
-  onChange={setSelectedBanda}
-/>
-
-          </div>
+        {/* Charts row 2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-2 sm:gap-3">
+          <PorVida             tires={filteredTires} />
+          <SemaforoPie         tires={filteredTires} language="es" />
         </div>
 
-        {/* Main Content */}
-        <main className="container mx-auto max-w-6xl px-4 py-8">
-          <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
-            <SemaforoTabla vehicles={vehicles} tires={filteredTires} />
-            <PromedioEje 
-              tires={filteredTires} 
-              onSelectEje={(eje) => setSelectedEje(eje || "Todos")} 
-              selectedEje={selectedEje}
-            />
-          </div>
-          <br />
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <PorVida tires={filteredTires} />
-            <SemaforoPie tires={filteredTires} language={language}  />
-            <ReencaucheHistorico tires={filteredTires} language={language}  />
-          </div>
-          <br/>
-          <div className="grid md:grid-cols-0 lg:grid-cols-1 gap-6">
-            <DetallesLlantas tires={filteredTires} vehicles={vehicles} />
-          </div>
-          <br />
+        {/*
+         * FIX C: min-w-0 on this wrapper.
+         * As a flex child (parent is now flex-col), it would default to
+         * min-width:auto without this — which lets it grow to fit the table.
+         * min-w-0 forces it to respect the flex container's width.
+         */}
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <ReencaucheHistorico tires={filteredTires} language="es" />
+          <DetallesLlantas tires={filteredTires} vehicles={vehicles} />
+        </div>
+        <div className="min-w-0">
+        </div>
 
-          {/* Loading & Error states */}
-          {loading && (
-            <div className="text-center py-4 text-[#1E76B6] animate-pulse">
-              Cargando neumáticos...
-            </div>
-          )}
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4">
-              <p className="text-red-700">{error}</p>
-            </div>
-          )}
-        </main>
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-6 text-[#1E76B6]">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm font-medium">Cargando neumáticos…</span>
+          </div>
+        )}
       </div>
     </div>
   );

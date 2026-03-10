@@ -1,633 +1,561 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Search, X, AlertTriangle, Clock, DollarSign } from "lucide-react";
+import React, { useState } from "react";
+import {
+  Search, X, AlertTriangle, Clock, DollarSign,
+  Loader2, CheckCircle, Layers,
+} from "lucide-react";
 
-// --- Types ---
-export type VidaEntry = {
-  fecha: string;
-  valor: string;
-};
+// =============================================================================
+// Types
+// =============================================================================
+
+export type VidaEntry = { fecha: string; valor: string };
 
 export type Tire = {
   id: string;
   placa: string;
   marca: string;
-  vida: VidaEntry[];
+  // vida is now TireEvento records with notas containing the vida value
+  vida: VidaEntry[];          
   posicion?: string | number;
-  diseno?: string; // Added diseno field for banda
-  profundidadInicial?: number; // Added this type
+  diseno?: string;
+  profundidadInicial?: number;
   desechos?: {
-  causales: string;
-  milimetrosDesechados: number;
-  remanente: number;
+    causales:             string;
+    milimetrosDesechados: number;
+    remanente:            number;   // read-only — computed by backend
+    fecha:                string;   // backend also writes this
+  } | null;
 };
 
+export type Vehicle = { id: string; placa: string; tipovhc?: string };
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+    : "https://api.tirepro.com.co/api";
+
+const VIDA_ORDER = ["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"] as const;
+
+const VIDA_LABELS: Record<string, string> = {
+  nueva: "Nueva",
+  reencauche1: "Reencauche 1",
+  reencauche2: "Reencauche 2",
+  reencauche3: "Reencauche 3",
+  fin: "Fin de vida",
 };
 
-export type Vehicle = {
-  id: string;
-  placa: string;
-  tipovhc?: string;
-};
+// =============================================================================
+// Helpers
+// =============================================================================
 
-const translations = {
-  es: {
-    updateLife: "Actualizar Vida",
-    searchVehicle: "Buscar Vehículo",
-    enterPlate: "Ingrese la placa del vehículo",
-    searching: "Buscando...",
-    search: "Buscar",
-    vehicleData: "Datos del Vehículo",
-    plate: "Placa",
-    type: "Tipo",
-    tiresFound: "Llantas Encontrados",
-    brand: "Marca",
-    currentLife: "Vida Actual",
-    bandDesign: "Banda/Diseño",
-    updateLifeBtn: "Actualizar Vida",
-    none: "Ninguna",
-    selectNewValue: "Seleccione nuevo valor",
-    rechargeCost: "Costo del reencauche (COP)",
-    enterValidCost: "Ingrese un costo válido (mayor a 0)",
-    cancel: "Cancelar",
-    update: "Actualizar",
-    saving: "Guardando...",
-    vehicleNotFound: "Vehículo no encontrado",
-    errorGettingTires: "Error al obtener los llantas",
-    unexpectedError: "Error inesperado",
-    enterVehiclePlate: "Por favor ingrese la placa del vehículo",
-    selectLifeValue: "Seleccione un valor de vida",
-    enterBandDesign: "Ingrese la banda/diseño",
-    invalidCost: "Costo inválido",
-    noMoreEntries: "No se pueden agregar más entradas. La vida ya está en 'fin'.",
-    position: "Posición",
-    initialDepth: "Profundidad Inicial (mm)",
-    enterValidDepth: "Ingrese una profundidad inicial válida (mayor a 0)"
-  }
-};
+function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  return fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  });
+}
 
-// --- Allowed values in order ---
-const allowedVida = ["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"];
+function currentVida(tire: Tire): string {
+  const vidaEventos = (tire.eventos ?? []).filter(
+    (e: any) => VIDA_ORDER.includes(e.notas?.toLowerCase())
+  );
+  if (!vidaEventos.length) return "nueva";
+  return vidaEventos[vidaEventos.length - 1].notas.toLowerCase();
+}
+
+function nextOptions(current: string): string[] {
+  const idx = VIDA_ORDER.indexOf(current as typeof VIDA_ORDER[number]);
+  if (idx < 0 || idx >= VIDA_ORDER.length - 1) return [];
+  const opts: string[] = [];
+  if (idx < 3) opts.push(VIDA_ORDER[idx + 1]); // next reencauche
+  if (VIDA_ORDER[idx + 1] !== "fin") opts.push("fin"); // always allow fin
+  else if (opts.length === 0) opts.push("fin");
+  return opts;
+}
+
+function vidaBadgeStyle(vida: string): React.CSSProperties {
+  if (vida === "fin")         return { background: "rgba(220,38,38,0.1)",  color: "#DC2626", border: "1px solid rgba(220,38,38,0.25)" };
+  if (vida === "nueva")       return { background: "rgba(22,163,74,0.1)",  color: "#16a34a", border: "1px solid rgba(22,163,74,0.25)" };
+  return                             { background: "rgba(30,118,182,0.1)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.25)" };
+}
+
+// =============================================================================
+// Design-system micro-components
+// =============================================================================
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardTitle({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub?: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+        <Icon className="w-4 h-4 text-[#1E76B6]" />
+      </div>
+      <div>
+        <p className="text-sm font-black text-[#0A183A] leading-none">{title}</p>
+        {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full px-4 py-2.5 rounded-xl text-sm font-medium text-[#0A183A] bg-white " +
+  "focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all";
+const inputStyle = { border: "1.5px solid rgba(52,140,203,0.2)" };
+
+// =============================================================================
+// Main component
+// =============================================================================
 
 const VidaPage: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [profundidadValue, setProfundidadValue] = useState("");
-const [causalValue, setCausalValue] = useState("");
-const [milimetrosValue, setMilimetrosValue] = useState("");
+  const [searchTerm, setSearchTerm]     = useState("");
+  const [vehicle,    setVehicle]        = useState<Vehicle | null>(null);
+  const [tires,      setTires]          = useState<Tire[]>([]);
+  const [error,      setError]          = useState("");
+  const [loading,    setLoading]        = useState(false);
 
-  // Ref for the content container
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  // Language state
-  const [language, setLanguage] = useState<'es'>('es');
-
-  // For the modal update
+  // Modal state
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
   const [selectedVida, setSelectedVida] = useState("");
-  const [bandaValue, setBandaValue] = useState(""); // New state for banda/diseño
-  const [costValue, setCostValue] = useState(""); // State for cost
-  const [modalError, setModalError] = useState("");
-  const [showModal, setShowModal] = useState(false);
+  const [bandaValue,   setBandaValue]   = useState("");
+  const [costValue,    setCostValue]    = useState("");
+  const [profValue,    setProfValue]    = useState("");
+  const [causalValue,  setCausalValue]  = useState("");
+  const [mmValue,      setMmValue]      = useState("");
+  const [modalError,   setModalError]   = useState("");
+  const [showModal,    setShowModal]    = useState(false);
+  const [saving,       setSaving]       = useState(false);
 
-  // Language detection effect
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const lang = 'es';
-      setLanguage(lang);
-    };
-
-    detectAndSetLanguage();
-  }, []);
-
-  // Get current translations
-  const t = translations[language];
-
-  // API URL helper
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.tirepro.com.co";
-
-  // --- Search for a vehicle by plate, then load its tires ---
+  // ── Search ─────────────────────────────────────────────────────────────────
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setVehicle(null);
-    setTires([]);
-    if (!searchTerm.trim()) {
-      setError(t.enterVehiclePlate);
-      return;
-    }
+    setError(""); setVehicle(null); setTires([]);
+    if (!searchTerm.trim()) { setError("Por favor ingrese la placa del vehículo."); return; }
+
     setLoading(true);
     try {
-      // Fetch vehicle by plate
-      const vehicleRes = await fetch(
-        `${API_URL}/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}`
+      const companyId = localStorage.getItem("companyId") ?? "";
+      const vRes = await authFetch(
+        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}${companyId ? `&companyId=${companyId}` : ""}`
       );
-      if (!vehicleRes.ok) {
-        throw new Error(t.vehicleNotFound);
-      }
-      const vehicleData: Vehicle = await vehicleRes.json();
-      setVehicle(vehicleData);
+      if (!vRes.ok) throw new Error("Vehículo no encontrado");
+      const vData: Vehicle = await vRes.json();
+      setVehicle(vData);
 
-      // Fetch tires for that vehicle
-      const tiresRes = await fetch(
-        `${API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-      );
-      if (!tiresRes.ok) {
-        throw new Error(t.errorGettingTires);
-      }
-      const tiresData: Tire[] = await tiresRes.json();
-      
-      // Sort tires by posicion
-      const sortedTires = [...tiresData].sort((a, b) => {
-        const posA = a.posicion !== undefined ? Number(a.posicion) : Infinity;
-        const posB = b.posicion !== undefined ? Number(b.posicion) : Infinity;
-        const numA = isNaN(posA) ? Infinity : posA;
-        const numB = isNaN(posB) ? Infinity : posB;
-        return numA - numB;
-      });
-      
-      setTires(sortedTires);
+      const tRes = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${vData.id}`);
+      if (!tRes.ok) throw new Error("Error al obtener las llantas");
+      const tData: Tire[] = await tRes.json();
+      tData.sort((a, b) => (Number(a.posicion) || Infinity) - (Number(b.posicion) || Infinity));
+      setTires(tData);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message || t.unexpectedError);
-      } else {
-        setError(t.unexpectedError);
-      }
+      setError(err instanceof Error ? err.message : "Error inesperado");
     } finally {
       setLoading(false);
     }
   }
 
-  // --- Open Modal to update vida for a tire ---
-function openModal(tire: Tire) {
-  setSelectedTire(tire);
-  setModalError("");
-  setCostValue(""); // Reset cost value
-  setBandaValue(tire.diseno || "");
-  setCausalValue("");
-setMilimetrosValue("");
-
-  
-  // Initialize profundidad value - if tire has existing profundidad, use it, otherwise empty string
-  const initialProfundidad = tire.profundidadInicial && tire.profundidadInicial > 0 
-    ? tire.profundidadInicial.toString() 
-    : "";
-  setProfundidadValue(initialProfundidad);
-  
-  // If the tire has no vida data, assume current value is "nueva"
-  let lastIndex = 0;
-  if (tire.vida && tire.vida.length > 0) {
-    const lastValue = tire.vida[tire.vida.length - 1].valor.toLowerCase();
-    lastIndex = allowedVida.indexOf(lastValue);
-    if (lastIndex === -1) {
-      lastIndex = 0;
-    }
-  }
-  
-  let options: string[] = [];
-  if (lastIndex === 0) {
-    // From "nueva", allow only "reencauche1" and "fin"
-    options = [allowedVida[1], allowedVida[allowedVida.length - 1]];
-  } else if (lastIndex === 1) {
-    // From "reencauche1", allow only "reencauche2" and "fin"
-    options = [allowedVida[2], allowedVida[allowedVida.length - 1]];
-  } else if (lastIndex === 2) {
-    // From "reencauche2", allow only "reencauche3" and "fin"
-    options = [allowedVida[3], allowedVida[allowedVida.length - 1]];
-  } else if (lastIndex === 3) {
-    // From "reencauche3", only "fin" remains.
-    options = [allowedVida[4]];
-  } else {
-    options = [];
-  }
-  
-  if (options.length === 0) {
-    setModalError(t.noMoreEntries);
-    setSelectedVida("");
-  } else {
-    setSelectedVida(options[0]);
-  }
-  setShowModal(true);
-}
-
-  // --- Close the modal ---
-  function closeModal() {
-    setShowModal(false);
-    setSelectedTire(null);
-    setSelectedVida("");
-    setBandaValue("");
-    setCostValue("");
-    setProfundidadValue("");
+  // ── Open modal ─────────────────────────────────────────────────────────────
+  function openModal(tire: Tire) {
+    const opts = nextOptions(currentVida(tire));
+    setSelectedTire(tire);
     setModalError("");
-    setCausalValue("");
-setMilimetrosValue("");
-
+    setCostValue(""); setCausalValue(""); setMmValue("");
+    setBandaValue(tire.diseno ?? "");
+    setProfValue(tire.profundidadInicial && tire.profundidadInicial > 0 ? String(tire.profundidadInicial) : "");
+    setSelectedVida(opts[0] ?? "");
+    if (!opts.length) setModalError("Esta llanta ya está en estado 'fin'. No se puede actualizar.");
+    setShowModal(true);
   }
 
-  // Function to check if the selected vida requires a cost input
-  const requiresCost = (vida: string) => {
-    return vida.startsWith("reencauche");
-  };
-
-  // Function to check if the selected vida requires profundidad input
-  const requiresProfundidad = (vida: string) => {
-    return vida !== "fin";
-  };
-
-  // --- Call backend to update vida ---
-async function handleUpdateVida() {
-  if (!selectedTire) return;
-  if (!selectedVida) return setModalError(t.selectLifeValue);
-  if (!bandaValue.trim()) return setModalError(t.enterBandDesign);
-
-const body: {
-  valor: string;
-  banda: string;
-  costo?: number;
-  profundidadInicial?: number;
-  desechos?: {
-    causales: string;
-    milimetrosDesechados: number;
-    remanente: number;
-  };
-} = {
-  valor: selectedVida,
-  banda: bandaValue.trim(),
-};
-
-
-  if (requiresCost(selectedVida)) {
-    const n = parseFloat(costValue);
-    if (isNaN(n) || n <= 0) return setModalError(t.invalidCost);
-    body.costo = n;
+  function closeModal() {
+    setShowModal(false); setSelectedTire(null);
+    setSelectedVida(""); setBandaValue(""); setCostValue("");
+    setProfValue(""); setCausalValue(""); setMmValue("");
+    setModalError("");
   }
 
-  if (selectedVida !== "fin") {
-    const profVal = parseFloat(profundidadValue);
-    if (!profundidadValue || isNaN(profVal) || profVal <= 0) {
-      return setModalError(t.enterValidDepth);
-    }
-    body.profundidadInicial = profVal;
-  }
+  // ── Submit vida update ─────────────────────────────────────────────────────
+  async function handleUpdate() {
+    if (!selectedTire) return;
+    if (!selectedVida) return setModalError("Seleccione un valor de vida.");
+    if (!bandaValue.trim()) return setModalError("Ingrese la banda/diseño.");
 
-  if (selectedVida === "fin") {
-    const mm = parseFloat(milimetrosValue);
-    if (!causalValue.trim()) return setModalError("Ingrese la causa de descarte");
-    if (isNaN(mm) || mm < 0) return setModalError("Ingrese los milímetros finales válidos");
+    const body: Record<string, unknown> = { valor: selectedVida, banda: bandaValue.trim() };
 
-    const profundidad = selectedTire.profundidadInicial || 0;
-    body.desechos = {
-      causales: causalValue.trim(),
-      milimetrosDesechados: mm,
-      remanente: Math.max(profundidad - mm, 0),
-    };
-  }
-
-  try {
-    setLoading(true);
-    const res = await fetch(`${API_URL}/api/tires/${selectedTire.id}/vida`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ message: "Unknown error" }));
-      throw new Error(errorData.message || await res.text());
+    if (selectedVida.startsWith("reencauche")) {
+      const n = parseFloat(costValue);
+      if (isNaN(n) || n <= 0) return setModalError("Ingrese un costo válido (mayor a 0).");
+      body.costo = n;
     }
 
-    const updated: Tire = await res.json();
+    if (selectedVida !== "fin") {
+      const p = parseFloat(profValue);
+      if (!profValue || isNaN(p) || p <= 0) return setModalError("Ingrese una profundidad inicial válida.");
+      body.profundidadInicial = p;
+    }
 
-    setTires(prev =>
-      prev
-        .map(t => (t.id === updated.id ? updated : t))
-        .sort((a, b) => (Number(a.posicion) || Infinity) - (Number(b.posicion) || Infinity))
-    );
-    closeModal();
-  } catch (e: unknown) {
-    setModalError(e.message || "Unknown error");
-  } finally {
-    setLoading(false);
+    if (selectedVida === "fin") {
+      const mm = parseFloat(mmValue);
+      if (!causalValue.trim()) return setModalError("Ingrese la causa de descarte.");
+      if (isNaN(mm) || mm < 0) return setModalError("Ingrese los milímetros finales válidos.");
+      body.desechos = {
+        causales: causalValue.trim(),
+        milimetrosDesechados: mm,
+      };
+    }
+
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/tires/${selectedTire.id}/vida`, {
+        method: "PATCH", body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Error desconocido" }));
+        throw new Error(err.message ?? "Error desconocido");
+      }
+      const updated: Tire = await res.json();
+      setTires((prev) =>
+        prev.map((t) => (t.id === updated.id ? updated : t))
+            .sort((a, b) => (Number(a.posicion) || Infinity) - (Number(b.posicion) || Infinity))
+      );
+      closeModal();
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setSaving(false);
+    }
   }
-}
+
+  // ==========================================================================
+  // Render
+  // ==========================================================================
 
   return (
-    <div className="min-h-screen bg-white">
-      <main className="max-w-7xl mx-auto p-4 md:p-6" ref={contentRef}>
-        {/* Search Form */}
-        <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
-          <h2 className="text-xl font-semibold text-[#0A183A] mb-4">{t.searchVehicle}</h2>
-          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-grow">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+    <div className="min-h-screen" style={{ background: "white" }}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-5">
+
+        {/* ── Page header ───────────────────────────────────────────────── */}
+        <div
+          className="px-4 sm:px-6 py-5 rounded-2xl"
+          style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
+              <Layers className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="font-black text-white text-lg leading-none tracking-tight">Actualizar Vida de Llanta</h1>
+              <p className="text-xs text-white/60 mt-0.5">Gestione el ciclo de vida y reencauches</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Error banner ──────────────────────────────────────────────── */}
+        {error && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+            style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}
+          >
+            <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <span className="flex-1 text-red-700">{error}</span>
+            <button onClick={() => setError("")}><X className="w-4 h-4 text-red-400" /></button>
+          </div>
+        )}
+
+        {/* ── Search card ───────────────────────────────────────────────── */}
+        <Card className="p-4 sm:p-5">
+          <CardTitle icon={Search} title="Buscar Vehículo" sub="Ingrese la placa para cargar las llantas" />
+          <form onSubmit={handleSearch} className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <input
-                type="text"
-                placeholder={t.enterPlate}
-                value={searchTerm}
+                type="text" value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
+                placeholder="Ej. abc-123"
+                className={`${inputCls} pl-10`} style={inputStyle}
               />
             </div>
             <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-3 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-sm"
+              type="submit" disabled={loading}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
             >
-              {loading ? (
-                <>
-                  <Clock className="animate-spin h-5 w-5" />
-                  <span>{t.searching}</span>
-                </>
-              ) : (
-                <>
-                  <Search className="h-5 w-5" />
-                  <span>{t.search}</span>
-                </>
-              )}
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Buscando…</>
+                : <><Search className="w-4 h-4" /> Buscar</>
+              }
             </button>
           </form>
-        </div>
+        </Card>
 
-        {/* Error message */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg flex items-start">
-            <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* Vehicle Info */}
+        {/* ── Vehicle info ──────────────────────────────────────────────── */}
         {vehicle && (
-          <div className="mb-6 p-4 md:p-6 bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 rounded-lg border-l-4 border-[#1E76B6] shadow-sm">
-            <h2 className="text-xl font-bold mb-2 text-[#0A183A]">{t.vehicleData}</h2>
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              <p className="flex items-center">
-                <span className="font-semibold text-[#173D68] mr-2">{t.plate}:</span> 
-                <span className="bg-[#1E76B6] text-white px-3 py-1 rounded-md">{vehicle.placa}</span>
-              </p>
-              {vehicle.tipovhc && (
-                <p>
-                  <span className="font-semibold text-[#173D68] mr-2">{t.type}:</span> 
-                  {vehicle.tipovhc}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Tires List */}
-        {tires.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4 text-[#0A183A] border-b border-gray-200 pb-2">
-              {t.tiresFound}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tires.map((tire) => (
-                <div
-                  key={tire.id}
-                  className="p-4 bg-white rounded-lg shadow-md border border-gray-200 hover:border-[#1E76B6] transition-all hover:shadow-lg"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="font-bold text-[#0A183A]">{t.plate}: {tire.placa}</p>
-                    <div className="bg-[#173D68] text-white text-sm px-2 py-1 rounded">
-                      {t.position}: {tire.posicion || "N/A"}
-                    </div>
-                  </div>
-                  
-                  <div className="mb-3 pb-3 border-b border-gray-100">
-                    <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">{t.brand}:</span> {tire.marca}
-                    </p>
-                    <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">ID:</span> {tire.id.substring(0, 6)}...
-                    </p>
-                    <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">{t.currentLife}:</span>{" "}
-                      <span className="inline-block bg-[#348CCB]/20 text-[#0A183A] px-2 py-0.5 rounded font-medium">
-                        {tire.vida && tire.vida.length > 0
-                          ? tire.vida[tire.vida.length - 1].valor
-                          : t.none}
-                      </span>
-                    </p>
-                    {tire.diseno && (
-                      <p className="text-gray-700">
-                        <span className="font-semibold text-[#173D68]">{t.bandDesign}:</span> {tire.diseno}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <button
-                    onClick={() => openModal(tire)}
-                    className="w-full mt-2 px-4 py-2 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-all flex items-center justify-center gap-2"
-                  >
-                    <Clock size={18} />
-                    <span>{t.updateLifeBtn}</span>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Modal for updating vida */}
-        {showModal && selectedTire && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fadeIn">
-              <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
-                <h2 className="text-xl font-bold text-[#0A183A]">{t.updateLife}</h2>
-                <button 
-                  onClick={closeModal}
-                  className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                >
-                  <X className="h-5 w-5 text-[#0A183A]" />
-                </button>
+          <Card className="p-4 sm:p-5">
+            <CardTitle icon={CheckCircle} title="Vehículo Encontrado" />
+            <div
+              className="flex flex-wrap gap-4 px-4 py-3 rounded-xl"
+              style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(52,140,203,0.12)" }}
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Placa</p>
+                <p className="text-sm font-black text-[#0A183A]">{vehicle.placa.toUpperCase()}</p>
               </div>
-              
-              <div className="bg-[#173D68]/10 rounded-lg p-3 mb-4">
-                <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">{t.plate}:</span> {selectedTire.placa}
-                </p>
-                <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">{t.brand}:</span> {selectedTire.marca}
-                </p>
-                <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">{t.position}:</span> {selectedTire.posicion || "N/A"}
-                </p>
-                <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">{t.currentLife}:</span>{" "}
-                  <span className="font-medium">
-                    {selectedTire.vida && selectedTire.vida.length > 0
-                      ? selectedTire.vida[selectedTire.vida.length - 1].valor
-                      : t.none}
+              {vehicle.tipovhc && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Tipo</p>
+                  <p className="text-sm font-black text-[#0A183A]">{vehicle.tipovhc}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Llantas</p>
+                <p className="text-sm font-black text-[#0A183A]">{tires.length}</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Tire grid ─────────────────────────────────────────────────── */}
+        {tires.length > 0 && (
+          <div>
+            <p className="text-xs font-black text-[#0A183A] uppercase tracking-wide mb-3">
+              Llantas — {tires.length} encontrada{tires.length !== 1 ? "s" : ""}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {tires.map((tire) => {
+                const vida = currentVida(tire);
+                const opts = nextOptions(vida);
+                return (
+                  <Card key={tire.id} className="overflow-hidden">
+                    {/* top stripe */}
+                    <div
+                      className="h-1"
+                      style={{ background: vida === "fin" ? "#DC2626" : vida === "nueva" ? "#16a34a" : "#1E76B6" }}
+                    />
+                    <div className="p-4">
+                      {/* header row */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-[#0A183A] truncate">{tire.placa}</p>
+                          <p className="text-[10px] text-gray-400">{tire.marca}</p>
+                        </div>
+                        <span
+                          className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black"
+                          style={{ background: "rgba(10,24,58,0.06)", color: "#173D68" }}
+                        >
+                          Pos. {tire.posicion ?? "—"}
+                        </span>
+                      </div>
+
+                      {/* vida badge */}
+                      <div className="mb-3 flex items-center gap-2">
+                        <span
+                          className="px-2.5 py-0.5 rounded-full text-[11px] font-black"
+                          style={vidaBadgeStyle(vida)}
+                        >
+                          {VIDA_LABELS[vida] ?? vida}
+                        </span>
+                        {tire.diseno && (
+                          <span className="text-[10px] text-gray-400 truncate">{tire.diseno}</span>
+                        )}
+                      </div>
+
+                      {/* update button */}
+                      <button
+                        onClick={() => openModal(tire)}
+                        disabled={opts.length === 0}
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ background: opts.length === 0 ? "rgba(10,24,58,0.2)" : "linear-gradient(135deg, #173D68, #1E76B6)" }}
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        {opts.length === 0 ? "Fin de vida" : "Actualizar Vida"}
+                      </button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Modal ─────────────────────────────────────────────────────────── */}
+      {showModal && selectedTire && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(10,24,58,0.5)" }}
+        >
+          <Card className="w-full max-w-md">
+            {/* Modal header */}
+            <div
+              className="px-5 py-4 flex items-center justify-between rounded-t-2xl"
+              style={{ background: "linear-gradient(135deg, #0A183A, #173D68)", borderBottom: "1px solid rgba(52,140,203,0.12)" }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.12)" }}>
+                  <Layers className="w-4 h-4 text-white" />
+                </div>
+                <p className="text-sm font-black text-white">Actualizar Vida</p>
+              </div>
+              <button onClick={closeModal}>
+                <X className="w-4 h-4 text-white/70 hover:text-white transition-colors" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Tire summary */}
+              <div
+                className="px-4 py-3 rounded-xl text-xs space-y-1"
+                style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(52,140,203,0.12)" }}
+              >
+                <p><span className="font-bold text-[#0A183A]">Placa:</span> <span className="text-[#173D68]">{selectedTire.placa}</span></p>
+                <p><span className="font-bold text-[#0A183A]">Marca:</span> <span className="text-[#173D68]">{selectedTire.marca}</span></p>
+                <p><span className="font-bold text-[#0A183A]">Posición:</span> <span className="text-[#173D68]">{selectedTire.posicion ?? "—"}</span></p>
+                <p>
+                  <span className="font-bold text-[#0A183A]">Vida actual:</span>{" "}
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-black"
+                    style={vidaBadgeStyle(currentVida(selectedTire))}
+                  >
+                    {VIDA_LABELS[currentVida(selectedTire)] ?? currentVida(selectedTire)}
                   </span>
                 </p>
               </div>
-              
+
+              {/* Modal error */}
               {modalError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg flex items-center">
-                  <AlertTriangle className="h-4 w-4 mr-2" />
+                <div
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
+                  style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)", color: "#DC2626" }}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
                   {modalError}
                 </div>
               )}
 
-              {/* BANDA (diseño) - Always shown */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-[#0A183A] mb-2">
-                  {t.bandDesign}
-                </label>
+              {/* Banda / diseño */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Banda / Diseño</label>
                 <input
-                  type="text"
-                  value={bandaValue}
-                  onChange={e => setBandaValue(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
-                  placeholder={t.enterBandDesign}
+                  type="text" value={bandaValue}
+                  onChange={(e) => setBandaValue(e.target.value)}
+                  placeholder="Ej. REGIONAL RHS"
+                  className={inputCls} style={inputStyle}
                 />
               </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-[#0A183A] mb-2">
-                  {t.selectNewValue}
-                </label>
+
+              {/* Nuevo valor de vida */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Nuevo Valor de Vida</label>
                 <select
                   value={selectedVida}
                   onChange={(e) => setSelectedVida(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
+                  className={inputCls} style={inputStyle}
                 >
-                  {(() => {
-                    let lastIndex = 0;
-                    if (selectedTire.vida && selectedTire.vida.length > 0) {
-                      const lastValue = selectedTire.vida[selectedTire.vida.length - 1].valor.toLowerCase();
-                      const idx = allowedVida.indexOf(lastValue);
-                      lastIndex = idx === -1 ? 0 : idx;
-                    }
-                    let options: string[] = [];
-                    if (lastIndex === 0) {
-                      // From "nueva", allow only "reencauche1" and "fin"
-                      options = [allowedVida[1], allowedVida[allowedVida.length - 1]];
-                    } else if (lastIndex === 1) {
-                      // From "reencauche1", allow only "reencauche2" and "fin"
-                      options = [allowedVida[2], allowedVida[allowedVida.length - 1]];
-                    } else if (lastIndex === 2) {
-                      // From "reencauche2", allow only "reencauche3" and "fin"
-                      options = [allowedVida[3], allowedVida[allowedVida.length - 1]];
-                    } else if (lastIndex === 3) {
-                      // From "reencauche3", only "fin" remains.
-                      options = [allowedVida[4]];
-                    }
-                    return options.map((option) => (
-                      <option key={option} value={option}>
-                        {option.toUpperCase()}
-                      </option>
-                    ));
-                  })()}
+                  {nextOptions(currentVida(selectedTire)).map((opt) => (
+                    <option key={opt} value={opt}>{VIDA_LABELS[opt] ?? opt}</option>
+                  ))}
                 </select>
               </div>
 
-              {/* COSTO (only for any "reencaucheX") */}
-              {requiresCost(selectedVida) && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-[#0A183A] mb-2">
-                    {t.rechargeCost}
-                  </label>
+              {/* Costo (reencauche only) */}
+              {selectedVida.startsWith("reencauche") && (
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Costo del Reencauche (COP)</label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
-                      type="number"
-                      step="0.01"
-                      value={costValue}
-                      onChange={e => setCostValue(e.target.value)}
-                      className="w-full pl-10 px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
+                      type="number" step="0.01" value={costValue}
+                      onChange={(e) => setCostValue(e.target.value)}
                       placeholder="0.00"
+                      className={`${inputCls} pl-10`} style={inputStyle}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {t.enterValidCost}
-                  </p>
                 </div>
               )}
 
-              {/* PROFUNDIDAD INICIAL (only when NOT "fin") */}
-              {requiresProfundidad(selectedVida) && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-[#0A183A] mb-2">
-                    {t.initialDepth}
-                  </label>
+              {/* Profundidad inicial (not fin) */}
+              {selectedVida !== "fin" && (
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Profundidad Inicial (mm)</label>
                   <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={profundidadValue}
-                    onChange={(e) => setProfundidadValue(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
-                    placeholder="Ej: 12.0"
-                    required
+                    type="number" step="0.1" min="0" value={profValue}
+                    onChange={(e) => setProfValue(e.target.value)}
+                    placeholder="Ej. 12.0"
+                    className={inputCls} style={inputStyle}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {t.enterValidDepth}
-                  </p>
                 </div>
               )}
 
+              {/* Fin fields */}
               {selectedVida === "fin" && (
-  <>
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-[#0A183A] mb-2">
-        Causal del descarte
-      </label>
-      <input
-        type="text"
-        value={causalValue}
-        onChange={(e) => setCausalValue(e.target.value)}
-        className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
-        placeholder="Ej: Pinchazo irreparable"
-      />
-    </div>
+                <>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Causal del Descarte</label>
+                    <input
+                      type="text" value={causalValue}
+                      onChange={(e) => setCausalValue(e.target.value)}
+                      placeholder="Ej. Pinchazo irreparable"
+                      className={inputCls} style={inputStyle}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Milímetros Finales</label>
+                    <input
+                      type="number" step="0.1" value={mmValue}
+                      onChange={(e) => setMmValue(e.target.value)}
+                      placeholder="Ej. 3.5"
+                      className={inputCls} style={inputStyle}
+                    />
+                  </div>
+                </>
+              )}
 
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-[#0A183A] mb-2">
-        Milímetros finales
-      </label>
-      <input
-        type="number"
-        step="0.1"
-        value={milimetrosValue}
-        onChange={(e) => setMilimetrosValue(e.target.value)}
-        className="w-full px-3 py-2 border rounded-lg focus:ring-[#1E76B6] focus:outline-none focus:border-[#1E76B6] transition-all"
-        placeholder="Ej: 3.5"
-      />
-    </div>
-  </>
-)}
-
-
-              <div className="flex gap-3">
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
                 <button
                   onClick={closeModal}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-[#0A183A] rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-80"
+                  style={{ background: "rgba(10,24,58,0.05)", color: "#0A183A", border: "1px solid rgba(52,140,203,0.2)" }}
                 >
-                  {t.cancel}
+                  Cancelar
                 </button>
                 <button
-                  onClick={handleUpdateVida}
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 bg-[#0A183A] text-white rounded-lg hover:bg-[#173D68] transition-colors flex items-center justify-center gap-2"
+                  onClick={handleUpdate}
+                  disabled={saving || !nextOptions(currentVida(selectedTire)).length}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-black text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
                 >
-                  {loading ? (
-                    <>
-                      <Clock className="animate-spin h-4 w-4" />
-                      <span>{t.saving}</span>
-                    </>
-                  ) : t.update}
+                  {saving
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando…</>
+                    : "Actualizar"
+                  }
                 </button>
-                </div>
+              </div>
             </div>
-          </div>
-        )}
-      </main>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

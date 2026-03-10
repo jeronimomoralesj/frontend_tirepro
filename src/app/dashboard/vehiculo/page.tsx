@@ -1,8 +1,42 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Database, Trash2, X, Truck, Link2, Edit } from "lucide-react";
+import { Plus, Truck, Edit, Trash2, Link2, X, ChevronDown, Unlink } from "lucide-react";
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "https://api.tirepro.com.co/api";
+
+function authHeaders(): HeadersInit {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+const VEHICLE_TYPES: Record<string, string> = {
+  "2_ejes_trailer":  "Trailer 2 ejes",
+  "2_ejes_cabezote": "Cabezote 2 ejes",
+  "3_ejes_trailer":  "Trailer 3 ejes",
+  "1_eje_cabezote":  "Cabezote 1 eje",
+  furgon:            "Furgón",
+};
+
+// =============================================================================
+// Types
+// =============================================================================
 
 type Vehicle = {
   id: string;
@@ -12,753 +46,873 @@ type Vehicle = {
   pesoCarga: number;
   tipovhc: string;
   companyId: string;
-  tireCount: number;
-  union: string[];
   cliente: string | null;
+  union: string[];
+  _count: { tires: number };
 };
 
-export default function VehiculoPage() {
-  const router = useRouter();
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loadingVehicles, setLoadingVehicles] = useState(false);
-  const [error, setError] = useState("");
-  const [isFormOpen, setIsFormOpen] = useState(false);
+type VehicleFormData = {
+  placa: string;
+  kilometrajeActual: number | "";
+  carga: string;
+  pesoCarga: number | "";
+  tipovhc: string;
+  cliente: string;
+};
 
-  // State for delete confirmation modal
-  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
-  
-  // State for union deletion
-  const [unionToDelete, setUnionToDelete] = useState<{
-    sourceId: string;
-    targetPlaca: string;
-  } | null>(null);
+const BLANK_FORM: VehicleFormData = {
+  placa: "",
+  kilometrajeActual: "",
+  carga: "",
+  pesoCarga: "",
+  tipovhc: "2_ejes_trailer",
+  cliente: "",
+};
 
-  // State for editing
-  const [vehicleToEdit, setVehicleToEdit] = useState<Vehicle | null>(null);
-  const [editFormData, setEditFormData] = useState<{
-    placa: string;
-    kilometrajeActual: number;
-    carga: string;
-    pesoCarga: number;
-    tipovhc: string;
-    cliente: string;
-  }>({
-    placa: "",
-    kilometrajeActual: 0,
-    carga: "",
-    pesoCarga: 0,
-    tipovhc: "2_ejes_trailer",
-    cliente: ""
-  });
+// =============================================================================
+// Helpers
+// =============================================================================
 
-  // Form state for creating a vehicle
-  const [placa, setPlaca] = useState("");
-  const [kilometrajeActual, setKilometrajeActual] = useState<number>();
-  const [carga, setCarga] = useState("");
-  const [pesoCarga, setPesoCarga] = useState<number>();
-  const [tipovhc, setTipovhc] = useState("2_ejes_trailer");
-  const [cliente, setCliente] = useState("");
+function safeUnion(raw: unknown): string[] {
+  return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : [];
+}
 
-  // Union placa inputs per vehicle
-  const [plateInputs, setPlateInputs] = useState<{ [vehicleId: string]: string }>({});
-  
-  // Flag to show/hide union inputs
-  const [showUnionInput, setShowUnionInput] = useState<{ [key: string]: boolean }>({});
+function tireCount(v: Vehicle): number {
+  return v._count?.tires ?? 0;
+}
 
-  // Retrieve the companyId from stored user data
-  const [companyId, setCompanyId] = useState<string>("");
+function labelFor(tipovhc: string): string {
+  return VEHICLE_TYPES[tipovhc] ?? tipovhc ?? "Sin tipo";
+}
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") 
-    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
-    : "https://api.tirepro.com.co/api";
+function normalise(v: any): Vehicle {
+  return { ...v, union: safeUnion(v?.union) };
+}
 
-  // Vehicle type labels
-  const vehicleTypes = {
-    "2_ejes_trailer": "Trailer 2 ejes",
-    "2_ejes_cabezote": "Cabezote 2 ejes",
-    "3_ejes_trailer": "Trailer 3 ejes",
-    "1_eje_cabezote": "Cabezote 1 eje",
-    "furgon": "Furgón"
-  };
+// =============================================================================
+// Modal
+// =============================================================================
 
-  // Organize vehicles by their connections
-  const organizedVehicles = useMemo(() => {
-    const processed = new Set<string>();
-    const groups: Vehicle[][] = [];
-    
-    vehicles.forEach(vehicle => {
-      if (processed.has(vehicle.id)) return;
-      
-      const group: Vehicle[] = [vehicle];
-      processed.add(vehicle.id);
-      
-      if (vehicle.union && Array.isArray(vehicle.union) && vehicle.union.length > 0) {
-        vehicle.union.forEach(connectedPlaca => {
-          const connectedVehicle = vehicles.find(v => v.placa === connectedPlaca);
-          if (connectedVehicle && !processed.has(connectedVehicle.id)) {
-            group.push(connectedVehicle);
-            processed.add(connectedVehicle.id);
-          }
-        });
-      }
-      
-      groups.push(group);
-    });
-    
-    return groups;
-  }, [vehicles]);
+function Modal({
+  title,
+  onClose,
+  children,
+  danger,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  danger?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+           style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+        <div
+          className="px-6 py-4 flex justify-between items-center"
+          style={{
+            background: danger
+              ? "linear-gradient(135deg, #173D68 0%, #0A183A 100%)"
+              : "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)",
+          }}
+        >
+          <h2 className="font-semibold text-white text-sm tracking-wide uppercase">{title}</h2>
+          <button
+            onClick={onClose}
+            className="text-white/70 hover:text-white transition-colors rounded-lg p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.companyId) {
-          setCompanyId(user.companyId);
-          fetchVehicles(user.companyId);
-        } else {
-          setError("No se encontró companyId en el usuario");
-        }
-      } catch {
-        setError("Error al procesar datos del usuario");
-        router.push("/login");
-      }
-    } else {
-      router.push("/login");
-    }
-  }, [router]);
+// =============================================================================
+// Form field
+// =============================================================================
 
-  async function fetchVehicles(companyId: string) {
-    setLoadingVehicles(true);
-    setError("");
-    try {
-      const res = await fetch(`${API_BASE}/vehicles?companyId=${companyId}`);
-      if (!res.ok) throw new Error("Error al cargar vehículos");
-      
-      const data = await res.json();
-      const safeData = data.map(vehicle => ({
-        ...vehicle,
-        union: Array.isArray(vehicle.union) ? vehicle.union : [],
-      }));
-      
-      setVehicles(safeData);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error inesperado");
-    } finally {
-      setLoadingVehicles(false);
-    }
-  }
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-[#173D68] uppercase tracking-wider mb-1.5">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
 
-  async function handleCreateVehicle(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    
-    try {
-      const res = await fetch(`${API_BASE}/vehicles/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          placa: placa.toLowerCase(),
-          kilometrajeActual,
-          carga,
-          pesoCarga,
-          tipovhc,
-          companyId,
-          cliente: cliente.trim() || null  
-        }),
+const inputCls =
+  "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
+
+// =============================================================================
+// Vehicle form
+// =============================================================================
+
+function VehicleForm({
+  data,
+  onChange,
+  onSubmit,
+  onCancel,
+  label,
+  existingTireCount,
+}: {
+  data: VehicleFormData;
+  onChange: (d: VehicleFormData) => void;
+  onSubmit: (e: FormEvent) => void;
+  onCancel: () => void;
+  label: string;
+  existingTireCount?: number;
+}) {
+  const set =
+    (field: keyof VehicleFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const value = e.target.value;
+      onChange({
+        ...data,
+        [field]:
+          e.target.type === "number"
+            ? value === "" ? "" : Number(value)
+            : field === "placa"
+            ? value.toUpperCase()
+            : value,
       });
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Error al crear vehículo");
-      }
-      
-      const responseData = await res.json();
-      const newVehicle = responseData.vehicle;
-      
-      const safeVehicle = {
-        ...newVehicle,
-        union: Array.isArray(newVehicle.union) ? newVehicle.union : [],
-      };
-      
-      setVehicles((prev) => [...prev, safeVehicle]);
-      
-      // reset form
-      setPlaca("");
-      setKilometrajeActual(0);
-      setCarga("");
-      setPesoCarga(0);
-      setTipovhc("2_ejes_trailer");
-      setCliente("");
-      setIsFormOpen(false);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error inesperado");
-    }
-  }
+    };
 
-  async function handleEditVehicle(e: FormEvent) {
-    e.preventDefault();
-    if (!vehicleToEdit) return;
-    
-    setError("");
-    
-    try {
-      const res = await fetch(`${API_BASE}/vehicles/${vehicleToEdit.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          placa: editFormData.placa.toLowerCase(),
-          kilometrajeActual: editFormData.kilometrajeActual,
-          carga: editFormData.carga,
-          pesoCarga: editFormData.pesoCarga,
-          tipovhc: editFormData.tipovhc,
-          cliente: editFormData.cliente.trim() || null
-        }),
-      });
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Error al actualizar vehículo");
-      }
-      
-      const responseData = await res.json();
-      const updatedVehicle = responseData.vehicle;
-      
-      const safeVehicle = {
-        ...updatedVehicle,
-        union: Array.isArray(updatedVehicle.union) ? updatedVehicle.union : [],
-      };
-      
-      setVehicles((prev) => prev.map(v => v.id === safeVehicle.id ? safeVehicle : v));
-      setVehicleToEdit(null);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error inesperado");
-    }
-  }
-
-  function openEditModal(vehicle: Vehicle) {
-    setVehicleToEdit(vehicle);
-    setEditFormData({
-      placa: vehicle.placa,
-      kilometrajeActual: vehicle.kilometrajeActual,
-      carga: vehicle.carga,
-      pesoCarga: vehicle.pesoCarga,
-      tipovhc: vehicle.tipovhc,
-      cliente: vehicle.cliente || ""
-    });
-  }
-
-  async function handleDeleteVehicle(vehicleId: string) {
-    setError("");
-    try {
-      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Error al eliminar vehículo");
-      }
-      setVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error inesperado");
-    }
-  }
-
-  async function addUnion(vehicleId: string) {
-    const placaUnion = plateInputs[vehicleId]?.trim();
-    if (!placaUnion) return alert("Ingrese placa para unir");
-    try {
-      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/union/add`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ placa: placaUnion }),
-      });
-      if (!res.ok) throw new Error("Fallo al añadir unión");
-      const { vehicle: updated } = await res.json();
-      const safeVehicle = {
-        ...updated,
-        union: updated.union || []
-      };
-      setVehicles((vs) =>
-        vs.map((v) => (v.id === safeVehicle.id ? safeVehicle : v))
-      );
-      setPlateInputs((prev) => ({ ...prev, [vehicleId]: "" }));
-      setShowUnionInput((prev) => ({ ...prev, [vehicleId]: false }));
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error inesperado");
-    }
-  }
-
-  async function removeUnion(vehicleId: string, placaToRemove: string) {
-    try {
-      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/union/remove`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ placa: placaToRemove }),
-      });
-      if (!res.ok) throw new Error("Fallo al eliminar unión");
-      const { vehicle: updated } = await res.json();
-      const safeVehicle = {
-        ...updated,
-        union: updated.union || []
-      };
-      setVehicles((vs) =>
-        vs.map((v) => (v.id === safeVehicle.id ? safeVehicle : v))
-      );
-      setUnionToDelete(null);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error inesperado");
-    }
-  }
-
-  function toggleUnionInput(vehicleId: string) {
-    setShowUnionInput(prev => ({
-      ...prev,
-      [vehicleId]: !prev[vehicleId]
-    }));
-    
-    if (!plateInputs[vehicleId]) {
-      setPlateInputs(prev => ({
-        ...prev,
-        [vehicleId]: ""
-      }));
-    }
-  }
-
-  function handlePlateInputChange(vehicleId: string, value: string) {
-    setPlateInputs(prev => ({
-      ...prev,
-      [vehicleId]: value
-    }));
-  }
-
-  const VehicleCard = ({ vehicle, isConnected = false, connectionIndex = 0, onRemoveConnection = null }) => (
-    <div 
-      className="relative border border-[#348CCB]/20 rounded-lg shadow-md p-4 flex flex-col justify-between bg-white max-w-xs w-full "
-      style={{ zIndex: 5 }}
-    >
-      {isConnected && connectionIndex > 0 && onRemoveConnection && (
-        <div 
-          className="absolute left-0 top-1/2 transform -translate-x-full -translate-y-1/2 w-4 md:w-6 h-1 bg-[#1E76B6] cursor-pointer hover:bg-[#0A183A]"
-          onClick={onRemoveConnection}
+  return (
+    <form onSubmit={onSubmit} className="p-6 space-y-4">
+      <FieldRow label="Placa">
+        <input
+          type="text"
+          value={data.placa}
+          onChange={set("placa")}
+          required
+          placeholder="ABC123"
+          className={inputCls}
+          style={{ textTransform: "uppercase" }}
         />
-      )}
-      
-      <div className="space-y-2">
-        <div className="flex justify-between items-center border-b pb-2">
-          <span className="font-bold text-[#173D68]">{vehicle.placa?.toUpperCase() || "SIN PLACA"}</span>
-          <span className="bg-[#1E76B6]/10 text-[#1E76B6] px-2 py-1 rounded text-xs">
-            {vehicleTypes[vehicle.tipovhc] || vehicle.tipovhc || "Sin tipo"}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 pt-2 text-sm">
-          <span>Kilometraje:</span>
-          <span className="text-right">{vehicle.kilometrajeActual || 0} km</span>
-          <span>Carga:</span>
-          <span className="text-right">{vehicle.carga || "N/A"}</span>
-          <span>Peso:</span>
-          <span className="text-right">{vehicle.pesoCarga || 0} kg</span>
-          <span>Llantas:</span>
-          <span className="text-right">{vehicle.tireCount || 0}</span>
-          <span>Dueño:</span>
-          <span className="text-right">
-            {vehicle.cliente ? vehicle.cliente : "Propio"}
-          </span>
-          <span>Uniones:</span>
-          <span className="text-right">
-            {vehicle.union && Array.isArray(vehicle.union) && vehicle.union.length > 0 
-              ? vehicle.union.join(", ") 
-              : "Ninguna"}
-          </span>
-        </div>
+      </FieldRow>
+
+      <div className="grid grid-cols-2 gap-3">
+        <FieldRow label="Kilometraje">
+          <input
+            type="number"
+            value={data.kilometrajeActual}
+            onChange={set("kilometrajeActual")}
+            required
+            min={0}
+            className={inputCls}
+          />
+        </FieldRow>
+        <FieldRow label="Peso carga (kg)">
+          <input
+            type="number"
+            value={data.pesoCarga}
+            onChange={set("pesoCarga")}
+            required
+            min={0}
+            step="0.1"
+            className={inputCls}
+          />
+        </FieldRow>
       </div>
 
-      <div className="mt-4 space-y-2">
-        <div className="flex gap-2">
-          <button
-            onClick={() => openEditModal(vehicle)}
-            className="flex-1 bg-[#348CCB]/10 text-[#348CCB] px-3 py-2 rounded hover:bg-[#348CCB]/20 flex items-center justify-center"
+      <FieldRow label="Tipo de carga">
+        <input
+          type="text"
+          value={data.carga}
+          onChange={set("carga")}
+          required
+          placeholder="ej: gas, líquido, seco"
+          className={inputCls}
+        />
+      </FieldRow>
+
+      <FieldRow label="Tipo de vehículo">
+        <div className="relative">
+          <select
+            value={data.tipovhc}
+            onChange={set("tipovhc")}
+            required
+            className={`${inputCls} appearance-none pr-8`}
           >
-            <Edit className="w-4 h-4 mr-1" />
-            Editar
+            {Object.entries(VEHICLE_TYPES).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-[#1E76B6]" />
+        </div>
+      </FieldRow>
+
+      <FieldRow label="Dueño (opcional)">
+        <input
+          type="text"
+          value={data.cliente}
+          onChange={set("cliente")}
+          placeholder="Nombre del cliente"
+          className={inputCls}
+        />
+      </FieldRow>
+
+      {existingTireCount !== undefined && (
+        <div
+          className="flex items-center justify-between rounded-xl px-4 py-3 text-sm"
+          style={{ background: "linear-gradient(135deg, #EBF5FF, #DDEEFF)", border: "1px solid rgba(30,118,182,0.2)" }}
+        >
+          <span className="text-[#1E76B6] font-medium">Llantas asignadas</span>
+          <span className="font-bold text-[#173D68] text-lg">{existingTireCount}</span>
+        </div>
+      )}
+
+      <div className="flex gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 border border-[#348CCB]/40 px-4 py-2.5 rounded-xl text-sm text-[#1E76B6] font-medium hover:bg-[#F0F7FF] transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white font-semibold transition-all hover:opacity-90 active:scale-95"
+          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+        >
+          {label}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// =============================================================================
+// Stat pill
+// =============================================================================
+
+function StatPill({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-[#348CCB]/70">{label}</span>
+      <span className="text-sm font-semibold text-[#0A183A] mt-0.5 truncate">{value}</span>
+    </div>
+  );
+}
+
+// =============================================================================
+// Vehicle card
+// =============================================================================
+
+type CardProps = {
+  vehicle: Vehicle;
+  connectionIndex: number;
+  showUnion: boolean;
+  plateInput: string;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggleUnion: () => void;
+  onPlateChange: (v: string) => void;
+  onAddUnion: () => void;
+  onRemoveLeft: (() => void) | null;
+};
+
+function VehicleCard({
+  vehicle,
+  connectionIndex,
+  showUnion,
+  plateInput,
+  onEdit,
+  onDelete,
+  onToggleUnion,
+  onPlateChange,
+  onAddUnion,
+  onRemoveLeft,
+}: CardProps) {
+  const tc = tireCount(vehicle);
+
+  return (
+    <div
+      className="relative flex-shrink-0 flex flex-col"
+      style={{ width: "280px" }}
+    >
+      {/* Connector bar */}
+      {connectionIndex > 0 && (
+        <button
+          title="Eliminar conexión"
+          onClick={onRemoveLeft ?? undefined}
+          className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center group"
+          style={{ width: "36px", height: "24px", zIndex: 10 }}
+        >
+          <span
+            className="block h-0.5 w-full group-hover:bg-[#348CCB] transition-colors"
+            style={{ background: "rgba(30,118,182,0.5)" }}
+          />
+          <Unlink className="absolute hidden group-hover:block w-3.5 h-3.5 text-[#348CCB]" />
+        </button>
+      )}
+
+      <div
+        className="rounded-2xl overflow-hidden flex flex-col h-full"
+        style={{
+          background: "white",
+          border: "1px solid rgba(52,140,203,0.18)",
+          boxShadow: "0 4px 24px rgba(10,24,58,0.06), 0 1px 4px rgba(30,118,182,0.08)",
+        }}
+      >
+        {/* Card header */}
+        <div
+          className="px-5 py-4 flex items-start justify-between"
+          style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}
+        >
+          <div>
+            <p
+              className="font-black tracking-widest text-white"
+              style={{ fontSize: "22px", letterSpacing: "0.12em", fontFamily: "'DM Mono', monospace" }}
+            >
+              {vehicle.placa.toUpperCase()}
+            </p>
+            <p className="text-[#348CCB] text-xs font-medium mt-0.5">{labelFor(vehicle.tipovhc)}</p>
+          </div>
+          {/* Tire count badge */}
+          <div
+            className="flex flex-col items-center justify-center rounded-xl px-3 py-2"
+            style={{ background: "rgba(52,140,203,0.2)", minWidth: "52px" }}
+          >
+            <span className="text-2xl font-black text-white leading-none">{tc}</span>
+            <span className="text-[9px] text-[#348CCB] uppercase tracking-wider mt-0.5">llantas</span>
+          </div>
+        </div>
+
+        {/* Stats grid */}
+        <div className="px-5 py-4 grid grid-cols-2 gap-x-4 gap-y-3" style={{ background: "#F8FBFF" }}>
+          <StatPill label="Kilometraje" value={`${(vehicle.kilometrajeActual ?? 0).toLocaleString()} km`} />
+          <StatPill label="Peso carga" value={`${vehicle.pesoCarga ?? 0} kg`} />
+          <StatPill label="Tipo carga" value={vehicle.carga || "N/A"} />
+          <StatPill label="Dueño" value={vehicle.cliente ?? "Propio"} />
+          {vehicle.union.length > 0 && (
+            <div className="col-span-2">
+              <StatPill label="Conectado con" value={vehicle.union.map(p => p.toUpperCase()).join(", ")} />
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div
+          className="px-4 pb-4 pt-3 flex gap-2 mt-auto"
+          style={{ borderTop: "1px solid rgba(52,140,203,0.12)", background: "white" }}
+        >
+          <button
+            onClick={onEdit}
+            className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl transition-all hover:opacity-80"
+            style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
+          >
+            <Edit className="w-3 h-3" /> Editar
           </button>
           <button
-            onClick={() => toggleUnionInput(vehicle.id)}
-            className="flex-1 bg-[#1E76B6]/10 text-[#1E76B6] px-3 py-2 rounded hover:bg-[#1E76B6]/20 flex items-center justify-center"
+            onClick={onToggleUnion}
+            className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl transition-all hover:opacity-80"
+            style={{
+              background: showUnion
+                ? "rgba(30,118,182,0.18)"
+                : "rgba(52,140,203,0.08)",
+              color: "#1E76B6",
+              border: showUnion ? "1px solid rgba(30,118,182,0.3)" : "1px solid transparent",
+            }}
           >
-            Unir
+            <Link2 className="w-3 h-3" /> Unir
           </button>
           <button
-            onClick={() => setVehicleToDelete(vehicle)}
-            className="flex-1 bg-red-50 text-red-600 px-3 py-2 rounded hover:bg-red-100 flex items-center justify-center"
+            onClick={onDelete}
+            className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+            style={{ background: "rgba(10,24,58,0.06)", color: "#173D68" }}
           >
-            Eliminar
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {showUnionInput[vehicle.id] && (
-          <div className="flex space-x-2">
+        {/* Union input */}
+        {showUnion && (
+          <div
+            className="px-4 pb-4 flex gap-2"
+            style={{ background: "white", borderTop: "1px solid rgba(52,140,203,0.1)" }}
+          >
             <input
               type="text"
-              placeholder="Placa del otro vehículo"
-              value={plateInputs[vehicle.id] || ""}
-              onChange={(e) => handlePlateInputChange(vehicle.id, e.target.value)}
-              className="flex-1 px-2 py-1 border rounded-md"
+              placeholder="Placa a unir (ej: XYZ789)"
+              value={plateInput}
+              onChange={(e) => onPlateChange(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === "Enter" && onAddUnion()}
+              className={`${inputCls} flex-1 text-xs`}
+              style={{ textTransform: "uppercase" }}
             />
             <button
-              onClick={() => addUnion(vehicle.id)}
-              className="px-2 bg-[#1E76B6] text-white rounded hover:bg-[#173D68]"
+              onClick={onAddUnion}
+              className="px-3 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
             >
-              ➕
+              +
             </button>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+// =============================================================================
+// Page
+// =============================================================================
+
+export default function VehiculoPage() {
+  const router = useRouter();
+
+  const [vehicles, setVehicles]   = useState<Vehicle[]>([]);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
+  const [companyId, setCompanyId] = useState("");
+
+  const [showCreate, setShowCreate]           = useState(false);
+  const [vehicleToEdit, setVehicleToEdit]     = useState<Vehicle | null>(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+  const [unionToDelete, setUnionToDelete]     = useState<{ sourceId: string; targetPlaca: string } | null>(null);
+
+  const [createForm, setCreateForm] = useState<VehicleFormData>(BLANK_FORM);
+  const [editForm, setEditForm]     = useState<VehicleFormData>(BLANK_FORM);
+
+  const [showUnionInput, setShowUnionInput] = useState<Record<string, boolean>>({});
+  const [plateInputs, setPlateInputs]       = useState<Record<string, string>>({});
+
+  // ===========================================================================
+  // Data
+  // ===========================================================================
+
+  const fetchVehicles = useCallback(async (cId: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles?companyId=${cId}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error("Error al cargar vehículos");
+      const data: Vehicle[] = await res.json();
+      setVehicles(data.map(normalise));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const raw = localStorage.getItem("user");
+    if (!raw) { router.push("/login"); return; }
+    try {
+      const user = JSON.parse(raw);
+      if (!user.companyId) throw new Error();
+      setCompanyId(user.companyId);
+      fetchVehicles(user.companyId);
+    } catch {
+      router.push("/login");
+    }
+  }, [router, fetchVehicles]);
+
+  // ===========================================================================
+  // Grouping
+  // ===========================================================================
+
+  const groups = useMemo(() => {
+    const seen = new Set<string>();
+    const result: Vehicle[][] = [];
+    vehicles.forEach((v) => {
+      if (seen.has(v.id)) return;
+      const group: Vehicle[] = [v];
+      seen.add(v.id);
+      v.union.forEach((placa) => {
+        const peer = vehicles.find((x) => x.placa.toUpperCase() === placa.toUpperCase());
+        if (peer && !seen.has(peer.id)) { group.push(peer); seen.add(peer.id); }
+      });
+      result.push(group);
+    });
+    return result;
+  }, [vehicles]);
+
+  const connectedGroups = groups.filter((g) => g.length > 1);
+  const singleVehicles  = groups.filter((g) => g.length === 1).map((g) => g[0]);
+
+  // ===========================================================================
+  // CRUD
+  // ===========================================================================
+
+  async function handleCreate(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/create`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          ...createForm,
+          placa:   createForm.placa.trim().toUpperCase(),
+          cliente: createForm.cliente.trim() || null,
+          companyId,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Error al crear");
+      const vehicle = await res.json();
+      setVehicles((prev) => [...prev, normalise(vehicle)]);
+      setCreateForm(BLANK_FORM);
+      setShowCreate(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    }
+  }
+
+  function openEdit(vehicle: Vehicle) {
+    setVehicleToEdit(vehicle);
+    setEditForm({
+      placa:             vehicle.placa.toUpperCase(),
+      kilometrajeActual: vehicle.kilometrajeActual,
+      carga:             vehicle.carga,
+      pesoCarga:         vehicle.pesoCarga,
+      tipovhc:           vehicle.tipovhc,
+      cliente:           vehicle.cliente ?? "",
+    });
+  }
+
+  async function handleEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!vehicleToEdit) return;
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicleToEdit.id}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          ...editForm,
+          placa:   editForm.placa.trim().toUpperCase(),
+          cliente: editForm.cliente.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Error al editar");
+      const vehicle = await res.json();
+      setVehicles((prev) => prev.map((v) => v.id === vehicle.id ? normalise(vehicle) : v));
+      setVehicleToEdit(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Error al eliminar");
+      setVehicles((prev) => prev.filter((v) => v.id !== id));
+      setVehicleToDelete(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    }
+  }
+
+  async function handleAddUnion(vehicleId: string) {
+    const placa = plateInputs[vehicleId]?.trim().toUpperCase();
+    if (!placa) return;
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/union/add`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ placa }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Error al unir");
+      const vehicle = await res.json();
+      setVehicles((prev) => prev.map((v) => v.id === vehicle.id ? normalise(vehicle) : v));
+      setPlateInputs((p) => ({ ...p, [vehicleId]: "" }));
+      setShowUnionInput((p) => ({ ...p, [vehicleId]: false }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    }
+  }
+
+  async function handleRemoveUnion(sourceId: string, targetPlaca: string) {
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${sourceId}/union/remove`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ placa: targetPlaca }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Error al eliminar unión");
+      const vehicle = await res.json();
+      setVehicles((prev) => prev.map((v) => v.id === vehicle.id ? normalise(vehicle) : v));
+      setUnionToDelete(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    }
+  }
+
+  // ===========================================================================
+  // Render card
+  // ===========================================================================
+
+  function renderCard(vehicle: Vehicle, indexInGroup: number, onRemoveLeft: (() => void) | null) {
+    return (
+      <VehicleCard
+        key={vehicle.id}
+        vehicle={vehicle}
+        connectionIndex={indexInGroup}
+        showUnion={!!showUnionInput[vehicle.id]}
+        plateInput={plateInputs[vehicle.id] ?? ""}
+        onEdit={() => openEdit(vehicle)}
+        onDelete={() => setVehicleToDelete(vehicle)}
+        onToggleUnion={() => setShowUnionInput((p) => ({ ...p, [vehicle.id]: !p[vehicle.id] }))}
+        onPlateChange={(val) => setPlateInputs((p) => ({ ...p, [vehicle.id]: val }))}
+        onAddUnion={() => handleAddUnion(vehicle.id)}
+        onRemoveLeft={onRemoveLeft}
+      />
+    );
+  }
+
+  // ===========================================================================
+  // JSX
+  // ===========================================================================
 
   return (
-    <div className="min-h-screen text-[#0A183A] antialiased bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-2xl md:text-3xl font-bold">Gestión de Vehículos</h1>
-          <button
-            onClick={() => setIsFormOpen(!isFormOpen)}
-            className="bg-[#1E76B6] text-white px-4 py-2 rounded-lg hover:bg-[#348CCB] flex items-center"
+    <div className="min-h-screen antialiased" style={{ background: "#ffff", color: "#0A183A" }}>
+
+      {/* Top bar */}
+      <div
+        className="sticky top-0 z-40 px-6 py-4 flex items-center justify-between"
+        style={{
+          background: "rgba(240,246,255,0.85)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(52,140,203,0.15)",
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="p-2 rounded-xl"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
           >
-            <Plus className="w-5 h-5 mr-2" />
-            Añadir Vehículo
-          </button>
-        </header>
+            <Truck className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
+              Gestión de Vehículos
+            </h1>
+            <p className="text-xs text-[#348CCB] mt-0.5">
+              {vehicles.length} vehículo{vehicles.length !== 1 ? "s" : ""} registrado{vehicles.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
 
+        <button
+          onClick={() => { setCreateForm(BLANK_FORM); setShowCreate(true); }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95 shadow-lg"
+          style={{
+            background: "linear-gradient(135deg, #1E76B6, #173D68)",
+            boxShadow: "0 4px 16px rgba(30,118,182,0.35)",
+          }}
+        >
+          <Plus className="w-4 h-4" />
+          Añadir Vehículo
+        </button>
+      </div>
+
+      <div className="px-6 py-8 max-w-screen-2xl mx-auto">
+
+        {/* Error */}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+          <div
+            className="mb-6 px-4 py-3 rounded-xl flex items-center justify-between text-sm font-medium"
+            style={{
+              background: "rgba(10,24,58,0.06)",
+              border: "1px solid rgba(30,118,182,0.3)",
+              color: "#173D68",
+            }}
+          >
+            <span>{error}</span>
+            <button onClick={() => setError("")} className="hover:opacity-70 transition-opacity ml-4">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
-        <section className="bg-white shadow-lg rounded-lg border border-[#348CCB]/20">
-          <div className="px-4 py-4 bg-[#173D68] text-white flex items-center rounded-t-lg">
-            <h2 className="text-lg font-semibold">Lista de Vehículos</h2>
+        {/* Loading */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
+            <div
+              className="w-12 h-12 rounded-full border-4 border-[#348CCB]/20 border-t-[#1E76B6] animate-spin"
+            />
+            <p className="text-[#348CCB] text-sm font-medium">Cargando vehículos…</p>
           </div>
-
-          {loadingVehicles ? (
-            <div className="flex justify-center items-center p-8">
-              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#1E76B6]"></div>
+        ) : vehicles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
+            <div
+              className="p-6 rounded-3xl"
+              style={{ background: "rgba(30,118,182,0.08)" }}
+            >
+              <Truck className="w-16 h-16 text-[#348CCB]/40" />
             </div>
-          ) : vehicles.length === 0 ? (
-            <div className="text-center p-8 text-gray-500">
-              <Truck className="mx-auto h-12 w-12 text-[#348CCB]/50 mb-3" />
-              <p>No se encontraron vehículos.</p>
-            </div>
-          ) : (
-            <div className="p-4 space-y-8">
-              {organizedVehicles.filter(group => group.length > 1).map((group, groupIndex) => (
-                <div key={`connected-group-${groupIndex}`} className="mb-8">
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Vehículos Conectados</h3>
-                  <div className="flex flex-row flex-nowrap overflow-x-auto pb-4">
-                    {group.map((vehicle, vehicleIndex) => (
-                      <div 
-                        key={vehicle.id}
-                        className={`${vehicleIndex > 0 ? 'ml-8' : ''} flex-shrink-0`}
-                      >
-                        <VehicleCard 
-                          vehicle={vehicle} 
-                          isConnected={true}
-                          connectionIndex={vehicleIndex}
-                          onRemoveConnection={vehicleIndex > 0 ? () => {
-                            const currentVehicle = vehicle;
-                            const previousVehicle = group[vehicleIndex - 1];
-                            
-                            if (previousVehicle.union && Array.isArray(previousVehicle.union) && 
-                                previousVehicle.union.includes(currentVehicle.placa)) {
-                              setUnionToDelete({
-                                sourceId: previousVehicle.id,
-                                targetPlaca: currentVehicle.placa
-                              });
-                            } else if (currentVehicle.union && Array.isArray(currentVehicle.union) && 
-                                      currentVehicle.union.includes(previousVehicle.placa)) {
-                              setUnionToDelete({
-                                sourceId: currentVehicle.id,
-                                targetPlaca: previousVehicle.placa
-                              });
-                            }
-                          } : null}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              
-              {organizedVehicles.filter(group => group.length === 1).length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Vehículos Individuales</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {organizedVehicles
-                      .filter(group => group.length === 1)
-                      .map((group) => (
-                        <VehicleCard key={`single-${group[0].id}`} vehicle={group[0]} />
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-
-        {/* Create Vehicle Modal */}
-        {isFormOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
-              <div className="bg-[#173D68] text-white p-4 flex justify-between items-center rounded-t-lg">
-                <h2>Crear Vehículo</h2>
-                <button onClick={() => setIsFormOpen(false)}>
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <form onSubmit={handleCreateVehicle} className="p-4 space-y-4">
-                <div>
-                  <label className="block mb-1">Placa</label>
-                  <input
-                    type="text"
-                    value={placa}
-                    onChange={(e) => setPlaca(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1">Kilometraje Actual</label>
-                  <input
-                    type="number"
-                    value={kilometrajeActual}
-                    onChange={(e) => setKilometrajeActual(parseInt(e.target.value) || 0)}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1">Carga (ej: gas, liquido)</label>
-                  <input
-                    type="text"
-                    value={carga}
-                    onChange={(e) => setCarga(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1">Peso de Carga (kg)</label>
-                  <input
-                    type="number"
-                    value={pesoCarga}
-                    onChange={(e) => setPesoCarga(parseFloat(e.target.value) || 0)}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1">Tipo de Vehículo</label>
-                  <select
-                    value={tipovhc}
-                    onChange={(e) => setTipovhc(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  >
-                    <option value="2_ejes_trailer">Trailer 2 ejes</option>
-                    <option value="2_ejes_cabezote">Cabezote 2 ejes</option>
-                    <option value="3_ejes_trailer">Trailer 3 ejes</option>
-                    <option value="1_eje_cabezote">Cabezote 1 eje</option>
-                    <option value="furgon">Furgón</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block mb-1">Dueño (opcional)</label>
-                  <input
-                    type="text"
-                    value={cliente}
-                    onChange={e => setCliente(e.target.value)}
-                    placeholder="Nombre del cliente"
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsFormOpen(false)}
-                    className="flex-1 border px-4 py-2 rounded"
-                  >
-                    Cancelar
-                  </button>
-                  <button type="submit" className="flex-1 bg-[#1E76B6] text-white px-4 py-2 rounded">
-                    Crear
-                  </button>
-                </div>
-              </form>
-            </div>
+            <p className="text-[#173D68] text-lg font-bold">Sin vehículos registrados</p>
+            <p className="text-[#348CCB] text-sm">Usa el botón de arriba para añadir tu primer vehículo</p>
           </div>
-        )}
+        ) : (
+          <div className="space-y-12">
 
-        {/* Edit Vehicle Modal */}
-        {vehicleToEdit && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
-              <div className="bg-[#348CCB] text-white p-4 flex justify-between items-center rounded-t-lg">
-                <h2>Editar Vehículo</h2>
-                <button onClick={() => setVehicleToEdit(null)}>
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <form onSubmit={handleEditVehicle} className="p-4 space-y-4">
-                <div>
-                  <label className="block mb-1">Placa</label>
-                  <input
-                    type="text"
-                    value={editFormData.placa}
-                    onChange={(e) => setEditFormData({ ...editFormData, placa: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
+            {/* Connected groups */}
+            {connectedGroups.length > 0 && (
+              <section>
+                <SectionLabel icon="🔗">Vehículos Conectados</SectionLabel>
+                <div className="space-y-6">
+                  {connectedGroups.map((group, gi) => (
+                    <div
+                      key={`group-${gi}`}
+                      className="flex flex-row flex-nowrap overflow-x-auto pb-3 items-center"
+                      style={{ gap: "36px" }}
+                    >
+                      {group.map((vehicle, vi) =>
+                        renderCard(
+                          vehicle,
+                          vi,
+                          vi > 0
+                            ? () => {
+                                const prev = group[vi - 1];
+                                const src  = prev.union.some(p => p.toUpperCase() === vehicle.placa.toUpperCase()) ? prev : vehicle;
+                                const tgt  = src === prev ? vehicle.placa.toUpperCase() : prev.placa.toUpperCase();
+                                setUnionToDelete({ sourceId: src.id, targetPlaca: tgt });
+                              }
+                            : null
+                        )
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className="block mb-1">Kilometraje Actual</label>
-                  <input
-                    type="number"
-                    value={editFormData.kilometrajeActual}
-                    onChange={(e) => setEditFormData({ ...editFormData, kilometrajeActual: parseInt(e.target.value) || 0 })}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1">Carga</label>
-                  <input
-                    type="text"
-                    value={editFormData.carga}
-                    onChange={(e) => setEditFormData({ ...editFormData, carga: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1">Peso de Carga (kg)</label>
-                  <input
-                    type="number"
-                    value={editFormData.pesoCarga}
-                    onChange={(e) => setEditFormData({ ...editFormData, pesoCarga: parseFloat(e.target.value) || 0 })}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1">Tipo de Vehículo</label>
-                  <select
-                    value={editFormData.tipovhc}
-                    onChange={(e) => setEditFormData({ ...editFormData, tipovhc: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border rounded-md"
-                  >
-                    <option value="2_ejes_trailer">Trailer 2 ejes</option>
-                    <option value="2_ejes_cabezote">Cabezote 2 ejes</option>
-                    <option value="3_ejes_trailer">Trailer 3 ejes</option>
-                    <option value="1_eje_cabezote">Cabezote 1 eje</option>
-                    <option value="furgon">Furgón</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block mb-1">Dueño (opcional)</label>
-                  <input
-                    type="text"
-                    value={editFormData.cliente}
-                    onChange={(e) => setEditFormData({ ...editFormData, cliente: e.target.value })}
-                    placeholder="Nombre del cliente"
-                    className="w-full px-3 py-2 border rounded-md"
-                  />
-                </div>
-                <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Llantas:</span>
-                    <span className="font-semibold text-gray-900">{vehicleToEdit.tireCount || 0}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">No se puede editar manualmente</p>
-                </div>
+              </section>
+            )}
 
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setVehicleToEdit(null)}
-                    className="flex-1 border px-4 py-2 rounded"
-                  >
-                    Cancelar
-                  </button>
-                  <button type="submit" className="flex-1 bg-[#348CCB] text-white px-4 py-2 rounded hover:bg-[#1E76B6]">
-                    Guardar Cambios
-                  </button>
+            {/* Individual */}
+            {singleVehicles.length > 0 && (
+              <section>
+                <SectionLabel>Vehículos Individuales</SectionLabel>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  {singleVehicles.map((v) => renderCard(v, 0, null))}
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
+              </section>
+            )}
 
-        {/* Delete Vehicle Modal */}
-        {vehicleToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full p-6">
-              <h3 className="text-lg mb-4">¿Eliminar {vehicleToDelete.placa?.toUpperCase() || "este vehículo"}?</h3>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setVehicleToDelete(null)}
-                  className="px-4 py-2 border rounded"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={async () => {
-                    await handleDeleteVehicle(vehicleToDelete.id);
-                    setVehicleToDelete(null);
-                  }}
-                  className="px-4 py-2 bg-red-600 text-white rounded"
-                >
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Delete Union Modal */}
-        {unionToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full p-6">
-              <h3 className="text-lg mb-4">¿Eliminar conexión?</h3>
-              <p className="mb-4 text-gray-600">
-                ¿Está seguro que desea eliminar esta conexión entre vehículos?
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setUnionToDelete(null)}
-                  className="px-4 py-2 border rounded"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={async () => {
-                    if (unionToDelete) {
-                      await removeUnion(unionToDelete.sourceId, unionToDelete.targetPlaca);
-                    }
-                  }}
-                  className="px-4 py-2 bg-[#1E76B6] text-white rounded"
-                >
-                  Eliminar Conexión
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
+
+      {/* ── Modals ── */}
+
+      {showCreate && (
+        <Modal title="Nuevo Vehículo" onClose={() => setShowCreate(false)}>
+          <VehicleForm
+            data={createForm}
+            onChange={setCreateForm}
+            onSubmit={handleCreate}
+            onCancel={() => setShowCreate(false)}
+            label="Crear Vehículo"
+          />
+        </Modal>
+      )}
+
+      {vehicleToEdit && (
+        <Modal title="Editar Vehículo" onClose={() => setVehicleToEdit(null)}>
+          <VehicleForm
+            data={editForm}
+            onChange={setEditForm}
+            onSubmit={handleEdit}
+            onCancel={() => setVehicleToEdit(null)}
+            label="Guardar Cambios"
+            existingTireCount={tireCount(vehicleToEdit)}
+          />
+        </Modal>
+      )}
+
+      {vehicleToDelete && (
+        <Modal title="Confirmar Eliminación" onClose={() => setVehicleToDelete(null)} danger>
+          <div className="p-6 space-y-5">
+            <div
+              className="rounded-xl p-4 text-sm"
+              style={{ background: "rgba(10,24,58,0.04)", border: "1px solid rgba(30,118,182,0.15)" }}
+            >
+              <p className="text-[#173D68]">
+                ¿Eliminar el vehículo{" "}
+                <span className="font-black text-[#0A183A] tracking-widest">
+                  {vehicleToDelete.placa.toUpperCase()}
+                </span>
+                ?
+              </p>
+              <p className="text-[#348CCB] text-xs mt-1">Sus llantas quedarán sin asignar.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setVehicleToDelete(null)}
+                className="flex-1 border border-[#348CCB]/30 px-4 py-2.5 rounded-xl text-sm text-[#1E76B6] font-medium hover:bg-[#F0F7FF] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDelete(vehicleToDelete.id)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white font-semibold transition-all hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #173D68, #0A183A)" }}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {unionToDelete && (
+        <Modal title="Eliminar Conexión" onClose={() => setUnionToDelete(null)}>
+          <div className="p-6 space-y-5">
+            <div
+              className="rounded-xl p-4 text-sm"
+              style={{ background: "rgba(10,24,58,0.04)", border: "1px solid rgba(30,118,182,0.15)" }}
+            >
+              <p className="text-[#173D68]">
+                ¿Eliminar la conexión con{" "}
+                <span className="font-black text-[#0A183A] tracking-widest">
+                  {unionToDelete.targetPlaca.toUpperCase()}
+                </span>
+                ?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setUnionToDelete(null)}
+                className="flex-1 border border-[#348CCB]/30 px-4 py-2.5 rounded-xl text-sm text-[#1E76B6] font-medium hover:bg-[#F0F7FF] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleRemoveUnion(unionToDelete.sourceId, unionToDelete.targetPlaca)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white font-semibold transition-all hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+              >
+                Eliminar Conexión
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function SectionLabel({ children, icon }: { children: React.ReactNode; icon?: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-5">
+      {icon && <span className="text-base">{icon}</span>}
+      <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-[0.15em]">{children}</p>
+      <div className="flex-1 h-px" style={{ background: "rgba(52,140,203,0.2)" }} />
     </div>
   );
 }

@@ -1,39 +1,36 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Search,
-  Car,
-  X,
-  Info,
-  ChevronDown,
-  Eye,
-  Circle,
-  BarChart3,
-  Calendar,
-  Ruler,
-  Repeat,
-  Trash2Icon,
-  Building2,
-  Pencil,
+  Search, Car, X, Info, ChevronDown, Eye, BarChart3,
+  Calendar, Ruler, Repeat, Trash2Icon, Building2, Loader2,
+  AlertCircle, Pencil, CheckCircle2, Circle, TrendingUp,
 } from "lucide-react";
+
+// =============================================================================
+// Types
+// =============================================================================
 
 export type Inspection = {
   profundidadInt: number;
   profundidadCen: number;
   profundidadExt: number;
-  cpk?: number;
-  cpkProyectado?: number;
-  cpt?: number;
-  cptProyectado?: number;
-  imageUrl?: string;
+  cpk?: number | null;
+  cpkProyectado?: number | null;
+  cpt?: number | null;
+  cptProyectado?: number | null;
+  imageUrl?: string | null;
   fecha: string;
-  kilometrosRecorridos?: number;
-  mesesEnUso?: number;
-  diasEnUso?: number;
-  kmActualVehiculo?: number;
-  kmProyectado?: number;
+  kilometrosEstimados?: number | null;
+  mesesEnUso?: number | null;
+  diasEnUso?: number | null;
+  kmActualVehiculo?: number | null;
+  kmProyectado?: number | null;
 };
+
+export type CostEntry = { valor: number; fecha: string };
+
+export type VidaEntry = { valor: string; fecha: string };
 
 export type Tire = {
   id: string;
@@ -43,17 +40,22 @@ export type Tire = {
   profundidadInicial: number;
   dimension: string;
   eje: string;
-  costo: { valor: number; fecha: string }[];
+  costos: CostEntry[];
+  // legacy field kept for modal cost display
+  costo?: CostEntry[];
   posicion: number;
   inspecciones?: Inspection[];
   primeraVida?: Array<{ cpk?: number }>;
   kilometrosRecorridos: number;
-  eventos?: { valor: string; fecha: string }[];
-  tipovhc?: string;
-  vida: { valor: string; fecha: string }[];
+  eventos?: { tipo: string; fecha: string; notas?: string | null }[];
+  vida?: VidaEntry[];
   companyId: string;
   fechaInstalacion?: string;
   diasAcumulados?: number;
+  alertLevel?: string;
+  healthScore?: number | null;
+  currentProfundidad?: number | null;
+  projectedKmRemaining?: number | null;
 };
 
 export type Vehicle = {
@@ -69,625 +71,576 @@ interface Company {
   name: string;
 }
 
-// Language texts
-const texts = {
-  es: {
-    searchTire: "Buscar Llanta",
-    searchDescription: "Busque por cliente y placa de vehículo",
-    selectClient: "Seleccionar Cliente",
-    allClients: "Todos los Clientes",
-    vehiclePlate: "Placa de Vehículo",
-    enterPlate: "Ingrese la placa del vehículo",
-    search: "Buscar",
-    loading: "Cargando datos...",
-    enterValue: "Por favor seleccione un cliente e ingrese una placa",
-    pleaseSelectClient: "Por favor seleccione un cliente",
-    companyNotFound: "No se encontraron clientes",
-    vehicleNotFound: "Vehículo no encontrado en este cliente",
-    tireNotFound: "No se encontraron llantas",
-    errorTires: "Error al obtener las llantas",
-    unexpectedError: "Error inesperado",
-    tireFound: "Llanta Encontrada",
-    tiresFound: "Llantas Encontradas",
-    viewDetails: "Ver Detalles",
-    tireDetails: "Detalles de la Llanta",
-    brand: "Marca",
-    position: "Posición",
-    dimension: "Dimensión",
-    axis: "Eje",
-    lifeHistory: "Historial de Vida",
-    lifePhases: "Fases de Vida",
-    detailedInfo: "Información Detallada",
-    characteristics: "Características",
-    costAnalysis: "Análisis de costos",
-    design: "Diseño",
-    initialDepth: "Profundidad Inicial",
-    kmTraveled: "Km Recorridos",
-    currentStatus: "Estado Actual",
-    projectedKm: "Kilometraje proyectado",
-    lastCost: "Último Costo",
-    recentEvents: "Eventos Recientes",
-    inspectionHistory: "Historial de Inspecciones",
-    date: "Fecha",
-    innerDepth: "Prof. Interior",
-    centerDepth: "Prof. Central",
-    outerDepth: "Prof. Exterior",
-    image: "Imagen",
-    notAvailable: "No disponible",
-    close: "Cerrar",
-    deleteConfirm: "¿Estás seguro que quieres borrar esta inspección?",
-    deleteError: "No se pudo eliminar la inspección",
-    lastInspection: "Última inspección",
-    new: "Nueva",
-    retread1: "Primer Reencauche",
-    retread2: "Segundo Reencauche",
-    retread3: "Tercer Reencauche",
-    discard: "Descartada",
-    notRegistered: "No Registrada",
-    cpk: "CPK",
-    projectedCpk: "CPK Proyectado",
-    client: "Cliente",
-    searchClient: "Buscar cliente...",
-    noClientsFound: "No se encontraron clientes",
-  }
+// =============================================================================
+// Constants
+// =============================================================================
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+    : "https://api.tirepro.com.co/api";
+
+const VIDA_SET = new Set(["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"]);
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  return fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+/** Extract vida entries from eventos array (normalized backend shape) */
+function extractVida(eventos?: Tire["eventos"]): VidaEntry[] {
+  if (!eventos?.length) return [];
+  return eventos
+    .filter((e) => e.notas && VIDA_SET.has(e.notas.toLowerCase()))
+    .map((e) => ({ valor: e.notas!.toLowerCase(), fecha: e.fecha }));
+}
+
+/** Normalize a raw tire from the API into consistent shape */
+function normalizeTire(raw: any): Tire {
+  const costos: CostEntry[] = (raw.costos ?? []).map((c: any) => ({
+    valor: c.valor ?? 0,
+    fecha: c.fecha instanceof Date ? c.fecha.toISOString() : String(c.fecha ?? ""),
+  }));
+
+  const inspecciones: Inspection[] = (raw.inspecciones ?? []).map((i: any) => ({
+    fecha: i.fecha instanceof Date ? i.fecha.toISOString() : String(i.fecha ?? ""),
+    profundidadInt: i.profundidadInt ?? 0,
+    profundidadCen: i.profundidadCen ?? 0,
+    profundidadExt: i.profundidadExt ?? 0,
+    cpk: i.cpk ?? null,
+    cpkProyectado: i.cpkProyectado ?? null,
+    cpt: i.cpt ?? null,
+    cptProyectado: i.cptProyectado ?? null,
+    kilometrosEstimados: i.kilometrosEstimados ?? null,
+    mesesEnUso: i.mesesEnUso ?? null,
+    diasEnUso: i.diasEnUso ?? null,
+    kmActualVehiculo: i.kmActualVehiculo ?? null,
+    kmProyectado: i.kmProyectado ?? null,
+    imageUrl: i.imageUrl ?? null,
+  }));
+
+  const vida: VidaEntry[] = raw.vida ?? extractVida(raw.eventos);
+
+  return { ...raw, costos, costo: costos, inspecciones, vida };
+}
+
+const VIDA_LABELS: Record<string, { text: string; bg: string; dot: string }> = {
+  nueva:       { text: "Nueva",         bg: "rgba(52,140,203,0.12)", dot: "#348CCB" },
+  reencauche1: { text: "Reencauche 1",  bg: "rgba(30,118,182,0.12)", dot: "#1E76B6" },
+  reencauche2: { text: "Reencauche 2",  bg: "rgba(23,61,104,0.12)",  dot: "#173D68" },
+  reencauche3: { text: "Reencauche 3",  bg: "rgba(10,24,58,0.12)",   dot: "#0A183A" },
+  fin:         { text: "Descartada",    bg: "rgba(220,38,38,0.08)",  dot: "#DC2626" },
 };
+
+function vidaLabel(val: string) {
+  return VIDA_LABELS[val.toLowerCase()] ?? { text: val, bg: "rgba(52,140,203,0.08)", dot: "#348CCB" };
+}
+
+function depthColor(d: number): string {
+  if (d >= 6) return "#22c55e";
+  if (d >= 3) return "#f59e0b";
+  return "#ef4444";
+}
+
+function depthBg(d: number): string {
+  if (d >= 6) return "rgba(34,197,94,0.12)";
+  if (d >= 3) return "rgba(245,158,11,0.12)";
+  return "rgba(239,68,68,0.12)";
+}
+
+function alertStyle(level?: string): { color: string; bg: string; label: string } {
+  switch (level) {
+    case "critical": return { color: "#DC2626", bg: "rgba(220,38,38,0.08)", label: "Crítico" };
+    case "warning":  return { color: "#D97706", bg: "rgba(217,119,6,0.08)",  label: "Precaución" };
+    case "watch":    return { color: "#1E76B6", bg: "rgba(30,118,182,0.08)", label: "Vigilar" };
+    default:         return { color: "#22c55e", bg: "rgba(34,197,94,0.08)",  label: "OK" };
+  }
+}
+
+// =============================================================================
+// Design-system micro-components (matching DistribuidorPage)
+// =============================================================================
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{
+        background: "white",
+        border: "1px solid rgba(52,140,203,0.15)",
+        boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+        <Icon className="w-4 h-4 text-[#1E76B6]" />
+      </div>
+      <h2 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h2>
+    </div>
+  );
+}
+
+function Badge({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold"
+      style={style}
+    >
+      {children}
+    </span>
+  );
+}
+
+// =============================================================================
+// Main component
+// =============================================================================
 
 const BuscarDist: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [language] = useState<'es'>('es');
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string>("");
-  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
-  const [companySearchTerm, setCompanySearchTerm] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
-// ── Add to your state declarations ──
-const [editMode, setEditMode] = useState(false);
-const [editForm, setEditForm] = useState<{
-  marca: string;
-  diseno: string;
-  dimension: string;
-  eje: string;
-  kilometrosRecorridos: number;
-  profundidadInicial: number;
-}>({
-  marca: '', diseno: '', dimension: '', eje: '',
-  kilometrosRecorridos: 0, profundidadInicial: 0,
-});
-const [editingInspection, setEditingInspection] = useState<{
-  fecha: string;
-  profundidadInt: number;
-  profundidadCen: number;
-  profundidadExt: number;
-} | null>(null);
-const [editingCosto, setEditingCosto] = useState<{
-  fecha: string;
-  newValor: number;
-} | null>(null);
-const [editLoading, setEditLoading] = useState(false);
-const [editSuccess, setEditSuccess] = useState('');
+  const [searchTerm, setSearchTerm]           = useState("");
+  const [tires, setTires]                     = useState<Tire[]>([]);
+  const [error, setError]                     = useState("");
+  const [loading, setLoading]                 = useState(false);
+  const [selectedTire, setSelectedTire]       = useState<Tire | null>(null);
+  const [showModal, setShowModal]             = useState(false);
+  const [companies, setCompanies]             = useState<Company[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [showDropdown, setShowDropdown]       = useState(false);
+  const [companySearch, setCompanySearch]     = useState("");
+  const dropdownRef                           = useRef<HTMLDivElement>(null);
 
-// ── Add this helper to open edit mode ──
-const openEditMode = (tire: Tire) => {
-  setEditForm({
-    marca: tire.marca,
-    diseno: tire.diseno,
-    dimension: tire.dimension,
-    eje: tire.eje,
-    kilometrosRecorridos: tire.kilometrosRecorridos,
-    profundidadInicial: tire.profundidadInicial,
-  });
-  setEditingInspection(null);
-  setEditingCosto(null);
-  setEditSuccess('');
-  setEditMode(true);
-};
+  // Edit state
+  const [editMode, setEditMode]               = useState(false);
+  const [editForm, setEditForm]               = useState({ marca: "", diseno: "", dimension: "", eje: "", kilometrosRecorridos: 0, profundidadInicial: 0 });
+  const [editingInsp, setEditingInsp]         = useState<{ fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number } | null>(null);
+  const [editingCosto, setEditingCosto]       = useState<{ fecha: string; newValor: number } | null>(null);
+  const [editLoading, setEditLoading]         = useState(false);
+  const [editSuccess, setEditSuccess]         = useState("");
 
-// ── Main edit submit ──
-const handleEditSubmit = async () => {
-  if (!selectedTire) return;
-  setEditLoading(true);
-  setEditSuccess('');
-  try {
-    const payload: any = {
-      marca: editForm.marca,
-      diseno: editForm.diseno,
-      dimension: editForm.dimension,
-      eje: editForm.eje,
-      kilometrosRecorridos: editForm.kilometrosRecorridos,
-      profundidadInicial: editForm.profundidadInicial,
-    };
-    if (editingInspection) payload.inspectionEdit = editingInspection;
-    if (editingCosto) payload.costoEdit = editingCosto;
-
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || 'https://api.tirepro.com.co'}/api/tires/${selectedTire.id}/edit`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }
-    );
-    if (!res.ok) throw new Error('Error al guardar cambios');
-    const updated: Tire = await res.json();
-    setSelectedTire(updated);
-    setTires(ts => ts.map(t => t.id === updated.id ? updated : t));
-    setEditSuccess('¡Cambios guardados exitosamente!');
-    setEditMode(false);
-    setEditingInspection(null);
-    setEditingCosto(null);
-  } catch (err) {
-    alert(err instanceof Error ? err.message : 'Error inesperado');
-  } finally {
-    setEditLoading(false);
-  }
-};
-  const t = texts[language];
-
-  // Update dropdown position
-  const updateDropdownPosition = () => {
-    if (dropdownRef.current) {
-      const rect = dropdownRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 8,
-        left: rect.left,
-        width: rect.width
-      });
-    }
-  };
-
-  // Close dropdown when clicking outside
+  // ── Close dropdown on outside click ─────────────────────────────────────
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowCompanyDropdown(false);
-      }
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
+        setShowDropdown(false);
     };
-
-    const handleScroll = () => {
-      if (showCompanyDropdown) {
-        updateDropdownPosition();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("scroll", handleScroll, true);
-    window.addEventListener("resize", handleScroll);
-    
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll, true);
-      window.removeEventListener("resize", handleScroll);
-    };
-  }, [showCompanyDropdown]);
-
-  // Fetch companies (clients) on mount
-  useEffect(() => {
-    fetchCompanies();
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  async function fetchCompanies() {
+  // ── Fetch companies ──────────────────────────────────────────────────────
+  const fetchCompanies = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("No authentication token found");
-        return;
-      }
-
-      const res = await fetch(
-        `https://api.tirepro.com.co/api/companies/me/clients`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!res.ok) {
-        console.error("Error fetching companies");
-        return;
-      }
-
+      const res = await authFetch(`${API_BASE}/companies/me/clients`);
+      if (!res.ok) return;
       const data = await res.json();
+      setCompanies(data.map((a: any) => ({ id: a.company.id, name: a.company.name })));
+    } catch {/* silent */}
+  }, []);
 
-      const companyList: Company[] = data.map((access: any) => ({
-        id: access.company.id,
-        name: access.company.name,
-      }));
+  useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
-      setCompanies(companyList);
-    } catch (err) {
-      console.error("Failed to fetch companies:", err);
-    }
-  }
-
+  // ── Search ───────────────────────────────────────────────────────────────
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setTires([]);
-    setSelectedTire(null);
-
-    if (!searchTerm.trim()) {
-      setError(t.enterValue);
-      return;
-    }
-
-    if (!selectedCompany) {
-      setError(t.pleaseSelectClient);
-      return;
-    }
-
-    // Get the selected company ID
-    const company = companies.find(c => c.name === selectedCompany);
-    if (!company) {
-      setError(t.companyNotFound);
-      return;
-    }
+    setError(""); setTires([]); setSelectedTire(null);
+    if (!searchTerm.trim()) { setError("Ingrese una placa de vehículo."); return; }
+    if (!selectedCompany)   { setError("Seleccione un cliente primero."); return; }
 
     setLoading(true);
     try {
-      // Search for vehicle in the selected client's company
-      const vehicleRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(
-              searchTerm.trim().toLowerCase()
-            )}&companyId=${company.id}`
-          : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(
-              searchTerm.trim().toLowerCase()
-            )}&companyId=${company.id}`
+      // Updated endpoint: GET /api/vehicles/placa?placa=...&companyId=...
+      const vRes = await authFetch(
+        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}&companyId=${selectedCompany.id}`
       );
+      if (!vRes.ok) throw new Error("Vehículo no encontrado en este cliente.");
+      const vehicle: Vehicle = await vRes.json();
 
-      if (!vehicleRes.ok) {
-        throw new Error(t.vehicleNotFound);
-      }
+      const tRes = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicle.id}`);
+      if (!tRes.ok) throw new Error("Error al obtener las llantas.");
+      const raw: any[] = await tRes.json();
 
-      const vehicleData: Vehicle = await vehicleRes.json();
-
-      // Get tires for that vehicle
-      const tiresRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-          : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
-      );
-
-      if (!tiresRes.ok) {
-        throw new Error(t.errorTires);
-      }
-
-      const tiresData: Tire[] = await tiresRes.json();
-      const validTires = tiresData
-        .filter((t) => t.companyId === company.id)
+      const valid = raw
+        .filter((t) => t.companyId === selectedCompany.id)
+        .map(normalizeTire)
         .sort((a, b) => a.posicion - b.posicion);
-      
-      setTires(validTires);
+
+      setTires(valid);
+      if (!valid.length) setError("No se encontraron llantas para este vehículo.");
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(t.unexpectedError);
-      }
+      setError(err instanceof Error ? err.message : "Error inesperado.");
     } finally {
       setLoading(false);
     }
   }
 
+  // ── Modal ────────────────────────────────────────────────────────────────
   const openModal = (tire: Tire) => {
     setSelectedTire(tire);
     setShowModal(true);
+    setEditMode(false);
+    setEditSuccess("");
   };
 
   const closeModal = () => {
     setSelectedTire(null);
     setShowModal(false);
     setEditMode(false);
-    setEditingInspection(null);
+    setEditingInsp(null);
     setEditingCosto(null);
-    setEditSuccess('');
+    setEditSuccess("");
   };
 
-  const getProjectedKilometraje = (tire: Tire): string => {
-  if (!tire.inspecciones || tire.inspecciones.length === 0) return "N/A";
-  const latest = [...tire.inspecciones].sort(
-    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-  )[0];
-  // Prefer the stored backend value if available
-  if (latest.kmProyectado && latest.kmProyectado > 0) {
-    return Math.round(latest.kmProyectado).toLocaleString();
-  }
-  // Fallback: recalculate using same formula as backend
-  const minProf = Math.min(latest.profundidadInt, latest.profundidadCen, latest.profundidadExt);
-  const km = tire.kilometrosRecorridos;
-  const mmWorn = tire.profundidadInicial - minProf;
-  const mmLeft = Math.max(minProf - 2, 0);
-  if (mmWorn <= 0 || km <= 0) return "∞";
-  const projectedKm = km + (km / mmWorn) * mmLeft;
-  return Math.round(projectedKm).toLocaleString();
-};
-
-  const calculateAvgTreadDepth = (tire: Tire) => {
-    if (!tire.inspecciones || tire.inspecciones.length === 0) return "N/A";
-    const latestInspection = tire.inspecciones[tire.inspecciones.length - 1];
-    const avg =
-      (latestInspection.profundidadInt +
-        latestInspection.profundidadCen +
-        latestInspection.profundidadExt) /
-      3;
-    return avg.toFixed(1);
+  const openEditMode = (tire: Tire) => {
+    setEditForm({
+      marca: tire.marca, diseno: tire.diseno, dimension: tire.dimension,
+      eje: tire.eje, kilometrosRecorridos: tire.kilometrosRecorridos,
+      profundidadInicial: tire.profundidadInicial,
+    });
+    setEditingInsp(null); setEditingCosto(null); setEditSuccess("");
+    setEditMode(true);
   };
 
-  const getTreadStatusColor = (depth: number) => {
-    if (depth >= 6) return "bg-green-500";
-    if (depth >= 3) return "bg-yellow-500";
-    return "bg-red-500";
-  };
-
-  const getVidaStatusLabel = (status: string) => {
-    const statusMap = {
-      nueva: { text: t.new, className: "bg-green-500 text-white" },
-      reencauche1: { text: t.retread1, className: "bg-blue-500 text-white" },
-      reencauche2: { text: t.retread2, className: "bg-purple-500 text-white" },
-      reencauche3: { text: t.retread3, className: "bg-indigo-500 text-white" },
-      descarte: { text: t.discard, className: "bg-red-500 text-white" },
-    };
-    return statusMap[status.toLowerCase() as keyof typeof statusMap] || 
-           { text: status, className: "bg-gray-500 text-white" };
-  };
-
-  const getCurrentVidaStatus = (tire: Tire) => {
-    if (!tire.vida || tire.vida.length === 0) return t.notRegistered;
-    const currentStatus = tire.vida[tire.vida.length - 1].valor;
-    return getVidaStatusLabel(currentStatus).text;
-  };
-
-  const handleDeleteInspection = async (fecha: string) => {
+  const handleEditSubmit = async () => {
     if (!selectedTire) return;
-    if (!window.confirm(t.deleteConfirm)) return;
-    
+    setEditLoading(true); setEditSuccess("");
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://api.tirepro.com.co'}/api/tires/${selectedTire.id}/inspection?fecha=${encodeURIComponent(fecha)}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) throw new Error("Error al eliminar");
-      const updatedInsps = (selectedTire.inspecciones || [])
-        .filter(i => i.fecha !== fecha);
-      const updatedTire = { ...selectedTire, inspecciones: updatedInsps };
-      setSelectedTire(updatedTire);
-      setTires(ts => ts.map(t => t.id === updatedTire.id ? updatedTire : t));
+      const payload: any = { ...editForm };
+      if (editingInsp)  payload.inspectionEdit = editingInsp;
+      if (editingCosto) payload.costoEdit       = editingCosto;
+
+      const res = await authFetch(`${API_BASE}/tires/${selectedTire.id}/edit`, {
+        method: "PATCH", body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Error al guardar cambios.");
+      const updated = normalizeTire(await res.json());
+      setSelectedTire(updated);
+      setTires((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
+      setEditSuccess("¡Cambios guardados exitosamente!");
+      setEditMode(false);
+      setEditingInsp(null); setEditingCosto(null);
     } catch (err) {
-      console.error(err);
-      alert(t.deleteError);
+      alert(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setEditLoading(false);
     }
   };
 
-  // Filter companies based on search term
-  const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+  // ── Delete inspection ────────────────────────────────────────────────────
+  const handleDeleteInspection = async (fecha: string) => {
+    if (!selectedTire) return;
+    if (!window.confirm("¿Estás seguro que quieres borrar esta inspección?")) return;
+    try {
+      const res = await authFetch(
+        `${API_BASE}/tires/${selectedTire.id}/inspection?fecha=${encodeURIComponent(fecha)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error();
+      const updated = { ...selectedTire, inspecciones: (selectedTire.inspecciones ?? []).filter((i) => i.fecha !== fecha) };
+      setSelectedTire(updated);
+      setTires((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
+    } catch {
+      alert("No se pudo eliminar la inspección.");
+    }
+  };
+
+  // ── Derived helpers ──────────────────────────────────────────────────────
+  const getLatestInsp = (tire: Tire) =>
+    tire.inspecciones?.length
+      ? [...tire.inspecciones].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0]
+      : null;
+
+  const getAvgDepth = (tire: Tire): number | null => {
+    const l = getLatestInsp(tire);
+    if (!l) return null;
+    return (l.profundidadInt + l.profundidadCen + l.profundidadExt) / 3;
+  };
+
+  const getProjectedKm = (tire: Tire): string => {
+    const l = getLatestInsp(tire);
+    if (!l) return "N/A";
+    if (l.kmProyectado && l.kmProyectado > 0) return Math.round(l.kmProyectado).toLocaleString("es-CO");
+    const minProf = Math.min(l.profundidadInt, l.profundidadCen, l.profundidadExt);
+    const mmWorn  = tire.profundidadInicial - minProf;
+    const mmLeft  = Math.max(minProf - 2, 0);
+    if (mmWorn <= 0 || tire.kilometrosRecorridos <= 0) return "∞";
+    return Math.round(tire.kilometrosRecorridos + (tire.kilometrosRecorridos / mmWorn) * mmLeft).toLocaleString("es-CO");
+  };
+
+  const getCurrentVida = (tire: Tire) => {
+    if (!tire.vida?.length) return null;
+    return tire.vida[tire.vida.length - 1];
+  };
+
+  const filteredCompanies = companies.filter((c) =>
+    c.name.toLowerCase().includes(companySearch.toLowerCase())
   );
 
+  // ==========================================================================
+  // Render
+  // ==========================================================================
   return (
-    <div className="min-h-screen text-gray-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search Card */}
-        <div className="bg-white rounded-2xl shadow-xl mb-10 border border-gray-100" style={{ overflow: 'visible' }}>
-          <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-6 rounded-t-2xl">
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <Search className="w-6 h-6" />
-              {t.searchTire}
-            </h2>
-            <p className="mt-2 text-gray-200">
-              {t.searchDescription}
-            </p>
+    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
+
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div
+          className="px-4 sm:px-6 py-4 sm:py-5 rounded-2xl flex items-center gap-3"
+          style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
+        >
+          <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
+            <Search className="w-5 h-5 text-white" />
           </div>
-          <div className="p-8" style={{ overflow: 'visible' }}>
-            <form onSubmit={handleSearch}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" style={{ overflow: 'visible' }}>
-                {/* Client Selector with Search */}
-                <div className="relative" ref={dropdownRef}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t.selectClient}
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCompanyDropdown(!showCompanyDropdown);
-                      if (!showCompanyDropdown) {
-                        updateDropdownPosition();
-                      }
-                    }}
-                    className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent flex items-center justify-between hover:border-[#1E76B6] transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-gray-400" />
-                      <span className={selectedCompany ? "text-gray-800" : "text-gray-500"}>
-                        {selectedCompany || t.selectClient}
-                      </span>
-                    </div>
-                    <ChevronDown className={`text-gray-500 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {showCompanyDropdown && (
-                    <div 
-                      className="fixed bg-white rounded-lg shadow-2xl border-2 border-gray-200 overflow-hidden" 
-                      style={{ 
-                        maxHeight: '320px',
-                        width: dropdownPosition.width || 'auto',
-                        top: dropdownPosition.top,
-                        left: dropdownPosition.left,
-                        zIndex: 99999
-                      }}
-                    >
-                      {/* Search Input */}
-                      <div className="p-3 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder={t.searchClient}
-                            value={companySearchTerm}
-                            onChange={(e) => setCompanySearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Dropdown List */}
-                      <div className="overflow-y-auto" style={{ maxHeight: '256px' }}>
-                        {filteredCompanies.length > 0 ? (
-                          filteredCompanies.map((company) => (
-                            <button
-                              key={company.id}
-                              type="button"
-                              className={`block w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors ${
-                                selectedCompany === company.name 
-                                  ? "bg-blue-100 text-blue-700 font-semibold" 
-                                  : "text-gray-700"
-                              }`}
-                              onClick={() => {
-                                setSelectedCompany(company.name);
-                                setShowCompanyDropdown(false);
-                                setCompanySearchTerm("");
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Building2 className="h-4 w-4 text-gray-400" />
-                                {company.name}
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-4 py-8 text-center text-gray-500 text-sm">
-                            {t.noClientsFound}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Vehicle Plate Input */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t.vehiclePlate}
-                  </label>
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="relative flex-grow">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Car className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder={t.enterPlate}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-colors shadow-md flex items-center justify-center gap-2 whitespace-nowrap"
-                    >
-                      <Search className="w-5 h-5" />
-                      {t.search}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </form>
-
-            {loading && (
-              <div className="text-center py-8">
-                <div className="animate-spin inline-block w-10 h-10 border-4 border-[#1E76B6] border-t-transparent rounded-full"></div>
-                <p className="text-[#1E76B6] mt-3 font-medium">{t.loading}</p>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg">
-                <div className="flex">
-                  <X className="w-6 h-6 text-red-500 mr-3 flex-shrink-0" />
-                  <p className="text-red-700">{error}</p>
-                </div>
-              </div>
-            )}
+          <div>
+            <h1 className="font-black text-white text-lg leading-none tracking-tight">Buscar Llanta</h1>
+            <p className="text-xs text-white/60 mt-0.5">Busque por cliente y placa de vehículo</p>
           </div>
         </div>
 
-        {/* Tires List */}
-        {tires.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-            <div className="bg-[#173D68] text-white p-6">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <Circle className="w-6 h-6" />
-                {tires.length} {tires.length === 1 ? t.tireFound : t.tiresFound}
-              </h2>
-              <p className="text-sm text-gray-200 mt-1">
-                {t.client}: {selectedCompany}
-              </p>
+        {/* ── Search form ─────────────────────────────────────────────────── */}
+        <Card className="p-4 sm:p-6">
+          <form onSubmit={handleSearch}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+              {/* Client selector */}
+              <div ref={dropdownRef} className="relative">
+                <label className="block text-xs font-bold text-[#0A183A] uppercase tracking-wide mb-1.5">
+                  Cliente
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm transition-all"
+                  style={{
+                    border: selectedCompany ? "1.5px solid rgba(30,118,182,0.5)" : "1.5px solid rgba(52,140,203,0.2)",
+                    background: selectedCompany ? "rgba(30,118,182,0.04)" : "white",
+                    color: selectedCompany ? "#0A183A" : "#9ca3af",
+                  }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 className="w-4 h-4 flex-shrink-0 text-[#1E76B6]" />
+                    <span className="truncate font-medium">{selectedCompany?.name ?? "Seleccionar cliente"}</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 flex-shrink-0 text-[#1E76B6] transition-transform ${showDropdown ? "rotate-180" : ""}`} />
+                </button>
+
+                {showDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
+                    <div
+                      className="absolute left-0 right-0 mt-1 rounded-xl overflow-hidden z-20"
+                      style={{ background: "white", border: "1px solid rgba(52,140,203,0.2)", boxShadow: "0 8px 32px rgba(10,24,58,0.15)" }}
+                    >
+                      <div className="p-2 border-b" style={{ borderColor: "rgba(52,140,203,0.12)" }}>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                          <input
+                            autoFocus type="text" placeholder="Buscar cliente…"
+                            value={companySearch}
+                            onChange={(e) => setCompanySearch(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full pl-8 pr-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                            style={{ border: "1px solid rgba(52,140,203,0.2)", color: "#0A183A" }}
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto">
+                        {filteredCompanies.length === 0
+                          ? <p className="text-center text-sm text-gray-400 py-4">Sin resultados</p>
+                          : filteredCompanies.map((c) => (
+                            <button
+                              key={c.id} type="button"
+                              onClick={() => { setSelectedCompany(c); setShowDropdown(false); setCompanySearch(""); }}
+                              className="block w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#F0F7FF]"
+                              style={{ color: selectedCompany?.id === c.id ? "#1E76B6" : "#0A183A", fontWeight: selectedCompany?.id === c.id ? 700 : 400 }}
+                            >
+                              {c.name}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Plate input + button */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-[#0A183A] uppercase tracking-wide mb-1.5">
+                  Placa de Vehículo
+                </label>
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Ej. ABC-123"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                      style={{ border: "1.5px solid rgba(52,140,203,0.2)", color: "#0A183A" }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-2 transition-all hover:opacity-90 whitespace-nowrap"
+                    style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", boxShadow: "0 4px 12px rgba(30,118,182,0.3)" }}
+                  >
+                    <Search className="w-4 h-4" />
+                    Buscar
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="p-6">
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          </form>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center gap-2 py-8 text-[#1E76B6]">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm font-medium">Cargando datos…</span>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && !loading && (
+            <div
+              className="flex items-center gap-3 mt-4 px-4 py-3 rounded-xl text-sm"
+              style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}
+            >
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+              <span className="flex-1 text-red-700">{error}</span>
+              <button onClick={() => setError("")}><X className="w-4 h-4 text-red-400" /></button>
+            </div>
+          )}
+        </Card>
+
+        {/* ── Results ─────────────────────────────────────────────────────── */}
+        {tires.length > 0 && (
+          <Card className="overflow-hidden">
+            <div
+              className="px-4 sm:px-6 py-4 flex items-center justify-between"
+              style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+                  <Circle className="w-4 h-4 text-[#1E76B6]" />
+                </div>
+                <h2 className="text-sm font-black text-[#0A183A] tracking-tight">
+                  {tires.length} {tires.length === 1 ? "Llanta Encontrada" : "Llantas Encontradas"}
+                </h2>
+              </div>
+              <Badge style={{ background: "rgba(30,118,182,0.1)", color: "#1E76B6" }}>
+                {selectedCompany?.name}
+              </Badge>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {tires.map((tire) => {
-                  const avgDepth = parseFloat(calculateAvgTreadDepth(tire));
-                  const statusColor = !isNaN(avgDepth)
-                    ? getTreadStatusColor(avgDepth)
-                    : "bg-gray-300";
+                  const avg    = getAvgDepth(tire);
+                  const vida   = getCurrentVida(tire);
+                  const alert  = alertStyle(tire.alertLevel);
+                  const latest = getLatestInsp(tire);
+
                   return (
                     <div
                       key={tire.id}
-                      className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden"
+                      className="rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg"
+                      style={{ border: "1.5px solid rgba(52,140,203,0.14)", background: "white" }}
                     >
-                      <div className="p-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#1E76B6] text-white">
-                            {t.position}. {tire.posicion}
-                          </span>
-                          {!isNaN(avgDepth) && (
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${statusColor}`}>
-                              {avgDepth} mm
+                      {/* Card header stripe */}
+                      <div
+                        className="h-1.5"
+                        style={{ background: avg !== null ? depthColor(avg) : "#9ca3af" }}
+                      />
+
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="font-black text-[#0A183A] text-base leading-tight">{tire.placa.toUpperCase()}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{tire.marca} · {tire.diseno}</p>
+                          </div>
+                          <Badge style={{ background: "rgba(30,118,182,0.1)", color: "#1E76B6" }}>
+                            Pos. {tire.posicion}
+                          </Badge>
+                        </div>
+
+                        {/* Stats row */}
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          <div className="rounded-lg px-2.5 py-2" style={{ background: "rgba(10,24,58,0.03)" }}>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Profundidad</p>
+                            <p className="text-sm font-black mt-0.5" style={{ color: avg !== null ? depthColor(avg) : "#9ca3af" }}>
+                              {avg !== null ? `${avg.toFixed(1)} mm` : "N/A"}
+                            </p>
+                          </div>
+                          <div className="rounded-lg px-2.5 py-2" style={{ background: "rgba(10,24,58,0.03)" }}>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Km Recorridos</p>
+                            <p className="text-sm font-black text-[#0A183A] mt-0.5">{tire.kilometrosRecorridos.toLocaleString("es-CO")}</p>
+                          </div>
+                        </div>
+
+                        {/* Vida + alert badges */}
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {vida && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold"
+                              style={{ background: vidaLabel(vida.valor).bg, color: vidaLabel(vida.valor).dot }}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: vidaLabel(vida.valor).dot }} />
+                              {vidaLabel(vida.valor).text}
+                            </span>
+                          )}
+                          {tire.alertLevel && tire.alertLevel !== "ok" && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold"
+                              style={{ background: alert.bg, color: alert.color }}
+                            >
+                              {alert.label}
                             </span>
                           )}
                         </div>
-                        <h3 className="text-lg font-bold text-[#0A183A] mb-1">{tire.placa}</h3>
-                        <p className="text-gray-600 mb-4">{tire.marca} {tire.diseno}</p>
-                        {tire.vida && tire.vida.length > 0 && (
-                          <div className="mb-4">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getVidaStatusLabel(tire.vida[tire.vida.length - 1].valor).className}`}>
-                              {getVidaStatusLabel(tire.vida[tire.vida.length - 1].valor).text}
-                            </span>
+
+                        {/* Meta */}
+                        <div className="space-y-1 mb-4">
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <Ruler className="w-3 h-3 text-[#348CCB]" />
+                            {tire.dimension}
                           </div>
-                        )}
-                        <div className="space-y-2 mb-6">
-                          <div className="flex items-center text-sm">
-                            <Ruler className="w-4 h-4 mr-2 text-gray-500" />
-                            <span className="text-gray-600">{tire.dimension}</span>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <BarChart3 className="w-3 h-3 text-[#348CCB]" />
+                            Eje: {tire.eje}
                           </div>
-                          <div className="flex items-center text-sm">
-                            <BarChart3 className="w-4 h-4 mr-2 text-gray-500" />
-                            <span className="text-gray-600">{t.axis}: {tire.eje}</span>
-                          </div>
-                          {tire.inspecciones && tire.inspecciones.length > 0 && (
-                            <div className="flex items-center text-sm">
-                              <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                              <span className="text-gray-600">
-                                {t.lastInspection}:{" "}
-                                {new Date(tire.inspecciones[tire.inspecciones.length - 1].fecha).toLocaleDateString()}
-                              </span>
+                          {latest && (
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              <Calendar className="w-3 h-3 text-[#348CCB]" />
+                              Última insp: {new Date(latest.fecha).toLocaleDateString("es-CO")}
                             </div>
                           )}
                         </div>
+
                         <button
                           onClick={() => openModal(tire)}
-                          className="w-full px-4 py-2 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-colors flex items-center justify-center gap-2"
+                          className="w-full py-2 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90"
+                          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
                         >
-                          <Eye className="w-4 h-4" />
-                          {t.viewDetails}
+                          <Eye className="w-3.5 h-3.5" />
+                          Ver Detalles
                         </button>
                       </div>
                     </div>
@@ -695,435 +648,367 @@ const handleEditSubmit = async () => {
                 })}
               </div>
             </div>
-          </div>
+          </Card>
         )}
       </div>
 
-      {/* Modal */}
+      {/* ======================================================================
+          MODAL
+         ====================================================================== */}
       {showModal && selectedTire && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-auto my-8">
-            <div className="sticky top-0 z-50 bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white p-6 rounded-t-2xl flex justify-between items-center">
-              <h2 className="text-2xl font-bold flex items-center gap-3">
-                <Info className="w-6 h-6" />
-                {t.tireDetails}: {selectedTire.placa}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="text-white hover:text-[#348CCB] transition-colors rounded-full p-1 hover:bg-white hover:bg-opacity-10"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6 sm:p-8">
-              {/* Edit Toggle Button */}
-<div className="flex justify-end mb-4">
-  <button
-    onClick={() => editMode ? setEditMode(false) : openEditMode(selectedTire)}
-    className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors ${
-      editMode
-        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-        : 'bg-[#1E76B6] text-white hover:bg-[#348CCB]'
-    }`}
-  >
-    {editMode ? (
-      <><X className="w-4 h-4" /> Cancelar edición</>
-    ) : (
-      // Use Pencil icon from lucide-react
-      <>Editar llanta</>
-    )}
-  </button>
-</div>
-
-{/* Edit Panel */}
-{editMode && (
-  <div className="bg-[#EBF4FB] border-2 border-[#1E76B6] rounded-xl p-6 mb-8">
-    <h3 className="text-lg font-bold text-[#0A183A] mb-4">Editar Información</h3>
-
-    {editSuccess && (
-      <div className="bg-green-100 border border-green-400 text-green-800 rounded-lg p-3 mb-4 text-sm">
-        {editSuccess}
-      </div>
-    )}
-
-    {/* Core fields grid */}
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-      {[
-        { label: 'Marca', key: 'marca', type: 'text' },
-        { label: 'Diseño', key: 'diseno', type: 'text' },
-        { label: 'Dimensión', key: 'dimension', type: 'text' },
-        { label: 'Eje', key: 'eje', type: 'text' },
-        { label: 'Km Recorridos', key: 'kilometrosRecorridos', type: 'number' },
-        { label: 'Prof. Inicial (mm)', key: 'profundidadInicial', type: 'number' },
-      ].map(({ label, key, type }) => (
-        <div key={key}>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
-          <input
-            type={type}
-            value={(editForm as any)[key]}
-            onChange={(e) =>
-              setEditForm(f => ({
-                ...f,
-                [key]: type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value,
-              }))
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-          />
-        </div>
-      ))}
-    </div>
-
-    {/* Costo entries editor */}
-    {selectedTire.costo && selectedTire.costo.length > 0 && (
-      <div className="mb-6">
-        <h4 className="text-sm font-bold text-gray-700 mb-2">💰 Editar Costo</h4>
-        <div className="space-y-2">
-          {selectedTire.costo.map((entry, idx) => (
-            <div key={idx} className="flex items-center gap-3 bg-white rounded-lg p-3 border border-gray-200">
-              <span className="text-xs text-gray-500 min-w-[120px]">
-                {new Date(entry.fecha).toLocaleDateString()}
-              </span>
-              <span className="text-xs text-gray-400">${entry.valor.toLocaleString()}</span>
-              <button
-                type="button"
-                onClick={() =>
-                  setEditingCosto(prev =>
-                    prev?.fecha === entry.fecha
-                      ? null
-                      : { fecha: entry.fecha, newValor: entry.valor }
-                  )
-                }
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  editingCosto?.fecha === entry.fecha
-                    ? 'bg-[#1E76B6] text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-[#EBF4FB]'
-                }`}
-              >
-                {editingCosto?.fecha === entry.fecha ? 'Editando' : 'Editar'}
-              </button>
-              {editingCosto?.fecha === entry.fecha && (
-                <input
-                  type="number"
-                  value={editingCosto.newValor}
-                  onChange={(e) =>
-                    setEditingCosto(c => c ? { ...c, newValor: parseFloat(e.target.value) || 0 } : c)
-                  }
-                  className="flex-1 px-3 py-1 border border-[#348CCB] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                  placeholder="Nuevo valor"
-                />
-              )}
-            </div>
-          ))}
-        </div>
-        {editingCosto && (
-          <p className="text-xs text-[#173D68] mt-2">
-            ⚠️ Solo se recalcularán CPK/CPT de inspecciones posteriores a {new Date(editingCosto.fecha).toLocaleDateString()}
-          </p>
-        )}
-      </div>
-    )}
-
-    {/* Inspection depth editor */}
-    {selectedTire.inspecciones && selectedTire.inspecciones.length > 0 && (
-      <div className="mb-6">
-        <h4 className="text-sm font-bold text-gray-700 mb-2">📏 Editar Profundidad de Inspección</h4>
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {[...selectedTire.inspecciones]
-            .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-            .map((insp, idx) => (
-              <div key={idx} className="bg-white rounded-lg p-3 border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-600">
-                    {new Date(insp.fecha).toLocaleDateString()} — 
-                    Int:{insp.profundidadInt}mm Cen:{insp.profundidadCen}mm Ext:{insp.profundidadExt}mm
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditingInspection(prev =>
-                        prev?.fecha === insp.fecha
-                          ? null
-                          : {
-                              fecha: insp.fecha,
-                              profundidadInt: insp.profundidadInt,
-                              profundidadCen: insp.profundidadCen,
-                              profundidadExt: insp.profundidadExt,
-                            }
-                      )
-                    }
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                      editingInspection?.fecha === insp.fecha
-                        ? 'bg-[#1E76B6] text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-[#EBF4FB]'
-                    }`}
-                  >
-                    {editingInspection?.fecha === insp.fecha ? 'Editando' : 'Editar'}
-                  </button>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 overflow-y-auto">
+          <div
+            className="w-full max-w-5xl my-8 rounded-2xl overflow-hidden"
+            style={{ background: "white", boxShadow: "0 24px 80px rgba(10,24,58,0.25)" }}
+          >
+            {/* Modal header */}
+            <div
+              className="sticky top-0 z-10 flex items-center justify-between px-6 py-4"
+              style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)" }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
+                  <Info className="w-4 h-4 text-white" />
                 </div>
-                {editingInspection?.fecha === insp.fecha && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['profundidadInt', 'profundidadCen', 'profundidadExt'] as const).map((field) => (
-                      <div key={field}>
-                        <label className="block text-xs text-gray-500 mb-1">
-                          {field === 'profundidadInt' ? 'Interior' : field === 'profundidadCen' ? 'Central' : 'Exterior'}
-                        </label>
+                <div>
+                  <h2 className="font-black text-white text-base leading-none">{selectedTire.placa.toUpperCase()}</h2>
+                  <p className="text-xs text-white/60 mt-0.5">{selectedTire.marca} · {selectedTire.diseno}</p>
+                </div>
+              </div>
+              <button onClick={closeModal} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-7 space-y-6">
+
+              {/* Edit toggle */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => editMode ? setEditMode(false) : openEditMode(selectedTire)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                  style={editMode
+                    ? { background: "rgba(10,24,58,0.06)", color: "#0A183A", border: "1px solid rgba(10,24,58,0.1)" }
+                    : { background: "rgba(30,118,182,0.1)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.2)" }}
+                >
+                  {editMode ? <><X className="w-3.5 h-3.5" /> Cancelar</> : <><Pencil className="w-3.5 h-3.5" /> Editar llanta</>}
+                </button>
+              </div>
+
+              {/* ── Edit panel ──────────────────────────────────────────── */}
+              {editMode && (
+                <div
+                  className="rounded-2xl p-5"
+                  style={{ background: "rgba(30,118,182,0.04)", border: "1.5px solid rgba(30,118,182,0.2)" }}
+                >
+                  <h3 className="text-sm font-black text-[#0A183A] mb-4 flex items-center gap-2">
+                    <Pencil className="w-4 h-4 text-[#1E76B6]" />
+                    Editar Información
+                  </h3>
+
+                  {editSuccess && (
+                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl mb-4 text-sm"
+                      style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", color: "#15803d" }}>
+                      <CheckCircle2 className="w-4 h-4" />
+                      {editSuccess}
+                    </div>
+                  )}
+
+                  {/* Core fields */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+                    {[
+                      { label: "Marca", key: "marca", type: "text" },
+                      { label: "Diseño", key: "diseno", type: "text" },
+                      { label: "Dimensión", key: "dimension", type: "text" },
+                      { label: "Eje", key: "eje", type: "text" },
+                      { label: "Km Recorridos", key: "kilometrosRecorridos", type: "number" },
+                      { label: "Prof. Inicial (mm)", key: "profundidadInicial", type: "number" },
+                    ].map(({ label, key, type }) => (
+                      <div key={key}>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
                         <input
-                          type="number"
-                          value={editingInspection[field]}
+                          type={type}
+                          value={(editForm as any)[key]}
                           onChange={(e) =>
-                            setEditingInspection(prev =>
-                              prev ? { ...prev, [field]: parseFloat(e.target.value) || 0 } : prev
-                            )
+                            setEditForm((f) => ({ ...f, [key]: type === "number" ? parseFloat(e.target.value) || 0 : e.target.value }))
                           }
-                          className="w-full px-2 py-1 border border-[#348CCB] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                          className="w-full px-3 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                          style={{ border: "1.5px solid rgba(52,140,203,0.2)", color: "#0A183A" }}
                         />
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            ))}
-        </div>
-        {editingInspection && (
-          <p className="text-xs text-amber-700 mt-2">
-            ⚠️ Se recalcularán CPK/CPT solo para la inspección del {new Date(editingInspection.fecha).toLocaleDateString()}
-          </p>
-        )}
-      </div>
-    )}
 
-    {/* Save button */}
-    <div className="flex justify-end gap-3">
-      <button
-        type="button"
-        onClick={() => { setEditMode(false); setEditingInspection(null); setEditingCosto(null); }}
-        className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
-      >
-        Cancelar
-      </button>
-      <button
-        type="button"
-        onClick={handleEditSubmit}
-        disabled={editLoading}
-        className="px-5 py-2 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-      >
-        {editLoading ? (
-          <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Guardando...</>
-        ) : (
-          'Guardar Cambios'
-        )}
-      </button>
-    </div>
-  </div>
-)}
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                <div className="bg-gray-100 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 font-medium">{t.brand}</p>
-                  <p className="text-lg font-bold text-[#173D68]">{selectedTire.marca}</p>
-                </div>
-                <div className="bg-gray-100 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 font-medium">{t.position}</p>
-                  <p className="text-lg font-bold text-[#173D68]">{selectedTire.posicion}</p>
-                </div>
-                <div className="bg-gray-100 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 font-medium">{t.dimension}</p>
-                  <p className="text-lg font-bold text-[#173D68]">{selectedTire.dimension}</p>
-                </div>
-                <div className="bg-gray-100 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 font-medium">{t.axis}</p>
-                  <p className="text-lg font-bold text-[#173D68]">{selectedTire.eje}</p>
-                </div>
-              </div>
-
-              {/* Life History */}
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-[#0A183A] pb-2 border-b border-gray-200 mb-4">
-                  <span className="flex items-center gap-2">
-                    <Repeat className="w-5 h-5" />
-                    {t.lifeHistory}
-                  </span>
-                </h3>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-lg font-semibold text-[#173D68] mb-3">{t.lifePhases}</h4>
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-                      {selectedTire.vida.map((entry, index) => {
-                        const label = getVidaStatusLabel(entry.valor);
-                        const formattedDate = new Date(entry.fecha).toLocaleDateString();
-                        const isNueva = entry.valor?.toLowerCase?.() === "nueva";
-                        const cpk = isNueva && selectedTire.primeraVida?.[0]?.cpk
-                          ? selectedTire.primeraVida[0].cpk.toFixed(2)
-                          : null;
-
-                        return (
-                          <div key={index} className="border-b pb-2 last:border-b-0">
-                            <p className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-1 ${label.className}`}>
-                              {label.text}
-                              {cpk && (
-                                <span className="ml-2 text-gray-100 font-normal">
-                                  · CPK: {cpk}
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-sm text-gray-500">{formattedDate}</p>
+                  {/* Cost editor */}
+                  {(selectedTire.costos ?? selectedTire.costo ?? []).length > 0 && (
+                    <div className="mb-5">
+                      <p className="text-xs font-black text-[#0A183A] mb-2">Editar Costos</p>
+                      <div className="space-y-2">
+                        {(selectedTire.costos ?? selectedTire.costo ?? []).map((entry, idx) => (
+                          <div key={idx} className="flex items-center gap-2 bg-white rounded-xl px-3 py-2.5" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                            <span className="text-xs text-gray-500 min-w-[100px]">{new Date(entry.fecha).toLocaleDateString("es-CO")}</span>
+                            <span className="text-xs text-gray-400 flex-1">${entry.valor.toLocaleString("es-CO")}</span>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCosto((p) => p?.fecha === entry.fecha ? null : { fecha: entry.fecha, newValor: entry.valor })}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors"
+                              style={editingCosto?.fecha === entry.fecha
+                                ? { background: "#1E76B6", color: "white" }
+                                : { background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
+                            >
+                              {editingCosto?.fecha === entry.fecha ? "Editando" : "Editar"}
+                            </button>
+                            {editingCosto?.fecha === entry.fecha && (
+                              <input
+                                type="number"
+                                value={editingCosto.newValor}
+                                onChange={(e) => setEditingCosto((c) => c ? { ...c, newValor: parseFloat(e.target.value) || 0 } : c)}
+                                className="w-28 px-2 py-1 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                                style={{ border: "1.5px solid rgba(30,118,182,0.3)", color: "#0A183A" }}
+                                placeholder="Nuevo valor"
+                              />
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Detailed Info */}
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-[#0A183A] pb-2 border-b border-gray-200 mb-4">
-                  {t.detailedInfo}
-                </h3>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-lg font-semibold text-[#173D68] mb-3">{t.characteristics}</h4>
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">{t.design}:</p>
-                        <p className="font-medium">{selectedTire.diseno}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">{t.initialDepth}:</p>
-                        <p className="font-medium">{selectedTire.profundidadInicial} mm</p>
-                      </div>
-                      {selectedTire.fechaInstalacion && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Fecha instalación:</p>
-                          <p className="font-medium">{selectedTire.fechaInstalacion}</p>
-                        </div>
-                      )}
-                      {selectedTire.diasAcumulados && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Días rodando:</p>
-                          <p className="font-medium">{selectedTire.diasAcumulados}</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">{t.kmTraveled}:</p>
-                        <p className="font-medium">{selectedTire.kilometrosRecorridos.toLocaleString()} Km</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">{t.currentStatus}:</p>
-                        <p className="font-medium">{getCurrentVidaStatus(selectedTire)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">{t.projectedKm}:</p>
-                        <p className="font-medium">{getProjectedKilometraje(selectedTire)} Km</p>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-semibold text-[#173D68] mb-3">{t.costAnalysis}</h4>
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      {selectedTire?.costo?.length > 0 ? (
-                        selectedTire.costo.map((entry, idx) => {
-                          const formattedDate = new Date(entry.fecha).toLocaleDateString(language, {
-                            year: 'numeric',
-                            month: 'short',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: false,
-                          });
+                  )}
 
-                          return (
-                            <div key={idx}>
-                              <p className="text-sm font-medium text-gray-500">Fecha: {formattedDate}</p>
-                              <p className="font-medium">Valor: ${entry.valor.toLocaleString()}</p>
+                  {/* Inspection depth editor */}
+                  {(selectedTire.inspecciones ?? []).length > 0 && (
+                    <div className="mb-5">
+                      <p className="text-xs font-black text-[#0A183A] mb-2">Editar Profundidad de Inspección</p>
+                      <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                        {[...(selectedTire.inspecciones ?? [])]
+                          .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+                          .map((insp, idx) => (
+                            <div key={idx} className="bg-white rounded-xl px-3 py-2.5" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-xs font-medium text-gray-600">
+                                  {new Date(insp.fecha).toLocaleDateString("es-CO")} &nbsp;·&nbsp;
+                                  Int:{insp.profundidadInt} Cen:{insp.profundidadCen} Ext:{insp.profundidadExt}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingInsp((p) => p?.fecha === insp.fecha ? null : { fecha: insp.fecha, profundidadInt: insp.profundidadInt, profundidadCen: insp.profundidadCen, profundidadExt: insp.profundidadExt })}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors"
+                                  style={editingInsp?.fecha === insp.fecha
+                                    ? { background: "#1E76B6", color: "white" }
+                                    : { background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
+                                >
+                                  {editingInsp?.fecha === insp.fecha ? "Editando" : "Editar"}
+                                </button>
+                              </div>
+                              {editingInsp?.fecha === insp.fecha && (
+                                <div className="grid grid-cols-3 gap-2 mt-2">
+                                  {(["profundidadInt", "profundidadCen", "profundidadExt"] as const).map((field) => (
+                                    <div key={field}>
+                                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">
+                                        {field === "profundidadInt" ? "Interior" : field === "profundidadCen" ? "Central" : "Exterior"}
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={editingInsp[field]}
+                                        onChange={(e) => setEditingInsp((p) => p ? { ...p, [field]: parseFloat(e.target.value) || 0 } : p)}
+                                        className="w-full px-2 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                                        style={{ border: "1.5px solid rgba(30,118,182,0.3)", color: "#0A183A" }}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-sm text-gray-500">{t.notAvailable}</p>
-                      )}
+                          ))}
+                      </div>
                     </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setEditMode(false); setEditingInsp(null); setEditingCosto(null); }}
+                      className="px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+                      style={{ background: "rgba(10,24,58,0.06)", color: "#0A183A" }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleEditSubmit}
+                      disabled={editLoading}
+                      className="px-5 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 transition-all hover:opacity-90 disabled:opacity-50"
+                      style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+                    >
+                      {editLoading
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Guardando…</>
+                        : "Guardar Cambios"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── KPI summary ──────────────────────────────────────────── */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Marca",     value: selectedTire.marca,     variant: "primary" },
+                  { label: "Posición",  value: String(selectedTire.posicion), variant: "secondary" },
+                  { label: "Dimensión", value: selectedTire.dimension,  variant: "accent" },
+                  { label: "Eje",       value: selectedTire.eje,        variant: "accent" },
+                ].map(({ label, value, variant }) => {
+                  const bgs: Record<string, string> = {
+                    primary:   "linear-gradient(135deg, #0A183A, #173D68)",
+                    secondary: "linear-gradient(135deg, #173D68, #1E76B6)",
+                    accent:    "linear-gradient(135deg, #1E76B6, #348CCB)",
+                  };
+                  return (
+                    <div key={label} className="rounded-xl p-4" style={{ background: bgs[variant] }}>
+                      <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{label}</p>
+                      <p className="font-black text-white mt-1 text-sm truncate">{value}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── Life history ─────────────────────────────────────────── */}
+              <div>
+                <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+                  <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+                    <Repeat className="w-4 h-4 text-[#1E76B6]" />
+                  </div>
+                  <h3 className="text-sm font-black text-[#0A183A] tracking-tight">Historial de Vida</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(selectedTire.vida ?? []).map((v, idx) => {
+                    const vl   = vidaLabel(v.valor);
+                    const isLast = idx === (selectedTire.vida?.length ?? 0) - 1;
+                    const cpkEntry = v.valor === "nueva" && selectedTire.primeraVida?.[0]?.cpk;
+                    return (
+                      <div
+                        key={idx}
+                        className="rounded-xl px-3 py-2.5"
+                        style={{
+                          background: vl.bg,
+                          border: isLast ? `1.5px solid ${vl.dot}` : "1.5px solid transparent",
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="w-2 h-2 rounded-full" style={{ background: vl.dot }} />
+                          <span className="text-xs font-bold" style={{ color: vl.dot }}>{vl.text}</span>
+                          {isLast && <span className="text-[10px] font-bold text-white rounded px-1" style={{ background: vl.dot }}>Actual</span>}
+                        </div>
+                        <p className="text-[10px] text-gray-500">{new Date(v.fecha).toLocaleDateString("es-CO")}</p>
+                        {cpkEntry && <p className="text-[10px] font-bold mt-0.5" style={{ color: vl.dot }}>CPK: {cpkEntry.toFixed(2)}</p>}
+                      </div>
+                    );
+                  })}
+                  {!selectedTire.vida?.length && <p className="text-xs text-gray-400 italic">Sin historial de vida registrado.</p>}
+                </div>
+              </div>
+
+              {/* ── Details 2-col ─────────────────────────────────────────── */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Characteristics */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+                      <TrendingUp className="w-4 h-4 text-[#1E76B6]" />
+                    </div>
+                    <h4 className="text-xs font-black text-[#0A183A] uppercase tracking-wide">Características</h4>
+                  </div>
+                  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.12)" }}>
+                    {[
+                      { k: "Diseño",           v: selectedTire.diseno },
+                      { k: "Prof. Inicial",    v: `${selectedTire.profundidadInicial} mm` },
+                      { k: "Km Recorridos",    v: `${selectedTire.kilometrosRecorridos.toLocaleString("es-CO")} km` },
+                      { k: "Km Proyectados",   v: `${getProjectedKm(selectedTire)} km` },
+                      ...(selectedTire.diasAcumulados ? [{ k: "Días rodando", v: String(selectedTire.diasAcumulados) }] : []),
+                      ...(selectedTire.fechaInstalacion ? [{ k: "Instalación", v: new Date(selectedTire.fechaInstalacion).toLocaleDateString("es-CO") }] : []),
+                      ...(selectedTire.healthScore != null ? [{ k: "Health Score", v: `${selectedTire.healthScore}/100` }] : []),
+                    ].map(({ k, v }, i) => (
+                      <div key={k} className={`flex justify-between items-center px-4 py-2.5 text-xs ${i % 2 === 0 ? "" : ""}`}
+                        style={{ background: i % 2 === 0 ? "rgba(10,24,58,0.02)" : "white", borderBottom: "1px solid rgba(52,140,203,0.08)" }}>
+                        <span className="font-bold text-gray-500">{k}</span>
+                        <span className="font-bold text-[#0A183A]">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Costs */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+                      <BarChart3 className="w-4 h-4 text-[#1E76B6]" />
+                    </div>
+                    <h4 className="text-xs font-black text-[#0A183A] uppercase tracking-wide">Análisis de Costos</h4>
+                  </div>
+                  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.12)" }}>
+                    {(selectedTire.costos ?? selectedTire.costo ?? []).length > 0 ? (
+                      (selectedTire.costos ?? selectedTire.costo ?? []).map((entry, idx) => (
+                        <div key={idx} className="flex justify-between items-center px-4 py-2.5 text-xs"
+                          style={{ background: idx % 2 === 0 ? "rgba(10,24,58,0.02)" : "white", borderBottom: "1px solid rgba(52,140,203,0.08)" }}>
+                          <span className="font-bold text-gray-500">{new Date(entry.fecha).toLocaleDateString("es-CO")}</span>
+                          <span className="font-black text-[#0A183A]">${entry.valor.toLocaleString("es-CO")}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-center text-xs text-gray-400 italic">Sin registros de costo.</div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Inspection Table */}
-              {selectedTire.inspecciones && selectedTire.inspecciones.length > 0 && (
+              {/* ── Inspections table ────────────────────────────────────── */}
+              {(selectedTire.inspecciones ?? []).length > 0 && (
                 <div>
-                  <h3 className="text-xl font-bold text-[#0A183A] pb-2 border-b border-gray-200 mb-4">
-                    {t.inspectionHistory}
-                  </h3>
-                  <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-                    <table className="w-full border-collapse">
+                  <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+                    <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+                      <Calendar className="w-4 h-4 text-[#1E76B6]" />
+                    </div>
+                    <h3 className="text-sm font-black text-[#0A183A] tracking-tight">Historial de Inspecciones</h3>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid rgba(52,140,203,0.12)" }}>
+                    <table className="w-full border-collapse text-xs">
                       <thead>
-                        <tr className="bg-gray-50">
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.date}</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.innerDepth}</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.centerDepth}</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.outerDepth}</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.cpk}</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.projectedCpk}</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">CPT Proyectada</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">KMs recorridos</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">{t.image}</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b"></th>
+                        <tr style={{ background: "rgba(10,24,58,0.03)", borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+                          {["Fecha", "Int", "Cen", "Ext", "CPK", "CPK Proy.", "CPT", "CPT Proy.", "Km", "Imagen", ""].map((h) => (
+                            <th key={h} className="px-3 py-2.5 text-left font-black text-[#0A183A] whitespace-nowrap">{h}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {[...selectedTire.inspecciones]
+                        {[...(selectedTire.inspecciones ?? [])]
                           .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
                           .map((insp, idx) => (
-                            <tr key={idx} className="border-b last:border-b-0 hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3">{new Date(insp.fecha).toLocaleDateString()}</td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${getTreadStatusColor(insp.profundidadInt)}`}>
-                                  {insp.profundidadInt} mm
-                                </span>
+                            <tr key={idx} className="transition-colors hover:bg-blue-50/30"
+                              style={{ borderBottom: "1px solid rgba(52,140,203,0.08)" }}>
+                              <td className="px-3 py-2.5 font-medium text-[#0A183A] whitespace-nowrap">{new Date(insp.fecha).toLocaleDateString("es-CO")}</td>
+                              {[insp.profundidadInt, insp.profundidadCen, insp.profundidadExt].map((d, di) => (
+                                <td key={di} className="px-3 py-2.5">
+                                  <span className="px-1.5 py-0.5 rounded-md font-bold" style={{ background: depthBg(d), color: depthColor(d) }}>
+                                    {d}mm
+                                  </span>
+                                </td>
+                              ))}
+                              <td className="px-3 py-2.5 font-medium text-[#0A183A]">{insp.cpk != null ? `$${Number(insp.cpk).toFixed(2)}` : "N/A"}</td>
+                              <td className="px-3 py-2.5 font-medium text-[#0A183A]">{insp.cpkProyectado != null ? `$${Number(insp.cpkProyectado).toFixed(2)}` : "N/A"}</td>
+                              <td className="px-3 py-2.5 font-medium text-[#0A183A]">{insp.cpt != null ? `$${Number(insp.cpt).toFixed(2)}` : "N/A"}</td>
+                              <td className="px-3 py-2.5 font-medium text-[#0A183A]">{insp.cptProyectado != null ? `$${Number(insp.cptProyectado).toFixed(2)}` : "N/A"}</td>
+                              <td className="px-3 py-2.5 font-medium text-[#0A183A]">{insp.kilometrosEstimados?.toLocaleString("es-CO") ?? "N/A"}</td>
+                              <td className="px-3 py-2.5">
+                                {insp.imageUrl
+                                  ? <a href={insp.imageUrl} target="_blank" rel="noopener noreferrer">
+                                      <img src={insp.imageUrl} alt="insp" className="w-10 h-10 rounded-lg object-cover hover:scale-105 transition-transform" style={{ border: "1px solid rgba(52,140,203,0.2)" }} />
+                                    </a>
+                                  : <span className="text-gray-300">—</span>}
                               </td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${getTreadStatusColor(insp.profundidadCen)}`}>
-                                  {insp.profundidadCen} mm
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white ${getTreadStatusColor(insp.profundidadExt)}`}>
-                                  {insp.profundidadExt} mm
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">{insp.cpk != null ? `$${Number(insp.cpk).toFixed(2)}` : "N/A"}</td>
-                            <td className="px-4 py-3">{insp.cpkProyectado != null ? `$${Number(insp.cpkProyectado).toFixed(2)}` : "N/A"}</td>
-                            <td className="px-4 py-3">{insp.cpt != null ? `$${Number(insp.cpt).toFixed(2)}` : "N/A"}</td>
-                            <td className="px-4 py-3">{insp.cptProyectado != null ? `$${Number(insp.cptProyectado).toFixed(2)}` : "N/A"}</td>
-                            <td className="px-4 py-3">{insp.kilometrosRecorridos ?? "N/A"}</td>
-                            <td className="px-4 py-3">
-                                {insp.imageUrl ? (
-                                  <a href={insp.imageUrl} target="_blank" rel="noopener noreferrer">
-                                    <img
-                                      src={insp.imageUrl}
-                                      alt="Inspección"
-                                      className="rounded-md shadow-sm border border-gray-200 object-cover hover:scale-105 transition-transform duration-200"
-                                      style={{
-                                        width: 64,
-                                        height: 64,
-                                        borderRadius: 4,
-                                        objectFit: 'cover',
-                                      }}
-                                    />
-                                  </a>
-                                ) : (
-                                  <span className="text-gray-400">No disponible</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-2.5">
                                 <button
-                                  title="Eliminar inspección"
                                   onClick={() => handleDeleteInspection(insp.fecha)}
-                                  className="text-red-500 hover:text-red-700 transition-colors"
+                                  className="p-1 rounded-lg transition-colors hover:bg-red-50 text-red-400 hover:text-red-600"
                                 >
-                                  <Trash2Icon className="w-4 h-4"/>
+                                  <Trash2Icon className="w-3.5 h-3.5" />
                                 </button>
                               </td>
                             </tr>
@@ -1133,13 +1018,15 @@ const handleEditSubmit = async () => {
                   </div>
                 </div>
               )}
-              
-              <div className="mt-8 flex justify-end">
+
+              {/* Close */}
+              <div className="flex justify-end pt-2">
                 <button
                   onClick={closeModal}
-                  className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-5 py-2 rounded-xl text-xs font-bold transition-colors"
+                  style={{ background: "rgba(10,24,58,0.06)", color: "#0A183A" }}
                 >
-                  {t.close}
+                  Cerrar
                 </button>
               </div>
             </div>

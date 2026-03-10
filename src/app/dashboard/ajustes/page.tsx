@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
   Settings,
   Car,
   LogOut,
@@ -23,11 +21,18 @@ import {
   Upload,
   Search,
   CheckCircle,
-  XCircle
+  XCircle,
+  Loader2,
+  Building2,
+  Link2,
+  Link2Off,
 } from "lucide-react";
 import CambiarContrasena from "./CambiarContraseña";
 
-// Define the types for User and Company
+// =============================================================================
+// Types
+// =============================================================================
+
 export type UserData = {
   id: string;
   email: string;
@@ -53,1260 +58,890 @@ export type DistributorCompany = {
   name: string;
   plan: string;
   profileImage: string;
+  // The GET /:companyId/distributors endpoint returns access objects with nested distributor
+  distributor?: DistributorCompany;
+  distributorId?: string;
 };
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "https://api.tirepro.com.co/api";
+
+function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  return fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+// =============================================================================
+// Toast
+// =============================================================================
+
+type Toast = { id: number; message: string; type: "success" | "error" };
+
+function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
+  return (
+    <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg pointer-events-auto transition-all"
+          style={{
+            background: t.type === "success" ? "rgba(22,163,74,0.96)" : "rgba(220,38,38,0.96)",
+            minWidth: 260, maxWidth: 360,
+          }}
+          onClick={() => onDismiss(t.id)}
+        >
+          {t.type === "success"
+            ? <CheckCircle className="w-4 h-4 text-white flex-shrink-0" />
+            : <AlertCircle className="w-4 h-4 text-white flex-shrink-0" />}
+          <span className="text-white text-sm font-medium flex-1">{t.message}</span>
+          <X className="w-3.5 h-3.5 text-white/70 flex-shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// =============================================================================
+// Design-system micro-components
+// =============================================================================
+
+/** White panel card */
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Section heading row inside a card */
+function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(30,118,182,0.1)" }}>
+        <Icon className="w-4 h-4 text-[#1E76B6]" />
+      </div>
+      <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
+    </div>
+  );
+}
+
+/** Input field styled to brand */
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputCls = "w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all";
+const inputStyle = { background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.2)", color: "#0A183A" };
+
+/** Brand gradient button */
+function PrimaryBtn({ children, onClick, disabled, type = "button", className = "" }: {
+  children: React.ReactNode; onClick?: () => void; disabled?: boolean;
+  type?: "button" | "submit"; className?: string;
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 ${className}`}
+      style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Ghost / outline button */
+function GhostBtn({ children, onClick, className = "" }: {
+  children: React.ReactNode; onClick?: () => void; className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-gray-100 ${className}`}
+      style={{ border: "1px solid rgba(10,24,58,0.12)", color: "#0A183A" }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// =============================================================================
+// Tab nav definition
+// =============================================================================
+
+type TabId = "profile" | "company" | "users" | "addUser" | "distributors";
+
+// =============================================================================
+// Main Page
+// =============================================================================
 
 const AjustesPage: React.FC = () => {
   const router = useRouter();
-  const [user, setUser] = useState<UserData | null>(null);
+
+  const [user,    setUser]    = useState<UserData | null>(null);
   const [company, setCompany] = useState<CompanyData | null>(null);
-  const [users, setUsers] = useState<UserData[]>([]);
-  const [error, setError] = useState("");
+  const [users,   setUsers]   = useState<UserData[]>([]);
+  const [error,   setError]   = useState("");
   const [loading, setLoading] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("profile");
-  const [showChange, setShowChange] = useState(false);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [newUserData, setNewUserData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "regular",
-  });
-  const [plateInputs, setPlateInputs] = useState<{ [userId: string]: string }>({});
-  
-  // Distributor search states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<DistributorCompany[]>([]);
-  const [selectedDistributors, setSelectedDistributors] = useState<DistributorCompany[]>([]);
+  const [toasts,  setToasts]  = useState<Toast[]>([]);
+  const [activeTab, setActiveTab] = useState<TabId>("profile");
+  const [showChange,   setShowChange]   = useState(false);
+  const [logoPreview,  setLogoPreview]  = useState<string | null>(null);
+
+  const [newUserData, setNewUserData] = useState({ name: "", email: "", password: "", role: "regular" });
+  const [plateInputs, setPlateInputs] = useState<Record<string, string>>({});
+  const [savingUser,  setSavingUser]  = useState(false);
+
+  // Distributor tab
+  const [searchQuery,           setSearchQuery]           = useState("");
+  const [searchResults,         setSearchResults]         = useState<DistributorCompany[]>([]);
+  const [selectedDistributors,  setSelectedDistributors]  = useState<DistributorCompany[]>([]);
   const [connectedDistributors, setConnectedDistributors] = useState<DistributorCompany[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [grantingAccess, setGrantingAccess] = useState(false);
+  const [searchLoading,         setSearchLoading]         = useState(false);
+  const [grantingAccess,        setGrantingAccess]        = useState(false);
 
-  function showNotification(message: string, type: "success" | "error") {
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 min-w-80 max-w-md p-4 rounded-2xl shadow-2xl transition-all duration-500 transform translate-x-full ${
-      type === 'success' 
-        ? 'bg-green-50 border border-green-200 text-green-800' 
-        : 'bg-red-50 border border-red-200 text-red-800'
-    }`;
-    notification.innerHTML = `
-      <div class="flex items-center">
-        <div class="flex-shrink-0 mr-3">
-          ${type === 'success' 
-            ? '<div class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></div>'
-            : '<div class="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>'
-          }
-        </div>
-        <div class="text-sm font-medium">${message}</div>
-      </div>
-    `;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      notification.style.transform = 'translateX(0)';
-    }, 100);
-    
-    setTimeout(() => {
-      notification.style.transform = 'translateX(100%)';
-      setTimeout(() => {
-        document.body.removeChild(notification);
-      }, 300);
-    }, 3000);
-  }
+  // ── Toast helper ─────────────────────────────────────────────────────────
+  const toast = useCallback((message: string, type: "success" | "error") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
+  }, []);
 
+  // ── Data fetchers ─────────────────────────────────────────────────────────
+  const fetchCompany = useCallback(async (companyId: string) => {
+    try {
+      const res = await authFetch(`${API_BASE}/companies/${companyId}`);
+      if (!res.ok) throw new Error("Error al cargar empresa");
+      setCompany(await res.json());
+    } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
+  }, []);
+
+  const fetchUsers = useCallback(async (companyId: string) => {
+    try {
+      const res = await authFetch(`${API_BASE}/users?companyId=${companyId}`);
+      if (!res.ok) throw new Error("Error al cargar usuarios");
+      setUsers(await res.json());
+    } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
+  }, []);
+
+  const fetchConnectedDistributors = useCallback(async (companyId: string) => {
+    try {
+      const res = await authFetch(`${API_BASE}/companies/${companyId}/distributors`);
+      if (res.ok) setConnectedDistributors(await res.json());
+    } catch { /* silent */ }
+  }, []);
+
+  // ── Auth init ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
+    const storedUser  = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
-    if (storedUser && storedToken) {
-      const parsedUser: UserData = JSON.parse(storedUser);
-      setUser(parsedUser);
-      if (parsedUser.companyId) {
-        fetchCompany(parsedUser.companyId);
-        if (parsedUser.role === "admin") {
-          fetchUsers(parsedUser.companyId);
-          fetchConnectedDistributors(parsedUser.companyId);
-        }
-      } else {
-        setError("No company assigned to user");
+    if (!storedUser || !storedToken) { localStorage.clear(); router.push("/login"); return; }
+    const parsed: UserData = JSON.parse(storedUser);
+    setUser(parsed);
+    if (parsed.companyId) {
+      fetchCompany(parsed.companyId);
+      if (parsed.role === "admin") {
+        fetchUsers(parsed.companyId);
+        fetchConnectedDistributors(parsed.companyId);
       }
     } else {
-      localStorage.clear();
-      router.push("/login");
+      setError("No hay empresa asignada al usuario");
     }
     setLoading(false);
-  }, [router]);
+  }, [router, fetchCompany, fetchUsers, fetchConnectedDistributors]);
 
-  // Debounced search for distributors
+  // ── Distributor search (debounced) ────────────────────────────────────────
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      searchCompanies(searchQuery);
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  async function searchCompanies(query: string) {
-    if (!user) return;
-    
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
+    if (searchQuery.length < 2) { setSearchResults([]); return; }
+    const t = setTimeout(async () => {
+      if (!user) return;
       setSearchLoading(true);
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/search/by-name?q=${encodeURIComponent(query)}&exclude=${user.companyId}`
-          : `https://api.tirepro.com.co/api/companies/search/by-name?q=${encodeURIComponent(query)}&exclude=${user.companyId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      try {
+        const res = await authFetch(
+          `${API_BASE}/companies/search/by-name?q=${encodeURIComponent(searchQuery)}&exclude=${user.companyId}`
+        );
+        if (!res.ok) throw new Error();
+        const data: DistributorCompany[] = await res.json();
+        setSearchResults(data.filter((c) => c.plan === "distribuidor"));
+      } catch { setSearchResults([]); }
+      finally { setSearchLoading(false); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchQuery, user]);
 
-      if (!res.ok) throw new Error("Error al buscar distribuidores");
-      
-      const data = await res.json();
-      // Filter only distributors
-      const distributors = data.filter(
-  (c: DistributorCompany) => c.plan === 'distribuidor'
-);
-      setSearchResults(distributors);
-    } catch (err) {
-      console.error("Error searching companies:", err);
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
-  }
-
-  async function fetchConnectedDistributors(companyId: string) {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}/distributors`
-          : `https://api.tirepro.com.co/api/companies/${companyId}/distributors`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setConnectedDistributors(data);
-      }
-    } catch (err) {
-      console.error("Error fetching connected distributors:", err);
-    }
-  }
-
-  function addDistributor(distributor: DistributorCompany) {
-    setSelectedDistributors(prev =>
-      prev.some(d => d.id === distributor.id)
-        ? prev
-        : [...prev, distributor]
-    );
-  }
-
-  function removeDistributor(distributorId: string) {
-    setSelectedDistributors(prev => prev.filter(d => d.id !== distributorId));
-  }
-
-  async function grantAccess(distributorId: string) {
-  if (!user) return;
-
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
-  const res = await fetch(
-    process.env.NEXT_PUBLIC_API_URL
-      ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${user.companyId}/distributors/${distributorId}`
-      : `https://api.tirepro.com.co/api/companies/${user.companyId}/distributors/${distributorId}`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err || 'Failed to grant distributor access');
-  }
-}
-  async function handleGrantAccess() {
-    if (selectedDistributors.length === 0) {
-      showNotification("Selecciona al menos un distribuidor", "error");
-      return;
-    }
-
-    try {
-      setGrantingAccess(true);
-      await Promise.all(
-        selectedDistributors.map(d => grantAccess(d.id))
-      );
-      
-      showNotification("Acceso otorgado exitosamente", "success");
-      setSelectedDistributors([]);
-      setSearchQuery("");
-      setSearchResults([]);
-      
-      if (user) {
-        fetchConnectedDistributors(user.companyId);
-      }
-    } catch (err) {
-      showNotification("Error al otorgar acceso", "error");
-    } finally {
-      setGrantingAccess(false);
-    }
-  }
-
-  async function revokeAccess(distributorId: string) {
-  if (!user) return;
-
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
-  try {
-    const res = await fetch(
-      process.env.NEXT_PUBLIC_API_URL
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${user.companyId}/distributors/${distributorId}`
-        : `https://api.tirepro.com.co/api/companies/${user.companyId}/distributors/${distributorId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || 'Failed to revoke distributor access');
-    }
-
-    showNotification("Acceso revocado exitosamente", "success");
-    fetchConnectedDistributors(user.companyId);
-  } catch (err) {
-    console.error(err);
-    showNotification("Error al revocar acceso", "error");
-  }
-}
-
-  async function handleDeleteUser(userId: string) {
-    try {
-      setLoading(true);
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}`
-          : `https://api.tirepro.com.co/api/users/${userId}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) throw new Error("Error al eliminar el usuario");
-      showNotification("Usuario eliminado exitosamente", "success");
-      if (user) fetchUsers(user.companyId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function fetchCompany(companyId: string) {
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
-          : `https://api.tirepro.com.co/api/companies/${companyId}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch company data");
-      const data = await res.json();
-      setCompany(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    }    
-  }
-
-  async function fetchUsers(companyId: string) {
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users?companyId=${companyId}`
-          : `https://api.tirepro.com.co/api/users?companyId=${companyId}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch users");
-      const data = await res.json();
-      setUsers(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    }    
-  }
-
-  async function handleAddUser(e: React.FormEvent) {
-    e.preventDefault();
-    
-    if (!newUserData.name || !newUserData.email || !newUserData.password) {
-      showNotification("Complete todos los campos para crear un usuario", "error");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newUserData.email)) {
-      showNotification("Ingrese un correo electrónico válido", "error");
-      return;
-    }
-
-    if (newUserData.password.length < 6) {
-      showNotification("La contraseña debe tener al menos 6 caracteres", "error");
-      return;
-    }
-
-    if (!user) return;
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      showNotification("Token de autenticación faltante. Por favor inicie sesión nuevamente.", "error");
-      localStorage.clear();
-      router.push("/login");
-      return;
-    }
-
-    const payload = { 
-      ...newUserData, 
-      companyId: user.companyId,
-      email: newUserData.email.toLowerCase().trim(),
-      name: newUserData.name.trim()
-    };
-
-    try {
-      setLoading(true);
-      
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/register`
-          : `https://api.tirepro.com.co/api/users/register`,
-        {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-      
-      if (!res.ok) {
-        let errorMessage = "Error al crear el usuario";
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {
-          // Use default message
-        }
-        throw new Error(errorMessage);
-      }
-      
-      const result = await res.json();
-      showNotification(result.message || "Usuario creado exitosamente", "success");
-      fetchUsers(user.companyId);
-      setNewUserData({ name: "", email: "", password: "", role: "regular" });
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Error al crear el usuario";
-      showNotification(errorMessage, "error");
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleAddPlate(userId: string) {
-    const plate = plateInputs[userId];
-    if (!plate || plate.trim() === "") {
-      showNotification("Ingrese una placa válida.", "error");
-      return;
-    }
-    try {
-      setLoading(true);
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/add-plate/${userId}`
-          : `https://api.tirepro.com.co/api/users/add-plate/${userId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plate: plate.trim() }),
-        }
-      );
-      if (!res.ok) throw new Error("Error al agregar la placa");
-      const updatedUser = await res.json();
-      setUsers((prevUsers) =>
-        prevUsers.map((u) =>
-          u.id === userId ? { ...u, plates: updatedUser.plates } : u
-        )
-      );
-      setPlateInputs((prev) => ({ ...prev, [userId]: "" }));
-      showNotification("Placa agregada exitosamente", "success");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleRemovePlate(userId: string, plate: string) {
-    try {
-      setLoading(true);
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users/remove-plate/${userId}`
-          : `https://api.tirepro.com.co/api/users/remove-plate/${userId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plate }),
-        }
-      );
-      if (!res.ok) throw new Error("Error al remover la placa");
-      const updatedUser = await res.json();
-      setUsers((prevUsers) =>
-        prevUsers.map((u) =>
-          u.id === userId ? { ...u, plates: updatedUser.plates } : u
-        )
-      );
-      showNotification("Placa removida exitosamente", "success");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
-    }
-  }
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleLogout = () => { localStorage.clear(); window.location.href = "/login"; };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !company) return;
-
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
     const reader = new FileReader();
-
     reader.onloadend = async () => {
       const base64 = reader.result as string;
       setLogoPreview(base64);
-
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${company.id}/logo`
-          : `https://api.tirepro.com.co/api/companies/${company.id}/logo`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ imageBase64: base64 }),
-        }
-      );
-
-      if (!res.ok) {
-        showNotification("Error al actualizar el logo de la empresa", "error");
-        return;
-      }
-
-      const updatedCompany = await res.json();
-      setCompany(updatedCompany);
-      showNotification("Logo actualizado exitosamente", "success");
+      const res = await authFetch(`${API_BASE}/companies/${company.id}/logo`, {
+        method: "PATCH", body: JSON.stringify({ imageBase64: base64 }),
+      });
+      if (!res.ok) { toast("Error al actualizar el logo", "error"); return; }
+      setCompany(await res.json());
+      toast("Logo actualizado exitosamente", "success");
     };
-
     reader.readAsDataURL(file);
   };
 
-  function handleLogout() {
-    localStorage.clear();
-    window.location.href = "/login";
-  }
-
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserData.name || !newUserData.email || !newUserData.password) {
+      toast("Complete todos los campos", "error"); return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUserData.email)) {
+      toast("Correo electrónico inválido", "error"); return;
+    }
+    if (newUserData.password.length < 6) {
+      toast("La contraseña debe tener al menos 6 caracteres", "error"); return;
+    }
+    if (!user) return;
+    setSavingUser(true);
+    try {
+      const res = await authFetch(`${API_BASE}/users/register`, {
+        method: "POST",
+        body: JSON.stringify({
+          ...newUserData,
+          companyId: user.companyId,
+          email: newUserData.email.toLowerCase().trim(),
+          name: newUserData.name.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Error al crear usuario");
+      }
+      const result = await res.json();
+      toast(result.message || "Usuario creado exitosamente", "success");
+      fetchUsers(user.companyId);
+      setNewUserData({ name: "", email: "", password: "", role: "regular" });
+      setActiveTab("users");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Error inesperado", "error");
+    } finally {
+      setSavingUser(false);
+    }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("¿Eliminar este usuario?")) return;
+    try {
+      const res = await authFetch(`${API_BASE}/users/${userId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al eliminar usuario");
+      toast("Usuario eliminado", "success");
+      if (user) fetchUsers(user.companyId);
+    } catch (e) { toast(e instanceof Error ? e.message : "Error", "error"); }
+  };
+
+  const handleAddPlate = async (userId: string) => {
+    const plate = plateInputs[userId]?.trim();
+    if (!plate) { toast("Ingrese una placa válida", "error"); return; }
+    try {
+      // Backend: PATCH /users/add-plate/:id  with body { plate }
+      const res = await authFetch(`${API_BASE}/users/add-plate/${userId}`, {
+        method: "PATCH", body: JSON.stringify({ plate }),
+      });
+      if (!res.ok) throw new Error("Error al agregar placa");
+      const updated: UserData = await res.json();
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, plates: updated.plates } : u));
+      setPlateInputs((prev) => ({ ...prev, [userId]: "" }));
+      toast("Placa agregada", "success");
+    } catch (e) { toast(e instanceof Error ? e.message : "Error", "error"); }
+  };
+
+  const handleRemovePlate = async (userId: string, plate: string) => {
+    try {
+      // Backend: PATCH /users/remove-plate/:id  with body { plate }
+      const res = await authFetch(`${API_BASE}/users/remove-plate/${userId}`, {
+        method: "PATCH", body: JSON.stringify({ plate }),
+      });
+      if (!res.ok) throw new Error("Error al remover placa");
+      const updated: UserData = await res.json();
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, plates: updated.plates } : u));
+      toast("Placa removida", "success");
+    } catch (e) { toast(e instanceof Error ? e.message : "Error", "error"); }
+  };
+
+  // Distributor access
+  const addToSelection = (d: DistributorCompany) =>
+    setSelectedDistributors((prev) => prev.some((x) => x.id === d.id) ? prev : [...prev, d]);
+
+  const removeFromSelection = (id: string) =>
+    setSelectedDistributors((prev) => prev.filter((d) => d.id !== id));
+
+  const handleGrantAccess = async () => {
+    if (!selectedDistributors.length) { toast("Selecciona al menos un distribuidor", "error"); return; }
+    setGrantingAccess(true);
+    try {
+      await Promise.all(selectedDistributors.map((d) =>
+        authFetch(`${API_BASE}/companies/${user!.companyId}/distributors/${d.id}`, { method: "POST" })
+      ));
+      toast("Acceso otorgado exitosamente", "success");
+      setSelectedDistributors([]); setSearchQuery(""); setSearchResults([]);
+      fetchConnectedDistributors(user!.companyId);
+    } catch { toast("Error al otorgar acceso", "error"); }
+    finally { setGrantingAccess(false); }
+  };
+
+  const handleRevokeAccess = async (distributorId: string) => {
+    if (!window.confirm("¿Revocar acceso a este distribuidor?")) return;
+    try {
+      const res = await authFetch(
+        `${API_BASE}/companies/${user!.companyId}/distributors/${distributorId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error("Error al revocar acceso");
+      toast("Acceso revocado exitosamente", "success");
+      fetchConnectedDistributors(user!.companyId);
+    } catch (e) { toast(e instanceof Error ? e.message : "Error", "error"); }
+  };
+
+  // ── Tab definitions ───────────────────────────────────────────────────────
+  const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean }[] = [
+    { id: "profile",      label: "Perfil",          icon: User                             },
+    { id: "company",      label: "Empresa",         icon: Building                         },
+    { id: "users",        label: "Usuarios",        icon: Users,    adminOnly: true        },
+    { id: "addUser",      label: "Nuevo Usuario",   icon: UserPlus, adminOnly: true        },
+    { id: "distributors", label: "Distribuidores",  icon: Link2,    adminOnly: true, hideForDistributor: true },
+  ];
+
+  // ==========================================================================
+  // Render
+  // ==========================================================================
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#ffffff" }}>
+        <div className="flex items-center gap-3 text-[#1E76B6]">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span className="font-medium">Cargando ajustes…</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={toggleMobileMenu} />
-          <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Menú</h2>
-              <button
-                onClick={toggleMobileMenu}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <X className="h-5 w-5 text-gray-600" />
-              </button>
-            </div>
-            <div className="p-6 space-y-2">
-              <Link
-                href="/dashboard"
-                className="flex items-center px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors"
-                onClick={toggleMobileMenu}
-              >
-                <LayoutDashboard className="h-5 w-5 mr-3" />
-                Dashboard
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center w-full px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors"
-              >
-                <LogOut className="h-5 w-5 mr-3" />
-                Cerrar Sesión
-              </button>
-            </div>
+    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+      <ToastContainer toasts={toasts} onDismiss={(id) => setToasts((p) => p.filter((t) => t.id !== id))} />
+
+      {/* ── Sticky header ── */}
+      <div
+        className="sticky top-0 z-40 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3"
+        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}
+      >
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="p-2 rounded-xl flex-shrink-0" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+            <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-black text-[#0A183A] text-base sm:text-lg leading-none tracking-tight">Ajustes</h1>
+            <p className="text-xs text-[#348CCB] mt-0.5">
+              {user?.name ?? ""} · {company?.name ?? ""}
+            </p>
           </div>
         </div>
-      )}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all hover:bg-red-50"
+          style={{ border: "1px solid rgba(220,38,38,0.2)", color: "#DC2626" }}
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="hidden sm:inline">Cerrar Sesión</span>
+        </button>
+      </div>
 
-      {/* Main Content */}
-      <div className="pt-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="py-6 sm:py-8 lg:py-10">
-            <div className="text-center">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">Ajustes</h1>
-              <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
-                Administra la información de tu cuenta y empresa
-              </p>
-            </div>
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
+
+        {/* Error banner */}
+        {error && (
+          <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}>
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <span className="flex-1 text-red-700">{error}</span>
+            <button onClick={() => setError("")}><X className="w-4 h-4 text-red-400" /></button>
           </div>
+        )}
 
-          {/* Error Alert */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
-              <div className="flex items-start">
-                <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          )}
+        {/* ── Tab nav ── */}
+        <Card className="p-1.5">
+          <nav className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor")).length}, minmax(0,1fr))` }}>
+            {tabs
+              .filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor"))
+              .map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all"
+                    style={{
+                      background: active ? "linear-gradient(135deg, #0A183A, #173D68)" : "transparent",
+                      color: active ? "white" : "#6B7280",
+                    }}
+                  >
+                    <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="hidden sm:inline truncate">{tab.label}</span>
+                  </button>
+                );
+              })}
+          </nav>
+        </Card>
 
-          {/* Tab Navigation */}
-          <div className="mb-6 sm:mb-8">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-2">
-              <nav className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1" aria-label="Tabs">
-                <button
-                  onClick={() => setActiveTab("profile")}
-                  className={`flex items-center justify-center px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium rounded-xl transition-all ${
-                    activeTab === "profile"
-                      ? "bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white shadow-lg"
-                      : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                  }`}
-                >
-                  <User className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Perfil</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab("company")}
-                  className={`flex items-center justify-center px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium rounded-xl transition-all ${
-                    activeTab === "company"
-                      ? "bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white shadow-lg"
-                      : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                  }`}
-                >
-                  <Building className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Empresa</span>
-                </button>
-                {user?.role === "admin" && (
-                  <>
-                    <button
-                      onClick={() => setActiveTab("users")}
-                      className={`flex items-center justify-center px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium rounded-xl transition-all ${
-                        activeTab === "users"
-                          ? "bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white shadow-lg"
-                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                      }`}
-                    >
-                      <Users className="h-4 w-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Usuarios</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("addUser")}
-                      className={`flex items-center justify-center px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium rounded-xl transition-all ${
-                        activeTab === "addUser"
-                          ? "bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white shadow-lg"
-                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                      }`}
-                    >
-                      <UserPlus className="h-4 w-4 mr-1 sm:mr-2" />
-                      <span className="hidden lg:inline">Nuevo Usuario</span>
-                      <span className="lg:hidden">+</span>
-                    </button>
-                    {company?.plan !== "distribuidor" && (
-                    <button
-                      onClick={() => setActiveTab("distributors")}
-                      className={`flex items-center justify-center px-2 sm:px-4 py-3 text-xs sm:text-sm font-medium rounded-xl transition-all ${
-                        activeTab === "distributors"
-                          ? "bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white shadow-lg"
-                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                      }`}
-                    >
-                      <Search className="h-4 w-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Distribuidores</span>
-                    </button>
-                    )}
-                  </>
-                )}
-              </nav>
-            </div>
-          </div>
-
-          {/* Tab Content */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-            {/* Profile Tab */}
-            {activeTab === "profile" && user && (
-              <div className="p-4 sm:p-6 lg:p-8">
-                <div className="text-center mb-6 sm:mb-8">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <User className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{user.name}</h2>
-                  <p className="text-sm sm:text-base text-gray-600">{user.email}</p>
+        {/* ================================================================ */}
+        {/* PROFILE TAB                                                       */}
+        {/* ================================================================ */}
+        {activeTab === "profile" && user && (
+          <div className="space-y-4">
+            {/* User info card */}
+            <Card className="p-5 sm:p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #1E76B6, #348CCB)" }}>
+                  <User className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                 </div>
-
-                <div className="space-y-4 sm:space-y-6">
-                  {/* User Details */}
-                  <div className="bg-gray-50 rounded-2xl p-4 sm:p-6">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Información de Usuario</h3>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">Nombre Completo</label>
-                        <div className="bg-white p-3 rounded-xl border border-gray-200">
-                          <p className="text-gray-900 text-sm sm:text-base">{user.name}</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">Correo Electrónico</label>
-                        <div className="bg-white p-3 rounded-xl border border-gray-200">
-                          <p className="text-gray-900 text-sm sm:text-base break-all">{user.email}</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">Rol del Usuario</label>
-                        <div className="bg-white p-3 rounded-xl border border-gray-200">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
-                            user.role === "admin" 
-                              ? "bg-[#0A183A] text-white" 
-                              : "bg-[#1E76B6] text-white"
-                          }`}>
-                            <Shield className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                            {user.role === "admin" ? "Administrador" : "Usuario Regular"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-600">Placas de Vehículos Asignadas</label>
-                        <div className="bg-white p-3 rounded-xl border border-gray-200 min-h-12">
-                          {user.plates && user.plates.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {user.plates.map((plate) => (
-                                <span
-                                  key={plate}
-                                  className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-gray-100 text-gray-800"
-                                >
-                                  <Tag className="h-3 w-3 mr-1" />
-                                  {plate}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-gray-500 text-sm">No hay placas de vehículos asignadas</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Security Section */}
-                  <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 border border-gray-100 shadow-sm">
-                    <h3 className="text-lg sm:text-xl font-semibold text-[#0A183A] mb-4 sm:mb-6">Seguridad de la Cuenta</h3>
-                    <button
-                      onClick={() => setShowChange(!showChange)}
-                      className="flex items-center justify-between w-full p-3 sm:p-4 lg:p-5 bg-white rounded-xl sm:rounded-2xl border border-gray-200 hover:border-[#348CCB] hover:bg-gray-50 transition-all duration-300 group"
-                    >
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-xl sm:rounded-2xl flex items-center justify-center mr-3 sm:mr-4">
-                          <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                        </div>
-                        <div className="text-left">
-                          <p className="font-medium sm:font-semibold text-[#0A183A] text-sm sm:text-base">Cambiar Contraseña</p>
-                          <p className="text-xs sm:text-sm text-gray-600 mt-1">Actualiza tu contraseña</p>
-                        </div>
-                      </div>
-                      <ChevronRight className={`h-5 w-5 sm:h-6 sm:w-6 text-gray-400 transition-transform duration-300 ${showChange ? 'rotate-90' : ''}`} />
-                    </button>
-                    
-                    {showChange && (
-                      <div className="mt-4 sm:mt-6 p-3 sm:p-4 lg:p-6 bg-white rounded-xl sm:rounded-2xl border border-gray-200 animate-in slide-in-from-top-2 duration-300">
-                        <CambiarContrasena />
-                      </div>
-                    )}
-                  </div>
+                <div className="min-w-0">
+                  <p className="font-black text-[#0A183A] text-lg leading-tight truncate">{user.name}</p>
+                  <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                  <span
+                    className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                    style={{ background: user.role === "admin" ? "#0A183A" : "#1E76B6" }}
+                  >
+                    <Shield className="w-2.5 h-2.5" />
+                    {user.role === "admin" ? "Administrador" : "Usuario Regular"}
+                  </span>
                 </div>
               </div>
-            )}
 
-            {/* Company tab */}
-            {activeTab === "company" && company && (
-              <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
-                {/* Header Section */}
-                <div className="text-center mb-8 sm:mb-10 lg:mb-12">
-                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 mx-auto mb-4 sm:mb-6 group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-3xl transform rotate-3 opacity-20"></div>
-
-                    <div className="relative w-full h-full bg-white rounded-3xl shadow-xl border border-gray-100 flex items-center justify-center overflow-hidden">
-                      <img
-                        src={logoPreview || company.profileImage}
-                        alt={`${company.name} Logo`}
-                        className="w-3/4 h-3/4 object-cover rounded-2xl"
-                      />
-
-                      {user?.role === "admin" && (
-                        <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
-                          <Upload className="h-6 w-6 text-white" />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleLogoUpload}
-                          />
-                        </label>
-                      )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { label: "Nombre", value: user.name },
+                  { label: "Correo", value: user.email },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{label}</p>
+                    <div className="px-3 py-2.5 rounded-xl text-sm font-medium text-[#0A183A] break-all" style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.12)" }}>
+                      {value}
                     </div>
                   </div>
+                ))}
 
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">
-                    {company.name}
-                  </h2>
-
-                  <div className="inline-flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white rounded-full text-sm sm:text-base font-semibold shadow-lg">
-                    <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
-                    Plan {company.plan}
-                  </div>
-                </div>
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-10 lg:mb-12">
-                  {/* Users Card */}
-                  <div className="group bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100 hover:shadow-2xl hover:shadow-[#1E76B6]/10 transition-all duration-500 hover:-translate-y-1">
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <div className="p-2 sm:p-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-xl sm:rounded-2xl shadow-lg">
-                        <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A]">{company.userCount}</div>
-                        <div className="text-xs sm:text-sm text-gray-500 font-medium">Usuarios</div>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-full w-4/5 transition-all duration-1000"></div>
-                    </div>
-                  </div>
-
-                  {/* Vehicles Card */}
-                  <div className="group bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100 hover:shadow-2xl hover:shadow-[#173D68]/10 transition-all duration-500 hover:-translate-y-1">
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <div className="p-2 sm:p-3 bg-gradient-to-r from-[#173D68] to-[#1E76B6] rounded-xl sm:rounded-2xl shadow-lg">
-                        <Car className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A]">{company.vehicleCount}</div>
-                        <div className="text-xs sm:text-sm text-gray-500 font-medium">Vehículos</div>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#173D68] to-[#1E76B6] rounded-full w-3/5 transition-all duration-1000"></div>
-                    </div>
-                  </div>
-
-                  {/* Tires Card */}
-                  <div className="group bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-100 hover:shadow-2xl hover:shadow-[#348CCB]/10 transition-all duration-500 hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <div className="p-2 sm:p-3 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] rounded-xl sm:rounded-2xl shadow-lg">
-                        <svg className="h-5 w-5 sm:h-6 sm:w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10" />
-                          <circle cx="12" cy="12" r="2" />
-                        </svg>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A]">{company.tireCount}</div>
-                        <div className="text-xs sm:text-sm text-gray-500 font-medium">Llantas</div>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#348CCB] to-[#1E76B6] rounded-full w-5/6 transition-all duration-1000"></div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Configuration */}
-                {user?.role === "admin" && (
-                  <div className="bg-gradient-to-r from-[#0A183A] to-[#173D68] rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 text-white">
-                    <div className="flex flex-col sm:flex-row sm:items-center mb-6 sm:mb-8">
-                      <div className="flex items-center mb-4 sm:mb-0">
-                        <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl mr-3 sm:mr-4">
-                          <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-1">Configuración adicional</h3>
-                          <p className="text-gray-300 text-sm sm:text-base">Para cambiar la configuración de la empresa, contacta a soporte técnico.</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                      <div className="bg-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/10 hover:bg-white/10 transition-all duration-300">
-                        <div className="flex items-center mb-2 sm:mb-3">
-                          <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-[#348CCB] mr-2" />
-                          <span className="text-sm sm:text-base font-medium">Configuración de Seguridad</span>
-                        </div>
-                        <p className="text-xs sm:text-sm text-gray-400">Administrar acceso y permisos</p>
-                      </div>
-                      <div className="bg-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/10 hover:bg-white/10 transition-all duration-300">
-                        <div className="flex items-center mb-2 sm:mb-3">
-                          <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-[#348CCB] mr-2" />
-                          <span className="text-sm sm:text-base font-medium">Contactar Soporte</span>
-                        </div>
-                        <p className="text-xs sm:text-sm text-gray-400">Obtener ayuda con la configuración</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Users tab (Admin only) */}
-            {activeTab === "users" && user?.role === "admin" && (
-              <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
-                {/* Header */}
-                <div className="text-center mb-8 sm:mb-10 lg:mb-12">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                    <Users className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">Gestión de Usuarios</h2>
-                  <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto px-4">Administra los usuarios de tu empresa</p>
-                </div>
-
-                {users.length === 0 ? (
-                  <div className="text-center py-12 sm:py-16 lg:py-20">
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
-                      <Users className="h-12 w-12 sm:h-16 sm:w-16 lg:h-20 lg:w-20 text-gray-300" />
-                    </div>
-                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0A183A] mb-3 sm:mb-4">No hay usuarios</h3>
-                    <p className="text-gray-600 text-sm sm:text-base mb-6 sm:mb-8 max-w-md mx-auto px-4">Comienza agregando un nuevo usuario a tu empresa.</p>
-                    <button
-                      onClick={() => setActiveTab("addUser")}
-                      className="inline-flex items-center px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white font-semibold rounded-xl sm:rounded-2xl hover:shadow-2xl hover:shadow-[#1E76B6]/25 transition-all duration-300 transform hover:-translate-y-1 text-sm sm:text-base"
-                    >
-                      <UserPlus className="mr-2 sm:mr-3 h-4 w-4 sm:h-5 sm:w-5" />
-                      Agregar Usuario
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4 sm:space-y-6">
-                    {users.map((u) => (
-                      <div key={u.id} className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:shadow-gray-500/10 transition-all duration-500">
-                        {/* User Header */}
-                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-b border-gray-200">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="flex items-center">
-                              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-xl sm:rounded-2xl flex items-center justify-center mr-3 sm:mr-6 shadow-lg">
-                                <User className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-                              </div>
-                              <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-[#0A183A] mb-1">{u.name}</h3>
-                                <p className="text-gray-600 text-sm sm:text-base mb-2 break-all">{u.email}</p>
-                                <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
-                                  u.role === "admin" 
-                                    ? "bg-gradient-to-r from-[#0A183A] to-[#173D68] text-white" 
-                                    : "bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white"
-                                }`}>
-                                  <Shield className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  {u.role === "admin" ? "Administrador" : "Usuario Regular"}
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteUser(u.id)}
-                              className="p-2 sm:p-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl sm:rounded-2xl transition-all duration-200 group self-start sm:self-center"
-                            >
-                              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* User Content */}
-                        <div className="p-4 sm:p-6 lg:p-8">
-                          {/* Assigned Plates */}
-                          <div className="mb-4 sm:mb-6">
-                            <h4 className="text-base sm:text-lg font-semibold text-[#0A183A] mb-3 sm:mb-4 flex items-center">
-                              <Tag className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-[#1E76B6]" />
-                              Placas Asignadas
-                            </h4>
-                            {u.plates && u.plates.length > 0 ? (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-                                {u.plates.map((plate) => (
-                                  <div key={plate} className="group flex items-center bg-gray-50 hover:bg-gray-100 px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl transition-all duration-200 border border-gray-200">
-                                    <Tag className="h-3 w-3 sm:h-4 sm:w-4 mr-2 text-[#1E76B6] flex-shrink-0" />
-                                    <span className="font-medium text-[#0A183A] text-sm sm:text-base flex-1 truncate">{plate}</span>
-                                    <button
-                                      onClick={() => handleRemovePlate(u.id, plate)}
-                                      className="ml-2 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 rounded-full hover:bg-red-50 flex-shrink-0"
-                                    >
-                                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-center py-6 sm:py-8 bg-gray-50 rounded-xl sm:rounded-2xl border-2 border-dashed border-gray-200">
-                                <Tag className="h-8 w-8 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-2 sm:mb-3" />
-                                <p className="text-gray-500 font-medium text-sm sm:text-base">No hay placas asignadas</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Add Plate */}
-                          <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                            <h5 className="text-sm sm:text-base font-semibold text-[#0A183A] mb-3 sm:mb-4 flex items-center">
-                              <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-[#348CCB]" />
-                              Agregar Nueva Placa
-                            </h5>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                              <input
-                                type="text"
-                                placeholder="Nueva placa"
-                                value={plateInputs[u.id] || ""}
-                                onChange={(e) =>
-                                  setPlateInputs((prev) => ({
-                                    ...prev,
-                                    [u.id]: e.target.value.toUpperCase(),
-                                  }))
-                                }
-                                className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-white text-sm sm:text-base"
-                              />
-                              <button
-                                onClick={() => handleAddPlate(u.id)}
-                                className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white font-semibold rounded-xl sm:rounded-2xl hover:shadow-lg hover:shadow-[#1E76B6]/25 transition-all duration-200 transform hover:-translate-y-0.5 flex items-center justify-center"
-                              >
-                                <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5 sm:mr-2" />
-                                <span className="hidden sm:inline">Agregar</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Add User tab (Admin only) */}
-            {activeTab === "addUser" && user?.role === "admin" && (
-              <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
-                {/* Header */}
-                <div className="text-center mb-8 sm:mb-10 lg:mb-12">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[#348CCB] to-[#1E76B6] rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                    <UserPlus className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">Agregar Nuevo Usuario</h2>
-                  <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto px-4">Complete el formulario para agregar un nuevo usuario a su organización</p>
-                </div>
-
-                {/* Form */}
-                <div className="max-w-2xl mx-auto">
-                  <div className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                    <form onSubmit={handleAddUser} className="p-6 sm:p-8 lg:p-10">
-                      <div className="space-y-4 sm:space-y-6">
-                        {/* Name Field */}
-                        <div>
-                          <label className="block text-sm sm:text-base font-semibold text-[#0A183A] mb-2">
-                            Nombre <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={newUserData.name}
-                            onChange={(e) => setNewUserData({ ...newUserData, name: e.target.value })}
-                            className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white text-sm sm:text-base"
-                            placeholder="Ingrese el nombre completo"
-                          />
-                        </div>
-
-                        {/* Email Field */}
-                        <div>
-                          <label className="block text-sm sm:text-base font-semibold text-[#0A183A] mb-2">
-                            Correo Electrónico <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="email"
-                            value={newUserData.email}
-                            onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
-                            className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white text-sm sm:text-base"
-                            placeholder="usuario@ejemplo.com"
-                          />
-                        </div>
-
-                        {/* Password Field */}
-                        <div>
-                          <label className="block text-sm sm:text-base font-semibold text-[#0A183A] mb-2">
-                            Contraseña <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="password"
-                            value={newUserData.password}
-                            onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-                            className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white text-sm sm:text-base"
-                            placeholder="Contraseña segura"
-                          />
-                        </div>
-
-                        {/* Role Field */}
-                        <div>
-                          <label className="block text-sm sm:text-base font-semibold text-[#0A183A] mb-2">
-                            Rol <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            value={newUserData.role}
-                            onChange={(e) =>
-                              setNewUserData({ ...newUserData, role: e.target.value })
-                            }
-                            className="w-full px-3 sm:px-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white text-sm sm:text-base"
-                          >
-                            <option value="regular">Usuario Regular</option>
-                            <option value="admin">Administrador</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Submit Button */}
-                      <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-200">
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className="w-full px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white font-semibold rounded-xl sm:rounded-2xl hover:shadow-2xl hover:shadow-[#1E76B6]/25 transition-all duration-300 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base"
-                        >
-                          {loading ? (
-                            <div className="flex items-center justify-center">
-                              <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                              Creando...
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center">
-                              <UserPlus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                              Crear Usuario
-                            </div>
-                          )}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Distributors tab (Admin only) */}
-            {activeTab === "distributors" && user?.role === "admin" && company?.plan !== "distribuidor" && (
-              <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
-                {/* Header */}
-                <div className="text-center mb-8 sm:mb-10 lg:mb-12">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                    <Search className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A183A] mb-2 sm:mb-3">Buscar Distribuidor</h2>
-                  <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto px-4">Encuentra y otorga acceso a distribuidores</p>
-                </div>
-
-                {/* Search Bar */}
-                <div className="max-w-2xl mx-auto mb-8">
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar distribuidor por nombre..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all duration-200 bg-white text-sm sm:text-base"
-                    />
-                    {searchLoading && (
-                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                        <div className="w-5 h-5 border-2 border-[#1E76B6] border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Search Results */}
-                {searchQuery.length >= 2 && searchResults.length > 0 && (
-                  <div className="max-w-2xl mx-auto mb-8">
-                    <h3 className="text-lg font-semibold text-[#0A183A] mb-4">Resultados de Búsqueda</h3>
-                    <div className="space-y-3">
-                      {searchResults.map((distributor) => (
-                        <div
-                          key={distributor.id}
-                          onClick={() => addDistributor(distributor)}
-                          className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl hover:border-[#1E76B6] hover:shadow-lg transition-all duration-200 cursor-pointer"
-                        >
-                          <div className="flex items-center">
-                            <img
-                              src={distributor.profileImage}
-                              alt={distributor.name}
-                              className="w-12 h-12 rounded-xl object-cover mr-4"
-                            />
-                            <div>
-                              <h4 className="font-semibold text-[#0A183A]">{distributor.name}</h4>
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#1E76B6] text-white mt-1">
-                                Distribuidor
-                              </span>
-                            </div>
-                          </div>
-                          <PlusCircle className="h-6 w-6 text-[#1E76B6]" />
-                        </div>
+                {user.plates && user.plates.length > 0 && (
+                  <div className="sm:col-span-2">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Placas asignadas</p>
+                    <div className="flex flex-wrap gap-2 px-3 py-2.5 rounded-xl" style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.12)" }}>
+                      {user.plates.map((plate) => (
+                        <span key={plate} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "rgba(30,118,182,0.1)", color: "#1E76B6" }}>
+                          <Tag className="w-2.5 h-2.5" />{plate}
+                        </span>
                       ))}
                     </div>
                   </div>
                 )}
-
-                {searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && (
-                  <div className="text-center py-12 max-w-2xl mx-auto">
-                    <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No se encontraron distribuidores</p>
-                  </div>
-                )}
-
-                {/* Selected Distributors */}
-                {selectedDistributors.length > 0 && (
-                  <div className="max-w-2xl mx-auto mb-8">
-                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
-                      <h3 className="text-lg font-semibold text-[#0A183A] mb-4">Distribuidores Seleccionados</h3>
-                      <div className="space-y-3 mb-6">
-                        {selectedDistributors.map((distributor) => (
-                          <div
-                            key={distributor.id}
-                            className="flex items-center justify-between p-4 bg-white rounded-xl"
-                          >
-                            <div className="flex items-center">
-                              <img
-                                src={distributor.profileImage}
-                                alt={distributor.name}
-                                className="w-10 h-10 rounded-lg object-cover mr-3"
-                              />
-                              <span className="font-medium text-[#0A183A]">{distributor.name}</span>
-                            </div>
-                            <button
-                              onClick={() => removeDistributor(distributor.id)}
-                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
-                            >
-                              <XCircle className="h-5 w-5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        onClick={handleGrantAccess}
-                        disabled={grantingAccess}
-                        className="w-full px-6 py-3 bg-gradient-to-r from-[#1E76B6] to-[#348CCB] text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-[#1E76B6]/25 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                      >
-                        {grantingAccess ? (
-                          <div className="flex items-center justify-center">
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                            Otorgando Acceso...
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center">
-                            <CheckCircle className="mr-2 h-5 w-5" />
-                            Otorgar Acceso ({selectedDistributors.length})
-                          </div>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Connected Distributors */}
-<div className="max-w-2xl mx-auto">
-  <h3 className="text-lg font-semibold text-[#0A183A] mb-4">
-    Distribuidores Conectados
-  </h3>
-
-  {connectedDistributors.length > 0 ? (
-    <div className="space-y-3">
-      {connectedDistributors.map((access) => {
-        const company = access.distributor;
-
-        return (
-          <div
-            key={company.id}
-            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl"
-          >
-            <div className="flex items-center">
-              <img
-                src={company.profileImage}
-                alt={company.name}
-                className="w-12 h-12 rounded-xl object-cover mr-4"
-              />
-
-              <div>
-                <h4 className="font-semibold text-[#0A183A]">
-                  {company.name}
-                </h4>
-
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Conectado
-                </span>
               </div>
+            </Card>
+
+            {/* Security card */}
+            <Card className="p-5 sm:p-6">
+              <SectionTitle icon={Shield} title="Seguridad" />
+              <button
+                onClick={() => setShowChange(!showChange)}
+                className="w-full flex items-center justify-between p-4 rounded-xl transition-all hover:bg-gray-50"
+                style={{ border: "1px solid rgba(52,140,203,0.15)" }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg" style={{ background: "linear-gradient(135deg, #1E76B6, #348CCB)" }}>
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-[#0A183A]">Cambiar Contraseña</p>
+                    <p className="text-xs text-gray-500">Actualiza tu contraseña de acceso</p>
+                  </div>
+                </div>
+                <ChevronRight className={`w-4 h-4 text-[#1E76B6] transition-transform ${showChange ? "rotate-90" : ""}`} />
+              </button>
+              {showChange && (
+                <div className="mt-3 p-4 rounded-xl" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                  <CambiarContrasena />
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {/* ================================================================ */}
+        {/* COMPANY TAB                                                       */}
+        {/* ================================================================ */}
+        {activeTab === "company" && company && (
+          <div className="space-y-4">
+            {/* Logo + name */}
+            <Card className="p-5 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                {/* Logo */}
+                <div className="relative flex-shrink-0 group">
+                  <div className="w-20 h-20 rounded-2xl overflow-hidden" style={{ border: "2px solid rgba(52,140,203,0.2)" }}>
+                    <img
+                      src={logoPreview || company.profileImage}
+                      alt={company.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  {user?.role === "admin" && (
+                    <label className="absolute inset-0 flex items-center justify-center rounded-2xl cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: "rgba(10,24,58,0.5)" }}>
+                      <Upload className="w-5 h-5 text-white" />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                    </label>
+                  )}
+                </div>
+
+                <div className="text-center sm:text-left">
+                  <h2 className="text-xl font-black text-[#0A183A] leading-tight">{company.name}</h2>
+                  <span
+                    className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-black text-white"
+                    style={{ background: "linear-gradient(135deg, #1E76B6, #348CCB)" }}
+                  >
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    Plan {company.plan}
+                  </span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Usuarios",   value: company.userCount,    icon: Users,     grad: "linear-gradient(135deg, #0A183A, #173D68)" },
+                { label: "Vehículos",  value: company.vehicleCount, icon: Car,       grad: "linear-gradient(135deg, #173D68, #1E76B6)" },
+                { label: "Llantas",    value: company.tireCount,    icon: Building2, grad: "linear-gradient(135deg, #1E76B6, #348CCB)" },
+              ].map(({ label, value, icon: Icon, grad }) => (
+                <Card key={label} className="p-4 sm:p-5 flex flex-col gap-2">
+                  <div className="p-2 rounded-xl self-start" style={{ background: grad }}>
+                    <Icon className="w-4 h-4 text-white" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-black text-black leading-none">{value}cccc</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
+                </Card>
+              ))}
             </div>
 
-            <button
-              onClick={() =>
-                revokeAccess(access.distributorId)
-              }
-              className="px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all font-medium text-sm"
-            >
-              Revocar Acceso
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  ) : (
-    <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-      <Building className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-      <p className="text-gray-500 font-medium">
-        No hay distribuidores conectados
-      </p>
-      <p className="text-gray-400 text-sm mt-2">
-        Busca y otorga acceso a distribuidores arriba
-      </p>
-    </div>
-  )}
-</div>
+            {/* Admin config note */}
+            {user?.role === "admin" && (
+              <div className="rounded-2xl p-5 sm:p-6" style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}>
+                <SectionTitle icon={Settings} title="" />
+                <div className="flex items-center gap-3 mb-5">
+                  <Settings className="w-5 h-5 text-white/70" />
+                  <div>
+                    <p className="font-black text-white text-sm">Configuración adicional</p>
+                    <p className="text-xs text-white/60 mt-0.5">Contacta a soporte para cambios en la empresa</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { icon: Shield, label: "Configuración de Seguridad", sub: "Permisos y acceso" },
+                    { icon: Mail,   label: "Contactar Soporte",           sub: "Ayuda técnica" },
+                  ].map(({ icon: Icon, label, sub }) => (
+                    <div key={label} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      <Icon className="w-4 h-4 text-[#348CCB] flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-white">{label}</p>
+                        <p className="text-[10px] text-white/50">{sub}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-        </div>
+        )}
+
+        {/* ================================================================ */}
+        {/* USERS TAB                                                         */}
+        {/* ================================================================ */}
+        {activeTab === "users" && user?.role === "admin" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-black text-[#0A183A]">{users.length} usuario{users.length !== 1 ? "s" : ""}</p>
+              <PrimaryBtn onClick={() => setActiveTab("addUser")}>
+                <UserPlus className="w-4 h-4" /> Nuevo
+              </PrimaryBtn>
+            </div>
+
+            {users.length === 0 ? (
+              <Card className="p-10 text-center">
+                <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm font-bold text-gray-400">No hay usuarios aún</p>
+              </Card>
+            ) : (
+              users.map((u) => (
+                <Card key={u.id} className="overflow-hidden">
+                  {/* User header */}
+                  <div className="px-4 sm:px-5 py-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid rgba(52,140,203,0.1)", background: "rgba(10,24,58,0.02)" }}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #1E76B6, #348CCB)" }}>
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-black text-sm text-[#0A183A] truncate">{u.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: u.role === "admin" ? "#0A183A" : "#1E76B6" }}>
+                        <Shield className="w-2.5 h-2.5" />{u.role === "admin" ? "Admin" : "Regular"}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteUser(u.id)}
+                        className="p-2 rounded-xl transition-all hover:bg-red-50"
+                        style={{ color: "#DC2626" }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Plates section */}
+                  <div className="p-4 sm:p-5">
+                    <SectionTitle icon={Tag} title="Placas Asignadas" />
+                    {u.plates?.length ? (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {u.plates.map((plate) => (
+                          <span
+                            key={plate}
+                            className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-bold group"
+                            style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.2)" }}
+                          >
+                            <Tag className="w-2.5 h-2.5" />
+                            {plate}
+                            <button
+                              onClick={() => handleRemovePlate(u.id, plate)}
+                              className="p-0.5 rounded-full hover:bg-red-100 transition-colors"
+                              style={{ color: "#DC2626" }}
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center py-4 mb-4 rounded-xl text-xs text-gray-400 font-medium" style={{ border: "2px dashed rgba(52,140,203,0.15)" }}>
+                        Sin placas asignadas
+                      </div>
+                    )}
+
+                    {/* Add plate form */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nueva placa…"
+                        value={plateInputs[u.id] ?? ""}
+                        onChange={(e) => setPlateInputs((prev) => ({ ...prev, [u.id]: e.target.value.toUpperCase() }))}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddPlate(u.id)}
+                        className={`${inputCls} flex-1`}
+                        style={inputStyle}
+                      />
+                      <PrimaryBtn onClick={() => handleAddPlate(u.id)}>
+                        <PlusCircle className="w-4 h-4" />
+                        <span className="hidden sm:inline">Agregar</span>
+                      </PrimaryBtn>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ================================================================ */}
+        {/* ADD USER TAB                                                      */}
+        {/* ================================================================ */}
+        {activeTab === "addUser" && user?.role === "admin" && (
+          <Card className="p-5 sm:p-6 max-w-xl mx-auto">
+            <SectionTitle icon={UserPlus} title="Nuevo Usuario" />
+            <form onSubmit={handleAddUser} className="space-y-4">
+              <Field label="Nombre" required>
+                <input
+                  type="text" value={newUserData.name} placeholder="Nombre completo"
+                  onChange={(e) => setNewUserData({ ...newUserData, name: e.target.value })}
+                  className={inputCls} style={inputStyle}
+                />
+              </Field>
+              <Field label="Correo Electrónico" required>
+                <input
+                  type="email" value={newUserData.email} placeholder="usuario@ejemplo.com"
+                  onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                  className={inputCls} style={inputStyle}
+                />
+              </Field>
+              <Field label="Contraseña" required>
+                <input
+                  type="password" value={newUserData.password} placeholder="Mínimo 6 caracteres"
+                  onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
+                  className={inputCls} style={inputStyle}
+                />
+              </Field>
+              <Field label="Rol">
+                <select
+                  value={newUserData.role}
+                  onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
+                  className={inputCls} style={inputStyle}
+                >
+                  <option value="regular">Usuario Regular</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </Field>
+              <div className="pt-2 flex gap-2">
+                <GhostBtn onClick={() => setActiveTab("users")} className="flex-1">Cancelar</GhostBtn>
+                <PrimaryBtn type="submit" disabled={savingUser} className="flex-1">
+                  {savingUser ? <><Loader2 className="w-4 h-4 animate-spin" /> Creando…</> : <><UserPlus className="w-4 h-4" /> Crear Usuario</>}
+                </PrimaryBtn>
+              </div>
+            </form>
+          </Card>
+        )}
+
+        {/* ================================================================ */}
+        {/* DISTRIBUTORS TAB                                                  */}
+        {/* ================================================================ */}
+        {activeTab === "distributors" && user?.role === "admin" && company?.plan !== "distribuidor" && (
+          <div className="space-y-4 max-w-2xl mx-auto">
+
+            {/* Search */}
+            <Card className="p-5 sm:p-6">
+              <SectionTitle icon={Search} title="Buscar Distribuidor" />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`${inputCls} pl-9`}
+                  style={inputStyle}
+                />
+                {searchLoading && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1E76B6] animate-spin" />
+                )}
+              </div>
+
+              {/* Search results */}
+              {searchQuery.length >= 2 && searchResults.length === 0 && !searchLoading && (
+                <p className="text-center text-sm text-gray-400 py-6">No se encontraron distribuidores</p>
+              )}
+              {searchResults.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {searchResults.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => addToSelection(d)}
+                      className="w-full flex items-center justify-between gap-3 p-3 rounded-xl text-left transition-all hover:bg-[#F0F7FF]"
+                      style={{ border: "1px solid rgba(52,140,203,0.15)" }}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={d.profileImage} alt={d.name} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[#0A183A] truncate">{d.name}</p>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ background: "#1E76B6" }}>Distribuidor</span>
+                        </div>
+                      </div>
+                      <PlusCircle className="w-5 h-5 text-[#1E76B6] flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Selected for granting */}
+            {selectedDistributors.length > 0 && (
+              <Card className="p-5 sm:p-6" style={{ background: "rgba(30,118,182,0.04)" } as React.CSSProperties}>
+                <SectionTitle icon={Link2} title="Distribuidores Seleccionados" />
+                <div className="space-y-2 mb-4">
+                  {selectedDistributors.map((d) => (
+                    <div key={d.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={d.profileImage} alt={d.name} className="w-9 h-9 rounded-lg object-cover" />
+                        <span className="text-sm font-bold text-[#0A183A] truncate">{d.name}</span>
+                      </div>
+                      <button onClick={() => removeFromSelection(d.id)} style={{ color: "#DC2626" }}>
+                        <XCircle className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <PrimaryBtn onClick={handleGrantAccess} disabled={grantingAccess} className="w-full">
+                  {grantingAccess
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Otorgando…</>
+                    : <><CheckCircle className="w-4 h-4" /> Otorgar Acceso ({selectedDistributors.length})</>}
+                </PrimaryBtn>
+              </Card>
+            )}
+
+            {/* Connected distributors */}
+            <Card className="p-5 sm:p-6">
+              <SectionTitle icon={Link2} title="Distribuidores Conectados" />
+              {connectedDistributors.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-gray-400 gap-2">
+                  <Building2 className="w-10 h-10 opacity-30" />
+                  <p className="text-sm">No hay distribuidores conectados</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {connectedDistributors.map((access) => {
+                    // Backend returns access objects with nested distributor
+                    const dist = (access as DistributorCompany & { distributor?: DistributorCompany }).distributor ?? access;
+                    const distId = (access as DistributorCompany & { distributorId?: string }).distributorId ?? dist.id;
+                    return (
+                      <div key={dist.id} className="flex items-center justify-between gap-3 p-3 rounded-xl" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img src={dist.profileImage} alt={dist.name} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-[#0A183A] truncate">{dist.name}</p>
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-green-700">
+                              <CheckCircle className="w-2.5 h-2.5" /> Conectado
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRevokeAccess(distId)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:bg-red-50"
+                          style={{ color: "#DC2626", border: "1px solid rgba(220,38,38,0.2)" }}
+                        >
+                          <Link2Off className="w-3.5 h-3.5" /> Revocar
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
       </div>
     </div>
   );

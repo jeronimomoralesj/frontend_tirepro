@@ -1,149 +1,180 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Search, X, AlertTriangle, Eye, Clock, CheckCircle } from "lucide-react";
+import React, { useState } from "react";
+import {
+  Search, X, AlertTriangle, Loader2, CheckCircle,
+  Layers, Clock, Plus, CalendarDays,
+} from "lucide-react";
 
-export type Vehicle = {
+// =============================================================================
+// Types — aligned with backend schema
+// =============================================================================
+
+interface TireEvento {
   id: string;
-  placa: string;
-  tipovhc?: string;
-};
-
-export type EventoEntry = {
-  valor: string;
+  tipo: string;
   fecha: string;
-};
+  notas?: string | null;
+}
 
-export type Tire = {
+interface Tire {
   id: string;
   placa: string;
   marca: string;
-  posicion?: string;
-  eventos?: EventoEntry[];
-  vida?: { valor: string; fecha: string }[];
+  posicion?: number | null;
+  eventos?: TireEvento[];
+}
+
+interface Vehicle {
+  id: string;
+  placa: string;
+  tipovhc?: string;
+}
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+  : "https://api.tirepro.com.co/api";
+
+const VIDA_ORDER = ["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"] as const;
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") ?? "" : "";
+  return fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+/** Get current vida from TireEvento[] (backend stores vida in eventos.notas) */
+function currentVida(eventos?: TireEvento[]): string {
+  if (!eventos?.length) return "nueva";
+  const vidaEventos = eventos.filter(
+    (e) => e.notas && VIDA_ORDER.includes(e.notas.toLowerCase() as typeof VIDA_ORDER[number])
+  );
+  if (!vidaEventos.length) return "nueva";
+  return vidaEventos[vidaEventos.length - 1].notas!.toLowerCase();
+}
+
+/** Get last non-vida evento (the actual custom events) */
+function lastCustomEvent(eventos?: TireEvento[]): TireEvento | null {
+  if (!eventos?.length) return null;
+  const custom = [...eventos]
+    .reverse()
+    .find(e => !e.notas || !VIDA_ORDER.includes(e.notas.toLowerCase() as typeof VIDA_ORDER[number]));
+  return custom ?? null;
+}
+
+const VIDA_LABELS: Record<string, string> = {
+  nueva: "Nueva",
+  reencauche1: "Reencauche 1",
+  reencauche2: "Reencauche 2",
+  reencauche3: "Reencauche 3",
+  fin: "Fin de vida",
 };
 
-// Language translations
-const translations = {
-  es: {
-    title: "Agrega un Eventos Personalizado",
-    searchVehicle: "Buscar Vehículo",
-    enterPlate: "Ingrese la placa del vehículo",
-    searching: "Buscando...",
-    search: "Buscar",
-    vehicleNotFound: "Vehículo no encontrado",
-    errorGettingTires: "Error al obtener los neumáticos",
-    enterPlateError: "Por favor ingrese la placa del vehículo",
-    vehicleData: "Datos del Vehículo",
-    plate: "Placa:",
-    type: "Tipo:",
-    tiresFound: "Neumáticos Encontrados",
-    brand: "Marca:",
-    position: "Posición:",
-    currentLife: "Vida Actual:",
-    none: "Ninguna",
-    lastEvent: "Último evento:",
-    addEvent: "Agregar Evento",
-    eventDetail: "Detalle del evento",
-    describe: "Describa el evento...",
-    cancel: "Cancelar",
-    saving: "Guardando...",
-    eventAddedSuccess: "Evento agregado exitosamente",
-    enterEventText: "Ingrese el texto del evento",
-    lifeState: "Estado de vida:"
-  }
-};
+function vidaBadgeStyle(vida: string): React.CSSProperties {
+  if (vida === "fin")   return { background: "rgba(220,38,38,0.1)",  color: "#DC2626", border: "1px solid rgba(220,38,38,0.25)" };
+  if (vida === "nueva") return { background: "rgba(22,163,74,0.1)",  color: "#16a34a", border: "1px solid rgba(22,163,74,0.25)" };
+  return                       { background: "rgba(30,118,182,0.1)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.25)" };
+}
+
+// =============================================================================
+// Design-system micro-components (matching VidaPage)
+// =============================================================================
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{
+        background: "white",
+        border: "1px solid rgba(52,140,203,0.15)",
+        boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardTitle({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub?: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+        <Icon className="w-4 h-4 text-[#1E76B6]" />
+      </div>
+      <div>
+        <p className="text-sm font-black text-[#0A183A] leading-none">{title}</p>
+        {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full px-4 py-2.5 rounded-xl text-sm font-medium text-[#0A183A] bg-white " +
+  "focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all";
+const inputStyle = { border: "1.5px solid rgba(52,140,203,0.2)" };
+
+// =============================================================================
+// Main component
+// =============================================================================
 
 const EventosPage: React.FC = () => {
-  const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState([]);
-  const [filteredTires, setFilteredTires] = useState([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [gastoTotal, setGastoTotal] = useState(0);
-  const [gastoMes, setGastoMes] = useState(0);
-  const [userName, setUserName] = useState("");
-  const [cpkPromedio, setCpkPromedio] = useState(0);
-  const [cpkProyectado, setCpkProyectado] = useState(0);
-  const [exporting, setExporting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const contentRef = useRef(null);
+  const [searchTerm,     setSearchTerm]     = useState("");
+  const [vehicle,        setVehicle]        = useState<Vehicle | null>(null);
+  const [tires,          setTires]          = useState<Tire[]>([]);
+  const [error,          setError]          = useState("");
+  const [success,        setSuccess]        = useState("");
+  const [loading,        setLoading]        = useState(false);
 
-  // Language detection
-  const [language, setLanguage] = useState<'es'>('es');
+  // Modal state
+  const [selectedTire,   setSelectedTire]   = useState<Tire | null>(null);
+  const [newEventText,   setNewEventText]   = useState("");
+  const [modalError,     setModalError]     = useState("");
+  const [showModal,      setShowModal]      = useState(false);
+  const [saving,         setSaving]         = useState(false);
 
-  // Modal states
-  const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
-  const [newEventText, setNewEventText] = useState("");
-  const [modalError, setModalError] = useState("");
-  const [showModal, setShowModal] = useState(false);
-
-  // Language detection effect
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = 'es';
-      setLanguage(saved);
-    };
-    
-    detectAndSetLanguage();
-  }, []);
-
-  const t = translations[language];
-
+  // ── Search ─────────────────────────────────────────────────────────────────
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setVehicle(null);
-    setTires([]);
-    setSuccessMessage("");
-    
-    if (!searchTerm.trim()) {
-      setError(t.enterPlateError);
-      return;
-    }
-    
+    setError(""); setSuccess(""); setVehicle(null); setTires([]);
+    if (!searchTerm.trim()) { setError("Por favor ingrese la placa del vehículo."); return; }
+
     setLoading(true);
     try {
-      const vehicleRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim())}`
-          : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim())}`
+      const vRes = await authFetch(
+        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}`
       );
-      
-      if (!vehicleRes.ok) {
-        throw new Error(t.vehicleNotFound);
-      }
-      
-      const vehicleData: Vehicle = await vehicleRes.json();
-      setVehicle(vehicleData);
+      if (!vRes.ok) throw new Error("Vehículo no encontrado");
+      const vData: Vehicle = await vRes.json();
+      setVehicle(vData);
 
-      const tiresRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-          : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
-      );
-      
-      if (!tiresRes.ok) {
-        throw new Error(t.errorGettingTires);
-      }
-      
-      const tiresData: Tire[] = await tiresRes.json();
-      setTires(tiresData);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Error inesperado");
-      }
+      const tRes = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${vData.id}`);
+      if (!tRes.ok) throw new Error("Error al obtener las llantas");
+      const tData: Tire[] = await tRes.json();
+      tData.sort((a, b) => (a.posicion ?? Infinity) - (b.posicion ?? Infinity));
+      setTires(tData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
     } finally {
       setLoading(false);
     }
   }
 
+  // ── Modal ──────────────────────────────────────────────────────────────────
   function openModal(tire: Tire) {
     setSelectedTire(tire);
     setNewEventText("");
@@ -158,271 +189,355 @@ const EventosPage: React.FC = () => {
     setModalError("");
   }
 
+  // ── Submit event ───────────────────────────────────────────────────────────
   async function handleAddEvent() {
-    if (!newEventText.trim()) {
-      setModalError(t.enterEventText);
-      return;
-    }
+    if (!newEventText.trim()) { setModalError("Ingrese el texto del evento."); return; }
     if (!selectedTire) return;
-    
-    setLoading(true);
+
+    setSaving(true);
     try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/${selectedTire.id}/eventos`
-          : `https://api.tirepro.com.co/api/tires/${selectedTire.id}/eventos`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ valor: newEventText.trim() }),
-        }
-      );
-      
+      // Backend: PATCH /tires/:id/eventos  body: { valor: string }
+      const res = await authFetch(`${API_BASE}/tires/${selectedTire.id}/eventos`, {
+        method: "PATCH",
+        body: JSON.stringify({ valor: newEventText.trim() }),
+      });
+
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText);
+        const err = await res.json().catch(() => ({ message: "Error desconocido" }));
+        throw new Error(err.message ?? "Error desconocido");
       }
-      
-      const updatedTire: Tire = await res.json();
-      setTires((prevTires) =>
-        prevTires.map((t) => (t.id === updatedTire.id ? updatedTire : t))
+
+      const updated: Tire = await res.json();
+      setTires(prev =>
+        prev
+          .map(t => (t.id === updated.id ? updated : t))
+          .sort((a, b) => (a.posicion ?? Infinity) - (b.posicion ?? Infinity))
       );
-      
-      setSuccessMessage(t.eventAddedSuccess);
-      setTimeout(() => setSuccessMessage(""), 5000);
+
+      setSuccess("Evento agregado exitosamente.");
+      setTimeout(() => setSuccess(""), 5000);
       closeModal();
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setModalError(err.message);
-      } else {
-        setModalError("Error inesperado");
-      }
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
-  // Suppress warnings for unused variables that might be needed later
-  void router;
-  void vehicles;
-  void filteredTires;
-  void gastoTotal;
-  void gastoMes;
-  void userName;
-  void cpkPromedio;
-  void cpkProyectado;
-  void exporting;
-  void contentRef;
-  void setVehicles;
-  void setFilteredTires;
-  void setGastoTotal;
-  void setGastoMes;
-  void setUserName;
-  void setCpkPromedio;
-  void setCpkProyectado;
-  void setExporting;
+  // ==========================================================================
+  // Render
+  // ==========================================================================
 
   return (
-    <div className="min-h-screen bg-white">
-      <main className="max-w-7xl mx-auto p-4 md:p-6">
-        <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
-          <h2 className="text-xl font-semibold text-[#0A183A] mb-4">{t.searchVehicle}</h2>
-          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-grow">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+    <div className="min-h-screen" style={{ background: "white" }}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-5">
+
+        {/* ── Page header ───────────────────────────────────────────────── */}
+        <div
+          className="px-4 sm:px-6 py-5 rounded-2xl"
+          style={{
+            background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)",
+            boxShadow: "0 8px 32px rgba(10,24,58,0.22)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
+              <Layers className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="font-black text-white text-lg leading-none tracking-tight">
+                Agregar Evento Personalizado
+              </h1>
+              <p className="text-xs text-white/60 mt-0.5">
+                Registre eventos e incidencias por llanta
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Error banner ──────────────────────────────────────────────── */}
+        {error && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+            style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}
+          >
+            <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <span className="flex-1 text-red-700">{error}</span>
+            <button onClick={() => setError("")}><X className="w-4 h-4 text-red-400" /></button>
+          </div>
+        )}
+
+        {/* ── Success banner ─────────────────────────────────────────────── */}
+        {success && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+            style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.2)" }}
+          >
+            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+            <span className="flex-1 text-green-700">{success}</span>
+            <button onClick={() => setSuccess("")}><X className="w-4 h-4 text-green-400" /></button>
+          </div>
+        )}
+
+        {/* ── Search card ───────────────────────────────────────────────── */}
+        <Card className="p-4 sm:p-5">
+          <CardTitle icon={Search} title="Buscar Vehículo" sub="Ingrese la placa para cargar las llantas" />
+          <form onSubmit={handleSearch} className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder={t.enterPlate}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Ej. abc-123"
+                className={`${inputCls} pl-10`}
+                style={inputStyle}
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-3 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-sm"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
             >
-              {loading ? (
-                <>
-                  <Clock className="animate-spin h-5 w-5" />
-                  <span>{t.searching}</span>
-                </>
-              ) : (
-                <>
-                  <Search className="h-5 w-5" />
-                  <span>{t.search}</span>
-                </>
-              )}
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" />Buscando…</>
+                : <><Search className="w-4 h-4" />Buscar</>
+              }
             </button>
           </form>
-        </div>
+        </Card>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg flex items-start">
-            <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-600 rounded-lg flex items-start">
-            <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
+        {/* ── Vehicle info ──────────────────────────────────────────────── */}
         {vehicle && (
-          <div className="mb-6 p-4 md:p-6 bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 rounded-lg border-l-4 border-[#1E76B6] shadow-sm">
-            <h2 className="text-xl font-bold mb-2 text-[#0A183A]">{t.vehicleData}</h2>
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              <p className="flex items-center">
-                <span className="font-semibold text-[#173D68] mr-2">{t.plate}</span> 
-                <span className="bg-[#1E76B6] text-white px-3 py-1 rounded-md">{vehicle.placa}</span>
-              </p>
-              {vehicle.tipovhc && (
-                <p>
-                  <span className="font-semibold text-[#173D68] mr-2">{t.type}</span> 
-                  {vehicle.tipovhc}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {tires.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4 text-[#0A183A] border-b border-gray-200 pb-2">
-              {t.tiresFound}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tires.map((tire) => (
-                <div
-                  key={tire.id}
-                  className="p-4 bg-white rounded-lg shadow-md border border-gray-200 hover:border-[#1E76B6] transition-all hover:shadow-lg"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="font-bold text-[#0A183A]">{t.plate} {tire.placa}</p>
-                    <div className="bg-[#173D68] text-white text-sm px-2 py-1 rounded">
-                      ID: {tire.id.substring(0, 6)}...
-                    </div>
-                  </div>
-                  
-                  <div className="mb-3 pb-3 border-b border-gray-100">
-                    <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">{t.brand}</span> {tire.marca}
-                    </p>
-                    <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">{t.position}</span> {tire.posicion}
-                    </p>
-                    <p className="text-gray-700">
-                      <span className="font-semibold text-[#173D68]">{t.currentLife}</span>{" "}
-                      <span className="inline-block bg-[#348CCB]/20 text-[#0A183A] px-2 py-0.5 rounded font-medium">
-                        {tire.vida && tire.vida.length > 0
-                          ? tire.vida[tire.vida.length - 1].valor
-                          : t.none}
-                      </span>
-                    </p>
-                  </div>
-                  
-                  {tire.eventos && tire.eventos.length > 0 && (
-                    <div className="mb-3">
-                      <p className="font-semibold text-[#173D68] mb-1">{t.lastEvent}</p>
-                      <div className="bg-gray-50 rounded p-2 text-sm">
-                        <p className="text-gray-500 text-xs mb-1">
-                          {new Date(tire.eventos[tire.eventos.length - 1].fecha).toLocaleDateString()}
-                        </p>
-                        <p className="text-[#0A183A]">{tire.eventos[tire.eventos.length - 1].valor}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => openModal(tire)}
-                    className="w-full mt-2 px-4 py-2 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-all flex items-center justify-center gap-2"
-                  >
-                    <Eye size={18} />
-                    <span>{t.addEvent}</span>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {showModal && selectedTire && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fadeIn">
-              <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
-                <h2 className="text-xl font-bold text-[#0A183A]">{t.addEvent}</h2>
-                <button 
-                  onClick={closeModal}
-                  className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                >
-                  <X className="h-5 w-5 text-[#0A183A]" />
-                </button>
+          <Card className="p-4 sm:p-5">
+            <CardTitle icon={CheckCircle} title="Vehículo Encontrado" />
+            <div
+              className="flex flex-wrap gap-4 px-4 py-3 rounded-xl"
+              style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(52,140,203,0.12)" }}
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Placa</p>
+                <p className="text-sm font-black text-[#0A183A]">{vehicle.placa.toUpperCase()}</p>
               </div>
-              
-              <div className="bg-[#173D68]/10 rounded-lg p-3 mb-4">
-                <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">{t.plate}</span> {selectedTire.placa}
+              {vehicle.tipovhc && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Tipo</p>
+                  <p className="text-sm font-black text-[#0A183A]">{vehicle.tipovhc}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Llantas</p>
+                <p className="text-sm font-black text-[#0A183A]">{tires.length}</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Tire grid ─────────────────────────────────────────────────── */}
+        {tires.length > 0 && (
+          <div>
+            <p className="text-xs font-black text-[#0A183A] uppercase tracking-wide mb-3">
+              Llantas — {tires.length} encontrada{tires.length !== 1 ? "s" : ""}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {tires.map(tire => {
+                const vida   = currentVida(tire.eventos);
+                const ultimo = lastCustomEvent(tire.eventos);
+
+                return (
+                  <Card key={tire.id} className="overflow-hidden">
+                    {/* Top accent stripe */}
+                    <div
+                      className="h-1"
+                      style={{
+                        background:
+                          vida === "fin"   ? "#DC2626" :
+                          vida === "nueva" ? "#16a34a" : "#1E76B6",
+                      }}
+                    />
+                    <div className="p-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-[#0A183A] truncate">{tire.placa}</p>
+                          <p className="text-[10px] text-gray-400">{tire.marca}</p>
+                        </div>
+                        <span
+                          className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black"
+                          style={{ background: "rgba(10,24,58,0.06)", color: "#173D68" }}
+                        >
+                          Pos. {tire.posicion ?? "—"}
+                        </span>
+                      </div>
+
+                      {/* Vida badge */}
+                      <div className="mb-3">
+                        <span
+                          className="px-2.5 py-0.5 rounded-full text-[11px] font-black"
+                          style={vidaBadgeStyle(vida)}
+                        >
+                          {VIDA_LABELS[vida] ?? vida}
+                        </span>
+                      </div>
+
+                      {/* Last custom event */}
+                      {ultimo ? (
+                        <div
+                          className="mb-3 px-3 py-2 rounded-xl text-xs"
+                          style={{
+                            background: "rgba(10,24,58,0.02)",
+                            border: "1px solid rgba(52,140,203,0.12)",
+                          }}
+                        >
+                          <div className="flex items-center gap-1 mb-1">
+                            <CalendarDays className="w-3 h-3 text-gray-400" />
+                            <span className="text-[10px] text-gray-400">
+                              {new Date(ultimo.fecha).toLocaleDateString("es-CO")}
+                            </span>
+                          </div>
+                          <p className="text-[#0A183A] font-medium leading-snug line-clamp-2">
+                            {ultimo.notas ?? "—"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mb-3">
+                          <p className="text-[11px] text-gray-400 italic">Sin eventos registrados</p>
+                        </div>
+                      )}
+
+                      {/* CTA */}
+                      <button
+                        onClick={() => openModal(tire)}
+                        className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #173D68, #1E76B6)" }}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Agregar Evento
+                      </button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Modal ─────────────────────────────────────────────────────────── */}
+      {showModal && selectedTire && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(10,24,58,0.5)" }}
+        >
+          <Card className="w-full max-w-md">
+            {/* Modal header */}
+            <div
+              className="px-5 py-4 flex items-center justify-between rounded-t-2xl"
+              style={{
+                background: "linear-gradient(135deg, #0A183A, #173D68)",
+                borderBottom: "1px solid rgba(52,140,203,0.12)",
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.12)" }}>
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <p className="text-sm font-black text-white">Agregar Evento</p>
+              </div>
+              <button onClick={closeModal}>
+                <X className="w-4 h-4 text-white/70 hover:text-white transition-colors" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Tire summary */}
+              <div
+                className="px-4 py-3 rounded-xl text-xs space-y-1"
+                style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(52,140,203,0.12)" }}
+              >
+                <p>
+                  <span className="font-bold text-[#0A183A]">Placa:</span>{" "}
+                  <span className="text-[#173D68]">{selectedTire.placa}</span>
                 </p>
-                <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">{t.brand}</span> {selectedTire.marca}
+                <p>
+                  <span className="font-bold text-[#0A183A]">Marca:</span>{" "}
+                  <span className="text-[#173D68]">{selectedTire.marca}</span>
                 </p>
-                <p className="text-sm text-[#173D68]">
-                  <span className="font-semibold">{t.lifeState}</span>{" "}
-                  <span className="font-medium">
-                    {selectedTire.vida && selectedTire.vida.length > 0
-                      ? selectedTire.vida[selectedTire.vida.length - 1].valor
-                      : t.none}
+                <p>
+                  <span className="font-bold text-[#0A183A]">Posición:</span>{" "}
+                  <span className="text-[#173D68]">{selectedTire.posicion ?? "—"}</span>
+                </p>
+                <p>
+                  <span className="font-bold text-[#0A183A]">Vida actual:</span>{" "}
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-black"
+                    style={vidaBadgeStyle(currentVida(selectedTire.eventos))}
+                  >
+                    {VIDA_LABELS[currentVida(selectedTire.eventos)] ?? currentVida(selectedTire.eventos)}
                   </span>
                 </p>
               </div>
-              
+
+              {/* Modal error */}
               {modalError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg flex items-center">
-                  <AlertTriangle className="h-4 w-4 mr-2" />
+                <div
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
+                  style={{
+                    background: "rgba(220,38,38,0.06)",
+                    border: "1px solid rgba(220,38,38,0.2)",
+                    color: "#DC2626",
+                  }}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
                   {modalError}
                 </div>
               )}
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-[#0A183A] mb-2">
-                  {t.eventDetail}
+
+              {/* Event textarea */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">
+                  Detalle del Evento
                 </label>
                 <textarea
                   value={newEventText}
-                  onChange={(e) => setNewEventText(e.target.value)}
-                  placeholder={t.describe}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all min-h-24"
+                  onChange={e => setNewEventText(e.target.value)}
+                  placeholder="Describa el evento o incidencia…"
+                  rows={4}
+                  className={`${inputCls} resize-none`}
+                  style={inputStyle}
                 />
               </div>
-              
-              <div className="flex gap-3">
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
                 <button
                   onClick={closeModal}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-[#0A183A] rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-80"
+                  style={{
+                    background: "rgba(10,24,58,0.05)",
+                    color: "#0A183A",
+                    border: "1px solid rgba(52,140,203,0.2)",
+                  }}
                 >
-                  {t.cancel}
+                  Cancelar
                 </button>
                 <button
                   onClick={handleAddEvent}
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 bg-[#0A183A] text-white rounded-lg hover:bg-[#173D68] transition-colors flex items-center justify-center gap-2"
+                  disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-black text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
                 >
-                  {loading ? (
-                    <>
-                      <Clock className="animate-spin h-4 w-4" />
-                      <span>{t.saving}</span>
-                    </>
-                  ) : t.addEvent}
+                  {saving
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando…</>
+                    : <><Plus className="w-4 h-4" />Guardar</>
+                  }
                 </button>
               </div>
             </div>
-          </div>
-        )}
-      </main>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

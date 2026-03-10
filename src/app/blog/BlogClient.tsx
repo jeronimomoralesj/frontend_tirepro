@@ -33,17 +33,20 @@ interface Article {
   hashtags: string[]
 }
 
-// ─── Skeleton card (shown while images load / as placeholder) ─────────────────
+// ─── Skeleton card ─────────────────────────────────────────────────────────────
 
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl overflow-hidden border border-white/10 bg-white/5 animate-pulse">
-      <div className="h-48 bg-white/10" />
+    <div
+      className="rounded-2xl overflow-hidden border animate-pulse bg-white"
+      style={{ borderColor: "rgba(30,118,182,0.1)", boxShadow: "0 2px 12px rgba(30,118,182,0.05)" }}
+    >
+      <div className="h-48" style={{ backgroundColor: "#f0f6fb" }} />
       <div className="p-5 space-y-3">
-        <div className="h-3 w-1/3 bg-white/10 rounded" />
-        <div className="h-4 w-full bg-white/10 rounded" />
-        <div className="h-4 w-4/5 bg-white/10 rounded" />
-        <div className="h-3 w-2/3 bg-white/10 rounded" />
+        <div className="h-3 w-1/3 rounded" style={{ backgroundColor: "#e8f3fa" }} />
+        <div className="h-4 w-full rounded" style={{ backgroundColor: "#e8f3fa" }} />
+        <div className="h-4 w-4/5 rounded" style={{ backgroundColor: "#e8f3fa" }} />
+        <div className="h-3 w-2/3 rounded" style={{ backgroundColor: "#e8f3fa" }} />
       </div>
     </div>
   )
@@ -65,7 +68,7 @@ function Nav() {
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-black/80 backdrop-blur-xl border-b border-white/10'
+          ? 'bg-white/90 backdrop-blur-xl border-b border-gray-200 shadow-sm'
           : 'bg-transparent'
       }`}
       role="navigation"
@@ -79,31 +82,48 @@ function Nav() {
               height={50}
               width={120}
               alt="TirePro - Software de Gestión de Llantas con IA"
-              className="filter brightness-0 invert h-10 sm:h-12 md:h-14 w-auto"
+              className="h-10 sm:h-12 md:h-14 w-auto"
+              style={{ filter: "brightness(0) saturate(100%) invert(14%) sepia(60%) saturate(900%) hue-rotate(190deg) brightness(85%)" }}
               priority
             />
           </a>
 
           {/* Desktop links */}
           <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-            {['/#producto', '/#beneficios', '/#planes', '/#preguntas'].map((href) => (
+            {[
+              { label: 'Producto', href: '/#producto' },
+              { label: 'Beneficios', href: '/#beneficios' },
+              { label: 'Planes', href: '/#planes' },
+              { label: 'Preguntas', href: '/#preguntas' },
+            ].map(({ label, href }) => (
               <a
                 key={href}
                 href={href}
-                className="text-sm text-gray-400 hover:text-white transition-colors"
+                className="text-sm font-medium text-gray-600 transition-colors"
+                onMouseEnter={e => (e.currentTarget.style.color = "#0A183A")}
+                onMouseLeave={e => (e.currentTarget.style.color = "")}
               >
-                {href.replace('/#', '').charAt(0).toUpperCase() +
-                  href.replace('/#', '').slice(1)}
+                {label}
               </a>
             ))}
-            <a href="/blog" className="text-sm text-white font-medium">
+            <a href="/blog" className="text-sm font-semibold" style={{ color: "#1E76B6" }}>
               Blog
             </a>
-            <a href="/login" className="text-sm text-gray-400 hover:text-white transition-colors">
+            <a
+              href="/login"
+              className="text-sm font-medium text-gray-600 transition-colors"
+              onMouseEnter={e => (e.currentTarget.style.color = "#0A183A")}
+              onMouseLeave={e => (e.currentTarget.style.color = "")}
+            >
               Ingresar
             </a>
             <a href="/companyregister">
-              <button className="bg-white text-black px-4 xl:px-6 py-2 sm:py-2.5 rounded-full text-sm font-medium hover:bg-gray-100 transition-all whitespace-nowrap">
+              <button
+                className="text-white px-4 xl:px-6 py-2 sm:py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap shadow-md hover:shadow-lg"
+                style={{ backgroundColor: "#1E76B6" }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#173D68")}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#1E76B6")}
+              >
                 Comenzar Gratis
               </button>
             </a>
@@ -111,8 +131,9 @@ function Nav() {
 
           {/* Hamburger */}
           <button
-            className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
-            onClick={() => setIsMobileMenuOpen((v) => !v)}
+            className="lg:hidden p-2 rounded-lg transition-colors flex-shrink-0"
+            style={{ color: "#0A183A" }}
+            onClick={() => setIsMobileMenuOpen(v => !v)}
             aria-label="Abrir menú"
             aria-expanded={isMobileMenuOpen}
           >
@@ -123,16 +144,19 @@ function Nav() {
 
       {/* Mobile menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden bg-black border-t border-white/10">
+        <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg">
           <div className="px-4 py-4 space-y-3">
-            <a href="/#producto" className="block text-gray-400 hover:text-white py-2">Producto</a>
-            <a href="/#beneficios" className="block text-gray-400 hover:text-white py-2">Beneficios</a>
-            <a href="/#planes" className="block text-gray-400 hover:text-white py-2">Planes</a>
-            <a href="/#preguntas" className="block text-gray-400 hover:text-white py-2">Preguntas</a>
-            <a href="/blog" className="block text-white font-medium py-2">Blog</a>
-            <a href="/login" className="block text-gray-400 hover:text-white py-2">Ingresar</a>
+            <a href="/#producto" className="block text-sm font-medium text-gray-600 py-2">Producto</a>
+            <a href="/#beneficios" className="block text-sm font-medium text-gray-600 py-2">Beneficios</a>
+            <a href="/#planes" className="block text-sm font-medium text-gray-600 py-2">Planes</a>
+            <a href="/#preguntas" className="block text-sm font-medium text-gray-600 py-2">Preguntas</a>
+            <a href="/blog" className="block text-sm font-semibold py-2" style={{ color: "#1E76B6" }}>Blog</a>
+            <a href="/login" className="block text-sm font-medium text-gray-600 py-2">Ingresar</a>
             <a href="/companyregister">
-              <button className="w-full bg-white text-black px-6 py-3 rounded-full text-sm font-medium mt-2">
+              <button
+                className="w-full text-white px-6 py-3 rounded-full text-sm font-semibold mt-2"
+                style={{ backgroundColor: "#1E76B6" }}
+              >
                 Comenzar Gratis
               </button>
             </a>
@@ -151,7 +175,6 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
 
   const articles = initialArticles
 
-  // ── Derived: latest article (most recent by date) ──────────────────────────
   const latestArticle = useMemo(() => {
     if (articles.length === 0) return null
     return [...articles].sort(
@@ -159,21 +182,19 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
     )[0]
   }, [articles])
 
-  // ── Derived: categories ────────────────────────────────────────────────────
   const categories = useMemo(() => {
-    const uniqueCats = [...new Set(articles.map((a) => a.category))]
-    const counts = uniqueCats.map((cat) => ({
+    const uniqueCats = [...new Set(articles.map(a => a.category))]
+    const counts = uniqueCats.map(cat => ({
       id: cat,
       name: cat.charAt(0).toUpperCase() + cat.slice(1),
-      count: articles.filter((a) => a.category === cat).length,
+      count: articles.filter(a => a.category === cat).length,
     }))
     return [{ id: 'all', name: 'Todos', count: articles.length }, ...counts]
   }, [articles])
 
-  // ── Derived: filtered articles ─────────────────────────────────────────────
   const filteredArticles = useMemo(() => {
     const q = searchTerm.toLowerCase()
-    return articles.filter((a) => {
+    return articles.filter(a => {
       const matchesSearch =
         a.title.toLowerCase().includes(q) || a.excerpt.toLowerCase().includes(q)
       const matchesCategory =
@@ -182,15 +203,13 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
     })
   }, [articles, searchTerm, selectedCategory])
 
-  // Featured: marked featured AND not the latest hero article
   const featuredArticles = useMemo(
-    () => filteredArticles.filter((a) => a.featured && a.id !== latestArticle?.id),
+    () => filteredArticles.filter(a => a.featured && a.id !== latestArticle?.id),
     [filteredArticles, latestArticle]
   )
 
-  // Regular: not featured AND not the latest hero article
   const regularArticles = useMemo(
-    () => filteredArticles.filter((a) => !a.featured && a.id !== latestArticle?.id),
+    () => filteredArticles.filter(a => !a.featured && a.id !== latestArticle?.id),
     [filteredArticles, latestArticle]
   )
 
@@ -198,18 +217,24 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
     new Date(dateStr).toLocaleDateString('es-ES', opts ?? { year: 'numeric', month: 'short', day: 'numeric' })
 
   return (
-    <div className="bg-black text-white min-h-screen overflow-x-hidden w-full">
+    <div className="bg-white text-gray-900 min-h-screen overflow-x-hidden w-full">
       <Nav />
 
       {/* ── HERO HEADER ──────────────────────────────────────────────────────── */}
-      <header className="pt-28 sm:pt-32 pb-10 px-4 sm:px-6 lg:px-8 w-full text-center">
+      <header
+        className="pt-28 sm:pt-32 pb-12 px-4 sm:px-6 lg:px-8 w-full text-center"
+        style={{ background: "linear-gradient(160deg, #f0f6fb 0%, #ffffff 60%, #e8f3fa 100%)" }}
+      >
         <div className="max-w-3xl mx-auto space-y-4">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-tight">
+          <h1
+            className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-tight"
+            style={{ color: "#0A183A" }}
+          >
             Recursos para
             <br />
-            <span className="text-gray-500">tu flota</span>
+            <span style={{ color: "#1E76B6" }}>tu flota</span>
           </h1>
-          <p className="text-lg text-gray-400 max-w-xl mx-auto">
+          <p className="text-lg text-gray-500 max-w-xl mx-auto">
             Guías, casos reales y análisis sobre gestión de llantas, CPK y mantenimiento
             preventivo para flotas en Colombia y Latinoamérica.
           </p>
@@ -221,9 +246,22 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
         <section className="px-4 sm:px-6 lg:px-8 pb-12 w-full">
           <div className="max-w-7xl mx-auto">
             <Link href={`/blog/${latestArticle.slug}`}>
-              <article className="group relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-300">
+              <article
+                className="group relative rounded-2xl sm:rounded-3xl overflow-hidden border transition-all duration-300"
+                style={{
+                  borderColor: "rgba(30,118,182,0.15)",
+                  boxShadow: "0 4px 32px rgba(30,118,182,0.1)",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(30,118,182,0.4)"
+                  ;(e.currentTarget as HTMLElement).style.boxShadow = "0 8px 48px rgba(30,118,182,0.18)"
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(30,118,182,0.15)"
+                  ;(e.currentTarget as HTMLElement).style.boxShadow = "0 4px 32px rgba(30,118,182,0.1)"
+                }}
+              >
                 <div className="relative h-[380px] md:h-[460px] lg:h-[520px] overflow-hidden">
-                  {/* Using next/image with fill for hero — avoids layout shift */}
                   <Image
                     src={latestArticle.image}
                     alt={latestArticle.title}
@@ -233,54 +271,47 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
                     priority
                     unoptimized={latestArticle.image.includes('unsplash.com')}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/5" />
 
                   <div className="absolute top-6 left-6 z-10">
-                    <span className="px-3 py-1.5 bg-white text-black text-xs font-semibold rounded-full">
+                    <span
+                      className="px-3 py-1.5 text-white text-xs font-semibold rounded-full"
+                      style={{ backgroundColor: "#1E76B6" }}
+                    >
                       ✦ Más reciente
                     </span>
                   </div>
 
                   <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 lg:p-10 z-10">
                     <div className="max-w-3xl">
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300 mb-4">
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-200 mb-4">
                         <span className="flex items-center gap-1.5">
-                          <User size={14} />
-                          {latestArticle.author}
+                          <User size={14} />{latestArticle.author}
                         </span>
                         <span className="flex items-center gap-1.5">
                           <Calendar size={14} />
-                          {formatDate(latestArticle.date, {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
+                          {formatDate(latestArticle.date, { year: 'numeric', month: 'long', day: 'numeric' })}
                         </span>
                         <span className="flex items-center gap-1.5">
-                          <Clock size={14} />
-                          {latestArticle.readTime} de lectura
+                          <Clock size={14} />{latestArticle.readTime} de lectura
                         </span>
                       </div>
-                      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold leading-tight text-white mb-3 group-hover:text-gray-200 transition-colors">
+                      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold leading-tight text-white mb-3">
                         {latestArticle.title}
                       </h2>
-                      <p className="text-gray-300 text-base sm:text-lg leading-relaxed line-clamp-2 mb-5">
+                      <p className="text-gray-200 text-base sm:text-lg leading-relaxed line-clamp-2 mb-5">
                         {latestArticle.excerpt}
                       </p>
                       <div className="flex items-center justify-between">
                         <span className="flex items-center gap-1.5 text-sm">
-                          <Tag size={14} className="text-blue-400" />
-                          <span className="text-blue-400 capitalize font-medium">
+                          <Tag size={14} style={{ color: "#60b4f0" }} />
+                          <span className="capitalize font-medium" style={{ color: "#60b4f0" }}>
                             {latestArticle.category}
                           </span>
                         </span>
                         <span className="flex items-center gap-1.5 text-sm text-white group-hover:gap-2.5 transition-all">
-                          Leer artículo{' '}
-                          <ChevronRight
-                            size={16}
-                            className="group-hover:translate-x-1 transition-transform"
-                          />
+                          Leer artículo
+                          <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                         </span>
                       </div>
                     </div>
@@ -298,29 +329,50 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
             <div className="relative w-full sm:max-w-xs">
               <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 size={16}
               />
               <input
                 type="text"
                 placeholder="Buscar artículos..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-white/30 transition-colors"
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl text-gray-900 text-sm placeholder-gray-400 transition-all outline-none"
+                style={{
+                  border: "1.5px solid rgba(30,118,182,0.2)",
+                  backgroundColor: "#f8fafd",
+                }}
+                onFocus={e => (e.currentTarget.style.borderColor = "#1E76B6")}
+                onBlur={e => (e.currentTarget.style.borderColor = "rgba(30,118,182,0.2)")}
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
+              {categories.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                  className="px-4 py-2 rounded-full text-xs font-semibold transition-all"
+                  style={
                     selectedCategory === cat.id
-                      ? 'bg-white text-black'
-                      : 'bg-white/5 border border-white/10 text-gray-400 hover:border-white/30 hover:text-white'
-                  }`}
+                      ? { backgroundColor: "#1E76B6", color: "white" }
+                      : {
+                          backgroundColor: "rgba(30,118,182,0.06)",
+                          border: "1.5px solid rgba(30,118,182,0.2)",
+                          color: "#173D68",
+                        }
+                  }
+                  onMouseEnter={e => {
+                    if (selectedCategory !== cat.id) {
+                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(30,118,182,0.12)"
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (selectedCategory !== cat.id) {
+                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(30,118,182,0.06)"
+                    }
+                  }}
                 >
-                  {cat.name} <span className="opacity-60">({cat.count})</span>
+                  {cat.name} <span style={{ opacity: 0.6 }}>({cat.count})</span>
                 </button>
               ))}
             </div>
@@ -332,11 +384,27 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
       {featuredArticles.length > 0 && (
         <section className="px-4 sm:px-6 lg:px-8 pb-16 w-full">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-semibold mb-8">Artículos Destacados</h2>
+            <h2 className="text-2xl sm:text-3xl font-semibold mb-8" style={{ color: "#0A183A" }}>
+              Artículos Destacados
+            </h2>
             <div className="grid md:grid-cols-2 gap-6">
-              {featuredArticles.map((article) => (
+              {featuredArticles.map(article => (
                 <Link key={article.id} href={`/blog/${article.slug}`}>
-                  <article className="group rounded-2xl overflow-hidden border border-white/10 hover:border-white/20 bg-white/5 transition-all duration-300 hover:scale-[1.02]">
+                  <article
+                    className="group rounded-2xl overflow-hidden border bg-white transition-all duration-300 hover:scale-[1.02]"
+                    style={{
+                      borderColor: "rgba(30,118,182,0.15)",
+                      boxShadow: "0 2px 16px rgba(30,118,182,0.06)",
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(30,118,182,0.35)"
+                      ;(e.currentTarget as HTMLElement).style.boxShadow = "0 8px 32px rgba(30,118,182,0.14)"
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(30,118,182,0.15)"
+                      ;(e.currentTarget as HTMLElement).style.boxShadow = "0 2px 16px rgba(30,118,182,0.06)"
+                    }}
+                  >
                     <div className="relative h-56 overflow-hidden">
                       <Image
                         src={article.image}
@@ -346,39 +414,29 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
                         className="object-cover group-hover:scale-110 transition-transform duration-500"
                         unoptimized={article.image.includes('unsplash.com')}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <span className="absolute top-4 left-4 px-3 py-1 bg-white text-black text-xs font-semibold rounded-full">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                      <span
+                        className="absolute top-4 left-4 px-3 py-1 text-white text-xs font-semibold rounded-full"
+                        style={{ backgroundColor: "#1E76B6" }}
+                      >
                         Destacado
                       </span>
                     </div>
                     <div className="p-6">
                       <div className="flex flex-wrap gap-3 text-xs text-gray-500 mb-3">
-                        <span className="flex items-center gap-1">
-                          <User size={12} />
-                          {article.author}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar size={12} />
-                          {formatDate(article.date)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} />
-                          {article.readTime}
-                        </span>
+                        <span className="flex items-center gap-1"><User size={12} />{article.author}</span>
+                        <span className="flex items-center gap-1"><Calendar size={12} />{formatDate(article.date)}</span>
+                        <span className="flex items-center gap-1"><Clock size={12} />{article.readTime}</span>
                       </div>
-                      <h3 className="text-lg font-semibold mb-2 group-hover:text-gray-300 transition-colors">
+                      <h3 className="text-lg font-semibold mb-2 transition-colors line-clamp-2" style={{ color: "#0A183A" }}>
                         {article.title}
                       </h3>
                       <p className="text-gray-500 text-sm mb-4 line-clamp-3">{article.excerpt}</p>
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-xs text-blue-400">
-                          <Tag size={12} />
-                          <span className="capitalize">{article.category}</span>
+                        <span className="flex items-center gap-1 text-xs font-semibold capitalize" style={{ color: "#1E76B6" }}>
+                          <Tag size={12} />{article.category}
                         </span>
-                        <ChevronRight
-                          size={16}
-                          className="text-gray-600 group-hover:text-white transition-colors"
-                        />
+                        <ChevronRight size={16} className="text-gray-400 group-hover:text-[#1E76B6] transition-colors" />
                       </div>
                     </div>
                   </article>
@@ -390,24 +448,38 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
       )}
 
       {/* ── REGULAR ARTICLES GRID ────────────────────────────────────────────── */}
-      <section className="px-4 sm:px-6 lg:px-8 pb-20 w-full">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl font-semibold mb-8">
+      <section
+        className="px-4 sm:px-6 lg:px-8 pb-20 w-full"
+        style={{ background: "linear-gradient(180deg, #f8fafd 0%, #ffffff 100%)" }}
+      >
+        <div className="max-w-7xl mx-auto pt-10">
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-8" style={{ color: "#0A183A" }}>
             {featuredArticles.length > 0 || latestArticle ? 'Más Artículos' : 'Todos los Artículos'}
           </h2>
 
           {articles.length === 0 ? (
-            /* Skeleton while empty (ISR hydrating) */
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
+              {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
             </div>
           ) : regularArticles.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {regularArticles.map((article) => (
+              {regularArticles.map(article => (
                 <Link key={article.id} href={`/blog/${article.slug}`}>
-                  <article className="group rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 hover:border-blue-500/40 bg-gradient-to-br from-white/5 to-transparent hover:from-white/8 transition-all duration-300 hover:scale-[1.02] h-full flex flex-col">
+                  <article
+                    className="group rounded-2xl sm:rounded-3xl overflow-hidden border bg-white transition-all duration-300 hover:scale-[1.02] h-full flex flex-col"
+                    style={{
+                      borderColor: "rgba(30,118,182,0.12)",
+                      boxShadow: "0 2px 12px rgba(30,118,182,0.05)",
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(30,118,182,0.35)"
+                      ;(e.currentTarget as HTMLElement).style.boxShadow = "0 8px 28px rgba(30,118,182,0.13)"
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(30,118,182,0.12)"
+                      ;(e.currentTarget as HTMLElement).style.boxShadow = "0 2px 12px rgba(30,118,182,0.05)"
+                    }}
+                  >
                     <div className="relative h-48 overflow-hidden flex-shrink-0">
                       <Image
                         src={article.image}
@@ -418,34 +490,25 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
                         loading="lazy"
                         unoptimized={article.image.includes('unsplash.com')}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                     </div>
                     <div className="p-5 sm:p-6 flex flex-col flex-1">
-                      <div className="flex flex-wrap gap-3 text-xs text-gray-500 mb-3">
-                        <span className="flex items-center gap-1">
-                          <Calendar size={11} />
-                          {formatDate(article.date)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={11} />
-                          {article.readTime} de lectura
-                        </span>
+                      <div className="flex flex-wrap gap-3 text-xs text-gray-400 mb-3">
+                        <span className="flex items-center gap-1"><Calendar size={11} />{formatDate(article.date)}</span>
+                        <span className="flex items-center gap-1"><Clock size={11} />{article.readTime} de lectura</span>
                       </div>
-                      <h3 className="text-base sm:text-lg font-semibold mb-2 group-hover:text-gray-300 transition-colors line-clamp-2 flex-shrink-0">
+                      <h3
+                        className="text-base sm:text-lg font-semibold mb-2 line-clamp-2 flex-shrink-0"
+                        style={{ color: "#0A183A" }}
+                      >
                         {article.title}
                       </h3>
-                      <p className="text-gray-500 text-sm mb-4 line-clamp-3 flex-1">
-                        {article.excerpt}
-                      </p>
+                      <p className="text-gray-500 text-sm mb-4 line-clamp-3 flex-1">{article.excerpt}</p>
                       <div className="flex items-center justify-between mt-auto">
-                        <span className="flex items-center gap-1 text-xs text-blue-400">
-                          <Tag size={11} />
-                          <span className="capitalize">{article.category}</span>
+                        <span className="flex items-center gap-1 text-xs font-semibold capitalize" style={{ color: "#1E76B6" }}>
+                          <Tag size={11} />{article.category}
                         </span>
-                        <ChevronRight
-                          size={15}
-                          className="text-gray-600 group-hover:text-blue-400 transition-colors"
-                        />
+                        <ChevronRight size={15} className="text-gray-400 group-hover:text-[#1E76B6] transition-colors" />
                       </div>
                     </div>
                   </article>
@@ -460,7 +523,10 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="mt-4 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  className="mt-4 text-sm font-medium transition-colors"
+                  style={{ color: "#1E76B6" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "#173D68")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "#1E76B6")}
                 >
                   Limpiar búsqueda
                 </button>
@@ -471,150 +537,124 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
       </section>
 
       {/* ── CTA BANNER ───────────────────────────────────────────────────────── */}
-      <section className="px-4 sm:px-6 lg:px-8 pb-16 w-full">
+      <section className="px-4 sm:px-6 lg:px-8 pb-16 w-full bg-white">
         <div className="max-w-5xl mx-auto">
-          <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/10 to-transparent pointer-events-none" />
-            <div className="relative p-8 sm:p-12 flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-semibold mb-2">
-                  ¿Listo para reducir tus costos en llantas?
-                </h2>
-                <p className="text-gray-400 text-sm sm:text-base">
-                  Prueba TirePro gratis y calcula el CPK de toda tu flota automáticamente.
-                </p>
-              </div>
-              <a href="/companyregister" className="flex-shrink-0">
-                <button className="bg-white text-black px-6 py-3 rounded-full font-medium hover:bg-gray-100 transition-all flex items-center gap-2 whitespace-nowrap">
-                  Comenzar Gratis
-                  <ArrowRight size={16} />
-                </button>
-              </a>
+          <div
+            className="relative rounded-2xl sm:rounded-3xl overflow-hidden border p-8 sm:p-12 flex flex-col sm:flex-row items-center justify-between gap-6"
+            style={{
+              borderColor: "rgba(30,118,182,0.2)",
+              background: "linear-gradient(135deg, #f0f6fb 0%, #e3f0f9 50%, #f8fafd 100%)",
+              boxShadow: "0 4px 40px rgba(30,118,182,0.1)",
+            }}
+          >
+            <div
+              className="absolute inset-0 pointer-events-none rounded-2xl sm:rounded-3xl"
+              style={{ background: "radial-gradient(ellipse at top right, rgba(30,118,182,0.08), transparent 60%)" }}
+            />
+            <div className="relative">
+              <h2 className="text-xl sm:text-2xl font-semibold mb-2" style={{ color: "#0A183A" }}>
+                ¿Listo para reducir tus costos en llantas?
+              </h2>
+              <p className="text-gray-500 text-sm sm:text-base">
+                Prueba TirePro gratis y calcula el CPK de toda tu flota automáticamente.
+              </p>
             </div>
+            <a href="/companyregister" className="relative flex-shrink-0">
+              <button
+                className="text-white px-6 py-3 rounded-full font-semibold transition-all flex items-center gap-2 whitespace-nowrap shadow-md hover:shadow-lg"
+                style={{ backgroundColor: "#1E76B6" }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#173D68")}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#1E76B6")}
+              >
+                Comenzar Gratis
+                <ArrowRight size={16} />
+              </button>
+            </a>
           </div>
         </div>
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────────────────── */}
       <footer
-        className="border-t border-white/10 py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
+        className="border-t py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
+        style={{ borderColor: "rgba(30,118,182,0.15)", backgroundColor: "#0A183A" }}
         role="contentinfo"
       >
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 mb-8 sm:mb-12">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: "#1E76B6" }}
+                >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2" />
                     <circle cx="12" cy="12" r="3" fill="white" />
                   </svg>
                 </div>
-                <span className="font-semibold">TirePro Colombia</span>
+                <span className="font-semibold text-white">TirePro Colombia</span>
               </div>
-              <p className="text-xs sm:text-sm text-gray-500 mb-4">
-                Software de optimización inteligente de llantas para flotas de vehículos en
-                Colombia.
+              <p className="text-xs sm:text-sm mb-4" style={{ color: "rgba(255,255,255,0.5)" }}>
+                Software de optimización inteligente de llantas para flotas de vehículos en Colombia.
               </p>
               <div className="flex space-x-3">
-                <a
-                  href="#"
-                  aria-label="LinkedIn"
-                  className="w-8 h-8 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-xs font-bold transition-all"
-                >
-                  in
-                </a>
-                <a
-                  href="#"
-                  aria-label="Instagram"
-                  className="w-8 h-8 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-xs font-bold transition-all"
-                >
-                  ig
-                </a>
+                {['in', 'ig'].map(label => (
+                  <a
+                    key={label}
+                    href="#"
+                    aria-label={label === 'in' ? 'LinkedIn' : 'Instagram'}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
+                    style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "#1E76B6"
+                      ;(e.currentTarget as HTMLAnchorElement).style.color = "white"
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(255,255,255,0.08)"
+                      ;(e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.6)"
+                    }}
+                  >
+                    {label}
+                  </a>
+                ))}
               </div>
             </div>
 
             <nav aria-labelledby="ft-product">
-              <h4 id="ft-product" className="font-medium mb-3 sm:mb-4 text-sm">
-                Producto
-              </h4>
-              <ul className="space-y-2 text-xs sm:text-sm text-gray-500">
-                <li>
-                  <a href="/#producto" className="hover:text-white transition-colors">
-                    Características
-                  </a>
-                </li>
-                <li>
-                  <a href="/#planes" className="hover:text-white transition-colors">
-                    Planes y precios
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://apps.apple.com/us/app/tirepro/id6741497732"
-                    className="hover:text-white transition-colors"
-                  >
-                    Descargar app
-                  </a>
-                </li>
-                <li>
-                  <a href="/blog" className="hover:text-white transition-colors">
-                    Blog
-                  </a>
-                </li>
+              <h4 id="ft-product" className="font-semibold mb-3 sm:mb-4 text-sm text-white">Producto</h4>
+              <ul className="space-y-2 text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+                <li><a href="/#producto" className="hover:text-white transition-colors">Características</a></li>
+                <li><a href="/#planes" className="hover:text-white transition-colors">Planes y precios</a></li>
+                <li><a href="https://apps.apple.com/us/app/tirepro/id6741497732" className="hover:text-white transition-colors">Descargar app</a></li>
+                <li><a href="/blog" className="hover:text-white transition-colors">Blog</a></li>
               </ul>
             </nav>
 
             <nav aria-labelledby="ft-legal">
-              <h4 id="ft-legal" className="font-medium mb-3 sm:mb-4 text-sm">
-                Legal
-              </h4>
-              <ul className="space-y-2 text-xs sm:text-sm text-gray-500">
-                <li>
-                  <a href="/legal#terms-section" className="hover:text-white transition-colors">
-                    Términos de servicio
-                  </a>
-                </li>
-                <li>
-                  <a href="/legal#privacy-section" className="hover:text-white transition-colors">
-                    Política de privacidad
-                  </a>
-                </li>
-                <li>
-                  <a href="/delete" className="hover:text-white transition-colors">
-                    Eliminar datos
-                  </a>
-                </li>
-                <li>
-                  <a href="/contact" className="hover:text-white transition-colors">
-                    Contacto
-                  </a>
-                </li>
+              <h4 id="ft-legal" className="font-semibold mb-3 sm:mb-4 text-sm text-white">Legal</h4>
+              <ul className="space-y-2 text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+                <li><a href="/legal#terms-section" className="hover:text-white transition-colors">Términos de servicio</a></li>
+                <li><a href="/legal#privacy-section" className="hover:text-white transition-colors">Política de privacidad</a></li>
+                <li><a href="/delete" className="hover:text-white transition-colors">Eliminar datos</a></li>
+                <li><a href="/contact" className="hover:text-white transition-colors">Contacto</a></li>
               </ul>
             </nav>
 
             <address className="not-italic">
-              <h4 className="font-medium mb-3 sm:mb-4 text-sm">Contacto TirePro</h4>
-              <ul className="space-y-2 text-xs sm:text-sm text-gray-500">
-                <li>
-                  <a
-                    href="mailto:info@tirepro.com.co"
-                    className="hover:text-white transition-colors"
-                  >
-                    info@tirepro.com.co
-                  </a>
-                </li>
-                <li>
-                  <a href="tel:+573151349122" className="hover:text-white transition-colors">
-                    +57 315 134 9122
-                  </a>
-                </li>
+              <h4 className="font-semibold mb-3 sm:mb-4 text-sm text-white">Contacto TirePro</h4>
+              <ul className="space-y-2 text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+                <li><a href="mailto:info@tirepro.com.co" className="hover:text-white transition-colors">info@tirepro.com.co</a></li>
+                <li><a href="tel:+573151349122" className="hover:text-white transition-colors">+57 315 134 9122</a></li>
                 <li>Bogotá, Colombia</li>
               </ul>
             </address>
           </div>
 
-          <div className="pt-6 sm:pt-8 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center text-xs sm:text-sm text-gray-500 gap-4">
+          <div
+            className="pt-6 sm:pt-8 border-t flex flex-col sm:flex-row justify-between items-center text-xs sm:text-sm gap-4"
+            style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.35)" }}
+          >
             <p>© 2025 TirePro Colombia. Todos los derechos reservados.</p>
             <p>Hecho con ❤️ en Colombia</p>
           </div>
@@ -632,10 +672,7 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
         <svg width="26" height="26" viewBox="0 0 24 24" fill="white" aria-hidden="true">
           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
         </svg>
-        <span
-          className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"
-          aria-hidden="true"
-        />
+        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" aria-hidden="true" />
       </a>
     </div>
   )

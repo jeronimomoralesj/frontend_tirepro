@@ -35,62 +35,26 @@ const translations = {
     title: "Notificaciones",
     noAlerts: "No hay alertas",
     tire: "Llanta",
-    vehicle: "Vehículo"
+    vehicle: "Vehículo",
   },
   en: {
     title: "Notifications",
     noAlerts: "No alerts",
     tire: "Tire",
-    vehicle: "Vehicle"
-  }
+    vehicle: "Vehicle",
+  },
 };
 
 export default function Notificaciones() {
-  const [open, setOpen] = useState(false);
-  const [notes, setNotes] = useState<Notification[]>([]);
-  const [language, setLanguage] = useState<'es'>('es');
+  const [open,     setOpen]     = useState(false);
+  const [notes,    setNotes]    = useState<Notification[]>([]);
+  const [language, setLanguage] = useState<"es">("es");
 
-  // Language detection effect
+  // Language detection
   useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = 'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-      
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          if (!navigator.geolocation) return reject('no geo');
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        
-        const resp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`
-        );
-        
-        if (resp.ok) {
-          const { countryCode } = await resp.json();
-          const lang = (countryCode === 'US' || countryCode === 'CA') ? 'en' : 'es';
-          setLanguage(lang);
-          localStorage.setItem('preferredLanguage', lang);
-          return;
-        }
-      } catch {
-        // fallback to browser language detection
-      }
-      
-      // Browser fallback
-      const browser = navigator.language || navigator.languages?.[0] || 'es';
-      const lang = browser.toLowerCase().startsWith('en') ? 'en' : 'es';
-      setLanguage(lang);
-      localStorage.setItem('preferredLanguage', lang);
-    };
-
-    detectAndSetLanguage();
+    setLanguage("es");
   }, []);
 
-  // Get current translations
   const t = translations[language];
 
   useEffect(() => {
@@ -98,11 +62,21 @@ export default function Notificaciones() {
       const companyId = localStorage.getItem("companyId");
       if (!companyId) return;
 
+      // AuthProvider stores the JWT at localStorage key "token"
+      const token = localStorage.getItem("token") ?? "";
+
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications?companyId=${companyId}`);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/notifications?companyId=${companyId}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          },
+        );
         if (!res.ok) throw new Error("No pude obtener notificaciones");
         const data: Notification[] = await res.json();
-        console.log("🚨 Notificaciones recibidas:", data);
         setNotes(data);
       } catch (err) {
         console.error(err);
@@ -114,7 +88,7 @@ export default function Notificaciones() {
 
   return (
     <div className="relative">
-      {/* Bell button */}
+      {/* Bell */}
       <button
         onClick={() => setOpen((v) => !v)}
         className="p-2 rounded-full hover:bg-white/10 transition"
@@ -155,12 +129,16 @@ export default function Notificaciones() {
                     >
                       <p className="font-medium text-gray-800">{n.title}</p>
                       <p className="text-sm text-gray-600">{n.message}</p>
-                      
+
                       {n.tire?.placa && (
-                        <p className="text-xs text-gray-500">{t.tire}: {n.tire.placa}</p>
+                        <p className="text-xs text-gray-500">
+                          {t.tire}: {n.tire.placa}
+                        </p>
                       )}
                       {n.vehicle?.placa && (
-                        <p className="text-xs text-gray-500">{t.vehicle}: {n.vehicle.placa}</p>
+                        <p className="text-xs text-gray-500">
+                          {t.vehicle}: {n.vehicle.placa}
+                        </p>
                       )}
 
                       <p className="text-xs text-gray-400 mt-1">

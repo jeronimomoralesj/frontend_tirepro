@@ -1,950 +1,1100 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Search,
-  Timer,
+  Clock,
   FileText,
   Camera,
-  AlertTriangle,
+  AlertCircle,
   Download,
   X,
-  Link
+  Link2,
+  Truck,
+  Gauge,
+  Milestone,
+  CheckCircle2,
+  Loader2,
+  ChevronRight,
+  Circle,
 } from "lucide-react";
 import jsPDF from "jspdf";
 
-// Language translations
-const translations = {
-  es: {
-    title: "Sistema de Inspección de Neumáticos",
-    subtitle: "Registre las mediciones de profundidad y genere reportes detallados",
-    vehiclePlate: "Placa del Vehículo",
-    vehiclePlateHolder: "Ingrese la placa del vehículo",
-    search: "Buscar",
-    searching: "Buscando...",
-    vehicleInfo: "Información del Vehículo",
-    unionVehicle: "Vehículo en Unión",
-    plate: "Placa",
-    type: "Tipo",
-    tires: "Llantas",
-    currentMileage: "Kilometraje Actual",
-    newMileage: "Nuevo Kilometraje",
-    difference: "Diferencia",
-    tireDetails: "Detalles del Neumático",
-    brand: "Marca",
-    position: "Posición",
-    depthMeasurements: "Mediciones de Profundidad",
-    interior: "Interior",
-    central: "Central",
-    exterior: "Exterior",
-    tireImage: "Imagen del Neumático",
-    mainVehicleTires: "Neumáticos - Vehículo Principal",
-    unionVehicleTires: "Neumáticos - Vehículo en Unión",
-    updateInspections: "Actualizar Inspecciones",
-    updating: "Actualizando...",
-    exportInspection: "Exportar Inspección",
-    exportToPDF: "Exportar a PDF",
-    generatingPDF: "Generando PDF...",
-    inspectionSavedSuccess: "La inspección ha sido guardada exitosamente. Puede exportar un reporte en PDF con todos los datos incluyendo CPK y proyecciones.",
-    inspectionsUpdatedSuccess: "Inspecciones actualizadas exitosamente",
-    noTiresFound: "No se encontraron llantas para este vehículo.",
-    vehicleNotFound: "Vehículo no encontrado",
-    errorGettingTires: "Error al obtener las llantas",
-    enterValidPlate: "Por favor ingrese la placa del vehículo",
-    enterValidDepths: "Por favor ingrese valores numéricos válidos para todas las profundidades",
-    zeroValuesFound: "campo(s) con valor 0. ¿Desea continuar?",
-    unexpectedError: "Error inesperado",
-    unknownError: "Error desconocido",
-    errorGeneratingPDF: "Error al generar el PDF",
-    inspectionReport: "Reporte de Inspección",
-    inspectionDate: "Fecha de inspección",
-    previousMileage: "Kilometraje Anterior",
-    currentMileageLabel: "Kilometraje Actual",
-    distanceTraveled: "Distancia Recorrida",
-    tireInspection: "Inspección de Neumáticos",
-    wearAnalysis: "Análisis de Desgaste",
-    averageDepth: "Profundidad Promedio",
-    cpk: "CPK",
-    depths: "Profundidades"
-  }
+// =============================================================================
+// Constants
+// =============================================================================
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "https://api.tirepro.com.co/api";
+
+function authHeaders(): HeadersInit {
+  let token: string | null = null;
+  try {
+    if (typeof window !== "undefined") token = localStorage.getItem("token");
+  } catch { /* SSR / blocked storage */ }
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+// =============================================================================
+// Types
+// =============================================================================
+
+type Vehicle = {
+  id: string;
+  placa: string;
+  tipovhc: string;
+  tireCount?: number;
+  _count?: { tires: number };
+  kilometrajeActual: number;
+  union?: string[];
 };
 
-export default function InspeccionPage() {
-  
-  // Language detection state
-  const [language, setLanguage] = useState<'es'>('es');
-  
-  // Input states
-  const [placaInput, setPlacaInput] = useState("");
-  const [newKilometraje, setNewKilometraje] = useState(0);
+type Inspeccion = {
+  profundidadInt: number;
+  profundidadCen: number;
+  profundidadExt: number;
+  imageUrl?: string;
+  cpk?: number;
+  cpkProyectado?: number;
+  fecha: string;
+};
 
-  interface InspectionData {
-    vehicle: Vehicle;
-    unionVehicle?: Vehicle;
-    tires: Array<{
-      id: string;
-      placa: string;
-      marca: string;
-      posicion: number;
-      profundidadInicial: number;
-      kilometrosRecorridos: number;
-      costo: Array<{ valor: number }>;
-      updates: {
-        profundidadInt: number;
-        profundidadCen: number;
-        profundidadExt: number;
-        image: File | null;
-      };
+type Costo = { valor: number; fecha: string };
+
+type Tire = {
+  id: string;
+  placa: string;
+  marca: string;
+  posicion: number;
+  profundidadInicial: number;
+  kilometrosRecorridos: number;
+  costo?: Costo[];   // legacy field name (some responses)
+  costos?: Costo[];  // actual Prisma relation name returned by the service
+  inspecciones?: Inspeccion[];
+  vehicleId: string;
+};
+
+type TireUpdate = {
+  profundidadInt: number | "";
+  profundidadCen: number | "";
+  profundidadExt: number | "";
+  image: File | null;
+};
+
+type InspectionData = {
+  vehicle: Vehicle;
+  unionVehicle?: Vehicle;
+  tires: Array<
+    Tire & {
+      updates: { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null };
       avgDepth: number;
       minDepth: number;
       cpk: string;
       cpkProyectado: string;
       projectedKm: number;
-      imageBase64: string | null;
-      vehicleId: string;
-    }>;
-    date: string;
-    kmDiff: number;
-  }
-  
-  // Data states
-  type Vehicle = {
-    id: string;
-    placa: string;
-    tipovhc: string;
-    tireCount: number;
-    kilometrajeActual: number;
-    union?: string;
-  };
-
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [unionVehicle, setUnionVehicle] = useState<Vehicle | null>(null);
-
-  interface Inspection {
-    profundidadInt: number;
-    profundidadCen: number;
-    profundidadExt: number;
-    imageUrl: string;
-    cpk: string;
-    cpkProyectado: string;
-    fecha: string;
-  }
-  
-  type Tire = {
-    id: string;
-    placa: string;
-    marca: string;
-    posicion: number;
-    profundidadInicial: number;
-    kilometrosRecorridos: number;
-    costo: Array<{valor: number}>;
-    inspecciones: Inspection[];
-    vehicleId: string;
-  };
-
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [unionTires, setUnionTires] = useState<Tire[]>([]);
-  const [tireUpdates, setTireUpdates] = useState<{
-    [id: string]: {
-      profundidadInt: number | "";
-      profundidadCen: number | "";
-      profundidadExt: number | "";
-      image: string | null
     }
-  }>({});
+  >;
+  date: string;
+  kmDiff: number;
+};
 
-  // UI states
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showExportPopup, setShowExportPopup] = useState(false);
-  const [inspectionData, setInspectionData] = useState<InspectionData | null>(null);
+// =============================================================================
+// Helpers
+// =============================================================================
 
-  // Get current translations
-  const t = translations[language];
-  
+function tireCount(v: Vehicle): number {
+  return v._count?.tires ?? v.tireCount ?? 0;
+}
 
-  // Language detection effect
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = 'es';
-      if (saved) {
-        setLanguage(saved);
-        return;
-      }
-    };
+function convertFileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload  = () => resolve(reader.result as string);
+    reader.onerror = (e) => reject(e);
+  });
+}
 
-    detectAndSetLanguage();
-  }, []);
-
-  // Helper function to convert File to base64 string
-  function convertFileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
+function calculateCpk(tire: Tire, minDepth: number, kmDiff: number) {
+  const costoArr   = tire.costos ?? tire.costo ?? [];
+  const totalCost  = costoArr.reduce((s, c) => s + (c.valor ?? 0), 0);
+  const totalKm        = (tire.kilometrosRecorridos || 0) + kmDiff;
+  const cpk            = totalKm > 0 ? totalCost / totalKm : 0;
+  const profInicial    = tire.profundidadInicial || 8;
+  const denominator    = (totalKm / Math.max(profInicial - minDepth, 0.01)) * profInicial;
+  const cpkProyectado  = denominator > 0 ? totalCost / denominator : 0;
+  const minLegal       = 2;
+  let projectedKm      = 0;
+  if (minDepth > minLegal && totalKm > 0) {
+    const mmWorn = profInicial - minDepth;
+    const wearRate = mmWorn > 0 ? totalKm / mmWorn : 0;
+    if (wearRate > 0) projectedKm = Math.round((minDepth - minLegal) * wearRate);
   }
-
-  // Calculate CPK based on backend logic
-  function calculateCpk(tire: Tire, minDepth: number, newKilometraje: number) {
-  const newTireKm = newKilometraje; // ← use vehicle odometer directly
-  const totalCost = tire.costo.reduce((sum, entry) => sum + entry.valor, 0);
-  const cpk = newTireKm > 0 ? totalCost / newTireKm : 0;
-  const profundidadInicial = tire.profundidadInicial || 8;
-  const denominator = (newTireKm / (profundidadInicial - minDepth)) * profundidadInicial;
-  const cpkProyectado = denominator > 0 ? totalCost / denominator : 0;
-  const minAcceptableDepth = 2;
-  let projectedKm = 0;
-
-  if (minDepth > minAcceptableDepth) {
-    const wearRate = (profundidadInicial - minDepth) / newTireKm;
-    if (wearRate > 0) {
-      projectedKm = Math.round((minDepth - minAcceptableDepth) / wearRate);
-    }
-  }
-
   return {
-    cpk: cpk.toFixed(3),
+    cpk:           cpk.toFixed(3),
     cpkProyectado: cpkProyectado.toFixed(3),
-    projectedKm
+    projectedKm,
   };
 }
+
+// =============================================================================
+// Shared design primitives
+// =============================================================================
+
+const inputCls =
+  "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 my-1">
+      <div className="flex-1 h-px" style={{ background: "rgba(52,140,203,0.18)" }} />
+      <span className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-[0.15em] whitespace-nowrap">
+        {label}
+      </span>
+      <div className="flex-1 h-px" style={{ background: "rgba(52,140,203,0.18)" }} />
+    </div>
+  );
+}
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl p-5 ${className}`}
+      style={{
+        background: "white",
+        border: "1px solid rgba(52,140,203,0.18)",
+        boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CardHeader({
+  icon: Icon,
+  title,
+  subtitle,
+  accent,
+}: {
+  icon: React.ElementType;
+  title: string;
+  subtitle?: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3 mb-4">
+      <div
+        className="p-2 rounded-xl flex-shrink-0"
+        style={{
+          background: accent ? "rgba(30,118,182,0.18)" : "rgba(30,118,182,0.10)",
+        }}
+      >
+        <Icon className="w-4 h-4 text-[#1E76B6]" />
+      </div>
+      <div>
+        <p className="text-sm font-bold text-[#0A183A] leading-none">{title}</p>
+        {subtitle && <p className="text-xs text-[#348CCB] mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Toast({
+  type,
+  message,
+  onDismiss,
+}: {
+  type: "error" | "success";
+  message: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+      style={{
+        background: type === "error" ? "rgba(10,24,58,0.06)" : "rgba(30,118,182,0.08)",
+        border: type === "error"
+          ? "1px solid rgba(10,24,58,0.2)"
+          : "1px solid rgba(30,118,182,0.3)",
+      }}
+    >
+      {type === "error" ? (
+        <AlertCircle className="w-4 h-4 text-[#173D68] flex-shrink-0 mt-0.5" />
+      ) : (
+        <CheckCircle2 className="w-4 h-4 text-[#1E76B6] flex-shrink-0 mt-0.5" />
+      )}
+      <span className="flex-1 text-[#0A183A]">{message}</span>
+      <button onClick={onDismiss} className="text-[#348CCB] hover:text-[#0A183A] transition-colors ml-2">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+// =============================================================================
+// Depth input trio
+// =============================================================================
+
+function DepthInputs({
+  tireId,
+  updates,
+  onChange,
+}: {
+  tireId: string;
+  updates: TireUpdate;
+  onChange: (id: string, field: keyof TireUpdate, value: number | File | null) => void;
+}) {
+  const fields: { key: "profundidadInt" | "profundidadCen" | "profundidadExt"; label: string }[] = [
+    { key: "profundidadInt", label: "Interior" },
+    { key: "profundidadCen", label: "Central"  },
+    { key: "profundidadExt", label: "Exterior" },
+  ];
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {fields.map(({ key, label }) => (
+        <div key={key}>
+          <label className="block text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider text-center mb-1">
+            {label}
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={30}
+            step={0.1}
+            value={updates[key] === "" ? "" : updates[key]}
+            onChange={(e) =>
+              onChange(tireId, key, e.target.value === "" ? 0 : Number(e.target.value))
+            }
+            placeholder="mm"
+            className={`${inputCls} text-center`}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// =============================================================================
+// Tire inspection card
+// =============================================================================
+
+function TireInspectionCard({
+  tire,
+  updates,
+  onChange,
+  isUnion,
+}: {
+  tire: Tire;
+  updates: TireUpdate;
+  onChange: (id: string, field: keyof TireUpdate, value: number | File | null) => void;
+  isUnion: boolean;
+}) {
+  const lastInsp = (tire.inspecciones ?? [])[0];
+  const prevDepths = lastInsp
+    ? `${lastInsp.profundidadInt} / ${lastInsp.profundidadCen} / ${lastInsp.profundidadExt} mm`
+    : "Sin inspecciones previas";
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        border: isUnion
+          ? "1px solid rgba(30,118,182,0.25)"
+          : "1px solid rgba(52,140,203,0.18)",
+        boxShadow: "0 2px 12px rgba(10,24,58,0.04)",
+      }}
+    >
+      {/* Header strip */}
+      <div
+        className="px-4 py-3 flex items-center justify-between"
+        style={{
+          background: isUnion
+            ? "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)"
+            : "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <Circle className="w-3.5 h-3.5 text-white/70" />
+          <span
+            className="font-black tracking-widest text-white"
+            style={{ fontFamily: "'DM Mono', monospace", fontSize: "15px" }}
+          >
+            {tire.placa.toUpperCase()}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span
+            className="text-xs font-semibold px-2 py-0.5 rounded-lg"
+            style={{ background: "rgba(255,255,255,0.15)", color: "white" }}
+          >
+            Pos. {tire.posicion}
+          </span>
+          <span
+            className="text-xs font-medium text-white/70"
+          >
+            {tire.marca}
+          </span>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-4 space-y-4" style={{ background: "white" }}>
+        {/* Previous depth info */}
+        {lastInsp && (
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+            style={{
+              background: "rgba(52,140,203,0.06)",
+              border: "1px solid rgba(52,140,203,0.15)",
+            }}
+          >
+            <Clock className="w-3.5 h-3.5 text-[#348CCB] flex-shrink-0" />
+            <span className="text-[#348CCB] font-medium">Última inspección:</span>
+            <span className="text-[#0A183A] font-semibold">{prevDepths}</span>
+          </div>
+        )}
+
+        {/* Depth inputs */}
+        <div>
+          <p className="text-xs font-bold text-[#173D68] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Gauge className="w-3.5 h-3.5 text-[#1E76B6]" />
+            Mediciones de Profundidad (mm)
+          </p>
+          <DepthInputs tireId={tire.id} updates={updates} onChange={onChange} />
+        </div>
+
+        {/* Image upload */}
+        <div>
+          <p className="text-xs font-bold text-[#173D68] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Camera className="w-3.5 h-3.5 text-[#1E76B6]" />
+            Foto del Neumático
+          </p>
+          <label
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all text-sm font-medium"
+            style={{
+              background: updates.image ? "rgba(30,118,182,0.08)" : "#F0F7FF",
+              border: "1px dashed rgba(52,140,203,0.4)",
+              color: "#1E76B6",
+            }}
+          >
+            <Camera className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">
+              {updates.image ? updates.image.name : "Seleccionar imagen..."}
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) =>
+                onChange(tire.id, "image", e.target.files?.[0] ?? null)
+              }
+            />
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Vehicle info banner
+// =============================================================================
+
+function VehicleBanner({
+  vehicle,
+  isUnion,
+  tireCountNum,
+}: {
+  vehicle: Vehicle;
+  isUnion?: boolean;
+  tireCountNum: number;
+}) {
+  return (
+    <div
+      className="rounded-2xl px-5 py-4"
+      style={{
+        background: isUnion
+          ? "rgba(30,118,182,0.06)"
+          : "rgba(10,24,58,0.03)",
+        border: isUnion
+          ? "1px solid rgba(30,118,182,0.2)"
+          : "1px solid rgba(52,140,203,0.18)",
+      }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {isUnion ? (
+            <Link2 className="w-5 h-5 text-[#1E76B6]" />
+          ) : (
+            <Truck className="w-5 h-5 text-[#173D68]" />
+          )}
+          <div>
+            <p
+              className="font-black tracking-widest text-[#0A183A]"
+              style={{ fontFamily: "'DM Mono', monospace", fontSize: "18px" }}
+            >
+              {vehicle.placa.toUpperCase()}
+            </p>
+            <p className="text-xs text-[#348CCB] mt-0.5">{vehicle.tipovhc}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-semibold text-[#348CCB] uppercase tracking-wide">Llantas</p>
+          <p className="text-2xl font-black text-[#0A183A]">{tireCountNum}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Export modal
+// =============================================================================
+
+function ExportModal({
+  onClose,
+  onExport,
+  loading,
+}: {
+  onClose: () => void;
+  onExport: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+      >
+        <div
+          className="px-6 py-4 flex justify-between items-center"
+          style={{ background: "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)" }}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-white" />
+            <h3 className="font-semibold text-white text-sm tracking-wide uppercase">
+              Inspección Guardada
+            </h3>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <p className="text-sm text-[#173D68] leading-relaxed">
+            La inspección fue registrada exitosamente. Puede exportar un reporte en PDF con todos los datos, CPK y proyecciones.
+          </p>
+          <button
+            onClick={onExport}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+          >
+            {loading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Generando PDF…</>
+            ) : (
+              <><Download className="w-4 h-4" /> Exportar a PDF</>
+            )}
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl text-sm font-medium text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors"
+          >
+            Cerrar sin exportar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Page
+// =============================================================================
+
+export default function InspeccionPage() {
+  const [placaInput, setPlacaInput]       = useState("");
+  const [newKilometraje, setNewKilometraje] = useState(0);
+
+  const [vehicle, setVehicle]             = useState<Vehicle | null>(null);
+  const [unionVehicle, setUnionVehicle]   = useState<Vehicle | null>(null);
+  const [tires, setTires]                 = useState<Tire[]>([]);
+  const [unionTires, setUnionTires]       = useState<Tire[]>([]);
+  const [tireUpdates, setTireUpdates]     = useState<Record<string, TireUpdate>>({});
+
+  const [loading, setLoading]             = useState(false);
+  const [submitting, setSubmitting]       = useState(false);
+  const [pdfLoading, setPdfLoading]       = useState(false);
+  const [error, setError]                 = useState("");
+  const [success, setSuccess]             = useState("");
+  const [showExport, setShowExport]       = useState(false);
+  const [inspectionData, setInspectionData] = useState<InspectionData | null>(null);
+
+  // ===========================================================================
+  // Search
+  // ===========================================================================
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setVehicle(null);
     setUnionVehicle(null);
     setTires([]);
     setUnionTires([]);
     setTireUpdates({});
-    
-    if (!placaInput.trim()) {
-      setError(t.enterValidPlate);
-      return;
-    }
-    
+
+    const placa = placaInput.trim().toUpperCase();
+    if (!placa) { setError("Por favor ingrese la placa del vehículo"); return; }
+
     setLoading(true);
     try {
-      const vehicleRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim().toLowerCase())}`
-          : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(placaInput.trim().toLowerCase())}`
+      // Fetch vehicle by placa
+      const vRes = await fetch(
+        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(placa.toLowerCase())}`,
+        { headers: authHeaders() }
       );
-      if (!vehicleRes.ok) {
-        throw new Error(t.vehicleNotFound);
-      }
-      const vehicleData = await vehicleRes.json();
-      setVehicle(vehicleData);
-      setNewKilometraje(vehicleData.kilometrajeActual);
+      if (!vRes.ok) throw new Error("Vehículo no encontrado");
+      const vData: Vehicle = await vRes.json();
+      setVehicle(vData);
+      setNewKilometraje(vData.kilometrajeActual);
 
-      let unionVehicleData = null;
-      if (vehicleData.union) {
-        try {
-          const unionVehicleRes = await fetch(
-            process.env.NEXT_PUBLIC_API_URL
-              ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(vehicleData.union)}`
-              : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(vehicleData.union)}`
-          );
-          if (unionVehicleRes.ok) {
-            unionVehicleData = await unionVehicleRes.json();
-            setUnionVehicle(unionVehicleData);
-          }
-        } catch (err) {
-          console.warn("Union vehicle not found or error fetching:", err);
-        }
-      }
-
-      const tiresRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-          : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
-      );
-      if (!tiresRes.ok) {
-        throw new Error(t.errorGettingTires);
-      }
-      const tiresData: Tire[] = await tiresRes.json();
-      tiresData.sort((a, b) => a.posicion - b.posicion);
-      setTires(tiresData);
-
-      let unionTiresData: Tire[] = [];
-      if (unionVehicleData) {
-        try {
-          const unionTiresRes = await fetch(
-            process.env.NEXT_PUBLIC_API_URL
-              ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${unionVehicleData.id}`
-              : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${unionVehicleData.id}`
-          );
-          if (unionTiresRes.ok) {
-            unionTiresData = await unionTiresRes.json();
-            unionTiresData.sort((a, b) => a.posicion - b.posicion);
-            setUnionTires(unionTiresData);
-          }
-        } catch (err) {
-          console.warn("Error fetching union vehicle tires:", err);
-        }
-      }
-
-      const allTires = [...tiresData, ...unionTiresData];
-      const initialUpdates: { [id: string]: { profundidadInt: number | ""; profundidadCen: number | ""; profundidadExt: number | ""; image: File | null } } = {};
-      allTires.forEach((tire) => {
-        initialUpdates[tire.id] = {
-          profundidadInt: "",
-          profundidadCen: "",
-          profundidadExt: "",
-          image: null,
-        };
+      // Fetch main tires
+      const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${vData.id}`, {
+        headers: authHeaders(),
       });
-      setTireUpdates(initialUpdates);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(t.unexpectedError);
+      if (!tRes.ok) throw new Error("Error al obtener las llantas");
+      const tData: Tire[] = await tRes.json();
+      tData.sort((a, b) => a.posicion - b.posicion);
+      setTires(tData);
+
+      // Union vehicles — union is string[] per the vehicle model
+      const unionPlacas: string[] = Array.isArray(vData.union) ? vData.union : [];
+      let uVehicle: Vehicle | null = null;
+      let uTires: Tire[]           = [];
+
+      if (unionPlacas.length > 0) {
+        try {
+          const uRes = await fetch(
+            `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(unionPlacas[0].toLowerCase())}`,
+            { headers: authHeaders() }
+          );
+          if (uRes.ok) {
+            uVehicle = await uRes.json();
+            setUnionVehicle(uVehicle);
+
+            const utRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${uVehicle!.id}`, {
+              headers: authHeaders(),
+            });
+            if (utRes.ok) {
+              uTires = await utRes.json();
+              uTires.sort((a, b) => a.posicion - b.posicion);
+              setUnionTires(uTires);
+            }
+          }
+        } catch {
+          // Union vehicle fetch failure is non-fatal
+        }
       }
-    }
-    finally {
+
+      // Initialise update state for all tires
+      const allTires = [...tData, ...uTires];
+      const init: Record<string, TireUpdate> = {};
+      allTires.forEach((t) => {
+        init[t.id] = { profundidadInt: "", profundidadCen: "", profundidadExt: "", image: null };
+      });
+      setTireUpdates(init);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
       setLoading(false);
     }
   }
 
-  function handleInputChange(
-    tireId: string,
-    field: "profundidadInt" | "profundidadCen" | "profundidadExt" | "image",
-    value: number | File | null
-  ) {
-    setTireUpdates((prev) => ({
-      ...prev,
-      [tireId]: {
-        ...prev[tireId],
-        [field]: value,
-      },
-    }));
+  // ===========================================================================
+  // Update handler
+  // ===========================================================================
+
+  function handleInputChange(id: string, field: keyof TireUpdate, value: number | File | null) {
+    setTireUpdates((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
   }
+
+  // ===========================================================================
+  // Submit inspections
+  // ===========================================================================
 
   async function handleSubmitInspections(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    setSuccess("");
 
+    const allTires = [...tires, ...unionTires];
+
+    // Validate all depth fields filled
+    const missing = allTires.filter((t) => {
+      const u = tireUpdates[t.id];
+      return u.profundidadInt === "" || u.profundidadCen === "" || u.profundidadExt === "";
+    });
+    if (missing.length > 0) {
+      setError("Por favor ingrese valores de profundidad para todos los neumáticos");
+      return;
+    }
+
+    // Warn on zeros
+    const zeroCount = allTires.reduce((n, t) => {
+      const u = tireUpdates[t.id];
+      return n +
+        (Number(u.profundidadInt) === 0 ? 1 : 0) +
+        (Number(u.profundidadCen) === 0 ? 1 : 0) +
+        (Number(u.profundidadExt) === 0 ? 1 : 0);
+    }, 0);
+    if (zeroCount > 0 && !window.confirm(`${zeroCount} campo(s) tienen valor 0. ¿Desea continuar?`)) return;
+
+    setSubmitting(true);
     try {
-      const allTires = [...tires, ...unionTires];
-      
-      const invalidTires = allTires.filter(tire => {
-        const upd = tireUpdates[tire.id];
-        return (
-          (upd.profundidadInt === "" || isNaN(Number(upd.profundidadInt))) ||
-          (upd.profundidadCen === "" || isNaN(Number(upd.profundidadCen))) ||
-          (upd.profundidadExt === "" || isNaN(Number(upd.profundidadExt)))
-        );
-      });
-      if (invalidTires.length > 0) {
-        throw new Error(t.enterValidDepths);
-      }
-
-      let zeroCount = 0;
-      allTires.forEach(tire => {
-        const upd = tireUpdates[tire.id];
-        if (Number(upd.profundidadInt) === 0) zeroCount++;
-        if (Number(upd.profundidadCen) === 0) zeroCount++;
-        if (Number(upd.profundidadExt) === 0) zeroCount++;
-      });
-      if (zeroCount > 0) {
-        const proceed = window.confirm(
-          `${zeroCount} ${t.zeroValuesFound}`
-        );
-        if (!proceed) {
-          setLoading(false);
-          return;
-        }
-      }
-
       const kmDiff = vehicle ? Number(newKilometraje) - vehicle.kilometrajeActual : 0;
 
-      const updatePromises = allTires.map(async tire => {
-        const upd = tireUpdates[tire.id];
-        
-        let tireNewKilometraje = Number(newKilometraje);
-        if (unionVehicle && tire.vehicleId === unionVehicle.id) {
-          tireNewKilometraje = Number(newKilometraje);
-        }
+      for (const tire of allTires) {
+        const upd     = tireUpdates[tire.id];
+        const imageUrl = upd.image ? await convertFileToBase64(upd.image) : "";
 
-const payload = {
-  profundidadInt: Number(upd.profundidadInt),
-  profundidadCen: Number(upd.profundidadCen),
-  profundidadExt: Number(upd.profundidadExt),
-  newKilometraje: tireNewKilometraje,
-  kmDelta: kmDiff,  // ← ADD THIS — computed once before any updates run
-  imageUrl: upd.image ? await convertFileToBase64(upd.image) : ""
-};
+        const payload = {
+          profundidadInt:  Number(upd.profundidadInt),
+          profundidadCen:  Number(upd.profundidadCen),
+          profundidadExt:  Number(upd.profundidadExt),
+          newKilometraje:  Number(newKilometraje),
+          kmDelta:         kmDiff,
+          imageUrl,
+        };
 
-        const res = await fetch(
-          process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/${tire.id}/inspection`
-            : `https://api.tirepro.com.co/api/tires/${tire.id}/inspection`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify(payload),
-          }
-        );
+        const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
+          method:  "PATCH",
+          headers: authHeaders(),
+          body:    JSON.stringify(payload),
+        });
         if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`Error al actualizar el neumático ${tire.id}: ${text}`);
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.message ?? `Error al actualizar llanta ${tire.placa}`);
         }
-        return res.json();
-      });
+      }
 
-      for (const promise of updatePromises) { await promise; }
-      alert(t.inspectionsUpdatedSuccess);
-
-      const inspectionDataForPDF = {
-        vehicle,
-        unionVehicle,
-        tires: allTires.map(tire => {
-          const updData = tireUpdates[tire.id];
-          
-          const profundidadInt = Number(updData.profundidadInt);
-          const profundidadCen = Number(updData.profundidadCen);
-          const profundidadExt = Number(updData.profundidadExt);
-          
-          const avgDepth = (profundidadInt + profundidadCen + profundidadExt) / 3;
-          const minDepth = Math.min(profundidadInt, profundidadCen, profundidadExt);
-          const cpkData = calculateCpk(tire, minDepth, kmDiff);
-          
+      // Build PDF data
+      const iData: InspectionData = {
+        vehicle:      vehicle!,
+        unionVehicle: unionVehicle ?? undefined,
+        tires: allTires.map((tire) => {
+          const upd       = tireUpdates[tire.id];
+          const pInt      = Number(upd.profundidadInt);
+          const pCen      = Number(upd.profundidadCen);
+          const pExt      = Number(upd.profundidadExt);
+          const avgDepth  = (pInt + pCen + pExt) / 3;
+          const minDepth  = Math.min(pInt, pCen, pExt);
+          const cpkData   = calculateCpk(tire, minDepth, kmDiff);
           return {
             ...tire,
-            updates: {
-              profundidadInt,
-              profundidadCen,
-              profundidadExt,
-              image: updData.image
-            },
+            updates: { profundidadInt: pInt, profundidadCen: pCen, profundidadExt: pExt, image: upd.image },
             avgDepth,
             minDepth,
-            cpk: cpkData.cpk,
-            cpkProyectado: cpkData.cpkProyectado,
-            projectedKm: cpkData.projectedKm,
-            imageBase64: updData.image ? null : null,
-            vehicleId: tire.vehicleId
+            ...cpkData,
           };
         }),
-        date: new Date().toISOString().split('T')[0],
-        kmDiff
+        date:   new Date().toISOString().split("T")[0],
+        kmDiff,
       };
-      
-      setInspectionData(inspectionDataForPDF);
-      setShowExportPopup(true);
-      
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error(err);
-        setError(err.message);
-      } else {
-        setError(t.unknownError);
-      }
+
+      setInspectionData(iData);
+      setShowExport(true);
+      setSuccess("Inspecciones actualizadas exitosamente");
+
+      // Reset depth inputs but keep vehicle loaded
+      const reset: Record<string, TireUpdate> = {};
+      allTires.forEach((t) => {
+        reset[t.id] = { profundidadInt: "", profundidadCen: "", profundidadExt: "", image: null };
+      });
+      setTireUpdates(reset);
+      if (vehicle) setNewKilometraje(vehicle.kilometrajeActual);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
+
+  // ===========================================================================
+  // PDF generation
+  // ===========================================================================
 
   async function generatePDF() {
     if (!inspectionData || !vehicle) return;
-
+    setPdfLoading(true);
     try {
-      setLoading(true);
-      
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4"
-      });
-      
-      const colors = {
-        primary: [24, 61, 104],
-        secondary: [30, 118, 182],
-        accent: [10, 24, 58],
-        text: [60, 60, 60]
-      };
-      
-      function addPageWithTemplate(pageNum, totalPages) {
-        doc.setTextColor(230, 230, 230);
-        doc.setFontSize(60);
-        doc.setFont("helvetica", "bold");
-        doc.text("TirePro", 105, 150, { align: "center", angle: 45 });
-        
-        doc.setFillColor(...colors.primary);
-        doc.rect(0, 0, 210, 25, "F");
-        
-        doc.setFillColor(...colors.secondary);
-        doc.roundedRect(15, 5, 40, 15, 3, 3, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("TirePro", 35, 14, { align: "center" });
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text(t.inspectionReport, 130, 14, { align: "center" });
-        
-        doc.setFillColor(240, 240, 240);
-        doc.rect(0, 282, 210, 15, "F");
-        
-        doc.setTextColor(...colors.text);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`${language === 'en' ? 'Page' : 'Página'} ${pageNum} ${language === 'en' ? 'of' : 'de'} ${totalPages}`, 105, 290, { align: "center" });
-        
-        const currentDate = new Date().toLocaleDateString();
-        doc.text(`${t.inspectionDate}: ${currentDate}`, 15, 290);
-        
-        return 35;
-      }
-      
-      const estimatedPages = Math.ceil((2 + (inspectionData.tires.length / 5)));
-      
-      let yPosition = addPageWithTemplate(1, estimatedPages);
-      let currentPage = 1;
-      
-      doc.setFillColor(245, 245, 245);
-      doc.roundedRect(15, yPosition, 180, 45, 3, 3, "F");
-      
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...colors.primary);
-      doc.text(language === 'en' ? "Main Vehicle" : "Vehículo Principal", 20, yPosition + 8);
-      
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(...colors.text);
-      
-      yPosition += 8;
-      doc.text(`${t.plate}: ${vehicle.placa}`, 25, yPosition + 10);
-      doc.text(`${t.type}: ${vehicle.tipovhc}`, 25, yPosition + 18);
-      doc.text(`${t.tires}: ${vehicle.tireCount}`, 25, yPosition + 26);
-      
-      doc.text(`${t.inspectionDate}: ${inspectionData.date}`, 110, yPosition + 10);
-      doc.text(`${t.previousMileage}: ${vehicle.kilometrajeActual} km`, 110, yPosition + 18);
-      doc.text(`${t.currentMileageLabel}: ${newKilometraje} km`, 110, yPosition + 26);
-      doc.text(`${t.distanceTraveled}: ${inspectionData.kmDiff} km`, 110, yPosition + 34);
-      
-      yPosition += 55;
+      const doc    = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const navy   = [10, 24, 58] as [number, number, number];
+      const blue   = [30, 118, 182] as [number, number, number];
+      const mid    = [23, 61, 104] as [number, number, number];
+      const gray   = [80, 80, 80] as [number, number, number];
 
-      if (unionVehicle) {
-        doc.setFillColor(235, 245, 255);
-        doc.roundedRect(15, yPosition, 180, 45, 3, 3, "F");
-        
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...colors.secondary);
-        doc.text(t.unionVehicle, 20, yPosition + 8);
-        
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(11);
-        doc.setTextColor(...colors.text);
-        
-        const unionNewKm = unionVehicle.kilometrajeActual + inspectionData.kmDiff;
-        
-        yPosition += 8;
-        doc.text(`${t.plate}: ${unionVehicle.placa}`, 25, yPosition + 10);
-        doc.text(`${t.type}: ${unionVehicle.tipovhc}`, 25, yPosition + 18);
-        doc.text(`${t.tires}: ${unionVehicle.tireCount}`, 25, yPosition + 26);
-        
-        doc.text(`${t.previousMileage}: ${unionVehicle.kilometrajeActual} km`, 110, yPosition + 10);
-        doc.text(`${t.currentMileageLabel}: ${unionNewKm} km`, 110, yPosition + 18);
-        doc.text(`${t.distanceTraveled}: ${inspectionData.kmDiff} km`, 110, yPosition + 26);
-        
-        yPosition += 55;
-      }
-      
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...colors.primary);
-      doc.text(t.tireInspection, 20, yPosition);
-      yPosition += 10;
-      
-      const mainVehicleTires = inspectionData.tires.filter(tire => tire.vehicleId === vehicle.id);
-      const unionVehicleTires = inspectionData.tires.filter(tire => unionVehicle && tire.vehicleId === unionVehicle.id);
-      
-      if (mainVehicleTires.length > 0) {
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...colors.primary);
-        doc.text(`${language === 'en' ? 'Tires' : 'Neumáticos'} - ${vehicle.placa}`, 20, yPosition);
-        yPosition += 10;
-        
-        for (const tire of mainVehicleTires) {
-          const tireBlockHeight = tire.updates.image ? 100 : 60;
-          if (yPosition + tireBlockHeight > 270) {
-            doc.addPage();
-            currentPage++;
-            yPosition = addPageWithTemplate(currentPage, estimatedPages);
-          }
-          
-          yPosition = await renderTireBlock(doc, tire, yPosition, colors);
-        }
-      }
-      
-      if (unionVehicleTires.length > 0) {
-        yPosition += 10;
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...colors.secondary);
-        doc.text(`${language === 'en' ? 'Tires' : 'Neumáticos'} - ${unionVehicle!.placa}`, 20, yPosition);
-        yPosition += 10;
-        
-        for (const tire of unionVehicleTires) {
-          const tireBlockHeight = tire.updates.image ? 100 : 60;
-          if (yPosition + tireBlockHeight > 270) {
-            doc.addPage();
-            currentPage++;
-            yPosition = addPageWithTemplate(currentPage, estimatedPages);
-          }
-          
-          yPosition = await renderTireBlock(doc, tire, yPosition, colors);
-        }
-      }
-      // Helper function to render tire block
-      async function renderTireBlock(doc, tire, yPos, colors) {
-        const tireBlockHeight = tire.updates.image ? 100 : 60;
-        
-        // Tire info box
-        doc.setFillColor(245, 245, 245);
-        doc.roundedRect(15, yPos, 180, tireBlockHeight, 3, 3, "F");
-        
-        // Tire position highlight
-        doc.setFillColor(...colors.secondary);
-        doc.roundedRect(15, yPos, 50, 10, 2, 2, "F");
+      const totalPages = Math.max(2, Math.ceil(inspectionData.tires.length / 4) + 1);
+      let page         = 1;
+
+      function addHeader() {
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, 210, 22, "F");
+        doc.setFillColor(...blue);
+        doc.roundedRect(12, 4, 36, 14, 2, 2, "F");
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(10);
+        doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text(`POSICIÓN ${tire.posicion}`, 40, yPos + 7, { align: "center" });
-        
-        // Tire details
-        yPos += 15;
-        doc.setTextColor(...colors.accent);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${tire.marca}`, 25, yPos);
-        
-        doc.setTextColor(...colors.text);
-        doc.setFontSize(10);
+        doc.text("TirePro", 30, 13, { align: "center" });
+        doc.setFontSize(14);
+        doc.text("Reporte de Inspección", 130, 13, { align: "center" });
+
+        doc.setFillColor(240, 245, 255);
+        doc.rect(0, 280, 210, 17, "F");
+        doc.setTextColor(...gray);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(`ID: ${tire.placa}`, 25, yPos + 8);
-        
-        // Profundidades box
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(25, yPos + 12, 75, 35, 2, 2, "F");
-        
-        doc.setFontSize(10);
+        doc.text(`Página ${page} de ${totalPages}`, 105, 289, { align: "center" });
+        doc.text(`Fecha: ${inspectionData.date}`, 15, 289);
+        return 30;
+      }
+
+      let y = addHeader();
+
+      // Vehicle summary
+      const veh = inspectionData.vehicle;
+      doc.setFillColor(245, 248, 255);
+      doc.roundedRect(12, y, 186, 48, 3, 3, "F");
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...mid);
+      doc.text("Vehículo Principal", 18, y + 9);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(...gray);
+      doc.text(`Placa: ${veh.placa.toUpperCase()}`, 18, y + 18);
+      doc.text(`Tipo: ${veh.tipovhc}`, 18, y + 26);
+      doc.text(`Km anterior: ${veh.kilometrajeActual} km`, 18, y + 34);
+      doc.text(`Km actual: ${inspectionData.vehicle.kilometrajeActual + inspectionData.kmDiff} km`, 18, y + 42);
+      doc.text(`Distancia: +${inspectionData.kmDiff} km`, 110, y + 18);
+      doc.text(`Llantas: ${tireCount(veh)}`, 110, y + 26);
+      y += 54;
+
+      if (inspectionData.unionVehicle) {
+        const uv = inspectionData.unionVehicle;
+        doc.setFillColor(235, 245, 255);
+        doc.roundedRect(12, y, 186, 40, 3, 3, "F");
         doc.setFont("helvetica", "bold");
-        doc.text("Profundidades", 62.5, yPos + 19, { align: "center" });
-        
+        doc.setTextColor(...blue);
+        doc.text("Vehículo en Unión", 18, y + 9);
         doc.setFont("helvetica", "normal");
-        doc.text(`Interior: ${tire.updates.profundidadInt} mm`, 35, yPos + 27);
-        doc.text(`Central: ${tire.updates.profundidadCen} mm`, 35, yPos + 34);
-        doc.text(`Exterior: ${tire.updates.profundidadExt} mm`, 35, yPos + 41);
-        
-        // Average depth and CPK
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(110, yPos + 12, 75, 35, 2, 2, "F");
-        
+        doc.setTextColor(...gray);
+        doc.text(`Placa: ${uv.placa.toUpperCase()}`, 18, y + 18);
+        doc.text(`Tipo: ${uv.tipovhc}`, 18, y + 26);
+        doc.text(`Llantas: ${tireCount(uv)}`, 110, y + 18);
+        y += 46;
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(...navy);
+      doc.text("Inspección de Neumáticos", 15, y);
+      y += 8;
+
+      for (const tire of inspectionData.tires) {
+        if (y + 60 > 272) {
+          doc.addPage();
+          page++;
+          y = addHeader();
+        }
+
+        const isUnion = !!inspectionData.unionVehicle && tire.vehicleId === inspectionData.unionVehicle.id;
+        const bg: [number, number, number] = isUnion ? [235, 245, 255] : [245, 248, 255];
+        doc.setFillColor(...bg);
+        doc.roundedRect(12, y, 186, 54, 3, 3, "F");
+
+        // Position badge
+        doc.setFillColor(...(isUnion ? blue : navy));
+        doc.roundedRect(12, y, 44, 10, 2, 2, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.text("Análisis de Desgaste", 147.5, yPos + 19, { align: "center" });
-        
+        doc.text(`POSICIÓN ${tire.posicion}`, 34, y + 7, { align: "center" });
+
+        y += 14;
+        doc.setTextColor(...navy);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${tire.marca}  —  ${tire.placa.toUpperCase()}`, 18, y);
+
+        y += 8;
+        doc.setTextColor(...gray);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(`Profundidad Promedio: ${tire.avgDepth.toFixed(2)} mm`, 120, yPos + 27);
-        doc.text(`CPK: ${tire.cpk}`, 120, yPos + 34);
-        
-        // Add image if available
+        doc.text(`Int: ${tire.updates.profundidadInt} mm`, 18, y);
+        doc.text(`Cen: ${tire.updates.profundidadCen} mm`, 58, y);
+        doc.text(`Ext: ${tire.updates.profundidadExt} mm`, 98, y);
+        doc.text(`Prom: ${tire.avgDepth.toFixed(2)} mm`, 138, y);
+
+        y += 8;
+        doc.text(`CPK: ${tire.cpk}`, 18, y);
+        doc.text(`CPK Proy.: ${tire.cpkProyectado}`, 58, y);
+        if (tire.projectedKm > 0) doc.text(`Km restantes: ${tire.projectedKm.toLocaleString()}`, 110, y);
+
+        // Image
         if (tire.updates.image) {
           try {
             const imgData = await convertFileToBase64(tire.updates.image);
-            doc.addImage(imgData, 'JPEG', 65, yPos + 50, 80, 40);
-          } catch (e) {
-            console.error("Error adding image to PDF", e);
-          }
+            y += 6;
+            doc.addImage(imgData, "JPEG", 130, y, 60, 30);
+          } catch { /* skip */ }
         }
-        
-        return yPos + tireBlockHeight + 10;
+
+        y += 20;
       }
-      
-      // Save the PDF
-      const filename = unionVehicle 
-        ? `inspeccion_${vehicle.placa}_${unionVehicle.placa}_${inspectionData.date}.pdf`
-        : `inspeccion_${vehicle.placa}_${inspectionData.date}.pdf`;
+
+      const filename = inspectionData.unionVehicle
+        ? `inspeccion_${veh.placa}_${inspectionData.unionVehicle.placa}_${inspectionData.date}.pdf`
+        : `inspeccion_${veh.placa}_${inspectionData.date}.pdf`;
       doc.save(filename);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Error al generar el PDF");
+    } catch (err) {
+      console.error(err);
+      setError("Error al generar el PDF");
     } finally {
-      setLoading(false);
+      setPdfLoading(false);
     }
   }
 
-  function handleClosePopupAndReset() {
-    setShowExportPopup(false);
+  // ===========================================================================
+  // JSX
+  // ===========================================================================
 
-    // Reset the form
-    if (vehicle) {
-      setNewKilometraje(vehicle.kilometrajeActual);
-    }
-
-    const allTires = [...tires, ...unionTires];
-    const initial = allTires.reduce((acc, t) => {
-      acc[t.id] = { profundidadInt: "", profundidadCen: "", profundidadExt: "", image: null };
-      return acc;
-    }, {} as typeof tireUpdates);
-    setTireUpdates(initial);
-  }
-
-  // Helper function to render tire inspection form
-  function renderTireSection(tiresData: Tire[], vehicleData: Vehicle, title: string, bgColor: string) {
-    if (tiresData.length === 0) return null;
-
-    return (
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <Link className="w-5 h-5 text-[#1E76B6]" />
-          <h2 className="text-xl font-bold text-[#0A183A]">{title}</h2>
-          <span className="text-sm text-gray-600">({vehicleData.placa})</span>
-        </div>
-        
-        <div className="space-y-6">
-          {tiresData.map((tire) => (
-            <div 
-              key={tire.id} 
-              className={`${bgColor} rounded-xl p-6 shadow-sm border-l-4 border-[#1E76B6]`}
-            >
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Camera className="w-5 h-5 text-[#1E76B6]" />
-                    Detalles del Neumático
-                  </h3>
-                  <div className="space-y-2">
-                    <p className="flex justify-baseline">
-                      <span className="font-medium">ID: </span> 
-                      <span>{tire.placa}</span>
-                    </p>
-                    <p className="flex justify-baseline">
-                      <span className="font-medium">Marca: </span> 
-                      <span>{tire.marca}</span>
-                    </p>
-                    <p className="flex justify-baseline">
-                      <span className="font-medium">Posición: </span> 
-                      <span>{tire.posicion}</span>
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Mediciones de Profundidad</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {['profundidadInt', 'profundidadCen', 'profundidadExt'].map((field) => (
-                      <div key={field}>
-                        <label className="block text-sm font-medium mb-1 text-center">
-                          {field === 'profundidadInt' ? 'Interior' : 
-                           field === 'profundidadCen' ? 'Central' : 'Exterior'}
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={30}
-                          value={tireUpdates[tire.id]?.[field as "profundidadInt" | "profundidadCen" | "profundidadExt"] || ""}
-                          onChange={(e) =>
-                            handleInputChange(
-                              tire.id,
-                              field as "profundidadInt" | "profundidadCen" | "profundidadExt",
-                              Number(e.target.value)
-                            )
-                          }
-                          className="w-full px-3 py-2 border-2 border-[#1E76B6]/30 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium mb-1">Imagen del Neumático</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) =>
-                        handleInputChange(
-                          tire.id,
-                          "image",
-                          e.target.files ? e.target.files[0] : null
-                        )
-                      }
-                      className="w-full file:mr-4 file:rounded-lg file:border-0 file:bg-[#1E76B6] file:text-white file:px-4 file:py-2 hover:file:bg-[#173D68]"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const allTires    = [...tires, ...unionTires];
+  const hasVehicle  = !!vehicle;
+  const hasTires    = allTires.length > 0;
+  const kmDiff      = vehicle ? Number(newKilometraje) - vehicle.kilometrajeActual : 0;
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* Search Form */}
-          <form onSubmit={handleSearch} className="mb-8">
-            <div className="flex gap-4 items-end">
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-2 text-[#0A183A]">
-                  {t.vehiclePlate}
-                </label>
-                <input
-                  type="text"
-                  value={placaInput}
-                  onChange={(e) => setPlacaInput(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-[#1E76B6]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                  placeholder={t.vehiclePlateHolder}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-3 bg-[#0A183A] text-white rounded-lg hover:bg-[#1E76B6] transition-colors flex items-center gap-2 disabled:opacity-50"
-              >
-                <Search className="w-5 h-5" />
-                {loading ? t.searching : t.search}
-              </button>
-            </div>
-          </form>
+    <div className="min-h-screen" style={{ background: "#ffffff" }}>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" />
-              {error}
-            </div>
-          )}
-
-          {/* Vehicle Info and Kilometraje Update */}
-          {vehicle && (
-            <div className="mb-8 bg-[#348CCB]/10 rounded-xl p-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h2 className="text-xl font-bold mb-4 text-[#0A183A] flex items-center gap-2">
-                    <FileText className="w-6 h-6" />
-                    {t.vehicleInfo}
-                  </h2>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">{t.plate}:</span> {vehicle.placa.toUpperCase()}</p>
-                    <p><span className="font-medium">{t.type}:</span> {vehicle.tipovhc}</p>
-                    <p><span className="font-medium">{t.tires}:</span> {vehicle.tireCount}</p>
-                    <p><span className="font-medium">{t.currentMileage}:</span> {vehicle.kilometrajeActual} km</p>
-                    {vehicle.union && <p><span className="font-medium">{t.unionVehicle}:</span> {vehicle.union}</p>}
-                  </div>
-                </div>
-                
-                {unionVehicle && (
-                  <div>
-                    <h2 className="text-xl font-bold mb-4 text-[#1E76B6] flex items-center gap-2">
-                      <Link className="w-6 h-6" />
-                      {t.unionVehicle}
-                    </h2>
-                    <div className="space-y-2">
-                      <p><span className="font-medium">{t.plate}:</span> {unionVehicle.placa}</p>
-                      <p><span className="font-medium">{t.type}:</span> {unionVehicle.tipovhc}</p>
-                      <p><span className="font-medium">{t.tires}:</span> {unionVehicle.tireCount}</p>
-                      <p><span className="font-medium">{t.currentMileage}:</span> {unionVehicle.kilometrajeActual} km</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-6">
-                <label className="block text-sm font-medium mb-2 text-[#0A183A]">
-                  <Timer className="w-4 h-4 inline mr-2" />
-                  {t.newMileage}
-                </label>
-                <input
-                  type="number"
-                  value={newKilometraje}
-                  onChange={(e) => setNewKilometraje(Number(e.target.value))}
-                  className="w-full px-4 py-3 border-2 border-[#1E76B6]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                  min={vehicle.kilometrajeActual}
-                />
-                <p className="text-sm text-gray-600 mt-1">
-                  {t.difference}: +{newKilometraje - vehicle.kilometrajeActual} kms
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Tire Inspection Forms */}
-          {(tires.length > 0 || unionTires.length > 0) && (
-            <form onSubmit={handleSubmitInspections}>
-              {renderTireSection(tires, vehicle!, `Neumáticos - Vehículo Principal`, "bg-gray-50")}
-              {unionVehicle && renderTireSection(unionTires, unionVehicle, `Neumáticos - Vehículo en Unión`, "bg-blue-50")}
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-6 w-full bg-[#0A183A] text-white py-3 rounded-lg hover:bg-[#1E76B6] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <span className="animate-pulse">{t.updating}...</span>
-                ) : (
-                  t.updateInspections
-                )}
-              </button>
-            </form>
-          )}
-
-          {vehicle && tires.length === 0 && !loading && (
-            <div className="text-center bg-[#348CCB]/10 p-6 rounded-xl">
-              <p className="text-[#0A183A]">{t.noTiresFound}.</p>
-            </div>
-          )}
+      {/* Top bar */}
+      <div
+        className="sticky top-0 z-40 px-6 py-4 flex items-center gap-3"
+        style={{
+          background: "rgba(255,255,255,0.92)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(52,140,203,0.15)",
+        }}
+      >
+        <div
+          className="p-2 rounded-xl"
+          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+        >
+          <Gauge className="w-5 h-5 text-white" />
         </div>
-        
-        {/* Export Popup */}
-        {showExportPopup && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-[#0A183A]">{t.exportInspection}</h3>
-                <button 
-                  onClick={handleClosePopupAndReset}
-                  className="text-gray-500 hover:text-[#0A183A]"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <p className="mb-6 text-gray-600">
-                {t.inspectionSavedSuccess}
-              </p>
-              
-              <button
-                onClick={generatePDF}
-                disabled={loading}
-                className="w-full py-3 bg-[#0A183A] text-white rounded-lg hover:bg-[#1E76B6] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <span className="animate-pulse">{t.generatingPDF}F...</span>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5" />
-                    {t.exportToPDF}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
+        <div>
+          <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
+            Inspección de Neumáticos
+          </h1>
+          <p className="text-xs text-[#348CCB] mt-0.5">Registre mediciones y genere reportes</p>
+        </div>
       </div>
+
+      <div className="px-4 py-8 max-w-3xl mx-auto space-y-4">
+
+        {/* Notifications */}
+        {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
+        {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
+
+        {/* ── Search ──────────────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader icon={Search} title="Buscar Vehículo" subtitle="Ingrese la placa para cargar sus neumáticos" />
+          <form onSubmit={handleSearch} className="flex gap-3">
+            <input
+              type="text"
+              value={placaInput}
+              onChange={(e) => setPlacaInput(e.target.value.toUpperCase())}
+              placeholder="Ej: ABC123"
+              className={`${inputCls} flex-1`}
+              style={{ textTransform: "uppercase" }}
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+            >
+              {loading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Buscando…</>
+              ) : (
+                <><Search className="w-4 h-4" /> Buscar</>
+              )}
+            </button>
+          </form>
+        </Card>
+
+        {/* ── Vehicle info ─────────────────────────────────────────────────── */}
+        {hasVehicle && (
+          <Card>
+            <CardHeader
+              icon={FileText}
+              title="Información del Vehículo"
+              subtitle="Datos cargados del sistema"
+            />
+
+            <div className="space-y-3">
+              <VehicleBanner vehicle={vehicle!} tireCountNum={tireCount(vehicle!)} />
+              {unionVehicle && (
+                <VehicleBanner vehicle={unionVehicle} isUnion tireCountNum={tireCount(unionVehicle)} />
+              )}
+            </div>
+
+            {/* Kilometraje update */}
+            <div className="mt-5">
+              <SectionDivider label="Actualizar Kilometraje" />
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#173D68] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Milestone className="w-3.5 h-3.5 text-[#1E76B6]" />
+                    Nuevo Kilometraje
+                  </label>
+                  <input
+                    type="number"
+                    value={newKilometraje}
+                    onChange={(e) => setNewKilometraje(Number(e.target.value))}
+                    min={vehicle?.kilometrajeActual}
+                    className={inputCls}
+                  />
+                </div>
+                <div
+                  className="flex flex-col items-center justify-center rounded-2xl py-3 px-4"
+                  style={{
+                    background: kmDiff > 0 ? "rgba(30,118,182,0.08)" : "rgba(10,24,58,0.04)",
+                    border: "1px solid rgba(52,140,203,0.2)",
+                  }}
+                >
+                  <span className="text-[10px] font-bold text-[#348CCB] uppercase tracking-wider">
+                    Diferencia
+                  </span>
+                  <span
+                    className="text-2xl font-black mt-0.5"
+                    style={{ color: kmDiff > 0 ? "#1E76B6" : "#0A183A" }}
+                  >
+                    +{kmDiff.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-[#348CCB]">km</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Tire inspection forms ─────────────────────────────────────────── */}
+        {hasTires && (
+          <form onSubmit={handleSubmitInspections} className="space-y-4">
+
+            {/* Main vehicle tires */}
+            {tires.length > 0 && (
+              <Card>
+                <CardHeader
+                  icon={Truck}
+                  title="Neumáticos — Vehículo Principal"
+                  subtitle={`${vehicle!.placa.toUpperCase()} · ${tires.length} llantas`}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {tires.map((t) => (
+                    <TireInspectionCard
+                      key={t.id}
+                      tire={t}
+                      updates={tireUpdates[t.id] ?? { profundidadInt: "", profundidadCen: "", profundidadExt: "", image: null }}
+                      onChange={handleInputChange}
+                      isUnion={false}
+                    />
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Union vehicle tires */}
+            {unionVehicle && unionTires.length > 0 && (
+              <Card>
+                <CardHeader
+                  icon={Link2}
+                  title="Neumáticos — Vehículo en Unión"
+                  subtitle={`${unionVehicle.placa.toUpperCase()} · ${unionTires.length} llantas`}
+                  accent
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {unionTires.map((t) => (
+                    <TireInspectionCard
+                      key={t.id}
+                      tire={t}
+                      updates={tireUpdates[t.id] ?? { profundidadInt: "", profundidadCen: "", profundidadExt: "", image: null }}
+                      onChange={handleInputChange}
+                      isUnion
+                    />
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50"
+              style={{
+                background: "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)",
+                boxShadow: "0 4px 20px rgba(30,118,182,0.3)",
+              }}
+            >
+              {submitting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Guardando Inspecciones…</>
+              ) : (
+                <><ChevronRight className="w-4 h-4" /> Guardar Inspecciones</>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* Empty state */}
+        {hasVehicle && !hasTires && !loading && (
+          <Card>
+            <div className="flex flex-col items-center py-10 gap-3">
+              <div
+                className="p-5 rounded-3xl"
+                style={{ background: "rgba(30,118,182,0.08)" }}
+              >
+                <Circle className="w-12 h-12 text-[#348CCB]/40" />
+              </div>
+              <p className="text-[#173D68] font-bold">Sin neumáticos registrados</p>
+              <p className="text-[#348CCB] text-sm text-center">
+                Este vehículo no tiene llantas asignadas en el sistema
+              </p>
+            </div>
+          </Card>
+        )}
+
+      </div>
+
+      {/* Export modal */}
+      {showExport && (
+        <ExportModal
+          onClose={() => setShowExport(false)}
+          onExport={generatePDF}
+          loading={pdfLoading}
+        />
+      )}
     </div>
   );
 }

@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect, FormEvent, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle, Loader2, Search, ChevronDown, X, Building2 } from "lucide-react";
+import {
+  AlertTriangle, CheckCircle, Loader2, Search,
+  ChevronDown, X, Plus,
+} from "lucide-react";
 
-type Company = {
-  id: string;
-  name: string;
-};
+// =============================================================================
+// Types
+// =============================================================================
+
+type Company = { id: string; name: string };
 
 type Vehicle = {
   id: string;
@@ -20,772 +23,536 @@ type Vehicle = {
   tireCount: number;
 };
 
-// Translation object
-const translations = {
-  es: {
-    title: "Crear Nueva Llanta",
-    subtitle: "Complete el formulario para registrar una nueva llanta en el sistema",
-    selectClient: "Cliente",
-    allClients: "Todos",
-    selectVehicle: "Seleccione Vehículo (Placa)",
-    searchVehiclePlaceholder: "Buscar vehículo por placa o tipo...",
-    noVehicleOption: "-- Sin vehículo (opcional) --",
-    noVehiclesFound: "No se encontraron vehículos",
-    selected: "Seleccionado",
-    searchHelp: "Busque y seleccione un vehículo para asociar la llanta (opcional)",
-    tireId: "ID de la Llanta",
-    tireIdPlaceholder: "Ingrese ID o déjelo en blanco para generar aleatorio",
-    brand: "Marca",
-    design: "Diseño",
-    initialDepth: "Profundidad Inicial",
-    dimension: "Dimensión",
-    axis: "Eje",
-    axisDirection: "Dirección",
-    axisTraction: "Tracción",
-    kilometersRun: "Kilómetros Recorridos",
-    cost: "Costo",
-    life: "Vida",
-    lifeNew: "Nueva",
-    lifeRetread1: "Primer Reencauche",
-    lifeRetread2: "Segundo Reencauche",
-    lifeRetread3: "Tercer Reencauche",
-    position: "Posición",
-    createButton: "Crear Nueva Llanta",
-    creatingButton: "Creando Llanta...",
-    createSuccess: "Neumático creado exitosamente",
-    required: "*",
-    errorUnknown: "Error desconocido",
-    pleaseSelectClient: "Por favor seleccione un cliente"
-  },
+// =============================================================================
+// Constants
+// =============================================================================
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+    : "https://api.tirepro.com.co/api";
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  return fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+function randomId(len = 8): string {
+  return Array.from({ length: len }, () =>
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[
+      Math.floor(Math.random() * 62)
+    ]
+  ).join("");
+}
+
+// =============================================================================
+// Design-system micro-components
+// =============================================================================
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{
+        background: "white",
+        border: "1px solid rgba(52,140,203,0.15)",
+        boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Field({
+  label, required, children,
+}: {
+  label: string; required?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-black text-[#0A183A] uppercase tracking-wide">
+        {label}{required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full px-4 py-3 rounded-xl text-sm font-medium text-[#0A183A] bg-white " +
+  "focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all";
+
+const inputStyle = {
+  border: "1.5px solid rgba(52,140,203,0.2)",
 };
 
+// =============================================================================
+// Main component
+// =============================================================================
+
 export default function TirePage() {
-  const router = useRouter();
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error,           setError]           = useState("");
+  const [success,         setSuccess]         = useState("");
+  const [loading,         setLoading]         = useState(false);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
 
-  // Language detection state
-  const [language, setLanguage] = useState<'es'>('es');
-
-  // Company/Client state
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string>("Todos");
+  // Companies
+  const [companies,           setCompanies]           = useState<Company[]>([]);
+  const [selectedCompany,     setSelectedCompany]     = useState<Company | null>(null);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
-  // Vehicle search state
-  const [vehicleSearch, setVehicleSearch] = useState("");
+  // Vehicles
+  const [userVehicles,        setUserVehicles]        = useState<Vehicle[]>([]);
+  const [filteredVehicles,    setFilteredVehicles]    = useState<Vehicle[]>([]);
+  const [selectedVehicle,     setSelectedVehicle]     = useState<Vehicle | null>(null);
+  const [vehicleSearch,       setVehicleSearch]       = useState("");
   const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
-  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const vehicleDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Tire form state
-  const [tireForm, setTireForm] = useState({
+  // Form
+  const [form, setForm] = useState({
     tirePlaca: "",
     marca: "",
     diseno: "",
     profundidadInicial: 0,
     dimension: "",
     eje: "direccion",
-    kilometrosRecorridos: 0,
-    costo: 0,
+    kilometrosRecorridos: "" as number | "",
+    costo: "" as number | "",
     vida: "nueva",
-    posicion: ""
+    posicion: "",
   });
 
-  // Vehicle selection state
-  const [userVehicles, setUserVehicles] = useState<Vehicle[]>([]);
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-
-  // Get current translations
-  const t = translations[language];
-
-  // Language detection effect
+  // ── Fetch companies on mount ───────────────────────────────────────────────
   useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = 'es';
-      setLanguage(saved);
+    const run = async () => {
+      try {
+        const res = await authFetch(`${API_BASE}/companies/me/clients`);
+        if (!res.ok) throw new Error("Error al obtener clientes");
+        const data = await res.json();
+        setCompanies(data.map((a: any) => ({ id: a.company.id, name: a.company.name })));
+      } catch (e) {
+        console.error(e);
+      }
     };
-
-    detectAndSetLanguage();
+    run();
   }, []);
 
-  // Common input focus/blur handlers
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
-    e.target.style.borderColor = '#1E76B6';
-    e.target.style.boxShadow = '0 0 0 4px #1E76B633';
-  };
-
-  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
-    e.target.style.borderColor = '#348CCB4D';
-    e.target.style.boxShadow = 'none';
-  };
-
-  // Handle form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setTireForm(prev => ({
-      ...prev,
-      [name]: name === "profundidadInicial" ||
-              name === "kilometrosRecorridos" ||
-              name === "costo" 
-                ? parseFloat(value) || 0 
-                : value
-    }));
-  };
-
-  // Handle vehicle search
-  const handleVehicleSearch = (searchValue: string) => {
-    setVehicleSearch(searchValue);
-    if (searchValue.trim() === "") {
-      setFilteredVehicles(userVehicles);
-    } else {
-      const filtered = userVehicles.filter(vehicle =>
-        vehicle.placa.toLowerCase().includes(searchValue.toLowerCase()) ||
-        vehicle.tipovhc.toLowerCase().includes(searchValue.toLowerCase())
-      );
-      setFilteredVehicles(filtered);
-    }
-    setShowVehicleDropdown(true);
-  };
-
-  // Handle vehicle selection
-  const handleVehicleSelect = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
-    setVehicleSearch(vehicle.placa);
-    setShowVehicleDropdown(false);
-  };
-
-  // Clear vehicle selection
-  const clearVehicleSelection = () => {
-    setSelectedVehicle(null);
-    setVehicleSearch("");
-    setFilteredVehicles(userVehicles);
-  };
-
-  // Click outside handler for dropdown
+  // ── Fetch vehicles when company changes ────────────────────────────────────
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(event.target as Node)) {
+    if (!selectedCompany) { setUserVehicles([]); setFilteredVehicles([]); return; }
+    const run = async () => {
+      setLoadingVehicles(true);
+      try {
+        const res = await authFetch(`${API_BASE}/vehicles?companyId=${selectedCompany.id}`);
+        if (!res.ok) throw new Error("Error al obtener vehículos");
+        const data: Vehicle[] = await res.json();
+        setUserVehicles(data);
+        setFilteredVehicles(data);
+        clearVehicle();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error inesperado");
+      } finally {
+        setLoadingVehicles(false);
+      }
+    };
+    run();
+  }, [selectedCompany]);
+
+  // ── Vehicle search filter ──────────────────────────────────────────────────
+  useEffect(() => { setFilteredVehicles(userVehicles); }, [userVehicles]);
+
+  // ── Click-outside for vehicle dropdown ────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target as Node)) {
         setShowVehicleDropdown(false);
       }
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Fetch companies
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  function handleFormChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: ["profundidadInicial", "kilometrosRecorridos", "costo"].includes(name)
+        ? parseFloat(value) || 0
+        : value,
+    }));
+  }
 
-  // Update filtered vehicles when userVehicles changes
-  useEffect(() => {
+  function handleVehicleSearch(v: string) {
+    setVehicleSearch(v);
+    const lv = v.toLowerCase();
+    setFilteredVehicles(
+      v.trim() === ""
+        ? userVehicles
+        : userVehicles.filter(
+            (vh) =>
+              vh.placa.toLowerCase().includes(lv) ||
+              vh.tipovhc.toLowerCase().includes(lv)
+          )
+    );
+    setShowVehicleDropdown(true);
+  }
+
+  function selectVehicle(v: Vehicle) {
+    setSelectedVehicle(v);
+    setVehicleSearch(v.placa);
+    setShowVehicleDropdown(false);
+  }
+
+  function clearVehicle() {
+    setSelectedVehicle(null);
+    setVehicleSearch("");
     setFilteredVehicles(userVehicles);
-  }, [userVehicles]);
-
-  // Fetch vehicles when selected company changes
-  useEffect(() => {
-    if (selectedCompany !== "Todos") {
-      const company = companies.find(c => c.name === selectedCompany);
-      if (company) {
-        fetchVehiclesForCompany(company.id);
-      }
-    } else {
-      // Fetch all vehicles from all companies
-      fetchAllVehicles();
-    }
-  }, [selectedCompany, companies]);
-
-  async function fetchCompanies() {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("No se encontró token de autenticación");
-        return;
-      }
-
-      const res = await fetch(
-        `https://api.tirepro.com.co/api/companies/me/clients`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!res.ok) throw new Error("Error fetching companies");
-
-      const data = await res.json();
-
-      const companyList: Company[] = data.map((access: any) => ({
-        id: access.company.id,
-        name: access.company.name,
-      }));
-
-      setCompanies(companyList);
-    } catch (err) {
-      console.error(err);
-    }
   }
 
-  async function fetchVehiclesForCompany(companyId: string) {
-    setLoadingVehicles(true);
-    try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
-          : `https://api.tirepro.com.co/api/vehicles?companyId=${companyId}`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch vehicles");
-      }
-      const data = await res.json();
-      setUserVehicles(data);
-      clearVehicleSelection();
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Unexpected error");
-      }
-    } finally {
-      setLoadingVehicles(false);
-    }
-  }
-
-  async function fetchAllVehicles() {
-    setLoadingVehicles(true);
-    try {
-      const token = localStorage.getItem("token");
-      if (!token || companies.length === 0) {
-        setLoadingVehicles(false);
-        return;
-      }
-
-      const allVehicles: Vehicle[] = [];
-
-      await Promise.all(
-        companies.map(async (company) => {
-          const res = await fetch(
-            process.env.NEXT_PUBLIC_API_URL
-              ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${company.id}`
-              : `https://api.tirepro.com.co/api/vehicles?companyId=${company.id}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-
-          if (res.ok) {
-            const vehicles: Vehicle[] = await res.json();
-            allVehicles.push(...vehicles);
-          }
-        })
-      );
-
-      setUserVehicles(allVehicles);
-      clearVehicleSelection();
-    } catch (err) {
-      console.error("Error fetching all vehicles", err);
-    } finally {
-      setLoadingVehicles(false);
-    }
-  }
-
-  function generateRandomString(length: number): string {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    for (let i = 0; i < length; i++) {
-      result += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return result;
-  }
-
-  async function handleCreateTire(e: FormEvent) {
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    setError(""); setSuccess("");
 
-    // Validate company selection
-    if (selectedCompany === "Todos") {
-      setError(t.pleaseSelectClient);
-      return;
-    }
+    if (!selectedCompany) { setError("Por favor seleccione un cliente."); return; }
 
     setLoading(true);
-
-    const currentDate = new Date().toISOString();
-    const finalPlaca = tireForm.tirePlaca.trim() !== "" ? tireForm.tirePlaca : generateRandomString(8);
-
-    // Get the selected company ID
-    const company = companies.find(c => c.name === selectedCompany);
-    if (!company) {
-      setError("Company not found");
-      setLoading(false);
-      return;
-    }
-
+    const now = new Date().toISOString();
     const payload = {
-      placa: finalPlaca.toLowerCase(),
-      marca: tireForm.marca.toLowerCase(),
-      diseno: tireForm.diseno.toLowerCase(),
-      profundidadInicial: tireForm.profundidadInicial,
-      dimension: tireForm.dimension.toLowerCase(),
-      eje: tireForm.eje.toLowerCase(),
-      kilometrosRecorridos: tireForm.kilometrosRecorridos,
-      costo: [{ valor: tireForm.costo, fecha: currentDate }],
-      vida: [{ valor: tireForm.vida.toLowerCase(), fecha: currentDate }],
-      posicion: Number(tireForm.posicion),
-      companyId: company.id,
-      vehicleId: selectedVehicle?.id || null,
+      placa:                form.tirePlaca.trim() !== "" ? form.tirePlaca.toLowerCase() : randomId(),
+      marca:                form.marca.toLowerCase(),
+      diseno:               form.diseno.toLowerCase(),
+      profundidadInicial:   form.profundidadInicial,
+      dimension:            form.dimension.toLowerCase(),
+      eje:                  form.eje.toLowerCase(),
+      kilometrosRecorridos: Number(form.kilometrosRecorridos) || 0,
+      costo:                [{ valor: Number(form.costo) || 0, fecha: now }],
+      vida:                 [{ valor: form.vida.toLowerCase(), fecha: now }],
+      posicion:             Number(form.posicion),
+      companyId:            selectedCompany.id,
+      vehicleId:            selectedVehicle?.id ?? null,
     };
 
     try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/create`
-          : "https://api.tirepro.com.co/api/tires/create",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      const res = await authFetch(`${API_BASE}/tires/create`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to create tire");
+        const body = await res.json();
+        throw new Error(body.message || "Error al crear la llanta");
       }
       const data = await res.json();
-      setSuccess(data.message || t.createSuccess);
-      
-      // Reset form fields
-      setTireForm({
-        tirePlaca: "",
-        marca: "",
-        diseno: "",
-        profundidadInicial: 0,
-        dimension: "",
-        eje: "direccion",
-        kilometrosRecorridos: 0,
-        costo: 0,
-        vida: "nueva",
-        posicion: ""
+      setSuccess(data.message || "Neumático creado exitosamente");
+      setForm({
+        tirePlaca: "", marca: "", diseno: "", profundidadInicial: 0,
+        dimension: "", eje: "direccion", kilometrosRecorridos: "",
+        costo: "", vida: "nueva", posicion: "",
       });
-      clearVehicleSelection();
+      clearVehicle();
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(t.errorUnknown);
-      }
+      setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
   }
 
-  const companyOptions = [t.allClients, ...companies.map(c => c.name)];
+  // ==========================================================================
+  // Render
+  // ==========================================================================
 
   return (
-    <div 
-      className="min-h-screen py-8"
-      style={{
+    <div className="min-h-screen" style={{ background: "white" }}>
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
 
-      }}
-    >
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div 
-          className="bg-white shadow-2xl rounded-3xl overflow-hidden border-2"
-          style={{ borderColor: '#348CCB33' }}
+        {/* ── Page header ───────────────────────────────────────────────── */}
+        <div
+          className="px-4 sm:px-6 py-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
         >
-          {/* Header with Company Filter */}
-          <div className="bg-gradient-to-r from-blue-900 to-blue-600 p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="text-white">
-                <h2 className="text-3xl font-bold">{t.title}</h2>
-                <p className="text-blue-100 mt-1 text-sm">{t.subtitle}</p>
-              </div>
-              
-              {/* Company Filter */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
-                  className="px-4 py-2.5 bg-black bg-opacity-10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-opacity-20 transition-colors flex items-center gap-2 min-w-[200px] justify-between"
-                >
-                  <span>{t.selectClient}: {selectedCompany}</span>
-                  <ChevronDown size={16} />
-                </button>
-                {showCompanyDropdown && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg py-2 z-10 max-h-80 overflow-y-auto">
-                    {companyOptions.map((company) => (
-                      <button
-                        key={company}
-                        type="button"
-                        className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                          selectedCompany === company ? "bg-blue-50 text-blue-700 font-medium" : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedCompany(company);
-                          setShowCompanyDropdown(false);
-                        }}
-                      >
-                        {company}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
+              <Plus className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="font-black text-white text-lg leading-none tracking-tight">Crear Nueva Llanta</h1>
+              <p className="text-xs text-white/60 mt-0.5">Complete el formulario para registrar una llanta</p>
             </div>
           </div>
 
-          <form onSubmit={handleCreateTire} className="p-8 space-y-8">
-            {/* Notification Messages */}
-            {error && (
-              <div className="flex items-center bg-red-50 border-l-4 border-red-500 text-red-800 p-5 rounded-r-lg shadow-md animate-pulse">
-                <AlertTriangle className="mr-3 flex-shrink-0 text-red-600" size={24} />
-                <span className="font-medium">{error}</span>
-              </div>
-            )}
-
-            {success && (
-              <div className="flex items-center bg-green-50 border-l-4 border-green-500 text-green-800 p-5 rounded-r-lg shadow-md animate-pulse">
-                <CheckCircle className="mr-3 flex-shrink-0 text-green-600" size={24} />
-                <span className="font-medium">{success}</span>
-              </div>
-            )}
-
-            {/* Vehicle Search Section */}
-            <div 
-              className="p-6 rounded-2xl border"
+          {/* Company selector */}
+          <div className="relative flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
               style={{
-                background: 'linear-gradient(to right, #348CCB0A, #1E76B60A)',
-                borderColor: '#348CCB33'
+                background: "rgba(255,255,255,0.15)",
+                border: "1.5px solid rgba(255,255,255,0.2)",
+                color: "white",
+                minWidth: 200,
               }}
             >
-              <label className="block text-lg font-semibold mb-3" style={{ color: '#0A183A' }}>
-                {t.selectVehicle}
-              </label>
-              <div className="relative" ref={vehicleDropdownRef}>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10" style={{ color: '#173D68' }} size={20} />
-                  <input
-                    type="text"
-                    value={vehicleSearch}
-                    onChange={(e) => handleVehicleSearch(e.target.value)}
-                    placeholder={t.searchVehiclePlaceholder}
-                    className="w-full pl-12 pr-12 py-4 border-2 rounded-xl shadow-sm 
-                    focus:outline-none focus:ring-4 transition-all duration-300
-                    bg-white text-lg font-medium"
-                    style={{
-                      borderColor: '#348CCB4D',
-                      color: '#0A183A'
-                    }}
-                    onFocus={(e) => {
-                      setShowVehicleDropdown(true);
-                      handleInputFocus(e);
-                    }}
-                    onBlur={handleInputBlur}
-                    disabled={loadingVehicles}
-                  />
-                  {selectedVehicle && (
-                    <button
-                      type="button"
-                      onClick={clearVehicleSelection}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 hover:text-red-500 transition-colors"
-                      style={{ color: '#173D68' }}
-                    >
-                      <X size={20} />
-                    </button>
-                  )}
-                  {!selectedVehicle && (
-                    <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2" style={{ color: '#173D68' }} size={20} />
-                  )}
-                  {loadingVehicles && (
-                    <Loader2 className="absolute right-4 top-1/2 transform -translate-y-1/2 animate-spin" style={{ color: '#1E76B6' }} size={20} />
-                  )}
-                </div>
+              <span className="flex-1 text-left truncate">
+                {selectedCompany ? selectedCompany.name : "Seleccionar cliente"}
+              </span>
+              <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${showCompanyDropdown ? "rotate-180" : ""}`} />
+            </button>
 
-                {/* Dropdown */}
-                {showVehicleDropdown && !loadingVehicles && (
-                  <div 
-                    className="absolute z-50 w-full mt-2 bg-white border-2 rounded-xl shadow-xl max-h-60 overflow-y-auto"
-                    style={{ borderColor: '#348CCB4D' }}
-                  >
-                    {filteredVehicles.length === 0 ? (
-                      <div className="p-4 text-center" style={{ color: '#173D68' }}>
-                        {t.noVehiclesFound}
-                      </div>
-                    ) : (
-                      <>
-                        <div className="p-3 border-b" style={{ borderColor: '#348CCB33' }}>
-                          <button
-                            type="button"
-                            onClick={clearVehicleSelection}
-                            className="w-full text-left p-2 rounded-lg transition-colors hover:bg-gray-100"
-                            style={{ color: '#173D68' }}
-                          >
-                            {t.noVehicleOption}
-                          </button>
-                        </div>
-                        {filteredVehicles.map((vehicle) => (
-                          <button
-                            key={vehicle.id}
-                            type="button"
-                            onClick={() => handleVehicleSelect(vehicle)}
-                            className="w-full text-left p-4 transition-colors border-b last:border-b-0 hover:bg-gray-100"
-                            style={{ borderColor: '#348CCB1A' }}
-                          >
-                            <div className="font-semibold" style={{ color: '#0A183A' }}>{vehicle.placa}</div>
-                            <div className="text-sm" style={{ color: '#173D68' }}>{vehicle.tipovhc} - {vehicle.carga}</div>
-                          </button>
-                        ))}
-                      </>
+            {showCompanyDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowCompanyDropdown(false)} />
+                <div
+                  className="absolute right-0 mt-1 w-64 rounded-xl overflow-hidden z-20"
+                  style={{ background: "white", border: "1px solid rgba(52,140,203,0.2)", boxShadow: "0 8px 32px rgba(10,24,58,0.15)" }}
+                >
+                  <div className="max-h-60 overflow-y-auto">
+                    {companies.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { setSelectedCompany(c); setShowCompanyDropdown(false); }}
+                        className="block w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#F0F7FF]"
+                        style={{ color: selectedCompany?.id === c.id ? "#1E76B6" : "#0A183A", fontWeight: selectedCompany?.id === c.id ? 700 : 400 }}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                    {companies.length === 0 && (
+                      <p className="text-center text-xs text-gray-400 py-4">Sin clientes</p>
                     )}
                   </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ── Feedback banners ──────────────────────────────────────────── */}
+        {error && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+            style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}
+          >
+            <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <span className="flex-1 text-red-700">{error}</span>
+            <button onClick={() => setError("")}><X className="w-4 h-4 text-red-400" /></button>
+          </div>
+        )}
+        {success && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+            style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.2)" }}
+          >
+            <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+            <span className="flex-1 text-green-700">{success}</span>
+            <button onClick={() => setSuccess("")}><X className="w-4 h-4 text-green-400" /></button>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* ── Vehicle search ──────────────────────────────────────────── */}
+          <Card className="p-5">
+            <p className="text-xs font-black text-[#0A183A] uppercase tracking-wide mb-3">
+              Vehículo Asociado <span className="text-gray-400 font-medium normal-case">(opcional)</span>
+            </p>
+
+            <div className="relative" ref={vehicleDropdownRef}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={vehicleSearch}
+                  onChange={(e) => handleVehicleSearch(e.target.value)}
+                  onFocus={() => setShowVehicleDropdown(true)}
+                  placeholder={loadingVehicles ? "Cargando vehículos…" : !selectedCompany ? "Seleccione un cliente primero" : "Buscar por placa o tipo…"}
+                  className={`${inputCls} pl-10 pr-10`}
+                  style={inputStyle}
+                  disabled={loadingVehicles || !selectedCompany}
+                />
+                {loadingVehicles && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-[#1E76B6]" />
+                )}
+                {selectedVehicle && !loadingVehicles && (
+                  <button type="button" onClick={clearVehicle} className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <X className="w-4 h-4 text-gray-400 hover:text-red-500 transition-colors" />
+                  </button>
+                )}
+                {!selectedVehicle && !loadingVehicles && (
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 )}
               </div>
-              {selectedVehicle && (
-                <div 
-                  className="mt-3 p-3 rounded-lg border"
-                  style={{
-                    backgroundColor: '#1E76B61A',
-                    borderColor: '#1E76B633'
-                  }}
+
+              {showVehicleDropdown && !loadingVehicles && selectedCompany && (
+                <div
+                  className="absolute z-50 w-full mt-1 rounded-xl overflow-hidden max-h-56 overflow-y-auto"
+                  style={{ background: "white", border: "1.5px solid rgba(52,140,203,0.2)", boxShadow: "0 8px 24px rgba(10,24,58,0.12)" }}
                 >
-                  <div className="text-sm" style={{ color: '#0A183A' }}>
-                    <strong>{t.selected}:</strong> {selectedVehicle.placa} - {selectedVehicle.tipovhc}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={clearVehicle}
+                    className="block w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#F0F7FF]"
+                    style={{ color: "#173D68", borderBottom: "1px solid rgba(52,140,203,0.1)" }}
+                  >
+                    — Sin vehículo (opcional) —
+                  </button>
+                  {filteredVehicles.length === 0 ? (
+                    <p className="text-center text-xs text-gray-400 py-4">No se encontraron vehículos</p>
+                  ) : filteredVehicles.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => selectVehicle(v)}
+                      className="block w-full text-left px-4 py-3 text-sm transition-colors hover:bg-[#F0F7FF]"
+                      style={{ borderBottom: "1px solid rgba(52,140,203,0.06)" }}
+                    >
+                      <p className="font-bold text-[#0A183A]">{v.placa.toUpperCase()}</p>
+                      <p className="text-xs text-[#173D68]">{v.tipovhc} · {v.carga}</p>
+                    </button>
+                  ))}
                 </div>
               )}
-              <p className="text-sm mt-2" style={{ color: '#173D68' }}>
-                {t.searchHelp}
-              </p>
             </div>
 
-            {/* Form Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* ID de la Llanta */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold" style={{ color: '#0A183A' }}>
-                  {t.tireId}
-                </label>
-                <input
-                  type="text"
-                  name="tirePlaca"
-                  value={tireForm.tirePlaca}
-                  onChange={handleInputChange}
-                  placeholder={t.tireIdPlaceholder}
-                  className="w-full px-4 py-4 border-2 rounded-xl shadow-sm 
-                  focus:outline-none transition-all duration-300
-                  bg-white text-lg font-medium"
-                  style={{
-                    borderColor: '#348CCB4D',
-                    color: '#0A183A'
-                  }}
-                  onFocus={handleInputFocus}
-                  onBlur={handleInputBlur}
-                />
+            {selectedVehicle && (
+              <div
+                className="mt-3 flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
+                style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(52,140,203,0.2)" }}
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: "#1E76B6" }} />
+                <span className="font-bold text-[#0A183A]">{selectedVehicle.placa.toUpperCase()}</span>
+                <span className="text-[#173D68]">— {selectedVehicle.tipovhc}</span>
               </div>
+            )}
+          </Card>
 
-              {/* Marca */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.brand} <span className="text-red-500">{t.required}</span>
-                </label>
+          {/* ── Form fields ─────────────────────────────────────────────── */}
+          <Card className="p-5">
+            <p className="text-xs font-black text-[#0A183A] uppercase tracking-wide mb-4">Datos de la Llanta</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              <Field label="ID de la Llanta">
                 <input
-                  type="text"
-                  name="marca"
-                  value={tireForm.marca}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
-                  text-lg font-medium"
+                  type="text" name="tirePlaca" value={form.tirePlaca}
+                  onChange={handleFormChange}
+                  placeholder="Dejar vacío para generar automáticamente"
+                  className={inputCls} style={inputStyle}
                 />
-              </div>
+              </Field>
 
-              {/* Diseño */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.design} <span className="text-red-500">{t.required}</span>
-                </label>
+              <Field label="Marca" required>
                 <input
-                  type="text"
-                  name="diseno"
-                  value={tireForm.diseno}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
-                  text-lg font-medium"
+                  type="text" name="marca" value={form.marca}
+                  onChange={handleFormChange} required
+                  className={inputCls} style={inputStyle}
                 />
-              </div>
+              </Field>
 
-              {/* Profundidad Inicial */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.initialDepth} <span className="text-red-500">{t.required}</span>
-                </label>
+              <Field label="Diseño" required>
                 <input
-                  type="number"
-                  name="profundidadInicial"
-                  value={tireForm.profundidadInicial}
-                  onChange={handleInputChange}
-                  required
-                  step="0.1"
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
-                  text-lg font-medium"
+                  type="text" name="diseno" value={form.diseno}
+                  onChange={handleFormChange} required
+                  className={inputCls} style={inputStyle}
                 />
-              </div>
+              </Field>
 
-              {/* Dimensión */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.dimension} <span className="text-red-500">{t.required}</span>
-                </label>
+              <Field label="Profundidad Inicial (mm)" required>
                 <input
-                  type="text"
-                  name="dimension"
-                  value={tireForm.dimension}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
-                  text-lg font-medium"
+                  type="number" name="profundidadInicial" value={form.profundidadInicial}
+                  onChange={handleFormChange} required step="0.1"
+                  className={inputCls} style={inputStyle}
                 />
-              </div>
+              </Field>
 
-              {/* Eje */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.axis} <span className="text-red-500">{t.required}</span>
-                </label>
+              <Field label="Dimensión" required>
+                <input
+                  type="text" name="dimension" value={form.dimension}
+                  onChange={handleFormChange} required
+                  className={inputCls} style={inputStyle}
+                />
+              </Field>
+
+              <Field label="Eje" required>
                 <select
-                  name="eje"
-                  value={tireForm.eje}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] transition-all duration-300 text-lg font-medium"
+                  name="eje" value={form.eje}
+                  onChange={handleFormChange} required
+                  className={inputCls} style={inputStyle}
                 >
-                  <option value="direccion">{t.axisDirection}</option>
-                  <option value="traccion">{t.axisTraction}</option>
+                  <option value="direccion">Dirección</option>
+                  <option value="traccion">Tracción</option>
                 </select>
-              </div>
+              </Field>
 
-              {/* Kilómetros Recorridos */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.kilometersRun}
-                </label>
+              <Field label="Kilómetros Recorridos">
                 <input
-                  type="number"
-                  name="kilometrosRecorridos"
-                  value={tireForm.kilometrosRecorridos}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
-                  text-lg font-medium"
+                  type="number" name="kilometrosRecorridos" value={form.kilometrosRecorridos}
+                  onChange={handleFormChange}
+                  className={inputCls} style={inputStyle}
                 />
-              </div>
+              </Field>
 
-              {/* Costo */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.cost} <span className="text-red-500">{t.required}</span>
-                </label>
+              <Field label="Costo" required>
                 <input
-                  type="number"
-                  name="costo"
-                  value={tireForm.costo}
-                  onChange={handleInputChange}
-                  required
-                  step="0.01"
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
-                  text-lg font-medium"
+                  type="number" name="costo" value={form.costo}
+                  onChange={handleFormChange} required step="0.01"
+                  className={inputCls} style={inputStyle}
                 />
-              </div>
+              </Field>
 
-              {/* Vida */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.life} <span className="text-red-500">{t.required}</span>
-                </label>
+              <Field label="Vida" required>
                 <select
-                  name="vida"
-                  value={tireForm.vida}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] transition-all duration-300 text-lg font-medium"
+                  name="vida" value={form.vida}
+                  onChange={handleFormChange} required
+                  className={inputCls} style={inputStyle}
                 >
-                  <option value="nueva">{t.lifeNew}</option>
-                  <option value="reencauche1">{t.lifeRetread1}</option>
-                  <option value="reencauche2">{t.lifeRetread2}</option>
-                  <option value="reencauche3">{t.lifeRetread3}</option>
+                  <option value="nueva">Nueva</option>
+                  <option value="reencauche1">Primer Reencauche</option>
+                  <option value="reencauche2">Segundo Reencauche</option>
+                  <option value="reencauche3">Tercer Reencauche</option>
                 </select>
-              </div>
+              </Field>
 
-
-              {/* Posición */}
-              <div className="space-y-2">
-                <label className="block text-lg font-semibold text-[#0A183A]">
-                  {t.position} <span className="text-red-500">*</span>
-                </label>
+              <Field label="Posición" required>
                 <input
-                  type="number"
-                  name="posicion"
-                  value={tireForm.posicion}
-                  onChange={handleInputChange}
-                  required
-                  min={1}
-                  className="w-full px-4 py-4 border-2 border-[#348CCB]/30 rounded-xl shadow-sm 
-                  focus:outline-none focus:ring-4 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]
-                  bg-white text-[#0A183A] placeholder-[#173D68]/60 transition-all duration-300
-                  text-lg font-medium"
+                  type="number" name="posicion" value={form.posicion}
+                  onChange={handleFormChange} required min={1}
+                  className={inputCls} style={inputStyle}
                 />
-              </div>
+              </Field>
             </div>
+          </Card>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-8 py-5 px-6 text-white rounded-2xl
-              hover:shadow-2xl hover:scale-105 transition-all duration-300 
-              flex items-center justify-center text-xl font-bold tracking-wide
-              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
-              border-2"
-              style={{
-                background: 'linear-gradient(to right, #0A183A, #173D68, #1E76B6)',
-                borderColor: '#348CCB4D'
-              }}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin mr-3" size={24} />
-                  <span>{t.creatingButton}...</span>
-                </>
-              ) : (
-                t.createButton
-              )}
-            </button>
-          </form>
-        </div>
+          {/* ── Submit ──────────────────────────────────────────────────── */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 rounded-2xl text-sm font-black text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 4px 20px rgba(10,24,58,0.25)" }}
+          >
+            {loading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Creando llanta…</>
+            ) : (
+              <><Plus className="w-4 h-4" /> Crear Nueva Llanta</>
+            )}
+          </button>
+
+        </form>
       </div>
     </div>
   );

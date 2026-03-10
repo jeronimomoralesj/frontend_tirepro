@@ -43,30 +43,16 @@ const translations = {
     depth: "Profundidad",
     axle: "Eje",
     unknown: "Desconocido",
-    totalAxles: "Total de ejes",
-    measurementUnit: "Medición en milímetros",
-    tooltipText: "Este gráfico muestra el promedio de la menor profundidad de banda de rodamiento por eje. Ayuda a detectar desgaste irregular o ejes con mayor deterioro."
-  }
+    totalAxles: "Ejes",
+    measurementUnit: "Medición en mm",
+    tooltipText:
+      "Este gráfico muestra el promedio de la menor profundidad de banda de rodamiento por eje. Ayuda a detectar desgaste irregular o ejes con mayor deterioro.",
+  },
 };
 
-const PromedioEje: React.FC<PromedioEjeProps> = ({
-  tires,
-  onSelectEje,
-  selectedEje,
-}) => {
-  
-  const [language, setLanguage] = useState<'es'>('es');
+const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedEje }) => {
+  const [language] = useState<"es">("es");
   const [showTooltip, setShowTooltip] = useState(false);
-
-  useEffect(() => {
-    const detectAndSetLanguage = async () => {
-      const saved = 'es';
-      setLanguage(saved);
-    };
-
-    detectAndSetLanguage();
-  }, []);
-
   const t = translations[language];
 
   const averageDepthData = useMemo(() => {
@@ -82,18 +68,14 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
         latestInspection.profundidadExt
       );
       const eje = tire.eje || t.unknown;
-      if (!ejeGroups[eje]) {
-        ejeGroups[eje] = { totalDepth: 0, count: 0 };
-      }
+      if (!ejeGroups[eje]) ejeGroups[eje] = { totalDepth: 0, count: 0 };
       ejeGroups[eje].totalDepth += minDepth;
       ejeGroups[eje].count += 1;
     });
 
     return Object.entries(ejeGroups).map(([eje, data]) => ({
       eje,
-      averageDepth: data.count
-        ? parseFloat((data.totalDepth / data.count).toFixed(2))
-        : 0,
+      averageDepth: data.count ? parseFloat((data.totalDepth / data.count).toFixed(2)) : 0,
     }));
   }, [tires, t.unknown]);
 
@@ -108,24 +90,14 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
         hoverBackgroundColor: averageDepthData.map((item) =>
           item.eje === selectedEje ? "#1565A0" : "#1E76B6"
         ),
-        borderRadius: 8,
+        borderRadius: 6,
         barPercentage: 0.65,
       },
     ],
   };
 
-  interface ChartClickEvent {
-    native?: Event;
-    type: string;
-    chart: ChartJS;
-    x: number;
-    y: number;
-  }
-
-  interface ChartElement {
-    datasetIndex: number;
-    index: number;
-  }
+  // Dynamically calculate chart height based on number of axes
+  const chartHeight = Math.max(160, averageDepthData.length * 44);
 
   const options = {
     indexAxis: "y" as const,
@@ -135,76 +107,53 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
       legend: { display: false },
       tooltip: {
         enabled: true,
-        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        backgroundColor: "rgba(255,255,255,0.98)",
         titleColor: "#1e293b",
         bodyColor: "#334155",
-        titleFont: { family: "'Inter', sans-serif", size: 13, weight: "600" as const },
-        bodyFont: { family: "'Inter', sans-serif", size: 12 },
-        padding: 12,
-        cornerRadius: 10,
+        titleFont: { family: "'Inter', sans-serif", size: 12, weight: "600" as const },
+        bodyFont: { family: "'Inter', sans-serif", size: 11 },
+        padding: 10,
+        cornerRadius: 8,
         displayColors: false,
         callbacks: {
           label: (context: { raw: number }) => {
             const value = context.raw;
-            const total = chartData.datasets[0].data.reduce(
-              (sum: number, val: number) => sum + val,
-              0
-            );
+            const total = chartData.datasets[0].data.reduce((sum: number, val: number) => sum + val, 0);
             const percentage = Math.round((value / total) * 100);
             return `${t.depth}: ${value} mm · ${percentage}%`;
           },
-          title: (tooltipItems: { label: string }[]) =>
-            `${t.axle} ${tooltipItems[0].label}`,
+          title: (tooltipItems: { label: string }[]) => `${t.axle} ${tooltipItems[0].label}`,
         },
         borderColor: "#e2e8f0",
         borderWidth: 1,
-        caretPadding: 8,
       },
       datalabels: {
         color: "white",
         anchor: "center" as const,
         align: "center" as const,
-        font: {
-          family: "'Inter', sans-serif",
-          size: 11,
-          weight: "600" as const,
-        },
+        font: { family: "'Inter', sans-serif", size: 10, weight: "600" as const },
         formatter: (value: number) => `${value} mm`,
-        textShadow: "0px 1px 2px rgba(0,0,0,0.3)",
         display: (context: DatalabelsContext): boolean => {
           const { dataset, dataIndex } = context;
-          const value = dataset.data[dataIndex];
-          return value > 0.5;
+          return dataset.data[dataIndex] > 0.5;
         },
       },
     },
     scales: {
       x: {
         display: true,
-        ticks: {
-          color: "#64748b",
-          font: { family: "'Inter', sans-serif", size: 10 },
-        },
+        ticks: { color: "#64748b", font: { size: 10 } },
         grid: { display: false },
         border: { display: false },
       },
       y: {
         beginAtZero: true,
-        ticks: {
-          stepSize: 2,
-          color: "#94a3b8",
-          font: { family: "'Inter', sans-serif", size: 10 },
-          padding: 8,
-        },
-        grid: {
-          color: "rgba(226, 232, 240, 0.4)",
-          drawBorder: false,
-          lineWidth: 1,
-        },
+        ticks: { stepSize: 2, color: "#94a3b8", font: { size: 10 }, padding: 6 },
+        grid: { color: "rgba(226,232,240,0.4)", lineWidth: 1 },
         border: { display: false },
       },
     },
-    onClick: (event: ChartClickEvent, elements: ChartElement[]) => {
+    onClick: (_event: unknown, elements: { index: number }[]) => {
       if (elements.length > 0) {
         const index = elements[0].index;
         const eje = chartData.labels[index];
@@ -214,14 +163,15 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full flex flex-col">
-      <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BarChart3 size={20} className="text-white/90" />
-            <h2 className="text-base sm:text-lg font-semibold">{t.title}</h2>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col w-full min-w-0">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white px-4 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <BarChart3 size={18} className="text-white/90 shrink-0" />
+            <h2 className="text-sm sm:text-base font-semibold truncate">{t.title}</h2>
           </div>
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onMouseEnter={() => setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
@@ -229,32 +179,38 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({
               className="hover:bg-white/10 p-1.5 rounded-lg transition-colors"
               aria-label="Ayuda"
             >
-              <HelpCircle size={18} className="text-white/90" />
+              <HelpCircle size={17} className="text-white/90" />
             </button>
             {showTooltip && (
-              <div className="absolute z-20 right-0 top-full mt-2 w-64 bg-gray-900/95 backdrop-blur-sm text-white text-xs p-3 rounded-lg shadow-xl border border-white/10">
+              <div className="absolute z-20 right-0 top-full mt-2 w-56 bg-gray-900/95 text-white text-xs p-3 rounded-lg shadow-xl border border-white/10">
                 <p className="leading-relaxed">{t.tooltipText}</p>
-                <div className="absolute -top-1 right-4 w-2 h-2 bg-gray-900/95 transform rotate-45 border-l border-t border-white/10"></div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 p-4 sm:p-5">
-        <div className="h-48 sm:h-56 mb-3">
-          <Bar data={chartData} options={options} />
+      {/* Chart — scrollable container so it never gets squished */}
+      <div className="flex-1 p-3 sm:p-4 overflow-hidden">
+        <div
+          className="w-full overflow-y-auto overflow-x-hidden"
+          style={{ maxHeight: "50vh" }}
+        >
+          <div style={{ height: chartHeight, minHeight: 160 }}>
+            <Bar data={chartData} options={options} />
+          </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg">
-            <BarChart3 size={14} className="text-blue-600" />
+        {/* Footer */}
+        <div className="border-t border-gray-100 pt-2.5 mt-3 flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-lg">
+            <BarChart3 size={13} className="text-blue-600 shrink-0" />
             <span className="text-xs font-medium text-blue-700">
               {t.totalAxles}: <span className="font-bold">{averageDepthData.length}</span>
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <Ruler size={12} className="text-gray-400" />
+          <div className="flex items-center gap-1 text-xs text-gray-500">
+            <Ruler size={11} className="text-gray-400 shrink-0" />
             <span className="italic">{t.measurementUnit}</span>
           </div>
         </div>

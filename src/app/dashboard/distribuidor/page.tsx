@@ -1,796 +1,723 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import SemaforoTabla, { Vehicle, Tire } from "../cards/semaforoTabla";
-import PorMarca from "../cards/porMarca";
-import PorBanda from "../cards/porBanda";
-import TablaCpk from "../cards/tablaCpk";
+import {
+  Users, AlertTriangle, TrendingUp, Package,
+  Bell, Calendar, Search, ChevronDown, Loader2,
+  AlertCircle, X, Building2,
+} from "lucide-react";
+
+import SemaforoTabla   from "../cards/semaforoTabla";
+import type { Vehicle, Tire as SemaforoTire } from "../cards/semaforoTabla";
+import PorMarca        from "../cards/porMarca";
+import PorBanda        from "../cards/porBanda";
+import TablaCpk        from "../cards/tablaCpk";
 import type { Tire as TablaCpkTire } from "../cards/tablaCpk";
 import DetallesLlantas from "../cards/detallesLlantas";
 import type { Tire as DetallesLlantasTire } from "../cards/detallesLlantas";
 import ReencaucheHistorico from "../cards/reencaucheHistorico";
 import type { Tire as ReencaucheTire } from "../cards/reencaucheHistorico";
-import HistoricChart from "../cards/historicChart";
+import HistoricChart   from "../cards/historicChart";
 import type { Tire as HistoricTire } from "../cards/historicChart";
 import TanqueMilimetro from "../cards/tanqueMilimetro";
 import type { Tire as TanqueTire } from "../cards/tanqueMilimetro";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
-type Company = {
-  id: string;
-  name: string;
-  vehicleCount: number;
-  tireCount: number;
-};
+// =============================================================================
+// Types — normalized backend shape
+// =============================================================================
+
+type Company = { id: string; name: string; vehicleCount: number; tireCount: number };
 
 type Notification = {
-  id: string;
-  title: string;
-  message: string;
-  type: "info" | "warning" | "critical";
-  timestamp: string;
+  id: string; title: string; message: string;
+  type: "info" | "warning" | "critical"; timestamp: string;
   company: { id: string; name: string };
   vehicle?: { id: string; placa: string };
 };
 
+// Raw tire from /api/tires (normalized relations)
+type RawCosto     = { valor: number; fecha: string | Date };
+type RawInspeccion = {
+  fecha: string | Date;
+  profundidadInt: number; profundidadCen: number; profundidadExt: number;
+  cpk?: number | null; cpkProyectado?: number | null;
+  cpt?: number | null; cptProyectado?: number | null;
+  kilometrosEstimados?: number | null; kmProyectado?: number | null;
+  imageUrl?: string | null;
+};
+type RawEvento = {
+  tipo: string; fecha: string | Date;
+  notas?: string | null; metadata?: Record<string, unknown> | null;
+};
+type RawTire = {
+  id: string; placa: string; marca: string; diseno: string;
+  profundidadInicial: number; dimension: string; eje: string;
+  posicion: number; companyId: string; vehicleId?: string | null;
+  diasAcumulados?: number; kilometrosRecorridos: number;
+  primeraVida?: Array<{ cpk?: number }>;
+  costos: RawCosto[];
+  inspecciones: RawInspeccion[];
+  eventos: RawEvento[];
+};
+
+// Normalised shapes used by child cards
+type CostEntry  = { valor: number; fecha: string };
 type Inspection = {
-  cpk: number;
-  cpkProyectado: number;
-  cpt?: number;
-  cptProyectado?: number;
+  fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number;
+  cpk: number | null; cpkProyectado: number | null;
+  cpt: number | null; cptProyectado: number | null;
+  kilometrosEstimados: number | null; kmProyectado: number | null; imageUrl: string | null;
 };
+type VidaEntry = { valor: string; fecha: string };
+type NormTire  = RawTire & { costo: CostEntry[]; inspecciones: Inspection[]; vida: VidaEntry[] };
 
-type TireWithInspection = {
-  id: string;
-  inspecciones: Inspection[];
-  vida?: { valor: string; fecha: string }[];
-};
+// =============================================================================
+// Helpers
+// =============================================================================
 
-// ─── Icons ─────────────────────────────────────────────────────────────────────
-const UsersIcon = () => (
-  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-  </svg>
-);
-const AlertIcon = () => (
-  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-  </svg>
-);
-const TrendingUpIcon = () => (
-  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-  </svg>
-);
-const PackageIcon = () => (
-  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-  </svg>
-);
-const CalendarIcon = () => (
-  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-  </svg>
-);
-const BellIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-  </svg>
-);
-const ChevronDownIcon = ({ open }: { open?: boolean }) => (
-  <svg
-    className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-  >
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-  </svg>
-);
-const SearchIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-  </svg>
-);
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+  : "https://api.tirepro.com.co/api";
 
-// ─── Skeleton Loader ───────────────────────────────────────────────────────────
-const LoadingCard = ({ label }: { label: string }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 h-full">
-    <div className="flex items-center justify-center gap-2 h-full min-h-[120px]">
-      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      <span className="text-blue-600 text-sm font-medium">{label}</span>
-    </div>
-  </div>
-);
-
-// ─── KPI Card ──────────────────────────────────────────────────────────────────
-interface KpiCardProps {
-  icon: React.ReactNode;
-  iconColor?: string;
-  bg: string;
-  primary: string;
-  secondary?: string;
-  label: string;
-  labelColor?: string;
-  loading?: boolean;
+function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  return fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  });
 }
-const KpiCard = ({
-  icon, iconColor = "text-white", bg,
-  primary, secondary, label, labelColor = "text-white/70",
-  loading,
-}: KpiCardProps) => (
-  <div className={`flex items-center gap-3 ${bg} p-3 sm:p-4 lg:p-5 rounded-2xl shadow-lg`}>
-    <div className={`${iconColor} flex-shrink-0`}>{icon}</div>
-    <div className="min-w-0 flex-1">
-      <p className="text-base sm:text-lg lg:text-2xl font-bold text-white leading-none truncate">
-        {loading ? <span className="opacity-40">—</span> : primary}
-      </p>
-      {secondary && (
-        <p className="text-[11px] sm:text-sm font-semibold text-blue-200 leading-none mt-0.5 truncate">
-          {loading ? <span className="opacity-40">—</span> : secondary}
-        </p>
-      )}
-      <p className={`text-[9px] sm:text-[10px] uppercase tracking-widest ${labelColor} mt-1 leading-tight font-medium`}>
-        {label}
-      </p>
-    </div>
-  </div>
-);
 
-// ─── ScrollableCard ────────────────────────────────────────────────────────────
-const ScrollableCard = ({ children }: { children: React.ReactNode }) => (
-  <div className="w-full rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border-b border-gray-100 sm:hidden">
-      <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-      </svg>
-      <span className="text-[10px] text-slate-400 font-medium">Desliza horizontalmente para ver más</span>
+const VIDA_SET = new Set(["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"]);
+
+function toISO(d: string | Date | null | undefined): string {
+  if (!d) return new Date().toISOString();
+  return d instanceof Date ? d.toISOString() : new Date(d).toISOString();
+}
+
+function normaliseTire(raw: RawTire): NormTire {
+  const costo: CostEntry[] = [...raw.costos]
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .map((c) => ({ valor: c.valor ?? 0, fecha: toISO(c.fecha) }));
+
+  const inspecciones: Inspection[] = [...raw.inspecciones]
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .map((i) => ({
+      fecha: toISO(i.fecha),
+      profundidadInt: i.profundidadInt ?? 0, profundidadCen: i.profundidadCen ?? 0, profundidadExt: i.profundidadExt ?? 0,
+      cpk: i.cpk ?? null, cpkProyectado: i.cpkProyectado ?? null,
+      cpt: i.cpt ?? null, cptProyectado: i.cptProyectado ?? null,
+      kilometrosEstimados: i.kilometrosEstimados ?? null, kmProyectado: i.kmProyectado ?? null,
+      imageUrl: i.imageUrl ?? null,
+    }));
+
+  const vida: VidaEntry[] = raw.eventos
+    .filter((e) => e.notas && VIDA_SET.has(e.notas.toLowerCase()))
+    .map((e) => ({ valor: e.notas!.toLowerCase(), fecha: toISO(e.fecha) }));
+
+  return { ...raw, costo, inspecciones, vida };
+}
+
+const fmtCOP = (n: number) =>
+  n === 0 ? "N/A"
+  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(n);
+
+// =============================================================================
+// Micro-components — TirePro design system
+// =============================================================================
+
+/** Frosted-glass sticky header bar  */
+function PageHeader({ userName, selectedClient, options, onSelect, searchTerm, onSearch, showDropdown, setShowDropdown }:
+  { userName: string; selectedClient: string; options: string[]; onSelect: (v: string) => void;
+    searchTerm: string; onSearch: (v: string) => void; showDropdown: boolean; setShowDropdown: (v: boolean) => void }) {
+  return (
+    <div
+      className="sticky top-0 z-40 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3"
+      style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}
+    >
+      {/* Title */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="p-2 rounded-xl flex-shrink-0" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+          <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="font-black text-[#0A183A] text-base sm:text-lg leading-none tracking-tight truncate">
+            Panel Distribuidor
+          </h1>
+          <p className="text-xs text-[#348CCB] mt-0.5 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {new Date().toLocaleDateString("es-CO")}
+            {userName && <> · Bienvenido, {userName}</>}
+          </p>
+        </div>
+      </div>
+
+      {/* Client selector */}
+      <div className="relative flex-shrink-0">
+        <button
+          onClick={() => setShowDropdown(!showDropdown)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+          style={{
+            background: selectedClient !== "Todos" ? "rgba(30,118,182,0.1)" : "rgba(10,24,58,0.04)",
+            border: selectedClient !== "Todos" ? "1px solid rgba(30,118,182,0.4)" : "1px solid rgba(52,140,203,0.2)",
+            color: selectedClient !== "Todos" ? "#1E76B6" : "#0A183A",
+          }}
+        >
+          <span className="max-w-[120px] sm:max-w-[180px] truncate">
+            {selectedClient === "Todos" ? "Todos los clientes" : selectedClient}
+          </span>
+          <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform text-[#1E76B6] ${showDropdown ? "rotate-180" : ""}`} />
+        </button>
+
+        {showDropdown && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
+            <div
+              className="absolute right-0 mt-1 w-60 rounded-xl overflow-hidden z-20"
+              style={{ background: "white", border: "1px solid rgba(52,140,203,0.2)", boxShadow: "0 8px 32px rgba(10,24,58,0.15)" }}
+            >
+              <div className="p-2 border-b border-gray-100">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    autoFocus type="text" placeholder="Buscar cliente…"
+                    value={searchTerm}
+                    onChange={(e) => onSearch(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full pl-8 pr-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                    style={{ border: "1px solid rgba(52,140,203,0.2)", color: "#0A183A" }}
+                  />
+                </div>
+              </div>
+              <div className="max-h-56 overflow-y-auto">
+                {options.length === 0
+                  ? <p className="text-center text-sm text-gray-400 py-4">Sin resultados</p>
+                  : options.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => { onSelect(opt); setShowDropdown(false); onSearch(""); }}
+                      className="block w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#F0F7FF]"
+                      style={{ color: selectedClient === opt ? "#1E76B6" : "#0A183A", fontWeight: selectedClient === opt ? 700 : 400 }}
+                    >
+                      {opt === "Todos" ? "Todos los clientes" : opt}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
-    <div className="overflow-x-auto">
+  );
+}
+
+/** Dark-gradient metric card — same as ResumenPage */
+function MetricCard({ value, sub, label, loading, variant = "primary" }: {
+  value: string; sub?: string; label: string; loading?: boolean;
+  variant?: "primary" | "secondary" | "accent" | "warn";
+}) {
+  const bgs: Record<string, string> = {
+    primary:   "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
+    secondary: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
+    accent:    "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)",
+    warn:      "linear-gradient(135deg, #92400E 0%, #D97706 100%)",
+  };
+  return (
+    <div className="rounded-2xl p-4 sm:p-5 flex flex-col justify-between" style={{ background: bgs[variant], minHeight: 100, boxShadow: "0 4px 20px rgba(10,24,58,0.18)" }}>
+      {loading
+        ? <div className="flex items-center gap-2 text-white/60"><Loader2 className="w-4 h-4 animate-spin" /><span className="text-sm">…</span></div>
+        : (
+          <>
+            <p className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none break-all">{value}</p>
+            {sub && <p className="text-xs font-bold text-white/70 mt-0.5">{sub}</p>}
+          </>
+        )}
+      <p className="text-[11px] font-bold uppercase tracking-widest text-white/60 mt-2">{label}</p>
+    </div>
+  );
+}
+
+/** White panel card wrapper */
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}
+    >
       {children}
     </div>
-  </div>
-);
+  );
+}
 
-// ─── PairRow ───────────────────────────────────────────────────────────────────
-// Every two cards share one row. On mobile they stack (1 col), on sm+ they sit
-// side-by-side (2 cols). Both children fill equal width and match height.
-const PairRow = ({ children }: { children: React.ReactNode }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 items-stretch">
-    {children}
-  </div>
-);
+/** Card title row */
+function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+        <Icon className="w-4 h-4 text-[#1E76B6]" />
+      </div>
+      <h2 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h2>
+    </div>
+  );
+}
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+/** Loading skeleton */
+function SkeletonCard({ label }: { label: string }) {
+  return (
+    <Card className="p-6 flex items-center justify-center min-h-[140px]">
+      <div className="flex items-center gap-2 text-[#1E76B6]">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+    </Card>
+  );
+}
+
+/** Horizontal scroll wrapper */
+function ScrollCard({ children }: { children: React.ReactNode }) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 border-b sm:hidden" style={{ borderColor: "rgba(52,140,203,0.1)", background: "rgba(10,24,58,0.02)" }}>
+        <span className="text-[10px] font-medium" style={{ color: "#348CCB" }}>← Desliza para ver más →</span>
+      </div>
+      <div className="overflow-x-auto">{children}</div>
+    </Card>
+  );
+}
+
+/** 2-column responsive row */
+function PairRow({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 items-stretch">{children}</div>;
+}
+
+// =============================================================================
+// Main Page
+// =============================================================================
+
 export default function DistribuidorPage() {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [userName, setUserName] = useState<string>("");
-  const [selectedClient, setSelectedClient] = useState<string>("Todos");
-  const [showClientDropdown, setShowClientDropdown] = useState(false);
-  const [clientSearchTerm, setClientSearchTerm] = useState("");
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [activeAlerts, setActiveAlerts] = useState(0);
+  const [companies,          setCompanies]          = useState<Company[]>([]);
+  const [loading,            setLoading]            = useState(false);
+  const [error,              setError]              = useState("");
+  const [userName,           setUserName]           = useState("");
+  const [selectedClient,     setSelectedClient]     = useState("Todos");
+  const [showDropdown,       setShowDropdown]       = useState(false);
+  const [clientSearch,       setClientSearch]       = useState("");
+  const [notifications,      setNotifications]      = useState<Notification[]>([]);
+  const [activeAlerts,       setActiveAlerts]       = useState(0);
+  const [avgCpkProyectado,   setAvgCpkProyectado]   = useState(0);
+  const [avgCptProyectado,   setAvgCptProyectado]   = useState(0);
+  const [allVehicles,        setAllVehicles]        = useState<Vehicle[]>([]);
+  const [allTires,           setAllTires]           = useState<SemaforoTire[]>([]);
+  const [loadingCards,       setLoadingCards]       = useState(false);
+  const [marcaData,          setMarcaData]          = useState<Record<string, number>>({});
+  const [bandaData,          setBandaData]          = useState<Record<string, number>>({});
+  const [cpkTires,           setCpkTires]           = useState<TablaCpkTire[]>([]);
+  const [detailTires,        setDetailTires]        = useState<DetallesLlantasTire[]>([]);
+  const [reencaucheTires,    setReencaucheTires]    = useState<ReencaucheTire[]>([]);
+  const [historicTires,      setHistoricTires]      = useState<HistoricTire[]>([]);
+  const [tanqueTires,        setTanqueTires]        = useState<TanqueTire[]>([]);
+  const [vidaStats,          setVidaStats]          = useState({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
+  const [totalClients,       setTotalClients]       = useState(0);
 
-  const [avgCpkProyectado, setAvgCpkProyectado] = useState<number>(0);
-  const [avgCptProyectado, setAvgCptProyectado] = useState<number>(0);
+  // ── Auth user ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      const u = JSON.parse(stored);
+      setUserName(u.name || u.email || "Distribuidor");
+    }
+  }, []);
 
-  const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
-  const [allTires, setAllTires] = useState<Tire[]>([]);
-  const [loadingSemaforo, setLoadingSemaforo] = useState(false);
-  const [marcaData, setMarcaData] = useState<{ [marca: string]: number }>({});
-  const [bandaData, setBandaData] = useState<{ [banda: string]: number }>({});
-  const [cpkTires, setCpkTires] = useState<TablaCpkTire[]>([]);
-  const [detailTires, setDetailTires] = useState<DetallesLlantasTire[]>([]);
-  const [reencaucheTires, setReencaucheTires] = useState<ReencaucheTire[]>([]);
-  const [historicTires, setHistoricTires] = useState<HistoricTire[]>([]);
-  const [tanqueTires, setTanqueTires] = useState<TanqueTire[]>([]);
-  const [vidaStats, setVidaStats] = useState({
-    nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0,
-  });
-  const [totalClients, setTotalClients] = useState(0);
-
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "")
-      ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
-      : "https://api.tirepro.com.co/api";
-
-  // ── Fetch companies ──────────────────────────────────────────────────────────
+  // ── Fetch companies list ───────────────────────────────────────────────────
   const fetchCompanies = useCallback(async () => {
+    setLoading(true); setError("");
     try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      if (!token) { setError("No se encontró token de autenticación"); return; }
-
-      const res = await fetch(`${API_BASE}/companies/me/clients`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Error fetching companies");
+      const res = await authFetch(`${API_BASE}/companies/me/clients`);
+      if (!res.ok) throw new Error("Error cargando clientes");
       const data = await res.json();
 
-      const companiesWithCounts = await Promise.all(
+      const withCounts = await Promise.all(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data.map(async (access: any) => {
           try {
-            const [vehiclesRes, tiresRes] = await Promise.all([
-              fetch(`${API_BASE}/vehicles?companyId=${access.company.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-              fetch(`${API_BASE}/tires?companyId=${access.company.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+            const [vRes, tRes] = await Promise.all([
+              authFetch(`${API_BASE}/vehicles?companyId=${access.company.id}`),
+              authFetch(`${API_BASE}/tires?companyId=${access.company.id}`),
             ]);
-            const vehicles = vehiclesRes.ok ? await vehiclesRes.json() : [];
-            const tires = tiresRes.ok ? await tiresRes.json() : [];
             return {
               id: access.company.id, name: access.company.name,
-              vehicleCount: vehicles.length, tireCount: tires.length,
+              vehicleCount: vRes.ok ? (await vRes.json()).length : 0,
+              tireCount:    tRes.ok ? (await tRes.json()).length : 0,
             };
           } catch {
             return { id: access.company.id, name: access.company.name, vehicleCount: 0, tireCount: 0 };
           }
         })
       );
-
-      setCompanies(companiesWithCounts);
-      setTotalClients(companiesWithCounts.length);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error cargando clientes");
+      setCompanies(withCounts);
+      setTotalClients(withCounts.length);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
     } finally {
       setLoading(false);
     }
-  }, [API_BASE]);
+  }, []);
 
   useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
-  useEffect(() => {
-    const storedUser = typeof localStorage !== "undefined" ? localStorage.getItem("user") : null;
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      setUserName(user.name || user.email || "Distribuidor");
-    }
-  }, []);
+  // ── Filter helpers ─────────────────────────────────────────────────────────
+  const filteredCompanies = useMemo(() =>
+    selectedClient === "Todos" ? companies : companies.filter((c) => c.name === selectedClient),
+    [companies, selectedClient]
+  );
 
-  const filteredCompanies = useMemo(() => {
-    if (selectedClient === "Todos") return companies;
-    return companies.filter((c) => c.name === selectedClient);
-  }, [companies, selectedClient]);
-
-  const filteredClientOptions = useMemo(() => {
+  const filteredOptions = useMemo(() => {
     const all = ["Todos", ...companies.map((c) => c.name)];
-    if (!clientSearchTerm.trim()) return all;
-    return all.filter((o) => o.toLowerCase().includes(clientSearchTerm.toLowerCase()));
-  }, [companies, clientSearchTerm]);
+    return clientSearch.trim()
+      ? all.filter((o) => o.toLowerCase().includes(clientSearch.toLowerCase()))
+      : all;
+  }, [companies, clientSearch]);
 
-  // ── Fetch notifications ──────────────────────────────────────────────────────
+  // ── Fetch notifications ────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (filteredCompanies.length === 0) { setNotifications([]); setActiveAlerts(0); return; }
+    if (!filteredCompanies.length) { setNotifications([]); setActiveAlerts(0); return; }
+    const run = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        const res = await fetch(`${API_BASE}/notifications/by-companies`, {
+        const res = await authFetch(`${API_BASE}/notifications/by-companies`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ companyIds: filteredCompanies.map((c) => c.id) }),
         });
-        if (!res.ok) throw new Error("Error fetching notifications");
+        if (!res.ok) return;
         const data: Notification[] = await res.json();
-        setNotifications(data);
-        setActiveAlerts(data.length);
-      } catch (err) {
-        console.error("Error fetching notifications:", err);
-      }
+        setNotifications(data); setActiveAlerts(data.length);
+      } catch { /* silent */ }
     };
-    fetchNotifications();
-  }, [filteredCompanies, API_BASE]);
+    run();
+  }, [filteredCompanies]);
 
-  // ── Fetch tires for stats ────────────────────────────────────────────────────
+  // ── Fetch tires for KPI stats ──────────────────────────────────────────────
   useEffect(() => {
-    const fetchAllTires = async () => {
-      if (filteredCompanies.length === 0) {
-        setAvgCpkProyectado(0); setAvgCptProyectado(0);
-        setVidaStats({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
-        return;
-      }
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        const allTiresData: TireWithInspection[] = [];
-        await Promise.all(
-          filteredCompanies.map(async (company) => {
-            const res = await fetch(`${API_BASE}/tires?companyId=${company.id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) return;
-            const tires: TireWithInspection[] = await res.json();
-            allTiresData.push(...tires);
-          })
-        );
+    if (!filteredCompanies.length) {
+      setAvgCpkProyectado(0); setAvgCptProyectado(0);
+      setVidaStats({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
+      return;
+    }
+    const run = async () => {
+      const bucket: NormTire[] = [];
+      await Promise.all(
+        filteredCompanies.map(async (co) => {
+          const res = await authFetch(`${API_BASE}/tires?companyId=${co.id}`);
+          if (!res.ok) return;
+          const raw: RawTire[] = await res.json();
+          bucket.push(...raw.map(normaliseTire));
+        })
+      );
 
-        let sumCpkProy = 0, sumCptProy = 0, countCpk = 0, countCpt = 0;
-        allTiresData.forEach((tire) => {
-          if (!tire.inspecciones?.length) return;
-          const last = tire.inspecciones[tire.inspecciones.length - 1];
-          if (last.cpkProyectado && !isNaN(last.cpkProyectado) && last.cpkProyectado > 0) {
-            sumCpkProy += last.cpkProyectado; countCpk++;
-          }
-          if (last.cptProyectado && !isNaN(last.cptProyectado) && last.cptProyectado > 0) {
-            sumCptProy += last.cptProyectado; countCpt++;
-          }
-        });
-        setAvgCpkProyectado(countCpk > 0 ? Number((sumCpkProy / countCpk).toFixed(0)) : 0);
-        setAvgCptProyectado(countCpt > 0 ? Number((sumCptProy / countCpt).toFixed(0)) : 0);
+      let sumCpk = 0, sumCpt = 0, cntCpk = 0, cntCpt = 0;
+      let nueva = 0, r1 = 0, r2 = 0, r3 = 0;
 
-        let nueva = 0, r1 = 0, r2 = 0, r3 = 0;
-        allTiresData.forEach((tire) => {
-          if (!tire.vida?.length) return;
-          const v = tire.vida[tire.vida.length - 1].valor.toLowerCase();
+      bucket.forEach((t) => {
+        if (t.inspecciones.length) {
+          const last = t.inspecciones[t.inspecciones.length - 1];
+          if (last.cpkProyectado && last.cpkProyectado > 0) { sumCpk += last.cpkProyectado; cntCpk++; }
+          if (last.cptProyectado && last.cptProyectado > 0) { sumCpt += last.cptProyectado; cntCpt++; }
+        }
+        if (t.vida.length) {
+          const v = t.vida[t.vida.length - 1].valor;
           if (v === "nueva") nueva++;
-          else if (v.includes("reencauche 1") || v.includes("reencauche1")) r1++;
-          else if (v.includes("reencauche 2") || v.includes("reencauche2")) r2++;
-          else if (v.includes("reencauche 3") || v.includes("reencauche3")) r3++;
-        });
-        setVidaStats({ nueva, reencauche1: r1, reencauche2: r2, reencauche3: r3, total: nueva + r1 + r2 + r3 });
-      } catch (e) {
-        console.error("Error fetching distributor tires", e);
-      }
-    };
-    fetchAllTires();
-  }, [filteredCompanies, API_BASE]);
+          else if (v === "reencauche1") r1++;
+          else if (v === "reencauche2") r2++;
+          else if (v === "reencauche3") r3++;
+        }
+      });
 
-  // ── Fetch vehicles + tires for cards ────────────────────────────────────────
+      setAvgCpkProyectado(cntCpk > 0 ? Math.round(sumCpk / cntCpk) : 0);
+      setAvgCptProyectado(cntCpt > 0 ? Math.round(sumCpt / cntCpt) : 0);
+      setVidaStats({ nueva, reencauche1: r1, reencauche2: r2, reencauche3: r3, total: nueva + r1 + r2 + r3 });
+    };
+    run();
+  }, [filteredCompanies]);
+
+  // ── Fetch vehicles + tires for charts ─────────────────────────────────────
   useEffect(() => {
-    const fetchVehiclesAndTires = async () => {
-      if (filteredCompanies.length === 0) {
-        setAllVehicles([]); setAllTires([]); setMarcaData({}); setBandaData({});
-        setCpkTires([]); setLoadingSemaforo(false); return;
-      }
-      try {
-        setLoadingSemaforo(true);
-        const token = localStorage.getItem("token");
-        if (!token) { setLoadingSemaforo(false); return; }
+    if (!filteredCompanies.length) {
+      setAllVehicles([]); setAllTires([]); setMarcaData({}); setBandaData({});
+      setCpkTires([]); setLoadingCards(false); return;
+    }
+    const run = async () => {
+      setLoadingCards(true);
+      const vehiclesArr: Vehicle[] = [];
+      const tiresArr: NormTire[]   = [];
 
-        const vehiclesData: Vehicle[] = [];
-        const tiresData: Tire[] = [];
-
-        await Promise.all(
-          filteredCompanies.map(async (company) => {
-            try {
-              const [vRes, tRes] = await Promise.all([
-                fetch(`${API_BASE}/vehicles?companyId=${company.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${API_BASE}/tires?companyId=${company.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-              ]);
-              if (vRes.ok) vehiclesData.push(...await vRes.json());
-              if (tRes.ok) tiresData.push(...await tRes.json());
-            } catch (err) {
-              console.error(`Error fetching data for ${company.name}:`, err);
+      await Promise.all(
+        filteredCompanies.map(async (co) => {
+          try {
+            const [vRes, tRes] = await Promise.all([
+              authFetch(`${API_BASE}/vehicles?companyId=${co.id}`),
+              authFetch(`${API_BASE}/tires?companyId=${co.id}`),
+            ]);
+            if (vRes.ok) vehiclesArr.push(...await vRes.json());
+            if (tRes.ok) {
+              const raw: RawTire[] = await tRes.json();
+              tiresArr.push(...raw.map(normaliseTire));
             }
-          })
-        );
+          } catch { /* skip company */ }
+        })
+      );
 
-        setAllVehicles(vehiclesData);
-        setAllTires(tiresData);
+      setAllVehicles(vehiclesArr);
 
-        const marcaCount: Record<string, number> = {};
-        const bandaCount: Record<string, number> = {};
-        tiresData.forEach((tire: any) => {
-          if (tire.marca?.trim()) marcaCount[tire.marca.trim()] = (marcaCount[tire.marca.trim()] || 0) + 1;
-          if (tire.diseno?.trim()) bandaCount[tire.diseno.trim()] = (bandaCount[tire.diseno.trim()] || 0) + 1;
-        });
-        setMarcaData(marcaCount);
-        setBandaData(bandaCount);
+      // SemaforoTabla expects tires with costo / inspecciones / vida shape — pass NormTire as-is
+      setAllTires(tiresArr as unknown as SemaforoTire[]);
 
-        const vehicleMap = new Map(vehiclesData.map((v) => [v.id, v.placa]));
+      // marca / banda counts
+      const mCount: Record<string, number> = {};
+      const bCount: Record<string, number> = {};
+      tiresArr.forEach((t) => {
+        if (t.marca?.trim())  mCount[t.marca.trim()]  = (mCount[t.marca.trim()]  || 0) + 1;
+        if (t.diseno?.trim()) bCount[t.diseno.trim()] = (bCount[t.diseno.trim()] || 0) + 1;
+      });
+      setMarcaData(mCount); setBandaData(bCount);
 
-        setCpkTires(tiresData.map((tire: any) => ({
-          id: tire.id,
-          placa: tire.vehicleId ? (vehicleMap.get(tire.vehicleId) || "N/A") : "N/A",
-          marca: tire.marca || "N/A", posicion: tire.posicion || 0,
-          vida: tire.vida || [], inspecciones: tire.inspecciones || [],
-        })));
+      const vehicleMap = new Map(vehiclesArr.map((v) => [v.id, v.placa]));
 
-        setDetailTires(tiresData.map((tire: any) => ({
-          id: tire.id, placa: tire.placa || "N/A", marca: tire.marca || "N/A",
-          diseno: tire.diseno || "N/A", profundidadInicial: tire.profundidadInicial || 0,
-          dimension: tire.dimension || "N/A", eje: tire.eje || "N/A",
-          posicion: tire.posicion || 0, kilometrosRecorridos: tire.kilometrosRecorridos || 0,
-          costo: tire.costo || [], vida: tire.vida || [], inspecciones: tire.inspecciones || [],
-          primeraVida: tire.primeraVida || [], eventos: tire.eventos || [], vehicleId: tire.vehicleId,
-        })));
+      setCpkTires(tiresArr.map((t) => ({
+        id: t.id,
+        placa: t.vehicleId ? (vehicleMap.get(t.vehicleId) ?? "N/A") : "N/A",
+        marca: t.marca || "N/A", posicion: t.posicion || 0,
+        vida: t.vida, inspecciones: t.inspecciones,
+      })));
 
-        setReencaucheTires(tiresData.map((tire: any) => ({ id: tire.id, vida: tire.vida || [] })));
-        setHistoricTires(tiresData.map((tire: any) => ({ id: tire.id, inspecciones: tire.inspecciones || [] })));
-        setTanqueTires(tiresData.map((tire: any) => ({
-          id: tire.id, profundidadInicial: tire.profundidadInicial || 0, inspecciones: tire.inspecciones || [],
-        })));
-      } catch (err) {
-        console.error("Error fetching vehicles and tires:", err);
-      } finally {
-        setLoadingSemaforo(false);
-      }
+      setDetailTires(tiresArr.map((t) => ({
+        id: t.id, placa: t.placa, marca: t.marca, diseno: t.diseno,
+        profundidadInicial: t.profundidadInicial, dimension: t.dimension,
+        eje: t.eje, posicion: t.posicion, kilometrosRecorridos: t.kilometrosRecorridos,
+        costo: t.costo, vida: t.vida, inspecciones: t.inspecciones,
+        primeraVida: t.primeraVida || [], vehicleId: t.vehicleId,
+        // detallesLlantas.tsx reads tire.eventos.at(-1)?.valor for the vida label —
+        // reconstruct a minimal eventos array from the already-normalised vida entries
+        // so the card never sees undefined.
+        eventos: (t.vida ?? []).map((v) => ({
+          tipo:  "vida",
+          fecha: v.fecha,
+          notas: v.valor,
+          metadata: null,
+        })),
+      })));
+
+      setReencaucheTires(tiresArr.map((t) => ({ id: t.id, vida: t.vida })));
+      setHistoricTires(tiresArr.map((t) => ({ id: t.id, inspecciones: t.inspecciones })));
+      setTanqueTires(tiresArr.map((t) => ({ id: t.id, profundidadInicial: t.profundidadInicial, inspecciones: t.inspecciones })));
+
+      setLoadingCards(false);
     };
-    fetchVehiclesAndTires();
-  }, [filteredCompanies, API_BASE]);
+    run();
+  }, [filteredCompanies]);
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-  const pct = (value: number) =>
-    vidaStats.total > 0 ? ((value / vidaStats.total) * 100).toFixed(1) : "0.0";
-
+  // ── Derived values ─────────────────────────────────────────────────────────
   const totalReencauche = vidaStats.reencauche1 + vidaStats.reencauche2 + vidaStats.reencauche3;
-
-  const fmtCOP = (n: number) =>
-    n === 0
-      ? "N/A"
-      : new Intl.NumberFormat("es-CO", {
-          style: "currency", currency: "COP",
-          minimumFractionDigits: 0, maximumFractionDigits: 0,
-        }).format(n);
+  const pct = (n: number) => vidaStats.total > 0 ? ((n / vidaStats.total) * 100).toFixed(1) : "0.0";
 
   const vidaBars = [
-    { label: "Reencauche 1", value: vidaStats.reencauche1, color: "from-[#0A183A] to-[#1a3a7a]" },
-    { label: "Reencauche 2", value: vidaStats.reencauche2, color: "from-[#1a3a7a] to-[#1E76B6]" },
-    { label: "Reencauche 3", value: vidaStats.reencauche3, color: "from-[#1E76B6] to-[#3b9de0]" },
-    { label: "Nueva",        value: vidaStats.nueva,       color: "from-[#3b9de0] to-[#7dc5f0]" },
+    { label: "Nueva",        value: vidaStats.nueva,       grad: "linear-gradient(90deg, #348CCB, #7DC5F0)" },
+    { label: "Reencauche 1", value: vidaStats.reencauche1, grad: "linear-gradient(90deg, #1E76B6, #348CCB)" },
+    { label: "Reencauche 2", value: vidaStats.reencauche2, grad: "linear-gradient(90deg, #173D68, #1E76B6)" },
+    { label: "Reencauche 3", value: vidaStats.reencauche3, grad: "linear-gradient(90deg, #0A183A, #173D68)" },
   ];
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ==========================================================================
+  // Render
+  // ==========================================================================
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/*
-        Layout note:
-        - The DashboardLayout's <main> already applies lg:ml-20 / lg:ml-64 and p-6.
-        - We just need our own internal spacing here; no sidebar offset required.
-        - Mobile: pt-[4.75rem] clears the floating nav bar (~72px).
-        - Desktop: pt-0 because DashboardLayout already has pt-16 lg:pt-4.
-      */}
-      <div className="
-        w-full
-        px-0 pt-[4.75rem] pb-6
-        sm:pt-[5.25rem]
-        lg:pt-0
-        space-y-4 sm:space-y-5
-      ">
+    <div className="min-h-screen" style={{ background: "#ffffff" }}>
 
-        {/* ── Header ─────────────────────────────────────────────────────────── */}
-        <header className="bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-xl overflow-visible">
-          <div className="p-4 sm:p-5 lg:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-white min-w-0">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight truncate leading-tight">
-                Panel Distribuidor
-              </h1>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-                <span className="flex items-center gap-1 text-blue-200 text-xs">
-                  <CalendarIcon />
-                  {new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
-                </span>
-                {userName && (
-                  <span className="text-blue-200 text-xs">
-                    Bienvenido, <span className="font-semibold text-white">{userName}</span>
-                  </span>
-                )}
-              </div>
-            </div>
+      <PageHeader
+        userName={userName}
+        selectedClient={selectedClient}
+        options={filteredOptions}
+        onSelect={setSelectedClient}
+        searchTerm={clientSearch}
+        onSearch={setClientSearch}
+        showDropdown={showDropdown}
+        setShowDropdown={setShowDropdown}
+      />
 
-            {/* Client selector */}
-            <div className="relative w-full sm:w-auto sm:min-w-[200px] lg:min-w-[220px]">
-              <button
-                onClick={() => setShowClientDropdown(!showClientDropdown)}
-                className="w-full px-4 py-2.5 bg-white/10 text-white rounded-xl text-sm font-medium
-                           border border-white/20 hover:bg-white/20 transition-all duration-200
-                           flex items-center justify-between gap-2"
-              >
-                <span className="truncate">
-                  {selectedClient === "Todos" ? "Todos los clientes" : selectedClient}
-                </span>
-                <ChevronDownIcon open={showClientDropdown} />
-              </button>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
 
-              {showClientDropdown && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowClientDropdown(false)} />
-                  <div className="absolute right-0 left-0 sm:left-auto mt-2 w-full sm:w-64
-                                  bg-white rounded-xl shadow-2xl border border-gray-100 z-20 overflow-hidden">
-                    <div className="p-2 border-b border-gray-100">
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-3 flex items-center text-gray-400 pointer-events-none">
-                          <SearchIcon />
-                        </span>
-                        <input
-                          type="text" autoFocus
-                          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm
-                                     placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Buscar cliente..."
-                          value={clientSearchTerm}
-                          onChange={(e) => setClientSearchTerm(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto">
-                      {filteredClientOptions.length === 0 ? (
-                        <p className="px-4 py-4 text-sm text-gray-500 text-center">Sin resultados</p>
-                      ) : (
-                        filteredClientOptions.map((client) => (
-                          <button
-                            key={client}
-                            className={`block w-full text-left px-4 py-2.5 text-sm transition-colors
-                              ${selectedClient === client
-                                ? "bg-blue-50 text-blue-700 font-semibold"
-                                : "text-gray-700 hover:bg-gray-50"
-                              }`}
-                            onClick={() => {
-                              setSelectedClient(client);
-                              setShowClientDropdown(false);
-                              setClientSearchTerm("");
-                            }}
-                          >
-                            {client}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+        {/* Error banner */}
+        {error && (
+          <div
+            className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
+            style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}
+          >
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <span className="flex-1 text-red-700">{error}</span>
+            <button onClick={() => setError("")}><X className="w-4 h-4 text-red-400" /></button>
           </div>
-        </header>
+        )}
 
-        {/* ── KPI Cards — 2×2 grid (4 cards, always 2 per row) ─────────────── */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-          <KpiCard
-            bg="bg-[#0A183A]" icon={<UsersIcon />}
-            primary={String(totalClients)} label="Clientes totales" loading={loading}
-          />
-          <KpiCard
-            bg="bg-[#0d2257]" icon={<AlertIcon />} iconColor="text-yellow-400"
-            primary={String(activeAlerts)} label="Alertas activas"
-            labelColor="text-yellow-200/80" loading={loading}
-          />
-          <KpiCard
-            bg="bg-[#1E76B6]" icon={<TrendingUpIcon />}
-            primary={fmtCOP(avgCpkProyectado)}
-            secondary={fmtCOP(avgCptProyectado)}
-            label="CPK Proy · CPT Proy" loading={loading}
-          />
-          <KpiCard
-            bg="bg-[#0d2257]" icon={<PackageIcon />}
-            primary={String(totalReencauche)}
-            secondary={`/ ${vidaStats.nueva} nuevas`}
-            label="Reencauche · Nueva" loading={loading}
-          />
+        {/* ── KPI cards ────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard loading={loading} value={String(totalClients)}           label="Clientes Totales"   variant="primary"   />
+          <MetricCard loading={loading} value={String(activeAlerts)}           label="Alertas Activas"    variant="warn"      />
+          <MetricCard loading={loading} value={fmtCOP(avgCpkProyectado)} sub={fmtCOP(avgCptProyectado)} label="CPK · CPT Proyectado" variant="secondary" />
+          <MetricCard loading={loading} value={String(totalReencauche)}  sub={`/ ${vidaStats.nueva} nuevas`} label="Reencauche · Nueva" variant="accent" />
         </div>
 
-        {/* ── Row 1: SemaforoTabla + Alerts ────────────────────────────────── */}
+        {/* ── Row 1: Semáforo + Alerts ──────────────────────────────────────── */}
         <PairRow>
-          {/* SemaforoTabla — wide table, needs horizontal scroll */}
-          <div className="min-w-0">
-            {loadingSemaforo ? (
-              <LoadingCard label="Cargando datos de neumáticos..." />
-            ) : (
-              <ScrollableCard>
-                <SemaforoTabla vehicles={allVehicles} tires={allTires} />
-              </ScrollableCard>
-            )}
-          </div>
+          {loadingCards ? <SkeletonCard label="Cargando semáforo…" /> : (
+            <ScrollCard><SemaforoTabla vehicles={allVehicles} tires={allTires} /></ScrollCard>
+          )}
 
-          {/* Alerts panel */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 flex flex-col min-h-0">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-red-500 flex-shrink-0"><BellIcon /></span>
-              <h2 className="text-sm sm:text-base font-semibold text-gray-900 leading-tight">
-                Alertas por Cliente
-              </h2>
-              {activeAlerts > 0 && (
-                <span className="ml-auto bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-                  {activeAlerts}
-                </span>
-              )}
-            </div>
-            <div className="overflow-y-auto max-h-72 space-y-2 pr-0.5 flex-1">
+          {/* Alerts */}
+          <Card className="p-4 sm:p-5 flex flex-col">
+            <CardTitle icon={Bell} title="Alertas por Cliente" />
+            {activeAlerts > 0 && (
+              <span
+                className="self-start mb-3 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background: "rgba(220,38,38,0.1)", color: "#DC2626" }}
+              >
+                {activeAlerts} activa{activeAlerts > 1 ? "s" : ""}
+              </span>
+            )}
+            <div className="overflow-y-auto max-h-64 space-y-2 flex-1">
               {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                  <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                <div className="flex flex-col items-center justify-center py-8 text-gray-400 gap-2">
+                  <Bell className="w-8 h-8 opacity-30" />
                   <p className="text-sm">Sin alertas activas</p>
                 </div>
-              ) : (
-                notifications.map((n) => (
-                  <div key={n.id} className="border-l-4 border-red-400 bg-red-50 rounded-r-xl p-2.5 sm:p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{n.company.name}</p>
-                        {n.vehicle && (
-                          <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
-                            Vehículo: {n.vehicle.placa.toUpperCase()}
-                          </p>
-                        )}
-                        <p className="text-xs sm:text-sm text-gray-800 mt-1 font-medium leading-snug">{n.title}</p>
-                        <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 line-clamp-2 leading-snug">{n.message}</p>
-                      </div>
-                      <time className="text-[9px] sm:text-[10px] text-gray-400 flex-shrink-0 whitespace-nowrap mt-0.5">
-                        {new Date(n.timestamp).toLocaleDateString("es-CO")}
-                      </time>
+              ) : notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className="rounded-xl p-3"
+                  style={{ borderLeft: "3px solid #DC2626", background: "rgba(220,38,38,0.04)", border: "1px solid rgba(220,38,38,0.15)" }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-[#0A183A] truncate">{n.company.name}</p>
+                      {n.vehicle && <p className="text-[10px] text-gray-500">Vehículo: {n.vehicle.placa.toUpperCase()}</p>}
+                      <p className="text-xs font-semibold text-gray-800 mt-0.5">{n.title}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </PairRow>
-
-        {/* ── Row 2: Vida Distribution + PorMarca ──────────────────────────── */}
-        <PairRow>
-          {/* Vida distribution */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 flex flex-col">
-            <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-4 leading-tight">
-              Distribución de Neumáticos
-            </h2>
-            <div className="flex-1 space-y-3 sm:space-y-4">
-              {vidaBars.map(({ label, value, color }) => (
-                <div key={label}>
-                  <div className="flex justify-between items-baseline mb-1.5">
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">{label}</span>
-                    <span className="text-xs sm:text-sm font-bold text-gray-900">
-                      {value}
-                      <span className="font-normal text-gray-400 ml-1">({pct(value)}%)</span>
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2 sm:h-2.5 overflow-hidden">
-                    <div
-                      className={`bg-gradient-to-r ${color} h-full rounded-full transition-all duration-700 ease-out`}
-                      style={{ width: `${pct(value)}%` }}
-                    />
+                    <time className="text-[9px] text-gray-400 flex-shrink-0 whitespace-nowrap">
+                      {new Date(n.timestamp).toLocaleDateString("es-CO")}
+                    </time>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
-              <span className="text-xs sm:text-sm font-semibold text-gray-800">Total</span>
-              <span className="text-xs sm:text-sm font-bold text-[#1E76B6]">{vidaStats.total} neumáticos</span>
-            </div>
-          </div>
+          </Card>
+        </PairRow>
 
-          {/* PorMarca */}
-          <div className="min-w-0">
-            {loadingSemaforo ? (
-              <LoadingCard label="Cargando marcas..." />
-            ) : Object.keys(marcaData).length > 0 ? (
-              <PorMarca groupData={marcaData} />
-            ) : (
-              <LoadingCard label="Sin datos de marcas" />
-            )}
-          </div>
+        {/* ── Row 2: Vida distribution + PorMarca ──────────────────────────── */}
+        <PairRow>
+          <Card className="p-4 sm:p-5 flex flex-col">
+            <CardTitle icon={Package} title="Distribución de Neumáticos" />
+            <div className="flex-1 space-y-3">
+              {vidaBars.map(({ label, value, grad }) => (
+                <div key={label}>
+                  <div className="flex justify-between items-baseline mb-1.5">
+                    <span className="text-xs font-semibold text-[#0A183A]">{label}</span>
+                    <span className="text-xs font-black text-[#0A183A]">
+                      {value}
+                      <span className="font-normal text-gray-400 ml-1">({pct(value)}%)</span>
+                    </span>
+                  </div>
+                  <div className="w-full rounded-full h-2 overflow-hidden" style={{ background: "rgba(10,24,58,0.06)" }}>
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct(value)}%`, background: grad }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-3 flex justify-between items-center" style={{ borderTop: "1px solid rgba(52,140,203,0.12)" }}>
+              <span className="text-xs font-bold text-[#0A183A]">Total</span>
+              <span className="text-xs font-black text-[#1E76B6]">{vidaStats.total} neumáticos</span>
+            </div>
+          </Card>
+
+          {loadingCards ? <SkeletonCard label="Cargando marcas…" /> :
+            Object.keys(marcaData).length > 0 ? <PorMarca groupData={marcaData} /> : <SkeletonCard label="Sin datos de marcas" />}
         </PairRow>
 
         {/* ── Row 3: PorBanda + TablaCpk ───────────────────────────────────── */}
         <PairRow>
-          {/* PorBanda */}
-          <div className="min-w-0">
-            {loadingSemaforo ? (
-              <LoadingCard label="Cargando bandas..." />
-            ) : Object.keys(bandaData).length > 0 ? (
-              <PorBanda groupData={bandaData} />
-            ) : (
-              <LoadingCard label="Sin datos de bandas" />
-            )}
-          </div>
+          {loadingCards ? <SkeletonCard label="Cargando bandas…" /> :
+            Object.keys(bandaData).length > 0 ? <PorBanda groupData={bandaData} /> : <SkeletonCard label="Sin datos de bandas" />}
 
-          {/* TablaCpk */}
-          <div className="min-w-0">
-            {loadingSemaforo ? (
-              <LoadingCard label="Cargando datos de CPK..." />
-            ) : (
-              <ScrollableCard>
-                <TablaCpk tires={cpkTires} />
-              </ScrollableCard>
-            )}
-          </div>
+          {loadingCards ? <SkeletonCard label="Cargando CPK…" /> : (
+            <ScrollCard><TablaCpk tires={cpkTires} /></ScrollCard>
+          )}
         </PairRow>
 
         {/* ── Row 4: TanqueMilimetro + ReencaucheHistorico ─────────────────── */}
         <PairRow>
-          <div className="min-w-0">
-            {loadingSemaforo ? (
-              <LoadingCard label="Cargando datos..." />
-            ) : (
-              <TanqueMilimetro tires={tanqueTires} language="es" />
-            )}
-          </div>
-          <div className="min-w-0">
-            {loadingSemaforo ? (
-              <LoadingCard label="Cargando histórico..." />
-            ) : (
-              <ReencaucheHistorico tires={reencaucheTires} language="es" />
-            )}
-          </div>
+          {loadingCards ? <SkeletonCard label="Cargando datos…" /> : <TanqueMilimetro tires={tanqueTires} language="es" />}
+          {loadingCards ? <SkeletonCard label="Cargando histórico…" /> : <ReencaucheHistorico tires={reencaucheTires} language="es" />}
         </PairRow>
 
         {/* ── Row 5: HistoricChart + DetallesLlantas ────────────────────────── */}
         <PairRow>
-          <div className="min-w-0">
-            {loadingSemaforo ? (
-              <LoadingCard label="Cargando gráfico..." />
-            ) : (
-              <HistoricChart tires={historicTires} language="es" />
-            )}
-          </div>
-
-          {/* DetallesLlantas — wide table, needs horizontal scroll */}
-          <div className="min-w-0">
-            {loadingSemaforo ? (
-              <LoadingCard label="Cargando detalles de llantas..." />
-            ) : (
-              <ScrollableCard>
-                <DetallesLlantas tires={detailTires} vehicles={allVehicles} />
-              </ScrollableCard>
-            )}
-          </div>
+          {loadingCards ? <SkeletonCard label="Cargando gráfico…" /> : <HistoricChart tires={historicTires} language="es" />}
+          {loadingCards ? <SkeletonCard label="Cargando detalles…" /> : (
+            <ScrollCard><DetallesLlantas tires={detailTires} vehicles={allVehicles} /></ScrollCard>
+          )}
         </PairRow>
 
-        {/* ── Row 6: Client List — full width ──────────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 lg:p-6">
+        {/* ── Client list ───────────────────────────────────────────────────── */}
+        <Card className="p-4 sm:p-5 lg:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm sm:text-base font-semibold text-gray-900">
-              Listado de Clientes
-            </h2>
+            <CardTitle icon={Users} title="Listado de Clientes" />
             {filteredCompanies.length > 0 && (
-              <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2.5 py-1 font-medium flex-shrink-0">
+              <span
+                className="text-[10px] font-bold px-2.5 py-1 rounded-full ml-auto"
+                style={{ background: "rgba(30,118,182,0.1)", color: "#1E76B6" }}
+              >
                 {filteredCompanies.length} cliente{filteredCompanies.length !== 1 ? "s" : ""}
               </span>
             )}
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-blue-600">
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm font-medium">Cargando clientes...</span>
+            <div className="flex items-center justify-center gap-2 py-10 text-[#1E76B6]">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm font-medium">Cargando clientes…</span>
             </div>
           ) : filteredCompanies.length === 0 ? (
-            <div className="text-center py-10 text-gray-400 text-sm">Sin clientes para mostrar</div>
+            <p className="text-center text-sm text-gray-400 py-10">Sin clientes para mostrar</p>
           ) : (
-            /* 2 cols on mobile → 3 on md → 4 on xl */
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-              {filteredCompanies.map((company) => (
+              {filteredCompanies.map((co) => (
                 <button
-                  key={company.id}
-                  className="text-left border-2 border-gray-100 hover:border-[#1E76B6]/50
-                             rounded-xl p-3 sm:p-4 hover:shadow-md transition-all duration-200
-                             active:scale-[0.97] group focus:outline-none focus:ring-2
-                             focus:ring-[#1E76B6]/30 w-full"
-                  onClick={() => setSelectedClient(company.name)}
+                  key={co.id}
+                  onClick={() => setSelectedClient(co.name)}
+                  className="text-left rounded-xl p-3 sm:p-4 transition-all duration-200 group focus:outline-none"
+                  style={{
+                    border: selectedClient === co.name ? "2px solid rgba(30,118,182,0.5)" : "2px solid rgba(52,140,203,0.12)",
+                    background: selectedClient === co.name ? "rgba(30,118,182,0.04)" : "white",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(10,24,58,0.1)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
                 >
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl
-                                  bg-gradient-to-br from-[#0A183A] to-[#1E76B6]
-                                  flex items-center justify-center text-white font-bold text-sm
-                                  mb-2 sm:mb-3 group-hover:scale-105 transition-transform duration-200 flex-shrink-0">
-                    {company.name.charAt(0).toUpperCase()}
+                  <div
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-white font-black text-sm mb-2 sm:mb-3 transition-transform group-hover:scale-105"
+                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+                  >
+                    {co.name.charAt(0).toUpperCase()}
                   </div>
-                  <h3 className="font-semibold text-gray-900 text-xs sm:text-sm truncate mb-1.5
-                                 group-hover:text-[#1E76B6] transition-colors leading-snug">
-                    {company.name}
+                  <h3 className="font-bold text-[#0A183A] text-xs sm:text-sm truncate mb-1.5 group-hover:text-[#1E76B6] transition-colors">
+                    {co.name}
                   </h3>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1">
-                      <span>🚛</span>
-                      <span><strong className="text-gray-800">{company.vehicleCount}</strong> vehículos</span>
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1">
-                      <span>⚫</span>
-                      <span><strong className="text-gray-800">{company.tireCount}</strong> neumáticos</span>
-                    </p>
-                  </div>
+                  <p className="text-[10px] sm:text-xs text-gray-500">🚛 <strong className="text-[#0A183A]">{co.vehicleCount}</strong> vehículos</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">⚫ <strong className="text-[#0A183A]">{co.tireCount}</strong> neumáticos</p>
                 </button>
               ))}
             </div>
           )}
-        </div>
-
-        {/* ── Error ────────────────────────────────────────────────────────── */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-red-700 text-sm">{error}</p>
-          </div>
-        )}
+        </Card>
 
       </div>
     </div>

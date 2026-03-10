@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -8,23 +8,21 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-
 import {
-  LoaderCircle,
+  Loader2,
   AlertCircle,
   PieChart,
   TrendingUp,
   Calendar,
   Target,
+  BarChart3,
 } from "lucide-react";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
+// =============================================================================
+// Types
+// =============================================================================
 
 interface DesechoData {
   fecha: string;
@@ -37,282 +35,274 @@ interface Tire {
   desechos?: DesechoData | null;
 }
 
-const DesechosStats: React.FC = () => {
-  const [desechos, setDesechos] = useState<DesechoData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+// =============================================================================
+// Constants
+// =============================================================================
 
-  useEffect(() => {
-    const fetchDesechos = async () => {
-  const companyId = localStorage.getItem("companyId");
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+    : "https://api.tirepro.com.co/api";
 
-  if (!companyId) {
-    setError("No se encontró el companyId");
-    setLoading(false);
-    return;
-  }
-
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:6001"}/api/tires?companyId=${companyId}`
-    );
-
-    if (!res.ok) throw new Error("Error al cargar los datos");
-
-    const tires: Tire[] = await res.json();
-
-    const extracted = tires
-      .map((t) => t.desechos)
-      .filter(Boolean) as DesechoData[];
-
-    setDesechos(extracted);
-  } catch (err) {
-    console.error(err);
-    setError("Error al obtener las llantas");
-  } finally {
-    setLoading(false);
-  }
+const MESES_ES: Record<string, string> = {
+  "01": "Ene", "02": "Feb", "03": "Mar", "04": "Abr",
+  "05": "May", "06": "Jun", "07": "Jul", "08": "Ago",
+  "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dic",
 };
 
+const formatMonth = (iso: string) => {
+  const [year, month] = iso.split("-");
+  return `${MESES_ES[month] ?? month} ${year}`;
+};
 
-    fetchDesechos();
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  return fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  });
+}
+
+// =============================================================================
+// Design-system micro-components
+// =============================================================================
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl ${className}`}
+      style={{
+        background: "white",
+        border: "1px solid rgba(52,140,203,0.15)",
+        boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function MetricCard({
+  icon: Icon, title, value, variant = "primary",
+}: {
+  icon: React.ElementType; title: string; value: string | number;
+  variant?: "primary" | "secondary" | "mid" | "accent";
+}) {
+  const bgs: Record<string, string> = {
+    primary:   "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
+    secondary: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
+    mid:       "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)",
+    accent:    "linear-gradient(135deg, #348CCB 0%, #1E76B6 100%)",
+  };
+  return (
+    <div
+      className="rounded-2xl p-4 sm:p-5 flex flex-col justify-between"
+      style={{ background: bgs[variant], minHeight: 90, boxShadow: "0 4px 20px rgba(10,24,58,0.18)" }}
+    >
+      <div className="p-1.5 rounded-lg w-fit mb-2" style={{ background: "rgba(255,255,255,0.15)" }}>
+        <Icon className="w-3.5 h-3.5 text-white" />
+      </div>
+      <p className="text-xl font-black text-white tracking-tight leading-none break-all">{value}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mt-1.5">{title}</p>
+    </div>
+  );
+}
+
+// =============================================================================
+// Chart card
+// =============================================================================
+
+const CHART_ICONS = [PieChart, TrendingUp, Calendar, Target];
+
+function ChartCard({ title, data, index }: { title: string; data: Record<string, number>; index: number }) {
+  const Icon     = CHART_ICONS[index % CHART_ICONS.length];
+  const hasData  = Object.keys(data).length > 0;
+  const labels   = Object.keys(data).map((k) => k.includes("-") ? formatMonth(k) : k);
+  const values   = Object.values(data);
+
+  return (
+    <Card className="overflow-hidden">
+      <div
+        className="px-5 py-4 flex items-center gap-2"
+        style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}
+      >
+        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+          <Icon className="w-4 h-4 text-[#1E76B6]" />
+        </div>
+        <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
+      </div>
+      <div className="p-5">
+        {hasData ? (
+          <div className="h-64">
+            <Bar
+              data={{
+                labels,
+                datasets: [{
+                  label: title,
+                  data: values,
+                  backgroundColor: "rgba(30,118,182,0.75)",
+                  hoverBackgroundColor: "#0A183A",
+                  borderRadius: 6,
+                  barPercentage: 0.65,
+                  categoryPercentage: 0.75,
+                }],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    backgroundColor: "#0A183A",
+                    titleColor: "white",
+                    bodyColor: "rgba(255,255,255,0.8)",
+                    cornerRadius: 8,
+                    displayColors: false,
+                    padding: 10,
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: { color: "rgba(10,24,58,0.4)", font: { size: 11 } },
+                    grid: { color: "rgba(52,140,203,0.08)" },
+                  },
+                  x: {
+                    ticks: { color: "rgba(10,24,58,0.4)", font: { size: 10 }, maxRotation: 45 },
+                    grid: { display: false },
+                  },
+                },
+              }}
+            />
+          </div>
+        ) : (
+          <div className="h-64 flex flex-col items-center justify-center gap-2">
+            <BarChart3 className="w-8 h-8 opacity-20 text-[#1E76B6]" />
+            <p className="text-sm text-gray-400">Sin datos disponibles</p>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// =============================================================================
+// Main component
+// =============================================================================
+
+const DesechosStats: React.FC = () => {
+  const [desechos, setDesechos] = useState<DesechoData[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState("");
+
+  useEffect(() => {
+    const run = async () => {
+      const companyId = localStorage.getItem("companyId");
+      if (!companyId) { setError("No se encontró el companyId"); setLoading(false); return; }
+      try {
+        const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
+        if (!res.ok) throw new Error("Error al cargar los datos");
+        const tires: Tire[] = await res.json();
+        setDesechos(tires.map((t) => t.desechos).filter(Boolean) as DesechoData[]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al obtener las llantas");
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
   }, []);
 
-  const groupBy = (
-    keyFn: (d: DesechoData) => string,
-    valueFn: (d: DesechoData) => number,
-    aggregate: "average" | "sum"
-  ) => {
-    const result: Record<string, number[]> = {};
-    desechos.forEach((d) => {
-      const key = keyFn(d);
-      const value = valueFn(d);
-      if (!result[key]) result[key] = [];
-      result[key].push(value);
+  // ── Aggregations ───────────────────────────────────────────────────────────
+  const groupBy = (keyFn: (d: DesechoData) => string, valueFn: (d: DesechoData) => number, agg: "average" | "sum") => {
+    const map: Record<string, number[]> = {};
+    desechos.forEach((d) => { const k = keyFn(d); (map[k] ??= []).push(valueFn(d)); });
+    const out: Record<string, number> = {};
+    Object.keys(map).sort().forEach((k) => {
+      const vals = map[k], total = vals.reduce((a, b) => a + b, 0);
+      out[k] = Number((agg === "average" ? total / vals.length : total).toFixed(2));
     });
-
-    const output: Record<string, number> = {};
-    for (const key in result) {
-      const values = result[key];
-      const total = values.reduce((a, b) => a + b, 0);
-      output[key] =
-        aggregate === "average"
-          ? Number((total / values.length).toFixed(2))
-          : Number(total.toFixed(2));
-    }
-    return output;
+    return out;
   };
 
-  const dataCausales = () => {
-    const count: Record<string, number> = {};
-    desechos.forEach((d) => {
-      const key = d.causales.trim();
-      count[key] = (count[key] || 0) + 1;
-    });
-    return count;
-  };
+  const dataCausales = useMemo(() => {
+    const c: Record<string, number> = {};
+    desechos.forEach((d) => { const k = d.causales.trim(); c[k] = (c[k] || 0) + 1; });
+    return c;
+  }, [desechos]);
 
-  const avgRemanente = groupBy(
-    (d) => new Date(d.fecha).toISOString().slice(0, 7),
-    (d) => d.remanente,
-    "average"
+  const avgRemanente   = useMemo(() => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanente, "average"),          [desechos]);
+  const totalRemanente = useMemo(() => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanente, "sum"),               [desechos]);
+  const avgMilimetros  = useMemo(() => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.milimetrosDesechados, "average"), [desechos]);
+
+  const avgGeneral = useMemo(() =>
+    desechos.length > 0
+      ? (desechos.reduce((a, d) => a + d.remanente, 0) / desechos.length).toFixed(1)
+      : "0",
+    [desechos]
   );
 
-  const totalRemanente = groupBy(
-    (d) => new Date(d.fecha).toISOString().slice(0, 7),
-    (d) => d.remanente,
-    "sum"
-  );
-
-  const avgMilimetros = groupBy(
-    (d) => new Date(d.fecha).toISOString().slice(0, 7),
-    (d) => d.milimetrosDesechados,
-    "average"
-  );
-
-  const getChartIcon = (index: number) => {
-    const icons = [PieChart, TrendingUp, Calendar, Target];
-    return icons[index % icons.length];
-  };
-
-  const renderBar = (
-    title: string,
-    data: Record<string, number>,
-    color: string = "#1E76B6",
-    index: number = 0
-  ) => {
-    const IconComponent = getChartIcon(index);
-    const hasData = Object.keys(data).length > 0;
-    
-    return (
-      <div className="bg-white rounded-xl border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-        <div className="bg-gradient-to-r from-[#0A183A] to-[#173D68] p-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-lg">
-              <IconComponent className="w-5 h-5 text-white" />
-            </div>
-            <h3 className="text-lg font-bold text-white">{title}</h3>
-          </div>
-        </div>
-        
-        <div className="p-6">
-          {hasData ? (
-            <div className="h-[350px]">
-              <Bar
-                data={{
-                  labels: Object.keys(data),
-                  datasets: [
-                    {
-                      label: title,
-                      data: Object.values(data),
-                      backgroundColor: color,
-                      borderRadius: 8,
-                      barPercentage: 0.7,
-                      categoryPercentage: 0.8,
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: { display: false },
-                    datalabels: {
-                      color: "white",
-                      font: { size: 11, weight: "bold" },
-                      anchor: "end",
-                      align: "top",
-                      formatter: (v) => `${v}`,
-                    },
-                    tooltip: {
-                      backgroundColor: '#0A183A',
-                      titleColor: 'white',
-                      bodyColor: 'white',
-                      cornerRadius: 8,
-                      displayColors: false,
-                    },
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      ticks: { 
-                        color: "#64748b",
-                        font: { size: 11 }
-                      },
-                      grid: {
-                        color: "rgba(226,232,240,0.4)",
-                        drawBorder: false,
-                      },
-                    },
-                    x: {
-                      ticks: { 
-                        color: "#64748b",
-                        font: { size: 11 },
-                        maxRotation: 45,
-                      },
-                      grid: { display: false },
-                    },
-                  },
-                }}
-              />
-            </div>
-          ) : (
-            <div className="h-[350px] flex items-center justify-center">
-              <div className="text-center text-gray-500">
-                <IconComponent className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-sm">No hay datos disponibles</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
+  // ── Loading / error ────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-lg p-12">
-            <LoaderCircle className="animate-spin w-12 h-12 text-[#1E76B6] mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-[#0A183A] mb-2">Cargando estadísticas</h3>
-            <p className="text-gray-600">Obteniendo datos de desechos...</p>
-          </div>
-        </div>
+      <div className="min-h-64 flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1E76B6]" />
+        <p className="text-sm font-bold text-[#0A183A]">Cargando estadísticas…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <div className="bg-white rounded-2xl border border-red-100 shadow-lg p-12">
-            <div className="bg-red-50 rounded-full p-4 w-fit mx-auto mb-4">
-              <AlertCircle className="w-8 h-8 text-red-500" />
-            </div>
-            <h3 className="text-xl font-bold text-red-800 mb-2">Error al cargar datos</h3>
-            <p className="text-red-600">{error}</p>
-          </div>
-        </div>
+      <div
+        className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+        style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}
+      >
+        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+        <span className="text-red-700">{error}</span>
       </div>
     );
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#0A183A] mb-2">Estadísticas de Desechos</h1>
-          <p className="text-gray-600">Análisis completo de los datos de desechos de llantas</p>
-        </div>
+    <div className="space-y-4 sm:space-y-5">
 
-        <div className="mt-8 bg-white rounded-xl border border-gray-100 shadow-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-[#0A183A]/10 p-2 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-[#0A183A]" />
-            </div>
-            <h3 className="text-lg font-bold text-[#0A183A]">Resumen</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-[#0A183A] to-[#173D68] rounded-lg p-4 text-white">
-              <p className="text-sm opacity-90">Total Registros</p>
-              <p className="text-2xl font-bold">{desechos.length}</p>
-            </div>
-            <div className="bg-gradient-to-br from-[#173D68] to-[#1E76B6] rounded-lg p-4 text-white">
-              <p className="text-sm opacity-90">Causales Únicas</p>
-              <p className="text-2xl font-bold">{Object.keys(dataCausales()).length}</p>
-            </div>
-            <div className="bg-gradient-to-br from-[#1E76B6] to-[#348CCB] rounded-lg p-4 text-white">
-              <p className="text-sm opacity-90">Meses Analizados</p>
-              <p className="text-2xl font-bold">{Object.keys(avgRemanente).length}</p>
-            </div>
-            <div className="bg-gradient-to-br from-[#348CCB] to-[#1E76B6] rounded-lg p-4 text-white">
-              <p className="text-sm opacity-90">Promedio General</p>
-              <p className="text-2xl font-bold">
-                {desechos.length > 0 ? 
-                  (desechos.reduce((acc, d) => acc + d.remanente, 0) / desechos.length).toFixed(1) 
-                  : '0'
-                }
-              </p>
-            </div>
-          </div>
+      {/* Section label */}
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+          <TrendingUp className="w-4 h-4 text-[#1E76B6]" />
         </div>
-        <br />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {renderBar("Desechos por Causal", dataCausales(), "#0A183A", 0)}
-          {renderBar("Promedio Remanente por Mes", avgRemanente, "#173D68", 1)}
-          {renderBar("Total Remanente por Mes", totalRemanente, "#1E76B6", 2)}
-          {renderBar(
-            "Promedio Milímetros Desechados por Mes",
-            avgMilimetros,
-            "#348CCB",
-            3
-          )}
+        <div>
+          <p className="text-sm font-black text-[#0A183A] leading-none">Estadísticas de Desechos</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">Análisis completo de desechos de llantas</p>
         </div>
-    
       </div>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard icon={BarChart3}  title="Total Registros"   value={desechos.length}                   variant="primary"   />
+        <MetricCard icon={PieChart}   title="Causales Únicas"   value={Object.keys(dataCausales).length}  variant="secondary" />
+        <MetricCard icon={Calendar}   title="Meses Analizados"  value={Object.keys(avgRemanente).length}  variant="mid"       />
+        <MetricCard icon={Target}     title="Prom. Remanente"   value={`${avgGeneral} mm`}                variant="accent"    />
+      </div>
+
+      {/* Charts grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartCard title="Desechos por Causal"                  data={dataCausales}   index={0} />
+        <ChartCard title="Promedio Remanente por Mes"           data={avgRemanente}   index={1} />
+        <ChartCard title="Total Remanente por Mes"              data={totalRemanente} index={2} />
+        <ChartCard title="Prom. Milímetros Desechados por Mes"  data={avgMilimetros}  index={3} />
+      </div>
+
     </div>
   );
 };

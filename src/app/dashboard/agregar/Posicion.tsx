@@ -1,18 +1,71 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Search, Clock, AlertTriangle, Download, X, Package } from "lucide-react";
+"use client";
+
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import {
+  Search,
+  X,
+  Download,
+  Package,
+  Truck,
+  Circle,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  RotateCcw,
+  Save,
+  Plus,
+  Eye,
+} from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import CroquisPdf from './croquisPdf';
+import CroquisPdf from "./croquisPdf";
 
+// =============================================================================
+// Constants & Auth
+// =============================================================================
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "https://api.tirepro.com.co/api";
+
+function authHeaders(): Record<string, string> {
+  let token: string | null = null;
+  try { token = localStorage.getItem("token"); } catch { /* ignore */ }
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+const ItemTypes = { TIRE: "tire" };
+
+// =============================================================================
 // Types
+// =============================================================================
+
+interface Inspeccion {
+  profundidadInt?: number;
+  profundidadCen?: number;
+  profundidadExt?: number;
+  cpk?: number;
+  kilometrosEstimados?: number;
+  fecha?: string;
+}
+
 interface Tire {
   id: string;
   marca: string;
   diseno: string;
+  dimension?: string;
+  eje?: string;
+  kilometrosRecorridos?: number;
   posicion?: number | null;
   position?: string | null;
-  inspecciones?: any[];
-  vida?: any[];
+  inspecciones?: Inspeccion[];
+  vida?: Array<{ valor: string; fecha: string }>;
+  eventos?: Array<{ tipo: string; notas?: string; fecha: string }>;
+  costo?: Array<{ valor: number; fecha: string }>;
+  costos?: Array<{ valor: number; fecha: string }>;
   vehicleId?: string | null;
 }
 
@@ -29,603 +82,415 @@ interface TireChange {
   newPosition: string | null;
 }
 
-interface Translation {
-  title: string;
-  searchVehicle: string;
-  enterPlate: string;
-  search: string;
-  searching: string;
-  vehicleData: string;
-  plate: string;
-  type: string;
-  totalTires: string;
-  assigned: string;
-  inventory: string;
-  availableTires: string;
-  inventoryTires: string;
-  tireConfig: string;
-  axis: string;
-  pos: string;
-  inventoryZone: string;
-  dragToInventory: string;
-  inventoryPos: string;
-  availableZone: string;
-  saveChanges: string;
-  saving: string;
-  cancelChanges: string;
-  exportChanges: string;
-  changesFor: string;
-  tire: string;
-  orig: string;
-  new: string;
-  noExport: string;
-  exportPDF: string;
-  noTires: string;
-  noInventoryTires: string;
-  noVehicleFound: string;
-  noTiresFound: string;
-  positionsUpdated: string;
-  updateError: string;
-  unknownError: string;
-}
+// =============================================================================
+// Helpers
+// =============================================================================
 
-interface ApiError {
-  response?: {
-    data?: {
-      message?: string;
-    };
-  };
-  message?: string;
-}
-
-// Language translations
-const translations: Record<'es', Translation> = {
-  es: {
-    title: "Asignar Posiciones de Llantas",
-    searchVehicle: "Buscar Vehículo",
-    enterPlate: "Ingrese placa del vehículo",
-    search: "Buscar",
-    searching: "Buscando...",
-    vehicleData: "Datos del Vehículo",
-    plate: "Placa:",
-    type: "Tipo:",
-    totalTires: "Total Llantas:",
-    assigned: "Asignadas:",
-    inventory: "Inventario:",
-    availableTires: "Llantas Disponibles",
-    inventoryTires: "Llantas en Inventario",
-    tireConfig: "Configuración de Llantas",
-    axis: "Eje",
-    pos: "Pos",
-    inventoryZone: "Zona de Inventario",
-    dragToInventory: "Arrastra aquí las llantas para enviarlas a inventario",
-    inventoryPos: "Las llantas en inventario tendrán posición 0",
-    availableZone: "Zona de Llantas Disponibles - Arrastra aquí las llantas sin asignar",
-    saveChanges: "Guardar Cambios",
-    saving: "Guardando...",
-    cancelChanges: "Cancelar Cambios",
-    exportChanges: "Exportar Cambios",
-    changesFor: "cambio(s) para",
-    tire: "Llanta",
-    orig: "Orig.",
-    new: "Nueva",
-    noExport: "No exportar",
-    exportPDF: "Exportar PDF",
-    noTires: "No hay llantas",
-    noInventoryTires: "No hay llantas en inventario",
-    noVehicleFound: "No se encontró un vehículo con esta placa.",
-    noTiresFound: "No se encontraron llantas asociadas a este vehículo.",
-    positionsUpdated: "Posiciones actualizadas exitosamente.",
-    updateError: "Error al actualizar posiciones",
-    unknownError: "Error desconocido"
-  },
-};
-
-// Constants
-const ItemTypes = { TIRE: "tire" };
-const API_BASE = process.env.NEXT_PUBLIC_API_URL
-      ? `${process.env.NEXT_PUBLIC_API_URL}/api`
-      : `https://api.tirepro.com.co/api`;
-
-// Utility Functions
-const getAuthHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem("token")}`
-});
-
-const getErrorMessage = (error: unknown): string => {
-  const apiError = error as ApiError;
-  return apiError?.response?.data?.message || apiError?.message || "Error desconocido";
-};
-
-const fetchInventoryTires = async (companyId: string): Promise<Tire[]> => {
-  try {
-    const response = await fetch(
-      `${API_BASE}/tires?companyId=${companyId}`,
-      { headers: getAuthHeaders() }
-    );
-    if (!response.ok) {
-      console.error("fetchInventoryTires: HTTP", response.status);
-      return [];
-    }
-    const data = await response.json();
-    if (!Array.isArray(data)) {
-      console.error("fetchInventoryTires: expected array, got", typeof data, data);
-      return [];
-    }
-    return data.filter((t: any) => {
-      const vida = Array.isArray(t.vida) ? t.vida : [];
-      const lastVida = vida.length ? vida[vida.length - 1]?.valor?.toLowerCase() : null;
-      return !t.vehicleId && lastVida !== 'fin';
-    });
-  } catch (err) {
-    console.error("fetchInventoryTires error:", err);
-    return [];
-  }
-};
-
-const getMinDepth = (tire: Tire): string => {
-  const inspections = tire.inspecciones || [];
-  if (!inspections.length) return "Nueva";
-  const last = inspections[inspections.length - 1];
+function getMinDepth(tire: Tire): string {
+  const insps = tire.inspecciones ?? [];
+  if (!insps.length) return "Nueva";
+  const last = insps[insps.length - 1];
   const min = Math.min(
     last.profundidadInt ?? Infinity,
     last.profundidadCen ?? Infinity,
     last.profundidadExt ?? Infinity
   );
   return min === Infinity ? "Nueva" : `${min}mm`;
-};
+}
 
-// Hooks
-const useApiCall = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+function getCurrentVida(tire: Tire): string {
+  if (Array.isArray(tire.eventos)) {
+    const vidaEvents = tire.eventos
+      .filter((e) => e.notas && ["nueva","reencauche1","reencauche2","reencauche3","fin"].includes(e.notas))
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+    if (vidaEvents.length > 0) return vidaEvents[vidaEvents.length - 1].notas!;
+  }
+  if (Array.isArray(tire.vida) && tire.vida.length > 0) return tire.vida[tire.vida.length - 1].valor;
+  return "nueva";
+}
 
-  const apiCall = async (fn: () => Promise<unknown>) => {
-    try {
-      setLoading(true);
-      setError("");
-      setSuccess("");
-      return await fn();
-    } catch (err) {
-      setError(getErrorMessage(err));
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+function getLastCosto(tire: Tire): number | null {
+  const arr = tire.costos ?? tire.costo ?? [];
+  if (!arr.length) return null;
+  return arr[arr.length - 1].valor;
+}
 
-  return { loading, error, success, setSuccess, apiCall };
-};
+async function fetchInventoryTires(companyId: string): Promise<Tire[]> {
+  try {
+    const res = await fetch(`${API_BASE}/tires?companyId=${companyId}`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    return data.filter((t: Tire) => !t.vehicleId && getCurrentVida(t) !== "fin");
+  } catch { return []; }
+}
 
-// Components
-const DraggableTire: React.FC<{ tire: Tire; isInventory?: boolean; t: Translation }> = ({ tire, isInventory = false }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [hovered, setHovered] = useState(false);
-  const [{ isDragging }, dragRef] = useDrag(() => ({
-    type: ItemTypes.TIRE,
-    item: { id: tire.id },
-    collect: (monitor) => ({ isDragging: !!monitor.isDragging() }),
-  }), [tire.id]); // 👈 dependency array is critical
+// =============================================================================
+// Design primitives
+// =============================================================================
 
-  useEffect(() => {
-    if (ref.current) dragRef(ref.current);
-  }, [dragRef]);
+const inputCls =
+  "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
 
-  useEffect(() => {
-  if (isDragging) setHovered(false);
-}, [isDragging]);
+function Toast({ type, message, onDismiss }: { type: "error" | "success"; message: string; onDismiss: () => void }) {
+  return (
+    <div
+      className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium mb-4"
+      style={{
+        background: type === "error" ? "rgba(10,24,58,0.06)" : "rgba(30,118,182,0.08)",
+        border: type === "error" ? "1px solid rgba(10,24,58,0.2)" : "1px solid rgba(30,118,182,0.3)",
+      }}
+    >
+      {type === "error"
+        ? <AlertCircle className="w-4 h-4 text-[#173D68] flex-shrink-0 mt-0.5" />
+        : <CheckCircle2 className="w-4 h-4 text-[#1E76B6] flex-shrink-0 mt-0.5" />}
+      <span className="flex-1 text-[#0A183A]">{message}</span>
+      <button onClick={onDismiss} className="text-[#348CCB] hover:text-[#0A183A] transition-colors">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl p-5 ${className}`}
+      style={{ background: "white", border: "1px solid rgba(52,140,203,0.18)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SectionLabel({ children, count }: { children: React.ReactNode; count?: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <Circle className="w-3.5 h-3.5 text-[#1E76B6]" />
+      <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-[0.15em]">{children}</p>
+      <div className="flex-1 h-px" style={{ background: "rgba(52,140,203,0.2)" }} />
+      {count !== undefined && <span className="text-xs text-[#348CCB] font-medium">{count} total</span>}
+    </div>
+  );
+}
+
+// =============================================================================
+// Tire tooltip
+// =============================================================================
+
+function TireTooltip({ tire }: { tire: Tire }) {
+  const lastInsp = (tire.inspecciones ?? []).at(-1);
+  const vida     = getCurrentVida(tire);
+  const costo    = getLastCosto(tire);
 
   return (
     <div
-  ref={ref}
-  onMouseEnter={() => setHovered(true)}
-  onMouseLeave={() => setHovered(false)}
-  className={`relative rounded-full border flex items-center justify-center text-white cursor-move shadow-md transition-all duration-200 hover:shadow-lg ${
-    isInventory
-      ? "bg-gradient-to-br from-gray-500 to-gray-600"
-      : "bg-gradient-to-br from-[#1E76B6] to-[#348CCB]"
-  }`}
-  style={{ width: "80px", height: "80px", opacity: isDragging ? 0.5 : 1 }}
->
-  {hovered && (
-  <div style={{ display: isDragging ? "none" : "block" }}>
-    <TireTooltip tire={tire} />
-  </div>
-)}
-  <div className="text-center">
-    <div className="text-xs font-bold">{tire.marca}</div>
-    {isInventory ? (
-      <div className="text-xs">INV</div>
-    ) : (
-      <div className="text-xs">{tire.posicion}</div>
-    )}
-  </div>
-</div>
-  );
-};
-
-const TireTooltip: React.FC<{ tire: Tire }> = ({ tire }) => {
-  const inspections = tire.inspecciones || [];
-  const lastInsp = inspections.length ? inspections[inspections.length - 1] : null;
-  const vida = Array.isArray(tire.vida) && tire.vida.length
-    ? (tire.vida[tire.vida.length - 1] as any)?.valor
-    : null;
-  const costo = Array.isArray(tire.costo) && tire.costo.length
-    ? (tire.costo[tire.costo.length - 1] as any)?.valor
-    : null;
-
-  return (
-    <div className="absolute z-50 bottom-[110%] left-1/2 -translate-x-1/2 w-56 bg-[#0A183A] text-white text-xs rounded-xl shadow-2xl p-3 pointer-events-none">
-      {/* Arrow */}
+      className="absolute z-50 bottom-[115%] left-1/2 -translate-x-1/2 w-56 text-white text-xs rounded-2xl shadow-2xl p-3 pointer-events-none"
+      style={{ background: "#0A183A", border: "1px solid rgba(52,140,203,0.3)" }}
+    >
       <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-[#0A183A]" />
-
-      <div className="font-bold text-sm text-[#348CCB] mb-2 truncate">{tire.marca} — {tire.diseno}</div>
-
+      <p className="font-bold text-sm text-[#348CCB] mb-2 truncate">{tire.marca} — {tire.diseno}</p>
       <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-        <span className="text-gray-400">Dimensión</span>
-        <span className="truncate">{tire.dimension || "—"}</span>
-
-        <span className="text-gray-400">Eje</span>
-        <span>{tire.eje || "—"}</span>
-
-        <span className="text-gray-400">Vida</span>
-        <span className="capitalize">{vida || "—"}</span>
-
-        <span className="text-gray-400">Costo</span>
-        <span>{costo ? `$${costo.toLocaleString()}` : "—"}</span>
-
-        <span className="text-gray-400">Km Rec.</span>
+        <span className="text-white/50">Dimensión</span><span className="truncate">{tire.dimension ?? "—"}</span>
+        <span className="text-white/50">Eje</span><span>{tire.eje ?? "—"}</span>
+        <span className="text-white/50">Vida</span><span className="capitalize">{vida}</span>
+        <span className="text-white/50">Costo</span><span>{costo ? `$${costo.toLocaleString()}` : "—"}</span>
+        <span className="text-white/50">Km Rec.</span>
         <span>{tire.kilometrosRecorridos ? `${tire.kilometrosRecorridos.toLocaleString()} km` : "—"}</span>
       </div>
-
       {lastInsp && (
         <>
-          <div className="border-t border-white/20 my-2" />
-          <div className="text-[#348CCB] font-semibold mb-1">Última Inspección</div>
+          <div className="border-t border-white/15 my-2" />
+          <p className="text-[#348CCB] font-semibold mb-1">Última Inspección</p>
           <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-            <span className="text-gray-400">Prof. Int</span>
-            <span>{lastInsp.profundidadInt ?? "—"}mm</span>
-
-            <span className="text-gray-400">Prof. Cen</span>
-            <span>{lastInsp.profundidadCen ?? "—"}mm</span>
-
-            <span className="text-gray-400">Prof. Ext</span>
-            <span>{lastInsp.profundidadExt ?? "—"}mm</span>
-
-            <span className="text-gray-400">CPK</span>
-            <span>{lastInsp.cpk ? `$${lastInsp.cpk.toFixed(2)}` : "—"}</span>
-
-            <span className="text-gray-400">KM Est.</span>
-            <span>{lastInsp.kilometrosEstimados ? `${lastInsp.kilometrosEstimados.toLocaleString()}` : "—"}</span>
-
-            <span className="text-gray-400">Fecha</span>
+            <span className="text-white/50">Int</span><span>{lastInsp.profundidadInt ?? "—"}mm</span>
+            <span className="text-white/50">Cen</span><span>{lastInsp.profundidadCen ?? "—"}mm</span>
+            <span className="text-white/50">Ext</span><span>{lastInsp.profundidadExt ?? "—"}mm</span>
+            <span className="text-white/50">CPK</span><span>{lastInsp.cpk ? `$${lastInsp.cpk.toFixed(2)}` : "—"}</span>
+            <span className="text-white/50">Fecha</span>
             <span>{lastInsp.fecha ? new Date(lastInsp.fecha).toLocaleDateString() : "—"}</span>
           </div>
         </>
       )}
-
-      {!lastInsp && (
-        <div className="text-gray-400 italic mt-1">Sin inspecciones registradas</div>
-      )}
+      {!lastInsp && <p className="text-white/40 italic mt-1">Sin inspecciones registradas</p>}
     </div>
   );
-};
+}
 
-const CompanyInventoryTire: React.FC<{ tire: Tire }> = ({ tire }) => {
+// =============================================================================
+// Draggable tire circle
+// =============================================================================
+
+function DraggableTire({ tire, variant = "vehicle" }: { tire: Tire; variant?: "vehicle" | "available" }) {
   const ref = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
-  const [{ isDragging }, dragRef] = useDrag(() => ({
-    type: ItemTypes.TIRE,
-    item: { id: tire.id },
-    collect: (monitor) => ({ isDragging: !!monitor.isDragging() }),
-  }), [tire.id]); // 👈 missing in your current code
-
-  useEffect(() => {
-    if (ref.current) dragRef(ref.current);
-  }, [dragRef]);
-
-  // Hide tooltip as soon as drag starts
-  useEffect(() => {
-    if (isDragging) setHovered(false);
-  }, [isDragging]);
+  const [{ isDragging }, dragRef] = useDrag(
+    () => ({ type: ItemTypes.TIRE, item: { id: tire.id }, collect: (m) => ({ isDragging: !!m.isDragging() }) }),
+    [tire.id]
+  );
+  useEffect(() => { if (ref.current) dragRef(ref.current); }, [dragRef]);
+  useEffect(() => { if (isDragging) setHovered(false); }, [isDragging]);
 
   return (
     <div
       ref={ref}
-      style={{ opacity: isDragging ? 0.5 : 1 }}
-      className="relative flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-xl p-3 w-24 h-24 cursor-move shadow-md hover:shadow-lg transition-all"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className="relative rounded-full flex flex-col items-center justify-center cursor-move select-none transition-all"
+      style={{
+        width: 78, height: 78,
+        background: variant === "available"
+          ? "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)"
+          : "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
+        opacity: isDragging ? 0.4 : 1,
+        boxShadow: hovered ? "0 8px 24px rgba(10,24,58,0.25)" : "0 2px 8px rgba(10,24,58,0.15)",
+        border: "2px solid rgba(52,140,203,0.3)",
+      }}
     >
       {hovered && !isDragging && <TireTooltip tire={tire} />}
-      <div className="text-xs font-bold truncate w-full text-center">{tire.marca}</div>
-      <div className="text-xs truncate w-full text-center opacity-80">{tire.diseno}</div>
-      <div className="text-xs mt-1 font-semibold">{getMinDepth(tire)}</div>
+      <span
+        className="text-white font-black text-[10px] tracking-wider text-center px-1 leading-tight"
+        style={{ fontFamily: "'DM Mono', monospace" }}
+      >
+        {tire.marca.toUpperCase().slice(0, 6)}
+      </span>
+      <span className="text-white/70 text-[9px] font-medium">{getMinDepth(tire)}</span>
     </div>
   );
-};
+}
 
-const DropZone: React.FC<{
+// =============================================================================
+// Inventory tile (rectangular)
+// =============================================================================
+
+function InventoryTile({ tire }: { tire: Tire }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState(false);
+  const [{ isDragging }, dragRef] = useDrag(
+    () => ({ type: ItemTypes.TIRE, item: { id: tire.id }, collect: (m) => ({ isDragging: !!m.isDragging() }) }),
+    [tire.id]
+  );
+  useEffect(() => { if (ref.current) dragRef(ref.current); }, [dragRef]);
+  useEffect(() => { if (isDragging) setHovered(false); }, [isDragging]);
+
+  return (
+    <div
+      ref={ref}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative flex flex-col items-center justify-center rounded-2xl cursor-move select-none px-3 py-3 transition-all"
+      style={{
+        width: 90, height: 90,
+        background: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
+        opacity: isDragging ? 0.4 : 1,
+        border: "1px solid rgba(52,140,203,0.3)",
+        boxShadow: hovered ? "0 6px 20px rgba(10,24,58,0.2)" : "0 2px 8px rgba(10,24,58,0.1)",
+      }}
+    >
+      {hovered && !isDragging && <TireTooltip tire={tire} />}
+      <span className="text-white font-black text-[10px] tracking-wider text-center leading-tight" style={{ fontFamily: "'DM Mono', monospace" }}>
+        {tire.marca.toUpperCase().slice(0, 6)}
+      </span>
+      <span className="text-white/70 text-[9px] mt-1 truncate w-full text-center">{tire.diseno}</span>
+      <span className="text-white/60 text-[9px] font-semibold">{getMinDepth(tire)}</span>
+    </div>
+  );
+}
+
+// =============================================================================
+// Generic drop zone
+// =============================================================================
+
+function DropZone({ onDrop, children, className = "", style, activeStyle }: {
   onDrop: (tireId: string) => void;
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
-}> = ({ onDrop, children, className = "", style }) => {
-  const [{ isOver }, dropRef] = useDrop(() => ({
-    accept: ItemTypes.TIRE,
-    drop: (item: { id: string }) => onDrop(item.id),
-    collect: (monitor) => ({ isOver: !!monitor.isOver() }),
-  }), [onDrop]); // 👈 ADD onDrop as dependency
-
+  activeStyle?: React.CSSProperties;
+}) {
+  const [{ isOver }, dropRef] = useDrop(
+    () => ({ accept: ItemTypes.TIRE, drop: (item: { id: string }) => onDrop(item.id), collect: (m) => ({ isOver: !!m.isOver() }) }),
+    [onDrop]
+  );
   return (
-    <div ref={dropRef} style={style} className={`transition-all duration-200 ${isOver ? "border-orange-400 bg-orange-100" : ""} ${className}`}>
+    <div
+      ref={dropRef as React.Ref<HTMLDivElement>}
+      className={`transition-all duration-200 ${className}`}
+      style={{ ...(style ?? {}), ...(isOver ? (activeStyle ?? {}) : {}) }}
+    >
       {children}
     </div>
   );
-};
+}
 
-const TirePosition: React.FC<{
-  position: string;
-  tire: Tire | null;
-  onDrop: (tireId: string) => void;
-  t: Translation;
-}> = ({ position, tire, onDrop, t }) => {
+// =============================================================================
+// Tire slot (vehicle position)
+// =============================================================================
+
+function TireSlot({ position, tire, onDrop }: { position: string; tire: Tire | null; onDrop: (tireId: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [{ isOver }, dropRef] = useDrop(() => ({
-    accept: ItemTypes.TIRE,
-    drop: (item: { id: string }) => {
-      // Don't re-drop onto itself
-      if (item.id !== tire?.id) onDrop(item.id);
-    },
-    collect: (monitor) => ({ isOver: !!monitor.isOver() }),
-  }), [tire?.id, onDrop]);
-
-  useEffect(() => {
-    if (ref.current) dropRef(ref.current);
-  }, [dropRef]);
+  const [{ isOver }, dropRef] = useDrop(
+    () => ({
+      accept: ItemTypes.TIRE,
+      drop: (item: { id: string }) => { if (item.id !== tire?.id) onDrop(item.id); },
+      collect: (m) => ({ isOver: !!m.isOver() }),
+    }),
+    [tire?.id, onDrop]
+  );
+  useEffect(() => { if (ref.current) dropRef(ref.current); }, [dropRef]);
 
   return (
     <div
       ref={ref}
-      className={`rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-200 ${
-        isOver ? "border-[#1E76B6] bg-[#348CCB]/10" : "border-gray-300 bg-gray-50"
-      }`}
-      style={{ width: "80px", height: "80px" }}
+      className="rounded-full flex items-center justify-center transition-all duration-200"
+      style={{
+        width: 78, height: 78,
+        background: isOver ? "rgba(30,118,182,0.15)" : tire ? "transparent" : "rgba(52,140,203,0.06)",
+        border: isOver ? "2px solid #1E76B6" : tire ? "none" : "2px dashed rgba(52,140,203,0.35)",
+      }}
     >
-      {tire ? (
-        // ✅ No pointer-events wrapper here — tire is fully interactive
-        <DraggableTire tire={tire} t={t} />
-      ) : (
-        <div className="text-xs text-gray-500 font-medium pointer-events-none">
-          {t.pos} {position}
-        </div>
-      )}
+      {tire
+        ? <DraggableTire tire={tire} variant="vehicle" />
+        : <span className="text-[10px] font-bold text-[#348CCB]/60">{position}</span>}
     </div>
   );
-};
+}
 
-const TiresTray: React.FC<{ tires: Tire[]; title: string; isInventory?: boolean; t: Translation }> = ({
-  tires,
-  title,
-  isInventory = false,
-  t
-}) => (
-  <div className={`p-4 rounded-lg border-l-4 mb-6 shadow-sm ${
-    isInventory
-      ? "bg-gradient-to-r from-gray-100 to-gray-200 border-gray-500"
-      : "bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 border-[#1E76B6]"
-  }`}>
-    <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${
-      isInventory ? "text-gray-700" : "text-[#0A183A]"
-    }`}>
-      {isInventory && <Package className="h-5 w-5" />}
-      {title}
-      <span className="text-sm font-normal">({tires.length})</span>
-    </h3>
-    <div className="flex flex-wrap gap-4">
-      {tires.length > 0 ? (
-        tires.map((tire) => (
-          <DraggableTire key={tire.id} tire={tire} isInventory={isInventory} t={t} />
-        ))
-      ) : (
-        <p className={`italic ${isInventory ? "text-gray-400" : "text-gray-500"}`}>
-          {isInventory ? t.noInventoryTires : t.noTires}
-        </p>
-      )}
-    </div>
-  </div>
-);
+// =============================================================================
+// Vehicle axle
+// =============================================================================
 
-const VehicleAxis: React.FC<{
+function VehicleAxle({ axleIdx, positions, tireMap, onTireDrop }: {
   axleIdx: number;
   positions: string[];
   tireMap: Record<string, Tire>;
   onTireDrop: (tireId: string, position: string) => void;
-  t: Translation;
-}> = ({ axleIdx, positions, tireMap, onTireDrop, t }) => {
-  const middleIndex = Math.ceil(positions.length / 2);
-  const leftTires = positions.slice(0, middleIndex);
-  const rightTires = positions.slice(middleIndex);
+}) {
+  const mid   = Math.ceil(positions.length / 2);
+  const left  = positions.slice(0, mid);
+  const right = positions.slice(mid);
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="text-sm font-medium text-[#173D68] mb-2">{t.axis} {axleIdx + 1}</div>
-      <div className="flex items-center justify-center w-full">
-        <div className="h-4 w-3 bg-[#0A183A] rounded-l-lg" />
-
-        <div className="flex items-center">
-          {leftTires.map(pos => (
-            <div key={pos} className="m-1 flex flex-col items-center">
-              <TirePosition
-                position={pos}
-                tire={tireMap[pos] || null}
-                onDrop={(tireId) => onTireDrop(tireId, pos)}
-                t={t}
-              />
-              <div className="w-6 h-1 bg-[#348CCB] mt-2" />
+    <div className="flex flex-col items-center gap-2">
+      <span className="text-[10px] font-bold text-[#348CCB] uppercase tracking-widest">Eje {axleIdx + 1}</span>
+      <div className="flex items-center">
+        <div className="h-3 w-2.5 rounded-l-md" style={{ background: "#0A183A" }} />
+        <div className="flex items-center gap-0.5">
+          {left.map((pos) => (
+            <div key={pos} className="flex flex-col items-center">
+              <TireSlot position={pos} tire={tireMap[pos] ?? null} onDrop={(id) => onTireDrop(id, pos)} />
+              <div className="w-5 h-0.5 mt-1.5" style={{ background: "rgba(52,140,203,0.4)" }} />
             </div>
           ))}
         </div>
-
-        <div className="bg-[#0A183A] h-6 flex-grow rounded-full mx-2 flex items-center justify-center">
-          <div className="bg-[#1E76B6] h-2 w-10/12 rounded-full" />
+        <div className="h-5 flex-grow mx-2 rounded-full flex items-center justify-center" style={{ background: "#0A183A", minWidth: 60 }}>
+          <div className="h-1.5 w-10/12 rounded-full" style={{ background: "#1E76B6" }} />
         </div>
-
-        <div className="flex items-center">
-          {rightTires.map(pos => (
-            <div key={pos} className="m-1 flex flex-col items-center">
-              <TirePosition
-                position={pos}
-                tire={tireMap[pos] || null}
-                onDrop={(tireId) => onTireDrop(tireId, pos)}
-                t={t}
-              />
-              <div className="w-6 h-1 bg-[#348CCB] mt-2" />
+        <div className="flex items-center gap-0.5">
+          {right.map((pos) => (
+            <div key={pos} className="flex flex-col items-center">
+              <TireSlot position={pos} tire={tireMap[pos] ?? null} onDrop={(id) => onTireDrop(id, pos)} />
+              <div className="w-5 h-0.5 mt-1.5" style={{ background: "rgba(52,140,203,0.4)" }} />
             </div>
           ))}
         </div>
-
-        <div className="h-4 w-3 bg-[#0A183A] rounded-r-lg" />
+        <div className="h-3 w-2.5 rounded-r-md" style={{ background: "#0A183A" }} />
       </div>
     </div>
   );
-};
+}
 
-const VehicleVisualization: React.FC<{
+// =============================================================================
+// Vehicle visualization
+// =============================================================================
+
+function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange }: {
   tires: Tire[];
   onTireDrop: (tireId: string, position: string) => void;
-  t: Translation;
   fixedLayout: string[][] | null;
   onLayoutChange: (layout: string[][]) => void;
-}> = ({ tires, onTireDrop, t, fixedLayout, onLayoutChange }) => {
-
+}) {
   const computedLayout = React.useMemo(() => {
-    const activeTires = tires.filter(t => t.position && t.position !== "0");
-
-    if (activeTires.length === 0) return [["1", "2"]];
-
-    const maxPos = Math.max(...activeTires.map(t => parseInt(t.position!)));
-    const total = maxPos;
-
+    const active = tires.filter((t) => t.position && t.position !== "0");
+    if (active.length === 0) return [["1", "2"]];
+    const maxPos = Math.max(...active.map((t) => parseInt(t.position!)));
     let axleSizes: number[];
-    if (total <= 2) axleSizes = [total];
-    else if (total <= 4) axleSizes = [2, total - 2];
-    else if (total <= 6) axleSizes = [2, 2, total - 4];
-    else if (total <= 8) {
-      const rear = total - 2;
-      axleSizes = [2, Math.floor(rear / 2), rear - Math.floor(rear / 2)];
-    } else if (total <= 10) axleSizes = [2, 4, total - 6];
-    else axleSizes = [4, 4, 4];
-
+    if      (maxPos <= 2)  axleSizes = [2];
+    else if (maxPos <= 4)  axleSizes = [2, maxPos - 2];
+    else if (maxPos <= 6)  axleSizes = [2, 2, maxPos - 4];
+    else if (maxPos <= 8)  axleSizes = [2, Math.floor((maxPos - 2) / 2), maxPos - 2 - Math.floor((maxPos - 2) / 2)];
+    else if (maxPos <= 10) axleSizes = [2, 4, maxPos - 6];
+    else                   axleSizes = [4, 4, 4];
     axleSizes = axleSizes.slice(0, 3);
-
-    const layout: string[][] = [];
     let counter = 1;
-    for (const size of axleSizes) {
-      const axle: string[] = [];
-      for (let j = 0; j < size; j++) axle.push(counter.toString());
-      counter += size;
-      layout.push(axle);
-    }
-    return layout;
+    return axleSizes.map((size) => { const a = Array.from({ length: size }, (_, j) => (counter + j).toString()); counter += size; return a; });
   }, [tires]);
 
-  // On first compute, lock the layout
-  const layout = React.useMemo(() => {
-    if (fixedLayout) return fixedLayout;
-    return computedLayout;
-  }, [fixedLayout, computedLayout]);
+  const layout = React.useMemo(() => fixedLayout ?? computedLayout, [fixedLayout, computedLayout]);
 
-  // Lock it once computed (first time tires load)
   React.useEffect(() => {
-  if (!fixedLayout && computedLayout.length > 0) {
-    onLayoutChange(computedLayout);
-  }
-}, [computedLayout, fixedLayout, onLayoutChange]);
+    if (!fixedLayout && computedLayout.length > 0) onLayoutChange(computedLayout);
+  }, [computedLayout, fixedLayout, onLayoutChange]);
+
+  const layoutWithPositions = React.useMemo(() => {
+    let counter = 1;
+    return layout.map((axle) => { const p = axle.map((_, i) => (counter + i).toString()); counter += axle.length; return p; });
+  }, [layout]);
 
   const tireMap = React.useMemo(() => {
     const map: Record<string, Tire> = {};
-    tires.forEach(t => {
-      if (t.position && t.position !== "0") map[t.position] = t;
-    });
+    tires.forEach((t) => { if (t.position && t.position !== "0") map[t.position] = t; });
     return map;
   }, [tires]);
 
-  // Recalculate position numbers from layout
-  const layoutWithPositions = React.useMemo(() => {
-    let counter = 1;
-    return layout.map(axle => {
-      const positions = axle.map((_, i) => (counter + i).toString());
-      counter += axle.length;
-      return positions;
-    });
-  }, [layout]);
-
   const addAxle = () => {
     if (layout.length >= 3) return;
-    const lastPos = layoutWithPositions.flat();
-    const nextStart = lastPos.length > 0 ? parseInt(lastPos[lastPos.length - 1]) + 1 : 1;
-    const newAxle = [nextStart.toString(), (nextStart + 1).toString()];
-    onLayoutChange([...layout, newAxle]);
+    const last = layoutWithPositions.flat();
+    const nextStart = last.length > 0 ? parseInt(last[last.length - 1]) + 1 : 1;
+    onLayoutChange([...layout, [nextStart.toString(), (nextStart + 1).toString()]]);
   };
 
-  const removeAxle = (axleIdx: number) => {
+  const removeAxle = (idx: number) => {
     if (layout.length <= 1) return;
-    const newLayout = layout.filter((_, i) => i !== axleIdx);
-    onLayoutChange(newLayout);
+    onLayoutChange(layout.filter((_, i) => i !== idx));
   };
 
   const toggleDual = (axleIdx: number) => {
-    const newLayout = layout.map((axle, i) => {
-      if (i !== axleIdx) return axle;
-      // Toggle between 2 tires (single) and 4 tires (dual)
-      if (axle.length === 2) return [...axle, ...axle]; // will be recalculated anyway
-      return axle.slice(0, 2);
-    });
-    // Rebuild with correct position numbers
+    const newLayout = layout.map((axle, i) => i !== axleIdx ? axle : axle.length === 2 ? [...axle, ...axle] : axle.slice(0, 2));
     let counter = 1;
-    const rebuilt = newLayout.map(axle => {
-      const positions = axle.map((_, j) => (counter + j).toString());
-      counter += axle.length;
-      return positions;
-    });
+    const rebuilt = newLayout.map((axle) => { const p = axle.map((_, j) => (counter + j).toString()); counter += axle.length; return p; });
     onLayoutChange(rebuilt);
   };
 
   return (
-    <div className="bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 p-6 rounded-lg border-l-4 border-[#1E76B6] mb-6 shadow-sm">
-      <h3 className="text-lg font-semibold mb-1 text-[#0A183A]">
-        {t.tireConfig} ({layout.length} eje{layout.length > 1 ? 's' : ''})
-      </h3>
-      {tires.filter(t => t.position && t.position !== "0").length === 0 && (
-        <p className="text-sm text-[#1E76B6] mb-4 italic">
-          Diagrama por defecto — arrastra llantas a las posiciones para asignarlas.
-        </p>
-      )}
-      <div className="flex flex-col gap-8">
+    <Card>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2 rounded-xl" style={{ background: "rgba(30,118,182,0.10)" }}>
+          <Truck className="w-4 h-4 text-[#1E76B6]" />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-[#0A183A] leading-none">Configuración — {layout.length} eje{layout.length > 1 ? "s" : ""}</p>
+          <p className="text-xs text-[#348CCB] mt-0.5">Arrastra llantas a las posiciones para asignarlas</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-8 items-center">
         {layoutWithPositions.map((positions, idx) => (
-          <div key={idx} className="relative">
-            <VehicleAxis
-              axleIdx={idx}
-              positions={positions}
-              tireMap={tireMap}
-              onTireDrop={onTireDrop}
-              t={t}
-            />
-            {/* Per-axle controls */}
-            <div className="flex items-center justify-center gap-2 mt-2">
+          <div key={idx} className="w-full flex flex-col items-center gap-2">
+            <VehicleAxle axleIdx={idx} positions={positions} tireMap={tireMap} onTireDrop={onTireDrop} />
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => toggleDual(idx)}
-                className="text-xs px-2 py-1 rounded bg-[#1E76B6]/10 text-[#1E76B6] hover:bg-[#1E76B6]/20 transition-colors"
-                title={positions.length === 2 ? "Cambiar a doble llanta" : "Cambiar a llanta simple"}
+                className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:opacity-80"
+                style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
               >
                 {positions.length === 2 ? "→ Doble" : "→ Simple"}
               </button>
               {layout.length > 1 && (
                 <button
                   onClick={() => removeAxle(idx)}
-                  className="text-xs px-2 py-1 rounded bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                  className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:opacity-80"
+                  style={{ background: "rgba(10,24,58,0.06)", color: "#173D68" }}
                 >
                   Quitar eje
                 </button>
@@ -635,604 +500,445 @@ const VehicleVisualization: React.FC<{
         ))}
       </div>
 
-      {/* Add axle button */}
       {layout.length < 3 && (
         <button
           onClick={addAxle}
-          className="mt-6 w-full py-2 border-2 border-dashed border-[#1E76B6]/40 rounded-lg text-[#1E76B6] text-sm font-medium hover:bg-[#1E76B6]/5 transition-colors flex items-center justify-center gap-2"
+          className="mt-6 w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-80"
+          style={{ border: "2px dashed rgba(52,140,203,0.35)", color: "#1E76B6", background: "transparent" }}
         >
-          + Agregar Eje
+          <Plus className="w-4 h-4" /> Agregar Eje
         </button>
       )}
-    </div>
+    </Card>
   );
-};
+}
 
-const StatusMessage: React.FC<{ message: string; type: 'success' | 'error' }> = ({ message, type }) => (
-  <div className={`mb-6 p-4 rounded-lg flex items-start border-l-4 ${
-    type === 'success'
-      ? 'bg-blue-50 border-blue-500 text-blue-700'
-      : 'bg-red-50 border-red-500 text-red-700'
-  }`}>
-    {type === 'error' && <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />}
-    <div className="flex-grow">{message}</div>
-  </div>
-);
+// =============================================================================
+// Export modal
+// =============================================================================
 
-const ExportModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onExport: () => void;
-  changes: TireChange[];
-  vehicle: Vehicle | null;
-  t: Translation;
-}> = ({ isOpen, onClose, onExport, changes, vehicle, t }) => {
+function ExportModal({ isOpen, onClose, onExport, changes, vehicle }: {
+  isOpen: boolean; onClose: () => void; onExport: () => void;
+  changes: TireChange[]; vehicle: Vehicle | null;
+}) {
   if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold">{t.exportChanges}</h3>
-          <button onClick={onClose}><X /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+        <div className="px-6 py-4 flex justify-between items-center" style={{ background: "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)" }}>
+          <div className="flex items-center gap-2">
+            <Download className="w-4 h-4 text-white" />
+            <h3 className="font-semibold text-white text-sm tracking-wide uppercase">Exportar Cambios</h3>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
         </div>
-        <p className="mb-4">
-          {changes.length} {t.changesFor} <strong>{vehicle?.placa}</strong>
-        </p>
-        <div className="max-h-48 overflow-y-auto mb-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th className="text-left">{t.tire}</th>
-                <th className="text-left">{t.orig}</th>
-                <th className="text-left">{t.new}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {changes.map((c, i) => (
-                <tr key={i} className="border-t">
-                  <td>{c.marca}</td>
-                  <td>{c.originalPosition === "0" ? t.inventory : c.originalPosition || "—"}</td>
-                  <td>{c.newPosition === "0" ? t.inventory : c.newPosition || "—"}</td>
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-[#173D68]">
+            <span className="font-bold">{changes.length}</span> cambio(s) para{" "}
+            <span className="font-black tracking-widest" style={{ fontFamily: "'DM Mono', monospace" }}>{vehicle?.placa.toUpperCase()}</span>
+          </p>
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.18)" }}>
+            <table className="w-full text-xs">
+              <thead>
+                <tr style={{ background: "rgba(10,24,58,0.04)" }}>
+                  <th className="text-left px-3 py-2 font-bold text-[#173D68]">Llanta</th>
+                  <th className="text-left px-3 py-2 font-bold text-[#173D68]">Orig.</th>
+                  <th className="text-left px-3 py-2 font-bold text-[#173D68]">Nueva</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded">
-            {t.noExport}
-          </button>
-          <button
-            onClick={onExport}
-            className="px-4 py-2 bg-blue-600 text-white rounded flex items-center gap-1"
-          >
-            <Download /> {t.exportPDF}
-          </button>
+              </thead>
+              <tbody>
+                {changes.map((c, i) => (
+                  <tr key={i} style={{ borderTop: "1px solid rgba(52,140,203,0.1)" }}>
+                    <td className="px-3 py-2 font-semibold text-[#0A183A]">{c.marca}</td>
+                    <td className="px-3 py-2 text-[#348CCB]">{c.originalPosition === "0" ? "Inventario" : c.originalPosition ?? "—"}</td>
+                    <td className="px-3 py-2 text-[#0A183A] font-medium">{c.newPosition === "0" ? "Inventario" : c.newPosition ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 border border-[#348CCB]/30 px-4 py-2.5 rounded-xl text-sm text-[#1E76B6] font-medium hover:bg-[#F0F7FF] transition-colors">
+              No exportar
+            </button>
+            <button onClick={onExport} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+              <Download className="w-4 h-4" /> Exportar PDF
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
-};
+}
 
-// Company Inventory Modal — receives onClose and the tire list only; dragging works via DnD context
-const CompanyInventoryModal: React.FC<{
-  tires: Tire[];
-  onClose: () => void;
-}> = ({ tires, onClose }) => {
+// =============================================================================
+// Company inventory modal
+// =============================================================================
+
+function CompanyInventoryModal({ tires, onClose }: { tires: Tire[]; onClose: () => void }) {
   const [search, setSearch] = useState("");
-  const filtered = tires.filter(t =>
-    t.marca.toLowerCase().includes(search.toLowerCase()) ||
-    t.diseno.toLowerCase().includes(search.toLowerCase())
+  const filtered = tires.filter((t) =>
+    t.marca.toLowerCase().includes(search.toLowerCase()) || t.diseno.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-[#0A183A]">
-            Inventario de Llantas ({tires.length})
-          </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800">
-            <X />
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+        <div className="px-6 py-4 flex justify-between items-center" style={{ background: "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)" }}>
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4 text-white" />
+            <h3 className="font-semibold text-white text-sm tracking-wide uppercase">Inventario ({tires.length})</h3>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
         </div>
-        <input
-          type="text"
-          placeholder="Filtrar por marca o referencia..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full mb-4 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-        />
-        <div className="flex flex-wrap gap-3 max-h-96 overflow-y-auto">
-          {filtered.map(tire => (
-            <CompanyInventoryTire key={tire.id} tire={tire} />
-          ))}
-          {filtered.length === 0 && (
-            <p className="text-gray-400 italic">No se encontraron llantas.</p>
-          )}
+        <div className="p-5">
+          <input type="text" placeholder="Filtrar por marca o referencia..." value={search} onChange={(e) => setSearch(e.target.value)} className={`${inputCls} mb-4`} />
+          <div className="flex flex-wrap gap-3 max-h-80 overflow-y-auto">
+            {filtered.map((tire) => <InventoryTile key={tire.id} tire={tire} />)}
+            {filtered.length === 0 && <p className="text-[#348CCB] text-sm italic">No se encontraron llantas.</p>}
+          </div>
+          <p className="text-xs text-[#348CCB] mt-4">Arrastra una llanta al diagrama del vehículo para asignarla.</p>
         </div>
-        <p className="text-xs text-gray-400 mt-4">
-          Arrastra una llanta al diagrama del vehículo para asignarla.
-        </p>
       </div>
     </div>
   );
-};
+}
 
-// Main Component
-const Posicion = () => {
-  const [language] = useState<'es'>('es');
-  const [placa, setPlaca] = useState("");
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [allTires, setAllTires] = useState<Tire[]>([]);
-  const [originalState, setOriginalState] = useState<Record<string, string | null>>({});
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [tireChanges, setTireChanges] = useState<TireChange[]>([]);
-  const [pdfGenerator, setPdfGenerator] = useState<{ generatePDF: () => void } | null>(null);
+// =============================================================================
+// Page
+// =============================================================================
 
-  // Company inventory state — lives here so handleVehicleDrop can access it
-  const [companyInventory, setCompanyInventory] = useState<Tire[]>([]);
+export default function PosicionPage() {
+  const [placa,              setPlaca]              = useState("");
+  const [vehicle,            setVehicle]            = useState<Vehicle | null>(null);
+  const [allTires,           setAllTires]           = useState<Tire[]>([]);
+  const [originalState,      setOriginalState]      = useState<Record<string, string | null>>({});
+  const [companyInventory,   setCompanyInventory]   = useState<Tire[]>([]);
+  const [fixedLayout,        setFixedLayout]        = useState<string[][] | null>(null);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
-const [fixedLayout, setFixedLayout] = useState<string[][] | null>(null);
-  const { loading, error, success, setSuccess, apiCall } = useApiCall();
+  const [isExportOpen,       setIsExportOpen]       = useState(false);
+  const [tireChanges,        setTireChanges]        = useState<TireChange[]>([]);
+  const [pdfGenerator,       setPdfGenerator]       = useState<{ generatePDF: () => void } | null>(null);
+  const [loading,            setLoading]            = useState(false);
+  const [error,              setError]              = useState("");
+  const [success,            setSuccess]            = useState("");
 
-  const t = translations[language];
+  const assignedTires  = allTires.filter((t) => t.position && t.position !== "0");
+  const availableTires = allTires.filter((t) => !t.position || t.position === "0");
+  const hasChanges =
+    allTires.some((t) => (t.position ?? null) !== originalState[t.id]) ||
+    Object.keys(originalState).some((id) => !allTires.find((t) => t.id === id)) ||
+    allTires.some((t) => originalState[t.id] === undefined && t.position);
 
-  // Computed states
-  const assignedTires = allTires.filter(t => t.position && t.position !== "0");
-  const availableTires = allTires.filter(t => !t.position);
-  const hasChanges = (() => {
-    // Changed if any tire moved position
-    const positionChanged = allTires.some(t => (t.position || null) !== originalState[t.id]);
-    // Changed if any tire was removed from allTires (unassigned)
-    const tireRemoved = Object.keys(originalState).some(id => !allTires.find(t => t.id === id));
-    // Changed if any tire was added from company inventory
-    const tireAdded = allTires.some(t => originalState[t.id] === null && t.position);
-    return positionChanged || tireRemoved || tireAdded;
-  })();
-
-  // Fetch company inventory on mount — reads user object from localStorage same as dashboard
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem("user");
-      if (!storedUser) return;
-      const user = JSON.parse(storedUser);
-      const companyId = user?.companyId;
-      if (!companyId) {
-        console.warn("No companyId found in user object");
-        return;
-      }
-      fetchInventoryTires(companyId)
-        .then(setCompanyInventory)
-        .catch(console.error);
-    } catch (e) {
-      console.error("Error reading user from localStorage", e);
-    }
+      const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+      if (user?.companyId) fetchInventoryTires(user.companyId).then(setCompanyInventory);
+    } catch { /* ignore */ }
   }, []);
 
-  // PDF generator
-  React.useEffect(() => {
-    if (vehicle && allTires.length > 0) {
-      const croquisPdf = CroquisPdf({
-        vehicle,
-        changes: calculateChanges(),
-        allTires
-      });
-      setPdfGenerator(croquisPdf);
-    }
+  function calculateChanges(): TireChange[] {
+    return allTires
+      .map((t) => ({ id: t.id, marca: t.marca, originalPosition: originalState[t.id] ?? null, newPosition: t.position ?? null }))
+      .filter((c) => c.originalPosition !== c.newPosition);
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (vehicle && allTires.length > 0) setPdfGenerator(CroquisPdf({ vehicle, changes: calculateChanges(), allTires }));
   }, [vehicle, allTires, originalState]);
 
-  const calculateChanges = (): TireChange[] => {
-    return allTires
-      .map(t => ({
-        id: t.id,
-        marca: t.marca,
-        originalPosition: originalState[t.id] || null,
-        newPosition: t.position || null,
-      }))
-      .filter(c => c.originalPosition !== c.newPosition);
-  };
-
-  const handleSearch = async () => {
+  async function handleSearch() {
     if (!placa.trim()) return;
+    setError(""); setSuccess(""); setVehicle(null); setAllTires([]); setOriginalState({}); setFixedLayout(null);
+    setLoading(true);
+    try {
+      const vRes = await fetch(`${API_BASE}/vehicles/placa?placa=${encodeURIComponent(placa.trim().toLowerCase())}`, { headers: authHeaders() });
+      if (!vRes.ok) throw new Error("Vehículo no encontrado");
+      const vData: Vehicle = await vRes.json();
+      setVehicle(vData);
 
-    await apiCall(async () => {
-      const vehicleResponse = await fetch(`${API_BASE}/vehicles/placa?placa=${placa.toLowerCase()}`, {
-        headers: getAuthHeaders()
-      });
-      const vehicleData = await vehicleResponse.json();
-
-      if (!vehicleData) throw new Error(t.noVehicleFound);
-
-      setVehicle(vehicleData);
-
-      const tiresResponse = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicleData.id}`, {
-        headers: getAuthHeaders()
-      });
-      const tiresRaw = await tiresResponse.json();
-      const tiresData = Array.isArray(tiresRaw) ? tiresRaw : [];
-
-      if (!tiresData.length) {
-        setAllTires([]);
-        setOriginalState({});
-        return;
-      }
-
-      const processedTires = tiresData.map((tire: Tire) => ({
-        ...tire,
-        position: tire.posicion === 0 ? "0" : tire.posicion ? tire.posicion.toString() : null
+      const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${vData.id}`, { headers: authHeaders() });
+      if (!tRes.ok) throw new Error("Error al obtener las llantas");
+      const raw = await tRes.json();
+      const tiresData: Tire[] = (Array.isArray(raw) ? raw : []).map((t: Tire) => ({
+        ...t,
+        position: t.posicion === 0 ? "0" : t.posicion ? t.posicion.toString() : null,
       }));
 
-      const originalStateMap: Record<string, string | null> = {};
-      processedTires.forEach((tire: Tire) => {
-        originalStateMap[tire.id] = tire.position || null;
-      });
+      const initState: Record<string, string | null> = {};
+      tiresData.forEach((t) => { initState[t.id] = t.position ?? null; });
+      setAllTires(tiresData);
+      setOriginalState(initState);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-      setFixedLayout(null);
-      setAllTires(processedTires);
-      setOriginalState(originalStateMap);
-    });
-  };
-
-  // Move a tire that's already in allTires
-  const moveTire = (tireId: string, newPosition: string) => {
-    setAllTires(prevTires => {
-      const updatedTires = [...prevTires];
-      const tireIndex = updatedTires.findIndex(t => t.id === tireId);
-
-      if (tireIndex === -1) return prevTires;
-
+  const moveTire = useCallback((tireId: string, newPosition: string) => {
+    setAllTires((prev) => {
+      const updated = [...prev];
+      const idx = updated.findIndex((t) => t.id === tireId);
+      if (idx === -1) return prev;
       if (newPosition !== "none" && newPosition !== "0") {
-        const existingTireIndex = updatedTires.findIndex(t => t.position === newPosition);
-        if (existingTireIndex !== -1) {
-          updatedTires[existingTireIndex] = { ...updatedTires[existingTireIndex], position: null, posicion: null };
-        }
+        const existIdx = updated.findIndex((t) => t.position === newPosition);
+        if (existIdx !== -1) updated[existIdx] = { ...updated[existIdx], position: null, posicion: null };
       }
-
-      if (newPosition === "none") {
-        updatedTires[tireIndex] = { ...updatedTires[tireIndex], position: null, posicion: null };
-      } else if (newPosition === "0") {
-        updatedTires[tireIndex] = { ...updatedTires[tireIndex], position: "0", posicion: 0 };
-      } else {
-        updatedTires[tireIndex] = { ...updatedTires[tireIndex], position: newPosition, posicion: parseInt(newPosition) };
-      }
-
-      return updatedTires;
+      if (newPosition === "none")     updated[idx] = { ...updated[idx], position: null,         posicion: null };
+      else if (newPosition === "0")   updated[idx] = { ...updated[idx], position: "0",          posicion: 0 };
+      else                            updated[idx] = { ...updated[idx], position: newPosition,  posicion: parseInt(newPosition) };
+      return updated;
     });
-  };
+  }, []);
 
-  // Unified drop handler — handles both vehicle-owned tires and company inventory tires
-  const handleDrop = (tireId: string, newPosition: string) => {
-    const isCompanyTire = companyInventory.find(t => t.id === tireId);
+  const handleDrop = useCallback((tireId: string, newPosition: string) => {
+    const invTire = companyInventory.find((t) => t.id === tireId);
 
     if (newPosition === "none") {
-      // Tire is being unassigned — remove from allTires and return to company inventory
-      const tire = allTires.find(t => t.id === tireId) || isCompanyTire;
+      const tire = allTires.find((t) => t.id === tireId) ?? invTire;
       if (tire) {
-        setAllTires(prev => prev.filter(t => t.id !== tireId));
-        setCompanyInventory(prev => {
-          // Avoid duplicates if it was already there
-          if (prev.find(t => t.id === tireId)) return prev;
+        setAllTires((prev) => prev.filter((t) => t.id !== tireId));
+        setCompanyInventory((prev) => {
+          if (prev.find((t) => t.id === tireId)) return prev;
           return [...prev, { ...tire, position: null, posicion: null, vehicleId: null }];
-        });
-        // Track this as a change: original had a position, now it's gone
-        setOriginalState(prev => {
-          if (prev[tireId] === undefined) return prev; // was a company tire all along, no change needed
-          return { ...prev };
         });
       }
       return;
     }
 
-    if (isCompanyTire) {
-      // Move tire from company inventory into this vehicle's tire list
+    if (invTire) {
       const posicion = newPosition === "0" ? 0 : parseInt(newPosition);
-      const position = newPosition;
-
-      setAllTires(prev => {
-        // If a tire already occupies the target position, bump it back to company inventory
-        const bumped = prev.find(t => t.position === newPosition && newPosition !== "0");
-        const updated = prev.map(t =>
-          t.position === newPosition && newPosition !== "0"
-            ? { ...t, position: null, posicion: null }
-            : t
-        );
+      setAllTires((prev) => {
+        const bumped  = prev.find((t) => t.position === newPosition && newPosition !== "0");
+        const updated = prev.map((t) => t.position === newPosition && newPosition !== "0" ? { ...t, position: null, posicion: null } : t);
         if (bumped) {
-          setCompanyInventory(ci => {
-            if (ci.find(t => t.id === bumped.id)) return ci;
+          setCompanyInventory((ci) => {
+            if (ci.find((t) => t.id === bumped.id)) return ci;
             return [...ci, { ...bumped, position: null, posicion: null, vehicleId: null }];
           });
         }
-        return [...updated, { ...isCompanyTire, position, posicion }];
+        return [...updated, { ...invTire, position: newPosition, posicion }];
       });
-
-      setCompanyInventory(prev => prev.filter(t => t.id !== tireId));
-      setOriginalState(prev => ({ ...prev, [tireId]: null }));
+      setCompanyInventory((prev) => prev.filter((t) => t.id !== tireId));
+      setOriginalState((prev) => ({ ...prev, [tireId]: null }));
     } else {
       moveTire(tireId, newPosition);
     }
-  };
+  }, [allTires, companyInventory, moveTire]);
 
-  const handleUpdatePositions = async () => {
-    await apiCall(async () => {
-      if (!vehicle) throw new Error(t.updateError);
-
-      // Tires that were originally part of this vehicle but are no longer in allTires
-      // (they were dragged to the unassign zone) — we need to clear their vehicleId on backend
-      const originalTireIds = Object.keys(originalState);
-      const currentTireIds = new Set(allTires.map(t => t.id));
-      const unassignedTireIds = originalTireIds.filter(
-        id => originalState[id] !== undefined && !currentTireIds.has(id)
-      );
-
-      // Step 1: Unassign removed tires from vehicle on backend
-      if (unassignedTireIds.length > 0) {
-        const unassignResponse = await fetch(`${API_BASE}/tires/unassign-vehicle`, {
-          method: 'POST',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tireIds: unassignedTireIds })
-        });
-        if (!unassignResponse.ok) {
-          const errData = await unassignResponse.json().catch(() => ({}));
-          console.warn("unassign-vehicle failed:", errData);
-        }
+  async function handleSave() {
+    if (!vehicle) return;
+    setLoading(true); setError(""); setSuccess("");
+    try {
+      const removedIds = Object.keys(originalState).filter((id) => !allTires.find((t) => t.id === id));
+      if (removedIds.length > 0) {
+        await fetch(`${API_BASE}/tires/unassign-vehicle`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ tireIds: removedIds }) });
       }
 
-      // Step 2: Assign any new tires (from company inventory) to this vehicle
-      const externalTires = allTires.filter(
-        tire => !tire.vehicleId || tire.vehicleId !== vehicle.id
-      );
-
-      if (externalTires.length > 0) {
-        const assignResponse = await fetch(`${API_BASE}/tires/assign-vehicle`, {
-          method: 'POST',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-          vehiclePlaca: placa.toLowerCase(),
-          tireIds: externalTires.map(t => t.id)
-        })
+      const external = allTires.filter((t) => !t.vehicleId || t.vehicleId !== vehicle.id);
+      if (external.length > 0) {
+        const aRes = await fetch(`${API_BASE}/tires/assign-vehicle`, {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({ vehiclePlaca: placa.trim().toLowerCase(), tireIds: external.map((t) => t.id) }),
         });
-        if (!assignResponse.ok) {
-          const errData = await assignResponse.json().catch(() => ({}));
-          console.warn("assign-vehicle failed:", errData);
-        } else {
-          setAllTires(prev =>
-            prev.map(tire =>
-              externalTires.find(e => e.id === tire.id)
-                ? { ...tire, vehicleId: vehicle.id }
-                : tire
-            )
-          );
-        }
+        if (aRes.ok) setAllTires((prev) => prev.map((t) => external.find((e) => e.id === t.id) ? { ...t, vehicleId: vehicle.id } : t));
       }
 
-      // Step 3: Build updates map — only assigned tires with a real position
       const updates: Record<string, string> = {};
-      allTires.filter(t => t.position && t.position !== "0").forEach(tire => {
-        if (tire.position) updates[tire.position] = tire.id;
+      allTires.filter((t) => t.position && t.position !== "0").forEach((t) => { if (t.position) updates[t.position] = t.id; });
+
+      const res = await fetch(`${API_BASE}/tires/update-positions`, {
+        method: "POST", headers: authHeaders(),
+        body: JSON.stringify({ placa: placa.trim().toLowerCase(), updates }),
       });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.message ?? "Error al actualizar posiciones"); }
 
-      const response = await fetch(`${API_BASE}/tires/update-positions`, {
-        method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ placa: placa.toLowerCase(), updates })
-      });
-
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}));
-        throw new Error(errBody?.message || t.updateError);
-      }
-
-      const updatedOriginalState: Record<string, string | null> = {};
-      allTires.forEach(tire => {
-        updatedOriginalState[tire.id] = tire.position || null;
-      });
-
-      setOriginalState(updatedOriginalState);
-      setSuccess(t.positionsUpdated);
+      const newOriginal: Record<string, string | null> = {};
+      allTires.forEach((t) => { newOriginal[t.id] = t.position ?? null; });
+      setOriginalState(newOriginal);
 
       const changes = calculateChanges();
       setTireChanges(changes);
-      setIsExportModalOpen(true);
-    });
-  };
-
-  const generateFancyPDF = () => {
-    if (pdfGenerator) {
-      pdfGenerator.generatePDF();
-      setIsExportModalOpen(false);
-    } else {
-      console.error('PDF generator not initialized');
+      setSuccess("Posiciones actualizadas exitosamente");
+      setIsExportOpen(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen bg-white">
-        <main className="max-w-7xl mx-auto p-4 md:p-6">
-          {success && <StatusMessage message={success} type="success" />}
-          {error && <StatusMessage message={error} type="error" />}
+      <div className="min-h-screen" style={{ background: "#ffffff" }}>
+
+        {/* Top bar */}
+        <div
+          className="sticky top-0 z-40 px-6 py-4 flex items-center gap-3"
+          style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}
+        >
+          <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+            <Truck className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Asignar Posiciones</h1>
+            <p className="text-xs text-[#348CCB] mt-0.5">Gestione la ubicación de cada llanta en el vehículo</p>
+          </div>
+        </div>
+
+        <div className="px-4 py-8 max-w-5xl mx-auto space-y-4">
+
+          {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
+          {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
 
           {/* Search */}
-          <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
-            <h2 className="text-xl font-semibold text-[#0A183A] mb-4">{t.searchVehicle}</h2>
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={t.enterPlate}
-                  value={placa}
-                  onChange={(e) => setPlaca(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6] focus:border-transparent transition-all"
-                />
+          <Card>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl" style={{ background: "rgba(30,118,182,0.10)" }}>
+                <Search className="w-4 h-4 text-[#1E76B6]" />
               </div>
+              <div>
+                <p className="text-sm font-bold text-[#0A183A] leading-none">Buscar Vehículo</p>
+                <p className="text-xs text-[#348CCB] mt-0.5">Ingrese la placa para cargar sus neumáticos</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={placa}
+                onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="Ej: ABC123"
+                className={`${inputCls} flex-1`}
+                style={{ textTransform: "uppercase" }}
+              />
               <button
                 onClick={handleSearch}
                 disabled={loading}
-                className="px-6 py-3 bg-[#1E76B6] text-white rounded-lg hover:bg-[#348CCB] transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-sm"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
               >
-                {loading ? (
-                  <>
-                    <Clock className="animate-spin h-5 w-5" />
-                    <span>{t.searching}</span>
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-5 w-5" />
-                    <span>{t.search}</span>
-                  </>
-                )}
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Buscando…</> : <><Search className="w-4 h-4" /> Buscar</>}
               </button>
             </div>
-          </div>
+          </Card>
 
-          {/* Vehicle Info */}
+          {/* Vehicle banner */}
           {vehicle && (
-            <div className="mb-6 p-4 md:p-6 bg-gradient-to-r from-[#173D68]/10 to-[#348CCB]/10 rounded-lg border-l-4 border-[#1E76B6] shadow-sm">
-              <h2 className="text-xl font-bold mb-2 text-[#0A183A]">{t.vehicleData}</h2>
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
-                <p className="flex items-center">
-                  <span className="font-semibold text-[#173D68] mr-2">{t.plate}</span>
-                  <span className="bg-[#1E76B6] text-white px-3 py-1 rounded-md">{vehicle.placa.toUpperCase()}</span>
-                </p>
-                {vehicle.tipovhc && (
-                  <p>
-                    <span className="font-semibold text-[#173D68] mr-2">{t.type}</span>
-                    {vehicle.tipovhc}
+            <div
+              className="rounded-2xl px-5 py-4 flex items-center justify-between flex-wrap gap-4"
+              style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.18)" }}
+            >
+              <div className="flex items-center gap-3">
+                <Truck className="w-5 h-5 text-[#173D68]" />
+                <div>
+                  <p className="font-black tracking-widest text-[#0A183A]" style={{ fontFamily: "'DM Mono', monospace", fontSize: "18px" }}>
+                    {vehicle.placa.toUpperCase()}
                   </p>
-                )}
-                <p>
-                  <span className="font-semibold text-[#173D68] mr-2">{t.totalTires}</span>
-                  {allTires.length}
-                </p>
-                <p>
-                  <span className="font-semibold text-[#173D68] mr-2">{t.assigned}</span>
-                  {assignedTires.length}
-                </p>
+                  {vehicle.tipovhc && <p className="text-xs text-[#348CCB] mt-0.5">{vehicle.tipovhc}</p>}
+                </div>
+              </div>
+              <div className="flex gap-6">
+                {[["Total", allTires.length], ["Asignadas", assignedTires.length], ["Sin asignar", availableTires.length]].map(([label, val]) => (
+                  <div key={label as string} className="text-center">
+                    <p className="text-[10px] font-bold text-[#348CCB] uppercase tracking-wider">{label}</p>
+                    <p className="text-xl font-black text-[#0A183A]">{val}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Available Tires (currently unassigned from this vehicle) */}
+          {/* Available tires */}
           {availableTires.length > 0 && (
-            <TiresTray tires={availableTires} title={t.availableTires} t={t} />
+            <Card>
+              <SectionLabel count={availableTires.length}>Llantas Disponibles</SectionLabel>
+              <div className="flex flex-wrap gap-3">
+                {availableTires.map((t) => <DraggableTire key={t.id} tire={t} variant="available" />)}
+              </div>
+            </Card>
           )}
 
-          {/* Company Inventory Tray */}
+          {/* Company inventory */}
           {companyInventory.length > 0 && (
-            <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 border-l-4 border-emerald-500 rounded-lg p-4 mb-6 shadow-sm">
+            <Card>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-emerald-800 flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Inventario de la Empresa
-                  <span className="text-sm font-normal text-emerald-600">({companyInventory.length})</span>
-                </h3>
+                <div className="flex items-center gap-2">
+                  <Package className="w-3.5 h-3.5 text-[#1E76B6]" />
+                  <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-[0.15em]">Inventario de la Empresa</p>
+                  <div className="w-10 h-px" style={{ background: "rgba(52,140,203,0.2)" }} />
+                  <span className="text-xs text-[#348CCB] font-medium">{companyInventory.length} disponibles</span>
+                </div>
                 {companyInventory.length > 8 && (
-                  <button
-                    onClick={() => setShowInventoryModal(true)}
-                    className="text-sm text-emerald-700 underline hover:text-emerald-900 transition-colors"
-                  >
-                    Ver todas
+                  <button onClick={() => setShowInventoryModal(true)} className="flex items-center gap-1 text-xs font-semibold text-[#1E76B6] hover:opacity-70 transition-opacity">
+                    <Eye className="w-3.5 h-3.5" /> Ver todas
                   </button>
                 )}
               </div>
               <div className="flex flex-wrap gap-3">
-                {companyInventory.slice(0, 8).map(tire => (
-                  <CompanyInventoryTire key={tire.id} tire={tire} />
-                ))}
+                {companyInventory.slice(0, 8).map((t) => <InventoryTile key={t.id} tire={t} />)}
                 {companyInventory.length > 8 && (
                   <button
                     onClick={() => setShowInventoryModal(true)}
-                    className="w-24 h-24 border-2 border-dashed border-emerald-400 rounded-xl text-emerald-600 text-xs font-medium hover:bg-emerald-100 transition-colors flex items-center justify-center"
+                    className="rounded-2xl text-xs font-semibold flex items-center justify-center transition-all hover:opacity-80"
+                    style={{ width: 90, height: 90, border: "2px dashed rgba(52,140,203,0.35)", color: "#1E76B6" }}
                   >
                     +{companyInventory.length - 8} más
                   </button>
                 )}
               </div>
-              <p className="text-xs text-emerald-600 mt-3">
-                Arrastra una llanta al diagrama del vehículo para asignarla.
-              </p>
-            </div>
+              <p className="text-xs text-[#348CCB] mt-3">Arrastra una llanta al diagrama del vehículo para asignarla.</p>
+            </Card>
           )}
 
-          {/* Vehicle Visualization — uses handleDrop so company tires can be dropped here */}
+          {/* Vehicle visualization */}
           {vehicle && (
-            <VehicleVisualization
-              tires={allTires}
-              onTireDrop={handleDrop}
-              t={t}
-              fixedLayout={fixedLayout}
-              onLayoutChange={setFixedLayout}
-            />
+            <VehicleVisualization tires={allTires} onTireDrop={handleDrop} fixedLayout={fixedLayout} onLayoutChange={setFixedLayout} />
           )}
 
-          {/* Unassign Zone */}
+          {/* Return to inventory zone */}
           {vehicle && (
             <DropZone
               onDrop={(tireId) => handleDrop(tireId, "none")}
-              className="p-6 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 min-h-[10rem] mb-6 hover:border-orange-400 hover:bg-orange-100 transition-colors"
+              className="rounded-2xl p-6 flex flex-col items-center justify-center gap-2 min-h-[100px]"
+              style={{ border: "2px dashed rgba(52,140,203,0.3)", background: "rgba(52,140,203,0.03)" }}
+              activeStyle={{ borderColor: "#1E76B6", background: "rgba(30,118,182,0.08)" }}
             >
-              <div className="text-center text-orange-600 flex flex-col items-center gap-2 pointer-events-none">
-                <Package className="h-8 w-8 text-orange-400" />
-                <div className="font-semibold text-base">Devolver al Inventario</div>
-                <div className="text-sm text-orange-500">Arrastra aquí una llanta para quitarla del vehículo</div>
-              </div>
+              <RotateCcw className="w-6 h-6 text-[#348CCB]/60 pointer-events-none" />
+              <p className="font-semibold text-sm text-[#1E76B6] pointer-events-none">Devolver al Inventario</p>
+              <p className="text-xs text-[#348CCB] pointer-events-none">Arrastra aquí una llanta para quitarla del vehículo</p>
             </DropZone>
           )}
 
-          {/* Action Buttons */}
+          {/* Action buttons */}
           {vehicle && (
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-3 pb-4">
               <button
-                onClick={handleUpdatePositions}
+                onClick={handleSave}
                 disabled={loading || !hasChanges}
-                className={`py-2 px-6 rounded-lg font-medium shadow-md focus:outline-none focus:ring-2 focus:ring-[#1E76B6] flex items-center justify-center gap-2 transition-colors duration-200 ${
-                  hasChanges
-                    ? "bg-[#0A183A] text-white hover:bg-[#173D68]"
-                    : "bg-gray-400 text-white cursor-not-allowed"
-                }`}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
               >
-                {loading ? (
-                  <>
-                    <Clock className="animate-spin h-5 w-5" />
-                    <span>{t.saving}</span>
-                  </>
-                ) : t.saveChanges}
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando…</> : <><Save className="w-4 h-4" /> Guardar Cambios</>}
               </button>
-
               {hasChanges && (
                 <button
                   onClick={handleSearch}
                   disabled={loading}
-                  className="bg-gray-200 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-300 transition-colors duration-200 shadow-md focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors"
                 >
-                  {t.cancelChanges}
+                  <RotateCcw className="w-4 h-4" /> Cancelar Cambios
                 </button>
               )}
             </div>
           )}
-        </main>
+        </div>
 
-        <ExportModal
-          isOpen={isExportModalOpen}
-          onClose={() => setIsExportModalOpen(false)}
-          onExport={generateFancyPDF}
-          changes={tireChanges}
-          vehicle={vehicle}
-          t={t}
-        />
-
-        {showInventoryModal && (
-          <CompanyInventoryModal
-            tires={companyInventory}
-            onClose={() => setShowInventoryModal(false)}
-          />
-        )}
+        <ExportModal isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} onExport={() => { pdfGenerator?.generatePDF(); setIsExportOpen(false); }} changes={tireChanges} vehicle={vehicle} />
+        {showInventoryModal && <CompanyInventoryModal tires={companyInventory} onClose={() => setShowInventoryModal(false)} />}
       </div>
     </DndProvider>
   );
-};
-
-export default Posicion;
+}

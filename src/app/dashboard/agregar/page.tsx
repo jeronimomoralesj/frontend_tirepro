@@ -99,7 +99,6 @@ export default function AgregarPage() {
             active={selectedOption === "crear"}
             onClick={() => setSelectedOption("crear")}
             title={t.createTitle}
-            description={t.createDesc}
             Icon={PlusCircle}
           />
           {/* Bulk Upload */}
@@ -107,7 +106,6 @@ export default function AgregarPage() {
             active={selectedOption === "cargamasiva"}
             onClick={() => setSelectedOption("cargamasiva")}
             title={t.bulkTitle}
-            description={t.bulkDesc}
             Icon={FilePlus}
           />
           {/* Inspection */}
@@ -115,7 +113,6 @@ export default function AgregarPage() {
             active={selectedOption === "inspeccion"}
             onClick={() => setSelectedOption("inspeccion")}
             title={t.inspectionTitle}
-            description={t.inspectionDesc}
             Icon={Search}
           />
         </div>
@@ -127,7 +124,6 @@ export default function AgregarPage() {
             active={selectedOption === "vida"}
             onClick={() => setSelectedOption("vida")}
             title="Vida"
-            description="Registre un cambio en reencauche o fin de vida."
             Icon={Recycle}
           />
           {/* Bulk Upload */}
@@ -135,7 +131,6 @@ export default function AgregarPage() {
             active={selectedOption === "rotacion"}
             onClick={() => setSelectedOption("rotacion")}
             title="Rotación"
-            description="Agregue un cambio de posición."
             Icon={SwitchCameraIcon}
           />
           {/* Inspection */}
@@ -143,7 +138,6 @@ export default function AgregarPage() {
             active={selectedOption === "evento"}
             onClick={() => setSelectedOption("evento")}
             title="Evento personalizado"
-            description="Registre un evento personalizado."
             Icon={Calendar1}
           />
         </div>
@@ -176,7 +170,6 @@ function Card({
   active,
   onClick,
   title,
-  description,
   Icon,
 }: {
   active: boolean;
@@ -201,27 +194,26 @@ function Card({
           ${active ? "bg-[#1E76B6]" : "bg-gray-200"}
         `}
       />
-      <div className="relative p-6">
+      <div className="relative p-5">
         <div
           className={`
-            w-12 h-12 rounded-full flex items-center justify-center mb-4
+            w-8 h-8 rounded-full flex items-center justify-center mb-2
             ${active ? "bg-[#1E76B6]" : "bg-[#0A183A]/10"}
           `}
         >
           <Icon
-            size={24}
+            size={20}
             className={active ? "text-white" : "text-[#173D68]"}
           />
         </div>
         <h3
           className={`
-            font-semibold text-lg mb-2
+            font-semibold text-m
             ${active ? "text-[#0A183A]" : "text-gray-700"}
           `}
         >
           {title}
         </h3>
-        <p className="text-sm text-gray-500">{description}</p>
       </div>
     </div>
   );

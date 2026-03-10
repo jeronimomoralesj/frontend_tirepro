@@ -7,907 +7,893 @@ import {
   Download,
   Filter,
   ChevronDown,
+  BarChart3,
+  Loader2,
+  AlertCircle,
+  X,
 } from "lucide-react";
-import SemaforoPie from "../cards/semaforoPie";
-import PromedioEje from "../cards/promedioEje";
+import SemaforoPie        from "../cards/semaforoPie";
+import PromedioEje        from "../cards/promedioEje";
 import ReencaucheHistorico from "../cards/reencaucheHistorico";
-import TanqueMilimetro from "../cards/tanqueMilimetro";
-import HistoricChart from "../cards/historicChart";
-import Notificaciones from "../cards/Notificaciones";
-export type CostEntry = {
-  valor: number;
-  fecha: string;
+import TanqueMilimetro    from "../cards/tanqueMilimetro";
+import HistoricChart      from "../cards/historicChart";
+import Notificaciones     from "../cards/Notificaciones";
+
+// =============================================================================
+// Types — aligned with TireService response shape (normalized relations)
+// =============================================================================
+
+/** Raw shape returned by GET /tires?companyId=xxx  (Prisma include) */
+export type RawCosto = { valor: number; fecha: string | Date };
+
+export type RawInspeccion = {
+  id: string;
+  tireId: string;
+  fecha: string | Date;
+  profundidadInt: number;
+  profundidadCen: number;
+  profundidadExt: number;
+  cpk: number | null;
+  cpkProyectado: number | null;
+  cpt: number | null;
+  cptProyectado: number | null;
+  diasEnUso: number | null;
+  mesesEnUso: number | null;
+  kilometrosEstimados: number | null;
+  kmActualVehiculo: number | null;
+  kmEfectivos: number | null;
+  kmProyectado: number | null;
+  imageUrl: string | null;
 };
 
-export type Inspection = {
+export type RawEvento = {
+  id: string;
+  tireId: string;
+  tipo: string;
+  fecha: string | Date;
+  notas: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+/** Raw tire as Prisma returns it (relation names: costos, inspecciones, eventos) */
+export type RawTire = {
+  id: string;
+  companyId: string;
+  vehicleId: string | null;
+  placa: string;
+  marca: string;
+  diseno: string;
+  dimension: string;
+  eje: string;
+  posicion: number;
+  profundidadInicial: number;
+  fechaInstalacion: string | Date | null;
+  diasAcumulados: number;
+  kilometrosRecorridos: number;
+  currentCpk: number | null;
+  currentCpt: number | null;
+  currentProfundidad: number | null;
+  cpkTrend: number | null;
+  projectedKmRemaining: number | null;
+  projectedDateEOL: string | Date | null;
+  healthScore: number | null;
+  alertLevel: string;
+  lastInspeccionDate: string | Date | null;
+  primeraVida: unknown[];
+  desechos: unknown | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  // Normalized relations (actual field names from Prisma include)
+  costos: RawCosto[];
+  inspecciones: RawInspeccion[];
+  eventos: RawEvento[];
+};
+
+/** Normalised shape consumed by chart/filter components */
+export type CostEntry   = { valor: number; fecha: string };
+export type Inspection  = {
   cpk: number;
   cpkProyectado: number;
+  cpt: number;
+  cptProyectado: number;
   fecha: string;
   imageUrl: string;
   profundidadCen: number;
   profundidadExt: number;
   profundidadInt: number;
 };
+export type VidaEntry = { valor: string; fecha: string };
 
 export type Tire = {
   id: string;
+  marca: string;
+  diseno: string;
+  dimension: string;
+  eje: string;
+  posicion: number;
+  vehicleId?: string | null;
+  // Normalised child arrays (names the chart components expect)
   costo: CostEntry[];
   inspecciones: Inspection[];
-  marca: string;
-  eje: string;
-  vehicleId?: string;
-  vida?: { valor: string; fecha: string }[];
+  vida: VidaEntry[];
+  [key: string]: unknown;
 };
 
-export type Vehicle = {
-  id: string;
-  placa: string;
-  cliente?: string;
-};
+export type Vehicle = { id: string; placa: string; cliente?: string };
 
-export default function ResumenPage() {
-  const router = useRouter();
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [gastoTotal, setGastoTotal] = useState<number>(0);
-  const [gastoMes, setGastoMes] = useState<number>(0);
-  const [userName, setUserName] = useState<string>("");
-  const [cpkPromedio, setCpkPromedio] = useState<number>(0);
-  const [cpkProyectado, setCpkProyectado] = useState<number>(0);
-  const [exporting, setExporting] = useState(false);
-  const [vidaOptions, setVidaOptions] = useState<string[]>([]);
-  const [selectedVida, setSelectedVida] = useState<string>("");
-  const [bandaOptions, setBandaOptions] = useState<string[]>([]);
-  const [selectedBanda, setSelectedBanda] = useState<string>("");
-  const [cptPromedio, setCptPromedio] = useState<number>(0);
-  const [cptProyectadoVal, setCptProyectadoVal] = useState<number>(0);
-  // Ref for the content container
-  const contentRef = useRef<HTMLDivElement>(null);
+// =============================================================================
+// Constants
+// =============================================================================
 
-  // Filter state
-  const [marcasOptions, setMarcasOptions] = useState<string[]>([]);
-  const [selectedMarca, setSelectedMarca] = useState<string>("");
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "https://api.tirepro.com.co/api";
 
-  // Eje filter options
-  const [ejeOptions, setEjeOptions] = useState<string[]>([]);
-  const [selectedEje, setSelectedEje] = useState<string>("");
+/**
+ * Attach the JWT to every API request.
+ * AuthProvider stores the token as a flat string: localStorage.setItem("token", data.access_token)
+ */
+function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token =
+    typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
 
-  // Cliente filter options
-  const [clienteOptions, setClienteOptions] = useState<string[]>([]);
-  const [selectedCliente, setSelectedCliente] = useState<string>("");
-
-  // Semáforo filter options
-  const [semaforoOptions, setSemaforoOptions] = useState<string[]>([]);
-  const [selectedSemaforo, setSelectedSemaforo] = useState<string>("");
-
-  // Dropdown visibility states
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-
-  // language select
-  const [language, setLanguage] = useState<'es'>('es');
-
-  useEffect(() => {
-  const detectAndSetLanguage = async () => {
-    const saved = 'es';
-    setLanguage(saved);
-  };
-
-  detectAndSetLanguage();
-}, []);
-
-  // Refs for dropdown components
-  const dropdownRefs = useRef({
-    marca: useRef<HTMLDivElement>(null),
-    eje: useRef<HTMLDivElement>(null),
-    semaforo: useRef<HTMLDivElement>(null),
-    cliente: useRef<HTMLDivElement>(null),
-    banda: useRef<HTMLDivElement>(null),
-    vida: useRef<HTMLDivElement>(null),
-  }).current;
-
-const translations = {
-  es:{
-    summary: "Mi resumen",
-    update: "Actualizado",
-    welcome: "Bienvenido",
-    investment: "inversión",
-    month: "del mes",
-    total: "total",
-    cpm: "CPK",
-    average: "promedio",
-    forecasted: "proyectado",
-    filters: "filtros",
-    brand: "Marca",
-    all: "Todas",
-    allOption: "Todos",
-    axis: "Eje",
-    state: "Estado", 
-    export: "exportar",
-    banda: "banda",
-    vida: "vida",
-    owner: "Dueño",
-    // Filter options
-    filterOptions: {
-      all: "Todos",
-      optimal: "Óptimo",
-      days60: "60 Días",
-      days30: "30 Días",
-      urgent: "Urgente",
-      noInspection: "Sin Inspección",
-    }
-  }
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers ?? {}),
+    },
+  });
 }
 
-const exportToPDF = () => {
-  try {
-    setExporting(true);
-
-    // Create a print-specific stylesheet
-    const style = document.createElement('style');
-    style.type = 'text/css';
-    style.id = 'print-style';
-    
-    // Hide everything except the content we want to print
-    style.innerHTML = `
-      @media print {
-        @page { 
-          size: A4 portrait;
-          margin: 10mm; 
-        }
-        
-        body * {
-          visibility: hidden;
-        }
-        
-        .min-h-screen {
-          min-height: initial !important;
-        }
-        
-        #content-to-print,
-        #content-to-print * {
-          visibility: visible;
-        }
-        
-        #content-to-print {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-        }
-        
-        /* Fix potential color issues */
-        .bg-gradient-to-r {
-          background: linear-gradient(to right, #0A183A, #1E76B6) !important;
-          print-color-adjust: exact !important;
-          -webkit-print-color-adjust: exact !important;
-        }
-        
-        .bg-\\[\\#0A183A\\] {
-          background-color: #0A183A !important;
-          print-color-adjust: exact !important;
-          -webkit-print-color-adjust: exact !important;
-        }
-        
-        .bg-\\[\\#173D68\\] {
-          background-color: #173D68 !important;
-          print-color-adjust: exact !important;
-          -webkit-print-color-adjust: exact !important;
-        }
-        
-        .bg-\\[\\#348CCB\\] {
-          background-color: #348CCB !important;
-          print-color-adjust: exact !important;
-          -webkit-print-color-adjust: exact !important;
-        }
-        
-        .text-white {
-          color: white !important;
-          print-color-adjust: exact !important;
-          -webkit-print-color-adjust: exact !important;
-        }
-        
-        /* Enhanced chart and canvas handling */
-        canvas {
-          max-width: 100% !important;
-          height: auto !important;
-          display: block !important;
-          margin: 0 auto !important;
-        }
-        
-        /* Ensure proper positioning for chart containers */
-        .relative {
-          position: relative !important;
-        }
-        
-        .absolute {
-          position: absolute !important;
-        }
-        
-        /* Fix chart container sizing */
-        .h-64 {
-          height: 12rem !important;
-        }
-        
-        /* Ensure center text is properly positioned */
-        .inset-0 {
-          top: 0 !important;
-          right: 0 !important;
-          bottom: 0 !important;
-          left: 0 !important;
-        }
-        
-        .z-10 {
-          z-index: 10 !important;
-        }
-        
-        /* Hide interactive elements */
-        .print\\:hidden {
-          display: none !important;
-        }
-        
-        /* Adjust spacing for print */
-        .print\\:gap-2 {
-          gap: 0.5rem !important;
-        }
-        
-        .print\\:mt-4 {
-          margin-top: 1rem !important;
-        }
-        
-        .print\\:p-2 {
-          padding: 0.5rem !important;
-        }
-        
-        .print\\:text-xs {
-          font-size: 0.75rem !important;
-        }
-        
-        .print\\:text-base {
-          font-size: 1rem !important;
-        }
-        
-        .print\\:w-4 {
-          width: 1rem !important;
-        }
-        
-        .print\\:h-4 {
-          height: 1rem !important;
-        }
-        
-        .print\\:h-48 {
-          height: 12rem !important;
-        }
-        
-        .print\\:max-w-48 {
-          max-width: 12rem !important;
-        }
-        
-        .print\\:max-h-48 {
-          max-height: 12rem !important;
-        }
-      }
-    `;
-    
-    // Add the style to the document head
-    document.head.appendChild(style);
-    
-    // Add temporary ID to content container
-    if (contentRef.current) {
-      contentRef.current.id = 'content-to-print';
-    }
-    
-    // Wait for charts to render properly before printing
-    setTimeout(() => {
-      // Force chart re-render for print
-      window.dispatchEvent(new Event('resize'));
-      
-      // Additional delay for chart rendering
-      setTimeout(() => {
-        // Trigger browser print dialog
-        window.print();
-        
-        // Clean up
-        setTimeout(() => {
-          document.head.removeChild(style);
-          if (contentRef.current) {
-            contentRef.current.removeAttribute('id');
-          }
-          setExporting(false);
-        }, 500);
-      }, 300);
-    }, 500);
-    
-  } catch (error) {
-    console.error('Error during print:', error);
-    alert('Error al generar la impresión. Por favor intente de nuevo.');
-    setExporting(false);
-  }
+const FILTER_LABELS = {
+  all:           "Todos",
+  optimal:       "Óptimo",
+  days60:        "60 Días",
+  days30:        "30 Días",
+  urgent:        "Urgente",
+  noInspection:  "Sin Inspección",
 };
-
-  const calculateTotals = useCallback((tires: Tire[]) => {
-    let total = 0;
-    let totalMes = 0;
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    tires.forEach((tire) => {
-      if (Array.isArray(tire.costo)) {
-        tire.costo.forEach((entry) => {
-          const valor = typeof entry.valor === "number" ? entry.valor : 0;
-          total += valor;
-          if (typeof entry.fecha === "string") {
-            const entryDate = new Date(entry.fecha);
-            if (
-              entryDate.getFullYear() === currentYear &&
-              entryDate.getMonth() === currentMonth
-            ) {
-              totalMes += valor;
-            }
-          }
-        });
-      }
-    });
-
-    setGastoTotal(total);
-    setGastoMes(totalMes);
-  }, []);
-
-  const calculateCpkAverages = useCallback((tires: Tire[]) => {
-  let totalCpk = 0;
-  let totalCpkProyectado = 0;
-  let totalCpt = 0;
-  let totalCptProyectado = 0;
-  let validCpkCount = 0;
-  let validCptCount = 0;
-
-  tires.forEach((tire) => {
-    if (tire.inspecciones && tire.inspecciones.length > 0) {
-      const last = tire.inspecciones[tire.inspecciones.length - 1];
-
-      if (last.cpk && !isNaN(last.cpk)) {
-        totalCpk += last.cpk;
-        validCpkCount++;
-      }
-      if (last.cpkProyectado && !isNaN(last.cpkProyectado)) {
-        totalCpkProyectado += last.cpkProyectado;
-      }
-      if ((last as any).cpt && !isNaN((last as any).cpt)) {
-        totalCpt += (last as any).cpt;
-        validCptCount++;
-      }
-      if ((last as any).cptProyectado && !isNaN((last as any).cptProyectado)) {
-        totalCptProyectado += (last as any).cptProyectado;
-      }
-    }
-  });
-
-  setCpkPromedio(validCpkCount > 0 ? Number((totalCpk / validCpkCount).toFixed(2)) : 0);
-  setCpkProyectado(validCpkCount > 0 ? Number((totalCpkProyectado / validCpkCount).toFixed(2)) : 0);
-  setCptPromedio(validCptCount > 0 ? Number((totalCpt / validCptCount).toFixed(2)) : 0);
-  setCptProyectadoVal(validCptCount > 0 ? Number((totalCptProyectado / validCptCount).toFixed(2)) : 0);
-}, []);
-
-  const fetchVehicles = useCallback(
-    async (companyId: string) => {
-      try {
-        const res = await fetch(
-          process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?companyId=${companyId}`
-            : `https://api.tirepro.com.co/api/vehicles?companyId=${companyId}`
-        );
-        if (!res.ok) {
-          throw new Error("Failed to fetch vehicles");
-        }
-        const data: Vehicle[] = await res.json();
-        setVehicles(data);
-        
-        // Extract unique cliente values
-        const uniqueClientes = Array.from(
-          new Set(data.map((vehicle) => vehicle.cliente || ""))
-        );
-        setClienteOptions([translations[language].filterOptions.all, ...uniqueClientes]);
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : "Unexpected error";
-        setError((prev) => prev + " " + errorMessage);
-      }
-    },
-    [language]
-  );
-
-  const fetchTires = useCallback(
-    async (companyId: string) => {
-      setLoading(true);
-      setError("");
-      try {
-        const res = await fetch(
-          process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-            : `https://api.tirepro.com.co/api/tires?companyId=${companyId}`
-        );
-        if (!res.ok) {
-          throw new Error("Failed to fetch tires");
-        }
-        const data: Tire[] = await res.json();
-  
-        const sanitizedData = data.map((tire) => ({
-          ...tire,
-          inspecciones: Array.isArray(tire.inspecciones) ? tire.inspecciones : [],
-          costo: Array.isArray(tire.costo)
-            ? tire.costo.map((c) => ({
-                valor: typeof c.valor === "number" ? c.valor : 0,
-                fecha: typeof c.fecha === "string" ? c.fecha : new Date().toISOString(),
-              }))
-            : [],
-          // Ensure vida is an array
-          vida: Array.isArray(tire.vida) ? tire.vida : [],
-        }));
-  
-        // Filter out tires whose last vida entry is "fin"
-        const activeTires = sanitizedData.filter((tire) => {
-          if (tire.vida && tire.vida.length > 0) {
-            const lastVida = tire.vida[tire.vida.length - 1].valor.toLowerCase();
-            return lastVida !== "fin";
-          }
-          return true; // Include tires with no vida entries
-        });
-  
-        setTires(activeTires);
-        calculateTotals(activeTires);
-        calculateCpkAverages(activeTires);
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : "Unexpected error";
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [calculateTotals, calculateCpkAverages]
-  );
-
-  const applyFilters = useCallback(() => {
-    let tempTires = [...tires];
-    const allOption = language === 'en' ? 'All' : (language === 'es' ? 'Todas' : 'Todos');
-
-    // Filter by marca
-    if (selectedMarca !== allOption && selectedMarca !== '') {
-      tempTires = tempTires.filter((tire) => tire.marca === selectedMarca);
-    }
-
-    // Filter by banda (diseno)
-    if (selectedBanda !== translations[language].filterOptions.all && selectedBanda !== '') {
-      tempTires = tempTires.filter((tire) => tire["diseno"] === selectedBanda);
-    }
-
-    // Filter by eje
-    if (selectedEje !== translations[language].filterOptions.all && selectedEje !== '') {
-      tempTires = tempTires.filter((tire) => tire.eje === selectedEje);
-    }
-
-    // Filter by vida
-    if (selectedVida !== allOption && selectedVida !== '') {
-      tempTires = tempTires.filter((tire) => {
-        if (!Array.isArray(tire.vida) || tire.vida.length === 0) return false;
-        const lastVida = tire.vida[tire.vida.length - 1].valor?.toLowerCase();
-        return lastVida === selectedVida.toLowerCase();
-      });
-    }
-
-    // Filter by cliente (owner)
-    if (selectedCliente !== translations[language].filterOptions.all && selectedCliente !== '') {
-      // Get vehicle IDs that match the selected cliente
-      const filteredVehicleIds = vehicles
-        .filter((vehicle) => vehicle.cliente === selectedCliente)
-        .map((vehicle) => vehicle.id);
-      
-      // Filter tires that belong to these vehicles
-      tempTires = tempTires.filter((tire) => 
-        tire.vehicleId && filteredVehicleIds.includes(tire.vehicleId)
-      );
-    }
-
-    // Filter by semáforo (condition)
-    if (selectedSemaforo !== translations[language].filterOptions.all && selectedSemaforo !== '') {
-      tempTires = tempTires.filter((tire) => {
-        const condition = classifyCondition(tire);
-        const filterMap = {
-          [translations[language].filterOptions.optimal]: "optimo",
-          [translations[language].filterOptions.days60]: "60_dias",
-          [translations[language].filterOptions.days30]: "30_dias",
-          [translations[language].filterOptions.urgent]: "urgente",
-          [translations[language].filterOptions.noInspection]: "sin_inspeccion"
-        };
-        return condition === filterMap[selectedSemaforo];
-      });
-    }
-
-    setFilteredTires(tempTires);
-    calculateCpkAverages(tempTires);
-  }, [tires, vehicles, selectedMarca, selectedEje, selectedCliente, selectedVida, selectedBanda, selectedSemaforo, calculateCpkAverages, language]);
-
-const [userPlan, setUserPlan] = useState<string>("");
 
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    style: "currency", currency: "COP",
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
   }).format(n);
 
-const fetchCompany = useCallback(async (companyId: string) => {
-  try {
-    const url = process.env.NEXT_PUBLIC_API_URL
-      ? `${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`
-      : `https://api.tirepro.com.co/api/companies/${companyId}`;
+// =============================================================================
+// Data normalisation — converts raw API shape → component-friendly Tire shape
+// =============================================================================
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Failed to fetch company");
-    const company = await res.json();
-    setUserPlan(company.plan);
-  } catch (err) {
-    console.error(err);
-    setError("No se pudo cargar la configuración de la compañía");
-  }
-}, []);
+function toISOString(d: string | Date | null | undefined): string {
+  if (!d) return new Date().toISOString();
+  return d instanceof Date ? d.toISOString() : new Date(d).toISOString();
+}
+
+/**
+ * Extract "vida" lifecycle entries from TireEvento records.
+ *
+ * The service stores vida states (nueva, reencauche1…fin) as TireEvento rows
+ * where:
+ *   - tipo  = 'montaje'  (TireEventType.montaje)
+ *   - notas = the vida value string  ('nueva', 'reencauche1', etc.)
+ *   - metadata.vidaValor = same value (belt-and-suspenders)
+ *
+ * We surface these as { valor, fecha } pairs so existing chart components
+ * that read tire.vida[] keep working without modification.
+ */
+function extractVida(eventos: RawEvento[]): VidaEntry[] {
+  const VIDA_VALUES = new Set(['nueva', 'reencauche1', 'reencauche2', 'reencauche3', 'fin']);
+  return eventos
+    .filter(e => e.notas && VIDA_VALUES.has(e.notas.toLowerCase()))
+    .map(e => ({
+      valor: e.notas!.toLowerCase(),
+      fecha: toISOString(e.fecha),
+    }));
+}
+
+/**
+ * Normalise a single raw tire from the API into the shape the
+ * frontend components consume.
+ *
+ * Key mappings:
+ *   costos       → costo       (field rename)
+ *   inspecciones → inspecciones (same name, but: ordered asc + nulls resolved)
+ *   eventos      → vida         (filtered & mapped)
+ */
+function normaliseRawTire(raw: RawTire): Tire {
+  // costos → costo (sorted asc for time-series charts)
+  const costo: CostEntry[] = [...raw.costos]
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .map(c => ({
+      valor: typeof c.valor === "number" ? c.valor : 0,
+      fecha: toISOString(c.fecha),
+    }));
+
+  // inspecciones: service returns desc (for performance), charts need asc
+  const inspecciones: Inspection[] = [...raw.inspecciones]
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .map(i => ({
+      fecha:          toISOString(i.fecha),
+      profundidadInt: i.profundidadInt  ?? 0,
+      profundidadCen: i.profundidadCen  ?? 0,
+      profundidadExt: i.profundidadExt  ?? 0,
+      cpk:            i.cpk             ?? 0,
+      cpkProyectado:  i.cpkProyectado   ?? 0,
+      cpt:            i.cpt             ?? 0,
+      cptProyectado:  i.cptProyectado   ?? 0,
+      imageUrl:       i.imageUrl        ?? "",
+    }));
+
+  // eventos → vida (lifecycle state history)
+  const vida = extractVida(raw.eventos);
+
+  return {
+    // Spread all scalar fields so downstream components can still access
+    // marca, diseno, eje, posicion, alertLevel, healthScore, etc.
+    ...raw,
+    // Override with normalised children (remove Prisma relation names)
+    costo,
+    inspecciones,
+    vida,
+    // Keep the original relations available under namespaced keys
+    // in case any component needs them, without polluting the main names.
+    _costos:   raw.costos,
+    _eventos:  raw.eventos,
+  } as unknown as Tire;
+}
+
+// =============================================================================
+// Traffic-light classification (same logic, now reads from normalised shape)
+// =============================================================================
+
+function classifyCondition(tire: Tire): string {
+  if (!tire.inspecciones?.length) return "sin_inspeccion";
+  const last = tire.inspecciones[tire.inspecciones.length - 1];
+  const min  = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+  if (min > 7) return "optimo";
+  if (min > 6) return "60_dias";
+  if (min > 5) return "30_dias";
+  return "urgente";
+}
+
+// =============================================================================
+// Design primitives
+// =============================================================================
+
+function MetricCard({
+  value,
+  label,
+  loading,
+  variant = "primary",
+}: {
+  value: string;
+  label: string;
+  loading: boolean;
+  variant?: "primary" | "secondary" | "accent" | "dark";
+}) {
+  const bgs = {
+    primary:   "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
+    secondary: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
+    accent:    "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)",
+    dark:      "linear-gradient(135deg, #0A183A 0%, #0A183A 100%)",
+  };
+
+  return (
+    <div
+      className="rounded-2xl p-5 flex flex-col justify-between"
+      style={{
+        background: bgs[variant],
+        boxShadow: "0 4px 20px rgba(10,24,58,0.18)",
+        minHeight: 100,
+      }}
+    >
+      {loading ? (
+        <div className="flex items-center gap-2 text-white/70">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Cargando…</span>
+        </div>
+      ) : (
+        <p className="text-2xl font-black text-white tracking-tight leading-none">{value}</p>
+      )}
+      <p className="text-[11px] font-bold uppercase tracking-widest text-white/60 mt-2">{label}</p>
+    </div>
+  );
+}
+
+// =============================================================================
+// Filter dropdown
+// =============================================================================
+
+function FilterDropdown({
+  id,
+  label,
+  options,
+  selected,
+  onChange,
+  activeDropdown,
+  setActiveDropdown,
+  dropdownRef,
+}: {
+  id: string;
+  label: string;
+  options: string[];
+  selected: string;
+  onChange: (v: string) => void;
+  activeDropdown: string | null;
+  setActiveDropdown: (v: string | null) => void;
+  dropdownRef: React.RefObject<HTMLDivElement>;
+}) {
+  const isOpen     = activeDropdown === id;
+  const isFiltered = selected && selected !== FILTER_LABELS.all && selected !== "Todas" && selected !== "Todos";
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setActiveDropdown(isOpen ? null : id); }}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+        style={{
+          background: isFiltered ? "rgba(30,118,182,0.1)" : "rgba(10,24,58,0.03)",
+          border: isFiltered ? "1px solid rgba(30,118,182,0.4)" : "1px solid rgba(52,140,203,0.2)",
+          color: isFiltered ? "#1E76B6" : "#0A183A",
+        }}
+      >
+        <span className="truncate">
+          <span className="text-[#348CCB] mr-1">{label}:</span>
+          {selected || FILTER_LABELS.all}
+        </span>
+        <ChevronDown
+          className="w-3.5 h-3.5 flex-shrink-0 transition-transform"
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", color: "#1E76B6" }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute z-30 mt-1 w-full rounded-xl py-1 overflow-auto max-h-52"
+          style={{
+            background: "white",
+            border: "1px solid rgba(52,140,203,0.2)",
+            boxShadow: "0 8px 24px rgba(10,24,58,0.12)",
+          }}
+        >
+          {options.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => { onChange(opt); setActiveDropdown(null); }}
+              className="block w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[#F0F7FF]"
+              style={{ color: selected === opt ? "#1E76B6" : "#0A183A", fontWeight: selected === opt ? 700 : 400 }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Page
+// =============================================================================
+
+export default function ResumenPage() {
+  const router = useRouter();
+
+  const [tires,         setTires]         = useState<Tire[]>([]);
+  const [vehicles,      setVehicles]      = useState<Vehicle[]>([]);
+  const [filteredTires, setFilteredTires] = useState<Tire[]>([]);
+  const [error,         setError]         = useState("");
+  const [loading,       setLoading]       = useState(false);
+  const [exporting,     setExporting]     = useState(false);
+  const [userName,      setUserName]      = useState("");
+  const [userPlan,      setUserPlan]      = useState("");
+
+  // Metrics
+  const [gastoTotal,       setGastoTotal]       = useState(0);
+  const [gastoMes,         setGastoMes]         = useState(0);
+  const [cpkPromedio,      setCpkPromedio]      = useState(0);
+  const [cpkProyectado,    setCpkProyectado]    = useState(0);
+  const [cptPromedio,      setCptPromedio]      = useState(0);
+  const [cptProyectadoVal, setCptProyectadoVal] = useState(0);
+
+  // Filters
+  const [marcasOptions,    setMarcasOptions]    = useState<string[]>([]);
+  const [selectedMarca,    setSelectedMarca]    = useState(FILTER_LABELS.all);
+  const [ejeOptions,       setEjeOptions]       = useState<string[]>([]);
+  const [selectedEje,      setSelectedEje]      = useState(FILTER_LABELS.all);
+  const [clienteOptions,   setClienteOptions]   = useState<string[]>([]);
+  const [selectedCliente,  setSelectedCliente]  = useState(FILTER_LABELS.all);
+  const [semaforoOptions,  setSemaforoOptions]  = useState<string[]>([]);
+  const [selectedSemaforo, setSelectedSemaforo] = useState(FILTER_LABELS.all);
+  const [bandaOptions,     setBandaOptions]     = useState<string[]>([]);
+  const [selectedBanda,    setSelectedBanda]    = useState(FILTER_LABELS.all);
+  const [vidaOptions,      setVidaOptions]      = useState<string[]>([]);
+  const [selectedVida,     setSelectedVida]     = useState(FILTER_LABELS.all);
+
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const dropdownRefs = useRef({
+    marca:    useRef<HTMLDivElement>(null),
+    eje:      useRef<HTMLDivElement>(null),
+    semaforo: useRef<HTMLDivElement>(null),
+    cliente:  useRef<HTMLDivElement>(null),
+    banda:    useRef<HTMLDivElement>(null),
+    vida:     useRef<HTMLDivElement>(null),
+  }).current;
+
+  // ===========================================================================
+  // Click outside
+  // ===========================================================================
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (!activeDropdown) return;
+      const ref = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
+      if (ref?.current && !ref.current.contains(e.target as Node)) setActiveDropdown(null);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [activeDropdown, dropdownRefs]);
+
+  // ===========================================================================
+  // Calculations — operate on normalised Tire[] (costo / inspecciones arrays)
+  // ===========================================================================
+
+  const calculateTotals = useCallback((tyres: Tire[]) => {
+    let total = 0, mes = 0;
+    const now = new Date();
+    tyres.forEach((tire) => {
+      // `tire.costo` is the normalised CostEntry[] array
+      (tire.costo ?? []).forEach((entry) => {
+        const v = typeof entry.valor === "number" ? entry.valor : 0;
+        total += v;
+        const d = new Date(entry.fecha);
+        if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) mes += v;
+      });
+    });
+    setGastoTotal(total);
+    setGastoMes(mes);
+  }, []);
+
+  const calculateCpkAverages = useCallback((tyres: Tire[]) => {
+    let totalCpk = 0, totalCpkP = 0, totalCpt = 0, totalCptP = 0;
+    let cntCpk = 0, cntCpt = 0;
+
+    tyres.forEach((tire) => {
+      if (!tire.inspecciones?.length) return;
+      // inspecciones are sorted asc — last item is the most recent
+      const last = tire.inspecciones[tire.inspecciones.length - 1];
+
+      if (last.cpk && !isNaN(last.cpk))                       { totalCpk  += last.cpk;           cntCpk++; }
+      if (last.cpkProyectado && !isNaN(last.cpkProyectado))   { totalCpkP += last.cpkProyectado;          }
+      if (last.cpt && !isNaN(last.cpt))                       { totalCpt  += last.cpt;           cntCpt++; }
+      if (last.cptProyectado && !isNaN(last.cptProyectado))   { totalCptP += last.cptProyectado;          }
+    });
+
+    setCpkPromedio(     cntCpk > 0 ? Number((totalCpk  / cntCpk).toFixed(2)) : 0);
+    setCpkProyectado(   cntCpk > 0 ? Number((totalCpkP / cntCpk).toFixed(2)) : 0);
+    setCptPromedio(     cntCpt > 0 ? Number((totalCpt  / cntCpt).toFixed(2)) : 0);
+    setCptProyectadoVal(cntCpt > 0 ? Number((totalCptP / cntCpt).toFixed(2)) : 0);
+  }, []);
+
+  // ===========================================================================
+  // Fetch
+  // ===========================================================================
+
+  const fetchCompany = useCallback(async (companyId: string) => {
+    try {
+      const res = await authFetch(`${API_BASE}/companies/${companyId}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setUserPlan(data.plan ?? "");
+    } catch {
+      setError("No se pudo cargar la configuración de la compañía");
+    }
+  }, []);
+
+  const fetchVehicles = useCallback(async (companyId: string) => {
+    try {
+      const res = await authFetch(`${API_BASE}/vehicles?companyId=${companyId}`);
+      if (!res.ok) throw new Error("Failed to fetch vehicles");
+      const data: Vehicle[] = await res.json();
+      setVehicles(data);
+      const clientes = Array.from(new Set(data.map((v) => v.cliente ?? "").filter(Boolean)));
+      setClienteOptions([FILTER_LABELS.all, ...clientes]);
+    } catch (err: unknown) {
+      setError((p) => (p + " " + (err instanceof Error ? err.message : "")).trim());
+    }
+  }, []);
+
+  const fetchTires = useCallback(async (companyId: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
+      if (!res.ok) throw new Error(`Failed to fetch tires (${res.status})`);
+
+      const raw: RawTire[] = await res.json();
+
+      // Normalise every tire: costos→costo, eventos→vida, inspecciones asc
+      const normalised: Tire[] = raw.map(normaliseRawTire);
+
+      // Active tires only: exclude those whose last vida value is 'fin'
+      const active = normalised.filter((t) => {
+        if (!t.vida?.length) return true;
+        return t.vida[t.vida.length - 1].valor.toLowerCase() !== "fin";
+      });
+
+      setTires(active);
+      calculateTotals(active);
+      calculateCpkAverages(active);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado al cargar llantas");
+    } finally {
+      setLoading(false);
+    }
+  }, [calculateTotals, calculateCpkAverages]);
+
+  // ===========================================================================
+  // Build filter options from normalised tires
+  // ===========================================================================
+
+  useEffect(() => {
+    if (!tires.length) return;
+
+    setMarcasOptions([
+      FILTER_LABELS.all,
+      ...Array.from(new Set(tires.map((t) => t.marca ?? "Sin marca"))),
+    ]);
+    setEjeOptions([
+      FILTER_LABELS.all,
+      ...Array.from(new Set(tires.map((t) => t.eje ?? "Sin eje"))),
+    ]);
+    setBandaOptions([
+      FILTER_LABELS.all,
+      ...Array.from(new Set(tires.map((t) => (t.diseno as string) ?? "Sin banda"))),
+    ]);
+    setVidaOptions([
+      FILTER_LABELS.all,
+      ...Array.from(new Set(
+        tires.flatMap((t) =>
+          (t.vida ?? []).map((v) => {
+            const s = v.valor?.trim() ?? "Sin vida";
+            return s.charAt(0).toUpperCase() + s.slice(1);
+          }),
+        ),
+      )),
+    ]);
+    setSemaforoOptions([
+      FILTER_LABELS.all,
+      FILTER_LABELS.optimal,
+      FILTER_LABELS.days60,
+      FILTER_LABELS.days30,
+      FILTER_LABELS.urgent,
+      FILTER_LABELS.noInspection,
+    ]);
+
+    setFilteredTires(tires);
+  }, [tires]);
+
+  // ===========================================================================
+  // Apply filters
+  // ===========================================================================
+
+  const applyFilters = useCallback(() => {
+    let result = [...tires];
+
+    if (selectedMarca   !== FILTER_LABELS.all && selectedMarca)
+      result = result.filter((t) => t.marca === selectedMarca);
+
+    if (selectedBanda   !== FILTER_LABELS.all && selectedBanda)
+      result = result.filter((t) => t.diseno === selectedBanda);
+
+    if (selectedEje     !== FILTER_LABELS.all && selectedEje)
+      result = result.filter((t) => t.eje === selectedEje);
+
+    if (selectedVida    !== FILTER_LABELS.all && selectedVida) {
+      result = result.filter((t) => {
+        if (!t.vida?.length) return false;
+        const last = t.vida[t.vida.length - 1].valor ?? "";
+        return last.toLowerCase() === selectedVida.toLowerCase();
+      });
+    }
+
+    if (selectedCliente !== FILTER_LABELS.all && selectedCliente) {
+      const ids = vehicles
+        .filter((v) => v.cliente === selectedCliente)
+        .map((v) => v.id);
+      result = result.filter((t) => t.vehicleId && ids.includes(t.vehicleId as string));
+    }
+
+    if (selectedSemaforo !== FILTER_LABELS.all && selectedSemaforo) {
+      const map: Record<string, string> = {
+        [FILTER_LABELS.optimal]:      "optimo",
+        [FILTER_LABELS.days60]:       "60_dias",
+        [FILTER_LABELS.days30]:       "30_dias",
+        [FILTER_LABELS.urgent]:       "urgente",
+        [FILTER_LABELS.noInspection]: "sin_inspeccion",
+      };
+      result = result.filter((t) => classifyCondition(t) === map[selectedSemaforo]);
+    }
+
+    setFilteredTires(result);
+    calculateCpkAverages(result);
+  }, [
+    tires, vehicles,
+    selectedMarca, selectedBanda, selectedEje,
+    selectedVida, selectedCliente, selectedSemaforo,
+    calculateCpkAverages,
+  ]);
+
+  useEffect(() => { applyFilters(); }, [applyFilters]);
+
+  // ===========================================================================
+  // Auth
+  // ===========================================================================
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      router.push("/login");
-      return;
-    }
+    if (!storedUser) { router.push("/login"); return; }
 
-    const user = JSON.parse(storedUser);
-    if (!user.companyId) {
-      setError("No company assigned to user");
-      return;
-    }
+    let user: { companyId?: string; name?: string; email?: string };
+    try { user = JSON.parse(storedUser); }
+    catch { router.push("/login"); return; }
 
-    setUserName(user.name || user.email || "User");
+    if (!user.companyId) { setError("No company assigned to user"); return; }
+    setUserName(user.name ?? user.email ?? "");
     fetchCompany(user.companyId);
     fetchVehicles(user.companyId);
     fetchTires(user.companyId);
   }, [router, fetchTires, fetchVehicles, fetchCompany]);
 
-  // Update filter options when language changes
-  useEffect(() => {
-    if (tires.length > 0) {
-      const allOption = language === 'en' ? 'All' : (language === 'es' ? 'Todas' : 'Todos');
-      
-      const uniqueMarcas = Array.from(new Set(tires.map((tire) => tire.marca || "Sin marca")));
-      setMarcasOptions([allOption, ...uniqueMarcas]);
+  // ===========================================================================
+  // Export
+  // ===========================================================================
 
-      const uniqueEjes = Array.from(new Set(tires.map((tire) => tire.eje || "Sin eje")));
-      setEjeOptions([translations[language].filterOptions.all, ...uniqueEjes]);
-
-      const uniqueBandas = Array.from(
-        new Set(
-          tires.map((tire) => tire["diseno"] || "Sin banda")
-        )
-      );
-      setBandaOptions([translations[language].filterOptions.all, ...uniqueBandas]);
-
-      const uniqueVidas = Array.from(
-        new Set(
-          tires.flatMap((tire) =>
-            Array.isArray(tire.vida)
-              ? tire.vida.map((v) =>
-                  v.valor
-                    ? v.valor.trim().toLowerCase()
-                    : "sin vida"
-                )
-              : []
-          )
-        )
-      ).map(
-        (v) => v.charAt(0).toUpperCase() + v.slice(1) // Capitalize for display
-      );
-      setVidaOptions([allOption, ...uniqueVidas]);
-
-      // Set semaforo options with translations
-      setSemaforoOptions([
-        translations[language].filterOptions.all,
-        translations[language].filterOptions.optimal,
-        translations[language].filterOptions.days60,
-        translations[language].filterOptions.days30,
-        translations[language].filterOptions.urgent,
-        translations[language].filterOptions.noInspection,
-      ]);
-
-      // Reset selected filters to translated values when language changes
-      if (selectedMarca === "" || selectedMarca === "Todas" || selectedMarca === "All") {
-        setSelectedMarca(allOption);
-      }
-      if (selectedEje === "" || selectedEje === "Todos" || selectedEje === "All") {
-        setSelectedEje(translations[language].filterOptions.all);
-      }
-      if (selectedBanda === "" || selectedBanda === "Todos" || selectedBanda === "All") {
-        setSelectedBanda(translations[language].filterOptions.all);
-      }
-      if (selectedVida === "" || selectedVida === "Todas" || selectedVida === "All") {
-        setSelectedVida(allOption);
-      }
-      if (selectedSemaforo === "" || selectedSemaforo === "Todos" || selectedSemaforo === "All") {
-        setSelectedSemaforo(translations[language].filterOptions.all);
-      }
-      if (selectedCliente === "" || selectedCliente === "Todos" || selectedCliente === "All") {
-        setSelectedCliente(translations[language].filterOptions.all);
-      }
-
-      setFilteredTires(tires);
+  const exportToPDF = () => {
+    try {
+      setExporting(true);
+      const style     = document.createElement("style");
+      style.type      = "text/css";
+      style.innerHTML = `@media print { body * { visibility: hidden } #ctp, #ctp * { visibility: visible } #ctp { position: absolute; left: 0; top: 0; width: 100% } }`;
+      document.head.appendChild(style);
+      if (contentRef.current) contentRef.current.id = "ctp";
+      setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+        setTimeout(() => {
+          window.print();
+          setTimeout(() => {
+            document.head.removeChild(style);
+            if (contentRef.current) contentRef.current.removeAttribute("id");
+            setExporting(false);
+          }, 500);
+        }, 300);
+      }, 500);
+    } catch {
+      setExporting(false);
     }
-  }, [tires, language]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [applyFilters]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (activeDropdown) {
-        const currentRef = dropdownRefs[activeDropdown as keyof typeof dropdownRefs];
-        if (currentRef && currentRef.current && !currentRef.current.contains(event.target as Node)) {
-          setActiveDropdown(null);
-        }
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [activeDropdown, dropdownRefs]);
-
-  function classifyCondition(tire: Tire): string {
-    if (!tire.inspecciones || tire.inspecciones.length === 0) return "sin_inspeccion";
-    const last = tire.inspecciones[tire.inspecciones.length - 1];
-    const min = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
-    if (min > 7) return "optimo";
-    if (min > 6) return "60_dias";
-    if (min > 5) return "30_dias";
-    return "urgente";
-  }
-
-  const toggleDropdown = (dropdown: string) => {
-    setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
   };
 
-  const FilterDropdown = ({
-    id,
-    label,
-    options,
-    selected,
-    onChange,
-  }: {
-    id: string;
-    label: string;
-    options: string[];
-    selected: string;
-    onChange: (value: string) => void;
-  }) => {
-    const isOpen = activeDropdown === id;
-    return (
-      <div className="relative" ref={dropdownRefs[id as keyof typeof dropdownRefs]}>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleDropdown(id);
-          }}
-          className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 flex items-center justify-between w-full"
-        >
-          <span className="truncate">
-            {label}: {selected}
-          </span>
-          <ChevronDown className="h-4 w-4 ml-2" />
-        </button>
-        {isOpen && (
-          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-auto">
-            {options.map((option) => (
-              <button
-                key={option}
-                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
-                  selected === option ? "bg-blue-50 text-blue-700 font-medium" : ""
-                }`}
-                onClick={() => {
-                  onChange(option);
-                  setActiveDropdown(null);
-                }}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  // ===========================================================================
+  // Derived
+  // ===========================================================================
+
+  const activeFiltersCount = [
+    selectedMarca, selectedBanda, selectedEje,
+    selectedVida, selectedCliente, selectedSemaforo,
+  ].filter((v) => v && v !== FILTER_LABELS.all && v !== "Todas" && v !== "Todos").length;
+
+  // ===========================================================================
+  // Render
+  // ===========================================================================
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" ref={contentRef}>
-        {/* Header Section */}
-        <div className="mb-8 bg-gradient-to-r from-[#0A183A] to-[#1E76B6] rounded-2xl shadow-lg p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="text-white">
-              <h2 className="text-2xl font-bold">{translations[language].summary}</h2>
-              <p className="text-blue-100 mt-1 flex items-center text-sm">
-                <Calendar className="h-4 w-4 mr-2" />
-                {translations[language].update}: {new Date().toLocaleDateString()}
-              </p>
-              {userName && (
-                <p className="text-blue-100 mt-1 text-sm">
-                  {translations[language].welcome}, {userName}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex gap-2">
+    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+
+      {/* Sticky top bar */}
+      <div
+        className="sticky top-0 z-40 px-6 py-4 flex items-center justify-between gap-3"
+        style={{
+          background: "rgba(255,255,255,0.92)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(52,140,203,0.15)",
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="p-2 rounded-xl"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+          >
+            <BarChart3 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
+              Mi Resumen
+            </h1>
+            <p className="text-xs text-[#348CCB] mt-0.5 flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              Actualizado: {new Date().toLocaleDateString("es-CO")}
+              {userName && <> · Bienvenido, {userName}</>}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportToPDF}
+            disabled={exporting}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+          >
+            {exporting
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Exportando…</>
+              : <><Download className="w-4 h-4" /> Exportar</>}
+          </button>
+          <Notificaciones />
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6" ref={contentRef}>
+
+        {/* Error banner */}
+        {error && (
+          <div
+            className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium"
+            style={{
+              background: "rgba(10,24,58,0.06)",
+              border: "1px solid rgba(10,24,58,0.2)",
+            }}
+          >
+            <AlertCircle className="w-4 h-4 text-[#173D68] flex-shrink-0 mt-0.5" />
+            <span className="flex-1 text-[#0A183A]">{error}</span>
+            <button onClick={() => setError("")} className="text-[#348CCB] hover:text-[#0A183A]">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard
+            loading={loading}
+            value={`${(gastoMes / 1_000_000).toFixed(1)}M COP`}
+            label="Inversión del Mes"
+            variant="primary"
+          />
+          <MetricCard
+            loading={loading}
+            value={`${(gastoTotal / 1_000_000).toFixed(1)}M COP`}
+            label="Inversión Total"
+            variant="secondary"
+          />
+          <MetricCard
+            loading={loading}
+            value={`${fmtCOP(cpkPromedio)} / ${fmtCOP(cptPromedio)}`}
+            label="CPK / CPT Promedio"
+            variant="accent"
+          />
+          <MetricCard
+            loading={loading}
+            value={`${fmtCOP(cpkProyectado)} / ${fmtCOP(cptProyectadoVal)}`}
+            label="CPK / CPT Proyectado"
+            variant="secondary"
+          />
+        </div>
+
+        {/* Filter panel */}
+        <div
+          className="rounded-2xl p-5"
+          style={{
+            background: "white",
+            border: "1px solid rgba(52,140,203,0.18)",
+            boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
+          }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="w-4 h-4 text-[#1E76B6]" />
+            <p className="text-sm font-bold text-[#0A183A]">Filtros</p>
+            {activeFiltersCount > 0 && (
+              <span
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background: "rgba(30,118,182,0.12)", color: "#1E76B6" }}
+              >
+                {activeFiltersCount} activo{activeFiltersCount > 1 ? "s" : ""}
+              </span>
+            )}
+            {activeFiltersCount > 0 && (
               <button
-  className="flex-1 sm:flex-initial px-4 py-2.5 bg-white/10 backdrop-blur-sm text-white rounded-xl text-sm font-medium hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
-  onClick={exportToPDF}
-  disabled={exporting}
->
-  {exporting ? (
-    <>
-      <div className="animate-spin h-4 w-4 border-2 border-white/60 border-t-transparent rounded-full" />
-      <span className="hidden sm:inline">{translations[language].export}...</span>
-    </>
-  ) : (
-    <>
-      <Download className="h-4 w-4" />
-      <span className="hidden sm:inline">{translations[language].export[0].toUpperCase() + translations[language].export.slice(1)}</span>
-    </>
-  )}
-</button>
-                <Notificaciones />
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Main Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="flex items-center space-x-2 bg-[#0A183A] p-4 rounded-xl shadow-2xl">
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `${(gastoMes / 1000000).toFixed(1)}M COP`}
-              </p>
-              <p className="text-sm uppercase tracking-wider" style={{ color: "#348CCB" }}>
-                {translations[language].investment} {translations[language].month}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `${(gastoTotal / 1000000).toFixed(1)}M COP`}
-              </p>
-              <p className="text-sm uppercase tracking-wider" style={{ color: "#FCD34D" }}>
-                  {translations[language].investment} {translations[language].total}
-              </p>
-            </div>
-          </div>
-          {/* CPK / CPT Promedio */}
-          <div className="flex items-center space-x-2 bg-[#348CCB] p-4 rounded-xl shadow-2xl">
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `${fmtCOP(cpkPromedio)} / ${fmtCOP(cptPromedio)}`}
-              </p>
-              <p className="text-sm uppercase tracking-wider text-white">
-                {translations[language].average} CPK / CPT
-              </p>
-            </div>
+                onClick={() => {
+                  setSelectedMarca(FILTER_LABELS.all);
+                  setSelectedEje(FILTER_LABELS.all);
+                  setSelectedBanda(FILTER_LABELS.all);
+                  setSelectedVida(FILTER_LABELS.all);
+                  setSelectedCliente(FILTER_LABELS.all);
+                  setSelectedSemaforo(FILTER_LABELS.all);
+                }}
+                className="ml-auto text-xs font-semibold text-[#1E76B6] hover:opacity-70 transition-opacity"
+              >
+                Limpiar filtros
+              </button>
+            )}
           </div>
 
-          {/* CPK / CPT Proyectado */}
-          <div className="flex items-center space-x-2 bg-[#173D68] p-4 rounded-xl shadow-2xl">
-            <div className="text-left">
-              <p className="text-2xl font-bold text-white">
-                {loading ? "Cargando..." : `${fmtCOP(cpkProyectado)} / ${fmtCOP(cptProyectadoVal)}`}
-              </p>
-              <p className="text-sm uppercase tracking-wider text-white">
-                {translations[language].forecasted} CPK / CPT
-              </p>
-            </div>
-          </div>
-        </div>
-
-{/* Filter Section */}
-<div className="bg-white rounded-xl shadow-md p-4 mb-6">
-  <div className="flex items-center gap-2 mb-3">
-    <Filter className="h-5 w-5 text-gray-500" />
-    <h3 className="text-lg font-medium text-gray-800">{translations[language].filters[0].toUpperCase() + translations[language].filters.slice(1)}</h3>
-  </div>
-  <div className={`
-    grid
-    grid-cols-1
-    sm:grid-cols-2
-    ${userPlan === "retail" ? "lg:grid-cols-4" : "lg:grid-cols-3"}
-    gap-3
-  `}>
-    {userPlan === "retail" && (
-      <FilterDropdown
-        id="cliente"
-        label="Dueño"
-        options={clienteOptions}
-        selected={selectedCliente}
-        onChange={setSelectedCliente}
-      />
-    )}
-    <FilterDropdown
-      id="marca"
-      label={translations[language].brand}
-      options={marcasOptions}
-      selected={selectedMarca}
-      onChange={setSelectedMarca}
-    />
-    <FilterDropdown
-      id="eje"
-      label={translations[language].axis}
-      options={ejeOptions}
-      selected={selectedEje}
-      onChange={setSelectedEje}
-    />
-    <FilterDropdown
-      id="semaforo"
-      label={translations[language].state}
-      options={semaforoOptions}
-      selected={selectedSemaforo}
-      onChange={setSelectedSemaforo}
-    />
-    <FilterDropdown
-  id="vida"
-  label="Vida"
-  options={vidaOptions}
-  selected={selectedVida}
-  onChange={setSelectedVida}
-/>
-
-<FilterDropdown
-  id="banda"
-  label="Banda"
-  options={bandaOptions}
-  selected={selectedBanda}
-  onChange={setSelectedBanda}
-/>
-
-
-  </div>
-</div>
-
-
-        <main className="container mx-auto max-w-6xl px-4 py-8">
-          <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
-            <HistoricChart tires={filteredTires} language={language}  />
-            <PromedioEje
-              tires={filteredTires}
-              onSelectEje={(eje) => setSelectedEje(eje || "Todos")}
-              selectedEje={selectedEje}
-              language={language} 
+          <div className={`grid grid-cols-2 ${userPlan === "retail" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3`}>
+            {userPlan === "retail" && (
+              <FilterDropdown
+                id="cliente" label="Dueño"
+                options={clienteOptions}  selected={selectedCliente}
+                onChange={setSelectedCliente}
+                activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
+                dropdownRef={dropdownRefs.cliente}
+              />
+            )}
+            <FilterDropdown
+              id="marca" label="Marca"
+              options={marcasOptions}   selected={selectedMarca}
+              onChange={setSelectedMarca}
+              activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
+              dropdownRef={dropdownRefs.marca}
+            />
+            <FilterDropdown
+              id="eje" label="Eje"
+              options={ejeOptions}      selected={selectedEje}
+              onChange={setSelectedEje}
+              activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
+              dropdownRef={dropdownRefs.eje}
+            />
+            <FilterDropdown
+              id="semaforo" label="Estado"
+              options={semaforoOptions} selected={selectedSemaforo}
+              onChange={setSelectedSemaforo}
+              activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
+              dropdownRef={dropdownRefs.semaforo}
+            />
+            <FilterDropdown
+              id="vida" label="Vida"
+              options={vidaOptions}     selected={selectedVida}
+              onChange={setSelectedVida}
+              activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
+              dropdownRef={dropdownRefs.vida}
+            />
+            <FilterDropdown
+              id="banda" label="Banda"
+              options={bandaOptions}    selected={selectedBanda}
+              onChange={setSelectedBanda}
+              activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
+              dropdownRef={dropdownRefs.banda}
             />
           </div>
-          <br />
-          <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
-            <SemaforoPie tires={filteredTires} language={language}  />
-            <ReencaucheHistorico tires={filteredTires} language={language} />
-            
+        </div>
+
+        {/* Charts */}
+        <div className="grid lg:grid-cols-2 gap-4">
+          <HistoricChart    tires={filteredTires} language="es" />
+          <PromedioEje
+            tires={filteredTires}
+            onSelectEje={(e) => setSelectedEje(e ?? FILTER_LABELS.all)}
+            selectedEje={selectedEje}
+            language="es"
+          />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <SemaforoPie         tires={filteredTires} language="es" />
+          <ReencaucheHistorico tires={filteredTires} language="es" />
+        </div>
+
+        <TanqueMilimetro tires={filteredTires} language="es" />
+
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-6 text-[#1E76B6]">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm font-medium">Cargando neumáticos…</span>
           </div>
-          <br />
-        <TanqueMilimetro tires={filteredTires} language={language} />
-          {loading && (
-            <div className="text-center py-4 text-[#1E76B6] animate-pulse">
-              Cargando neumáticos...
-            </div>
-          )}
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4">
-              <p className="text-red-700">{error}</p>
-            </div>
-          )}
-        </main>
+        )}
       </div>
     </div>
   );
