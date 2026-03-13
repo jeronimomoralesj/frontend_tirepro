@@ -42,15 +42,18 @@ export type UserData = {
   plates: string[];
 };
 
+
 export type CompanyData = {
   id: string;
   name: string;
   profileImage: string;
   periodicity: number;
-  userCount: number;
-  tireCount: number;
   plan: string;
-  vehicleCount: number;
+  _count: {
+    users: number;
+    tires: number;
+    vehicles: number;
+  };
 };
 
 export type DistributorCompany = {
@@ -636,15 +639,15 @@ const AjustesPage: React.FC = () => {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Usuarios",   value: company.userCount,    icon: Users,     grad: "linear-gradient(135deg, #0A183A, #173D68)" },
-                { label: "Vehículos",  value: company.vehicleCount, icon: Car,       grad: "linear-gradient(135deg, #173D68, #1E76B6)" },
-                { label: "Llantas",    value: company.tireCount,    icon: Building2, grad: "linear-gradient(135deg, #1E76B6, #348CCB)" },
+                { label: "Usuarios",  value: company._count.users,    icon: Users,     grad: "linear-gradient(135deg, #0A183A, #173D68)" },
+                { label: "Vehículos", value: company._count.vehicles,  icon: Car,       grad: "linear-gradient(135deg, #173D68, #1E76B6)" },
+                { label: "Llantas",   value: company._count.tires,     icon: Building2, grad: "linear-gradient(135deg, #1E76B6, #348CCB)" },
               ].map(({ label, value, icon: Icon, grad }) => (
                 <Card key={label} className="p-4 sm:p-5 flex flex-col gap-2">
                   <div className="p-2 rounded-xl self-start" style={{ background: grad }}>
                     <Icon className="w-4 h-4 text-white" />
                   </div>
-                  <p className="text-2xl sm:text-3xl font-black text-black leading-none">{value}cccc</p>
+                  <p className="text-2xl sm:text-3xl font-black text-black leading-none">{value}</p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
                 </Card>
               ))}

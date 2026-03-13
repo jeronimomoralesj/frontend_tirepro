@@ -751,7 +751,7 @@ export default function PosicionPage() {
 
       const res = await fetch(`${API_BASE}/tires/update-positions`, {
         method: "POST", headers: authHeaders(),
-        body: JSON.stringify({ placa: placa.trim().toLowerCase(), updates }),
+        body: JSON.stringify({ placa: placa.trim(), updates }),
       });
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.message ?? "Error al actualizar posiciones"); }
 

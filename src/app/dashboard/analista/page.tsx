@@ -253,7 +253,7 @@ const IntegratedAnalysisPage: React.FC = () => {
     setSearchLoading(true);
     try {
       const res = await authFetch(
-        `${API_BASE}/tires/analyze?placa=${encodeURIComponent(placa.trim().toLowerCase())}`
+        `${API_BASE}/tires/analyze?placa=${encodeURIComponent(placa.trim())}`
       );
       if (!res.ok) throw new Error("Vehículo no encontrado o sin llantas registradas.");
       setAnalysis(await res.json());
