@@ -157,7 +157,7 @@ const VidaPage: React.FC = () => {
     try {
       const companyId = localStorage.getItem("companyId") ?? "";
       const vRes = await authFetch(
-        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}${companyId ? `&companyId=${companyId}` : ""}`
+        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}${companyId ? `&companyId=${companyId}` : ""}`
       );
       if (!vRes.ok) throw new Error("Vehículo no encontrado");
       const vData: Vehicle = await vRes.json();

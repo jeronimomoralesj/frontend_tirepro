@@ -561,7 +561,7 @@ export default function InspeccionPage() {
     try {
       // Fetch vehicle by placa
       const vRes = await fetch(
-        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(placa.toLowerCase())}`,
+        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa)}`,
         { headers: authHeaders() }
       );
       if (!vRes.ok) throw new Error("Vehículo no encontrado");
@@ -586,7 +586,7 @@ export default function InspeccionPage() {
       if (unionPlacas.length > 0) {
         try {
           const uRes = await fetch(
-            `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(unionPlacas[0].toLowerCase())}`,
+            `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(unionPlacas[0])}`,
             { headers: authHeaders() }
           );
           if (uRes.ok) {

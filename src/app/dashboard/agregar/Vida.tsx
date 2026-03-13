@@ -602,7 +602,7 @@ export default function VidaPage() {
     setLoading(true);
     try {
       const vRes = await fetch(
-        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(placa.toLowerCase())}`,
+        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa.toLowerCase())}`,
         { headers: authHeaders() }
       );
       if (!vRes.ok) throw new Error("Vehículo no encontrado");

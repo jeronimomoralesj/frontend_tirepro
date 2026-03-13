@@ -19,6 +19,19 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Filler,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Filler);
 
 // =============================================================================
 // Types — aligned with normalized backend (costos, inspecciones, eventos)
@@ -134,6 +147,144 @@ function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
 function toISO(d: string | Date | null | undefined): string {
   if (!d) return new Date().toISOString();
   return d instanceof Date ? d.toISOString() : new Date(d).toISOString();
+}
+
+function WearChart({ inspecciones }: { inspecciones: Inspection[] }) {
+  const sorted = [...inspecciones].sort(
+    (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+  );
+
+  if (sorted.length < 2) return null;
+
+  const labels = sorted.map(i =>
+    new Date(i.fecha).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "2-digit" })
+  );
+
+  const thresholdPlugin = {
+    id: "thresholds",
+    afterDraw(chart: ChartJS) {
+      const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+      [{ val: 2, color: "#e24b4a", dash: [6, 3] as number[] }, { val: 4, color: "#ef9f27", dash: [] as number[] }]
+        .forEach(({ val, color, dash }) => {
+          const yPx = y.getPixelForValue(val);
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash(dash);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.moveTo(left, yPx);
+          ctx.lineTo(right, yPx);
+          ctx.stroke();
+          ctx.restore();
+        });
+    },
+  };
+
+  const data = {
+    labels,
+    datasets: [
+      {
+        label: "Promedio",
+        data: sorted.map(i => parseFloat(((i.profundidadInt + i.profundidadCen + i.profundidadExt) / 3).toFixed(2))),
+        borderColor: "#378add",
+        backgroundColor: "#378add18",
+        tension: 0.3,
+        pointRadius: 4,
+        borderWidth: 2.5,
+        fill: false,
+      },
+      {
+        label: "Interior",
+        data: sorted.map(i => i.profundidadInt),
+        borderColor: "#1d9e75",
+        backgroundColor: "transparent",
+        tension: 0.3,
+        pointRadius: 3,
+        borderWidth: 1.5,
+        borderDash: [4, 3],
+        fill: false,
+      },
+      {
+        label: "Central",
+        data: sorted.map(i => i.profundidadCen),
+        borderColor: "#7f77dd",
+        backgroundColor: "transparent",
+        tension: 0.3,
+        pointRadius: 3,
+        borderWidth: 1.5,
+        borderDash: [4, 3],
+        fill: false,
+      },
+      {
+        label: "Exterior",
+        data: sorted.map(i => i.profundidadExt),
+        borderColor: "#d85a30",
+        backgroundColor: "transparent",
+        tension: 0.3,
+        pointRadius: 3,
+        borderWidth: 1.5,
+        borderDash: [4, 3],
+        fill: false,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)} mm`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { font: { size: 10 }, color: "#888", maxRotation: 45 },
+        grid:  { color: "rgba(0,0,0,0.04)" },
+      },
+      y: {
+        min: 0,
+        title: { display: true, text: "Profundidad (mm)", font: { size: 10 }, color: "#888" },
+        ticks: { font: { size: 10 }, color: "#888", callback: (v: number) => v + "mm" },
+        grid:  { color: "rgba(0,0,0,0.04)" },
+      },
+    },
+  };
+
+  return (
+    <div className="rounded-2xl p-4 sm:p-5" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+      <SectionTitle icon={BarChart3} title="Desgaste de Profundidad" />
+
+      <div className="flex flex-wrap gap-3 mb-4">
+        {[
+          { label: "Promedio", color: "#378add", dash: false },
+          { label: "Interior", color: "#1d9e75", dash: true  },
+          { label: "Central",  color: "#7f77dd", dash: true  },
+          { label: "Exterior", color: "#d85a30", dash: true  },
+        ].map(d => (
+          <span key={d.label} className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span style={{ display: "inline-block", width: 20, height: 2, borderTop: `2px ${d.dash ? "dashed" : "solid"} ${d.color}` }} />
+            {d.label}
+          </span>
+        ))}
+        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+          <span style={{ display: "inline-block", width: 20, height: 2, borderTop: "2px dashed #e24b4a" }} />
+          Mínimo legal (2mm)
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+          <span style={{ display: "inline-block", width: 20, height: 2, borderTop: "2px solid #ef9f27" }} />
+          Alerta (4mm)
+        </span>
+      </div>
+
+      <div style={{ position: "relative", width: "100%", height: "240px" }}>
+        <Line data={data} options={options as any} plugins={[thresholdPlugin]} />
+      </div>
+    </div>
+  );
 }
 
 const VIDA_SET = new Set(["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"]);
@@ -281,7 +432,7 @@ const BuscarPage: React.FC = () => {
     setLoading(true);
     try {
       if (searchMode === "vehicle") {
-        const vRes = await authFetch(`${API_BASE}/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}&companyId=${companyId}`);
+        const vRes = await authFetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}&companyId=${companyId}`);
         if (!vRes.ok) throw new Error("Vehículo no encontrado");
         const vehicle: Vehicle = await vRes.json();
         const tRes = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicle.id}`);
@@ -912,6 +1063,10 @@ const BuscarPage: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {selectedTire.inspecciones.length >= 2 && (
+  <WearChart inspecciones={selectedTire.inspecciones} />
+)}
 
               {/* ── Inspection table ── */}
               {selectedTire.inspecciones.length > 0 && (

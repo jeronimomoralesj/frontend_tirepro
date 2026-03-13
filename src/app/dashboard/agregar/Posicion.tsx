@@ -653,7 +653,7 @@ export default function PosicionPage() {
     setError(""); setSuccess(""); setVehicle(null); setAllTires([]); setOriginalState({}); setFixedLayout(null);
     setLoading(true);
     try {
-      const vRes = await fetch(`${API_BASE}/vehicles/placa?placa=${encodeURIComponent(placa.trim().toLowerCase())}`, { headers: authHeaders() });
+      const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa.trim().toLowerCase())}`, { headers: authHeaders() });
       if (!vRes.ok) throw new Error("Vehículo no encontrado");
       const vData: Vehicle = await vRes.json();
       setVehicle(vData);

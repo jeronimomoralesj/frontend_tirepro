@@ -278,7 +278,7 @@ export default function InspeccionPage() {
       const companyId = localStorage.getItem("companyId") ?? "";
       if (!companyId) throw new Error("No se encontró el companyId. Inicie sesión nuevamente.");
       const vRes = await authFetch(
-        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(placaInput.trim().toLowerCase())}${companyId ? `&companyId=${companyId}` : ""}`
+        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placaInput.trim().toLowerCase())}${companyId ? `&companyId=${companyId}` : ""}`
       );
       if (!vRes.ok) throw new Error("Vehículo no encontrado");
       const vData: Vehicle = await vRes.json();
@@ -290,7 +290,7 @@ export default function InspeccionPage() {
       if (vData.union) {
         try {
           const uvRes = await authFetch(
-            `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(vData.union)}${companyId ? `&companyId=${companyId}` : ""}`
+            `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(vData.union)}${companyId ? `&companyId=${companyId}` : ""}`
           );
           if (uvRes.ok) { unionVData = await uvRes.json(); setUnionVehicle(unionVData); }
         } catch { /* skip */ }

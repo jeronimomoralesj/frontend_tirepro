@@ -267,7 +267,7 @@ const BuscarDist: React.FC = () => {
     try {
       // Updated endpoint: GET /api/vehicles/placa?placa=...&companyId=...
       const vRes = await authFetch(
-        `${API_BASE}/vehicles/placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}&companyId=${selectedCompany.id}`
+        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}&companyId=${selectedCompany.id}`
       );
       if (!vRes.ok) throw new Error("Vehículo no encontrado en este cliente.");
       const vehicle: Vehicle = await vRes.json();
