@@ -140,12 +140,12 @@ export default function LoginPage() {
                   </a>
                 ))}
                 <a
-                  href="/developers"
+                  href="/blog"
                   className="text-sm font-medium text-gray-600 transition-colors"
                   onMouseEnter={e => (e.currentTarget.style.color = "#0A183A")}
                   onMouseLeave={e => (e.currentTarget.style.color = "")}
                 >
-                  Desarrolladores
+                  Blog
                 </a>
                 <a href="/companyregister">
                   <button

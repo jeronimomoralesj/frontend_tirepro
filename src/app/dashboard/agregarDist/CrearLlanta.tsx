@@ -4,6 +4,8 @@ import { useState, useEffect, FormEvent, useRef } from "react";
 import {
   AlertTriangle, CheckCircle, Loader2, Search,
   ChevronDown, X, Plus,
+  Truck,
+  CheckCircle2,
 } from "lucide-react";
 
 // =============================================================================
@@ -107,6 +109,14 @@ export default function TirePage() {
   const [success,         setSuccess]         = useState("");
   const [loading,         setLoading]         = useState(false);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+const [duplicateInfo, setDuplicateInfo] = useState<{
+  existingTire: {
+    placa: string; marca: string; diseno: string;
+    dimension: string; eje: string; posicion: number;
+    vehicle: { placa: string; tipovhc: string } | null;
+    suggestedPlaca: string;
+  };
+} | null>(null);
 
   // Companies
   const [companies,           setCompanies]           = useState<Company[]>([]);
@@ -252,12 +262,15 @@ export default function TirePage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      const body = await res.json();
       if (!res.ok) {
-        const body = await res.json();
         throw new Error(body.message || "Error al crear la llanta");
       }
-      const data = await res.json();
-      setSuccess(data.message || "Neumático creado exitosamente");
+      if (body.duplicate) {
+        setDuplicateInfo({ existingTire: body.existingTire });
+        return;
+      }
+      setSuccess(body.message || "Neumático creado exitosamente");
       setForm({
         tirePlaca: "", marca: "", diseno: "", profundidadInicial: 0,
         dimension: "", eje: "direccion", kilometrosRecorridos: "",
@@ -271,12 +284,125 @@ export default function TirePage() {
     }
   }
 
+  async function confirmDuplicate() {
+  if (!duplicateInfo) return;
+  const suggestedPlaca = duplicateInfo.existingTire.suggestedPlaca.toUpperCase();
+  setDuplicateInfo(null);
+  setError(""); setSuccess("");
+  setLoading(true);
+
+  const now = new Date().toISOString();
+  const payload = {
+    placa:                suggestedPlaca.toLowerCase(),
+    marca:                form.marca.toLowerCase(),
+    diseno:               form.diseno.toLowerCase(),
+    profundidadInicial:   form.profundidadInicial,
+    dimension:            form.dimension.toLowerCase(),
+    eje:                  form.eje.toLowerCase(),
+    kilometrosRecorridos: Number(form.kilometrosRecorridos) || 0,
+    costo:                [{ valor: Number(form.costo) || 0, fecha: now }],
+    vida:                 [{ valor: form.vida.toLowerCase(), fecha: now }],
+    posicion:             Number(form.posicion),
+    companyId:            selectedCompany!.id,
+    vehicleId:            selectedVehicle?.id ?? null,
+  };
+
+  try {
+    const res = await authFetch(`${API_BASE}/tires/create`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.message || "Error al crear la llanta");
+    setSuccess(`Llanta creada como ${suggestedPlaca}`);
+    setForm({ tirePlaca: "", marca: "", diseno: "", profundidadInicial: 0, dimension: "", eje: "direccion", kilometrosRecorridos: "", costo: "", vida: "nueva", posicion: "" });
+    clearVehicle();
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Error desconocido");
+  } finally {
+    setLoading(false);
+  }
+}
+
   // ==========================================================================
   // Render
   // ==========================================================================
 
   return (
     <div className="min-h-screen" style={{ background: "white" }}>
+
+      {duplicateInfo && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}>
+    <div className="w-full max-w-md rounded-2xl p-6 space-y-5"
+      style={{ background: "white", border: "1px solid rgba(52,140,203,0.25)", boxShadow: "0 20px 60px rgba(10,24,58,0.2)" }}>
+
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-xl flex-shrink-0" style={{ background: "rgba(251,191,36,0.15)" }}>
+          <AlertTriangle className="w-5 h-5 text-amber-500" />
+        </div>
+        <div>
+          <p className="font-bold text-[#0A183A] text-base">ID de llanta duplicado</p>
+          <p className="text-xs text-gray-400 mt-0.5">Ya existe una llanta con este ID en este cliente</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl p-4 space-y-2" style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}>
+        <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">Llanta existente</p>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          {[
+            ["ID",        duplicateInfo.existingTire.placa.toUpperCase()],
+            ["Posición",  String(duplicateInfo.existingTire.posicion)],
+            ["Marca",     duplicateInfo.existingTire.marca],
+            ["Diseño",    duplicateInfo.existingTire.diseno],
+            ["Dimensión", duplicateInfo.existingTire.dimension],
+            ["Eje",       duplicateInfo.existingTire.eje],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <p className="text-[10px] text-gray-400 uppercase font-semibold">{label}</p>
+              <p className="font-semibold text-[#0A183A] capitalize">{value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(52,140,203,0.15)" }}>
+          <p className="text-[10px] text-gray-400 uppercase font-semibold mb-1">Vehículo asignado</p>
+          {duplicateInfo.existingTire.vehicle ? (
+            <div className="flex items-center gap-2">
+              <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
+              <span className="font-bold text-[#0A183A] text-sm">{duplicateInfo.existingTire.vehicle.placa.toUpperCase()}</span>
+              <span className="text-xs text-gray-400">— {duplicateInfo.existingTire.vehicle.tipovhc}</span>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic">Sin vehículo asignado</p>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl p-3 flex items-center gap-3"
+        style={{ background: "rgba(30,118,182,0.07)", border: "1px solid rgba(30,118,182,0.2)" }}>
+        <CheckCircle2 className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+        <p className="text-xs text-[#173D68]">
+          La nueva llanta se guardará como{" "}
+          <span className="font-black">{duplicateInfo.existingTire.suggestedPlaca.toUpperCase()}</span>
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <button type="button" onClick={() => setDuplicateInfo(null)}
+          className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#173D68] transition-all hover:bg-[#F0F7FF]"
+          style={{ border: "1px solid rgba(52,140,203,0.3)" }}>
+          Cancelar
+        </button>
+        <button type="button" onClick={confirmDuplicate}
+          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)", boxShadow: "0 4px 16px rgba(30,118,182,0.3)" }}>
+          Guardar como {duplicateInfo.existingTire.suggestedPlaca.toUpperCase()}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
       <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
 
         {/* ── Page header ───────────────────────────────────────────────── */}

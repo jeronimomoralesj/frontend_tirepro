@@ -200,7 +200,14 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
       }
 
       const data = await res.json();
-      setMessage(data.message ?? "Carga masiva completada con éxito.");
+      const renamedWarnings = (data.details?.warnings ?? [])
+        .filter((w: string) => w.includes("duplicado"));
+
+      const renamedNote = renamedWarnings.length > 0
+        ? `\n\nIDs renombrados con *:\n${renamedWarnings.map((w: string) => `• ${w}`).join("\n")}`
+        : "";
+
+      setMessage((data.message ?? "Carga masiva completada con éxito.") + renamedNote);
       setMessageType("success");
       setFile(null);
       if (inputRef.current) inputRef.current.value = "";

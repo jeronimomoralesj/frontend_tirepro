@@ -396,6 +396,14 @@ export default function TirePage() {
   const [error, setError]               = useState("");
   const [success, setSuccess]           = useState("");
   const [form, setForm]                 = useState<TireFormData>(BLANK_FORM);
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+  existingTire: {
+    placa: string; marca: string; diseno: string;
+    dimension: string; eje: string; posicion: number;
+    vehicle: { placa: string; tipovhc: string } | null;
+    suggestedPlaca: string;
+  };
+} | null>(null);
 
   // ===========================================================================
   // Bootstrap
@@ -490,9 +498,14 @@ export default function TirePage() {
         headers: authHeaders(),
         body:    JSON.stringify(payload),
       });
+      const body = await res.json();
       if (!res.ok) {
-        const body = await res.json();
         throw new Error(body.message ?? "Error al crear llanta");
+      }
+      // Duplicate detected — show modal instead of completing
+      if (body.duplicate) {
+        setDuplicateInfo({ existingTire: body.existingTire });
+        return; // don't reset form, user will confirm
       }
       setSuccess("Llanta creada exitosamente");
       setForm(BLANK_FORM);
@@ -504,12 +517,175 @@ export default function TirePage() {
     }
   }
 
+  async function confirmDuplicate() {
+  if (!duplicateInfo) return;
+  const suggestedPlaca = duplicateInfo.existingTire.suggestedPlaca.toUpperCase();
+  setDuplicateInfo(null);
+  
+  // Build and submit directly — don't rely on state flush timing
+  setError("");
+  setSuccess("");
+  setSubmitting(true);
+
+  const now = new Date().toISOString();
+  const payload = {
+    placa:                suggestedPlaca,
+    marca:                form.marca.trim().toLowerCase(),
+    diseno:               form.diseno.trim().toLowerCase(),
+    profundidadInicial:   Number(form.profundidadInicial) || 0,
+    dimension:            form.dimension.trim().toLowerCase(),
+    eje:                  form.eje.toLowerCase(),
+    kilometrosRecorridos: Number(form.kilometrosRecorridos) || 0,
+    costo: [{ valor: Number(form.costo) || 0, fecha: now }],
+    eventos: [{
+      tipo:     "montaje",
+      fecha:    now,
+      notas:    form.vida.toLowerCase(),
+      metadata: { vidaValor: form.vida.toLowerCase() },
+    }],
+    posicion:  Number(form.posicion) || 0,
+    companyId,
+    vehicleId: selectedVehicle?.id ?? null,
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/tires/create`, {
+      method:  "POST",
+      headers: authHeaders(),
+      body:    JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.message ?? "Error al crear llanta");
+    setSuccess(`Llanta creada como ${suggestedPlaca}`);
+    setForm(BLANK_FORM);
+    setSelected(null);
+  } catch (err: unknown) {
+    setError(err instanceof Error ? err.message : "Error inesperado");
+  } finally {
+    setSubmitting(false);
+  }
+}
+
   // ===========================================================================
   // JSX
   // ===========================================================================
 
+
   return (
     <div className="min-h-screen antialiased" style={{ background: "#fff", color: "#0A183A" }}>
+
+      {duplicateInfo && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}>
+    <div className="w-full max-w-md rounded-2xl p-6 space-y-5"
+      style={{
+        background: "white",
+        border: "1px solid rgba(52,140,203,0.25)",
+        boxShadow: "0 20px 60px rgba(10,24,58,0.2)",
+      }}>
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-xl flex-shrink-0"
+          style={{ background: "rgba(251,191,36,0.15)" }}>
+          <AlertCircle className="w-5 h-5 text-amber-500" />
+        </div>
+        <div>
+          <p className="font-bold text-[#0A183A] text-base">ID de llanta duplicado</p>
+          <p className="text-xs text-[#348CCB] mt-0.5">
+            Ya existe una llanta con este ID en su empresa
+          </p>
+        </div>
+      </div>
+
+      {/* Existing tire card */}
+      <div className="rounded-xl p-4 space-y-2"
+        style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}>
+        <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">
+          Llanta existente
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">ID</p>
+            <p className="font-black tracking-widest text-[#0A183A]">
+              {duplicateInfo.existingTire.placa.toUpperCase()}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Posición</p>
+            <p className="font-semibold text-[#0A183A]">{duplicateInfo.existingTire.posicion}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Marca</p>
+            <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.marca}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Diseño</p>
+            <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.diseno}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Dimensión</p>
+            <p className="font-semibold text-[#0A183A]">{duplicateInfo.existingTire.dimension}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Eje</p>
+            <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.eje}</p>
+          </div>
+        </div>
+        {/* Vehicle badge */}
+        <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(52,140,203,0.15)" }}>
+          <p className="text-[10px] text-[#348CCB] uppercase font-semibold mb-1">Vehículo asignado</p>
+          {duplicateInfo.existingTire.vehicle ? (
+            <div className="flex items-center gap-2">
+              <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
+              <span className="font-black tracking-widest text-[#0A183A] text-sm">
+                {duplicateInfo.existingTire.vehicle.placa.toUpperCase()}
+              </span>
+              <span className="text-xs text-[#348CCB]">
+                — {duplicateInfo.existingTire.vehicle.tipovhc}
+              </span>
+            </div>
+          ) : (
+            <p className="text-sm text-[#348CCB] italic">Sin vehículo asignado</p>
+          )}
+        </div>
+      </div>
+
+      {/* Suggested resolution */}
+      <div className="rounded-xl p-3 flex items-center gap-3"
+        style={{ background: "rgba(30,118,182,0.07)", border: "1px solid rgba(30,118,182,0.2)" }}>
+        <CheckCircle2 className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+        <p className="text-xs text-[#173D68]">
+          La nueva llanta se guardará con el ID{" "}
+          <span className="font-black tracking-wider">
+            {duplicateInfo.existingTire.suggestedPlaca.toUpperCase()}
+          </span>
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setDuplicateInfo(null)}
+          className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#173D68] transition-all hover:bg-[#F0F7FF]"
+          style={{ border: "1px solid rgba(52,140,203,0.3)" }}>
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={confirmDuplicate}
+          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+          style={{
+            background: "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)",
+            boxShadow: "0 4px 16px rgba(30,118,182,0.3)",
+          }}>
+          Guardar como {duplicateInfo.existingTire.suggestedPlaca.toUpperCase()}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
       {/* Content */}
       <div className="px-4 py-8 max-w-3xl mx-auto">
 
@@ -519,7 +695,7 @@ export default function TirePage() {
           {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id="tire-form" onSubmit={handleSubmit} className="space-y-4">
 
           {/* ── Vehicle selector ───────────────────────────────────────────── */}
           <div

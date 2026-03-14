@@ -1,19 +1,35 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {
-      userAgent: '*',
-      allow: '/',
-      disallow: [
-        '/dashboard/', 
-        '/verify/', 
-        '/login', 
-        '/registeruser', 
-        '/context/',
-        '/delete',
-      ],
-    },
-    sitemap: 'https://www.tirepro.com.co/sitemap.xml',
-  }
+    rules: [
+      {
+        userAgent: "*",
+
+        allow: [
+          "/",
+          "/blog/",
+          "/calculadora/",
+          "/contact",
+          "/equipo",
+        ],
+
+        disallow: [
+          "/dashboard",
+          "/dashboard/",
+          "/verify",
+          "/verify/",
+          "/login",
+          "/registeruser",
+          "/delete",
+          "/context",
+          "/blog/admin",
+        ],
+      },
+    ],
+
+    sitemap: "https://www.tirepro.com.co/sitemap.xml",
+
+    host: "https://www.tirepro.com.co",
+  };
 }

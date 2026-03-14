@@ -13,14 +13,13 @@ import {
   ChevronDown,
   Zap,
   ChevronRight,
-  AlertCircle,
   DollarSign,
   Target,
   Activity,
   Tag,
   User,
 } from 'lucide-react'
-import landing from '../../public/first.png'
+import landing from '../../public/landing.png'
 import Image from 'next/image'
 import pcImage from '../../public/pc.png'
 import logo from '../../public/logo_full.png'
@@ -861,7 +860,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* Pricing Section */}
+      {/* Pricing Section 
       <section
         id="planes"
         className="py-16 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8 w-full"
@@ -970,8 +969,8 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
           </div>
         </div>
       </section>
-
-      {/* Partners Section */}
+      */}
+      {/* Partners Section 
       <aside className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 w-full bg-white" aria-label="Socios comerciales">
         <hr style={{ borderColor: 'rgba(30,118,182,0.15)' }} className="mb-6 sm:mb-10" />
         <p className="text-center text-sm sm:text-base text-gray-600">
@@ -993,7 +992,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
         <hr style={{ borderColor: 'rgba(30,118,182,0.15)' }} className="mt-6 sm:mt-10" />
       </aside>
-
+      */}
       {/* FAQ Section */}
       <section
         id="preguntas"
@@ -1219,6 +1218,8 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                 <li><a href="#planes" className="hover:text-white transition-colors">Planes y precios</a></li>
                 <li><a href="https://apps.apple.com/us/app/tirepro/id6741497732" className="hover:text-white transition-colors">Descargar app</a></li>
                 <li><a href="/blog" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="/equipo" className="hover:text-white transition-colors">Nosotros</a></li>
+                <li><a href="/developers" className="hover:text-white transition-colors">Desarrolladores</a></li>
               </ul>
             </nav>
             <nav aria-labelledby="legal-nav">

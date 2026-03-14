@@ -17,6 +17,7 @@ import {
   Loader2,
   ChevronRight,
   Trash2,
+  Camera,
 } from "lucide-react";
 
 // =============================================================================
@@ -341,9 +342,47 @@ function UpdateModal({
   const [milimetrosValue, setMilimetrosValue] = useState("");
   const [modalError,      setModalError]      = useState("");
   const [saving,          setSaving]          = useState(false);
+  const [desechoImages, setDesechoImages] = useState<string[]>([]);
+  const [proveedorQuery,    setProveedorQuery]    = useState("");
+  const [proveedorResults,  setProveedorResults]  = useState<Array<{id:string; name:string}>>([]);
+  const [selectedProveedor, setSelectedProveedor] = useState<{id:string|null; name:string} | null>(null);
+  const [proveedorLoading,  setProveedorLoading]  = useState(false);
+  const [showDropdown,      setShowDropdown]      = useState(false);
+
+  useEffect(() => {
+      function handleClick(e: MouseEvent) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-proveedor-field]')) {
+          setShowDropdown(false);
+        }
+      }
+      document.addEventListener('mousedown', handleClick);
+      return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
 
   const isReencauche = selectedVida.startsWith("reencauche");
   const isFin        = selectedVida === "fin";
+
+  async function searchProveedores(q: string) {
+  if (!q.trim()) { setProveedorResults([]); setShowDropdown(false); return; }
+  setProveedorLoading(true);
+  try {
+    const companyId = (() => { try { return JSON.parse(atob(localStorage.getItem("token")!.split(".")[1])).companyId; } catch { return ""; } })();
+    const res = await fetch(
+      `${API_BASE}/companies/search/by-name?q=${encodeURIComponent(q)}&distributorsOnly=true${companyId ? `&exclude=${companyId}` : ""}`,
+      { headers: authHeaders() }
+    );
+    if (!res.ok) throw new Error();
+    const data: Array<{id: string; name: string}> = await res.json();
+    setProveedorResults(data);
+    setShowDropdown(true);
+  } catch {
+    setProveedorResults([]);
+    setShowDropdown(true); // still show "add custom" option
+  } finally {
+    setProveedorLoading(false);
+  }
+}
 
   async function handleSubmit() {
     setModalError("");
@@ -373,15 +412,15 @@ function UpdateModal({
     };
 
     if (isReencauche)         body.costo             = parseFloat(costValue);
+    if (isReencauche && selectedProveedor)   body.proveedor          = selectedProveedor.name;
     if (!isFin)               body.profundidadInicial = parseFloat(profValue);
     if (isFin) {
       const mm      = parseFloat(milimetrosValue);
-      const profIni = tire.profundidadInicial ?? 0;
       body.desechos = {
         causales:             causalValue.trim(),
         milimetrosDesechados: mm,
-        remanente:            Math.max(profIni - mm, 0),
       };
+      body.imageUrls = desechoImages;
     }
 
     setSaving(true);
@@ -490,6 +529,87 @@ function UpdateModal({
 
           {/* Conditional fields */}
           {isReencauche && (
+          <div className="relative" data-proveedor-field>
+            <FieldLabel icon={MapPin} label="Proveedor del Reencauche" />
+            <div className="relative">
+              <input
+                type="text"
+                value={proveedorQuery}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setProveedorQuery(v);
+                  setSelectedProveedor(null);
+                  searchProveedores(v);
+                }}
+                onFocus={() => proveedorQuery && setShowDropdown(true)}
+                placeholder="Buscar distribuidor o escribir nombre..."
+                className={inputCls}
+                autoComplete="off"
+              />
+              {proveedorLoading && (
+                <Loader2 className="absolute right-3 top-3 w-4 h-4 text-[#1E76B6] animate-spin" />
+              )}
+            </div>
+
+            {/* Selected badge */}
+            {selectedProveedor && (
+              <div
+                className="mt-2 flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold"
+                style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(30,118,182,0.25)", color: "#1E76B6" }}
+              >
+                <span>✓ {selectedProveedor.name}{selectedProveedor.id === null ? " (personalizado)" : ""}</span>
+                <button type="button" onClick={() => { setSelectedProveedor(null); setProveedorQuery(""); }}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Dropdown */}
+            {showDropdown && !selectedProveedor && (
+              <div
+                className="absolute z-50 w-full mt-1 rounded-xl overflow-hidden shadow-lg"
+                style={{ background: "white", border: "1px solid rgba(52,140,203,0.25)" }}
+              >
+                {proveedorResults.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className="w-full text-left px-4 py-2.5 text-sm text-[#0A183A] hover:bg-[#F0F7FF] transition-colors"
+                    onClick={() => {
+                      setSelectedProveedor(r);
+                      setProveedorQuery(r.name);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    {r.name}
+                  </button>
+                ))}
+
+                {/* Always show "use custom name" option */}
+                {proveedorQuery.trim() && (
+                  <button
+                    type="button"
+                    className="w-full text-left px-4 py-2.5 text-sm font-semibold border-t transition-colors hover:bg-[#F0F7FF]"
+                    style={{ color: "#1E76B6", borderColor: "rgba(52,140,203,0.15)" }}
+                    onClick={() => {
+                      setSelectedProveedor({ id: null, name: proveedorQuery.trim() });
+                      setShowDropdown(false);
+                    }}
+                  >
+                    + Usar "{proveedorQuery.trim()}" como proveedor
+                  </button>
+                )}
+
+                {proveedorResults.length === 0 && !proveedorQuery.trim() && (
+                  <p className="px-4 py-3 text-xs text-[#348CCB]">Escriba para buscar distribuidores</p>
+                )}
+              </div>
+            )}
+          </div>
+          )}
+
+          {/* Costo (reencauche only) */}
+          {isReencauche && (
             <div>
               <FieldLabel icon={DollarSign} label="Costo del Reencauche (COP)" required />
               <div className="relative">
@@ -545,6 +665,52 @@ function UpdateModal({
                   className={inputCls}
                 />
               </div>
+              <div>
+              <FieldLabel icon={Camera} label="Fotos del descarte (máx. 3)" />
+              <div className="flex gap-2 flex-wrap mt-1">
+                {desechoImages.map((img, i) => (
+                  <div
+                    key={i}
+                    className="relative w-20 h-20 rounded-xl overflow-hidden"
+                    style={{ border: "1px solid rgba(52,140,203,0.3)" }}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setDesechoImages(prev => prev.filter((_, j) => j !== i))}
+                      className="absolute top-0.5 right-0.5 rounded-full p-0.5"
+                      style={{ background: "rgba(255,255,255,0.85)" }}
+                    >
+                      <X className="w-3 h-3 text-[#0A183A]" />
+                    </button>
+                  </div>
+                ))}
+
+                {desechoImages.length < 3 && (
+                  <label
+                    className="w-20 h-20 flex flex-col items-center justify-center rounded-xl cursor-pointer transition-colors hover:bg-[#F0F7FF]"
+                    style={{ border: "1.5px dashed rgba(52,140,203,0.4)" }}
+                  >
+                    <Camera className="w-5 h-5 text-[#348CCB]" />
+                    <span className="text-[10px] text-[#348CCB] mt-1 font-medium">Agregar</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          setDesechoImages(prev => [...prev, reader.result as string]);
+                        reader.readAsDataURL(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
             </>
           )}
 

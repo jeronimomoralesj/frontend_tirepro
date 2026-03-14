@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Plus, Settings, Search, Car, ChartPie,
   LogOut, Glasses, LifeBuoy, User, Menu, X,
   ChevronLeft, ChevronRight, Truck, User2, Trash2,
+  Trash,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -51,6 +52,7 @@ function buildLinks(plan: string, isAdmin: boolean): NavLink[] {
       { name: "Semáforo",  path: "/dashboard/semaforo",  icon: ChartPie        },
       { name: "Agregar",   path: "/dashboard/agregar",   icon: Plus            },
       { name: "Analista",  path: "/dashboard/analista",  icon: Glasses         },
+      { name: "Desechos",  path: "/dashboard/desechos",  icon: Trash         },
       { name: "Vehículos", path: "/dashboard/vehiculo",  icon: Car             },
       { name: "Buscar",    path: "/dashboard/buscar",    icon: Search          },
     ];
