@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
+
+  <!-- ═══════════════════════════════════════════════
+       HOMEPAGE
+       Primary keyword: software gestión llantas flotas Colombia
+  ════════════════════════════════════════════════ -->
+  <url>
+    <loc>https://www.tirepro.com.co</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="es-CO" href="https://www.tirepro.com.co"/>
+    <xhtml:link rel="alternate" hreflang="es"    href="https://www.tirepro.com.co"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.tirepro.com.co"/>
+    <image:image>
+      <image:loc>https://www.tirepro.com.co/og-image.png</image:loc>
+      <image:title>TirePro — Software de gestión de llantas con IA para flotas en Colombia</image:title>
+      <image:caption>Dashboard TirePro mostrando control de CPK, inspecciones digitales y alertas de reencauche para flotas de camiones en Colombia</image:caption>
+    </image:image>
+  </url>
+
+  <!-- ═══════════════════════════════════════════════
+       CALCULADORA CPK
+       Primary keyword: calculadora CPK llantas Colombia
+  ════════════════════════════════════════════════ -->
+  <url>
+    <loc>https://www.tirepro.com.co/calculadora</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="es-CO" href="https://www.tirepro.com.co/calculadora"/>
+    <xhtml:link rel="alternate" hreflang="es"    href="https://www.tirepro.com.co/calculadora"/>
+  </url>
+
+  <!-- ═══════════════════════════════════════════════
+       REGISTRO / CONVERSIÓN
+       Primary keyword: software llantas gratis Colombia
+  ════════════════════════════════════════════════ -->
+  <url>
+    <loc>https://www.tirepro.com.co/companyregister</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- ═══════════════════════════════════════════════
+       BLOG INDEX
+       Primary keyword: gestión llantas flotas Colombia blog
+  ════════════════════════════════════════════════ -->
+  <url>
+    <loc>https://www.tirepro.com.co/blog</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <xhtml:link rel="alternate" hreflang="es-CO" href="https://www.tirepro.com.co/blog"/>
+    <xhtml:link rel="alternate" hreflang="es"    href="https://www.tirepro.com.co/blog"/>
+  </url>
+
+  <!-- ═══════════════════════════════════════════════
+       CONTACT
+  ════════════════════════════════════════════════ -->
+  <url>
+    <loc>https://www.tirepro.com.co/contact</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- ═══════════════════════════════════════════════
+       EQUIPO
+  ════════════════════════════════════════════════ -->
+  <url>
+    <loc>https://www.tirepro.com.co/equipo</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- ═══════════════════════════════════════════════
+       DEVELOPERS / API
+  ════════════════════════════════════════════════ -->
+  <url>
+    <loc>https://www.tirepro.com.co/developers</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <!-- ═══════════════════════════════════════════════
+       LEGAL
+  ════════════════════════════════════════════════ -->
+  <url>
+    <loc>https://www.tirepro.com.co/legal</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+</urlset>

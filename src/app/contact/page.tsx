@@ -560,63 +560,72 @@ const ContactPage = () => {
 
       {/* ── Footer ── */}
       <footer
-        className="border-t py-12 sm:py-16 px-4 sm:px-6 lg:px-8 w-full"
-        style={{ borderColor: "rgba(30,118,182,0.15)", backgroundColor: "#0A183A" }}
+        className="border-t py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
+        style={{ borderColor: 'rgba(30,118,182,0.15)', backgroundColor: '#0A183A' }}
         role="contentinfo"
       >
         <div className="max-w-7xl mx-auto w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 mb-8 sm:mb-12">
-
-            {/* Brand */}
-            <div className="col-span-2 md:col-span-2">
-              <Link href="/" className="inline-flex items-center space-x-2 mb-4">
-                <Image
-                  src={logoTire}
-                  alt="TirePro"
-                  width={32}
-                  height={32}
-                  className="p-1"
-                  style={{ filter: "brightness(0) invert(1)" }}
-                />
-                <Image
-                  src={logo}
-                  alt="TirePro"
-                  width={120}
-                  height={32}
-                  style={{ filter: "brightness(0) invert(1)" }}
-                />
-              </Link>
-              <p className="text-sm mb-4" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Plataforma inteligente para la gestión y optimización de flotas de vehículos.
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center space-x-3 mb-4">
+                <span className="font-semibold text-white">TirePro</span>
+              </div>
+              <p className="text-xs sm:text-sm mb-4 sm:mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Software de optimización inteligente de llantas para flotas de vehículos en Colombia
               </p>
+              <nav aria-label="Redes sociales">
+                <div className="flex space-x-4">
+                  {[
+                    { label: 'Facebook',link: "https://www.instagram.com/tirepro.app/", path: 'M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z' },
+                    { label: 'Instagram',link: "https://www.instagram.com/tirepro.app/", path: 'M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z' },
+                    { label: 'LinkedIn', link: "https://tr.ee/NHqhS82dFR",path: 'M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z' },
+                  ].map((social) => (
+                    <a
+                      key={social.label}
+                      href={social.link}
+                      className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#1E76B6'; (e.currentTarget as HTMLAnchorElement).style.color = 'white' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.6)' }}
+                      aria-label={social.label}
+                    >
+                      <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d={social.path}/></svg>
+                    </a>
+                  ))}
+                </div>
+              </nav>
             </div>
-
-            {/* Legal */}
-            <nav>
-              <h4 className="font-semibold mb-4 text-sm text-white">Legal</h4>
-              <ul className="space-y-2 text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-                <li><a href="/legal#terms-section" className="hover:text-white transition-colors">Términos</a></li>
-                <li><a href="/legal#privacy-section" className="hover:text-white transition-colors">Privacidad</a></li>
-                <li><a href="/contact" className="hover:text-white transition-colors">Contacto</a></li>
-                <li><a href="/delete" className="hover:text-white transition-colors">Eliminar datos</a></li>
+            <nav aria-labelledby="product-nav">
+              <h4 id="product-nav" className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base text-white">Producto</h4>
+              <ul className="space-y-2 text-xs sm:text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <li><a href="#producto" className="hover:text-white transition-colors">Características</a></li>
+                <li><a href="https://apps.apple.com/us/app/tirepro/id6741497732" className="hover:text-white transition-colors">Descargar app</a></li>
+                <li><a href="/blog" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="/equipo" className="hover:text-white transition-colors">Nosotros</a></li>
+                <li><a href="/developers" className="hover:text-white transition-colors">Desarrolladores</a></li>
               </ul>
             </nav>
-
-            {/* Contact */}
+            <nav aria-labelledby="legal-nav">
+              <h4 id="legal-nav" className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base text-white">Legal</h4>
+              <ul className="space-y-2 text-xs sm:text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <li><a href="/legal#terms-section" className="hover:text-white transition-colors">Términos de servicio</a></li>
+                <li><a href="/legal#privacy-section" className="hover:text-white transition-colors">Política de privacidad</a></li>
+                <li><a href="/delete" className="hover:text-white transition-colors">Eliminar datos</a></li>
+                <li><a href="/contact" className="hover:text-white transition-colors">Contacto</a></li>
+              </ul>
+            </nav>
             <address className="not-italic">
-              <h4 className="font-semibold mb-4 text-sm text-white">Contacto</h4>
-              <ul className="space-y-2 text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+              <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base text-white">Contacto TirePro</h4>
+              <ul className="space-y-2 text-xs sm:text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 <li><a href="mailto:info@tirepro.com.co" className="hover:text-white transition-colors">info@tirepro.com.co</a></li>
                 <li><a href="tel:+573151349122" className="hover:text-white transition-colors">+57 315 134 9122</a></li>
                 <li>Bogotá, Colombia</li>
               </ul>
             </address>
-
           </div>
-
           <div
             className="pt-6 sm:pt-8 border-t flex flex-col sm:flex-row justify-between items-center text-xs sm:text-sm gap-4"
-            style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.35)" }}
+            style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.35)' }}
           >
             <p>© 2025 TirePro Colombia. Todos los derechos reservados.</p>
             <p>Hecho con ❤️ en Colombia</p>

@@ -19,20 +19,7 @@ const T = {
     passwordMismatch:    "La nueva contraseña y su confirmación no coinciden.",
     unexpectedError:     "Error inesperado",
     passwordChangeError: "Error cambiando la contraseña",
-  },
-  en: {
-    title:               "Change Password",
-    currentPassword:     "Current password",
-    newPassword:         "New password",
-    confirmPassword:     "Confirm new password",
-    changeButton:        "Change Password",
-    saving:              "Saving…",
-    success:             "Password updated successfully.",
-    loginRequired:       "You must log in again",
-    passwordMismatch:    "New password and confirmation do not match.",
-    unexpectedError:     "Unexpected error",
-    passwordChangeError: "Error changing password",
-  },
+  }
 };
 
 // =============================================================================
@@ -118,15 +105,7 @@ export default function CambiarContrasena() {
   const [error,           setError]           = useState("");
   const [success,         setSuccess]         = useState("");
   const [loading,         setLoading]         = useState(false);
-  const [lang,            setLang]            = useState<"en" | "es">("es");
-
-  // Detect language (same logic as before, no geo API key needed)
-  useEffect(() => {
-    const saved = localStorage.getItem("preferredLanguage") as "en" | "es" | null;
-    if (saved === "en" || saved === "es") { setLang(saved); return; }
-    const browser = (navigator.language || navigator.languages?.[0] || "es").toLowerCase();
-    setLang(browser.startsWith("en") ? "en" : "es");
-  }, []);
+  const [lang,            setLang]            = useState<"es">("es");
 
   const t = T[lang];
 

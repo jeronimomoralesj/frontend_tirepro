@@ -6,9 +6,9 @@ import Sidebar from "./sidebar";
 export default function DashboardLayout({ children }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
-  
+
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
       <Sidebar
         collapsed={collapsed}
@@ -16,19 +16,21 @@ export default function DashboardLayout({ children }) {
         isMobileOpen={isMobileOpen}
         setIsMobileOpen={setIsMobileOpen}
       />
-      
+
       {/* Main Content */}
-      <main 
+      <main
         className={`
-          flex-1 
-          transition-all 
-          duration-300 
+          flex-1
+          min-w-0
+          overflow-x-hidden
+          transition-all
+          duration-300
           ease-in-out
-          p-6 md:p-8
-          ${collapsed ? 'lg:ml-20' : 'lg:ml-64'}
+          ${collapsed ? "lg:ml-20" : "lg:ml-64"}
         `}
+        style={{ maxWidth: "100%", boxSizing: "border-box" }}
       >
-        <div className="pt-16 lg:pt-4">
+        <div className="pt-16 lg:pt-4 px-4 md:px-6">
           {children}
         </div>
       </main>

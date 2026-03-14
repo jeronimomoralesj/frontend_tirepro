@@ -1,133 +1,83 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
-  Search,
-  Car,
-  X,
-  Info,
-  ChevronDown,
-  Eye,
-  Circle,
-  BarChart3,
-  Calendar,
-  Ruler,
-  Repeat,
-  Trash2,
-  Pencil,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
+  Search, Car, X, Info, ChevronDown, Eye, Circle, BarChart3,
+  Calendar, Ruler, Repeat, Trash2, Pencil, CheckCircle,
+  AlertCircle, Loader2, Activity, DollarSign, Gauge,
+  AlertTriangle, Shield, ChevronRight, Zap, Layers,
+  CheckCircle2, Timer, AlertOctagon, RotateCcw,
 } from "lucide-react";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Filler,
+  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
+  LineElement, Title, Tooltip, Filler, BarElement,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
+import { Line, Bar } from "react-chartjs-2";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Filler);
+ChartJS.register(
+  CategoryScale, LinearScale, PointElement, LineElement,
+  Title, Tooltip, Filler, BarElement,
+);
 
 // =============================================================================
-// Types — aligned with normalized backend (costos, inspecciones, eventos)
+// Types
 // =============================================================================
-
 export type RawCosto = { valor: number; fecha: string | Date };
-
 export type RawInspeccion = {
-  id?: string;
-  tireId?: string;
-  fecha: string | Date;
-  profundidadInt: number;
-  profundidadCen: number;
-  profundidadExt: number;
-  cpk?: number | null;
-  cpkProyectado?: number | null;
-  cpt?: number | null;
-  cptProyectado?: number | null;
-  diasEnUso?: number | null;
-  mesesEnUso?: number | null;
-  kilometrosEstimados?: number | null;
-  kmActualVehiculo?: number | null;
-  kmEfectivos?: number | null;
-  kmProyectado?: number | null;
-  imageUrl?: string | null;
+  id?: string; tireId?: string; fecha: string | Date;
+  profundidadInt: number; profundidadCen: number; profundidadExt: number;
+  cpk?: number | null; cpkProyectado?: number | null;
+  cpt?: number | null; cptProyectado?: number | null;
+  diasEnUso?: number | null; mesesEnUso?: number | null;
+  kilometrosEstimados?: number | null; kmActualVehiculo?: number | null;
+  kmEfectivos?: number | null; kmProyectado?: number | null;
+  imageUrl?: string | null; presionPsi?: number | null;
+  presionRecomendadaPsi?: number | null; presionDelta?: number | null;
+  inspeccionadoPorNombre?: string | null;
 };
-
 export type RawEvento = {
-  id?: string;
-  tireId?: string;
-  tipo: string;
-  fecha: string | Date;
-  notas?: string | null;
-  metadata?: Record<string, unknown> | null;
+  id?: string; tireId?: string; tipo: string;
+  fecha: string | Date; notas?: string | null; metadata?: Record<string, unknown> | null;
 };
-
 export type RawTire = {
-  id: string;
-  placa: string;
-  marca: string;
-  diseno: string;
-  profundidadInicial: number;
-  dimension: string;
-  eje: string;
-  posicion: number;
-  companyId: string;
-  vehicleId?: string | null;
-  fechaInstalacion?: string | Date | null;
-  diasAcumulados?: number;
-  kilometrosRecorridos: number;
-  alertLevel?: string;
-  healthScore?: number | null;
-  currentCpk?: number | null;
-  currentProfundidad?: number | null;
-  projectedDateEOL?: string | Date | null;
+  id: string; placa: string; marca: string; diseno: string;
+  profundidadInicial: number; dimension: string; eje: string;
+  posicion: number; companyId: string; vehicleId?: string | null;
+  fechaInstalacion?: string | Date | null; diasAcumulados?: number;
+  kilometrosRecorridos: number; alertLevel?: string;
+  healthScore?: number | null; currentCpk?: number | null;
+  currentProfundidad?: number | null; projectedDateEOL?: string | Date | null;
   primeraVida?: Array<{ cpk?: number; diseno?: string; costo?: number; kilometros?: number }>;
-  desechos?: unknown;
-  // Normalized relations
-  costos: RawCosto[];
-  inspecciones: RawInspeccion[];
-  eventos: RawEvento[];
+  desechos?: unknown; costos: RawCosto[]; inspecciones: RawInspeccion[]; eventos: RawEvento[];
 };
-
-// Normalised shapes for component use
-export type CostEntry  = { valor: number; fecha: string };
+export type CostEntry = { valor: number; fecha: string };
 export type Inspection = {
   fecha: string;
   profundidadInt: number; profundidadCen: number; profundidadExt: number;
   cpk: number | null; cpkProyectado: number | null;
   cpt: number | null; cptProyectado: number | null;
   kilometrosEstimados: number | null; kmProyectado: number | null;
-  imageUrl: string | null;
+  imageUrl: string | null; presionPsi: number | null;
+  presionRecomendadaPsi: number | null; presionDelta: number | null;
+  inspeccionadoPorNombre: string | null;
 };
 export type VidaEntry = { valor: string; fecha: string };
-
 export type Tire = {
   id: string; placa: string; marca: string; diseno: string;
   profundidadInicial: number; dimension: string; eje: string;
   posicion: number; companyId: string; vehicleId?: string | null;
   fechaInstalacion?: string | null; diasAcumulados?: number;
-  kilometrosRecorridos: number;
-  alertLevel?: string; healthScore?: number | null;
-  currentCpk?: number | null; currentProfundidad?: number | null;
-  primeraVida?: Array<{ cpk?: number }>;
-  // Normalised
-  costo: CostEntry[];
-  inspecciones: Inspection[];
-  vida: VidaEntry[];
+  kilometrosRecorridos: number; alertLevel?: string;
+  healthScore?: number | null; currentCpk?: number | null;
+  currentProfundidad?: number | null;
+  primeraVida?: Array<{ cpk?: number; diseno?: string; costo?: number; kilometros?: number }>;
+  costo: CostEntry[]; inspecciones: Inspection[]; vida: VidaEntry[];
 };
-
 export type Vehicle = { id: string; placa: string; tipovhc?: string; carga?: string };
 
 // =============================================================================
-// Helpers
+// API helpers
 // =============================================================================
-
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
@@ -149,151 +99,12 @@ function toISO(d: string | Date | null | undefined): string {
   return d instanceof Date ? d.toISOString() : new Date(d).toISOString();
 }
 
-function WearChart({ inspecciones }: { inspecciones: Inspection[] }) {
-  const sorted = [...inspecciones].sort(
-    (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-  );
-
-  if (sorted.length < 2) return null;
-
-  const labels = sorted.map(i =>
-    new Date(i.fecha).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "2-digit" })
-  );
-
-  const thresholdPlugin = {
-    id: "thresholds",
-    afterDraw(chart: ChartJS) {
-      const { ctx, chartArea: { left, right }, scales: { y } } = chart;
-      [{ val: 2, color: "#e24b4a", dash: [6, 3] as number[] }, { val: 4, color: "#ef9f27", dash: [] as number[] }]
-        .forEach(({ val, color, dash }) => {
-          const yPx = y.getPixelForValue(val);
-          ctx.save();
-          ctx.beginPath();
-          ctx.setLineDash(dash);
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1.5;
-          ctx.moveTo(left, yPx);
-          ctx.lineTo(right, yPx);
-          ctx.stroke();
-          ctx.restore();
-        });
-    },
-  };
-
-  const data = {
-    labels,
-    datasets: [
-      {
-        label: "Promedio",
-        data: sorted.map(i => parseFloat(((i.profundidadInt + i.profundidadCen + i.profundidadExt) / 3).toFixed(2))),
-        borderColor: "#378add",
-        backgroundColor: "#378add18",
-        tension: 0.3,
-        pointRadius: 4,
-        borderWidth: 2.5,
-        fill: false,
-      },
-      {
-        label: "Interior",
-        data: sorted.map(i => i.profundidadInt),
-        borderColor: "#1d9e75",
-        backgroundColor: "transparent",
-        tension: 0.3,
-        pointRadius: 3,
-        borderWidth: 1.5,
-        borderDash: [4, 3],
-        fill: false,
-      },
-      {
-        label: "Central",
-        data: sorted.map(i => i.profundidadCen),
-        borderColor: "#7f77dd",
-        backgroundColor: "transparent",
-        tension: 0.3,
-        pointRadius: 3,
-        borderWidth: 1.5,
-        borderDash: [4, 3],
-        fill: false,
-      },
-      {
-        label: "Exterior",
-        data: sorted.map(i => i.profundidadExt),
-        borderColor: "#d85a30",
-        backgroundColor: "transparent",
-        tension: 0.3,
-        pointRadius: 3,
-        borderWidth: 1.5,
-        borderDash: [4, 3],
-        fill: false,
-      },
-    ],
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (ctx: any) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)} mm`,
-        },
-      },
-    },
-    scales: {
-      x: {
-        ticks: { font: { size: 10 }, color: "#888", maxRotation: 45 },
-        grid:  { color: "rgba(0,0,0,0.04)" },
-      },
-      y: {
-        min: 0,
-        title: { display: true, text: "Profundidad (mm)", font: { size: 10 }, color: "#888" },
-        ticks: { font: { size: 10 }, color: "#888", callback: (v: number) => v + "mm" },
-        grid:  { color: "rgba(0,0,0,0.04)" },
-      },
-    },
-  };
-
-  return (
-    <div className="rounded-2xl p-4 sm:p-5" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
-      <SectionTitle icon={BarChart3} title="Desgaste de Profundidad" />
-
-      <div className="flex flex-wrap gap-3 mb-4">
-        {[
-          { label: "Promedio", color: "#378add", dash: false },
-          { label: "Interior", color: "#1d9e75", dash: true  },
-          { label: "Central",  color: "#7f77dd", dash: true  },
-          { label: "Exterior", color: "#d85a30", dash: true  },
-        ].map(d => (
-          <span key={d.label} className="flex items-center gap-1.5 text-xs text-gray-500">
-            <span style={{ display: "inline-block", width: 20, height: 2, borderTop: `2px ${d.dash ? "dashed" : "solid"} ${d.color}` }} />
-            {d.label}
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5 text-xs text-gray-500">
-          <span style={{ display: "inline-block", width: 20, height: 2, borderTop: "2px dashed #e24b4a" }} />
-          Mínimo legal (2mm)
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-gray-500">
-          <span style={{ display: "inline-block", width: 20, height: 2, borderTop: "2px solid #ef9f27" }} />
-          Alerta (4mm)
-        </span>
-      </div>
-
-      <div style={{ position: "relative", width: "100%", height: "240px" }}>
-        <Line data={data} options={options as any} plugins={[thresholdPlugin]} />
-      </div>
-    </div>
-  );
-}
-
 const VIDA_SET = new Set(["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"]);
 
 function normalise(raw: RawTire): Tire {
   const costo: CostEntry[] = [...raw.costos]
     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
     .map((c) => ({ valor: typeof c.valor === "number" ? c.valor : 0, fecha: toISO(c.fecha) }));
-
   const inspecciones: Inspection[] = [...raw.inspecciones]
     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
     .map((i) => ({
@@ -306,141 +117,1081 @@ function normalise(raw: RawTire): Tire {
       kilometrosEstimados: i.kilometrosEstimados ?? null,
       kmProyectado: i.kmProyectado ?? null,
       imageUrl: i.imageUrl ?? null,
+      presionPsi: i.presionPsi ?? null,
+      inspeccionadoPorNombre: i.inspeccionadoPorNombre ?? null,
+      presionRecomendadaPsi: i.presionRecomendadaPsi ?? null,
+      presionDelta: i.presionDelta ?? null,
     }));
-
   const vida: VidaEntry[] = raw.eventos
     .filter((e) => e.notas && VIDA_SET.has(e.notas.toLowerCase()))
     .map((e) => ({ valor: e.notas!.toLowerCase(), fecha: toISO(e.fecha) }));
-
-  return { ...raw, costo, inspecciones, vida, fechaInstalacion: raw.fechaInstalacion ? toISO(raw.fechaInstalacion) : null };
+  return {
+    ...raw, costo, inspecciones, vida,
+    fechaInstalacion: raw.fechaInstalacion ? toISO(raw.fechaInstalacion) : null,
+  };
 }
 
-// UI helpers
-const VIDA_META: Record<string, { label: string; bg: string; text: string }> = {
-  nueva:       { label: "Nueva",              bg: "#DCFCE7", text: "#166534" },
-  reencauche1: { label: "1er Reencauche",     bg: "#DBEAFE", text: "#1E40AF" },
-  reencauche2: { label: "2do Reencauche",     bg: "#EDE9FE", text: "#5B21B6" },
-  reencauche3: { label: "3er Reencauche",     bg: "#FEE2E2", text: "#991B1B" },
-  fin:         { label: "Descartada",         bg: "#F3F4F6", text: "#374151" },
-};
-const vidaMeta = (v: string) => VIDA_META[v.toLowerCase()] ?? { label: v, bg: "#F3F4F6", text: "#374151" };
+// =============================================================================
+// Semaforo classification — mirrors SemaforoPie exactly
+// >7mm Óptimo | >6mm 60 días | >3mm 30 días | <=3mm Urgente
+// =============================================================================
+type SemaforoCondition = "buenEstado" | "dias60" | "dias30" | "cambioInmediato";
 
+function getSemaforoCondition(tire: Tire): SemaforoCondition | null {
+  if (!tire.inspecciones.length) return null;
+  const last = tire.inspecciones[tire.inspecciones.length - 1];
+  const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+  if (minDepth > 7) return "buenEstado";
+  if (minDepth > 6) return "dias60";
+  if (minDepth > 3) return "dias30";
+  return "cambioInmediato";
+}
+
+const SEMAFORO_META: Record<SemaforoCondition, {
+  label: string; color: string; bg: string; lightBg: string;
+  icon: React.ReactElement;
+}> = {
+  buenEstado:      { label: "Óptimo",  color: "#22c55e", bg: "rgba(34,197,94,0.12)",  lightBg: "#bbf7d0", icon: <CheckCircle2 size={14} /> },
+  dias60:          { label: "60 Días", color: "#2D95FF", bg: "rgba(45,149,255,0.12)", lightBg: "#bfdbfe", icon: <Timer size={14} /> },
+  dias30:          { label: "30 Días", color: "#f97316", bg: "rgba(249,115,22,0.12)", lightBg: "#fed7aa", icon: <AlertOctagon size={14} /> },
+  cambioInmediato: { label: "Urgente", color: "#ef4444", bg: "rgba(239,68,68,0.12)",  lightBg: "#fecaca", icon: <RotateCcw size={14} /> },
+};
+
+// Health = percentage of usable mm remaining (above 2mm legal minimum)
+function calcMmHealthScore(tire: Tire): number {
+  if (!tire.inspecciones.length) return 0;
+  const last = tire.inspecciones[tire.inspecciones.length - 1];
+  const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+  const initial = tire.profundidadInicial > 0 ? tire.profundidadInicial : 22;
+  const usable = Math.max(initial - 2, 1);
+  const remaining = Math.max(minDepth - 2, 0);
+  return Math.round(Math.min((remaining / usable) * 100, 100));
+}
+
+function getLatestInsp(tire: Tire) {
+  return tire.inspecciones.length ? tire.inspecciones[tire.inspecciones.length - 1] : null;
+}
+
+function getTotalCost(tire: Tire): number {
+  return tire.costo.reduce((s, c) => s + c.valor, 0);
+}
+
+function getProjectedKm(tire: Tire): string {
+  const last = getLatestInsp(tire);
+  if (!last) return "N/A";
+  if (last.kmProyectado && last.kmProyectado > 0)
+    return Math.round(last.kmProyectado).toLocaleString("es-CO");
+  const minProf = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+  const km = tire.kilometrosRecorridos;
+  const mmWorn = tire.profundidadInicial - minProf;
+  const mmLeft = Math.max(minProf - 2, 0);
+  if (mmWorn <= 0 || km <= 0) return "∞";
+  return Math.round(km + (km / mmWorn) * mmLeft).toLocaleString("es-CO");
+}
+
+// Per-mm depth coloring
 function depthColor(d: number): string {
-  if (d >= 7) return "#16A34A";
-  if (d >= 5) return "#CA8A04";
-  return "#DC2626";
+  if (d > 7) return "#22c55e";
+  if (d > 6) return "#2D95FF";
+  if (d > 3) return "#f97316";
+  return "#ef4444";
 }
 function depthBg(d: number): string {
-  if (d >= 7) return "#DCFCE7";
-  if (d >= 5) return "#FEF9C3";
-  return "#FEE2E2";
+  if (d > 7) return "rgba(34,197,94,0.12)";
+  if (d > 6) return "rgba(45,149,255,0.12)";
+  if (d > 3) return "rgba(249,115,22,0.12)";
+  return "rgba(239,68,68,0.12)";
 }
 
-function fmt(n: number | null | undefined, prefix = ""): string {
-  if (n == null || isNaN(n)) return "N/A";
-  return `${prefix}${Number(n).toLocaleString("es-CO")}`;
-}
-function fmtMM(n: number | null | undefined): string {
-  if (n == null) return "N/A";
-  return `${n} mm`;
+// Fleet stats
+function calcFleetStats(tires: Tire[]) {
+  const withInsp = tires.filter(t => t.inspecciones.length > 0);
+  const cpkValues = withInsp
+    .map(t => getLatestInsp(t)?.cpk)
+    .filter((v): v is number => v != null && v > 0);
+  const depthValues = withInsp.map(t => {
+    const l = getLatestInsp(t);
+    return l ? (l.profundidadInt + l.profundidadCen + l.profundidadExt) / 3 : null;
+  }).filter((v): v is number => v != null);
+
+  const avgCpk = cpkValues.length ? cpkValues.reduce((a, b) => a + b, 0) / cpkValues.length : null;
+  const avgDepth = depthValues.length ? depthValues.reduce((a, b) => a + b, 0) / depthValues.length : null;
+  const avgHealth = tires.length
+    ? Math.round(tires.reduce((s, t) => s + calcMmHealthScore(t), 0) / tires.length)
+    : null;
+
+  const counts = { buenEstado: 0, dias60: 0, dias30: 0, cambioInmediato: 0 };
+  tires.forEach(t => { const c = getSemaforoCondition(t); if (c) counts[c]++; });
+
+  const totalCost = tires.reduce((s, t) => s + getTotalCost(t), 0);
+  const urgent = tires.filter(t => {
+    const c = getSemaforoCondition(t);
+    return c === "cambioInmediato" || c === "dias30";
+  });
+
+  return { avgCpk, avgDepth, avgHealth, counts, totalCost, urgent };
 }
 
 // =============================================================================
-// Sub-components
+// Vida meta
 // =============================================================================
+const VIDA_META: Record<string, { label: string; bg: string; text: string; accent: string }> = {
+  nueva:       { label: "Nueva",          bg: "rgba(16,185,129,0.12)", text: "#065f46", accent: "#10b981" },
+  reencauche1: { label: "1er Reencauche", bg: "rgba(59,130,246,0.12)", text: "#1e3a8a", accent: "#3b82f6" },
+  reencauche2: { label: "2do Reencauche", bg: "rgba(139,92,246,0.12)", text: "#4c1d95", accent: "#8b5cf6" },
+  reencauche3: { label: "3er Reencauche", bg: "rgba(239,68,68,0.12)",  text: "#7f1d1d", accent: "#ef4444" },
+  fin:         { label: "Descartada",     bg: "rgba(107,114,128,0.12)",text: "#374151", accent: "#6b7280" },
+};
+const vidaMeta = (v: string) =>
+  VIDA_META[v.toLowerCase()] ?? { label: v, bg: "rgba(107,114,128,0.12)", text: "#374151", accent: "#6b7280" };
 
-function Badge({ valor }: { valor: string }) {
+// =============================================================================
+// Micro components
+// =============================================================================
+function VidaBadge({ valor }: { valor: string }) {
   const m = vidaMeta(valor);
   return (
-    <span
-      className="inline-block px-2 py-0.5 rounded-full text-xs font-bold"
-      style={{ background: m.bg, color: m.text }}
-    >
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
+      style={{ background: m.bg, color: m.text, border: `1px solid ${m.accent}40` }}>
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: m.accent }} />
       {m.label}
     </span>
   );
 }
 
-function DepthPill({ value }: { value: number }) {
+function SemaforoBadge({ tire }: { tire: Tire }) {
+  const cond = getSemaforoCondition(tire);
+  if (!cond) return null;
+  const m = SEMAFORO_META[cond];
   return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
-      style={{ background: depthBg(value), color: depthColor(value) }}
-    >
-      {value} mm
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+      style={{ background: m.bg, color: m.color, border: `1px solid ${m.color}30` }}>
+      {m.icon}
+      {m.label}
     </span>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function DepthBar({ value, max = 14 }: { value: number; max?: number }) {
+  const pct = Math.min((value / max) * 100, 100);
   return (
-    <div className="flex justify-between items-start py-2 border-b border-gray-100 last:border-0 gap-2">
-      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">{label}</span>
-      <span className="text-sm font-medium text-[#0A183A] text-right">{value}</span>
-    </div>
-  );
-}
-
-function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
-      <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
-        <Icon className="w-4 h-4 text-[#1E76B6]" />
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 rounded-full bg-gray-100">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: depthColor(value) }} />
       </div>
-      <h3 className="text-base font-black text-[#0A183A] tracking-tight">{title}</h3>
+      <span className="text-xs font-bold w-12 text-right" style={{ color: depthColor(value) }}>
+        {value.toFixed(1)} mm
+      </span>
+    </div>
+  );
+}
+
+function SectionTitle({ icon: Icon, title, badge }: {
+  icon: React.ElementType; title: string; badge?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+        <Icon className="w-3.5 h-3.5 text-white" />
+      </div>
+      <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
+      {badge && (
+        <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full"
+          style={{ background: "rgba(30,118,182,0.1)", color: "#1E76B6" }}>
+          {badge}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function HealthRing({ score, size = "md" }: { score: number; size?: "sm" | "md" }) {
+  const dim = size === "sm" ? 48 : 60;
+  const r = size === "sm" ? 18 : 24;
+  const sw = size === "sm" ? 4 : 5;
+  const circ = 2 * Math.PI * r;
+  const fill = (score / 100) * circ;
+  const color = score >= 60 ? "#22c55e" : score >= 35 ? "#f97316" : "#ef4444";
+  const textSize = size === "sm" ? "text-xs" : "text-sm";
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative" style={{ width: dim, height: dim }}>
+        <svg viewBox={`0 0 ${dim} ${dim}`} className="w-full h-full -rotate-90">
+          <circle cx={dim / 2} cy={dim / 2} r={r} fill="none" stroke="rgba(10,24,58,0.06)" strokeWidth={sw} />
+          <circle cx={dim / 2} cy={dim / 2} r={r} fill="none" stroke={color} strokeWidth={sw}
+            strokeDasharray={`${fill} ${circ}`} strokeLinecap="round" />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className={`${textSize} font-black text-[#0A183A]`}>{score}</span>
+        </div>
+      </div>
+      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Salud</span>
     </div>
   );
 }
 
 // =============================================================================
-// Page
+// Wear chart
 // =============================================================================
+function WearChart({ inspecciones }: { inspecciones: Inspection[] }) {
+  const sorted = [...inspecciones].sort(
+    (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+  );
+  if (sorted.length < 2) return (
+    <div className="rounded-2xl p-4 flex items-center justify-center text-sm text-gray-400"
+      style={{ border: "1px solid rgba(10,24,58,0.08)", background: "white", minHeight: 120 }}>
+      Se necesitan al menos 2 inspecciones
+    </div>
+  );
 
+  const thresholdPlugin = {
+    id: "thr",
+    afterDraw(chart: ChartJS) {
+      const { ctx, chartArea: { left, right }, scales: { y } } = chart as any;
+      [{ val: 2, color: "#ef4444", dash: [5, 3] as number[] }, { val: 4, color: "#f97316", dash: [] as number[] }]
+        .forEach(({ val, color, dash }) => {
+          const yPx = y.getPixelForValue(val);
+          ctx.save(); ctx.beginPath(); ctx.setLineDash(dash);
+          ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+          ctx.moveTo(left, yPx); ctx.lineTo(right, yPx); ctx.stroke(); ctx.restore();
+        });
+    },
+  };
+
+  const labels = sorted.map(i =>
+    new Date(i.fecha).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })
+  );
+  const data = {
+    labels,
+    datasets: [
+      {
+        label: "Promedio",
+        data: sorted.map(i => +((i.profundidadInt + i.profundidadCen + i.profundidadExt) / 3).toFixed(2)),
+        borderColor: "#1E76B6", backgroundColor: "rgba(30,118,182,0.06)",
+        tension: 0.4, pointRadius: 4, borderWidth: 2.5, fill: true,
+      },
+      { label: "Interior", data: sorted.map(i => i.profundidadInt), borderColor: "#22c55e", backgroundColor: "transparent", tension: 0.4, pointRadius: 2, borderWidth: 1.5, borderDash: [4, 3], fill: false },
+      { label: "Central",  data: sorted.map(i => i.profundidadCen), borderColor: "#8b5cf6", backgroundColor: "transparent", tension: 0.4, pointRadius: 2, borderWidth: 1.5, borderDash: [4, 3], fill: false },
+      { label: "Exterior", data: sorted.map(i => i.profundidadExt), borderColor: "#f97316", backgroundColor: "transparent", tension: 0.4, pointRadius: 2, borderWidth: 1.5, borderDash: [4, 3], fill: false },
+    ],
+  };
+  const opts: any = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)} mm` } } },
+    scales: {
+      x: { ticks: { font: { size: 10 }, color: "#94a3b8", maxRotation: 45 }, grid: { color: "rgba(0,0,0,0.03)" } },
+      y: { min: 0, title: { display: true, text: "Profundidad (mm)", font: { size: 10 }, color: "#94a3b8" }, ticks: { font: { size: 10 }, color: "#94a3b8", callback: (v: number) => v + "mm" }, grid: { color: "rgba(0,0,0,0.03)" } },
+    },
+  };
+
+  return (
+    <div className="rounded-2xl p-4 sm:p-5" style={{ border: "1px solid rgba(10,24,58,0.08)", background: "white" }}>
+      <SectionTitle icon={BarChart3} title="Curva de Desgaste" badge={`${sorted.length} inspecciones`} />
+      <div className="flex flex-wrap gap-3 mb-4">
+        {[
+          { label: "Promedio", color: "#1E76B6", dash: false },
+          { label: "Interior", color: "#22c55e", dash: true },
+          { label: "Central",  color: "#8b5cf6", dash: true },
+          { label: "Exterior", color: "#f97316", dash: true },
+          { label: "Mínimo legal (2mm)", color: "#ef4444", dash: true },
+          { label: "Alerta (4mm)", color: "#f97316", dash: false },
+        ].map(d => (
+          <span key={d.label} className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span style={{ display: "inline-block", width: 16, height: 2, borderTop: `2px ${d.dash ? "dashed" : "solid"} ${d.color}` }} />
+            {d.label}
+          </span>
+        ))}
+      </div>
+      <div style={{ position: "relative", height: 220 }}>
+        <Line data={data} options={opts} plugins={[thresholdPlugin]} />
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// CPK chart
+// =============================================================================
+function CpkChart({ inspecciones }: { inspecciones: Inspection[] }) {
+  const sorted = [...inspecciones]
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .filter(i => i.cpk != null && i.cpk > 0);
+
+  if (sorted.length < 2) return (
+    <div className="rounded-2xl p-4 flex items-center justify-center text-sm text-gray-400"
+      style={{ border: "1px solid rgba(10,24,58,0.08)", background: "white", minHeight: 120 }}>
+      Se necesitan al menos 2 registros de CPK
+    </div>
+  );
+
+  const labels = sorted.map(i =>
+    new Date(i.fecha).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })
+  );
+  const data = {
+    labels,
+    datasets: [
+      {
+        label: "CPK Real",
+        data: sorted.map(i => Math.round(i.cpk!)),
+        backgroundColor: sorted.map((_, idx, arr) => `rgba(30,118,182,${0.3 + (idx / Math.max(arr.length - 1, 1)) * 0.55})`),
+        borderRadius: 6, borderSkipped: false,
+      },
+      {
+        label: "CPK Proyectado",
+        type: "line" as const,
+        data: sorted.map(i => i.cpkProyectado ? Math.round(i.cpkProyectado) : null),
+        borderColor: "#f59e0b", backgroundColor: "transparent",
+        tension: 0.4, pointRadius: 3, borderWidth: 2, borderDash: [4, 3],
+      },
+    ],
+  };
+  const opts: any = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.dataset.label}: $${ctx.parsed.y?.toLocaleString("es-CO") ?? "—"}` } } },
+    scales: {
+      x: { ticks: { font: { size: 10 }, color: "#94a3b8" }, grid: { display: false } },
+      y: { ticks: { font: { size: 10 }, color: "#94a3b8", callback: (v: number) => `$${(v / 1000).toFixed(0)}k` }, grid: { color: "rgba(0,0,0,0.03)" } },
+    },
+  };
+
+  return (
+    <div className="rounded-2xl p-4 sm:p-5" style={{ border: "1px solid rgba(10,24,58,0.08)", background: "white" }}>
+      <SectionTitle icon={DollarSign} title="Evolución CPK" badge="Costo/km" />
+      <div className="flex gap-4 mb-4">
+        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+          <span style={{ display: "inline-block", width: 12, height: 12, borderRadius: 3, background: "#1E76B6" }} />
+          CPK Real
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+          <span style={{ display: "inline-block", width: 16, height: 2, borderTop: "2px dashed #f59e0b" }} />
+          CPK Proyectado
+        </span>
+      </div>
+      <div style={{ position: "relative", height: 200 }}>
+        <Bar data={data} options={opts} />
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Vehicle Fleet Overview
+// =============================================================================
+function VehicleFleetOverview({ tires }: { tires: Tire[] }) {
+  const stats = useMemo(() => calcFleetStats(tires), [tires]);
+
+  return (
+    <div className="space-y-4">
+      {/* Hero */}
+      <div className="rounded-2xl overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.2)" }}>
+        <div className="p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Car className="w-5 h-5 text-white/70" />
+            <span className="text-white font-black text-base">Análisis de Flota</span>
+            <span className="ml-auto text-white/50 text-xs">{tires.length} llantas</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "CPK Promedio", value: stats.avgCpk ? `$${Math.round(stats.avgCpk).toLocaleString("es-CO")}` : "N/A", sub: "por kilómetro", icon: DollarSign },
+              { label: "Profundidad Prom.", value: stats.avgDepth ? `${stats.avgDepth.toFixed(1)} mm` : "N/A", sub: "banda de rodamiento", icon: Gauge },
+              { label: "Salud Flota", value: stats.avgHealth != null ? `${stats.avgHealth}%` : "N/A", sub: "mm restantes vs inicial", icon: Activity },
+              { label: "Inversión Total", value: stats.totalCost > 0 ? `$${(stats.totalCost / 1_000_000).toFixed(1)}M` : "N/A", sub: "costo acumulado", icon: DollarSign },
+            ].map(s => (
+              <div key={s.label} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <s.icon className="w-3.5 h-3.5 text-white/50" />
+                  <span className="text-[10px] text-white/50 font-bold uppercase tracking-wider">{s.label}</span>
+                </div>
+                <p className="text-lg font-black text-white leading-none">{s.value}</p>
+                <p className="text-[10px] text-white/40 mt-0.5">{s.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Semaforo counts */}
+        <div className="px-4 sm:px-6 pb-4 grid grid-cols-4 gap-2">
+          {(["buenEstado", "dias60", "dias30", "cambioInmediato"] as SemaforoCondition[]).map(key => {
+            const m = SEMAFORO_META[key];
+            return (
+              <div key={key} className="rounded-xl p-2 text-center" style={{ background: `${m.color}22` }}>
+                <p className="text-xl font-black" style={{ color: m.color }}>{stats.counts[key]}</p>
+                <p className="text-[10px] font-bold" style={{ color: m.color, opacity: 0.85 }}>{m.label}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Urgent tires */}
+      {stats.urgent.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.03)" }}>
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 text-red-500" />
+            <span className="text-sm font-black text-red-700">Requieren Acción</span>
+            <span className="ml-auto text-xs font-bold text-red-500">
+              {stats.urgent.length} llanta{stats.urgent.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {stats.urgent.map(t => {
+              const cond = getSemaforoCondition(t);
+              const m = cond ? SEMAFORO_META[cond] : null;
+              const last = getLatestInsp(t);
+              const minD = last ? Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt) : null;
+              return (
+                <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-white"
+                  style={{ border: "1px solid rgba(239,68,68,0.12)" }}>
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: m?.color ?? "#94a3b8" }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-[#0A183A] truncate">{t.placa.toUpperCase()} · Pos. {t.posicion}</p>
+                    <p className="text-[10px] text-gray-500">{t.marca} {t.diseno}</p>
+                  </div>
+                  {minD != null && (
+                    <span className="text-xs font-bold flex-shrink-0" style={{ color: depthColor(minD) }}>
+                      {minD.toFixed(1)} mm mín.
+                    </span>
+                  )}
+                  {m && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{ background: m.bg, color: m.color }}>{m.label}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Tire Card
+// =============================================================================
+function TireCard({ tire, onView }: { tire: Tire; onView: () => void }) {
+  const last = getLatestInsp(tire);
+  const avgMM = last ? (last.profundidadInt + last.profundidadCen + last.profundidadExt) / 3 : null;
+  const lastVida = tire.vida.length ? tire.vida[tire.vida.length - 1] : null;
+  const health = calcMmHealthScore(tire);
+  const cond = getSemaforoCondition(tire);
+  const condColor = cond ? SEMAFORO_META[cond].color : "#94a3b8";
+
+  return (
+    <div className="rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      style={{ border: "1px solid rgba(10,24,58,0.08)", background: "white", boxShadow: "0 2px 8px rgba(10,24,58,0.04)" }}>
+      <div className="h-1 w-full" style={{ background: condColor }} />
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="font-black text-[#0A183A] text-base leading-none truncate">{tire.placa.toUpperCase()}</p>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+                style={{ background: "rgba(30,118,182,0.1)", color: "#1E76B6" }}>Posición {tire.posicion}</span>
+            </div>
+            <p className="text-xs text-gray-500">{tire.marca} · {tire.diseno}</p>
+          </div>
+          <SemaforoBadge tire={tire} />
+        </div>
+
+        {/* Vida + health */}
+        <div className="flex items-center justify-between mb-3">
+          {lastVida ? <VidaBadge valor={lastVida.valor} /> : <span />}
+          <HealthRing score={health} size="sm" />
+        </div>
+
+        {/* Depth bars */}
+        {last && (
+          <div className="space-y-1.5 mb-3">
+            <div className="grid grid-cols-3 gap-1 text-[10px] text-gray-400 font-semibold mb-1">
+              <span>Interior</span><span className="text-center">Central</span><span className="text-right">Exterior</span>
+            </div>
+            {[{ label: "Int", value: last.profundidadInt }, { label: "Cen", value: last.profundidadCen }, { label: "Ext", value: last.profundidadExt }]
+              .map(d => <DepthBar key={d.label} value={d.value} />)}
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {last?.cpk != null && (
+            <div className="rounded-xl p-2" style={{ background: "rgba(10,24,58,0.03)" }}>
+              <p className="text-[10px] text-gray-400 font-semibold">CPK</p>
+              <p className="text-sm font-black text-[#0A183A]">${Math.round(last.cpk).toLocaleString("es-CO")}</p>
+            </div>
+          )}
+          {avgMM != null && (
+            <div className="rounded-xl p-2" style={{ background: depthBg(avgMM) }}>
+              <p className="text-[10px] font-semibold" style={{ color: depthColor(avgMM) }}>Promedio</p>
+              <p className="text-sm font-black" style={{ color: depthColor(avgMM) }}>{avgMM.toFixed(1)} mm</p>
+            </div>
+          )}
+        </div>
+
+        {/* Meta */}
+        <div className="space-y-1 mb-3 text-xs text-gray-500">
+          <div className="flex items-center gap-1.5"><Ruler className="w-3 h-3 text-[#1E76B6]" />{tire.dimension}</div>
+          <div className="flex items-center gap-1.5"><BarChart3 className="w-3 h-3 text-[#1E76B6]" />Eje: {tire.eje} · {tire.kilometrosRecorridos.toLocaleString("es-CO")} km</div>
+          {last && <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3 text-[#1E76B6]" />Últ. insp.: {new Date(last.fecha).toLocaleDateString("es-CO")}</div>}
+        </div>
+
+        <button onClick={onView}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 p-3"
+          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+          Ver Análisis Completo
+          <ChevronRight className="w-3.5 h-3.5 ml-auto" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Vida History
+// =============================================================================
+function VidaHistory({ tire }: { tire: Tire }) {
+  if (tire.vida.length === 0)
+    return <p className="text-sm text-gray-400 py-6 text-center">No hay registros de vida</p>;
+  return (
+    <div className="space-y-2">
+      {tire.vida.map((entry, i) => {
+        const m = vidaMeta(entry.valor);
+        const isLast = i === tire.vida.length - 1;
+        const cpk = entry.valor === "nueva" && tire.primeraVida?.[0]?.cpk
+          ? tire.primeraVida[0].cpk : null;
+        return (
+          <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
+            style={{ background: isLast ? m.bg : "rgba(10,24,58,0.02)", border: `1px solid ${isLast ? m.accent + "40" : "rgba(10,24,58,0.06)"}` }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: m.bg, border: `1px solid ${m.accent}40` }}>
+              <Layers className="w-4 h-4" style={{ color: m.accent }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-black" style={{ color: m.text }}>{m.label}</span>
+                {isLast && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
+                    style={{ background: m.accent }}>Actual</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <Calendar className="w-3 h-3 text-gray-400" />
+                <span className="text-[11px] text-gray-500">
+                  {new Date(entry.fecha).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
+                </span>
+                {cpk && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-[11px] font-bold text-[#1E76B6]">CPK final: ${cpk.toFixed(2)}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <span className="text-[10px] text-gray-400 flex-shrink-0">#{i + 1}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// =============================================================================
+// Inspection Table
+// =============================================================================
+function InspectionTable({ tire, onDelete }: { tire: Tire; onDelete: (fecha: string) => void }) {
+  if (tire.inspecciones.length === 0)
+    return <p className="text-sm text-gray-400 py-6 text-center">Sin inspecciones registradas</p>;
+
+  const sorted = [...tire.inspecciones].sort(
+    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+  );
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm min-w-[640px]">
+        <thead>
+          <tr style={{ background: "rgba(10,24,58,0.03)" }}>
+            {["Fecha", "Int", "Cen", "Ext", "Prom.", "CPK", "CPK Proy.", "Km", "Presión", "Img", "Inspector", ""].map(h => (
+              <th key={h} className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 whitespace-nowrap">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((insp, idx) => {
+            const avg = (insp.profundidadInt + insp.profundidadCen + insp.profundidadExt) / 3;
+            const isLatest = idx === 0;
+            return (
+              <tr key={`${insp.fecha}-${idx}`} className="border-b transition-colors"
+                style={{ borderColor: "rgba(10,24,58,0.05)", background: isLatest ? "rgba(30,118,182,0.02)" : undefined }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(30,118,182,0.03)")}
+                onMouseLeave={e => (e.currentTarget.style.background = isLatest ? "rgba(30,118,182,0.02)" : "")}>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    {isLatest && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#1E76B6]" />}
+                    <span className="text-xs text-gray-600">{new Date(insp.fecha).toLocaleDateString("es-CO")}</span>
+                  </div>
+                </td>
+                {[insp.profundidadInt, insp.profundidadCen, insp.profundidadExt].map((v, vi) => (
+                  <td key={vi} className="px-3 py-2.5">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-bold"
+                      style={{ background: depthBg(v), color: depthColor(v) }}>{v} mm</span>
+                  </td>
+                ))}
+                <td className="px-3 py-2.5">
+                  <span className="text-xs font-black" style={{ color: depthColor(avg) }}>{avg.toFixed(1)} mm</span>
+                </td>
+                <td className="px-3 py-2.5 text-xs font-bold text-[#0A183A] whitespace-nowrap">
+                  {insp.cpk != null ? `$${Math.round(insp.cpk).toLocaleString("es-CO")}` : "—"}
+                </td>
+                <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                  {insp.cpkProyectado != null ? `$${Math.round(insp.cpkProyectado).toLocaleString("es-CO")}` : "—"}
+                </td>
+                <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                  {insp.kilometrosEstimados != null ? insp.kilometrosEstimados.toLocaleString("es-CO") : "—"}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  {insp.presionPsi != null ? (
+                    <span className="text-xs font-bold" style={{
+                      color: (insp.presionDelta ?? 0) < -10 ? "#ef4444" : (insp.presionDelta ?? 0) < 0 ? "#f97316" : "#22c55e"
+                    }}>{insp.presionPsi} PSI</span>
+                  ) : <span className="text-gray-300 text-xs">—</span>}
+                </td>
+                <td className="px-3 py-2.5">
+                  {insp.imageUrl ? (
+                    <a href={insp.imageUrl} target="_blank" rel="noopener noreferrer">
+                      <img src={insp.imageUrl} alt="Insp." className="rounded-lg object-cover hover:scale-110 transition-transform" style={{ width: 36, height: 36 }} />
+                    </a>
+                  ) : <span className="text-gray-300 text-xs">—</span>}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  {insp.presionPsi != null ? (
+                    <span className="text-xs font-bold">{insp.inspeccionadoPorNombre}</span>
+                  ) : <span className="text-gray-300 text-xs">—</span>}
+                </td>
+                <td className="px-3 py-2.5">
+                  <button onClick={() => onDelete(insp.fecha)}
+                    className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Eliminar">
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// =============================================================================
+// TIRE DETAIL MODAL — all tabs fully rendered, no conditional short-circuit
+// =============================================================================
+type ModalTab = "overview" | "inspecciones" | "costos" | "vida";
+
+function TireDetailModal({
+  tire, onClose, onUpdate, onDelete,
+}: {
+  tire: Tire;
+  onClose: () => void;
+  onUpdate: (t: Tire) => void;
+  onDelete: (fecha: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<ModalTab>("overview");
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    marca: tire.marca, diseno: tire.diseno, dimension: tire.dimension, eje: tire.eje,
+    kilometrosRecorridos: tire.kilometrosRecorridos, profundidadInicial: tire.profundidadInicial,
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSuccess, setEditSuccess] = useState("");
+
+  const last = getLatestInsp(tire);
+  const avgDepth = last ? (last.profundidadInt + last.profundidadCen + last.profundidadExt) / 3 : null;
+  const totalCost = getTotalCost(tire);
+  const projKm = getProjectedKm(tire);
+  const health = calcMmHealthScore(tire);
+  const currentVida = tire.vida.length ? tire.vida[tire.vida.length - 1].valor : "nueva";
+  const cond = getSemaforoCondition(tire);
+  const condMeta = cond ? SEMAFORO_META[cond] : null;
+
+  async function handleEditSubmit() {
+    setEditLoading(true); setEditSuccess("");
+    try {
+      const res = await authFetch(`${API_BASE}/tires/${tire.id}/edit`, {
+        method: "PATCH", body: JSON.stringify(editForm),
+      });
+      if (!res.ok) throw new Error("Error al guardar");
+      const raw = await res.json();
+      onUpdate(normalise(raw));
+      setEditSuccess("¡Cambios guardados exitosamente!");
+      setEditMode(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
+  const tabs: { id: ModalTab; label: string; icon: React.ElementType; count?: number }[] = [
+    { id: "overview",     label: "Resumen",      icon: Activity },
+    { id: "inspecciones", label: "Inspecciones", icon: Calendar,  count: tire.inspecciones.length },
+    { id: "costos",       label: "Costos",       icon: DollarSign,count: tire.costo.length },
+    { id: "vida",         label: "Historial",    icon: Repeat,    count: tire.vida.length },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-4 overflow-y-auto"
+      style={{ background: "rgba(10,24,58,0.75)", backdropFilter: "blur(6px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+
+      <div className="w-full max-w-4xl my-4 rounded-3xl overflow-hidden"
+        style={{ background: "#f8fafc", boxShadow: "0 32px 80px rgba(10,24,58,0.35)" }}>
+
+        {/* Header */}
+        <div className="relative overflow-hidden"
+          style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)" }}>
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ backgroundImage: "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
+          <div className="relative px-4 sm:px-6 py-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                  <Circle className="w-6 h-6 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-white font-black text-xl leading-none">{tire.placa.toUpperCase()}</h2>
+                    {condMeta && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: condMeta.bg, color: condMeta.color }}>
+                        {condMeta.label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-white/60 text-sm mt-0.5">{tire.marca} {tire.diseno} · {tire.dimension}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <VidaBadge valor={currentVida} />
+                    <span className="text-white/40 text-[11px]">Posición {tire.posicion} · Eje {tire.eje}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={() => { setEditMode(!editMode); setEditSuccess(""); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
+                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "white" }}>
+                  {editMode ? <><X className="w-3.5 h-3.5" />Cancelar</> : <><Pencil className="w-3.5 h-3.5" />Editar</>}
+                </button>
+                <button onClick={onClose} className="p-1.5 rounded-xl"
+                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* KPIs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+              {[
+                { label: "Profundidad Prom.", value: avgDepth ? `${avgDepth.toFixed(1)} mm` : "N/A", color: avgDepth ? depthColor(avgDepth) : "#94a3b8" },
+                { label: "CPK Actual",  value: last?.cpk ? `$${Math.round(last.cpk).toLocaleString("es-CO")}` : "N/A", color: "#60a5fa" },
+                { label: "Km Recorridos", value: tire.kilometrosRecorridos.toLocaleString("es-CO"), color: "#a78bfa" },
+                { label: "Km Proyectados", value: projKm, color: "#34d399" },
+              ].map(k => (
+                <div key={k.label} className="rounded-xl p-2.5 text-center" style={{ background: "rgba(255,255,255,0.07)" }}>
+                  <p className="text-base font-black" style={{ color: k.color }}>{k.value}</p>
+                  <p className="text-[10px] text-white/50 font-semibold mt-0.5">{k.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-t border-white/10">
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-bold transition-all"
+                style={{
+                  color: activeTab === t.id ? "white" : "rgba(255,255,255,0.45)",
+                  borderBottom: activeTab === t.id ? "2px solid white" : "2px solid transparent",
+                  background: activeTab === t.id ? "rgba(255,255,255,0.08)" : "transparent",
+                }}>
+                <t.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="hidden sm:inline">{t.label}</span>
+                {t.count != null && t.count > 0 && (
+                  <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full font-black"
+                    style={{ background: activeTab === t.id ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)", color: "white" }}>
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab content */}
+        <div className="p-4 sm:p-6 space-y-4">
+
+          {editSuccess && (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium"
+              style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
+              <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+              <span className="text-green-700">{editSuccess}</span>
+            </div>
+          )}
+
+          {/* Edit panel */}
+          {editMode && (
+            <div className="rounded-2xl p-4" style={{ background: "white", border: "1px solid rgba(30,118,182,0.15)" }}>
+              <p className="text-sm font-black text-[#0A183A] mb-3">Editar Información</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                {([
+                  { label: "Marca",          key: "marca",                type: "text"   },
+                  { label: "Diseño",         key: "diseno",               type: "text"   },
+                  { label: "Dimensión",      key: "dimension",            type: "text"   },
+                  { label: "Eje",            key: "eje",                  type: "text"   },
+                  { label: "Km Recorridos",  key: "kilometrosRecorridos", type: "number" },
+                  { label: "Prof. Inicial",  key: "profundidadInicial",   type: "number" },
+                ] as const).map(({ label, key, type }) => (
+                  <div key={key}>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
+                    <input type={type}
+                      value={(editForm as Record<string, unknown>)[key] as string}
+                      onChange={e => setEditForm(f => ({ ...f, [key]: type === "number" ? parseFloat(e.target.value) || 0 : e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                      style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.2)", color: "#0A183A" }} />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => { setEditMode(false); setEditSuccess(""); }}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+                  style={{ border: "1px solid rgba(10,24,58,0.1)" }}>
+                  Cancelar
+                </button>
+                <button onClick={handleEditSubmit} disabled={editLoading}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+                  {editLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando…</> : "Guardar Cambios"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── OVERVIEW ─── */}
+          {activeTab === "overview" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Characteristics */}
+                <div className="rounded-2xl p-4" style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
+                  <SectionTitle icon={Info} title="Características" />
+                  {[
+                    { label: "Diseño",         value: tire.diseno },
+                    { label: "Dimensión",      value: tire.dimension },
+                    { label: "Eje",            value: tire.eje },
+                    { label: "Prof. Inicial",  value: `${tire.profundidadInicial} mm` },
+                    { label: "Km Recorridos",  value: `${tire.kilometrosRecorridos.toLocaleString("es-CO")} km` },
+                    { label: "Km Proyectados", value: `${projKm} km` },
+                    { label: "Estado Actual",  value: <VidaBadge valor={currentVida} /> },
+                    ...(tire.fechaInstalacion ? [{ label: "Instalación", value: new Date(tire.fechaInstalacion).toLocaleDateString("es-CO") }] : []),
+                    ...(tire.diasAcumulados != null ? [{ label: "Días Rodando", value: `${tire.diasAcumulados} días` }] : []),
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0 gap-2">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0">{label}</span>
+                      <span className="text-sm font-semibold text-[#0A183A] text-right">{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Right column */}
+                <div className="space-y-3">
+                  {/* Health */}
+                  <div className="rounded-2xl p-4" style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
+                    <SectionTitle icon={Shield} title="Estado de Salud" />
+                    <div className="flex items-center gap-4">
+                      <HealthRing score={health} />
+                      <div className="flex-1">
+                        <p className="text-2xl font-black text-[#0A183A]">{health}<span className="text-sm text-gray-400">/100</span></p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {health >= 60 ? "Llanta en buen estado" : health >= 35 ? "Requiere seguimiento" : "Acción inmediata"}
+                        </p>
+                        <div className="mt-2 h-2 rounded-full bg-gray-100">
+                          <div className="h-full rounded-full"
+                            style={{ width: `${health}%`, background: health >= 60 ? "#22c55e" : health >= 35 ? "#f97316" : "#ef4444" }} />
+                        </div>
+                        {condMeta && <div className="mt-2"><SemaforoBadge tire={tire} /></div>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pressure */}
+                  {last?.presionPsi != null && (
+                    <div className="rounded-2xl p-4" style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
+                      <SectionTitle icon={Gauge} title="Presión Neumático" />
+                      <div className="flex items-center gap-3">
+                        <div className="text-2xl font-black text-[#0A183A]">{last.presionPsi} <span className="text-sm text-gray-400">PSI</span></div>
+                        {last.presionRecomendadaPsi && (
+                          <div className="flex-1 text-right">
+                            <p className="text-xs text-gray-400">Recomendada</p>
+                            <p className="text-sm font-bold text-gray-600">{last.presionRecomendadaPsi} PSI</p>
+                          </div>
+                        )}
+                      </div>
+                      {last.presionDelta != null && (
+                        <span className="mt-2 inline-flex text-xs font-bold px-2 py-1 rounded-lg"
+                          style={{
+                            background: last.presionDelta < -10 ? "rgba(239,68,68,0.1)" : last.presionDelta < 0 ? "rgba(249,115,22,0.1)" : "rgba(34,197,94,0.1)",
+                            color: last.presionDelta < -10 ? "#ef4444" : last.presionDelta < 0 ? "#f97316" : "#22c55e",
+                          }}>
+                          {last.presionDelta > 0 ? "+" : ""}{last.presionDelta.toFixed(1)} PSI vs recomendada
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Financial */}
+                  <div className="rounded-2xl p-4" style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
+                    <SectionTitle icon={DollarSign} title="Resumen Financiero" />
+                    {totalCost > 0 ? (
+                      <div className="space-y-0">
+                        {[
+                          { label: "Inversión Total", value: `$${totalCost.toLocaleString("es-CO")}`, bold: true },
+                          ...(last?.cpk != null ? [{ label: "CPK Actual", value: `$${Math.round(last.cpk).toLocaleString("es-CO")}/km`, bold: false }] : []),
+                          ...(last?.cpkProyectado != null ? [{ label: "CPK Proyectado", value: `$${Math.round(last.cpkProyectado).toLocaleString("es-CO")}/km`, bold: false }] : []),
+                          ...(last?.cpt != null ? [{ label: "CPT Actual", value: `$${Math.round(last.cpt).toLocaleString("es-CO")}/mes`, bold: false }] : []),
+                        ].map(row => (
+                          <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
+                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{row.label}</span>
+                            <span className={`text-sm ${row.bold ? "font-black text-[#0A183A]" : "font-bold text-[#1E76B6]"}`}>{row.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-xs text-gray-400">Sin registros de costo</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <WearChart inspecciones={tire.inspecciones} />
+                <CpkChart inspecciones={tire.inspecciones} />
+              </div>
+            </div>
+          )}
+
+          {/* ─── INSPECCIONES ─── */}
+          {activeTab === "inspecciones" && (
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
+              <div className="p-4 border-b border-gray-50">
+                <SectionTitle icon={Calendar} title="Historial de Inspecciones" badge={`${tire.inspecciones.length} registros`} />
+              </div>
+              <div className="p-4">
+                <InspectionTable tire={tire} onDelete={onDelete} />
+              </div>
+            </div>
+          )}
+
+          {/* ─── COSTOS ─── */}
+          {activeTab === "costos" && (
+            <div className="rounded-2xl p-4"
+              style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
+              <SectionTitle icon={DollarSign} title="Análisis de Costos" badge={`${tire.costo.length} entradas`} />
+              {tire.costo.length === 0 ? (
+                <p className="text-sm text-gray-400 py-6 text-center">Sin registros de costo</p>
+              ) : (
+                <div className="space-y-2">
+                  {tire.costo.map((entry, idx) => (
+                    <div key={`costo-${idx}`} className="flex items-center justify-between p-3 rounded-xl"
+                      style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(10,24,58,0.05)" }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: "rgba(30,118,182,0.1)" }}>
+                          <DollarSign className="w-4 h-4 text-[#1E76B6]" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-[#0A183A]">
+                            {new Date(entry.fecha).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
+                          </p>
+                          <p className="text-[10px] text-gray-400">Entrada #{idx + 1}</p>
+                        </div>
+                      </div>
+                      <p className="text-sm font-black text-[#0A183A]">${entry.valor.toLocaleString("es-CO")}</p>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between p-3 rounded-xl mt-2"
+                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+                    <span className="text-white font-bold text-sm">Total Invertido</span>
+                    <span className="text-white font-black text-lg">${totalCost.toLocaleString("es-CO")}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── VIDA ─── */}
+          {activeTab === "vida" && (
+            <div className="rounded-2xl p-4"
+              style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
+              <SectionTitle icon={Repeat} title="Historial de Vida" badge={`${tire.vida.length} fases`} />
+              <VidaHistory tire={tire} />
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <button onClick={onClose}
+              className="px-5 py-2 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+              style={{ border: "1px solid rgba(10,24,58,0.1)" }}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// MAIN PAGE
+// =============================================================================
 const BuscarPage: React.FC = () => {
   const [searchMode, setSearchMode] = useState<"vehicle" | "tire">("vehicle");
   const [searchTerm, setSearchTerm] = useState("");
-  const [tires,      setTires]      = useState<Tire[]>([]);
-  const [error,      setError]      = useState("");
-  const [loading,    setLoading]    = useState(false);
-
+  const [tires,   setTires]   = useState<Tire[]>([]);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [error,   setError]   = useState("");
+  const [loading, setLoading] = useState(false);
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
-  const [showModal,    setShowModal]    = useState(false);
-
-  // Edit state
-  const [editMode,   setEditMode]   = useState(false);
-  const [editForm,   setEditForm]   = useState({
-    marca: "", diseno: "", dimension: "", eje: "",
-    kilometrosRecorridos: 0, profundidadInicial: 0,
-  });
-  const [editingInspection, setEditingInspection] = useState<{
-    fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number;
-  } | null>(null);
-  const [editingCosto, setEditingCosto] = useState<{ fecha: string; newValor: number } | null>(null);
-  const [editLoading,  setEditLoading]  = useState(false);
-  const [editSuccess,  setEditSuccess]  = useState("");
 
   const storedUser = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-  const user       = storedUser ? JSON.parse(storedUser) : null;
-  const companyId  = user?.companyId;
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const companyId = user?.companyId;
 
-  // Search
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setError(""); setTires([]); setSelectedTire(null);
+    setError(""); setTires([]); setVehicle(null); setSelectedTire(null);
     if (!searchTerm.trim()) { setError("Por favor ingrese un valor para buscar"); return; }
     if (!companyId)          { setError("Información de la compañía no encontrada"); return; }
     setLoading(true);
     try {
       if (searchMode === "vehicle") {
-        const vRes = await authFetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}&companyId=${companyId}`);
+        const vRes = await authFetch(
+          `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}&companyId=${companyId}`
+        );
         if (!vRes.ok) throw new Error("Vehículo no encontrado");
-        const vehicle: Vehicle = await vRes.json();
-        const tRes = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicle.id}`);
+        const v: Vehicle = await vRes.json();
+        setVehicle(v);
+        const tRes = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${v.id}`);
         if (!tRes.ok) throw new Error("Error al obtener las llantas");
         const raw: RawTire[] = await tRes.json();
-        setTires(raw.filter((t) => t.companyId === companyId).map(normalise).sort((a, b) => a.posicion - b.posicion));
+        setTires(raw.filter(t => t.companyId === companyId).map(normalise).sort((a, b) => a.posicion - b.posicion));
       } else {
-        const tRes = await authFetch(`${API_BASE}/tires?companyId=${companyId}&placa=${encodeURIComponent(searchTerm.trim())}`);
+        const tRes = await authFetch(
+          `${API_BASE}/tires?companyId=${companyId}&placa=${encodeURIComponent(searchTerm.trim())}`
+        );
         if (!tRes.ok) throw new Error("Llanta no encontrada");
         const raw: RawTire[] = await tRes.json();
         setTires(raw.map(normalise).sort((a, b) => a.posicion - b.posicion));
@@ -452,723 +1203,130 @@ const BuscarPage: React.FC = () => {
     }
   }
 
-  const openModal = (tire: Tire) => {
-    setSelectedTire(tire); setShowModal(true);
-    setEditMode(false); setEditingInspection(null); setEditingCosto(null); setEditSuccess("");
-  };
-  const closeModal = () => {
-    setSelectedTire(null); setShowModal(false);
-    setEditMode(false); setEditingInspection(null); setEditingCosto(null); setEditSuccess("");
-  };
-  const openEditMode = (tire: Tire) => {
-    setEditForm({
-      marca: tire.marca, diseno: tire.diseno, dimension: tire.dimension, eje: tire.eje,
-      kilometrosRecorridos: tire.kilometrosRecorridos, profundidadInicial: tire.profundidadInicial,
-    });
-    setEditingInspection(null); setEditingCosto(null); setEditSuccess(""); setEditMode(true);
-  };
-
-  const handleEditSubmit = async () => {
+  async function handleDeleteInspection(fecha: string) {
     if (!selectedTire) return;
-    setEditLoading(true); setEditSuccess("");
-    try {
-      const payload: Record<string, unknown> = { ...editForm };
-      if (editingInspection) payload.inspectionEdit = editingInspection;
-      if (editingCosto)      payload.costoEdit      = editingCosto;
-      const res = await authFetch(`${API_BASE}/tires/${selectedTire.id}/edit`, {
-        method: "PATCH", body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("Error al guardar cambios");
-      const updated: RawTire = await res.json();
-      const norm = normalise(updated);
-      setSelectedTire(norm);
-      setTires((ts) => ts.map((t) => (t.id === norm.id ? norm : t)));
-      setEditSuccess("¡Cambios guardados exitosamente!");
-      setEditMode(false); setEditingInspection(null); setEditingCosto(null);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error inesperado");
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const handleDeleteInspection = async (fecha: string) => {
-    if (!selectedTire) return;
-    if (!window.confirm("¿Estás seguro que quieres borrar esta inspección?")) return;
+    if (!window.confirm("¿Eliminar esta inspección?")) return;
     try {
       const res = await authFetch(
         `${API_BASE}/tires/${selectedTire.id}/inspection?fecha=${encodeURIComponent(fecha)}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error();
-      const updated = { ...selectedTire, inspecciones: selectedTire.inspecciones.filter((i) => i.fecha !== fecha) };
+      const updated: Tire = {
+        ...selectedTire,
+        inspecciones: selectedTire.inspecciones.filter(i => i.fecha !== fecha),
+      };
       setSelectedTire(updated);
-      setTires((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
+      setTires(ts => ts.map(t => t.id === updated.id ? updated : t));
     } catch {
       alert("No se pudo eliminar la inspección");
     }
-  };
+  }
 
-  // Derived display helpers
-  const getLatestInsp = (tire: Tire) =>
-    tire.inspecciones.length ? tire.inspecciones[tire.inspecciones.length - 1] : null;
-
-  const getProjectedKm = (tire: Tire): string => {
-    const last = getLatestInsp(tire);
-    if (!last) return "N/A";
-    if (last.kmProyectado && last.kmProyectado > 0) return Math.round(last.kmProyectado).toLocaleString("es-CO");
-    const minProf = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
-    const km = tire.kilometrosRecorridos;
-    const mmWorn = tire.profundidadInicial - minProf;
-    const mmLeft = Math.max(minProf - 2, 0);
-    if (mmWorn <= 0 || km <= 0) return "∞";
-    return Math.round(km + (km / mmWorn) * mmLeft).toLocaleString("es-CO");
-  };
-
-  const getCurrentVida = (tire: Tire) =>
-    tire.vida.length ? vidaMeta(tire.vida[tire.vida.length - 1].valor).label : "No Registrada";
-
-  // ==========================================================================
-  // Render
-  // ==========================================================================
   return (
-    <div className="min-h-screen" style={{ background: "#ffffff" }}>
-
-      {/* ── Sticky header ── */}
-      <div
-        className="sticky top-0 z-40 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2"
-        style={{
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(52,140,203,0.15)",
-        }}
-      >
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="p-2 rounded-xl flex-shrink-0" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-            <Search className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="font-black text-[#0A183A] text-base sm:text-lg leading-none tracking-tight truncate">
-              Buscar Llanta
-            </h1>
-            <p className="text-xs text-[#348CCB] mt-0.5">
-              Busque por placa de vehículo o ID de llanta
-            </p>
-          </div>
+    <div className="min-h-screen" style={{ background: "#ffff" }}>
+      {/* Header */}
+      <div className="sticky top-0 z-40 px-3 sm:px-6 py-3 sm:py-4 flex items-center gap-3"
+        style={{ background: "rgba(241,245,249,0.95)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(10,24,58,0.08)" }}>
+        <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+          <Search className="w-4 h-4 text-white" />
+        </div>
+        <div>
+          <h1 className="font-black text-[#0A183A] text-base sm:text-lg leading-none tracking-tight">Buscar Llanta</h1>
+          <p className="text-xs text-[#1E76B6] mt-0.5">Análisis por placa de vehículo o ID de llanta</p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
-
-        {/* ── Search panel ── */}
-        <div
-          className="rounded-2xl p-4 sm:p-6"
-          style={{ background: "white", border: "1px solid rgba(52,140,203,0.18)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}
-        >
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-5">
+        {/* Search */}
+        <div className="rounded-2xl p-4 sm:p-5"
+          style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 4px 20px rgba(10,24,58,0.04)" }}>
           <form onSubmit={handleSearch}>
             <div className="flex flex-col sm:flex-row gap-3">
-              {/* Mode select */}
               <div className="relative sm:w-56 flex-shrink-0">
-                <select
-                  value={searchMode}
-                  onChange={(e) => setSearchMode(e.target.value as "vehicle" | "tire")}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm font-medium appearance-none focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                  style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.2)", color: "#0A183A" }}
-                >
+                <select value={searchMode} onChange={e => setSearchMode(e.target.value as "vehicle" | "tire")}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                  style={{ background: "rgba(10,24,58,0.04)", border: "1px solid rgba(10,24,58,0.12)", color: "#0A183A" }}>
                   <option value="vehicle">Por Placa de Vehículo</option>
                   <option value="tire">Por ID de Llanta</option>
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-[#1E76B6]" />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none text-gray-400" />
               </div>
-
-              {/* Input */}
               <div className="relative flex-1">
                 <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                  {searchMode === "vehicle"
-                    ? <Car className="w-4 h-4 text-gray-400" />
-                    : <Circle className="w-4 h-4 text-gray-400" />}
+                  {searchMode === "vehicle" ? <Car className="w-4 h-4 text-gray-400" /> : <Circle className="w-4 h-4 text-gray-400" />}
                 </div>
-                <input
-                  type="text"
+                <input type="text"
                   placeholder={searchMode === "vehicle" ? "Ej: ABC123" : "Ej: llanta-id-001"}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                  style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.2)", color: "#0A183A" }}
-                />
+                  style={{ background: "rgba(10,24,58,0.04)", border: "1px solid rgba(10,24,58,0.12)", color: "#0A183A" }} />
               </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-              >
-                {loading
-                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : <Search className="w-4 h-4" />}
-                <span>{loading ? "Buscando…" : "Buscar"}</span>
+              <button type="submit" disabled={loading}
+                className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                {loading ? "Buscando…" : "Buscar"}
               </button>
             </div>
           </form>
-
-          {/* Error */}
           {error && (
-            <div
-              className="flex items-start gap-3 mt-4 px-4 py-3 rounded-xl text-sm"
-              style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}
-            >
-              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-              <span className="text-red-700">{error}</span>
+            <div className="flex items-center gap-2 mt-4 px-4 py-3 rounded-xl text-sm"
+              style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+              <span className="text-red-600">{error}</span>
             </div>
           )}
         </div>
 
-        {/* ── Results ── */}
+        {/* Results */}
         {tires.length > 0 && (
-          <div
-            className="rounded-2xl overflow-hidden"
-            style={{ background: "white", border: "1px solid rgba(52,140,203,0.18)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}
-          >
-            {/* Results header — matches MetricCard style */}
-            <div
-              className="px-4 sm:px-6 py-4 flex items-center justify-between"
-              style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}
-            >
+          <div className="space-y-5">
+            {searchMode === "vehicle" && vehicle && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Car className="w-4 h-4 text-[#1E76B6]" />
+                  <span className="text-sm font-black text-[#0A183A]">Vehículo {vehicle.placa.toUpperCase()}</span>
+                  {vehicle.tipovhc && (
+                    <span className="text-xs text-gray-500 px-2 py-0.5 rounded-full"
+                      style={{ background: "rgba(10,24,58,0.06)" }}>{vehicle.tipovhc}</span>
+                  )}
+                </div>
+                <VehicleFleetOverview tires={tires} />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Circle className="w-5 h-5 text-white/70" />
-                <span className="font-black text-white text-sm sm:text-base">
-                  {tires.length} {tires.length === 1 ? "Llanta Encontrada" : "Llantas Encontradas"}
-                </span>
+                <span className="text-sm font-black text-[#0A183A]">{tires.length} {tires.length === 1 ? "Llanta" : "Llantas"}</span>
+                <span className="text-xs text-gray-400">encontradas</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                <Zap className="w-3.5 h-3.5 text-[#1E76B6]" />
+                Ordenadas por posición
               </div>
             </div>
 
-            <div className="p-4 sm:p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {tires.map((tire) => {
-                  const last    = getLatestInsp(tire);
-                  const avgMM   = last ? (last.profundidadInt + last.profundidadCen + last.profundidadExt) / 3 : null;
-                  const lastVida = tire.vida.length ? tire.vida[tire.vida.length - 1] : null;
-
-                  return (
-                    <div
-                      key={tire.id}
-                      className="rounded-xl overflow-hidden transition-all duration-200 hover:shadow-md"
-                      style={{ border: "1px solid rgba(52,140,203,0.15)", background: "white" }}
-                    >
-                      {/* Card top accent */}
-                      <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #1E76B6, #348CCB)" }} />
-
-                      <div className="p-4">
-                        {/* Header row */}
-                        <div className="flex items-start justify-between gap-2 mb-3">
-                          <div>
-                            <p className="font-black text-[#0A183A] text-base leading-tight">{tire.placa}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{tire.marca} · {tire.diseno}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            <span
-                              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                              style={{ background: "rgba(30,118,182,0.1)", color: "#1E76B6" }}
-                            >
-                              Pos. {tire.posicion}
-                            </span>
-                            {avgMM !== null && (
-                              <span
-                                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                                style={{ background: depthBg(avgMM), color: depthColor(avgMM) }}
-                              >
-                                {avgMM.toFixed(1)} mm
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Vida badge */}
-                        {lastVida && <div className="mb-3"><Badge valor={lastVida.valor} /></div>}
-
-                        {/* Info rows */}
-                        <div className="space-y-1.5 mb-4">
-                          <div className="flex items-center gap-2 text-xs text-gray-600">
-                            <Ruler className="w-3.5 h-3.5 text-[#348CCB] flex-shrink-0" />
-                            {tire.dimension}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-600">
-                            <BarChart3 className="w-3.5 h-3.5 text-[#348CCB] flex-shrink-0" />
-                            Eje: {tire.eje}
-                          </div>
-                          {last && (
-                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                              <Calendar className="w-3.5 h-3.5 text-[#348CCB] flex-shrink-0" />
-                              Últ. insp.: {new Date(last.fecha).toLocaleDateString("es-CO")}
-                            </div>
-                          )}
-                        </div>
-
-                        <button
-                          onClick={() => openModal(tire)}
-                          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-                          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-                        >
-                          <Eye className="w-4 h-4" />
-                          Ver Detalles
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {tires.map(tire => (
+                <TireCard key={tire.id} tire={tire} onView={() => setSelectedTire(tire)} />
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* ================================================================== */}
-      {/* Modal                                                               */}
-      {/* ================================================================== */}
-      {showModal && selectedTire && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-4 overflow-y-auto"
-          style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(4px)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
-        >
-          <div
-            className="w-full max-w-5xl my-4 rounded-2xl overflow-hidden"
-            style={{ background: "white", boxShadow: "0 25px 60px rgba(10,24,58,0.3)" }}
-          >
-            {/* Modal header */}
-            <div
-              className="sticky top-0 z-10 px-4 sm:px-6 py-4 flex items-center justify-between gap-3"
-              style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Info className="w-5 h-5 text-white/70 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="font-black text-white text-sm sm:text-base leading-none truncate">
-                    {selectedTire.placa}
-                  </p>
-                  <p className="text-white/60 text-xs mt-0.5 truncate">
-                    {selectedTire.marca} {selectedTire.diseno} · {selectedTire.dimension}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => editMode ? setEditMode(false) : openEditMode(selectedTire)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                  style={{
-                    background: editMode ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.1)",
-                    border: "1px solid rgba(255,255,255,0.2)",
-                    color: "white",
-                  }}
-                >
-                  {editMode ? <><X className="w-3.5 h-3.5" /> Cancelar</> : <><Pencil className="w-3.5 h-3.5" /> Editar</>}
-                </button>
-                <button
-                  onClick={closeModal}
-                  className="p-1.5 rounded-xl transition-all"
-                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "white" }}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 sm:p-6 space-y-6">
-
-              {/* Success banner */}
-              {editSuccess && (
-                <div
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
-                  style={{ background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.25)" }}
-                >
-                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span className="text-green-700">{editSuccess}</span>
-                </div>
-              )}
-
-              {/* ── Edit panel ── */}
-              {editMode && (
-                <div
-                  className="rounded-2xl p-4 sm:p-5"
-                  style={{ background: "rgba(30,118,182,0.04)", border: "1px solid rgba(30,118,182,0.2)" }}
-                >
-                  <p className="text-sm font-black text-[#0A183A] mb-4">Editar Información</p>
-
-                  {/* Core fields */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
-                    {([
-                      { label: "Marca",          key: "marca",                 type: "text"   },
-                      { label: "Diseño",         key: "diseno",                type: "text"   },
-                      { label: "Dimensión",      key: "dimension",             type: "text"   },
-                      { label: "Eje",            key: "eje",                   type: "text"   },
-                      { label: "Km Recorridos",  key: "kilometrosRecorridos",  type: "number" },
-                      { label: "Prof. Inicial",  key: "profundidadInicial",    type: "number" },
-                    ] as const).map(({ label, key, type }) => (
-                      <div key={key}>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
-                        <input
-                          type={type}
-                          value={(editForm as Record<string, unknown>)[key] as string}
-                          onChange={(e) =>
-                            setEditForm((f) => ({
-                              ...f,
-                              [key]: type === "number" ? parseFloat(e.target.value) || 0 : e.target.value,
-                            }))
-                          }
-                          className="w-full px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                          style={{ background: "white", border: "1px solid rgba(52,140,203,0.25)", color: "#0A183A" }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Cost editor */}
-                  {selectedTire.costo.length > 0 && (
-                    <div className="mb-5">
-                      <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Editar Costo</p>
-                      <div className="space-y-2">
-                        {selectedTire.costo.map((entry, idx) => (
-                          <div
-                            key={idx}
-                            className="flex flex-wrap items-center gap-2 p-3 rounded-xl"
-                            style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)" }}
-                          >
-                            <span className="text-xs text-gray-500 min-w-[100px]">
-                              {new Date(entry.fecha).toLocaleDateString("es-CO")}
-                            </span>
-                            <span className="text-xs font-medium text-[#173D68]">
-                              ${entry.valor.toLocaleString("es-CO")}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setEditingCosto((prev) =>
-                                  prev?.fecha === entry.fecha ? null : { fecha: entry.fecha, newValor: entry.valor }
-                                )
-                              }
-                              className="px-2 py-1 rounded-lg text-xs font-bold transition-colors ml-auto"
-                              style={{
-                                background: editingCosto?.fecha === entry.fecha ? "rgba(30,118,182,0.15)" : "rgba(10,24,58,0.05)",
-                                color: editingCosto?.fecha === entry.fecha ? "#1E76B6" : "#374151",
-                                border: "1px solid rgba(52,140,203,0.2)",
-                              }}
-                            >
-                              {editingCosto?.fecha === entry.fecha ? "Editando" : "Editar"}
-                            </button>
-                            {editingCosto?.fecha === entry.fecha && (
-                              <input
-                                type="number"
-                                value={editingCosto.newValor}
-                                onChange={(e) =>
-                                  setEditingCosto((c) => c ? { ...c, newValor: parseFloat(e.target.value) || 0 } : c)
-                                }
-                                className="flex-1 min-w-[100px] px-3 py-1.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                                style={{ border: "1px solid rgba(30,118,182,0.4)", color: "#0A183A" }}
-                                placeholder="Nuevo valor"
-                              />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Inspection depth editor */}
-                  {selectedTire.inspecciones.length > 0 && (
-                    <div className="mb-5">
-                      <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Editar Profundidades</p>
-                      <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                        {[...selectedTire.inspecciones]
-                          .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-                          .map((insp, idx) => (
-                            <div
-                              key={idx}
-                              className="rounded-xl overflow-hidden"
-                              style={{ border: "1px solid rgba(52,140,203,0.15)", background: "white" }}
-                            >
-                              <div className="flex items-center justify-between gap-2 px-3 py-2">
-                                <span className="text-xs font-medium text-gray-600">
-                                  {new Date(insp.fecha).toLocaleDateString("es-CO")} —&nbsp;
-                                  {insp.profundidadInt}/{insp.profundidadCen}/{insp.profundidadExt} mm
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setEditingInspection((prev) =>
-                                      prev?.fecha === insp.fecha ? null : {
-                                        fecha: insp.fecha,
-                                        profundidadInt: insp.profundidadInt,
-                                        profundidadCen: insp.profundidadCen,
-                                        profundidadExt: insp.profundidadExt,
-                                      }
-                                    )
-                                  }
-                                  className="px-2 py-1 rounded-lg text-xs font-bold flex-shrink-0"
-                                  style={{
-                                    background: editingInspection?.fecha === insp.fecha ? "rgba(30,118,182,0.12)" : "rgba(10,24,58,0.05)",
-                                    color: editingInspection?.fecha === insp.fecha ? "#1E76B6" : "#374151",
-                                    border: "1px solid rgba(52,140,203,0.2)",
-                                  }}
-                                >
-                                  {editingInspection?.fecha === insp.fecha ? "Editando" : "Editar"}
-                                </button>
-                              </div>
-                              {editingInspection?.fecha === insp.fecha && (
-                                <div className="grid grid-cols-3 gap-2 px-3 pb-3">
-                                  {(["profundidadInt", "profundidadCen", "profundidadExt"] as const).map((field) => (
-                                    <div key={field}>
-                                      <label className="block text-[10px] text-gray-500 mb-1">
-                                        {field === "profundidadInt" ? "Interior" : field === "profundidadCen" ? "Central" : "Exterior"}
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={editingInspection[field]}
-                                        onChange={(e) =>
-                                          setEditingInspection((prev) =>
-                                            prev ? { ...prev, [field]: parseFloat(e.target.value) || 0 } : prev
-                                          )
-                                        }
-                                        className="w-full px-2 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                                        style={{ border: "1px solid rgba(30,118,182,0.3)", color: "#0A183A" }}
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Save / cancel */}
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setEditMode(false); setEditingInspection(null); setEditingCosto(null); }}
-                      className="px-4 py-2 rounded-xl text-sm font-bold text-gray-600 transition-colors hover:bg-gray-100"
-                      style={{ border: "1px solid rgba(10,24,58,0.1)" }}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleEditSubmit}
-                      disabled={editLoading}
-                      className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
-                      style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-                    >
-                      {editLoading
-                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando…</>
-                        : "Guardar Cambios"}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Summary metric cards ── */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: "Marca",      value: selectedTire.marca,     variant: "primary"   },
-                  { label: "Posición",   value: selectedTire.posicion,  variant: "secondary" },
-                  { label: "Dimensión",  value: selectedTire.dimension, variant: "accent"    },
-                  { label: "Eje",        value: selectedTire.eje,       variant: "secondary" },
-                ].map(({ label, value, variant }) => {
-                  const bgs: Record<string, string> = {
-                    primary:   "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
-                    secondary: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
-                    accent:    "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)",
-                  };
-                  return (
-                    <div
-                      key={label}
-                      className="rounded-xl p-3 sm:p-4 flex flex-col justify-between"
-                      style={{ background: bgs[variant], minHeight: 80 }}
-                    >
-                      <p className="text-lg sm:text-xl font-black text-white leading-none break-all">{value}</p>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mt-2">{label}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* ── Vida history ── */}
-              <div
-                className="rounded-2xl p-4 sm:p-5"
-                style={{ border: "1px solid rgba(52,140,203,0.15)" }}
-              >
-                <SectionTitle icon={Repeat} title="Historial de Vida" />
-                {selectedTire.vida.length === 0 ? (
-                  <p className="text-sm text-gray-400">No hay registros de vida</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTire.vida.map((entry, i) => {
-                      const isNueva = entry.valor === "nueva";
-                      const cpk = isNueva && selectedTire.primeraVida?.[0]?.cpk
-                        ? selectedTire.primeraVida[0].cpk.toFixed(2)
-                        : null;
-                      return (
-                        <div key={i} className="flex flex-col gap-0.5">
-                          <Badge valor={entry.valor} />
-                          <span className="text-[10px] text-gray-400 pl-1">
-                            {new Date(entry.fecha).toLocaleDateString("es-CO")}
-                            {cpk && ` · CPK: $${cpk}`}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* ── Details grid ── */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Characteristics */}
-                <div
-                  className="rounded-2xl p-4 sm:p-5"
-                  style={{ border: "1px solid rgba(52,140,203,0.15)" }}
-                >
-                  <SectionTitle icon={Info} title="Características" />
-                  <InfoRow label="Diseño"          value={selectedTire.diseno} />
-                  <InfoRow label="Prof. Inicial"   value={fmtMM(selectedTire.profundidadInicial)} />
-                  <InfoRow label="Km Recorridos"   value={`${selectedTire.kilometrosRecorridos.toLocaleString("es-CO")} km`} />
-                  <InfoRow label="Km Proyectados"  value={`${getProjectedKm(selectedTire)} km`} />
-                  <InfoRow label="Estado Actual"   value={getCurrentVida(selectedTire)} />
-                  {selectedTire.fechaInstalacion && (
-                    <InfoRow label="Instalación" value={new Date(selectedTire.fechaInstalacion).toLocaleDateString("es-CO")} />
-                  )}
-                  {selectedTire.diasAcumulados != null && (
-                    <InfoRow label="Días Rodando" value={`${selectedTire.diasAcumulados} días`} />
-                  )}
-                </div>
-
-                {/* Cost analysis */}
-                <div
-                  className="rounded-2xl p-4 sm:p-5"
-                  style={{ border: "1px solid rgba(52,140,203,0.15)" }}
-                >
-                  <SectionTitle icon={BarChart3} title="Análisis de Costos" />
-                  {selectedTire.costo.length === 0 ? (
-                    <p className="text-sm text-gray-400">Sin registros de costo</p>
-                  ) : (
-                    selectedTire.costo.map((entry, idx) => (
-                      <InfoRow
-                        key={idx}
-                        label={new Date(entry.fecha).toLocaleDateString("es-CO")}
-                        value={`$${entry.valor.toLocaleString("es-CO")}`}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {selectedTire.inspecciones.length >= 2 && (
-  <WearChart inspecciones={selectedTire.inspecciones} />
-)}
-
-              {/* ── Inspection table ── */}
-              {selectedTire.inspecciones.length > 0 && (
-                <div
-                  className="rounded-2xl overflow-hidden"
-                  style={{ border: "1px solid rgba(52,140,203,0.15)" }}
-                >
-                  <div className="px-4 sm:px-5 py-4">
-                    <SectionTitle icon={Calendar} title="Historial de Inspecciones" />
-                  </div>
-
-                  {/* Scrollable table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse min-w-[720px]">
-                      <thead>
-                        <tr style={{ background: "rgba(10,24,58,0.03)", borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
-                          {["Fecha","Interior","Central","Exterior","CPK","CPK Proy.","CPT","CPT Proy.","Km","Imagen",""].map((h) => (
-                            <th key={h} className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-gray-500">
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...selectedTire.inspecciones]
-                          .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-                          .map((insp, idx) => (
-                            <tr
-                              key={idx}
-                              className="transition-colors"
-                              style={{ borderBottom: "1px solid rgba(52,140,203,0.08)" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(30,118,182,0.03)")}
-                              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                            >
-                              <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">
-                                {new Date(insp.fecha).toLocaleDateString("es-CO")}
-                              </td>
-                              <td className="px-3 py-2.5"><DepthPill value={insp.profundidadInt} /></td>
-                              <td className="px-3 py-2.5"><DepthPill value={insp.profundidadCen} /></td>
-                              <td className="px-3 py-2.5"><DepthPill value={insp.profundidadExt} /></td>
-                              <td className="px-3 py-2.5 text-xs font-medium text-[#0A183A]">
-                                {insp.cpk != null ? `$${Number(insp.cpk).toFixed(0)}` : "—"}
-                              </td>
-                              <td className="px-3 py-2.5 text-xs font-medium text-[#0A183A]">
-                                {insp.cpkProyectado != null ? `$${Number(insp.cpkProyectado).toFixed(0)}` : "—"}
-                              </td>
-                              <td className="px-3 py-2.5 text-xs text-gray-600">
-                                {insp.cpt != null ? `$${Number(insp.cpt).toFixed(0)}` : "—"}
-                              </td>
-                              <td className="px-3 py-2.5 text-xs text-gray-600">
-                                {insp.cptProyectado != null ? `$${Number(insp.cptProyectado).toFixed(0)}` : "—"}
-                              </td>
-                              <td className="px-3 py-2.5 text-xs text-gray-600">
-                                {insp.kilometrosEstimados != null ? insp.kilometrosEstimados.toLocaleString("es-CO") : "—"}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                {insp.imageUrl ? (
-                                  <a href={insp.imageUrl} target="_blank" rel="noopener noreferrer">
-                                    <img
-                                      src={insp.imageUrl}
-                                      alt="Inspección"
-                                      className="rounded-lg object-cover hover:scale-105 transition-transform duration-150"
-                                      style={{ width: 48, height: 48 }}
-                                    />
-                                  </a>
-                                ) : (
-                                  <span className="text-xs text-gray-300">—</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <button
-                                  onClick={() => handleDeleteInspection(insp.fecha)}
-                                  className="p-1.5 rounded-lg transition-colors"
-                                  style={{ color: "#DC2626" }}
-                                  title="Eliminar inspección"
-                                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(220,38,38,0.08)")}
-                                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Close button */}
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={closeModal}
-                  className="px-5 py-2 rounded-xl text-sm font-bold text-gray-600 transition-colors hover:bg-gray-100"
-                  style={{ border: "1px solid rgba(10,24,58,0.12)" }}
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {selectedTire && (
+        <TireDetailModal
+          tire={selectedTire}
+          onClose={() => setSelectedTire(null)}
+          onUpdate={updated => {
+            setSelectedTire(updated);
+            setTires(ts => ts.map(t => t.id === updated.id ? updated : t));
+          }}
+          onDelete={handleDeleteInspection}
+        />
       )}
     </div>
   );
