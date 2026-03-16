@@ -721,25 +721,6 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-28 sm:pt-32 md:pt-36 pb-0">
-          {/* Badge */}
-          <div className="flex justify-center mb-8">
-            <div
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold tracking-wider uppercase"
-              style={{
-                background: 'rgba(30,118,182,0.12)',
-                border: '1px solid rgba(30,118,182,0.3)',
-                color: '#62b8f0',
-                letterSpacing: '0.12em',
-              }}
-            >
-              <span
-                className="w-1.5 h-1.5 rounded-full animate-pulse"
-                style={{ backgroundColor: '#1E76B6' }}
-                aria-hidden="true"
-              />
-              Software de gestión de llantas con IA · Colombia y Latam
-            </div>
-          </div>
 
           {/* Headline */}
           <div className="max-w-5xl mx-auto text-center">

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { ShoppingCart, Brain } from "lucide-react";
+import { ShoppingCart, Brain, Box } from "lucide-react";
 import PedidosPage from "./pedidos";
 import IntegratedAnalysisPage from "./analysis";
+import InventarioPage from "./inventario";
 
 const TABS = [
   {
@@ -11,6 +12,12 @@ const TABS = [
     label: "Pedidos",
     icon: ShoppingCart,
     sub: "Necesidades de flota",
+  },
+  {
+    key: "inventario",
+    label: "Mi inventario",
+    icon: Box,
+    sub: "Llantas por inventario",
   },
   {
     key: "analisis",
@@ -78,6 +85,9 @@ export default function AnalistaPage() {
       </div>
       <div className={active === "pedidos" ? "block" : "hidden"}>
         <PedidosPage />
+      </div>
+      <div className={active === "inventario" ? "block" : "hidden"}>
+        <InventarioPage />
       </div>
     </div>
   );

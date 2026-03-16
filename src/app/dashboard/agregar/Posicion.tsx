@@ -52,6 +52,20 @@ interface Inspeccion {
   fecha?: string;
 }
 
+interface InventoryBucket {
+  id:             string;
+  nombre:         string;
+  color:          string;
+  icono:          string;
+  excluirDeFlota: boolean;
+  tireCount:      number;
+}
+
+interface BucketData {
+  disponible: number;
+  buckets:    InventoryBucket[];
+}
+
 interface Tire {
   id: string;
   marca: string;
@@ -122,6 +136,26 @@ async function fetchInventoryTires(companyId: string): Promise<Tire[]> {
     const data = await res.json();
     if (!Array.isArray(data)) return [];
     return data.filter((t: Tire) => !t.vehicleId && getCurrentVida(t) !== "fin");
+  } catch { return []; }
+}
+
+async function fetchBuckets(companyId: string): Promise<BucketData> {
+  try {
+    const res = await fetch(`${API_BASE}/inventory-buckets?companyId=${companyId}`, { headers: authHeaders() });
+    if (!res.ok) return { disponible: 0, buckets: [] };
+    return await res.json();
+  } catch { return { disponible: 0, buckets: [] }; }
+}
+
+async function fetchTiresInBucket(companyId: string, bucketId: string): Promise<Tire[]> {
+  try {
+    const endpoint = bucketId === "disponible"
+      ? `${API_BASE}/inventory-buckets/disponible/tires?companyId=${companyId}`
+      : `${API_BASE}/inventory-buckets/${bucketId}/tires?companyId=${companyId}`;
+    const res = await fetch(endpoint, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   } catch { return []; }
 }
 
@@ -571,6 +605,133 @@ function ExportModal({ isOpen, onClose, onExport, changes, vehicle }: {
   );
 }
 
+function BucketInventoryPanel({
+  companyId,
+  bucketData,
+  onTiresLoaded,
+  refreshKey,
+}: {
+  companyId:    string;
+  bucketData:   BucketData;
+  onTiresLoaded: (tires: Tire[]) => void;
+  refreshKey:   number;
+}) {
+  const [activeTab,   setActiveTab]   = useState<string>("disponible");
+  const [tires,       setTires]       = useState<Tire[]>([]);
+  const [loadingTab,  setLoadingTab]  = useState(false);
+  const [search,      setSearch]      = useState("");
+
+  // Load tires when tab changes or parent forces refresh
+  useEffect(() => {
+    if (!companyId) return;
+    setLoadingTab(true);
+    fetchTiresInBucket(companyId, activeTab)
+      .then(t => {
+        setTires(t);
+        onTiresLoaded(t);   // ← ADD THIS
+      })
+      .finally(() => setLoadingTab(false));
+  }, [companyId, activeTab, refreshKey]);
+
+  const filtered = tires.filter(t =>
+    t.marca.toLowerCase().includes(search.toLowerCase()) ||
+    t.diseno.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const tabs = [
+    { id: "disponible", nombre: "Disponible", color: "#1E76B6", icono: "✅", count: bucketData.disponible },
+    ...bucketData.buckets.map(b => ({ id: b.id, nombre: b.nombre, color: b.color || "#1E76B6", icono: b.icono || "📦", count: b.tireCount })),
+  ];
+
+  const activeTabData = tabs.find(t => t.id === activeTab);
+
+  return (
+    <Card>
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-4">
+        <Package className="w-3.5 h-3.5 text-[#1E76B6]" />
+        <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-[0.15em]">Inventario de la Empresa</p>
+        <div className="flex-1 h-px" style={{ background: "rgba(52,140,203,0.2)" }} />
+        <span className="text-xs text-[#348CCB] font-medium">
+          {tabs.reduce((s, t) => s + t.count, 0)} total
+        </span>
+      </div>
+
+      {/* Bucket tabs */}
+      <div className="flex gap-2 flex-wrap mb-4">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+            style={{
+              background:  activeTab === tab.id ? tab.color : "rgba(52,140,203,0.06)",
+              color:       activeTab === tab.id ? "white"   : "#1E76B6",
+              border:      activeTab === tab.id ? "none"    : "1px solid rgba(52,140,203,0.2)",
+              boxShadow:   activeTab === tab.id ? `0 2px 8px ${tab.color}40` : "none",
+            }}
+          >
+            <span>{tab.icono}</span>
+            {tab.nombre}
+            <span
+              className="px-1.5 py-0.5 rounded-full text-[10px] font-black"
+              style={{
+                background: activeTab === tab.id ? "rgba(255,255,255,0.25)" : "rgba(52,140,203,0.12)",
+                color:      activeTab === tab.id ? "white" : "#1E76B6",
+              }}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Active bucket label */}
+      {activeTabData && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3"
+          style={{ background: `${activeTabData.color}10`, border: `1px solid ${activeTabData.color}30` }}
+        >
+          <span className="text-sm">{activeTabData.icono}</span>
+          <p className="text-xs font-bold" style={{ color: activeTabData.color }}>{activeTabData.nombre}</p>
+          <span className="text-[10px] text-gray-400 ml-1">— {filtered.length} llantas</span>
+        </div>
+      )}
+
+      {/* Search */}
+      <input
+        type="text"
+        placeholder="Filtrar por marca o referencia..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        className={`${inputCls} mb-3`}
+      />
+
+      {/* Tires grid */}
+      {loadingTab ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-[#1E76B6]" />
+        </div>
+      ) : filtered.length > 0 ? (
+        <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto">
+          {filtered.map(tire => <InventoryTile key={tire.id} tire={tire} />)}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-8 gap-2">
+          <Package className="w-8 h-8 text-[#348CCB]/30" />
+          <p className="text-sm text-[#348CCB]/60 italic">
+            {search ? "No se encontraron llantas con ese filtro." : "No hay llantas en este grupo."}
+          </p>
+        </div>
+      )}
+
+      <p className="text-xs text-[#348CCB] mt-3">
+        Arrastra una llanta al diagrama del vehículo para asignarla.
+      </p>
+    </Card>
+  );
+}
+
 // =============================================================================
 // Company inventory modal
 // =============================================================================
@@ -613,9 +774,11 @@ export default function PosicionPage() {
   const [vehicle,            setVehicle]            = useState<Vehicle | null>(null);
   const [allTires,           setAllTires]           = useState<Tire[]>([]);
   const [originalState,      setOriginalState]      = useState<Record<string, string | null>>({});
+  const [companyId,          setCompanyId]          = useState<string>("");
+  const [bucketData,         setBucketData]         = useState<BucketData>({ disponible: 0, buckets: [] });
   const [companyInventory,   setCompanyInventory]   = useState<Tire[]>([]);
+  const [inventoryRefresh,   setInventoryRefresh]   = useState(0);
   const [fixedLayout,        setFixedLayout]        = useState<string[][] | null>(null);
-  const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [isExportOpen,       setIsExportOpen]       = useState(false);
   const [tireChanges,        setTireChanges]        = useState<TireChange[]>([]);
   const [pdfGenerator,       setPdfGenerator]       = useState<{ generatePDF: () => void } | null>(null);
@@ -631,11 +794,21 @@ export default function PosicionPage() {
     allTires.some((t) => originalState[t.id] === undefined && t.position);
 
   useEffect(() => {
-    try {
-      const user = JSON.parse(localStorage.getItem("user") ?? "{}");
-      if (user?.companyId) fetchInventoryTires(user.companyId).then(setCompanyInventory);
-    } catch { /* ignore */ }
-  }, []);
+  try {
+    const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+    if (user?.companyId) {
+      setCompanyId(user.companyId);
+      // Load flat list for drag compatibility + bucket data for the panel
+      Promise.all([
+        fetchInventoryTires(user.companyId),
+        fetchBuckets(user.companyId),
+      ]).then(([tires, buckets]) => {
+        setCompanyInventory(tires);
+        setBucketData(buckets);
+      });
+    }
+  } catch { /* ignore */ }
+}, []);
 
   function calculateChanges(): TireChange[] {
     return allTires
@@ -762,6 +935,7 @@ export default function PosicionPage() {
       const changes = calculateChanges();
       setTireChanges(changes);
       setSuccess("Posiciones actualizadas exitosamente");
+      setInventoryRefresh(r => r + 1);
       setIsExportOpen(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error inesperado");
@@ -862,35 +1036,19 @@ export default function PosicionPage() {
           )}
 
           {/* Company inventory */}
-          {companyInventory.length > 0 && (
-            <Card>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Package className="w-3.5 h-3.5 text-[#1E76B6]" />
-                  <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-[0.15em]">Inventario de la Empresa</p>
-                  <div className="w-10 h-px" style={{ background: "rgba(52,140,203,0.2)" }} />
-                  <span className="text-xs text-[#348CCB] font-medium">{companyInventory.length} disponibles</span>
-                </div>
-                {companyInventory.length > 8 && (
-                  <button onClick={() => setShowInventoryModal(true)} className="flex items-center gap-1 text-xs font-semibold text-[#1E76B6] hover:opacity-70 transition-opacity">
-                    <Eye className="w-3.5 h-3.5" /> Ver todas
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {companyInventory.slice(0, 8).map((t) => <InventoryTile key={t.id} tire={t} />)}
-                {companyInventory.length > 8 && (
-                  <button
-                    onClick={() => setShowInventoryModal(true)}
-                    className="rounded-2xl text-xs font-semibold flex items-center justify-center transition-all hover:opacity-80"
-                    style={{ width: 90, height: 90, border: "2px dashed rgba(52,140,203,0.35)", color: "#1E76B6" }}
-                  >
-                    +{companyInventory.length - 8} más
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-[#348CCB] mt-3">Arrastra una llanta al diagrama del vehículo para asignarla.</p>
-            </Card>
+          {companyId && (
+            <BucketInventoryPanel
+              companyId={companyId}
+              bucketData={bucketData}
+              onTiresLoaded={(bucketTires) => {
+                setCompanyInventory(prev => {
+                  const existingIds = new Set(prev.map(t => t.id));
+                  const newOnes = bucketTires.filter(t => !existingIds.has(t.id));
+                  return newOnes.length ? [...prev, ...newOnes] : prev;
+                });
+              }}
+              refreshKey={inventoryRefresh}
+            />
           )}
 
           {/* Vehicle visualization */}
@@ -937,7 +1095,6 @@ export default function PosicionPage() {
         </div>
 
         <ExportModal isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} onExport={() => { pdfGenerator?.generatePDF(); setIsExportOpen(false); }} changes={tireChanges} vehicle={vehicle} />
-        {showInventoryModal && <CompanyInventoryModal tires={companyInventory} onClose={() => setShowInventoryModal(false)} />}
       </div>
     </DndProvider>
   );

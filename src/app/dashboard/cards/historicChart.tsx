@@ -85,7 +85,7 @@ const trackEvent = (
 const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
   const t = translations[language];
   const [selectedVariable, setSelectedVariable] =
-    useState<VariableType>("cpk");
+    useState<VariableType>("cpkProyectado");
 
   const variableDisplayName = useMemo(() => {
     switch (selectedVariable) {
