@@ -618,6 +618,306 @@ function DeleteBucketModal({
 // Conflict resolution modal
 // =============================================================================
 
+// =============================================================================
+// Assign-to-vehicle modal
+// =============================================================================
+
+interface VehicleOption { id: string; placa: string }
+
+type BlockerAction = "disponible" | "fin" | string; // string = bucketId
+
+interface AssignRow {
+  tire: InventoryTire;
+  vehiclePlaca: string;
+  vehicleId: string | null;
+  posicion: number;
+  conflict: { blockerTireId: string; blockerMarca: string } | null;
+  blockerAction: BlockerAction;
+  blockerBucketId: string;
+}
+
+function AssignVehicleModal({
+  tires: selectedTires,
+  buckets,
+  companyId,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  tires: InventoryTire[];
+  buckets: InventoryBucket[];
+  companyId: string;
+  onConfirm: (rows: AssignRow[]) => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  const [rows, setRows] = useState<AssignRow[]>(() =>
+    selectedTires.map((t) => ({
+      tire: t,
+      vehiclePlaca: t.lastVehiclePlaca ?? "",
+      vehicleId: t.lastVehicleId ?? null,
+      posicion: t.lastPosicion ?? 1,
+      conflict: null,
+      blockerAction: "disponible" as BlockerAction,
+      blockerBucketId: "",
+    }))
+  );
+
+  const [vehicleSearch, setVehicleSearch] = useState<Record<number, string>>({});
+  const [vehicleResults, setVehicleResults] = useState<Record<number, VehicleOption[]>>({});
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [searchingIdx, setSearchingIdx] = useState<number | null>(null);
+
+  // Search for vehicle by placa
+  async function searchVehicle(idx: number, placa: string) {
+    setSearchingIdx(idx);
+    try {
+      const res = await authFetch(`${API_BASE}/vehicles?companyId=${companyId}`);
+      if (!res.ok) return;
+      const vehicles: any[] = await res.json();
+      const q = placa.toLowerCase();
+      const matches = vehicles
+        .filter((v: any) => v.placa.toLowerCase().includes(q))
+        .slice(0, 8)
+        .map((v: any) => ({ id: v.id, placa: v.placa }));
+      setVehicleResults((p) => ({ ...p, [idx]: matches }));
+    } catch { /* */ }
+    finally { setSearchingIdx(null); }
+  }
+
+  function updateRow(idx: number, patch: Partial<AssignRow>) {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+    setChecked(false); // reset validation when user changes
+  }
+
+  function selectVehicle(idx: number, v: VehicleOption) {
+    updateRow(idx, { vehicleId: v.id, vehiclePlaca: v.placa });
+    setVehicleResults((p) => ({ ...p, [idx]: [] }));
+    setVehicleSearch((p) => ({ ...p, [idx]: "" }));
+  }
+
+  // Check all positions for conflicts
+  async function checkConflicts() {
+    setChecking(true);
+    try {
+      const vehicleIds = [...new Set(rows.filter((r) => r.vehicleId).map((r) => r.vehicleId!))];
+      const occupiedMap = new Map<string, CurrentVehicleTire[]>();
+      await Promise.all(
+        vehicleIds.map(async (vid) => {
+          const occupied = await fetchVehicleTires(vid);
+          occupiedMap.set(vid, occupied);
+        })
+      );
+
+      setRows((prev) =>
+        prev.map((r) => {
+          if (!r.vehicleId) return { ...r, conflict: null };
+          const occupied = occupiedMap.get(r.vehicleId) ?? [];
+          const blocker = occupied.find((ot) => ot.posicion === r.posicion);
+          if (blocker) {
+            return {
+              ...r,
+              conflict: { blockerTireId: blocker.id, blockerMarca: blocker.marca ?? "Otra llanta" },
+              blockerAction: "disponible",
+              blockerBucketId: "",
+            };
+          }
+          return { ...r, conflict: null };
+        })
+      );
+      setChecked(true);
+    } catch { /* */ }
+    finally { setChecking(false); }
+  }
+
+  const allValid = rows.every((r) => r.vehicleId && r.posicion > 0);
+  const hasConflicts = rows.some((r) => r.conflict);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,24,58,0.65)", backdropFilter: "blur(8px)" }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden"
+        style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+      >
+        {/* Header */}
+        <div className="px-6 py-5 flex-shrink-0" style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)" }}>
+          <div className="flex items-center gap-3">
+            <Truck className="w-5 h-5 text-white" />
+            <div>
+              <h3 className="font-black text-white text-sm uppercase tracking-widest">Asignar a Vehículo</h3>
+              <p className="text-white/55 text-xs mt-0.5">
+                {selectedTires.length} llanta{selectedTires.length !== 1 ? "s" : ""} — elige vehículo y posición
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Rows */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          {rows.map((row, idx) => (
+            <div key={row.tire.id} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+              {/* Tire info */}
+              <div className="px-4 py-2.5 flex items-center gap-3" style={{ background: "rgba(10,24,58,0.03)" }}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-black text-[#0A183A]" style={{ fontFamily: "'DM Mono', monospace" }}>
+                    {row.tire.placa.toUpperCase()}
+                  </p>
+                  <p className="text-[10px] text-[#348CCB]">{row.tire.marca} · {row.tire.diseno}</p>
+                </div>
+                {row.tire.lastVehiclePlaca && (
+                  <span className="text-[9px] text-gray-400">
+                    Último: {row.tire.lastVehiclePlaca} P{row.tire.lastPosicion ?? "?"}
+                  </span>
+                )}
+              </div>
+
+              <div className="px-4 py-3 space-y-2.5">
+                {/* Vehicle selector */}
+                <div className="relative">
+                  <label className="text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1 block">Vehículo</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={vehicleSearch[idx] ?? row.vehiclePlaca}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setVehicleSearch((p) => ({ ...p, [idx]: val }));
+                        if (val.length >= 2) searchVehicle(idx, val);
+                        else setVehicleResults((p) => ({ ...p, [idx]: [] }));
+                      }}
+                      onFocus={() => { if (row.vehiclePlaca) setVehicleSearch((p) => ({ ...p, [idx]: row.vehiclePlaca })); }}
+                      placeholder="Buscar placa..."
+                      className="flex-1 px-3 py-2 border border-[#348CCB]/30 rounded-lg text-sm text-[#0A183A] bg-[#F0F7FF] focus:outline-none focus:border-[#1E76B6]"
+                      style={{ textTransform: "uppercase", fontFamily: "'DM Mono', monospace" }}
+                    />
+                    {searchingIdx === idx && <Loader2 className="w-4 h-4 animate-spin text-[#348CCB] self-center" />}
+                  </div>
+                  {/* Dropdown results */}
+                  {(vehicleResults[idx] ?? []).length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-32 overflow-y-auto">
+                      {vehicleResults[idx].map((v) => (
+                        <button
+                          key={v.id}
+                          onClick={() => selectVehicle(idx, v)}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-[#F0F7FF] flex items-center gap-2"
+                        >
+                          <Truck className="w-3 h-3 text-[#348CCB]" />
+                          <span className="font-bold text-[#0A183A]" style={{ fontFamily: "'DM Mono', monospace" }}>{v.placa}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Position */}
+                <div>
+                  <label className="text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1 block">Posición</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={row.posicion}
+                    onChange={(e) => updateRow(idx, { posicion: Math.max(1, Number(e.target.value)) })}
+                    className="w-20 px-3 py-2 border border-[#348CCB]/30 rounded-lg text-sm text-center font-bold text-[#0A183A] bg-[#F0F7FF] focus:outline-none focus:border-[#1E76B6]"
+                  />
+                </div>
+
+                {/* Conflict display */}
+                {checked && row.conflict && (
+                  <div className="rounded-lg p-3" style={{ background: "rgba(230,126,34,0.06)", border: "1px solid rgba(230,126,34,0.2)" }}>
+                    <p className="text-[10px] font-bold flex items-center gap-1.5 mb-2" style={{ color: "#E67E22" }}>
+                      <AlertTriangle className="w-3 h-3" />
+                      P{row.posicion} ocupada por {row.conflict.blockerMarca}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mb-2">¿Qué hacer con la llanta que está en esa posición?</p>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name={`blocker-${row.tire.id}`}
+                          checked={row.blockerAction === "disponible"}
+                          onChange={() => updateRow(idx, { blockerAction: "disponible", blockerBucketId: "" })}
+                          className="accent-[#1E76B6]"
+                        />
+                        <span className="text-[10px] font-medium text-[#0A183A]">Mover a Disponible (inventario general)</span>
+                      </label>
+                      {buckets.map((b) => (
+                        <label key={b.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`blocker-${row.tire.id}`}
+                            checked={row.blockerAction === b.id}
+                            onChange={() => updateRow(idx, { blockerAction: b.id, blockerBucketId: b.id })}
+                            className="accent-[#1E76B6]"
+                          />
+                          <span className="text-[10px] font-medium text-[#0A183A]">{b.icono} Mover a {b.nombre}</span>
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name={`blocker-${row.tire.id}`}
+                          checked={row.blockerAction === "fin"}
+                          onChange={() => updateRow(idx, { blockerAction: "fin", blockerBucketId: "" })}
+                          className="accent-[#ef4444]"
+                        />
+                        <span className="text-[10px] font-medium text-[#ef4444]">Marcar como Fin de Vida</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {checked && !row.conflict && row.vehicleId && (
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#27AE60]">
+                    <CheckCircle2 className="w-3 h-3" /> P{row.posicion} disponible
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#1E76B6] transition-colors hover:bg-[#F0F7FF] disabled:opacity-50"
+            style={{ border: "1px solid rgba(52,140,203,0.25)" }}
+          >
+            Cancelar
+          </button>
+          {!checked ? (
+            <button
+              onClick={checkConflicts}
+              disabled={!allValid || checking}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}
+            >
+              {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              Verificar Posiciones
+            </button>
+          ) : (
+            <button
+              onClick={() => onConfirm(rows)}
+              disabled={loading || !allValid}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #27AE60, #1E76B6)" }}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Confirmar Asignación
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConflictModal({
   resolved, onConfirm, onCancel, loading,
 }: {
@@ -969,21 +1269,21 @@ function BucketSection({
 // =============================================================================
 
 function SelectionBar({
-  count, withVehicle, onReturn, onClear, returning,
+  count, withVehicle, onReturn, onAssign, onClear, returning,
 }: {
   count: number; withVehicle: number;
-  onReturn: () => void; onClear: () => void;
+  onReturn: () => void; onAssign: () => void; onClear: () => void;
   returning: boolean;
 }) {
   if (count === 0) return null;
   return (
     <div
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-5 py-3.5 rounded-2xl shadow-2xl"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl"
       style={{
         background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
         border:     "1px solid rgba(255,255,255,0.12)",
         boxShadow:  "0 16px 48px rgba(10,24,58,0.4)",
-        minWidth:   "min(92vw, 500px)",
+        minWidth:   "min(92vw, 560px)",
       }}
     >
       <div className="flex items-center gap-2.5 flex-1">
@@ -1006,16 +1306,25 @@ function SelectionBar({
         <X className="w-4 h-4" />
       </button>
       <button
-        onClick={onReturn}
-        disabled={returning}   // ← ADD
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black text-[#0A183A] transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-        style={{ background: "white" }}
+        onClick={onAssign}
+        disabled={returning}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-black transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+        style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "1px solid rgba(255,255,255,0.25)" }}
+      >
+        <Truck className="w-3.5 h-3.5" />
+        Asignar a Vehículo
+      </button>
+      {withVehicle > 0 && (
+        <button
+          onClick={onReturn}
+          disabled={returning}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-black text-[#0A183A] transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+          style={{ background: "white" }}
         >
-        {returning                                    // ← ADD
-            ? <Loader2 className="w-4 h-4 animate-spin" />
-            : <RotateCcw className="w-4 h-4" />}
-        {returning ? "Preparando…" : "Retornar al Vehículo"}
+          {returning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+          {returning ? "Preparando…" : "Retornar al Vehículo"}
         </button>
+      )}
     </div>
   );
 }
@@ -1038,6 +1347,8 @@ export default function InventarioPage() {
   const [showBucketModal, setShowBucketModal] = useState(false);
   const [editingBucket,   setEditingBucket]   = useState<InventoryBucket | null>(null);
   const [deletingBucket,  setDeletingBucket]  = useState<InventoryBucket | null>(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assigning,       setAssigning]       = useState(false);
 const [buildingResolved, setBuildingResolved] = useState(false);
 
   useEffect(() => {
@@ -1235,6 +1546,65 @@ await load(companyId);
   }
 }
 
+  // -- Assign to vehicle flow ---------------------------------------------------
+
+  async function handleConfirmAssign(rows: AssignRow[]) {
+    setAssigning(true);
+    try {
+      // 1. Handle blocker tires first
+      for (const row of rows) {
+        if (!row.conflict) continue;
+        const blockerId = row.conflict.blockerTireId;
+
+        if (row.blockerAction === "fin") {
+          // Mark blocker as fin de vida
+          await authFetch(`${API_BASE}/tires/${blockerId}/vida`, {
+            method: "POST",
+            body: JSON.stringify({ vida: "fin" }),
+          });
+        } else {
+          // Unassign blocker from vehicle first
+          await fetch(`${API_BASE}/tires/unassign-vehicle`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ tireIds: [blockerId] }),
+          });
+          // If moving to a specific bucket
+          if (row.blockerAction !== "disponible") {
+            await authFetch(`${API_BASE}/inventory-buckets/move`, {
+              method: "POST",
+              body: JSON.stringify({ tireIds: [blockerId], bucketId: row.blockerAction, companyId }),
+            });
+          }
+        }
+      }
+
+      // 2. Assign selected tires to their vehicles via batch-return
+      const returns = rows
+        .filter((r) => r.vehicleId && r.posicion > 0)
+        .map((r) => ({ tireId: r.tire.id, vehicleId: r.vehicleId!, posicion: r.posicion }));
+
+      if (returns.length > 0) {
+        const res = await fetch(`${API_BASE}/inventory-buckets/batch-return`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ returns, fallbackTireIds: [], companyId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.message ?? "Error al asignar");
+        setSuccess(`${data.returned ?? returns.length} llanta${returns.length !== 1 ? "s" : ""} asignada${returns.length !== 1 ? "s" : ""} a vehículo`);
+      }
+
+      setSelectedIds(new Set());
+      setShowAssignModal(false);
+      await load(companyId);
+    } catch (e: any) {
+      setError(e.message ?? "Error al asignar");
+    } finally {
+      setAssigning(false);
+    }
+  }
+
   // -- Bucket CRUD -------------------------------------------------------------
 
   function handleBucketSaved(saved: InventoryBucket) {
@@ -1408,8 +1778,9 @@ await load(companyId);
   count={selectedIds.size}
   withVehicle={withVehicle}
   onReturn={() => handleInitiateReturn()}
+  onAssign={() => setShowAssignModal(true)}
   onClear={() => setSelectedIds(new Set())}
-  returning={buildingResolved}   // ← ADD
+  returning={buildingResolved}
 />
 
       {conflictModal && (
@@ -1435,6 +1806,17 @@ await load(companyId);
           bucket={deletingBucket}
           onConfirm={() => handleDeleteBucket(deletingBucket)}
           onCancel={() => setDeletingBucket(null)}
+        />
+      )}
+
+      {showAssignModal && selectedTires.length > 0 && (
+        <AssignVehicleModal
+          tires={selectedTires}
+          buckets={buckets}
+          companyId={companyId}
+          onConfirm={handleConfirmAssign}
+          onCancel={() => setShowAssignModal(false)}
+          loading={assigning}
         />
       )}
     </div>

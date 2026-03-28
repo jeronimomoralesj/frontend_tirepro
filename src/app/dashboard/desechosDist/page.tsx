@@ -39,6 +39,8 @@ import {
 import FastModeDesechos from "./FastModeDesechos";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
+import AgentCardHeader from "../../../components/AgentCardHeader";
+import { AGENTS } from "../../../lib/agents";
 
 import { ArcElement } from "chart.js";
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend);
@@ -683,6 +685,99 @@ const DesechosDistribuidor: React.FC = () => {
   const avgGeneral      = useMemo(() => filtered.length === 0 ? 0 : (filtered.reduce((a, d) => a + d.remanente, 0) / filtered.length).toFixed(1), [filtered]);
   const totalMilimetros = useMemo(() => filtered.reduce((a, d) => a + d.milimetrosDesechados, 0).toFixed(1), [filtered]);
 
+  // -- LINEX deep analysis -----------------------------------------------------
+  const linexAnalysis = useMemo(() => {
+    if (filtered.length === 0) return { insight: "", cards: [] as { icon: string; title: string; value: string; detail: string; color: string }[] };
+
+    const lines: string[] = [];
+    const cards: { icon: string; title: string; value: string; detail: string; color: string }[] = [];
+
+    // 1. Top causals
+    const sortedCausales = Object.entries(dataCausales).sort((a, b) => b[1] - a[1]);
+    const topCausal = sortedCausales[0];
+    if (topCausal) {
+      const pct = Math.round((topCausal[1] / filtered.length) * 100);
+      lines.push(`Causal #1: "${topCausal[0]}" representa el ${pct}% de todos los desechos (${topCausal[1]} de ${filtered.length}).${pct > 40 ? " Concentracion alta — un programa preventivo enfocado en esta causal reduciria desechos." : ""}`);
+    }
+
+    // 2. Remanente analysis
+    const avg = parseFloat(String(avgGeneral));
+    if (avg > 4) {
+      lines.push(`Remanente promedio: ${avgGeneral} mm — CRITICO. Se desperdician ~${(avg - 3).toFixed(1)}mm por llanta sobre el retiro optimo. Revisa si los operadores retiran prematuramente.`);
+      cards.push({ icon: "🔴", title: "Desperdicio Alto", value: `${avg.toFixed(1)} mm`, detail: `${(avg - 3).toFixed(1)}mm sobre el optimo por llanta`, color: "#ef4444" });
+    } else if (avg > 3) {
+      lines.push(`Remanente promedio: ${avgGeneral} mm. Hay margen de mejora — cada mm extra es dinero perdido.`);
+      cards.push({ icon: "🟡", title: "Desperdicio Moderado", value: `${avg.toFixed(1)} mm`, detail: "Cerca del optimo pero aun hay oportunidad", color: "#eab308" });
+    } else if (avg > 0) {
+      lines.push(`Remanente promedio: ${avgGeneral} mm. Excelente — retiro cerca del optimo de 3mm.`);
+      cards.push({ icon: "🟢", title: "Retiro Eficiente", value: `${avg.toFixed(1)} mm`, detail: "Llantas retiradas cerca del optimo", color: "#22c55e" });
+    }
+
+    // 3. Brand analysis
+    const byBrand: Record<string, { count: number; totalRem: number }> = {};
+    filtered.forEach((d) => {
+      if (!byBrand[d.marca]) byBrand[d.marca] = { count: 0, totalRem: 0 };
+      byBrand[d.marca].count++;
+      byBrand[d.marca].totalRem += d.remanente;
+    });
+    const brandEntries = Object.entries(byBrand).filter(([, v]) => v.count >= 2).sort((a, b) => (b[1].totalRem / b[1].count) - (a[1].totalRem / a[1].count));
+    if (brandEntries.length >= 2) {
+      const worst = brandEntries[0];
+      const best = brandEntries[brandEntries.length - 1];
+      lines.push(`Marca con mas desperdicio: ${worst[0]} (${(worst[1].totalRem / worst[1].count).toFixed(1)} mm prom). Mas eficiente: ${best[0]} (${(best[1].totalRem / best[1].count).toFixed(1)} mm).`);
+      cards.push({ icon: "📊", title: "Marca + Desperdicio", value: worst[0], detail: `${(worst[1].totalRem / worst[1].count).toFixed(1)} mm remanente prom.`, color: "#8b5cf6" });
+    }
+
+    // 4. Client analysis
+    const byCompany: Record<string, { count: number; totalRem: number; name: string }> = {};
+    filtered.forEach((d) => {
+      if (!byCompany[d.companyId]) byCompany[d.companyId] = { count: 0, totalRem: 0, name: d.companyName };
+      byCompany[d.companyId].count++;
+      byCompany[d.companyId].totalRem += d.remanente;
+    });
+    const companyEntries = Object.entries(byCompany).sort((a, b) => b[1].count - a[1].count);
+    if (companyEntries.length >= 2) {
+      const top = companyEntries[0];
+      lines.push(`Cliente con mas desechos: ${top[1].name} (${top[1].count} llantas, prom. ${(top[1].totalRem / top[1].count).toFixed(1)} mm remanente).`);
+      cards.push({ icon: "🏢", title: "Cliente Top", value: top[1].name, detail: `${top[1].count} desechos`, color: "#06b6d4" });
+    }
+
+    // 5. Trend
+    const monthKeys = Object.keys(avgRemanenteByMonth).sort();
+    if (monthKeys.length >= 3) {
+      const recent3 = monthKeys.slice(-3);
+      const older3 = monthKeys.slice(-6, -3);
+      if (older3.length >= 2) {
+        const recentAvg = recent3.reduce((s, k) => s + (avgRemanenteByMonth[k] ?? 0), 0) / recent3.length;
+        const olderAvg = older3.reduce((s, k) => s + (avgRemanenteByMonth[k] ?? 0), 0) / older3.length;
+        const diff = recentAvg - olderAvg;
+        if (Math.abs(diff) > 0.3) {
+          lines.push(diff > 0
+            ? `Tendencia negativa: remanente subio ${diff.toFixed(1)}mm en ultimos 3 meses. Se desperdicia mas vida util.`
+            : `Tendencia positiva: remanente bajo ${Math.abs(diff).toFixed(1)}mm en ultimos 3 meses. Mejora en eficiencia.`
+          );
+        }
+      }
+    }
+
+    // 6. Preventability
+    const PREVENTABLE = new Set(["baja presion", "sobrecarga", "desalineacion", "mala rotacion", "golpe", "pinchadura", "pinchazo", "corte lateral", "desgaste irregular"]);
+    const preventable = filtered.filter((d) => [...PREVENTABLE].some((p) => d.causales.trim().toLowerCase().includes(p))).length;
+    if (preventable > 0) {
+      const prevPct = Math.round((preventable / filtered.length) * 100);
+      lines.push(`${prevPct}% de los desechos (${preventable}) son potencialmente prevenibles. Mantenimiento preventivo podria evitar estos retiros.`);
+      cards.push({ icon: "🛡️", title: "Prevenibles", value: `${prevPct}%`, detail: `${preventable} desechos evitables`, color: prevPct > 30 ? "#ef4444" : "#eab308" });
+    }
+
+    // 7. Photo coverage
+    const withImages = filtered.filter((d) => d.imageUrls && d.imageUrls.length > 0).length;
+    const photoPct = Math.round((withImages / filtered.length) * 100);
+    cards.push({ icon: "📷", title: "Cobertura Fotos", value: `${photoPct}%`, detail: `${withImages} de ${filtered.length} con evidencia`, color: photoPct >= 80 ? "#22c55e" : photoPct >= 50 ? "#eab308" : "#ef4444" });
+    if (photoPct < 50) lines.push(`Solo ${photoPct}% tiene fotos. Meta: >80% para reclamos y trazabilidad.`);
+
+    return { insight: lines.join("\n\n"), cards };
+  }, [filtered, dataCausales, avgGeneral, avgRemanenteByMonth]);
+
   const hasActiveFilters = Object.values(fv).some((v) => v && v !== "Todos");
   const clearFilters = () => setFv({});
 
@@ -838,14 +933,16 @@ const DesechosDistribuidor: React.FC = () => {
           style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
         >
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
-              <Trash2 className="w-5 h-5 text-white" />
-            </div>
+            <AgentCardHeader agent="linex" insight={linexAnalysis.insight} />
             <div>
               <h1 className="font-black text-white text-lg leading-none tracking-tight">Estadísticas de Desechos</h1>
               <div className="flex items-center gap-3 mt-1 text-white/60 text-xs">
                 <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date().toLocaleDateString("es-CO")}</span>
                 <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{companies.length} cliente{companies.length !== 1 ? "s" : ""}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: AGENTS.linex.color }} />
+                  <span className="font-bold" style={{ color: AGENTS.linex.color }}>{AGENTS.linex.codename}</span>
+                </span>
               </div>
             </div>
           </div>
@@ -899,6 +996,24 @@ const DesechosDistribuidor: React.FC = () => {
           <MetricCard icon={TrendingUp} title="mm Desechados"   value={`${parseFloat(totalMilimetros).toLocaleString("es-CO")} mm`} sub="profundidad total descartada" variant="mid" loading={loadingDesechos} />
           <MetricCard icon={Users}      title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos · ${companies.length} clientes`} variant="accent" loading={loadingDesechos} />
         </div>
+
+        {/* -- LINEX deep analysis cards -------------------------------------- */}
+        {linexAnalysis.cards.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {linexAnalysis.cards.map((card, i) => (
+              <div
+                key={i}
+                className="rounded-xl p-4 relative overflow-hidden"
+                style={{ background: "white", border: `1px solid ${card.color}20`, boxShadow: `0 2px 12px ${card.color}08` }}
+              >
+                <span className="text-lg">{card.icon}</span>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-2">{card.title}</p>
+                <p className="text-lg font-black mt-0.5 truncate" style={{ color: card.color }}>{card.value}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{card.detail}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* -- Charts ------------------------------------------------------ */}
         {loadingDesechos ? (

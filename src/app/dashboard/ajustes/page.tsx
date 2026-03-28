@@ -293,6 +293,17 @@ const AjustesPage: React.FC = () => {
   const [plateInputs, setPlateInputs] = useState<Record<string, string>>({});
   const [savingUser,  setSavingUser]  = useState(false);
 
+  // Saturn V mode
+  const [showSaturnChallenge, setShowSaturnChallenge] = useState(false);
+  const [saturnUnlocked, setSaturnUnlocked] = useState(false);
+  const [saturnActive, setSaturnActive] = useState(false);
+  const [saturnAnswers, setSaturnAnswers] = useState({
+    stage1: "", stage1count: "", stage2: "", stage2count: "", stage3: "", stage3count: "",
+    engineType1: "", engineType2: "", cathode: "", battery1: "", battery2: "",
+  });
+  const [saturnError, setSaturnError] = useState("");
+  const [saturnSaving, setSaturnSaving] = useState(false);
+
   // Distributor tab
   const [searchQuery,           setSearchQuery]           = useState("");
   const [searchResults,         setSearchResults]         = useState<DistributorCompany[]>([]);
@@ -346,6 +357,16 @@ const AjustesPage: React.FC = () => {
         if (data) {
           setNotifChannel(data.notifChannel ?? "none");
           setNotifContact(data.notifContact ?? "");
+          if (data.saturnVUnlocked) {
+            setSaturnUnlocked(true);
+            try { localStorage.setItem("saturnV", "1"); } catch {}
+            try {
+              if (localStorage.getItem("saturnVActive") === "1") {
+                setSaturnActive(true);
+                document.documentElement.classList.add("saturn-v");
+              }
+            } catch {}
+          }
         }
       })
       .catch(() => {});
@@ -757,6 +778,287 @@ const AjustesPage: React.FC = () => {
                 Guardar preferencias
               </PrimaryBtn>
             </Card>
+
+            {/* Saturn V trigger / toggle */}
+            {saturnUnlocked ? (
+              <div
+                className="mt-6 rounded-xl px-4 py-3 flex items-center justify-between"
+                style={{
+                  background: saturnActive ? "linear-gradient(135deg, #0a0a0a, #1a1a2e)" : "rgba(10,24,58,0.03)",
+                  border: saturnActive ? "1px solid rgba(249,115,22,0.3)" : "1px solid rgba(52,140,203,0.1)",
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🚀</span>
+                  <div>
+                    <p className="text-xs font-black" style={{ color: saturnActive ? "#f97316" : "#0A183A" }}>Saturn V Mode</p>
+                    <p className="text-[10px]" style={{ color: saturnActive ? "rgba(255,255,255,0.4)" : "#94a3b8" }}>
+                      {saturnActive ? "Houston, estamos en orbita." : "Modo espacial desbloqueado"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = !saturnActive;
+                    setSaturnActive(next);
+                    localStorage.setItem("saturnVActive", next ? "1" : "0");
+                    document.documentElement.classList.toggle("saturn-v", next);
+                  }}
+                  className="relative w-11 h-6 rounded-full transition-all"
+                  style={{ background: saturnActive ? "#f97316" : "rgba(0,0,0,0.1)" }}
+                >
+                  <span
+                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                    style={{ left: saturnActive ? 22 : 2 }}
+                  />
+                </button>
+              </div>
+            ) : (
+              <div className="flex justify-center pt-8 pb-2">
+                <button
+                  onClick={() => setShowSaturnChallenge(true)}
+                  className="text-2xl transition-all hover:scale-125 active:scale-95"
+                  style={{ opacity: 0.25 }}
+                >
+                  🚀
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Saturn V challenge modal */}
+        {showSaturnChallenge && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
+            style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)" }}
+          >
+            <div
+              className="w-full sm:max-w-md max-h-[95vh] sm:max-h-[85vh] rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+              style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+            >
+              {/* Header */}
+              <div className="px-5 py-3.5 flex-shrink-0 flex items-center justify-between" style={{ background: "linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%)" }}>
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🚀</span>
+                  <div>
+                    <h3 className="text-sm font-black text-white" style={{ fontFamily: "'DM Mono', monospace" }}>SATURN V</h3>
+                    <p className="text-[9px] text-white/30">Demuestra lo que sabes</p>
+                  </div>
+                </div>
+                <button onClick={() => { setShowSaturnChallenge(false); setSaturnError(""); }} className="text-white/60 hover:text-white transition-colors p-1">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Questions — scrollable */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ background: "#0d0d0d" }}>
+
+                {/* Q1: Saturn V stages */}
+                <div>
+                  <p className="text-[9px] text-white/90 uppercase tracking-widest font-bold mb-2">1 · Motor y cantidad por etapa del Saturn V</p>
+                  <div className="space-y-1.5">
+                    {([
+                      { key: "stage1", countKey: "stage1count", label: "S-IC" },
+                      { key: "stage2", countKey: "stage2count", label: "S-II" },
+                      { key: "stage3", countKey: "stage3count", label: "S-IVB" },
+                    ] as const).map(({ key, countKey, label }) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-white/80 w-10 flex-shrink-0">{label}</span>
+                        <input
+                          type="text"
+                          value={saturnAnswers[key]}
+                          onChange={(e) => setSaturnAnswers((p) => ({ ...p, [key]: e.target.value }))}
+                          placeholder="Motor"
+                          className="flex-1 px-2.5 py-1.5 rounded-md text-xs bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-orange-400/50"
+                          style={{ fontFamily: "'DM Mono', monospace" }}
+                        />
+                        <input
+                          type="number"
+                          value={saturnAnswers[countKey]}
+                          onChange={(e) => setSaturnAnswers((p) => ({ ...p, [countKey]: e.target.value }))}
+                          placeholder="#"
+                          className="w-12 px-2 py-1.5 rounded-md text-xs text-center bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-orange-400/50"
+                          style={{ fontFamily: "'DM Mono', monospace" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-px" style={{ background: "rgba(255,255,255,0.04)" }} />
+
+                {/* Q2: Engine cycles */}
+                <div>
+                  <p className="text-[9px] text-white/90 uppercase tracking-widest font-bold mb-2">2 · Dos tipos de ciclo de motor cohete</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={saturnAnswers.engineType1}
+                      onChange={(e) => setSaturnAnswers((p) => ({ ...p, engineType1: e.target.value }))}
+                      placeholder="Ciclo 1"
+                      className="px-2.5 py-1.5 rounded-md text-xs bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-orange-400/50"
+                    />
+                    <input
+                      type="text"
+                      value={saturnAnswers.engineType2}
+                      onChange={(e) => setSaturnAnswers((p) => ({ ...p, engineType2: e.target.value }))}
+                      placeholder="Ciclo 2"
+                      className="px-2.5 py-1.5 rounded-md text-xs bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-orange-400/50"
+                    />
+                  </div>
+                </div>
+
+                <div className="h-px" style={{ background: "rgba(255,255,255,0.04)" }} />
+
+                {/* Q3: Cathode/Anode */}
+                <div>
+                  <p className="text-[9px] text-white/90 uppercase tracking-widest font-bold mb-2">3 · Electrodo positivo en una celda</p>
+                  <div className="flex gap-2">
+                    {(["catodo", "anodo"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => setSaturnAnswers((p) => ({ ...p, cathode: opt }))}
+                        className="flex-1 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-all"
+                        style={{
+                          background: saturnAnswers.cathode === opt ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.03)",
+                          border: saturnAnswers.cathode === opt ? "1.5px solid #f97316" : "1.5px solid rgba(255,255,255,0.06)",
+                          color: saturnAnswers.cathode === opt ? "#f97316" : "rgba(255,255,255,0.8)",
+                        }}
+                      >
+                        {opt === "catodo" ? "Catodo" : "Anodo"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="h-px" style={{ background: "rgba(255,255,255,0.04)" }} />
+
+                {/* Q4: Battery types */}
+                <div>
+                  <p className="text-[9px] text-white/90 uppercase tracking-widest font-bold mb-2">4 · Dos tipos de baterias de litio</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={saturnAnswers.battery1}
+                      onChange={(e) => setSaturnAnswers((p) => ({ ...p, battery1: e.target.value }))}
+                      placeholder="Tipo 1"
+                      className="px-2.5 py-1.5 rounded-md text-xs bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-orange-400/50"
+                    />
+                    <input
+                      type="text"
+                      value={saturnAnswers.battery2}
+                      onChange={(e) => setSaturnAnswers((p) => ({ ...p, battery2: e.target.value }))}
+                      placeholder="Tipo 2"
+                      className="px-2.5 py-1.5 rounded-md text-xs bg-white/5 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-orange-400/50"
+                    />
+                  </div>
+                </div>
+
+                {saturnError && (
+                  <p className="text-[11px] text-red-400 font-bold flex items-center gap-1.5 pt-2">
+                    <AlertCircle className="w-3 h-3 flex-shrink-0" /> {saturnError}
+                  </p>
+                )}
+              </div>
+
+              {/* Submit */}
+              <div className="px-5 py-3 flex-shrink-0" style={{ background: "#0d0d0d", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <button
+                  disabled={saturnSaving}
+                  onClick={async () => {
+                    const norm = (s: string) => s.trim().toLowerCase().replace(/[-\s]/g, "");
+
+                    // 1. Saturn V stages
+                    const s1 = norm(saturnAnswers.stage1);
+                    const s2 = norm(saturnAnswers.stage2);
+                    const s3 = norm(saturnAnswers.stage3);
+                    const c1 = saturnAnswers.stage1count.trim();
+                    const c2 = saturnAnswers.stage2count.trim();
+                    const c3 = saturnAnswers.stage3count.trim();
+                    const stagesOk = s1 === "f1" && c1 === "5" && s2 === "j2" && c2 === "5" && s3 === "j2" && c3 === "1";
+
+                    // 2. Engine cycle types (accept any 2 valid types)
+                    const VALID_CYCLES = new Set([
+                      "abierto", "cicloabierto", "opencycle",
+                      "cerrado", "ciclocerrado", "closedcycle",
+                      "fullflow", "flujocompleto",
+                      "presurizado", "pressurefed", "alimentadoporpresion",
+                      "expander", "expandercycle",
+                      "gasgen", "gasgenerator", "generadordegas",
+                      "stagedcombustion", "combustionescalonada",
+                      "electricpump", "bombaelectrica",
+                      "coldgas", "gasfrio",
+                      "monopropelente", "monopropellant", "monoprop",
+                      "bipropelente", "bipropellant", "biprop",
+                    ]);
+                    const e1 = norm(saturnAnswers.engineType1);
+                    const e2 = norm(saturnAnswers.engineType2);
+                    const enginesOk = e1 !== e2 && VALID_CYCLES.has(e1) && VALID_CYCLES.has(e2);
+
+                    // 3. Cathode is positive
+                    const cathodeOk = saturnAnswers.cathode === "catodo";
+
+                    // 4. Battery types (accept any 2 valid types)
+                    const VALID_BATTERIES = new Set([
+                      "lfp", "lifepo4", "fosfatodehierro",
+                      "nmc", "nmc811", "nmc622", "nmc532",
+                      "nca",
+                      "lco", "cobaltodilitio",
+                      "lmo", "manganeso",
+                      "lto", "titanato",
+                      "solidstate", "estadosolido", "solidostate",
+                      "lis", "litioazufre", "lithiumsulfur",
+                      "sodium", "sodio", "naion", "sodiumion",
+                      "liion", "iondelitio",
+                      "lipo", "litiopolimero",
+                    ]);
+                    const b1 = norm(saturnAnswers.battery1);
+                    const b2 = norm(saturnAnswers.battery2);
+                    const batteriesOk = b1 !== b2 && VALID_BATTERIES.has(b1) && VALID_BATTERIES.has(b2);
+
+                    // Build error messages
+                    const errors: string[] = [];
+                    if (!stagesOk) errors.push("Etapas del Saturn V");
+                    if (!enginesOk) errors.push("Tipos de motor");
+                    if (!cathodeOk) errors.push("Electrodo positivo");
+                    if (!batteriesOk) errors.push("Tipos de bateria");
+
+                    if (errors.length > 0) {
+                      setSaturnError(`Incorrecto: ${errors.join(", ")}.`);
+                      return;
+                    }
+
+                    setSaturnSaving(true);
+                    try {
+                      if (user) {
+                        await authFetch(`${API_BASE}/users/${user.id}/notification-prefs`, {
+                          method: "PATCH",
+                          body: JSON.stringify({ saturnVUnlocked: true }),
+                        });
+                      }
+                      setSaturnUnlocked(true);
+                      localStorage.setItem("saturnV", "1");
+                      setShowSaturnChallenge(false);
+                      setSaturnError("");
+                      toast("Saturn V Mode desbloqueado.", "success");
+                    } catch {
+                      setSaturnError("Error al guardar. Intenta de nuevo.");
+                    } finally {
+                      setSaturnSaving(false);
+                    }
+                  }}
+                  className="w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    background: "linear-gradient(135deg, #f97316, #ea580c)",
+                    color: "white",
+                    boxShadow: "0 0 20px rgba(249,115,22,0.3)",
+                  }}
+                >
+                  {saturnSaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Autorizar Lanzamiento"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

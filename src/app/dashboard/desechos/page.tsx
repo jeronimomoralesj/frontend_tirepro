@@ -39,6 +39,8 @@ import {
 import FastModeDesechos from "./FastModeDesechos";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
+import AgentCardHeader from "../../../components/AgentCardHeader";
+import { AGENTS } from "../../../lib/agents";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend);
 
@@ -754,6 +756,140 @@ const DesechosPage: React.FC = () => {
     [filtered]
   );
 
+  // -- LINEX deep analysis -----------------------------------------------------
+  const linexAnalysis = useMemo(() => {
+    if (filtered.length === 0) return { insight: "", cards: [] as { icon: string; title: string; value: string; detail: string; color: string }[] };
+
+    const lines: string[] = [];
+    const cards: { icon: string; title: string; value: string; detail: string; color: string }[] = [];
+
+    // 1. Top causals breakdown
+    const sortedCausales = Object.entries(dataCausales).sort((a, b) => b[1] - a[1]);
+    const topCausal = sortedCausales[0];
+    const top3 = sortedCausales.slice(0, 3);
+    if (topCausal) {
+      const pct = Math.round((topCausal[1] / filtered.length) * 100);
+      lines.push(`Causal #1: "${topCausal[0]}" representa el ${pct}% de todos los desechos (${topCausal[1]} de ${filtered.length}).${pct > 40 ? " Esta concentracion es alta — un programa preventivo enfocado en esta causal podria reducir desechos significativamente." : ""}`);
+    }
+
+    // 2. Remanente analysis — money left on the table
+    const avg = parseFloat(avgGeneral);
+    const totalMm = parseFloat(totalMilimetros);
+    if (avg > 0) {
+      if (avg > 4) {
+        lines.push(`Remanente promedio: ${avgGeneral} mm. Esto es CRITICO — se estan desechando llantas con ${avg.toFixed(1)}mm de profundidad restante. A 3mm de retiro optimo, se desperdician ~${(avg - 3).toFixed(1)}mm por llanta. Revisa si los operadores estan retirando prematuramente.`);
+        cards.push({ icon: "🔴", title: "Desperdicio Alto", value: `${avg.toFixed(1)} mm`, detail: `${(avg - 3).toFixed(1)}mm sobre el retiro optimo por llanta`, color: "#ef4444" });
+      } else if (avg > 3) {
+        lines.push(`Remanente promedio: ${avgGeneral} mm. Hay margen de mejora — cada mm de mas que se desecha es dinero perdido. Objetivo: acercarse a 3mm.`);
+        cards.push({ icon: "🟡", title: "Desperdicio Moderado", value: `${avg.toFixed(1)} mm`, detail: "Cerca del optimo pero aun hay oportunidad", color: "#eab308" });
+      } else {
+        lines.push(`Remanente promedio: ${avgGeneral} mm. Excelente control — las llantas se retiran cerca del punto optimo de 3mm.`);
+        cards.push({ icon: "🟢", title: "Retiro Eficiente", value: `${avg.toFixed(1)} mm`, detail: "Llantas retiradas cerca del optimo", color: "#22c55e" });
+      }
+    }
+
+    // 3. Brand analysis — which brands waste more
+    const byBrand: Record<string, { count: number; totalRem: number; totalMm: number }> = {};
+    filtered.forEach((d) => {
+      if (!byBrand[d.marca]) byBrand[d.marca] = { count: 0, totalRem: 0, totalMm: 0 };
+      byBrand[d.marca].count++;
+      byBrand[d.marca].totalRem += d.remanente;
+      byBrand[d.marca].totalMm += d.milimetrosDesechados;
+    });
+    const brandEntries = Object.entries(byBrand).filter(([, v]) => v.count >= 2).sort((a, b) => (b[1].totalRem / b[1].count) - (a[1].totalRem / a[1].count));
+    if (brandEntries.length > 0) {
+      const worst = brandEntries[0];
+      const worstAvg = (worst[1].totalRem / worst[1].count).toFixed(1);
+      const best = brandEntries[brandEntries.length - 1];
+      const bestAvg = (best[1].totalRem / best[1].count).toFixed(1);
+      if (brandEntries.length >= 2 && worst[0] !== best[0]) {
+        lines.push(`Marca con mas desperdicio: ${worst[0]} (${worstAvg} mm prom. remanente en ${worst[1].count} desechos). Marca mas eficiente: ${best[0]} (${bestAvg} mm). Evalua si el problema es la marca o el uso.`);
+      }
+      cards.push({ icon: "📊", title: "Marca + Desperdicio", value: worst[0], detail: `${worstAvg} mm remanente prom. en ${worst[1].count} desechos`, color: "#8b5cf6" });
+    }
+
+    // 4. Axle analysis — which axle generates most waste
+    const byEje: Record<string, { count: number; totalRem: number }> = {};
+    filtered.forEach((d) => {
+      if (!byEje[d.eje]) byEje[d.eje] = { count: 0, totalRem: 0 };
+      byEje[d.eje].count++;
+      byEje[d.eje].totalRem += d.remanente;
+    });
+    const ejeEntries = Object.entries(byEje).sort((a, b) => b[1].count - a[1].count);
+    if (ejeEntries.length > 0) {
+      const topEje = ejeEntries[0];
+      const ejePct = Math.round((topEje[1].count / filtered.length) * 100);
+      lines.push(`Eje con mas desechos: ${topEje[0]} (${ejePct}% del total, ${topEje[1].count} llantas). ${ejePct > 50 ? "Concentracion alta en este eje — revisa alineacion, presion o condiciones de operacion." : ""}`);
+      cards.push({ icon: "🛞", title: "Eje Critico", value: topEje[0], detail: `${topEje[1].count} desechos (${ejePct}% del total)`, color: "#f97316" });
+    }
+
+    // 5. Trend analysis — is waste increasing or decreasing?
+    const monthKeys = Object.keys(avgRemanenteByMonth).sort();
+    if (monthKeys.length >= 3) {
+      const recent3 = monthKeys.slice(-3);
+      const older3 = monthKeys.slice(-6, -3);
+      if (older3.length >= 2) {
+        const recentAvg = recent3.reduce((s, k) => s + (avgRemanenteByMonth[k] ?? 0), 0) / recent3.length;
+        const olderAvg = older3.reduce((s, k) => s + (avgRemanenteByMonth[k] ?? 0), 0) / older3.length;
+        const diff = recentAvg - olderAvg;
+        if (Math.abs(diff) > 0.3) {
+          lines.push(diff > 0
+            ? `Tendencia negativa: el remanente promedio subio ${diff.toFixed(1)}mm en los ultimos 3 meses vs los 3 anteriores. Se esta desperdiciando mas vida util. Investiga cambios en operacion o personal.`
+            : `Tendencia positiva: el remanente promedio bajo ${Math.abs(diff).toFixed(1)}mm en los ultimos 3 meses. Las llantas se estan retirando de forma mas eficiente.`
+          );
+        }
+      }
+    }
+
+    // 6. Causal + eje cross-analysis
+    const causalEje: Record<string, Record<string, number>> = {};
+    filtered.forEach((d) => {
+      const c = d.causales.trim();
+      if (!causalEje[c]) causalEje[c] = {};
+      causalEje[c][d.eje] = (causalEje[c][d.eje] ?? 0) + 1;
+    });
+    if (topCausal) {
+      const ejesForTop = Object.entries(causalEje[topCausal[0]] ?? {}).sort((a, b) => b[1] - a[1]);
+      if (ejesForTop.length > 0 && ejesForTop[0][1] > 1) {
+        const dominantEje = ejesForTop[0];
+        const crossPct = Math.round((dominantEje[1] / topCausal[1]) * 100);
+        if (crossPct > 50) {
+          lines.push(`Patron detectado: "${topCausal[0]}" ocurre ${crossPct}% en eje ${dominantEje[0]}. Esto sugiere un problema especifico de esa posicion — no solo desgaste general.`);
+        }
+      }
+    }
+
+    // 7. Dimension analysis
+    const byDim: Record<string, number> = {};
+    filtered.forEach((d) => { byDim[d.dimension] = (byDim[d.dimension] ?? 0) + 1; });
+    const dimEntries = Object.entries(byDim).sort((a, b) => b[1] - a[1]);
+    if (dimEntries.length > 0 && dimEntries[0][1] >= 3) {
+      cards.push({ icon: "📐", title: "Dimension + Desechos", value: dimEntries[0][0], detail: `${dimEntries[0][1]} desechos en esta medida`, color: "#06b6d4" });
+    }
+
+    // 8. Photo coverage
+    const withImages = filtered.filter((d) => d.imageUrls && d.imageUrls.length > 0).length;
+    const photoPct = Math.round((withImages / filtered.length) * 100);
+    if (photoPct < 50) {
+      lines.push(`Solo ${photoPct}% de los desechos tienen fotos. Las fotos son evidencia clave para reclamos y analisis de causales. Meta: >80%.`);
+    }
+    cards.push({ icon: "📷", title: "Cobertura de Fotos", value: `${photoPct}%`, detail: `${withImages} de ${filtered.length} con evidencia`, color: photoPct >= 80 ? "#22c55e" : photoPct >= 50 ? "#eab308" : "#ef4444" });
+
+    // 9. Preventability score
+    const PREVENTABLE = new Set(["baja presion", "sobrecarga", "desalineacion", "mala rotacion", "golpe", "pinchadura", "pinchazo", "corte lateral", "desgaste irregular"]);
+    const preventable = filtered.filter((d) => {
+      const c = d.causales.trim().toLowerCase();
+      return [...PREVENTABLE].some((p) => c.includes(p));
+    }).length;
+    if (preventable > 0) {
+      const prevPct = Math.round((preventable / filtered.length) * 100);
+      lines.push(`${prevPct}% de los desechos (${preventable}) son potencialmente prevenibles (baja presion, desalineacion, golpes, etc). Un programa de mantenimiento preventivo podria evitar estos retiros prematuros.`);
+      cards.push({ icon: "🛡️", title: "Prevenibles", value: `${prevPct}%`, detail: `${preventable} desechos evitables con mantenimiento`, color: prevPct > 30 ? "#ef4444" : "#eab308" });
+    }
+
+    return { insight: lines.join("\n\n"), cards };
+  }, [filtered, dataCausales, avgGeneral, totalMilimetros, avgRemanenteByMonth]);
+
   const hasActiveFilters = Object.values(fv).some((v) => v && v !== "Todos") || searchQuery.trim() !== "";
 
   const clearFilters = () => {
@@ -906,9 +1042,7 @@ const DesechosPage: React.FC = () => {
           }}
         >
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
-              <Trash2 className="w-5 h-5 text-white" />
-            </div>
+            <AgentCardHeader agent="linex" insight={linexAnalysis.insight} />
             <div>
               <h1 className="font-black text-white text-lg leading-none tracking-tight">
                 Estadísticas de Desechos
@@ -921,6 +1055,10 @@ const DesechosPage: React.FC = () => {
                 <span className="flex items-center gap-1">
                   <Hash className="w-3 h-3" />
                   {allDesechos.length} neumáticos retirados
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: AGENTS.linex.color }} />
+                  <span className="font-bold" style={{ color: AGENTS.linex.color }}>{AGENTS.linex.codename}</span>
                 </span>
               </div>
             </div>
@@ -980,8 +1118,23 @@ const DesechosPage: React.FC = () => {
           <MetricCard icon={BarChart3}  title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos en ${filtered.length} registros`} variant="accent"    />
         </div>
 
-        {/* -- Insight cards -------------------------------------------------- */}
-        <SummaryCards filtered={filtered} dataCausales={dataCausales} />
+        {/* -- LINEX deep analysis cards ---------------------------------------- */}
+        {linexAnalysis.cards.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {linexAnalysis.cards.map((card, i) => (
+              <div
+                key={i}
+                className="rounded-xl p-4 relative overflow-hidden"
+                style={{ background: "white", border: `1px solid ${card.color}20`, boxShadow: `0 2px 12px ${card.color}08` }}
+              >
+                <span className="text-lg">{card.icon}</span>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-2">{card.title}</p>
+                <p className="text-lg font-black mt-0.5 truncate" style={{ color: card.color }}>{card.value}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{card.detail}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* -- Charts -------------------------------------------------------- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

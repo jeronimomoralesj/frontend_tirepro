@@ -17,6 +17,7 @@ import TipoVehiculo from "../cards/TipoVehiculo";
 import HistoricChart from "../cards/HistoricChart";
 import ReencaucheHistorico from "../cards/ReencaucheHistorico";
 import TanqueMilimetro from "../cards/TanqueMilimetro";
+import ProyeccionVida from "../cards/ProyeccionVida";
 
 /* -- API ------------------------------------------------------------------- */
 
@@ -399,10 +400,13 @@ export default function DetallePage() {
               </div>
             </section>
 
-            {/* -- 6. Profundidad -------------------------------------------- */}
+            {/* -- 6. Profundidad y Proyeccion --------------------------------- */}
             <section>
-              <SectionHeader title="Profundidad" />
-              <TanqueMilimetro tires={filtered} language="es" />
+              <SectionHeader title="Profundidad y Proyeccion" />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <TanqueMilimetro tires={filtered} language="es" />
+                <ProyeccionVida tires={filtered} />
+              </div>
             </section>
           </div>
         )}

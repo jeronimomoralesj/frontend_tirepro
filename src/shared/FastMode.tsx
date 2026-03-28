@@ -3,9 +3,11 @@
 import { useState } from "react";
 import {
   Truck, Plus, Trash2, Search, Loader2, Gauge, Camera, Wind,
-  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, X,
+  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, X, Zap,
 } from "lucide-react";
 import CatalogAutocomplete from "../components/CatalogAutocomplete";
+import AgentCardHeader from "../components/AgentCardHeader";
+import { AGENTS } from "../lib/agents";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -322,10 +324,50 @@ export default function FastMode({ language }: { language: string }) {
     setSubmitting(false);
   }
 
+  // -- Campa insight ----------------------------------------------------------
+
+  const campaInsight = (() => {
+    const lines: string[] = [];
+    const totalTires = existingTires.length + newTires.length;
+    if (step === "search") {
+      lines.push("Listo para campo. Busca una placa para empezar — si el vehiculo no existe, lo crearemos al instante.");
+      lines.push("Meta: < 30 segundos por llanta. Inspecciona, registra y sigue.");
+    } else if (step === "vehicle") {
+      lines.push(`Vehiculo ${vehicleForm.placa} no encontrado. Completa los datos basicos para crearlo y continuar con las llantas.`);
+    } else if (step === "tires") {
+      if (existingTires.length > 0) lines.push(`${existingTires.length} llanta${existingTires.length > 1 ? "s" : ""} existente${existingTires.length > 1 ? "s" : ""} cargada${existingTires.length > 1 ? "s" : ""} del vehiculo.`);
+      if (newTires.length > 0) lines.push(`${newTires.length} llanta${newTires.length > 1 ? "s" : ""} nueva${newTires.length > 1 ? "s" : ""} por registrar.`);
+      if (totalTires > 0) lines.push("Captura profundidad en 3 zonas (Int/Cen/Ext) para cada llanta. Presion y foto son opcionales.");
+    }
+    return lines.join("\n\n");
+  })();
+
   // -- Render ---------------------------------------------------------------
+
+  const campa = AGENTS.campa;
 
   return (
     <div className="space-y-4">
+      {/* CAMPA agent header */}
+      <div
+        className="rounded-xl px-4 py-3 flex items-center justify-between"
+        style={{ background: "linear-gradient(135deg, #0A183A, #173D68)", border: `1px solid ${campa.color}30` }}
+      >
+        <div className="flex items-center gap-3">
+          <AgentCardHeader agent="campa" insight={campaInsight} />
+          <div>
+            <p className="text-sm font-black text-white tracking-tight">Modo Rápido</p>
+            <p className="text-[10px] text-white/50 font-bold uppercase tracking-wider">
+              {campa.status} &middot; {step === "search" ? "Buscando" : step === "vehicle" ? "Creando vehiculo" : `${existingTires.length + newTires.length} llantas`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: campa.color }} />
+          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: campa.color }}>{campa.codename}</span>
+        </div>
+      </div>
+
       {error && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "rgba(10,24,58,0.06)", border: "1px solid rgba(10,24,58,0.2)" }}>
           <AlertCircle className="w-4 h-4 text-[#173D68] flex-shrink-0 mt-0.5" />

@@ -237,19 +237,59 @@ export default function ResumenPage() {
     return result;
   }, [tires, filterValues, filterSearch]);
 
-  // KPIs
+  // KPIs — inversionMes uses ALL tires (including fin) so it matches the breakdown card
   const inversionMes = useMemo(() => {
     let total = 0;
-    filtered.forEach((t) => (t.costos ?? []).forEach((c) => {
+    tires.forEach((t) => (t.costos ?? []).forEach((c) => {
       if (toMonthKey(c.fecha) === currentMonth) total += c.valor;
     }));
     return total;
-  }, [filtered, currentMonth]);
+  }, [tires, currentMonth]);
 
   const llantasAnalizadas = useMemo(
     () => filtered.filter((t) => t.inspecciones?.length > 0).length,
     [filtered],
   );
+
+  // Inversion by vida category (current month) — uses ALL tires including fin
+  const inversionByVida = useMemo(() => {
+    const VIDA_LABELS: Record<string, string> = {
+      nueva: "Llanta Nueva",
+      reencauche1: "Reencauche 1",
+      reencauche2: "Reencauche 2",
+      reencauche3: "Reencauche 3",
+      fin: "Fin de Vida",
+    };
+    const VIDA_COLORS: Record<string, string> = {
+      nueva: "#1E76B6",
+      reencauche1: "#22c55e",
+      reencauche2: "#eab308",
+      reencauche3: "#f97316",
+      fin: "#ef4444",
+    };
+    const byVida: Record<string, { total: number; count: number }> = {};
+    tires.forEach((t) => {
+      const vida = t.vidaActual ?? "nueva";
+      (t.costos ?? []).forEach((c) => {
+        if (toMonthKey(c.fecha) === currentMonth) {
+          if (!byVida[vida]) byVida[vida] = { total: 0, count: 0 };
+          byVida[vida].total += c.valor;
+          byVida[vida].count++;
+        }
+      });
+    });
+    const entries = Object.entries(byVida)
+      .map(([vida, { total, count }]) => ({
+        vida,
+        label: VIDA_LABELS[vida] ?? vida,
+        color: VIDA_COLORS[vida] ?? "#64748b",
+        total,
+        count,
+      }))
+      .sort((a, b) => b.total - a.total);
+    const grandTotal = entries.reduce((s, e) => s + e.total, 0);
+    return { entries, grandTotal };
+  }, [tires, currentMonth]);
 
   // Chart data: CPK evolution (km-weighted per month)
   const cpkEvolution = useMemo(() => {
@@ -423,7 +463,7 @@ export default function ResumenPage() {
             <BarChart3 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Mi Resumen</h1>
+            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Mi Resumenr</h1>
             <p className="text-xs text-[#348CCB] mt-0.5 flex items-center gap-1">
               <Calendar className="w-3 h-3" />
               Actualizado: {new Date().toLocaleDateString("es-CO")}
@@ -489,14 +529,78 @@ export default function ResumenPage() {
               <PorMarca groupData={marcaData} />
             </div>
 
-            {/* Full-width: Dinero Perdido */}
-            <CardWrap title="Dinero Perdido por Desecho" description="Dinero estimado perdido cuando llantas se desechan con profundidad remanente. Calculado como la proporcion de profundidad restante sobre el costo total.">
-              <Line
-                key={`perdido-${chartKey}`}
-                data={makeLineData(dineroPerdido, "#f97316")}
-                options={makeLineOpts(dineroPerdido, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => `Perdida: ${fmtCOP(v)}`)}
-              />
-            </CardWrap>
+            {/* Row 3: Dinero Perdido + Inversion por Categoria */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <CardWrap title="Dinero Perdido por Desecho" description="Dinero estimado perdido cuando llantas se desechan con profundidad remanente. Calculado como la proporcion de profundidad restante sobre el costo total.">
+                <Line
+                  key={`perdido-${chartKey}`}
+                  data={makeLineData(dineroPerdido, "#f97316")}
+                  options={makeLineOpts(dineroPerdido, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => `Perdida: ${fmtCOP(v)}`)}
+                />
+              </CardWrap>
+
+              {/* Inversion por Categoria este mes */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
+                <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between">
+                  <h2 className="text-base sm:text-lg font-bold">Inversión del Mes por Categoría</h2>
+                  <div className="group relative cursor-pointer shrink-0 ml-2" title="Desglose de costos registrados este mes agrupados por etapa de vida de la llanta (nueva, reencauche 1-3, fin de vida).">
+                    <svg className="w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
+                    </svg>
+                    <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
+                      <p>Desglose de costos registrados este mes agrupados por etapa de vida de la llanta.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 sm:p-6">
+                  {inversionByVida.entries.length === 0 ? (
+                    <div className="h-64 sm:h-72 flex items-center justify-center">
+                      <p className="text-sm text-gray-400">Sin costos registrados este mes.</p>
+                    </div>
+                  ) : (
+                    <div className="h-64 sm:h-72 flex flex-col justify-between">
+                      {/* Total header */}
+                      <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-gray-100">
+                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total del mes</span>
+                        <span className="text-xl font-black text-[#0A183A]">{fmtCOP(inversionByVida.grandTotal)}</span>
+                      </div>
+
+                      {/* Category bars */}
+                      <div className="flex-1 space-y-3 overflow-y-auto">
+                        {inversionByVida.entries.map((entry) => {
+                          const pct = inversionByVida.grandTotal > 0
+                            ? Math.max(2, (entry.total / inversionByVida.grandTotal) * 100)
+                            : 0;
+                          return (
+                            <div key={entry.vida}>
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: entry.color }} />
+                                  <span className="text-xs font-bold text-[#0A183A]">{entry.label}</span>
+                                  <span className="text-[10px] text-gray-400">({entry.count} llanta{entry.count !== 1 ? "s" : ""})</span>
+                                </div>
+                                <span className="text-xs font-black text-[#0A183A]">{fmtCOP(entry.total)}</span>
+                              </div>
+                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${pct}%`, background: entry.color }}
+                                />
+                              </div>
+                              <div className="text-right mt-0.5">
+                                <span className="text-[9px] text-gray-400">
+                                  {inversionByVida.grandTotal > 0 ? Math.round((entry.total / inversionByVida.grandTotal) * 100) : 0}% del total
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Mejores Combinaciones CPK */}
             {topCpkCombinations.length > 0 && (

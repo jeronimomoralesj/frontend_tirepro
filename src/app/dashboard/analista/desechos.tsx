@@ -17,6 +17,8 @@ import {
   Target,
   BarChart3,
 } from "lucide-react";
+import AgentCardHeader from "../../../components/AgentCardHeader";
+import { AGENTS } from "../../../lib/agents";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -250,6 +252,17 @@ const DesechosStats: React.FC = () => {
     [desechos]
   );
 
+  const linexInsight = useMemo(() => {
+    if (desechos.length === 0) return "";
+    const lines: string[] = [];
+    lines.push(`${desechos.length} llanta${desechos.length > 1 ? "s" : ""} rastreada${desechos.length > 1 ? "s" : ""} hasta fin de vida.`);
+    const topCausal = Object.entries(dataCausales).sort((a, b) => b[1] - a[1])[0];
+    if (topCausal) lines.push(`Causal principal: "${topCausal[0]}" (${topCausal[1]} casos).`);
+    const avg = parseFloat(avgGeneral);
+    if (avg > 3) lines.push(`Remanente promedio: ${avgGeneral} mm — se pierde vida util. Revisa criterios de retiro.`);
+    return lines.join("\n\n");
+  }, [desechos, dataCausales, avgGeneral]);
+
   // -- Loading / error --------------------------------------------------------
   if (loading) {
     return (
@@ -277,13 +290,17 @@ const DesechosStats: React.FC = () => {
     <div className="space-y-4 sm:space-y-5">
 
       {/* Section label */}
-      <div className="flex items-center gap-2">
-        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
-          <TrendingUp className="w-4 h-4 text-[#1E76B6]" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <AgentCardHeader agent="linex" insight={linexInsight} />
+          <div>
+            <p className="text-sm font-black text-[#0A183A] leading-none">Estadísticas de Desechos</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Análisis completo de desechos de llantas</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-black text-[#0A183A] leading-none">Estadísticas de Desechos</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">Análisis completo de desechos de llantas</p>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: AGENTS.linex.color }} />
+          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: AGENTS.linex.color }}>{AGENTS.linex.codename}</span>
         </div>
       </div>
 

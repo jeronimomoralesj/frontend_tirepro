@@ -7,7 +7,7 @@
 
 import {
   Shield,
-  Eye,
+  Dog,
   ShoppingCart,
   Zap,
   MessageCircle,
@@ -16,11 +16,11 @@ import {
 
 export type AgentId =
   | "sentinel"
-  | "oracle"
+  | "nikita"
   | "nexus"
-  | "phantom"
+  | "campa"
   | "guardian"
-  | "reaper";
+  | "linex";
 
 export interface AgentDef {
   id: AgentId;
@@ -54,9 +54,9 @@ export const AGENTS: Record<AgentId, AgentDef> = {
     icon: Shield,
     settingsKey: "sentinel",
   },
-  oracle: {
-    id: "oracle",
-    codename: "ORACLE",
+  nikita: {
+    id: "nikita",
+    codename: "NIKITA",
     role: "Agente Predictivo",
     description:
       "Calcula fecha exacta de fin de vida, km restantes y punto optimo de retiro a 3mm para preservar el casco. Proyecta CPK futuro.",
@@ -66,8 +66,8 @@ export const AGENTS: Record<AgentId, AgentDef> = {
     bg: "rgba(139,92,246,0.06)",
     metric: "3.0mm",
     metricLabel: "retiro optimo",
-    icon: Eye,
-    settingsKey: "oracle",
+    icon: Dog,
+    settingsKey: "nikita",
   },
   nexus: {
     id: "nexus",
@@ -84,9 +84,9 @@ export const AGENTS: Record<AgentId, AgentDef> = {
     icon: ShoppingCart,
     settingsKey: "nexus",
   },
-  phantom: {
-    id: "phantom",
-    codename: "PHANTOM",
+  campa: {
+    id: "campa",
+    codename: "CAMPA",
     role: "Agente de Campo",
     description:
       "Modo rapido: crea vehiculos, registra llantas e inspecciona en un flujo. Autocomplete desde el catalogo.",
@@ -97,7 +97,7 @@ export const AGENTS: Record<AgentId, AgentDef> = {
     metric: "< 30s",
     metricLabel: "por llanta",
     icon: Zap,
-    settingsKey: "phantom",
+    settingsKey: "campa",
   },
   guardian: {
     id: "guardian",
@@ -114,9 +114,9 @@ export const AGENTS: Record<AgentId, AgentDef> = {
     icon: MessageCircle,
     settingsKey: "guardian",
   },
-  reaper: {
-    id: "reaper",
-    codename: "REAPER",
+  linex: {
+    id: "linex",
+    codename: "LINEX",
     role: "Agente de Desechos",
     description:
       "Rastrea cada llanta hasta su fin de vida. Causales, milimetros finales, fotos. Calcula remanente perdido y dinero desperdiciado.",
@@ -127,7 +127,7 @@ export const AGENTS: Record<AgentId, AgentDef> = {
     metric: "$0",
     metricLabel: "desperdicio",
     icon: Skull,
-    settingsKey: "reaper",
+    settingsKey: "linex",
   },
 };
 
@@ -136,9 +136,9 @@ export const AGENT_LIST: AgentDef[] = Object.values(AGENTS);
 // Default per-agent enabled state
 export const DEFAULT_AGENT_TOGGLES: Record<AgentId, boolean> = {
   sentinel: true,
-  oracle: true,
+  nikita: true,
   nexus: true,
-  phantom: true,
+  campa: true,
   guardian: true,
-  reaper: true,
+  linex: true,
 };

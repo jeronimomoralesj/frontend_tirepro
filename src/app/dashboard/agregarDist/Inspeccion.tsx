@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import FastMode from "./FastMode";
+import { AGENTS } from "../../../lib/agents";
 
 // =============================================================================
 // Constants
@@ -1188,23 +1189,33 @@ export default function InspeccionPage({ language }: { language?: string }) {
 
         {/* -- Mode toggle --------------------------------------------------- */}
         <div className="flex items-center gap-2">
-          {(["normal", "fast"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={{
-                background: mode === m ? "linear-gradient(135deg, #0A183A, #173D68)" : "white",
-                color: mode === m ? "#fff" : "#173D68",
-                border: mode === m ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)",
-              }}
-            >
-              {m === "fast" && <Zap className="w-3.5 h-3.5" />}
-              {m === "normal" ? "Normal" : "Modo Rápido"}
-            </button>
-          ))}
+          {(["normal", "fast"] as const).map((m) => {
+            const isFast = m === "fast";
+            const isActive = mode === m;
+            return (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  background: isActive
+                    ? isFast ? `linear-gradient(135deg, ${AGENTS.campa.color}, #c2410c)` : "linear-gradient(135deg, #0A183A, #173D68)"
+                    : "white",
+                  color: isActive ? "#fff" : "#173D68",
+                  border: isActive
+                    ? isFast ? `1px solid ${AGENTS.campa.color}` : "1px solid #0A183A"
+                    : "1px solid rgba(52,140,203,0.2)",
+                }}
+              >
+                {isFast && <Zap className="w-3.5 h-3.5" />}
+                {isFast ? "Modo Rápido" : "Normal"}
+              </button>
+            );
+          })}
           {mode === "fast" && (
-            <span className="text-[10px] text-[#348CCB] ml-1">Crea vehículos y llantas sobre la marcha</span>
+            <span className="text-[10px] font-bold ml-1" style={{ color: AGENTS.campa.color }}>
+              {AGENTS.campa.role} &middot; Crea vehiculos y llantas sobre la marcha
+            </span>
           )}
         </div>
 

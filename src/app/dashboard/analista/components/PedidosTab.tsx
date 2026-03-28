@@ -272,9 +272,16 @@ function printProposal(recs: Recommendation[], tab: string) {
 // Agent auto mode view
 // ===============================================================================
 
-function AgentView({ orders, budget }: { orders: PurchaseOrder[]; budget: number }) {
+function AgentView({ orders, budget, tires }: { orders: PurchaseOrder[]; budget: number; tires: RawTire[] }) {
   const thisMonth = orders.filter((o) => { const d = new Date(o.createdAt); const now = new Date(); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
-  const spent = thisMonth.reduce((s, o) => s + (o.totalCotizado ?? o.totalEstimado ?? 0), 0);
+  const now = new Date();
+  const curMonth = now.getMonth();
+  const curYear = now.getFullYear();
+  const spent = useMemo(() => {
+    let total = 0;
+    tires.filter((t) => (t.vidaActual ?? "nueva") !== "fin").forEach((t) => (t.costos ?? []).forEach((c) => { const d = new Date(c.fecha); if (d.getMonth() === curMonth && d.getFullYear() === curYear) total += c.valor; }));
+    return total;
+  }, [tires, curMonth, curYear]);
   const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
 
   return (
@@ -342,7 +349,7 @@ function AgentView({ orders, budget }: { orders: PurchaseOrder[]; budget: number
 // ===============================================================================
 
 function ManualView({
-  recs, orders, distributors, allDistributors, buckets, companyId, onRefresh, budget,
+  recs, orders, distributors, allDistributors, buckets, companyId, onRefresh, budget, tires,
 }: {
   recs: Recommendation[];
   orders: PurchaseOrder[];
@@ -352,6 +359,7 @@ function ManualView({
   companyId: string;
   onRefresh: () => void;
   budget: number;
+  tires: RawTire[];
 }) {
   const [tab, setTab] = useState<"reencauche" | "nueva">("reencauche");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -554,8 +562,14 @@ function ManualView({
     onRefresh();
   }
 
-  const thisMonthOrders = orders.filter((o) => { const d = new Date(o.createdAt); const now = new Date(); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
-  const monthSpent = thisMonthOrders.reduce((s, o) => s + (o.totalCotizado ?? o.totalEstimado ?? 0), 0);
+  const monthSpent = useMemo(() => {
+    const now = new Date();
+    const curMonth = now.getMonth();
+    const curYear = now.getFullYear();
+    let total = 0;
+    tires.filter((t) => (t.vidaActual ?? "nueva") !== "fin").forEach((t) => (t.costos ?? []).forEach((c) => { const d = new Date(c.fecha); if (d.getMonth() === curMonth && d.getFullYear() === curYear) total += c.valor; }));
+    return total;
+  }, [tires]);
   const budgetPct = budget > 0 ? Math.min((monthSpent / budget) * 100, 100) : 0;
 
   const nexusInsight = (() => {
@@ -1177,7 +1191,7 @@ export default function PedidosTab() {
   }
 
   const isAgentAuto = settings?.agentEnabled && settings?.purchaseMode === "agent_auto";
-  if (isAgentAuto) return <AgentView orders={orders} budget={settings?.monthlyBudgetCap ?? 0} />;
+  if (isAgentAuto) return <AgentView orders={orders} budget={settings?.monthlyBudgetCap ?? 0} tires={tires} />;
 
   return (
     <ManualView
@@ -1189,6 +1203,7 @@ export default function PedidosTab() {
       companyId={companyId}
       onRefresh={() => fetchAll(companyId)}
       budget={settings?.monthlyBudgetCap ?? 0}
+      tires={tires}
     />
   );
 }

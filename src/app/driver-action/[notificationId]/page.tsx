@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import logo from "../../../../public/logo_full.png";
+import { AGENTS } from "../../../lib/agents";
 
 // -- API ----------------------------------------------------------------------
 
@@ -164,6 +165,17 @@ export default function DriverActionPage() {
                     </div>
                   </div>
                 )}
+
+                {/* GUARDIAN badge */}
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl" style={{ background: AGENTS.guardian.bg, border: `1px solid ${AGENTS.guardian.color}15` }}>
+                  <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: AGENTS.guardian.color }}>
+                    <AGENTS.guardian.icon className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: AGENTS.guardian.color }}>GUARDIAN</p>
+                    <p className="text-[10px] text-gray-500">Agente de Conductores TirePro</p>
+                  </div>
+                </div>
 
                 {/* Issue */}
                 <div

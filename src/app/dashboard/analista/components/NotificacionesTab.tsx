@@ -14,16 +14,17 @@ import {
 } from "lucide-react";
 import { AGENTS } from "../../../../lib/agents";
 import type { AgentId } from "../../../../lib/agents";
+import AgentCardHeader from "../../../../components/AgentCardHeader";
 
 // Map notification actionType to the agent that generated it
 function resolveAgent(actionType: string | null): AgentId | null {
   if (!actionType) return null;
   const map: Record<string, AgentId> = {
     remove_from_service: "sentinel",
-    retread: "oracle",
+    retread: "nikita",
     inspect: "sentinel",
     rotate: "sentinel",
-    replace: "oracle",
+    replace: "nikita",
     buy_brand: "nexus",
     pressure_adjust: "sentinel",
   };
@@ -276,15 +277,15 @@ function NotificationCard({
       {(n.executed || n.sentToDriver || n.driverConfirmed) && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {n.driverConfirmed && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-600">
-              <Check className="w-3 h-3" />
-              Confirmado por conductor {n.driverConfirmedAt && `- ${fmtDate(n.driverConfirmedAt)}`}
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(6,182,212,0.08)", color: "#06b6d4" }}>
+              <AGENTS.guardian.icon className="w-3 h-3" />
+              GUARDIAN: Confirmado por conductor {n.driverConfirmedAt && `- ${fmtDate(n.driverConfirmedAt)}`}
             </span>
           )}
           {n.sentToDriver && !n.driverConfirmed && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#1E76B6]">
-              <Send className="w-3 h-3" />
-              Enviado a conductor {n.sentToDriverAt && `- ${fmtDate(n.sentToDriverAt)}`}
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(6,182,212,0.08)", color: "#06b6d4" }}>
+              <AGENTS.guardian.icon className="w-3 h-3" />
+              GUARDIAN: Enviado via WhatsApp {n.sentToDriverAt && `- ${fmtDate(n.sentToDriverAt)}`}
             </span>
           )}
           {n.executed && (
@@ -489,8 +490,43 @@ export default function NotificacionesTab() {
     );
   }
 
+  const sentCount = notifications.filter((n) => n.sentToDriver).length;
+  const confirmedCount = notifications.filter((n) => n.driverConfirmed).length;
+  const pendingDriverCount = sentCount - confirmedCount;
+
+  const guardianInsight = (() => {
+    const lines: string[] = [];
+    if (sentCount === 0 && pending.length > 0) {
+      const withDrivers = groups.filter((g) => g.drivers.length > 0).length;
+      if (withDrivers > 0) {
+        lines.push(`Hay ${pending.length} alerta${pending.length > 1 ? "s" : ""} pendiente${pending.length > 1 ? "s" : ""} y ${withDrivers} vehiculo${withDrivers > 1 ? "s" : ""} con conductores asignados. Puedes enviar las alertas directamente por WhatsApp al conductor de cada vehiculo.`);
+      } else {
+        lines.push("No hay conductores asignados a los vehiculos con alertas. Asigna conductores en la seccion de Vehiculos para que pueda enviar alertas por WhatsApp.");
+      }
+    } else if (sentCount > 0) {
+      lines.push(`He enviado ${sentCount} alerta${sentCount > 1 ? "s" : ""} a conductores por WhatsApp.`);
+      if (confirmedCount > 0) lines.push(`${confirmedCount} conductor${confirmedCount > 1 ? "es" : ""} ya confirmo la accion.`);
+      if (pendingDriverCount > 0) lines.push(`${pendingDriverCount} alerta${pendingDriverCount > 1 ? "s" : ""} enviada${pendingDriverCount > 1 ? "s" : ""} sin confirmar — puedo reenviar hasta 3 veces por alerta.`);
+    }
+    if (counts.critical > 0) {
+      lines.push(`${counts.critical} alerta${counts.critical > 1 ? "s" : ""} critica${counts.critical > 1 ? "s" : ""} requiere${counts.critical > 1 ? "n" : ""} accion inmediata.`);
+    }
+    return lines.join("\n\n");
+  })();
+
   return (
     <div className="space-y-5">
+      {/* GUARDIAN header */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
+        <div className="bg-[#173D68] text-white p-4 rounded-t-xl flex items-center gap-3">
+          <AgentCardHeader agent="guardian" insight={guardianInsight} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold leading-tight">Alertas de {AGENTS.guardian.codename}</p>
+            <p className="text-[10px] text-white/50">{pending.length} pendientes · {sentCount} enviadas a conductores · {confirmedCount} confirmadas</p>
+          </div>
+        </div>
+      </div>
+
       {/* Summary bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[

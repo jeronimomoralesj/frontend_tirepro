@@ -6,6 +6,8 @@ import {
   Truck, Package, Camera, Circle,
 } from "lucide-react";
 import CatalogAutocomplete from "../components/CatalogAutocomplete";
+import AgentCardHeader from "../components/AgentCardHeader";
+import { AGENTS } from "../lib/agents";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -202,8 +204,39 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
 
   // -- Render -----------------------------------------------------------------
 
+  const linex = AGENTS.linex;
+  const linexInsight = (() => {
+    const lines: string[] = [];
+    if (list.length === 0) {
+      lines.push("Busca llantas por placa o ID para registrar su fin de vida. Captura causales, milimetros finales y fotos.");
+    } else {
+      lines.push(`${list.length} llanta${list.length > 1 ? "s" : ""} lista${list.length > 1 ? "s" : ""} para desechar. Completa causales y milimetros finales antes de enviar.`);
+    }
+    return lines.join("\n\n");
+  })();
+
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
+      {/* LINEX agent header */}
+      <div
+        className="rounded-xl px-4 py-3 flex items-center justify-between"
+        style={{ background: "linear-gradient(135deg, #0A183A, #173D68)", border: `1px solid ${linex.color}30` }}
+      >
+        <div className="flex items-center gap-3">
+          <AgentCardHeader agent="linex" insight={linexInsight} />
+          <div>
+            <p className="text-sm font-black text-white tracking-tight">Modo Rápido — Desechos</p>
+            <p className="text-[10px] text-white/50 font-bold uppercase tracking-wider">
+              {linex.status} &middot; {list.length > 0 ? `${list.length} llantas` : "Listo"}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: linex.color }} />
+          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: linex.color }}>{linex.codename}</span>
+        </div>
+      </div>
+
       {error && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}>
           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />

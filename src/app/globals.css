@@ -137,3 +137,211 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* =============================================================================
+   SATURN V MODE
+   ============================================================================= */
+
+/* Stars background */
+.saturn-v body,
+.saturn-v .min-h-screen,
+.saturn-v main {
+  background: #050510 !important;
+}
+
+.saturn-v body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1.5px 1.5px at 20% 15%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 40% 35%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1.5px 1.5px at 60% 20%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 80% 45%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1.5px 1.5px at 10% 60%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 50% 70%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1.5px 1.5px at 30% 85%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 70% 90%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 90% 10%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1.5px 1.5px at 15% 40%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 85% 65%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1.5px 1.5px at 45% 50%, rgba(255,255,255,0.2), transparent);
+  animation: saturn-stars-drift 120s linear infinite;
+}
+
+@keyframes saturn-stars-drift {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-30px); }
+}
+
+/* Twinkling layer */
+.saturn-v body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(2px 2px at 25% 25%, rgba(249,115,22,0.6), transparent),
+    radial-gradient(2px 2px at 75% 50%, rgba(139,92,246,0.5), transparent),
+    radial-gradient(2px 2px at 50% 80%, rgba(249,115,22,0.4), transparent);
+  animation: saturn-twinkle 4s ease-in-out infinite alternate;
+}
+
+@keyframes saturn-twinkle {
+  0%   { opacity: 0.3; }
+  100% { opacity: 0.8; }
+}
+
+/* Content sits above stars */
+.saturn-v body > *,
+.saturn-v main > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Cards — dark glass */
+.saturn-v .bg-white {
+  background: rgba(10, 10, 30, 0.85) !important;
+  border-color: rgba(249, 115, 22, 0.12) !important;
+  backdrop-filter: blur(12px);
+}
+
+.saturn-v .bg-white .text-gray-700,
+.saturn-v .bg-white .text-gray-600,
+.saturn-v .bg-white .text-gray-500 {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.saturn-v .bg-white .text-gray-400 {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.saturn-v .bg-white .text-gray-800,
+.saturn-v .bg-white .text-gray-900 {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Main text colors */
+.saturn-v .text-\[\#0A183A\] {
+  color: #f0f0f0 !important;
+}
+
+.saturn-v .text-\[\#173D68\] {
+  color: rgba(249, 115, 22, 0.8) !important;
+}
+
+.saturn-v .text-\[\#348CCB\] {
+  color: rgba(249, 115, 22, 0.6) !important;
+}
+
+.saturn-v .text-\[\#1E76B6\] {
+  color: #f97316 !important;
+}
+
+/* Gradient headers — space theme */
+.saturn-v [style*="linear-gradient(135deg, #0A183A"],
+.saturn-v [style*="linear-gradient(135deg, #1E76B6"],
+.saturn-v .bg-\[\#173D68\] {
+  background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a0a1a 100%) !important;
+  border-bottom: 1px solid rgba(249, 115, 22, 0.2) !important;
+}
+
+/* Buttons — orange accent */
+.saturn-v button[style*="linear-gradient(135deg, #1E76B6"],
+.saturn-v button[style*="linear-gradient(135deg, #0A183A"] {
+  background: linear-gradient(135deg, #f97316, #ea580c) !important;
+  box-shadow: 0 0 16px rgba(249, 115, 22, 0.25) !important;
+}
+
+/* Input fields */
+.saturn-v .bg-\[\#F0F7FF\],
+.saturn-v input[class*="bg-\[#F0F7FF\]"] {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(249, 115, 22, 0.2) !important;
+  color: #f0f0f0 !important;
+}
+
+/* Border overrides */
+.saturn-v .border-gray-100,
+.saturn-v .border-gray-200 {
+  border-color: rgba(249, 115, 22, 0.08) !important;
+}
+
+/* Sidebar */
+.saturn-v aside,
+.saturn-v nav {
+  background: rgba(5, 5, 16, 0.95) !important;
+  border-color: rgba(249, 115, 22, 0.1) !important;
+}
+
+/* Scroll bars */
+.saturn-v ::-webkit-scrollbar {
+  width: 6px;
+}
+.saturn-v ::-webkit-scrollbar-track {
+  background: rgba(10, 10, 30, 0.5);
+}
+.saturn-v ::-webkit-scrollbar-thumb {
+  background: rgba(249, 115, 22, 0.3);
+  border-radius: 3px;
+}
+
+/* Card hover glow */
+.saturn-v .shadow-lg,
+.saturn-v .shadow-sm {
+  box-shadow: 0 0 24px rgba(249, 115, 22, 0.06), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.saturn-v .rounded-2xl:hover,
+.saturn-v .rounded-xl:hover {
+  box-shadow: 0 0 32px rgba(249, 115, 22, 0.12), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Loader spinners — orange */
+.saturn-v .animate-spin {
+  color: #f97316 !important;
+}
+
+/* Zero-G float on metric cards */
+.saturn-v .rounded-xl {
+  animation: saturn-float 6s ease-in-out infinite;
+  animation-delay: calc(var(--float-delay, 0) * 1s);
+}
+
+@keyframes saturn-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+/* Chart backgrounds */
+.saturn-v canvas {
+  filter: hue-rotate(20deg) saturate(1.2);
+}
+
+/* Sticky headers */
+.saturn-v .sticky {
+  background: rgba(5, 5, 16, 0.92) !important;
+  backdrop-filter: blur(12px) !important;
+  border-bottom-color: rgba(249, 115, 22, 0.15) !important;
+}
+
+/* Tab pills */
+.saturn-v .rounded-full[style*="background: transparent"] {
+  border-color: rgba(249, 115, 22, 0.2) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Alert badges */
+.saturn-v .bg-gray-100,
+.saturn-v .bg-gray-50 {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Selection / highlights */
+.saturn-v ::selection {
+  background: rgba(249, 115, 22, 0.3);
+  color: white;
+}

@@ -16,6 +16,8 @@ import {
   Calendar,
   Target,
 } from "lucide-react";
+import AgentCardHeader from "../../../components/AgentCardHeader";
+import { AGENTS } from "../../../lib/agents";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -222,9 +224,25 @@ const Desechos: React.FC<DesechosProps> = ({ tires, loading, error }) => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#0A183A] mb-2">Estadísticas de Desechos</h1>
-          <p className="text-gray-600">Análisis completo de los datos de desechos de llantas</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AgentCardHeader agent="linex" insight={(() => {
+              if (desechos.length === 0) return "";
+              const lines: string[] = [`${desechos.length} llantas rastreadas hasta fin de vida.`];
+              const cd = causalesData;
+              const top = Object.entries(cd).sort((a, b) => b[1] - a[1])[0];
+              if (top) lines.push(`Causal principal: "${top[0]}" (${top[1]} casos).`);
+              return lines.join("\n\n");
+            })()} />
+            <div>
+              <h1 className="text-3xl font-bold text-[#0A183A] mb-1">Estadísticas de Desechos</h1>
+              <p className="text-gray-600">Análisis completo de los datos de desechos de llantas</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: AGENTS.linex.color }} />
+            <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: AGENTS.linex.color }}>{AGENTS.linex.codename}</span>
+          </div>
         </div>
 
         {/* Summary KPIs */}

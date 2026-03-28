@@ -7,6 +7,15 @@ export default function DashboardLayout({ children }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
 
+  // Apply Saturn V class on mount if active
+  React.useEffect(() => {
+    try {
+      if (localStorage.getItem("saturnVActive") === "1") {
+        document.documentElement.classList.add("saturn-v");
+      }
+    } catch { /* */ }
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
