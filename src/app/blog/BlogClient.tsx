@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import logo from '../../../public/logo_full.png'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types --------------------------------------------------------------------
 
 interface Article {
   id: string | number
@@ -33,7 +33,7 @@ interface Article {
   hashtags: string[]
 }
 
-// ─── Skeleton card ─────────────────────────────────────────────────────────────
+// --- Skeleton card -------------------------------------------------------------
 
 function SkeletonCard() {
   return (
@@ -52,7 +52,7 @@ function SkeletonCard() {
   )
 }
 
-// ─── Nav ──────────────────────────────────────────────────────────────────────
+// --- Nav ----------------------------------------------------------------------
 
 function Nav() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -167,7 +167,7 @@ function Nav() {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// --- Main Component -----------------------------------------------------------
 
 const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -220,7 +220,7 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
     <div className="bg-white text-gray-900 min-h-screen overflow-x-hidden w-full">
       <Nav />
 
-      {/* ── HERO HEADER ──────────────────────────────────────────────────────── */}
+      {/* -- HERO HEADER -------------------------------------------------------- */}
       <header
         className="pt-28 sm:pt-32 pb-12 px-4 sm:px-6 lg:px-8 w-full text-center"
         style={{ background: "linear-gradient(160deg, #f0f6fb 0%, #ffffff 60%, #e8f3fa 100%)" }}
@@ -241,7 +241,7 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
         </div>
       </header>
 
-      {/* ── FEATURED COVER ARTICLE ───────────────────────────────────────────── */}
+      {/* -- FEATURED COVER ARTICLE --------------------------------------------- */}
       {latestArticle && (
         <section className="px-4 sm:px-6 lg:px-8 pb-12 w-full">
           <div className="max-w-7xl mx-auto">
@@ -323,7 +323,7 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
         </section>
       )}
 
-      {/* ── SEARCH + FILTERS ─────────────────────────────────────────────────── */}
+      {/* -- SEARCH + FILTERS --------------------------------------------------- */}
       <section className="px-4 sm:px-6 lg:px-8 pb-10 w-full">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
@@ -380,7 +380,7 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
         </div>
       </section>
 
-      {/* ── FEATURED ARTICLES ────────────────────────────────────────────────── */}
+      {/* -- FEATURED ARTICLES -------------------------------------------------- */}
       {featuredArticles.length > 0 && (
         <section className="px-4 sm:px-6 lg:px-8 pb-16 w-full">
           <div className="max-w-7xl mx-auto">
@@ -447,7 +447,7 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
         </section>
       )}
 
-      {/* ── REGULAR ARTICLES GRID ────────────────────────────────────────────── */}
+      {/* -- REGULAR ARTICLES GRID ---------------------------------------------- */}
       <section
         className="px-4 sm:px-6 lg:px-8 pb-20 w-full"
         style={{ background: "linear-gradient(180deg, #f8fafd 0%, #ffffff 100%)" }}
@@ -536,7 +536,7 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
         </div>
       </section>
 
-      {/* ── CTA BANNER ───────────────────────────────────────────────────────── */}
+      {/* -- CTA BANNER --------------------------------------------------------- */}
       <section className="px-4 sm:px-6 lg:px-8 pb-16 w-full bg-white">
         <div className="max-w-5xl mx-auto">
           <div
@@ -574,7 +574,7 @@ const BlogClient = ({ initialArticles = [] }: { initialArticles?: Article[] }) =
         </div>
       </section>
 
-      {/* ── FOOTER ───────────────────────────────────────────────────────────── */}
+      {/* -- FOOTER ------------------------------------------------------------- */}
       <footer
         className="border-t py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
         style={{ borderColor: "rgba(30,118,182,0.15)", backgroundColor: "#0A183A" }}

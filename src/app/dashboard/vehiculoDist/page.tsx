@@ -430,7 +430,7 @@ export default function VehiculoPage() {
   const [vehicleToDel,  setVehicleToDel]  = useState<Vehicle | null>(null);
   const [unionToDel,    setUnionToDel]    = useState<{ sourceId: string; targetPlaca: string } | null>(null);
 
-  // ── Fetch companies ────────────────────────────────────────────────────────
+  // -- Fetch companies --------------------------------------------------------
   const fetchCompanies = useCallback(async () => {
     try {
       const res = await authFetch(`${API_BASE}/companies/me/clients`);
@@ -442,7 +442,7 @@ export default function VehiculoPage() {
 
   useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
-  // ── Fetch vehicles ─────────────────────────────────────────────────────────
+  // -- Fetch vehicles ---------------------------------------------------------
   const fetchVehicles = useCallback(async (companyId: string) => {
     setLoadingVehicles(true); setError("");
     try {
@@ -476,7 +476,7 @@ export default function VehiculoPage() {
     run();
   }, [selectedCompany, companies, fetchVehicles]);
 
-  // ── Organized groups ───────────────────────────────────────────────────────
+  // -- Organized groups -------------------------------------------------------
   const organizedVehicles = useMemo(() => {
     const processed = new Set<string>();
     const groups: Vehicle[][] = [];
@@ -496,7 +496,7 @@ export default function VehiculoPage() {
   const connectedGroups   = organizedVehicles.filter((g) => g.length > 1);
   const individualGroups  = organizedVehicles.filter((g) => g.length === 1);
 
-  // ── CRUD handlers ──────────────────────────────────────────────────────────
+  // -- CRUD handlers ----------------------------------------------------------
   async function handleCreate(data: any) {
     const res = await authFetch(`${API_BASE}/vehicles/create`, {
       method: "POST",
@@ -581,7 +581,7 @@ export default function VehiculoPage() {
     }
   }
 
-  // ── Dropdown options ───────────────────────────────────────────────────────
+  // -- Dropdown options -------------------------------------------------------
   const filteredOptions = useMemo(() => {
     const all = ["Todos", ...companies.map((c) => c.name)];
     return clientSearch.trim()
@@ -596,7 +596,7 @@ export default function VehiculoPage() {
     <div className="min-h-screen" style={{ background: "#ffffff" }}>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
 
-        {/* ── Page header ───────────────────────────────────────────────── */}
+        {/* -- Page header ------------------------------------------------- */}
         <div
           className="px-4 sm:px-6 py-4 sm:py-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
@@ -688,7 +688,7 @@ export default function VehiculoPage() {
           </div>
         )}
 
-        {/* ── Vehicle list ──────────────────────────────────────────────── */}
+        {/* -- Vehicle list ------------------------------------------------ */}
         <Card className="overflow-hidden">
           <div className="px-4 sm:px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
             <CardTitle icon={Truck} title="Lista de Vehículos" />
@@ -790,7 +790,7 @@ export default function VehiculoPage() {
         </Card>
       </div>
 
-      {/* ── Modals ─────────────────────────────────────────────────────── */}
+      {/* -- Modals ------------------------------------------------------- */}
 
       {/* Create */}
       {showCreate && (

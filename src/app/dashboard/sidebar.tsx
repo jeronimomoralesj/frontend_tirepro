@@ -168,7 +168,7 @@ export default function Sidebar({
   const [user,    setUser]    = useState<UserData | null>(null);
   const [company, setCompany] = useState<CompanyData | null>(null);
 
-  // ── Bootstrap: load user from localStorage ──────────────────────────────────
+  // -- Bootstrap: load user from localStorage ----------------------------------
   useEffect(() => {
     const raw   = localStorage.getItem("user");
     const token = localStorage.getItem("token");
@@ -180,7 +180,7 @@ export default function Sidebar({
     }
   }, []);
 
-  // ── Fetch company once we have the id ───────────────────────────────────────
+  // -- Fetch company once we have the id ---------------------------------------
   useEffect(() => {
     if (!user?.companyId) return;
     fetch(`${API_BASE}/companies/${user.companyId}`)
@@ -208,7 +208,7 @@ export default function Sidebar({
 
   return (
     <>
-      {/* ── Mobile backdrop ──────────────────────────────────────────────── */}
+      {/* -- Mobile backdrop ------------------------------------------------ */}
       {isMobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
@@ -216,7 +216,7 @@ export default function Sidebar({
         />
       )}
 
-      {/* ── Mobile top bar ───────────────────────────────────────────────── */}
+      {/* -- Mobile top bar ------------------------------------------------- */}
       <nav
         className="fixed top-3 left-1/2 -translate-x-1/2 z-50 lg:hidden"
         style={{ width: "calc(100% - 1.5rem)" }}
@@ -250,7 +250,7 @@ export default function Sidebar({
         </div>
       </nav>
 
-      {/* ── Mobile slide-in panel ────────────────────────────────────────── */}
+      {/* -- Mobile slide-in panel ------------------------------------------ */}
       <div
         className="fixed inset-y-0 right-0 z-50 w-72 flex flex-col lg:hidden transition-transform duration-300"
         style={{
@@ -352,7 +352,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
+      {/* -- Desktop sidebar ------------------------------------------------ */}
       <aside
         className="fixed top-4 left-4 hidden lg:flex flex-col"
         style={{

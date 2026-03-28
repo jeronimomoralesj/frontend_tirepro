@@ -34,7 +34,7 @@ const EJE_OPTIONS = [
   { value: "remolque", label: "Remolque" },
 ];
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// -- Types --------------------------------------------------------------------
 
 type NewTire = {
   tempId: string;
@@ -84,7 +84,7 @@ function convertFileToBase64(file: File): Promise<string> {
 let tempCounter = 0;
 function makeTempId() { return `new_${++tempCounter}_${Date.now()}`; }
 
-// ── Component ────────────────────────────────────────────────────────────────
+// -- Component ----------------------------------------------------------------
 
 export default function FastMode({ language }: { language: string }) {
   // Step state
@@ -123,7 +123,7 @@ export default function FastMode({ language }: { language: string }) {
     try { return JSON.parse(localStorage.getItem("user") ?? "{}").companyId ?? ""; } catch { return ""; }
   });
 
-  // ── Search / check if vehicle exists ─────────────────────────────────────
+  // -- Search / check if vehicle exists -------------------------------------
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -165,7 +165,7 @@ export default function FastMode({ language }: { language: string }) {
     setLoading(false);
   }
 
-  // ── Create vehicle ───────────────────────────────────────────────────────
+  // -- Create vehicle -------------------------------------------------------
 
   async function handleCreateVehicle() {
     setError(""); setLoading(true);
@@ -189,7 +189,7 @@ export default function FastMode({ language }: { language: string }) {
     setLoading(false);
   }
 
-  // ── Add new tire row ─────────────────────────────────────────────────────
+  // -- Add new tire row -----------------------------------------------------
 
   function addNewTireRow() {
     setNewTires((prev) => [
@@ -215,7 +215,7 @@ export default function FastMode({ language }: { language: string }) {
     setExistingTires((prev) => prev.map((t) => t.id === id ? { ...t, [field]: value } : t));
   }
 
-  // ── Submit everything ────────────────────────────────────────────────────
+  // -- Submit everything ----------------------------------------------------
 
   async function handleSubmitAll(e: React.FormEvent) {
     e.preventDefault();
@@ -322,7 +322,7 @@ export default function FastMode({ language }: { language: string }) {
     setSubmitting(false);
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // -- Render ---------------------------------------------------------------
 
   return (
     <div className="space-y-4">
@@ -341,7 +341,7 @@ export default function FastMode({ language }: { language: string }) {
         </div>
       )}
 
-      {/* ═══ STEP 1: Search ═══ */}
+      {/* === STEP 1: Search === */}
       {step === "search" && (
         <div className="rounded-2xl p-5" style={{ background: "white", border: "1px solid rgba(52,140,203,0.18)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}>
           <div className="flex items-start gap-3 mb-4">
@@ -366,7 +366,7 @@ export default function FastMode({ language }: { language: string }) {
         </div>
       )}
 
-      {/* ═══ STEP 2: Create Vehicle ═══ */}
+      {/* === STEP 2: Create Vehicle === */}
       {step === "vehicle" && vehicleIsNew && (
         <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.18)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}>
           <div className="px-5 py-3 flex items-center gap-3" style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
@@ -433,7 +433,7 @@ export default function FastMode({ language }: { language: string }) {
         </div>
       )}
 
-      {/* ═══ STEP 3: Tires + Inspections ═══ */}
+      {/* === STEP 3: Tires + Inspections === */}
       {step === "tires" && vehicleId && (
         <form onSubmit={handleSubmitAll} className="space-y-4">
           {/* Vehicle info bar */}
@@ -502,7 +502,7 @@ export default function FastMode({ language }: { language: string }) {
   );
 }
 
-// ── Tire inspection card (existing) ──────────────────────────────────────────
+// -- Tire inspection card (existing) ------------------------------------------
 
 function TireCard({
   label, isNew, profInt, profCen, profExt, presion, image,
@@ -567,7 +567,7 @@ function TireCard({
   );
 }
 
-// ── New tire card (create + inspect) ─────────────────────────────────────────
+// -- New tire card (create + inspect) -----------------------------------------
 
 const VIDA_OPTIONS = [
   { value: "nueva", label: "Nueva" },

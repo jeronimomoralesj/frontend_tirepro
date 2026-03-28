@@ -635,7 +635,7 @@ const DesechosPage: React.FC = () => {
   // Lightbox
   const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null);
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
+  // -- Fetch -----------------------------------------------------------------
   const fetchDesechos = useCallback(async () => {
     setLoading(true);
     try {
@@ -669,7 +669,7 @@ const DesechosPage: React.FC = () => {
     fetchDesechos();
   }, []);
 
-  // ── Filter options (for FilterFab) ───────────────────────────────────────
+  // -- Filter options (for FilterFab) ---------------------------------------
   const filterOptions: FilterOption[] = useMemo(() => {
     const years = [...new Set(allDesechos.map((d) => new Date(d.fecha).getFullYear().toString()))].sort().reverse();
     const marcas = [...new Set(allDesechos.map((d) => d.marca))].sort();
@@ -686,7 +686,7 @@ const DesechosPage: React.FC = () => {
     ];
   }, [allDesechos]);
 
-  // ── Filtered data ─────────────────────────────────────────────────────────
+  // -- Filtered data ---------------------------------------------------------
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const fy = fv.year, fm = fv.month, fc = fv.causal, fma = fv.marca, fe = fv.eje, fd = fv.dimension;
@@ -707,7 +707,7 @@ const DesechosPage: React.FC = () => {
 
   useEffect(() => { setCurrentPage(1); }, [filtered]);
 
-  // ── Aggregations ──────────────────────────────────────────────────────────
+  // -- Aggregations ----------------------------------------------------------
   const groupBy = useCallback(
     (keyFn: (d: EnrichedDesecho) => string, valueFn: (d: EnrichedDesecho) => number, agg: "sum" | "average") => {
       const map: Record<string, number[]> = {};
@@ -760,14 +760,14 @@ const DesechosPage: React.FC = () => {
     setFv({}); setSearchQuery("");
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
+  // -- Pagination ------------------------------------------------------------
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
   const paginatedRows = useMemo(
     () => filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE),
     [filtered, currentPage]
   );
 
-  // ── Download CSV ──────────────────────────────────────────────────────────
+  // -- Download CSV ----------------------------------------------------------
   const downloadCSV = () => {
     const headers = ["ID Neumático", "Placa Vehículo", "Marca", "Fecha", "Causal", "Remanente (mm)", "Milímetros Desechados", "Fotos"];
     const rows = filtered.map((d) => [
@@ -784,7 +784,7 @@ const DesechosPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // ── Download HTML Report ──────────────────────────────────────────────────
+  // -- Download HTML Report --------------------------------------------------
   const downloadReport = () => {
     const now = new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" });
     const html = `<!DOCTYPE html>
@@ -897,7 +897,7 @@ const DesechosPage: React.FC = () => {
     <div className="min-h-screen w-full overflow-x-hidden" style={{ background: "white" }}>
       <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6" style={{ minWidth: 0 }}>
 
-        {/* ── Page header ─────────────────────────────────────────────────── */}
+        {/* -- Page header --------------------------------------------------- */}
         <div
           className="px-4 sm:px-6 py-5 sm:py-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           style={{
@@ -972,7 +972,7 @@ const DesechosPage: React.FC = () => {
           searchPlaceholder="Placa o ID neumático…"
         />
 
-        {/* ── KPI Cards ───────────────────────────────────────────────────── */}
+        {/* -- KPI Cards ----------------------------------------------------- */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length.toLocaleString("es-CO")} sub={`de ${allDesechos.length} totales`} variant="primary"   />
           <MetricCard icon={Target}     title="Prom. Remanente" value={fmtCompact(parseFloat(avgGeneral) || 0)} sub="valor promedio perdido"         variant="secondary" />
@@ -980,10 +980,10 @@ const DesechosPage: React.FC = () => {
           <MetricCard icon={BarChart3}  title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos en ${filtered.length} registros`} variant="accent"    />
         </div>
 
-        {/* ── Insight cards ────────────────────────────────────────────────── */}
+        {/* -- Insight cards -------------------------------------------------- */}
         <SummaryCards filtered={filtered} dataCausales={dataCausales} />
 
-        {/* ── Charts ──────────────────────────────────────────────────────── */}
+        {/* -- Charts -------------------------------------------------------- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <DoughnutCard title="Desechos por Causal" icon={BarChart3} data={dataCausales} />
           <LineChartCard title="Total Remanente por Mes"         icon={TrendingUp} data={totalRemanenteByMonth} formatValue={fmtCompact} />
@@ -991,7 +991,7 @@ const DesechosPage: React.FC = () => {
           <ChartCard title="Prom. Milímetros Desechados por Mes" icon={Target}     data={avgMilimetrosByMonth} formatValue={(n) => `${n.toFixed(1)} mm`} />
         </div>
 
-        {/* ── Records table ───────────────────────────────────────────────── */}
+        {/* -- Records table ------------------------------------------------- */}
         <div
           className="rounded-2xl"
           style={{
@@ -1187,7 +1187,7 @@ const DesechosPage: React.FC = () => {
           )}
         </div>
 
-      {/* ── Lightbox ─────────────────────────────────────────────────────── */}
+      {/* -- Lightbox ------------------------------------------------------- */}
       {lightboxUrls && (
         <ImageLightbox urls={lightboxUrls} onClose={() => setLightboxUrls(null)} />
       )}

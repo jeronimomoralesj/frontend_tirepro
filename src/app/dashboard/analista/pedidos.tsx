@@ -13,9 +13,9 @@ import {
   ArrowRight, Truck,
 } from "lucide-react";
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // DOMAIN CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 const C = {
   LIMITE_LEGAL_MM:          2,
@@ -45,9 +45,9 @@ const VIDA_SEQUENCE = ["nueva","reencauche1","reencauche2","reencauche3","fin"] 
 type VidaValue = typeof VIDA_SEQUENCE[number];
 const VIDA_SET = new Set<string>(VIDA_SEQUENCE);
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // TYPES
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 interface RawInspeccion {
   profundidadInt: number; profundidadCen: number; profundidadExt: number;
@@ -167,7 +167,7 @@ interface PedidosData {
 
 interface CompanyInfo { name: string; profileImage: string }
 
-// ─── Inventory types ──────────────────────────────────────────────────────────
+// --- Inventory types ----------------------------------------------------------
 
 interface InventoryBucket {
   id:             string;
@@ -193,7 +193,7 @@ interface InventoryMatch {
   totalInDim:  number;
 }
 
-// ─── Send Group modal types ───────────────────────────────────────────────────
+// --- Send Group modal types ---------------------------------------------------
 
 type SendGroupAction = "fin_vida" | "move_bucket" | "reencauche_bucket";
 
@@ -212,9 +212,9 @@ interface SendGroupState {
   costoReencauche:   string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // BRAND TABLE
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 interface BrandInfo {
   tier:           string;
@@ -266,9 +266,9 @@ const TIER_COLORS: Record<string,string> = {
 };
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // NORMALIZATION
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 function toISO(d: string | Date | null | undefined): string {
   if (!d) return new Date().toISOString();
@@ -325,9 +325,9 @@ function normaliseRawTire(raw: RawTire): Tire {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // ANALYSIS ENGINE
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 function getMinDepth(i: Inspeccion): number {
   const vals = [i.profundidadInt, i.profundidadCen, i.profundidadExt].map(v => (v==null||v===0?99:v));
@@ -498,9 +498,9 @@ function analyzeTires(tires: Tire[], benchmarks: Map<string, RawBenchmark>): Ped
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // API LAYER
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 const API_BASE = typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
@@ -530,9 +530,9 @@ function getCompanyIdFromToken(): string | null {
   } catch { return null; }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // FORMATTING
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 function formatCOP(val: number): string {
   if (!val || val === 0) return "N/D";
@@ -554,9 +554,9 @@ function formatCpk(v: number | null): string {
   return new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(v)+"/km";
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // EXPORT BUILDERS
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 function buildExportRows(recs: TireRecommendation[], edits: Record<string, RowEdits>, includePrices: boolean, includeConfidence: boolean) {
   return recs.map((r, i) => {
@@ -636,9 +636,9 @@ function doExportPDF(data: PedidosData, edits: Record<string, RowEdits>, company
   iframe.src=url;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // DESIGN PRIMITIVES
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 function Card({ children, className="" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -663,9 +663,9 @@ const REC_OPTIONS: { value: RecommendationType; label: string; color: string; bg
   { value:"evaluar",        label:"Evaluar",         color:"#D97706", bg:"rgba(217,119,6,0.1)"  },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // INVENTORY PANEL — shows matching inventory tires per recommendation
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 const InventoryMatchPanel = memo(function InventoryMatchPanel({
   match, buckets,
@@ -739,9 +739,9 @@ const InventoryMatchPanel = memo(function InventoryMatchPanel({
   );
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // SEND GROUP MODAL
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 function SendGroupModal({
   state, buckets, onClose, onConfirm,
@@ -830,7 +830,7 @@ function SendGroupModal({
             </div>
           </div>
 
-          {/* ── Fin de vida fields ── */}
+          {/* -- Fin de vida fields -- */}
           {local.action === "fin_vida" && (
             <div className="space-y-3 px-4 py-4 rounded-xl" style={{ background:"rgba(220,38,38,0.04)", border:"1px solid rgba(220,38,38,0.18)" }}>
               <p className="text-[10px] font-black uppercase tracking-wider text-red-600 flex items-center gap-1.5">
@@ -861,7 +861,7 @@ function SendGroupModal({
             </div>
           )}
 
-          {/* ── Move to bucket fields ── */}
+          {/* -- Move to bucket fields -- */}
           {local.action === "move_bucket" && (
             <div className="space-y-3 px-4 py-4 rounded-xl" style={{ background:"rgba(30,118,182,0.04)", border:"1px solid rgba(30,118,182,0.18)" }}>
               <p className="text-[10px] font-black uppercase tracking-wider text-[#1E76B6] flex items-center gap-1.5">
@@ -898,7 +898,7 @@ function SendGroupModal({
             </div>
           )}
 
-          {/* ── Reencauche + bucket fields ── */}
+          {/* -- Reencauche + bucket fields -- */}
           {local.action === "reencauche_bucket" && (
             <div className="space-y-3 px-4 py-4 rounded-xl" style={{ background:"rgba(124,58,237,0.04)", border:"1px solid rgba(124,58,237,0.18)" }}>
               <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5" style={{ color:"#7c3aed" }}>
@@ -974,9 +974,9 @@ function SendGroupModal({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // FILTER BAR
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 interface FilterState { eje:string; alertLevel:string; vidaActual:string; urgency:string; recType:string }
 
@@ -1017,9 +1017,9 @@ const FilterBar = memo(function FilterBar({ filters, onChange }: { filters:Filte
   );
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // EXPORT MODAL
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 interface ExportModalState { open:boolean; format:"pdf"|"xlsx"|null; includePrices:boolean; includeCompanyLogo:boolean; includeCurrentTire:boolean; includeConfidence:boolean; generating:boolean }
 
@@ -1067,9 +1067,9 @@ function ExportModal({ state, onClose, onExport, onChange }: { state:ExportModal
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // SECTION TABLE
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 const PAGE_SIZE = 50;
 
@@ -1427,9 +1427,9 @@ const VehicleGapsSection = memo(function VehicleGapsSection({
   );
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // MAIN PAGE
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 const PedidosPage: React.FC = () => {
   const [loading,     setLoading]     = useState(false);
@@ -1462,7 +1462,7 @@ const PedidosPage: React.FC = () => {
     includeCurrentTire:true, includeConfidence:true, generating:false,
   });
 
-  // ── Inventory matching map ──────────────────────────────────────────────────
+  // -- Inventory matching map --------------------------------------------------
   // Per recommendation, find inventory tires with same dimension + eje
   const inventoryMap = useMemo<Map<string, InventoryMatch>>(() => {
     if (!data || !inventory.length) return new Map();
@@ -1611,7 +1611,7 @@ const PedidosPage: React.FC = () => {
 
   useEffect(() => { loadAndAnalyze(); }, [loadAndAnalyze]);
 
-  // ── Send group handler ──────────────────────────────────────────────────────
+  // -- Send group handler ------------------------------------------------------
 
 const handleSendGroup = useCallback(async (state: SendGroupState) => {
   if (!companyId) return;
@@ -1703,7 +1703,7 @@ const handleSendGroup = useCallback(async (state: SendGroupState) => {
   }
 }, [companyId, buckets, edits, loadAndAnalyze]);
 
-  // ── Filters ─────────────────────────────────────────────────────────────────
+  // -- Filters -----------------------------------------------------------------
 
   const applyFilters = useCallback((recs: TireRecommendation[]) =>
     recs.filter(r => {

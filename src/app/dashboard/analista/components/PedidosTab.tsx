@@ -7,9 +7,9 @@ import {
   Printer, Archive, CheckSquare, Square,
 } from "lucide-react";
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // API
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -23,9 +23,9 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // Types
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 interface AgentSettings { agentEnabled: boolean; purchaseMode: "agent_auto" | "manual"; monthlyBudgetCap?: number; }
 
@@ -74,9 +74,9 @@ interface Recommendation {
   bandaRecomendada?: string; // for reencauche: recommended band name
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // Analysis engine
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 const VIDA_MAP: Record<string, number> = { nueva: 0, reencauche1: 1, reencauche2: 2, reencauche3: 3, fin: 99 };
 const MAX_REENC: Record<string, number> = { premium: 3, mid: 2, economic: 1 };
@@ -138,9 +138,9 @@ function analyzeFleet(tires: RawTire[]): Recommendation[] {
   return recs;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // Formatters
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 const fmtCOP = (n: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
@@ -162,9 +162,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
 
 const inputCls = "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20";
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // Print helper
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 function printProposal(recs: Recommendation[], tab: string) {
   // Get company info from localStorage (populated by fetchAll)
@@ -266,9 +266,9 @@ function printProposal(recs: Recommendation[], tab: string) {
   if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 300); }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // Agent auto mode view
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 function AgentView({ orders, budget }: { orders: PurchaseOrder[]; budget: number }) {
   const thisMonth = orders.filter((o) => { const d = new Date(o.createdAt); const now = new Date(); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
@@ -315,9 +315,9 @@ function AgentView({ orders, budget }: { orders: PurchaseOrder[]; budget: number
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // Manual mode view
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 function ManualView({
   recs, orders, distributors, allDistributors, buckets, companyId, onRefresh,
@@ -569,7 +569,7 @@ function ManualView({
         ))
       )}
 
-      {/* ══════════ Solicitudes enviadas ══════════ */}
+      {/* ========== Solicitudes enviadas ========== */}
       {orders.filter((o) => o.status === "solicitud_enviada").length > 0 && (
         <div>
           <div className="flex items-center gap-3 mb-3">
@@ -593,7 +593,7 @@ function ManualView({
         </div>
       )}
 
-      {/* ══════════ Ofertas recibidas (cotizaciones) ══════════ */}
+      {/* ========== Ofertas recibidas (cotizaciones) ========== */}
       {cotizaciones.length > 0 && (
         <div>
           <div className="flex items-center gap-3 mb-3">
@@ -660,7 +660,7 @@ function ManualView({
         </div>
       )}
 
-      {/* ══════════ Historial (aceptadas/rechazadas) ══════════ */}
+      {/* ========== Historial (aceptadas/rechazadas) ========== */}
       {orders.filter((o) => o.status === "aceptada" || o.status === "rechazada").length > 0 && (
         <div>
           <div className="flex items-center gap-3 mb-3">
@@ -685,7 +685,7 @@ function ManualView({
         </div>
       )}
 
-      {/* ══════════════ Sticky footer with multiple actions ══════════════ */}
+      {/* ============== Sticky footer with multiple actions ============== */}
       {selected.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-30 px-4 sm:px-6 py-3"
           style={{ background: "linear-gradient(135deg, #0A183A, #173D68)", boxShadow: "0 -4px 24px rgba(10,24,58,0.3)" }}>
@@ -718,7 +718,7 @@ function ManualView({
         </div>
       )}
 
-      {/* ══════════════ Send Proposal Modal ══════════════ */}
+      {/* ============== Send Proposal Modal ============== */}
       {actionModal === "send" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
           <div className="bg-white rounded-xl shadow-sm w-full max-w-md overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
@@ -733,11 +733,11 @@ function ManualView({
                 <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Distribuidor</label>
                 <select value={sendDistId} onChange={(e) => setSendDistId(e.target.value)} className={inputCls}>
                   <option value="">Seleccionar distribuidor...</option>
-                  {sortedDistributors.length > 0 && connectedIds.size > 0 && <option disabled className="font-bold">── Mis distribuidores ──</option>}
+                  {sortedDistributors.length > 0 && connectedIds.size > 0 && <option disabled className="font-bold">-- Mis distribuidores --</option>}
                   {sortedDistributors.filter((d) => d.isConnected).map((d) => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
-                  {sortedDistributors.some((d) => !d.isConnected) && <option disabled className="font-bold">── Otros distribuidores ──</option>}
+                  {sortedDistributors.some((d) => !d.isConnected) && <option disabled className="font-bold">-- Otros distribuidores --</option>}
                   {sortedDistributors.filter((d) => !d.isConnected).map((d) => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
@@ -776,7 +776,7 @@ function ManualView({
         </div>
       )}
 
-      {/* ══════════════ Move to Bucket Modal ══════════════ */}
+      {/* ============== Move to Bucket Modal ============== */}
       {actionModal === "bucket" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
           <div className="bg-white rounded-xl shadow-sm w-full max-w-md overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
@@ -808,7 +808,7 @@ function ManualView({
         </div>
       )}
 
-      {/* ══════════════ Accept Confirmation Modal ══════════════ */}
+      {/* ============== Accept Confirmation Modal ============== */}
       {actionModal === "acceptConfirm" && orderToAccept && (() => {
         const oItems = Array.isArray(orderToAccept.items) ? orderToAccept.items as any[] : [];
         const oCot = Array.isArray(orderToAccept.cotizacion) ? orderToAccept.cotizacion as any[] : [];
@@ -895,9 +895,9 @@ function ManualView({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // Vehicle recommendation group
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 function VehicleRecGroup({
   placa, recs, selected, onToggle, tab,
@@ -1014,9 +1014,9 @@ function VehicleRecGroup({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // Main component
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 
 export default function PedidosTab() {
   const [loading, setLoading] = useState(true);

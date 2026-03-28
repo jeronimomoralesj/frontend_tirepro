@@ -266,14 +266,14 @@ export default function ClientesPage() {
   const [userLoading,     setUserLoading]     = useState(false);
   const [targetCompanyId, setTargetCompanyId] = useState("");
 
-  // ── Toast helpers ────────────────────────────────────────────────────────────
+  // -- Toast helpers ------------------------------------------------------------
   function addToast(message: string, type: "success" | "error") {
     const id = Math.random().toString(36).slice(2);
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4500);
   }
 
-  // ── Fetch clients ────────────────────────────────────────────────────────────
+  // -- Fetch clients ------------------------------------------------------------
   // FIX: Use GET /companies/:companyId which returns _count: { users, tires, vehicles }
   // instead of making two extra fetches per client for vehicles and tires.
   const fetchClients = useCallback(async () => {
@@ -336,7 +336,7 @@ export default function ClientesPage() {
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
-  // ── Create Company ───────────────────────────────────────────────────────────
+  // -- Create Company -----------------------------------------------------------
   async function handleCreateCompany(e: React.FormEvent) {
     e.preventDefault();
     if (!companyName.trim()) { addToast("El nombre de la empresa es obligatorio", "error"); return; }
@@ -379,7 +379,7 @@ export default function ClientesPage() {
     }
   }
 
-  // ── Create User ──────────────────────────────────────────────────────────────
+  // -- Create User --------------------------------------------------------------
   // FIX: role is now typed as UserRole ("admin" | "viewer" | "technician"),
   // matching the Prisma enum. "regular" was never a valid value and caused
   // a 400 Bad Request from the ValidationPipe with forbidNonWhitelisted:true.
@@ -420,7 +420,7 @@ export default function ClientesPage() {
     }
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  // -- Helpers ------------------------------------------------------------------
   function resetUserForm() {
     setUserName(""); setUserEmail(""); setUserPassword("");
     setUserRole("admin"); setShowPassword(false);
@@ -454,7 +454,7 @@ export default function ClientesPage() {
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-5">
 
-        {/* ── Page header ─────────────────────────────────────────────────── */}
+        {/* -- Page header --------------------------------------------------- */}
         <div
           className="px-4 sm:px-6 py-5 rounded-2xl"
           style={{
@@ -487,7 +487,7 @@ export default function ClientesPage() {
           </div>
         </div>
 
-        {/* ── Search ─────────────────────────────────────────────────────── */}
+        {/* -- Search ------------------------------------------------------- */}
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
@@ -500,7 +500,7 @@ export default function ClientesPage() {
           />
         </div>
 
-        {/* ── Grid / states ──────────────────────────────────────────────── */}
+        {/* -- Grid / states ------------------------------------------------ */}
         {loading ? (
           <div className="flex items-center justify-center gap-3 py-24 text-[#1E76B6]">
             <Loader2 className="w-6 h-6 animate-spin" />
@@ -539,7 +539,7 @@ export default function ClientesPage() {
         )}
       </div>
 
-      {/* ── Modal: Create Company + optional user step ─────────────────── */}
+      {/* -- Modal: Create Company + optional user step ------------------- */}
       <Modal
         open={showCreateModal}
         onClose={resetAll}
@@ -548,7 +548,7 @@ export default function ClientesPage() {
         icon={showUserStep ? <UserPlus className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
       >
         {!showUserStep ? (
-          // ── Step 1: Company ──────────────────────────────────────────────
+          // -- Step 1: Company ----------------------------------------------
           <form onSubmit={handleCreateCompany} className="space-y-5">
             <Field label="Nombre de la empresa" hint="Se creará en plan Pro y quedará vinculada a tu cuenta">
               <input
@@ -586,7 +586,7 @@ export default function ClientesPage() {
             </div>
           </form>
         ) : (
-          // ── Step 2: User (optional) ───────────────────────────────────────
+          // -- Step 2: User (optional) ---------------------------------------
           <form onSubmit={handleCreateUser} className="space-y-5">
             <div
               className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl text-xs"
@@ -627,7 +627,7 @@ export default function ClientesPage() {
         )}
       </Modal>
 
-      {/* ── Modal: Add User to Existing Client ──────────────────────────── */}
+      {/* -- Modal: Add User to Existing Client ---------------------------- */}
       <Modal
         open={showAddUserModal}
         onClose={() => { setShowAddUserModal(false); setSelectedClient(null); resetUserForm(); }}

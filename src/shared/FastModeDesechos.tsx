@@ -64,7 +64,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
     try { return JSON.parse(localStorage.getItem("user") ?? "{}").companyId ?? ""; } catch { return ""; }
   }, []);
 
-  // ── Search ─────────────────────────────────────────────────────────────────
+  // -- Search -----------------------------------------------------------------
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -114,7 +114,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
     }))]);
   }
 
-  // ── New tire form ──────────────────────────────────────────────────────────
+  // -- New tire form ----------------------------------------------------------
 
   const [nf, setNf] = useState({ placa: "", marca: "", diseno: "", dimension: "", eje: "traccion", profundidadInicial: 16, costo: 0 });
 
@@ -147,7 +147,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
     update(k, "images", item.images.filter((_, i) => i !== idx));
   }
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // -- Submit -----------------------------------------------------------------
 
   async function handleSubmit() {
     // Validate
@@ -200,7 +200,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
     setSubmitting(false);
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // -- Render -----------------------------------------------------------------
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
@@ -218,7 +218,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
         </div>
       )}
 
-      {/* ═══ Search ═══ */}
+      {/* === Search === */}
       <div className="rounded-xl p-4" style={{ border: "1px solid rgba(52,140,203,0.18)" }}>
         <p className="text-xs font-bold text-[#0A183A] mb-3">Buscar llantas para desechar</p>
         <form onSubmit={handleSearch} className="flex gap-2 items-center">
@@ -267,7 +267,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
         )}
       </div>
 
-      {/* ═══ Create new tire on the spot ═══ */}
+      {/* === Create new tire on the spot === */}
       {!showNew ? (
         <button onClick={() => setShowNew(true)}
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-[#F0F7FF]"
@@ -323,7 +323,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
         </div>
       )}
 
-      {/* ═══ Discard list ═══ */}
+      {/* === Discard list === */}
       {list.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-3">

@@ -1,6 +1,6 @@
 import type { ChartOptions } from 'chart.js';
 
-/* ── Brand palette ─────────────────────────────────────────────── */
+/* -- Brand palette ----------------------------------------------- */
 
 export const COLORS = {
   primary:   '#0A183A',
@@ -25,7 +25,7 @@ export const COLORS = {
   danger:  '#ef4444',
 } as const;
 
-/* ── Chart.js global defaults ──────────────────────────────────── */
+/* -- Chart.js global defaults ------------------------------------ */
 
 export const chartDefaults: ChartOptions = {
   responsive: true,
@@ -67,7 +67,7 @@ export const chartDefaults: ChartOptions = {
   },
 };
 
-/* ── Helpers ────────────────────────────────────────────────────── */
+/* -- Helpers ------------------------------------------------------ */
 
 /** Canvas gradient for area-chart fills */
 export function createGradient(

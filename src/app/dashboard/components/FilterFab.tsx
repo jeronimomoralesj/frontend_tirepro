@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { SlidersHorizontal, X, Search, ChevronDown } from 'lucide-react';
 
-/* ── Filter config ────────────────────────────────────────────────────────── */
+/* -- Filter config ---------------------------------------------------------- */
 
 export interface FilterOption {
   key: string;

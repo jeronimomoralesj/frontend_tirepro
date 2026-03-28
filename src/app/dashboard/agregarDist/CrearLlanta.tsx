@@ -146,7 +146,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
     posicion: "",
   });
 
-  // ── Fetch companies on mount ───────────────────────────────────────────────
+  // -- Fetch companies on mount -----------------------------------------------
   useEffect(() => {
     const run = async () => {
       try {
@@ -161,7 +161,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
     run();
   }, []);
 
-  // ── Fetch vehicles when company changes ────────────────────────────────────
+  // -- Fetch vehicles when company changes ------------------------------------
   useEffect(() => {
     if (!selectedCompany) { setUserVehicles([]); setFilteredVehicles([]); return; }
     const run = async () => {
@@ -182,10 +182,10 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
     run();
   }, [selectedCompany]);
 
-  // ── Vehicle search filter ──────────────────────────────────────────────────
+  // -- Vehicle search filter --------------------------------------------------
   useEffect(() => { setFilteredVehicles(userVehicles); }, [userVehicles]);
 
-  // ── Click-outside for vehicle dropdown ────────────────────────────────────
+  // -- Click-outside for vehicle dropdown ------------------------------------
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target as Node)) {
@@ -196,7 +196,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // -- Handlers ---------------------------------------------------------------
   function handleFormChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
     setForm((prev) => ({
@@ -234,7 +234,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
     setFilteredVehicles(userVehicles);
   }
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // -- Submit -----------------------------------------------------------------
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(""); setSuccess("");
@@ -422,7 +422,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
 
       <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
 
-        {/* ── Company selector ───────────────────────────────────────────── */}
+        {/* -- Company selector --------------------------------------------- */}
         <div className="relative flex justify-end">
           <button
             type="button"
@@ -469,7 +469,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
           )}
         </div>
 
-        {/* ── Feedback banners ──────────────────────────────────────────── */}
+        {/* -- Feedback banners -------------------------------------------- */}
         {error && (
           <div
             className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
@@ -493,7 +493,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* ── Vehicle search ──────────────────────────────────────────── */}
+          {/* -- Vehicle search -------------------------------------------- */}
           <Card className="p-5">
             <p className="text-xs font-black text-[#0A183A] uppercase tracking-wide mb-3">
               Vehículo Asociado <span className="text-gray-400 font-medium normal-case">(opcional)</span>
@@ -568,7 +568,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
             )}
           </Card>
 
-          {/* ── Form fields ─────────────────────────────────────────────── */}
+          {/* -- Form fields ----------------------------------------------- */}
           <Card className="p-5">
             <p className="text-xs font-black text-[#0A183A] uppercase tracking-wide mb-4">Datos de la Llanta</p>
 
@@ -662,7 +662,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
             </div>
           </Card>
 
-          {/* ── Submit ──────────────────────────────────────────────────── */}
+          {/* -- Submit ---------------------------------------------------- */}
           <button
             type="submit"
             disabled={loading}

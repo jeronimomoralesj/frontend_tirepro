@@ -301,14 +301,14 @@ const AjustesPage: React.FC = () => {
   const [searchLoading,         setSearchLoading]         = useState(false);
   const [grantingAccess,        setGrantingAccess]        = useState(false);
 
-  // ── Toast helper ─────────────────────────────────────────────────────────
+  // -- Toast helper ---------------------------------------------------------
   const toast = useCallback((message: string, type: "success" | "error") => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
   }, []);
 
-  // ── Data fetchers ─────────────────────────────────────────────────────────
+  // -- Data fetchers ---------------------------------------------------------
   const fetchCompany = useCallback(async (companyId: string) => {
     try {
       const res = await authFetch(`${API_BASE}/companies/${companyId}`);
@@ -332,7 +332,7 @@ const AjustesPage: React.FC = () => {
     } catch { /* silent */ }
   }, []);
 
-  // ── Auth init ─────────────────────────────────────────────────────────────
+  // -- Auth init -------------------------------------------------------------
   useEffect(() => {
     const storedUser  = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
@@ -361,7 +361,7 @@ const AjustesPage: React.FC = () => {
     setLoading(false);
   }, [router, fetchCompany, fetchUsers, fetchConnectedDistributors]);
 
-  // ── Distributor search (debounced) ────────────────────────────────────────
+  // -- Distributor search (debounced) ----------------------------------------
   useEffect(() => {
     if (searchQuery.length < 2) { setSearchResults([]); return; }
     const t = setTimeout(async () => {
@@ -380,7 +380,7 @@ const AjustesPage: React.FC = () => {
     return () => clearTimeout(t);
   }, [searchQuery, user]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // -- Handlers --------------------------------------------------------------
   const handleLogout = () => { localStorage.clear(); window.location.href = "/login"; };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -512,7 +512,7 @@ const AjustesPage: React.FC = () => {
     } catch (e) { toast(e instanceof Error ? e.message : "Error", "error"); }
   };
 
-  // ── Tab definitions ───────────────────────────────────────────────────────
+  // -- Tab definitions -------------------------------------------------------
   const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean }[] = [
     { id: "profile",      label: "Perfil",          icon: User                             },
     { id: "company",      label: "Empresa",         icon: Building                         },
@@ -539,7 +539,7 @@ const AjustesPage: React.FC = () => {
     <div className="min-h-screen" style={{ background: "#ffffff" }}>
       <ToastContainer toasts={toasts} onDismiss={(id) => setToasts((p) => p.filter((t) => t.id !== id))} />
 
-      {/* ── Sticky header ── */}
+      {/* -- Sticky header -- */}
       <div
         className="sticky top-0 z-40 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3"
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}
@@ -576,7 +576,7 @@ const AjustesPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Tab nav ── */}
+        {/* -- Tab nav -- */}
         <Card className="p-1.5">
           <nav className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor")).length}, minmax(0,1fr))` }}>
             {tabs

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, Check, Zap, User, ClipboardList, Bot, Hand } from "lucide-react";
 
-// ── API ──────────────────────────────────────────────────────────────────────
+// -- API ----------------------------------------------------------------------
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -22,7 +22,7 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
   });
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// -- Types --------------------------------------------------------------------
 
 interface AgentSettings {
   agentEnabled: boolean;
@@ -39,7 +39,7 @@ const DEFAULT_SETTINGS: AgentSettings = {
   purchaseMode: "manual",
 };
 
-// ── Radio card ───────────────────────────────────────────────────────────────
+// -- Radio card ---------------------------------------------------------------
 
 function RadioCard({
   selected,
@@ -98,12 +98,12 @@ function RadioCard({
   );
 }
 
-// ── Input helper ─────────────────────────────────────────────────────────────
+// -- Input helper -------------------------------------------------------------
 
 const inputCls =
   "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
 
-// ── Component ────────────────────────────────────────────────────────────────
+// -- Component ----------------------------------------------------------------
 
 export default function AjustesTab() {
   const [settings, setSettings] = useState<AgentSettings>(DEFAULT_SETTINGS);
@@ -112,7 +112,7 @@ export default function AjustesTab() {
   const [toast, setToast] = useState("");
   const [companyId, setCompanyId] = useState("");
 
-  // ── Load ─────────────────────────────────────────────────────────────────
+  // -- Load -----------------------------------------------------------------
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -136,7 +136,7 @@ export default function AjustesTab() {
     }
   }, []);
 
-  // ── Save ─────────────────────────────────────────────────────────────────
+  // -- Save -----------------------------------------------------------------
 
   const handleSave = useCallback(async () => {
     if (!companyId) return;
@@ -157,7 +157,7 @@ export default function AjustesTab() {
     }
   }, [companyId, settings]);
 
-  // ── Update helper ────────────────────────────────────────────────────────
+  // -- Update helper --------------------------------------------------------
 
   function set<K extends keyof AgentSettings>(key: K, value: AgentSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -165,7 +165,7 @@ export default function AjustesTab() {
 
   const disabled = !settings.agentEnabled;
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // -- Render ---------------------------------------------------------------
 
   if (loading) {
     return (
@@ -177,7 +177,7 @@ export default function AjustesTab() {
 
   return (
     <div className="max-w-2xl space-y-0">
-      {/* ── 1. Master switch ──────────────────────────────────────────── */}
+      {/* -- 1. Master switch -------------------------------------------- */}
       <div className="py-6 border-b border-gray-100">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -221,7 +221,7 @@ export default function AjustesTab() {
         </div>
       </div>
 
-      {/* ── 2. Alert mode ─────────────────────────────────────────────── */}
+      {/* -- 2. Alert mode ----------------------------------------------- */}
       <div className="py-6 border-b border-gray-100">
         <p className="text-xs font-bold uppercase tracking-wider text-[#348CCB] mb-1">
           Modo de alertas
@@ -287,7 +287,7 @@ export default function AjustesTab() {
         </div>
       </div>
 
-      {/* ── 3. Purchase mode ──────────────────────────────────────────── */}
+      {/* -- 3. Purchase mode -------------------------------------------- */}
       <div className="py-6 border-b border-gray-100">
         <p className="text-xs font-bold uppercase tracking-wider text-[#348CCB] mb-1">
           Modo de compras
@@ -336,7 +336,7 @@ export default function AjustesTab() {
         </div>
       </div>
 
-      {/* ── Save button ───────────────────────────────────────────────── */}
+      {/* -- Save button ------------------------------------------------- */}
       <div className="py-6">
         <button
           onClick={handleSave}
@@ -353,7 +353,7 @@ export default function AjustesTab() {
         </button>
       </div>
 
-      {/* ── Toast ─────────────────────────────────────────────────────── */}
+      {/* -- Toast ------------------------------------------------------- */}
       {toast && (
         <div
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl text-sm font-bold text-white shadow-sm transition-all"

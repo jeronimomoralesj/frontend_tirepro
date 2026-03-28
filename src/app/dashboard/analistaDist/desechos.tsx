@@ -19,7 +19,7 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types --------------------------------------------------------------------
 interface DesechoData {
   fecha: string;
   causales: string;
@@ -44,7 +44,7 @@ interface DesechosProps {
   error: string;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// --- Component ----------------------------------------------------------------
 const Desechos: React.FC<DesechosProps> = ({ tires, loading, error }) => {
   // Extract desechos from the supplied tire list
   const desechos = useMemo(
@@ -52,7 +52,7 @@ const Desechos: React.FC<DesechosProps> = ({ tires, loading, error }) => {
     [tires]
   );
 
-  // ── Aggregation helpers ──────────────────────────────────────────────────
+  // -- Aggregation helpers --------------------------------------------------
   const groupBy = (
     keyFn: (d: DesechoData) => string,
     valueFn: (d: DesechoData) => number,
@@ -102,7 +102,7 @@ const Desechos: React.FC<DesechosProps> = ({ tires, loading, error }) => {
     "average"
   );
 
-  // ── Chart helpers ────────────────────────────────────────────────────────
+  // -- Chart helpers --------------------------------------------------------
   const getChartIcon = (index: number) => {
     const icons = [PieChart, TrendingUp, Calendar, Target];
     return icons[index % icons.length];
@@ -185,7 +185,7 @@ const Desechos: React.FC<DesechosProps> = ({ tires, loading, error }) => {
     );
   };
 
-  // ── States ───────────────────────────────────────────────────────────────
+  // -- States ---------------------------------------------------------------
   if (loading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
@@ -218,7 +218,7 @@ const Desechos: React.FC<DesechosProps> = ({ tires, loading, error }) => {
       ? (desechos.reduce((acc, d) => acc + d.remanente, 0) / desechos.length).toFixed(1)
       : "0";
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // -- Render ---------------------------------------------------------------
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">

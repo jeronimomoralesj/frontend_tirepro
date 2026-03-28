@@ -967,7 +967,7 @@ function TireDetailModal({
             </div>
           )}
 
-          {/* ── OVERVIEW ── */}
+          {/* -- OVERVIEW -- */}
           {activeTab === "overview" && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1062,7 +1062,7 @@ function TireDetailModal({
             </div>
           )}
 
-          {/* ── INSPECCIONES ── */}
+          {/* -- INSPECCIONES -- */}
           {activeTab === "inspecciones" && (
             <div className="rounded-2xl overflow-hidden"
               style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
@@ -1075,7 +1075,7 @@ function TireDetailModal({
             </div>
           )}
 
-          {/* ── COSTOS ── */}
+          {/* -- COSTOS -- */}
           {activeTab === "costos" && (
             <div className="rounded-2xl p-4" style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
               <SectionTitle icon={DollarSign} title="Análisis de Costos" badge={`${tire.costo.length} entradas`} />
@@ -1111,7 +1111,7 @@ function TireDetailModal({
             </div>
           )}
 
-          {/* ── VIDA ── */}
+          {/* -- VIDA -- */}
           {activeTab === "vida" && (
             <div className="rounded-2xl p-4" style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
               <SectionTitle icon={Repeat} title="Historial de Vida" badge={`${tire.vida.length} fases`} />

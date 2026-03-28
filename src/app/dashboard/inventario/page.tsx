@@ -365,7 +365,7 @@ export default function InventarioPage() {
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [moving, setMoving] = useState(false);
 
-  // ── Auth ────────────────────────────────────────────────────────────────────
+  // -- Auth --------------------------------------------------------------------
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -376,7 +376,7 @@ export default function InventarioPage() {
     setCompanyId(user.companyId);
   }, [router]);
 
-  // ── Fetch buckets ──────────────────────────────────────────────────────────
+  // -- Fetch buckets ----------------------------------------------------------
 
   const fetchBuckets = useCallback(async () => {
     if (!companyId) return;
@@ -396,7 +396,7 @@ export default function InventarioPage() {
 
   useEffect(() => { fetchBuckets(); }, [fetchBuckets]);
 
-  // ── Fetch tires for selected bucket ────────────────────────────────────────
+  // -- Fetch tires for selected bucket ----------------------------------------
 
   const fetchTires = useCallback(async () => {
     if (!companyId || !activeBucket) { setTires([]); return; }
@@ -418,7 +418,7 @@ export default function InventarioPage() {
 
   useEffect(() => { fetchTires(); }, [fetchTires]);
 
-  // ── Toggle selection ───────────────────────────────────────────────────────
+  // -- Toggle selection -------------------------------------------------------
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -436,7 +436,7 @@ export default function InventarioPage() {
     else setSelectedIds(new Set(visible));
   }, [selectedIds]);
 
-  // ── Filter tires ───────────────────────────────────────────────────────────
+  // -- Filter tires -----------------------------------------------------------
 
   const filteredTires = useMemo(() => {
     if (!search.trim()) return tires;
@@ -450,7 +450,7 @@ export default function InventarioPage() {
     );
   }, [tires, search]);
 
-  // ── Delete bucket ──────────────────────────────────────────────────────────
+  // -- Delete bucket ----------------------------------------------------------
 
   const handleDelete = useCallback(async () => {
     if (!deleteBucket) return;
@@ -467,7 +467,7 @@ export default function InventarioPage() {
     setDeleteLoading(false);
   }, [deleteBucket, companyId, activeBucket, fetchBuckets]);
 
-  // ── Move tires ─────────────────────────────────────────────────────────────
+  // -- Move tires -------------------------------------------------------------
 
   const handleMove = useCallback(
     async (targetBucketId: string | null) => {
@@ -492,7 +492,7 @@ export default function InventarioPage() {
     [selectedIds, companyId, fetchBuckets, fetchTires],
   );
 
-  // ── Batch return ───────────────────────────────────────────────────────────
+  // -- Batch return -----------------------------------------------------------
 
   const handleBatchReturn = useCallback(async () => {
     if (selectedIds.size === 0) return;
@@ -522,7 +522,7 @@ export default function InventarioPage() {
     setMoving(false);
   }, [selectedIds, tires, companyId, fetchBuckets, fetchTires]);
 
-  // ── Derived ────────────────────────────────────────────────────────────────
+  // -- Derived ----------------------------------------------------------------
 
   const selectedWithVehicle = useMemo(
     () =>
@@ -536,7 +536,7 @@ export default function InventarioPage() {
     return buckets.find((b) => b.id === activeBucket)?.nombre ?? "";
   }, [activeBucket, buckets]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // -- Render -----------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-white">
@@ -560,7 +560,7 @@ export default function InventarioPage() {
           </div>
         ) : (
           <>
-            {/* ── Bucket cards ──────────────────────────────────────── */}
+            {/* -- Bucket cards ---------------------------------------- */}
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
               {/* Disponible */}
               <button
@@ -642,7 +642,7 @@ export default function InventarioPage() {
               </button>
             </div>
 
-            {/* ── Active bucket content ─────────────────────────────── */}
+            {/* -- Active bucket content ------------------------------- */}
             <div
               className="bg-white rounded-xl shadow-sm overflow-hidden"
               style={{ border: "1px solid rgba(52,140,203,0.12)" }}

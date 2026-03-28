@@ -1186,7 +1186,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
     <div style={{ background: "#ffffff" }}>
       <div className="max-w-3xl mx-auto space-y-4">
 
-        {/* ── Mode toggle ─────────────────────────────────────────────────── */}
+        {/* -- Mode toggle --------------------------------------------------- */}
         <div className="flex items-center gap-2">
           {(["normal", "fast"] as const).map((m) => (
             <button
@@ -1216,7 +1216,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
         {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
         {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
 
-        {/* ── Search ────────────────────────────────────────────────────────── */}
+        {/* -- Search ---------------------------------------------------------- */}
         <Card>
           <CardHeader icon={Search} title="Buscar Vehículo" subtitle="Ingrese la placa para cargar sus neumáticos" />
           <form onSubmit={handleSearch} className="flex gap-3">
@@ -1243,7 +1243,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
           </form>
         </Card>
 
-        {/* ── Vehicle info ──────────────────────────────────────────────────── */}
+        {/* -- Vehicle info ---------------------------------------------------- */}
         {hasVehicle && (
           <Card>
             <CardHeader
@@ -1297,7 +1297,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
               </div>
             </div>
 
-            {/* ── Inspector name — NEW ──────────────────────────────────────── */}
+            {/* -- Inspector name — NEW ---------------------------------------- */}
             <div className="mt-5">
               <SectionDivider label="Inspector (opcional)" />
               <div className="mt-4">
@@ -1320,7 +1320,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
           </Card>
         )}
 
-        {/* ── Tire forms ────────────────────────────────────────────────────── */}
+        {/* -- Tire forms ------------------------------------------------------ */}
         {hasTires && (
           <form onSubmit={handleSubmitInspections} className="space-y-4">
 

@@ -1091,7 +1091,7 @@ const [buildingResolved, setBuildingResolved] = useState(false);
     return map;
   }, [filteredTires, buckets]);
 
-  // ── Return flow ─────────────────────────────────────────────────────────────
+  // -- Return flow -------------------------------------------------------------
 
   async function buildResolved(targetTires: InventoryTire[]): Promise<ResolvedReturn[]> {
     const byVehicle = new Map<string, InventoryTire[]>();
@@ -1170,7 +1170,7 @@ const [buildingResolved, setBuildingResolved] = useState(false);
         fallbackTireIds.push(r.tire.id);
     });
 
-    // ── DEBUG ──────────────────────────────────────────────────────────────
+    // -- DEBUG --------------------------------------------------------------
     console.log("📋 finalList decisions:", finalList.map(r => ({
       tireId: r.tire.id,
       placa: r.tire.placa,
@@ -1184,7 +1184,7 @@ const [buildingResolved, setBuildingResolved] = useState(false);
     console.log("✅ returns array:", returns);
     console.log("📦 fallbackTireIds:", fallbackTireIds);
     console.log("🏢 companyId:", companyId);
-    // ── END DEBUG ──────────────────────────────────────────────────────────
+    // -- END DEBUG ----------------------------------------------------------
 
     const forcedReturns = finalList.filter(
       (r) => r._decision === "return" && r.status === "occupied"
@@ -1235,7 +1235,7 @@ await load(companyId);
   }
 }
 
-  // ── Bucket CRUD ─────────────────────────────────────────────────────────────
+  // -- Bucket CRUD -------------------------------------------------------------
 
   function handleBucketSaved(saved: InventoryBucket) {
     setBuckets((prev) => {

@@ -8,7 +8,7 @@ import {
   PolarAngleAxis, PolarRadiusAxis, ScatterChart, Scatter,
 } from "recharts";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types --------------------------------------------------------------------
 
 type CostEntry  = { valor: number; fecha: string };
 type VidaEntry  = { valor: string; fecha: string };
@@ -110,7 +110,7 @@ type Company = {
   profileImage?: string;
 };
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// --- Constants ----------------------------------------------------------------
 
 const API = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -154,7 +154,7 @@ const SC = [
   "#dc2626","#0891b2","#16a34a","#9333ea","#c2410c",
 ];
 
-// ─── Utility ──────────────────────────────────────────────────────────────────
+// --- Utility ------------------------------------------------------------------
 
 const norm = (t: Tire): Tire => ({
   ...t,
@@ -208,7 +208,7 @@ const fmtM = (n: number) =>
   : fmt(n);
 const pct  = (a: number, b: number) => b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%";
 
-// ─── Micro-components ─────────────────────────────────────────────────────────
+// --- Micro-components ---------------------------------------------------------
 
 const Spinner = () => (
   <div className="flex flex-col items-center justify-center py-32 gap-4">
@@ -370,7 +370,7 @@ function VidaBadge({ vida }: { vida: string }) {
   );
 }
 
-// ─── Tab Types ────────────────────────────────────────────────────────────────
+// --- Tab Types ----------------------------------------------------------------
 
 type TabId = "overview" | "tires" | "vehicles" | "companies" | "users" | "pressure" | "fleet";
 
@@ -384,7 +384,7 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "users",      label: "Usuarios",    icon: "👥" },
 ];
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// --- Main ---------------------------------------------------------------------
 
 export default function AdminDashboard() {
   const [tires,     setTires]     = useState<Tire[]>([]);
@@ -421,7 +421,7 @@ export default function AdminDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Computed stats ─────────────────────────────────────────────────────────
+  // -- Computed stats ---------------------------------------------------------
   const S = useMemo(() => {
     const act = tires.filter(active);
     const ret = tires.filter(t => !active(t));
@@ -658,7 +658,7 @@ export default function AdminDashboard() {
     };
   }, [tires, vehicles, users, companies]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // -- Render -----------------------------------------------------------------
   return (
     <div className="min-h-screen" style={{ background: "#f5f7fb", fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
 
@@ -720,7 +720,7 @@ export default function AdminDashboard() {
         {loading ? <Spinner /> : (
           <div className="space-y-6">
 
-            {/* ════════ OVERVIEW ════════ */}
+            {/* ======== OVERVIEW ======== */}
             {tab === "overview" && <>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                 <KPI label="Llantas totales"  value={fmt(S.totalTires)}    color={P.navy}    icon="🛞" />
@@ -863,7 +863,7 @@ export default function AdminDashboard() {
               </div>
             </>}
 
-            {/* ════════ LLANTAS ════════ */}
+            {/* ======== LLANTAS ======== */}
             {tab === "tires" && <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <KPI label="Activas"       value={S.activeTires}            color={P.navy}    icon="🛞" />
@@ -1003,7 +1003,7 @@ export default function AdminDashboard() {
               </Card>
             </>}
 
-            {/* ════════ PRESIÓN ════════ */}
+            {/* ======== PRESIÓN ======== */}
             {tab === "pressure" && <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <KPI label="Con datos presión" value={fmt(S.tiresWithPressure)} color={P.navy}   icon="💨" sub={pct(S.tiresWithPressure, S.withInsp) + " de inspeccionadas"} />
@@ -1077,7 +1077,7 @@ export default function AdminDashboard() {
               </Card>
             </>}
 
-            {/* ════════ FLOTA INTEL ════════ */}
+            {/* ======== FLOTA INTEL ======== */}
             {tab === "fleet" && <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <KPI label="Salud flota prom." value={`${S.avgHealth.toFixed(0)}/100`} color={P.navy}   icon="🧠" />
@@ -1187,7 +1187,7 @@ export default function AdminDashboard() {
               </Card>
             </>}
 
-            {/* ════════ VEHÍCULOS ════════ */}
+            {/* ======== VEHÍCULOS ======== */}
             {tab === "vehicles" && <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <KPI label="Total vehículos" value={vehicles.length} color={P.navy}  icon="🚛" />
@@ -1257,7 +1257,7 @@ export default function AdminDashboard() {
               </Card>
             </>}
 
-            {/* ════════ COMPAÑÍAS ════════ */}
+            {/* ======== COMPAÑÍAS ======== */}
             {tab === "companies" && <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <KPI label="Total compañías" value={companies.length}                                        color={P.navy}   icon="🏢" />
@@ -1323,7 +1323,7 @@ export default function AdminDashboard() {
               </Card>
             </>}
 
-            {/* ════════ USUARIOS ════════ */}
+            {/* ======== USUARIOS ======== */}
             {tab === "users" && <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <KPI label="Total usuarios" value={users.length}               color={P.navy}    icon="👥" />

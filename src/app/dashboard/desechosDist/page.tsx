@@ -547,7 +547,7 @@ const DesechosDistribuidor: React.FC = () => {
   // Lightbox
   const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null);
 
-  // ── Fetch companies ────────────────────────────────────────────────────────
+  // -- Fetch companies --------------------------------------------------------
   useEffect(() => {
     const run = async () => {
       try {
@@ -571,7 +571,7 @@ const DesechosDistribuidor: React.FC = () => {
     return m;
   }, [companies]);
 
-  // ── Fetch desechos ─────────────────────────────────────────────────────────
+  // -- Fetch desechos ---------------------------------------------------------
   const fetchDesechos = useCallback(async () => {
     if (!companies.length) return;
     setLoadingDesechos(true);
@@ -613,7 +613,7 @@ const DesechosDistribuidor: React.FC = () => {
 
   useEffect(() => { fetchDesechos(); }, [fetchDesechos]);
 
-  // ── Filter option lists ────────────────────────────────────────────────────
+  // -- Filter option lists ----------------------------------------------------
   const yearOptions = useMemo(() => {
     const years = [...new Set(allDesechos.map((d) => new Date(d.fecha).getFullYear().toString()))].sort().reverse();
     return [{ value: "todos", label: "Todos los años" }, ...years.map((y) => ({ value: y, label: y }))];
@@ -640,7 +640,7 @@ const DesechosDistribuidor: React.FC = () => {
     ];
   }, [allDesechos, companies]);
 
-  // ── Filtered data ──────────────────────────────────────────────────────────
+  // -- Filtered data ----------------------------------------------------------
   const filtered = useMemo(() => {
     const fy = fv.year, fm = fv.month, fc = fv.causal, fco = fv.company;
     const compId = fco && fco !== "Todos" ? companyNameToId[fco] : null;
@@ -658,7 +658,7 @@ const DesechosDistribuidor: React.FC = () => {
 
   useEffect(() => { setCurrentPage(1); }, [filtered]);
 
-  // ── Aggregations ───────────────────────────────────────────────────────────
+  // -- Aggregations -----------------------------------------------------------
   const groupBy = useCallback(
     (keyFn: (d: EnrichedDesecho) => string, valueFn: (d: EnrichedDesecho) => number, agg: "sum" | "average") => {
       const map: Record<string, number[]> = {};
@@ -686,14 +686,14 @@ const DesechosDistribuidor: React.FC = () => {
   const hasActiveFilters = Object.values(fv).some((v) => v && v !== "Todos");
   const clearFilters = () => setFv({});
 
-  // ── Pagination ─────────────────────────────────────────────────────────────
+  // -- Pagination -------------------------------------------------------------
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
   const paginatedRows = useMemo(
     () => filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE),
     [filtered, currentPage]
   );
 
-  // ── Download CSV ───────────────────────────────────────────────────────────
+  // -- Download CSV -----------------------------------------------------------
   const downloadCSV = () => {
     const headers = ["Cliente", "ID Llanta", "ID Neumático", "Marca", "Fecha", "Causal", "Remanente (mm)", "Milímetros Desechados", "Fotos"];
     const rows = filtered.map((d) => [
@@ -710,7 +710,7 @@ const DesechosDistribuidor: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // ── Download HTML Report ───────────────────────────────────────────────────
+  // -- Download HTML Report ---------------------------------------------------
   const downloadReport = () => {
     const now = new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" });
     const html = `<!DOCTYPE html>
@@ -832,7 +832,7 @@ const DesechosDistribuidor: React.FC = () => {
     <div className="min-h-screen" style={{ background: "white" }}>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
 
-        {/* ── Page header ───────────────────────────────────────────────── */}
+        {/* -- Page header ------------------------------------------------- */}
         <div
           className="px-4 sm:px-6 py-5 sm:py-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
@@ -892,7 +892,7 @@ const DesechosDistribuidor: React.FC = () => {
           onChange={setFilter}
         />
 
-        {/* ── KPI Cards ─────────────────────────────────────────────────── */}
+        {/* -- KPI Cards --------------------------------------------------- */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length.toLocaleString("es-CO")} sub={`de ${allDesechos.length} totales`} variant="primary"   loading={loadingDesechos} />
           <MetricCard icon={Target}     title="Prom. Remanente" value={fmtCompact(parseFloat(avgGeneral) || 0)} sub="valor promedio perdido"         variant="secondary" loading={loadingDesechos} />
@@ -900,7 +900,7 @@ const DesechosDistribuidor: React.FC = () => {
           <MetricCard icon={Users}      title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos · ${companies.length} clientes`} variant="accent" loading={loadingDesechos} />
         </div>
 
-        {/* ── Charts ────────────────────────────────────────────────────── */}
+        {/* -- Charts ------------------------------------------------------ */}
         {loadingDesechos ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {[1, 2, 3, 4].map((i) => (
@@ -926,7 +926,7 @@ const DesechosDistribuidor: React.FC = () => {
           </div>
         )}
 
-        {/* ── Records table ─────────────────────────────────────────────── */}
+        {/* -- Records table ----------------------------------------------- */}
         <Card className="overflow-hidden">
           <div
             className="px-5 py-4 flex items-center justify-between"
@@ -1078,7 +1078,7 @@ const DesechosDistribuidor: React.FC = () => {
           )}
         </Card>
 
-      {/* ── Lightbox ─────────────────────────────────────────────────────── */}
+      {/* -- Lightbox ------------------------------------------------------- */}
       {lightboxUrls && (
         <ImageLightbox urls={lightboxUrls} onClose={() => setLightboxUrls(null)} />
       )}

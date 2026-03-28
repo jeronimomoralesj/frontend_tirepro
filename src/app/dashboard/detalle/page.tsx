@@ -18,7 +18,7 @@ import HistoricChart from "../cards/HistoricChart";
 import ReencaucheHistorico from "../cards/ReencaucheHistorico";
 import TanqueMilimetro from "../cards/TanqueMilimetro";
 
-/* ── API ─────────────────────────────────────────────────────────────────── */
+/* -- API ------------------------------------------------------------------- */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -37,7 +37,7 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
   });
 }
 
-/* ── Raw types (API shape) ───────────────────────────────────────────────── */
+/* -- Raw types (API shape) ------------------------------------------------- */
 
 type RawCosto = { valor: number; fecha: string | Date };
 type RawInspeccion = {
@@ -54,7 +54,7 @@ type RawEvento = {
   notas: string | null; metadata: Record<string, unknown> | null;
 };
 
-/* ── Normalized types (card-component shape) ─────────────────────────────── */
+/* -- Normalized types (card-component shape) ------------------------------- */
 
 type Tire = {
   id: string; marca: string; diseno: string; dimension: string; eje: string;
@@ -77,7 +77,7 @@ type Vehicle = {
   _count?: { tires: number };
 };
 
-/* ── Normalization helpers ────────────────────────────────────────────────── */
+/* -- Normalization helpers -------------------------------------------------- */
 
 function toISO(d: string | Date | null | undefined): string {
   if (!d) return new Date().toISOString();
@@ -119,7 +119,7 @@ function normaliseTire(raw: any): Tire {
   return { ...raw, costo, inspecciones, vida } as unknown as Tire;
 }
 
-/* ── Alert classification ────────────────────────────────────────────────── */
+/* -- Alert classification -------------------------------------------------- */
 
 type AlertKey = "ok" | "watch" | "warning" | "critical" | "none";
 
@@ -145,7 +145,7 @@ const ALERT_META: Record<
   none: { label: "Sin Inspeccion", color: "#64748b", bg: "rgba(100,116,139,0.08)" },
 };
 
-/* ── Section header ──────────────────────────────────────────────────────── */
+/* -- Section header -------------------------------------------------------- */
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -158,9 +158,9 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
+/* =========================================================================== */
 /* Page                                                                       */
-/* ═══════════════════════════════════════════════════════════════════════════ */
+/* =========================================================================== */
 
 export default function DetallePage() {
   const router = useRouter();
@@ -173,7 +173,7 @@ export default function DetallePage() {
   const [filterSearch, setFilterSearch] = useState("");
   const [selectedEje, setSelectedEje] = useState("");
 
-  /* ── Fetch ─────────────────────────────────────────────────────────────── */
+  /* -- Fetch --------------------------------------------------------------- */
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -199,7 +199,7 @@ export default function DetallePage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  /* ── Vehicle map ───────────────────────────────────────────────────────── */
+  /* -- Vehicle map --------------------------------------------------------- */
 
   const vehicleMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -207,7 +207,7 @@ export default function DetallePage() {
     return m;
   }, [vehicles]);
 
-  /* ── Filter options ────────────────────────────────────────────────────── */
+  /* -- Filter options ------------------------------------------------------ */
 
   const ALERT_OPTIONS = ["Todos", "ok", "watch", "warning", "critical", "none"];
 
@@ -218,7 +218,7 @@ export default function DetallePage() {
     { key: "vida", label: "Vida", options: ["Todos", "nueva", "reencauche1", "reencauche2", "reencauche3", "fin"] },
   ], [tires]);
 
-  /* ── Filtered tires ────────────────────────────────────────────────────── */
+  /* -- Filtered tires ------------------------------------------------------ */
 
   const filtered = useMemo(() => {
     let result = [...tires];
@@ -253,7 +253,7 @@ export default function DetallePage() {
     return result;
   }, [tires, filterValues, filterSearch, vehicleMap]);
 
-  /* ── Alert counts (same filtered set as all cards) ───────────────────── */
+  /* -- Alert counts (same filtered set as all cards) --------------------- */
 
   const counts = useMemo(() => {
     const c: Record<AlertKey, number> = { ok: 0, watch: 0, warning: 0, critical: 0, none: 0 };
@@ -261,7 +261,7 @@ export default function DetallePage() {
     return c;
   }, [filtered]);
 
-  /* ── Derived data for distribution cards ───────────────────────────────── */
+  /* -- Derived data for distribution cards --------------------------------- */
 
   const marcaData = useMemo(() => {
     const m: Record<string, number> = {};
@@ -286,11 +286,11 @@ export default function DetallePage() {
       .filter((v) => v.tireCount > 0);
   }, [vehicles, filtered]);
 
-  /* ── Render ────────────────────────────────────────────────────────────── */
+  /* -- Render -------------------------------------------------------------- */
 
   return (
     <div className="min-h-screen bg-white">
-      {/* ── Header ────────────────────────────────────────────────────────── */}
+      {/* -- Header ---------------------------------------------------------- */}
       <div
         className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center justify-between gap-3"
         style={{
@@ -318,7 +318,7 @@ export default function DetallePage() {
         </div>
       </div>
 
-      {/* ── Content ───────────────────────────────────────────────────────── */}
+      {/* -- Content --------------------------------------------------------- */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Summary badges */}
         {!loading && (
@@ -350,7 +350,7 @@ export default function DetallePage() {
           </div>
         ) : (
           <div className="space-y-10">
-            {/* ── 1. Semaforo ─────────────────────────────────────────────── */}
+            {/* -- 1. Semaforo ----------------------------------------------- */}
             <section>
               <SectionHeader title="Semaforo" />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -359,13 +359,13 @@ export default function DetallePage() {
               </div>
             </section>
 
-            {/* ── 2. Analisis CPK ─────────────────────────────────────────── */}
+            {/* -- 2. Analisis CPK ------------------------------------------- */}
             <section>
               <SectionHeader title="Analisis CPK" />
               <TablaCpk tires={filtered as any} />
             </section>
 
-            {/* ── 3. Distribucion ─────────────────────────────────────────── */}
+            {/* -- 3. Distribucion ------------------------------------------- */}
             <section>
               <SectionHeader title="Distribucion" />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -375,7 +375,7 @@ export default function DetallePage() {
               </div>
             </section>
 
-            {/* ── 4. Analisis por Eje y Vehiculo ─────────────────────────── */}
+            {/* -- 4. Analisis por Eje y Vehiculo --------------------------- */}
             <section>
               <SectionHeader title="Analisis por Eje y Vehiculo" />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -388,7 +388,7 @@ export default function DetallePage() {
               </div>
             </section>
 
-            {/* ── 5. Tendencias ───────────────────────────────────────────── */}
+            {/* -- 5. Tendencias --------------------------------------------- */}
             <section>
               <SectionHeader title="Tendencias" />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -397,7 +397,7 @@ export default function DetallePage() {
               </div>
             </section>
 
-            {/* ── 6. Profundidad ──────────────────────────────────────────── */}
+            {/* -- 6. Profundidad -------------------------------------------- */}
             <section>
               <SectionHeader title="Profundidad" />
               <TanqueMilimetro tires={filtered} language="es" />

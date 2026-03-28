@@ -13,7 +13,7 @@ import {
   User,
 } from "lucide-react";
 
-// ── API ──────────────────────────────────────────────────────────────────────
+// -- API ----------------------------------------------------------------------
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -32,7 +32,7 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
   });
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// -- Types --------------------------------------------------------------------
 
 interface Driver {
   nombre: string;
@@ -63,7 +63,7 @@ interface Notification {
   vehicle: { placa: string; drivers: Driver[] } | null;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// -- Helpers ------------------------------------------------------------------
 
 const SEVERITY: Record<string, { color: string; bg: string; border: string; label: string }> = {
   critical: { color: "#ef4444", bg: "rgba(239,68,68,0.08)", border: "#ef4444", label: "Critica" },
@@ -86,7 +86,7 @@ function worstType(notifs: Notification[]): string {
   return "info";
 }
 
-// ── Vehicle group ────────────────────────────────────────────────────────────
+// -- Vehicle group ------------------------------------------------------------
 
 function VehicleGroup({
   vehiclePlaca,
@@ -170,7 +170,7 @@ function VehicleGroup({
   );
 }
 
-// ── Notification card ────────────────────────────────────────────────────────
+// -- Notification card --------------------------------------------------------
 
 function NotificationCard({
   notification: n,
@@ -323,7 +323,7 @@ function NotificationCard({
   );
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// -- Page ---------------------------------------------------------------------
 
 export default function NotificacionesTab() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -331,7 +331,7 @@ export default function NotificacionesTab() {
   const [companyId, setCompanyId] = useState("");
   const [userId, setUserId] = useState("");
 
-  // ── Load ─────────────────────────────────────────────────────────────────
+  // -- Load -----------------------------------------------------------------
 
   const fetchData = useCallback(async (cId: string) => {
     setLoading(true);
@@ -354,7 +354,7 @@ export default function NotificacionesTab() {
     } catch { /* */ }
   }, [fetchData]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  // -- Actions --------------------------------------------------------------
 
   const handleExecute = useCallback(async (id: string) => {
     try {
@@ -388,7 +388,7 @@ export default function NotificacionesTab() {
     } catch { /* */ }
   }, []);
 
-  // ── Summary counts ───────────────────────────────────────────────────────
+  // -- Summary counts -------------------------------------------------------
 
   const counts = useMemo(() => {
     let critical = 0, warning = 0, info = 0, executedToday = 0;
@@ -406,7 +406,7 @@ export default function NotificacionesTab() {
     return { critical, warning, info, executedToday };
   }, [notifications]);
 
-  // ── Group by vehicle ─────────────────────────────────────────────────────
+  // -- Group by vehicle -----------------------------------------------------
 
   const groups = useMemo(() => {
     const map = new Map<string, { placa: string; drivers: Driver[]; notifs: Notification[] }>();
@@ -431,7 +431,7 @@ export default function NotificacionesTab() {
     });
   }, [notifications]);
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // -- Render ---------------------------------------------------------------
 
   if (loading) {
     return (

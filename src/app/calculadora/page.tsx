@@ -21,13 +21,13 @@ import {
 import Image from 'next/image'
 import logo from "../../../public/logo_full.png"
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// --- Types -------------------------------------------------------------------
 interface Reencauche {
   id: string
   costo: string
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// --- Helpers -----------------------------------------------------------------
 const uid = () => Math.random().toString(36).slice(2, 9)
 const fmt = (n: number) =>
   n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -41,7 +41,7 @@ function daysBetween(dateStr: string) {
   return Math.max(1, Math.floor(diff / (1000 * 60 * 60 * 24)))
 }
 
-// ─── Shared input component — uses text + inputMode so user can type freely ──
+// --- Shared input component — uses text + inputMode so user can type freely --
 function InputField({
   label, value, onChange, placeholder, prefix, type = 'text', hint,
 }: {
@@ -76,7 +76,7 @@ function InputField({
   )
 }
 
-// ─── Section card ─────────────────────────────────────────────────────────────
+// --- Section card -------------------------------------------------------------
 function SectionCard({
   title, icon: Icon, children, accent = 'blue',
 }: {
@@ -103,7 +103,7 @@ function SectionCard({
   )
 }
 
-// ─── Result badge ─────────────────────────────────────────────────────────────
+// --- Result badge -------------------------------------------------------------
 function ResultBadge({
   label, value, sub, color = 'blue',
 }: {
@@ -126,7 +126,7 @@ function ResultBadge({
   )
 }
 
-// ─── Reencauche row — only costo, free-text input ────────────────────────────
+// --- Reencauche row — only costo, free-text input ----------------------------
 function ReencaucheRow({
   r, index, accentColor, onUpdate, onRemove,
 }: {
@@ -166,7 +166,7 @@ function ReencaucheRow({
   )
 }
 
-// ─── Reencauche list helpers ──────────────────────────────────────────────────
+// --- Reencauche list helpers --------------------------------------------------
 function useReencauches() {
   const [list, setList] = useState<Reencauche[]>([])
   const add = () => setList(p => [...p, { id: uid(), costo: '' }])
@@ -178,7 +178,7 @@ function useReencauches() {
   return { list, add, remove, update, totalCost, reset }
 }
 
-// ─── Add reencauche button ────────────────────────────────────────────────────
+// --- Add reencauche button ----------------------------------------------------
 function AddReencaucheBtn({ onClick, color }: { onClick: () => void; color: string }) {
   return (
     <button
@@ -191,15 +191,15 @@ function AddReencaucheBtn({ onClick, color }: { onClick: () => void; color: stri
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 // MAIN PAGE
-// ═══════════════════════════════════════════════════════════════════════════════
+// ===============================================================================
 export default function CalculadoraCPK() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'cpk' | 'cpkProyectado' | 'cpt'>('cpk')
 
-  // ── CPK Real state ──────────────────────────────────────────────────────────
+  // -- CPK Real state ----------------------------------------------------------
   const [costoInicial, setCostoInicial] = useState('')
   const [kmNueva, setKmNueva] = useState('')
   const [kmReencauches, setKmReencauches] = useState('')  // single total km for all reencauches
@@ -209,7 +209,7 @@ export default function CalculadoraCPK() {
     cpk: number; totalCosto: number; totalKm: number
   }>(null)
 
-  // ── CPK Proyectado state ────────────────────────────────────────────────────
+  // -- CPK Proyectado state ----------------------------------------------------
   const [kmActual, setKmActual] = useState('')
   const [menorMm, setMenorMm] = useState('')
   const [costoTotalProyectado, setCostoTotalProyectado] = useState('')
@@ -219,7 +219,7 @@ export default function CalculadoraCPK() {
     cpk: number; kmProyectados: number; mmUsados: number; totalCosto: number; pastMinimo: boolean
   }>(null)
 
-  // ── CPT state ───────────────────────────────────────────────────────────────
+  // -- CPT state ---------------------------------------------------------------
   const [fechaInicio, setFechaInicio] = useState('')
   const [costoInicialCpt, setCostoInicialCpt] = useState('')
   const [reparacionesCpt, setReparacionesCpt] = useState('')
@@ -235,7 +235,7 @@ export default function CalculadoraCPK() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // ── Calculators ─────────────────────────────────────────────────────────────
+  // -- Calculators -------------------------------------------------------------
   const calcularCPK = () => {
     const ci = parseNum(costoInicial)
     const km = parseNum(kmNueva)
@@ -304,7 +304,7 @@ export default function CalculadoraCPK() {
   return (
     <div className="bg-black text-white min-h-screen overflow-x-hidden w-full">
 
-      {/* ── NAV ─────────────────────────────────────────────────────────────── */}
+      {/* -- NAV --------------------------------------------------------------- */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled ? 'bg-black/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent'
@@ -363,7 +363,7 @@ export default function CalculadoraCPK() {
         )}
       </nav>
 
-      {/* ── HERO ─────────────────────────────────────────────────────────────── */}
+      {/* -- HERO --------------------------------------------------------------- */}
       <header className="pt-28 sm:pt-32 pb-10 sm:pb-14 px-4 sm:px-6 lg:px-8 w-full">
         <div className="max-w-5xl mx-auto text-center space-y-5">
           <nav aria-label="Ruta de navegación" className="flex items-center justify-center gap-2 text-sm text-gray-500">
@@ -392,7 +392,7 @@ export default function CalculadoraCPK() {
         </div>
       </header>
 
-      {/* ── TABS ─────────────────────────────────────────────────────────────── */}
+      {/* -- TABS --------------------------------------------------------------- */}
       <div className="px-4 sm:px-6 lg:px-8 w-full">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row gap-2 p-1.5 bg-white/5 border border-white/10 rounded-2xl mb-8">
@@ -414,11 +414,11 @@ export default function CalculadoraCPK() {
         </div>
       </div>
 
-      {/* ── CONTENT ──────────────────────────────────────────────────────────── */}
+      {/* -- CONTENT ------------------------------------------------------------ */}
       <main className="px-4 sm:px-6 lg:px-8 pb-24 w-full">
         <div className="max-w-5xl mx-auto space-y-6">
 
-          {/* ════════════ TAB: CPK REAL ════════════ */}
+          {/* ============ TAB: CPK REAL ============ */}
           {activeTab === 'cpk' && (
             <>
               <div className="flex gap-3 p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-sm text-gray-400">
@@ -536,7 +536,7 @@ export default function CalculadoraCPK() {
             </>
           )}
 
-          {/* ════════════ TAB: CPK PROYECTADO ════════════ */}
+          {/* ============ TAB: CPK PROYECTADO ============ */}
           {activeTab === 'cpkProyectado' && (
             <>
               <div className="flex gap-3 p-4 rounded-xl bg-orange-500/5 border border-orange-500/20 text-sm text-gray-400">
@@ -695,7 +695,7 @@ export default function CalculadoraCPK() {
             </>
           )}
 
-          {/* ════════════ TAB: CPT ════════════ */}
+          {/* ============ TAB: CPT ============ */}
           {activeTab === 'cpt' && (
             <>
               <div className="flex gap-3 p-4 rounded-xl bg-green-500/5 border border-green-500/20 text-sm text-gray-400">
@@ -845,7 +845,7 @@ export default function CalculadoraCPK() {
         </div>
       </main>
 
-      {/* ── EDUCATIONAL SECTION ──────────────────────────────────────────────── */}
+      {/* -- EDUCATIONAL SECTION ------------------------------------------------ */}
       <section
         className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent via-gray-900/50 to-transparent w-full"
         aria-labelledby="edu-heading"
@@ -884,7 +884,7 @@ export default function CalculadoraCPK() {
         </div>
       </section>
 
-      {/* ── CTA ──────────────────────────────────────────────────────────────── */}
+      {/* -- CTA ---------------------------------------------------------------- */}
       <section className="py-12 sm:py-20 px-4 sm:px-6 lg:px-8 w-full">
         <div className="max-w-3xl mx-auto">
           <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10">
@@ -911,7 +911,7 @@ export default function CalculadoraCPK() {
         </div>
       </section>
 
-      {/* ── FOOTER ───────────────────────────────────────────────────────────── */}
+      {/* -- FOOTER ------------------------------------------------------------- */}
       <footer className="border-t border-white/10 py-8 px-4 sm:px-6 lg:px-8 w-full" role="contentinfo">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">

@@ -152,7 +152,7 @@ export default function ArticleClient({ article }: { article: Article }) {
   return (
     <div className="bg-white text-gray-900 min-h-screen overflow-x-hidden w-full">
 
-      {/* ── GLOBAL ARTICLE STYLES — light theme ───────────────────────────────── */}
+      {/* -- GLOBAL ARTICLE STYLES — light theme --------------------------------- */}
       <style jsx global>{`
         .article-content {
           font-size: 1.125rem;
@@ -277,7 +277,7 @@ export default function ArticleClient({ article }: { article: Article }) {
 
       <TableWrapper />
 
-      {/* ── NAV ─────────────────────────────────────────────────────────────── */}
+      {/* -- NAV --------------------------------------------------------------- */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
@@ -373,7 +373,7 @@ export default function ArticleClient({ article }: { article: Article }) {
         )}
       </nav>
 
-      {/* ── BACK TO BLOG ─────────────────────────────────────────────────────── */}
+      {/* -- BACK TO BLOG ------------------------------------------------------- */}
       <div
         className="pt-24 sm:pt-28 pb-4 px-4 sm:px-6 lg:px-8 w-full"
         style={{ background: "linear-gradient(180deg, #f0f6fb 0%, #ffffff 100%)" }}
@@ -392,7 +392,7 @@ export default function ArticleClient({ article }: { article: Article }) {
         </div>
       </div>
 
-      {/* ── ARTICLE ──────────────────────────────────────────────────────────── */}
+      {/* -- ARTICLE ------------------------------------------------------------ */}
       <article className="px-4 sm:px-6 lg:px-8 pb-16 w-full" itemScope itemType="https://schema.org/Article">
         <div className="max-w-4xl mx-auto">
 
@@ -519,7 +519,7 @@ export default function ArticleClient({ article }: { article: Article }) {
         </div>
       </article>
 
-      {/* ── RELATED ARTICLES ─────────────────────────────────────────────────── */}
+      {/* -- RELATED ARTICLES --------------------------------------------------- */}
       {relatedArticles.length > 0 && (
         <section
           className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 w-full"
@@ -588,7 +588,7 @@ export default function ArticleClient({ article }: { article: Article }) {
         </section>
       )}
 
-      {/* ── CTA ──────────────────────────────────────────────────────────────── */}
+      {/* -- CTA ---------------------------------------------------------------- */}
       <section className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 w-full bg-white">
         <div className="max-w-3xl mx-auto">
           <div
@@ -623,7 +623,7 @@ export default function ArticleClient({ article }: { article: Article }) {
         </div>
       </section>
 
-      {/* ── FOOTER ───────────────────────────────────────────────────────────── */}
+      {/* -- FOOTER ------------------------------------------------------------- */}
       <footer
         className="border-t py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
         style={{ borderColor: "rgba(30,118,182,0.15)", backgroundColor: "#0A183A" }}
@@ -706,7 +706,7 @@ export default function ArticleClient({ article }: { article: Article }) {
         </div>
       </footer>
 
-      {/* ── SCROLL TO TOP ────────────────────────────────────────────────────── */}
+      {/* -- SCROLL TO TOP ------------------------------------------------------ */}
       {showScrollToTop && (
         <button
           onClick={scrollToTop}

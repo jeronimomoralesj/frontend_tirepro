@@ -100,7 +100,7 @@ export default function LoginPage() {
       />
 
       <div className="relative z-10">
-        {/* ── Navbar ── */}
+        {/* -- Navbar -- */}
         <nav
           className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
             isScrolled
@@ -200,7 +200,7 @@ export default function LoginPage() {
           )}
         </nav>
 
-        {/* ── Main ── */}
+        {/* -- Main -- */}
         <div className="flex flex-col lg:flex-row min-h-screen pt-20">
 
           {/* Left panel — feature showcase (desktop only) */}

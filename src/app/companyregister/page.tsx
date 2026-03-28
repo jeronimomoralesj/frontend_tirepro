@@ -149,7 +149,7 @@ export default function CompanyRegisterPage() {
     router.push(`/registeruser?companyId=${companyId}`);
   };
 
-  // ── Password Verification Step ─────────────────────────────────────────────
+  // -- Password Verification Step ---------------------------------------------
 
   if (step === "passwordVerification") {
     return (
@@ -242,7 +242,7 @@ export default function CompanyRegisterPage() {
     );
   }
 
-  // ── User Type Selection Step ───────────────────────────────────────────────
+  // -- User Type Selection Step -----------------------------------------------
 
   if (step === "userType") {
     return (
@@ -368,7 +368,7 @@ export default function CompanyRegisterPage() {
     );
   }
 
-  // ── Company Details Step ───────────────────────────────────────────────────
+  // -- Company Details Step ---------------------------------------------------
 
   const selectedOption = userTypeOptions.find((opt) => opt.id === userType);
   const IconComponent = selectedOption?.icon || Users;

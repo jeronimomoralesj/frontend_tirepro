@@ -358,12 +358,12 @@ export default function DistribuidorPage() {
   const [error,            setError]            = useState("");
   const [userName,         setUserName]         = useState("");
 
-  // ── Single selected client (not "Todos" anymore) ──────────────────────────
+  // -- Single selected client (not "Todos" anymore) --------------------------
   const [selectedClient,   setSelectedClient]   = useState<Company | null>(null);
   const [showDropdown,     setShowDropdown]      = useState(false);
   const [clientSearch,     setClientSearch]      = useState("");
 
-  // ── Per-client data ────────────────────────────────────────────────────────
+  // -- Per-client data --------------------------------------------------------
   const [notifications,    setNotifications]    = useState<Notification[]>([]);
   const [avgCpkProyectado, setAvgCpkProyectado] = useState(0);
   const [avgCptProyectado, setAvgCptProyectado] = useState(0);
@@ -383,7 +383,7 @@ export default function DistribuidorPage() {
   const [tanqueTires,      setTanqueTires]      = useState<TanqueTire[]>([]);
   const [vidaStats,        setVidaStats]        = useState({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
 
-  // ── Auth user ──────────────────────────────────────────────────────────────
+  // -- Auth user --------------------------------------------------------------
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) {
@@ -392,7 +392,7 @@ export default function DistribuidorPage() {
     }
   }, []);
 
-  // ── Fetch companies list (lightweight — just names, no counts) ─────────────
+  // -- Fetch companies list (lightweight — just names, no counts) -------------
   const fetchCompanies = useCallback(async () => {
     setLoadingCompanies(true); setError("");
     try {
@@ -423,7 +423,7 @@ export default function DistribuidorPage() {
 
   useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
-  // ── Clear charts when client changes ──────────────────────────────────────
+  // -- Clear charts when client changes --------------------------------------
   const clearClientData = useCallback(() => {
   setNotifications([]);
   setAvgCpkProyectado(0); setAvgCptProyectado(0);
@@ -435,7 +435,7 @@ export default function DistribuidorPage() {
   setVidaStats({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
 }, []);
 
-  // ── Fetch notifications for selected client ────────────────────────────────
+  // -- Fetch notifications for selected client --------------------------------
   useEffect(() => {
     if (!selectedClient) return;
     const run = async () => {
@@ -452,7 +452,7 @@ export default function DistribuidorPage() {
     run();
   }, [selectedClient]);
 
-  // ── Fetch full tire data — ONLY for the single selected client ─────────────
+  // -- Fetch full tire data — ONLY for the single selected client -------------
   useEffect(() => {
     if (!selectedClient) { clearClientData(); return; }
 
@@ -481,7 +481,7 @@ export default function DistribuidorPage() {
           )
         );
 
-        // ── KPI stats ──────────────────────────────────────────────────────
+        // -- KPI stats ------------------------------------------------------
         let sumCpk = 0, sumCpt = 0, cntCpk = 0, cntCpt = 0;
         let nueva = 0, r1 = 0, r2 = 0, r3 = 0;
 
@@ -539,7 +539,7 @@ export default function DistribuidorPage() {
         setSavingPerYear(yearlySaving);
         setSavingPct(improvementPct);
 
-        // ── Marca / Banda counts ───────────────────────────────────────────
+        // -- Marca / Banda counts -------------------------------------------
         const mCount: Record<string, number> = {};
         const bCount: Record<string, number> = {};
         tiresArr.forEach((t) => {
@@ -548,7 +548,7 @@ export default function DistribuidorPage() {
         });
         setMarcaData(mCount); setBandaData(bCount);
 
-        // ── Card-specific shapes ───────────────────────────────────────────
+        // -- Card-specific shapes -------------------------------------------
         const vehicleMap = new Map(vehiclesArr.map((v) => [v.id, v.placa]));
 
         setCpkTires(tiresArr.map((t) => ({
@@ -583,14 +583,14 @@ export default function DistribuidorPage() {
     run();
   }, [selectedClient, clearClientData]);
 
-  // ── Handle client selection ────────────────────────────────────────────────
+  // -- Handle client selection ------------------------------------------------
   const handleSelectClient = useCallback((co: Company) => {
     if (co.id === selectedClient?.id) return; // no-op if same
     clearClientData();
     setSelectedClient(co);
   }, [selectedClient, clearClientData]);
 
-  // ── Derived values ─────────────────────────────────────────────────────────
+  // -- Derived values ---------------------------------------------------------
   const totalReencauche = vidaStats.reencauche1 + vidaStats.reencauche2 + vidaStats.reencauche3;
   const pct = (n: number) => vidaStats.total > 0 ? ((n / vidaStats.total) * 100).toFixed(1) : "0.0";
 
@@ -644,7 +644,7 @@ export default function DistribuidorPage() {
           </div>
         )}
 
-        {/* ── No client selected ────────────────────────────────────────────── */}
+        {/* -- No client selected ---------------------------------------------- */}
         {loadingCompanies ? (
           <div className="flex items-center justify-center gap-2 py-20 text-[#1E76B6]">
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -654,7 +654,7 @@ export default function DistribuidorPage() {
           <NoClientSelected companies={companies} onSelect={handleSelectClient} />
         ) : (
           <>
-            {/* ── Client context bar ──────────────────────────────────────── */}
+            {/* -- Client context bar ---------------------------------------- */}
             <div
               className="flex items-center justify-between px-4 py-3 rounded-xl"
               style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.15)" }}
@@ -675,7 +675,7 @@ export default function DistribuidorPage() {
               </div>
             </div>
 
-            {/* ── KPI cards ────────────────────────────────────────────────── */}
+            {/* -- KPI cards -------------------------------------------------- */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <MetricCard
               loading={loadingCards}
@@ -710,7 +710,7 @@ export default function DistribuidorPage() {
             />
           </div>
 
-            {/* ── Row 1: Semáforo + Alerts ──────────────────────────────────── */}
+            {/* -- Row 1: Semáforo + Alerts ------------------------------------ */}
             <PairRow>
               {loadingCards ? <SkeletonCard label="Cargando semáforo…" /> : (
                 <ScrollCard><SemaforoTabla vehicles={allVehicles} tires={allTires} /></ScrollCard>
@@ -828,7 +828,7 @@ export default function DistribuidorPage() {
 </Card>
             </PairRow>
 
-            {/* ── Row 2: Vida distribution + PorMarca ──────────────────────── */}
+            {/* -- Row 2: Vida distribution + PorMarca ------------------------ */}
             <PairRow>
               <Card className="p-4 sm:p-5 flex flex-col">
                 <CardTitle icon={Package} title="Distribución de Neumáticos" />
@@ -858,7 +858,7 @@ export default function DistribuidorPage() {
                 Object.keys(marcaData).length > 0 ? <PorMarca groupData={marcaData} /> : <SkeletonCard label="Sin datos de marcas" />}
             </PairRow>
 
-            {/* ── Row 3: PorBanda + TablaCpk ───────────────────────────────── */}
+            {/* -- Row 3: PorBanda + TablaCpk --------------------------------- */}
             <PairRow>
               {loadingCards ? <SkeletonCard label="Cargando bandas…" /> :
                 Object.keys(bandaData).length > 0 ? <PorBanda groupData={bandaData} /> : <SkeletonCard label="Sin datos de bandas" />}
@@ -868,13 +868,13 @@ export default function DistribuidorPage() {
               )}
             </PairRow>
 
-            {/* ── Row 4: TanqueMilimetro + ReencaucheHistorico ─────────────── */}
+            {/* -- Row 4: TanqueMilimetro + ReencaucheHistorico --------------- */}
             <PairRow>
               {loadingCards ? <SkeletonCard label="Cargando datos…" /> : <TanqueMilimetro tires={tanqueTires} language="es" />}
               {loadingCards ? <SkeletonCard label="Cargando histórico…" /> : <ReencaucheHistorico tires={reencaucheTires} language="es" />}
             </PairRow>
 
-            {/* ── Row 5: HistoricChart + DetallesLlantas ────────────────────── */}
+            {/* -- Row 5: HistoricChart + DetallesLlantas ---------------------- */}
             <PairRow>
               {loadingCards ? <SkeletonCard label="Cargando gráfico…" /> : <HistoricChart tires={historicTires} language="es" />}
               {loadingCards ? <SkeletonCard label="Cargando detalles…" /> : (

@@ -101,7 +101,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
     }
   }, []);
 
-  // ── File handling ──────────────────────────────────────────────────────────
+  // -- File handling ----------------------------------------------------------
   function pickFile(f: File | null) {
     if (!f) return;
     if (!f.name.match(/\.(xlsx|xls)$/i)) {
@@ -119,7 +119,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
     pickFile(e.dataTransfer.files?.[0] ?? null);
   }
 
-  // ── Download template ──────────────────────────────────────────────────────
+  // -- Download template ------------------------------------------------------
   function handleDownloadTemplate() {
     const blob = new Blob([FIELDS.join("\t")], { type: "text/tab-separated-values" });
     const url  = URL.createObjectURL(blob);
@@ -129,7 +129,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
     document.body.removeChild(a); URL.revokeObjectURL(url);
   }
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // -- Submit -----------------------------------------------------------------
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(undefined);
@@ -188,7 +188,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
     <div style={{ background: "white" }}>
       <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5">
 
-        {/* ── Result banners ────────────────────────────────────────────── */}
+        {/* -- Result banners ---------------------------------------------- */}
         {message && messageType === "error" && (
           <div
             className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
@@ -214,7 +214,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
           </div>
         )}
 
-        {/* ── Instructions accordion ────────────────────────────────────── */}
+        {/* -- Instructions accordion -------------------------------------- */}
         <Card>
           <button
             type="button"
@@ -292,7 +292,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
           )}
         </Card>
 
-        {/* ── Upload form ───────────────────────────────────────────────── */}
+        {/* -- Upload form ------------------------------------------------- */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <Card className="p-4 sm:p-5">
             <CardTitle

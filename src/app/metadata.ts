@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 
-// ─── Base URL ─────────────────────────────────────────────────────────────────
+// --- Base URL -----------------------------------------------------------------
 const BASE_URL = 'https://www.tirepro.com.co'
 
-// ─── Shared keywords list ─────────────────────────────────────────────────────
+// --- Shared keywords list -----------------------------------------------------
 // Ordered by search volume / commercial intent (Colombia + Latam)
 const KEYWORDS = [
   // Primary — highest volume, highest intent
@@ -35,29 +35,29 @@ const KEYWORDS = [
   'gestión llantas Latam',
 ].join(', ')
 
-// ─── Main landing page metadata ───────────────────────────────────────────────
+// --- Main landing page metadata -----------------------------------------------
 export const metadata: Metadata = {
-  // ── Title ──────────────────────────────────────────────────────────────────
+  // -- Title ------------------------------------------------------------------
   // Target: ~60 chars. Primary keyword first, brand at end.
   title: {
     default: 'TirePro | Software de Gestión de Llantas con IA para Flotas en Colombia',
     template: '%s | TirePro — Gestión de Llantas con IA',
   },
 
-  // ── Description ────────────────────────────────────────────────────────────
+  // -- Description ------------------------------------------------------------
   // Target: ~155 chars. Includes CPK, reencauche, Colombia, fleet types.
   description:
     'TirePro reduce el CPK de llantas para flotas de camiones, buses y tractocamiones en Colombia. Inspecciones digitales, alertas de reencauche con IA y reportes de ahorro en pesos colombianos. Comienza gratis.',
 
-  // ── Keywords ───────────────────────────────────────────────────────────────
+  // -- Keywords ---------------------------------------------------------------
   keywords: KEYWORDS,
 
-  // ── Authors & Creator ──────────────────────────────────────────────────────
+  // -- Authors & Creator ------------------------------------------------------
   authors: [{ name: 'TirePro Colombia', url: BASE_URL }],
   creator: 'TirePro',
   publisher: 'TirePro Colombia',
 
-  // ── Canonical ──────────────────────────────────────────────────────────────
+  // -- Canonical --------------------------------------------------------------
   alternates: {
     canonical: BASE_URL,
     languages: {
@@ -66,7 +66,7 @@ export const metadata: Metadata = {
     },
   },
 
-  // ── Robots ─────────────────────────────────────────────────────────────────
+  // -- Robots -----------------------------------------------------------------
   robots: {
     index:               true,
     follow:              true,
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     },
   },
 
-  // ── Open Graph ─────────────────────────────────────────────────────────────
+  // -- Open Graph -------------------------------------------------------------
   openGraph: {
     type:        'website',
     url:         BASE_URL,
@@ -98,7 +98,7 @@ export const metadata: Metadata = {
     ],
   },
 
-  // ── Twitter / X Cards ──────────────────────────────────────────────────────
+  // -- Twitter / X Cards ------------------------------------------------------
   twitter: {
     card:        'summary_large_image',
     site:        '@TireProColombia',
@@ -109,14 +109,14 @@ export const metadata: Metadata = {
     images: [`${BASE_URL}/og-image.png`],
   },
 
-  // ── Verification ───────────────────────────────────────────────────────────
+  // -- Verification -----------------------------------------------------------
   // Add your actual verification codes here
   verification: {
     google: 'YOUR_GOOGLE_SEARCH_CONSOLE_TOKEN',
     // yandex: 'YOUR_YANDEX_TOKEN',
   },
 
-  // ── App links ──────────────────────────────────────────────────────────────
+  // -- App links --------------------------------------------------------------
   appLinks: {
     ios: {
       url:      'https://apps.apple.com/us/app/tirepro/id6741497732',
@@ -128,7 +128,7 @@ export const metadata: Metadata = {
     },
   },
 
-  // ── Additional meta ────────────────────────────────────────────────────────
+  // -- Additional meta --------------------------------------------------------
   category: 'technology',
   classification: 'Business Software',
   referrer: 'origin-when-cross-origin',
@@ -151,7 +151,7 @@ export const metadata: Metadata = {
   },
 }
 
-// ─── Per-route metadata helpers ───────────────────────────────────────────────
+// --- Per-route metadata helpers -----------------------------------------------
 // Use these in app/blog/[slug]/page.tsx, app/calculadora/page.tsx, etc.
 
 export function blogPostMetadata(params: {

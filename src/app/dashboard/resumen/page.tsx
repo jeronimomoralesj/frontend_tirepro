@@ -37,7 +37,7 @@ import PorMarca from "../cards/PorMarca";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 
-// ── Chart.js registration ────────────────────────────────────────────────────
+// -- Chart.js registration ----------------------------------------------------
 
 ChartJS.register(
   CategoryScale,
@@ -50,7 +50,7 @@ ChartJS.register(
   ChartDataLabels,
 );
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// -- Types --------------------------------------------------------------------
 
 type RawCosto = { valor: number; fecha: string | Date };
 type RawInspeccion = { fecha: string | Date; cpkProyectado: number | null };
@@ -77,7 +77,7 @@ type RawTire = {
   vehicle?: { placa: string } | null;
 };
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// -- Constants ----------------------------------------------------------------
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -96,7 +96,7 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
   });
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// -- Helpers ------------------------------------------------------------------
 
 function monthLabel(d: Date): string {
   return d.toLocaleDateString("es-CO", { month: "short", year: "2-digit" });
@@ -120,7 +120,7 @@ function toMonthKey(fecha: string | Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// ── Card wrapper (matches existing card components: blue header + body) ───────
+// -- Card wrapper (matches existing card components: blue header + body) -------
 
 function CardWrap({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -145,7 +145,7 @@ function CardWrap({ title, description, children }: { title: string; description
   );
 }
 
-// ── Datalabels helper: show label at first, mid, last non-null points ────────
+// -- Datalabels helper: show label at first, mid, last non-null points --------
 
 function keyPointLabels(data: (number | null)[]) {
   const indices: number[] = [];
@@ -175,7 +175,7 @@ export default function ResumenPage() {
   });
   const [filterSearch, setFilterSearch] = useState("");
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // -- Fetch ------------------------------------------------------------------
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -193,7 +193,7 @@ export default function ResumenPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  // ── Derived data ───────────────────────────────────────────────────────────
+  // -- Derived data -----------------------------------------------------------
 
   const months = useMemo(() => getLast12Months(), []);
   const now = new Date();
@@ -329,7 +329,7 @@ export default function ResumenPage() {
       .slice(0, 5);
   }, [filtered]);
 
-  // ── Shared line chart builder ──────────────────────────────────────────────
+  // -- Shared line chart builder ----------------------------------------------
 
   function makeLineOpts(
     data: (number | null)[],
@@ -396,7 +396,7 @@ export default function ResumenPage() {
     };
   }
 
-  // ── Export ──────────────────────────────────────────────────────────────────
+  // -- Export ------------------------------------------------------------------
 
   const handleExport = useCallback(() => {
     const style = document.createElement("style");
@@ -409,11 +409,11 @@ export default function ResumenPage() {
   const rankColors = ["#D4AF37", "#94A3B8", "#CD7F32", "#348CCB", "#348CCB"];
   const chartKey = `${Object.values(filterValues).join("-")}-${filterSearch}-${filtered.length}`;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // -- Render -----------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-white">
-      {/* ── HEADER ────────────────────────────────────────────────────────── */}
+      {/* -- HEADER ---------------------------------------------------------- */}
       <div
         className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center justify-between gap-3"
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}
@@ -440,7 +440,7 @@ export default function ResumenPage() {
         </button>
       </div>
 
-      {/* ── CONTENT ───────────────────────────────────────────────────────── */}
+      {/* -- CONTENT --------------------------------------------------------- */}
       <div ref={contentRef} className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
         {error && (
           <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "rgba(10,24,58,0.06)", border: "1px solid rgba(10,24,58,0.2)" }}>

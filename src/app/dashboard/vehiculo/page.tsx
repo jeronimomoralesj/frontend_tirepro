@@ -1189,7 +1189,7 @@ export default function VehiculoPage() {
         )}
       </div>
 
-      {/* ── Modals ── */}
+      {/* -- Modals -- */}
 
       {showCreate && (
         <Modal title="Nuevo Vehículo" onClose={() => { setShowCreate(false); setCreateDrivers([]); }}>

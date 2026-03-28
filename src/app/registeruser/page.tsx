@@ -86,7 +86,7 @@ function RegisterForm() {
     } catch { console.error("Failed to copy"); }
   };
 
-  // ── Shared nav ────────────────────────────────────────────────────────────
+  // -- Shared nav ------------------------------------------------------------
 
   const NavBar = ({ children }: { children?: React.ReactNode }) => (
     <nav className="border-b border-gray-200 bg-white/90 backdrop-blur-xl shadow-sm">
@@ -106,7 +106,7 @@ function RegisterForm() {
     </nav>
   );
 
-  // ── Success state ─────────────────────────────────────────────────────────
+  // -- Success state ---------------------------------------------------------
 
   if (userId) {
     return (
@@ -184,7 +184,7 @@ function RegisterForm() {
     );
   }
 
-  // ── Registration form ─────────────────────────────────────────────────────
+  // -- Registration form -----------------------------------------------------
 
   const inputStyle = {
     border: "1.5px solid rgba(30,118,182,0.2)",

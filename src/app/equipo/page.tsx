@@ -53,7 +53,7 @@ export default function Equipo() {
   return (
     <div className="bg-white text-gray-900 min-h-screen overflow-x-hidden w-full">
 
-      {/* ── NAV ─────────────────────────────────────────────────────────────── */}
+      {/* -- NAV --------------------------------------------------------------- */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
@@ -127,7 +127,7 @@ export default function Equipo() {
         )}
       </nav>
 
-      {/* ── HERO ─────────────────────────────────────────────────────────────── */}
+      {/* -- HERO --------------------------------------------------------------- */}
       <header className="pt-32 sm:pt-36 pb-10 sm:pb-14 px-4 sm:px-6 lg:px-8 w-full bg-white">
         <div className="max-w-5xl mx-auto">
           {/* Breadcrumb */}
@@ -150,7 +150,7 @@ export default function Equipo() {
         </div>
       </header>
 
-      {/* ── FUNDADORES ────────────────────────────────────────────────────────── */}
+      {/* -- FUNDADORES ---------------------------------------------------------- */}
       <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 w-full bg-[#F8FAFC]">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
@@ -214,7 +214,7 @@ export default function Equipo() {
         </div>
       </section>
 
-      {/* ── CTA ──────────────────────────────────────────────────────────────── */}
+      {/* -- CTA ---------------------------------------------------------------- */}
       <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 w-full bg-[#0A183A]">
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
@@ -236,7 +236,7 @@ export default function Equipo() {
         </div>
       </section>
 
-      {/* ── FOOTER ───────────────────────────────────────────────────────────── */}
+      {/* -- FOOTER ------------------------------------------------------------- */}
       <footer
         className="border-t py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
         style={{ borderColor: 'rgba(30,118,182,0.15)', backgroundColor: '#0A183A' }}

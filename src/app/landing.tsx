@@ -49,7 +49,7 @@ interface Article {
   hashtags: string[]
 }
 
-// ─── useInView hook ────────────────────────────────────────────────────────────
+// --- useInView hook ------------------------------------------------------------
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -64,7 +64,7 @@ function useInView(threshold = 0.15) {
   return { ref, visible }
 }
 
-// ─── Feature data ──────────────────────────────────────────────────────────────
+// --- Feature data --------------------------------------------------------------
 const SHOWCASE_FEATURES = [
   {
     id:       'recomendaciones',
@@ -100,7 +100,7 @@ const SHOWCASE_FEATURES = [
   },
 ]
 
-// ─── FeatureShowcase component ─────────────────────────────────────────────────
+// --- FeatureShowcase component -------------------------------------------------
 function FeatureShowcase() {
   const [activeTab, setActiveTab] = useState(0)
   const { ref, visible } = useInView(0.1)
@@ -593,7 +593,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
   return (
     <div className="bg-white text-gray-900 min-h-screen overflow-x-hidden w-full" style={{ fontFamily: "'DM Sans', 'Helvetica Neue', Arial, sans-serif" }}>
 
-      {/* ── NAVBAR (unchanged) ─────────────────────────────────────────────── */}
+      {/* -- NAVBAR (unchanged) ----------------------------------------------- */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
@@ -669,7 +669,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         )}
       </nav>
 
-      {/* ── HERO ─────────────────────────────────────────────────────────────── */}
+      {/* -- HERO --------------------------------------------------------------- */}
       <header
         ref={heroRef}
         className="relative w-full overflow-hidden"
@@ -851,7 +851,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </header>
 
-      {/* ── TRUST / STATS BAR ─────────────────────────────────────────────────── */}
+      {/* -- TRUST / STATS BAR --------------------------------------------------- */}
       <section
         ref={statsRef}
         className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 w-full"
@@ -888,7 +888,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── AGENTS ──────────────────────────────────────────────────────────── */}
+      {/* -- AGENTS ------------------------------------------------------------ */}
       <section
         className="relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 w-full overflow-hidden"
         style={{ background: '#030d1f' }}
@@ -1023,7 +1023,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ─────────────────────────────────────────────────────── */}
+      {/* -- HOW IT WORKS ------------------------------------------------------- */}
       <section
         id="producto"
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
@@ -1091,10 +1091,10 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── FEATURE SHOWCASE ──────────────────────────────────────────────────── */}
+      {/* -- FEATURE SHOWCASE ---------------------------------------------------- */}
       <FeatureShowcase />
 
-      {/* ── PLATFORM POWER ──────────────────────────────────────────────────── */}
+      {/* -- PLATFORM POWER ---------------------------------------------------- */}
       <section
         className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 w-full"
         style={{ background: '#ffffff' }}
@@ -1192,7 +1192,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── WHY TIREPRO (comparison) ─────────────────────────────────────────── */}
+      {/* -- WHY TIREPRO (comparison) ------------------------------------------- */}
       <section
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
         style={{ background: 'linear-gradient(180deg, #f7fafd 0%, #ffffff 100%)' }}
@@ -1256,7 +1256,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ──────────────────────────────────────────────────────── */}
+      {/* -- TESTIMONIALS -------------------------------------------------------- */}
       <section
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
         style={{ background: '#0A183A' }}
@@ -1320,7 +1320,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── BLOG ──────────────────────────────────────────────────────────────── */}
+      {/* -- BLOG ---------------------------------------------------------------- */}
       <section
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
         style={{ background: 'linear-gradient(180deg, #f7fafd 0%, #ffffff 100%)' }}
@@ -1408,7 +1408,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── MOBILE APP ────────────────────────────────────────────────────────── */}
+      {/* -- MOBILE APP ---------------------------------------------------------- */}
       <section
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full bg-white"
         aria-labelledby="mobile-app-heading"
@@ -1517,7 +1517,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── FAQ ───────────────────────────────────────────────────────────────── */}
+      {/* -- FAQ ----------------------------------------------------------------- */}
       <section
         id="preguntas"
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
@@ -1599,7 +1599,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── CALCULADORA ───────────────────────────────────────────────────────── */}
+      {/* -- CALCULADORA --------------------------------------------------------- */}
       <section
         id="calculadora"
         className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 w-full"
@@ -1633,7 +1633,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── FEATURES ─────────────────────────────────────────────────────────── */}
+      {/* -- FEATURES ----------------------------------------------------------- */}
       <section
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full bg-white"
         aria-labelledby="features-heading"
@@ -1710,7 +1710,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── FINAL CTA ─────────────────────────────────────────────────────────── */}
+      {/* -- FINAL CTA ----------------------------------------------------------- */}
       <section
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full bg-white"
         aria-labelledby="cta-heading"
@@ -1796,7 +1796,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
-      {/* ── JSON-LD STRUCTURED DATA ───────────────────────────────────────────── */}
+      {/* -- JSON-LD STRUCTURED DATA --------------------------------------------- */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -1957,7 +1957,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         }}
       />
 
-      {/* ── HIDDEN SEO CONTENT (visible to crawlers, sr-only visually) ────────── */}
+      {/* -- HIDDEN SEO CONTENT (visible to crawlers, sr-only visually) ---------- */}
       <section aria-label="Información sobre TirePro" className="sr-only">
         <h2>Software de gestión de llantas con IA para flotas en Colombia</h2>
         <p>
@@ -1999,7 +1999,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </p>
       </section>
 
-      {/* ── FOOTER (unchanged) ────────────────────────────────────────────────── */}
+      {/* -- FOOTER (unchanged) -------------------------------------------------- */}
       <footer
         className="border-t py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
         style={{ borderColor: 'rgba(30,118,182,0.15)', backgroundColor: '#0A183A' }}
@@ -2074,7 +2074,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </footer>
 
-      {/* ── WHATSAPP FLOATING ─────────────────────────────────────────────────── */}
+      {/* -- WHATSAPP FLOATING --------------------------------------------------- */}
       <a
         href="https://wa.me/3151349122?text=Hola,%20me%20gustaría%20saber%20más%20sobre%20TirePro"
         target="_blank"

@@ -7,7 +7,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
 
 const BASE_URL = 'https://tirepro.com.co'
 
-// ─── Helper — safe date that never throws ────────────────────────────────────
+// --- Helper — safe date that never throws ------------------------------------
 function safeDate(value: string | null | undefined): Date {
   if (!value) return new Date()
   const d = new Date(value)
@@ -15,7 +15,7 @@ function safeDate(value: string | null | undefined): Date {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // ── Fetch blog posts ────────────────────────────────────────────────────────
+  // -- Fetch blog posts --------------------------------------------------------
   let posts: any[] = []
   try {
     const res = await fetch(`${API_URL}/blog`, {
@@ -38,7 +38,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ? safeDate(sortedPosts[0].updatedAt || sortedPosts[0].createdAt)
       : new Date()
 
-  // ── Static pages ────────────────────────────────────────────────────────────
+  // -- Static pages ------------------------------------------------------------
   // Priority scale:
   //  1.0 → homepage (most important)
   //  0.9 → high-conversion pages (register, calculadora)
@@ -106,7 +106,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]
 
-  // ── Dynamic blog post entries ───────────────────────────────────────────────
+  // -- Dynamic blog post entries -----------------------------------------------
   const postEntries: MetadataRoute.Sitemap = sortedPosts
     .filter((p) => p.slug && p.slug.trim() !== '' && p.published !== false)
     .map((post) => ({

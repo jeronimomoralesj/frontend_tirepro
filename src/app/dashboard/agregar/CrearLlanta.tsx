@@ -743,7 +743,7 @@ export default function TirePage() {
 
         <form id="tire-form" onSubmit={handleSubmit} className="space-y-4">
 
-          {/* ── Vehicle selector ───────────────────────────────────────────── */}
+          {/* -- Vehicle selector --------------------------------------------- */}
           <div
             className="rounded-2xl p-5"
             style={{
@@ -766,7 +766,7 @@ export default function TirePage() {
             />
           </div>
 
-          {/* ── Identification ─────────────────────────────────────────────── */}
+          {/* -- Identification ----------------------------------------------- */}
           <div
             className="rounded-2xl p-5 space-y-4"
             style={{
@@ -868,7 +868,7 @@ export default function TirePage() {
             </div>
           </div>
 
-          {/* ── Technical specs ────────────────────────────────────────────── */}
+          {/* -- Technical specs ---------------------------------------------- */}
           <div
             className="rounded-2xl p-5 space-y-4"
             style={{
@@ -969,7 +969,7 @@ export default function TirePage() {
             </div>
           </div>
 
-          {/* ── Operational data ───────────────────────────────────────────── */}
+          {/* -- Operational data --------------------------------------------- */}
           <div
             className="rounded-2xl p-5 space-y-4"
             style={{
@@ -1015,7 +1015,7 @@ export default function TirePage() {
             </div>
           </div>
 
-          {/* ── Submit ─────────────────────────────────────────────────────── */}
+          {/* -- Submit ------------------------------------------------------- */}
           <button
             type="submit"
             disabled={submitting}

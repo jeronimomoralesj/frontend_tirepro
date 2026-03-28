@@ -5,13 +5,13 @@ import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import logo from "../../../../public/logo_full.png";
 
-// ── API ──────────────────────────────────────────────────────────────────────
+// -- API ----------------------------------------------------------------------
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// -- Types --------------------------------------------------------------------
 
 interface NotificationData {
   id: string;
@@ -26,7 +26,7 @@ interface NotificationData {
   tire: { placa: string; marca: string; posicion: number } | null;
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// -- Page ---------------------------------------------------------------------
 
 export default function DriverActionPage() {
   const params = useParams();
@@ -74,7 +74,7 @@ export default function DriverActionPage() {
     setConfirming(false);
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // -- Render -----------------------------------------------------------------
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#f8fafc" }}>

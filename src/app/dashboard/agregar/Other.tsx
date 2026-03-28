@@ -147,7 +147,7 @@ const EventosPage: React.FC = () => {
   const [showModal,      setShowModal]      = useState(false);
   const [saving,         setSaving]         = useState(false);
 
-  // ── Search ─────────────────────────────────────────────────────────────────
+  // -- Search -----------------------------------------------------------------
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setSuccess(""); setVehicle(null); setTires([]);
@@ -174,7 +174,7 @@ const EventosPage: React.FC = () => {
     }
   }
 
-  // ── Modal ──────────────────────────────────────────────────────────────────
+  // -- Modal ------------------------------------------------------------------
   function openModal(tire: Tire) {
     setSelectedTire(tire);
     setNewEventText("");
@@ -189,7 +189,7 @@ const EventosPage: React.FC = () => {
     setModalError("");
   }
 
-  // ── Submit event ───────────────────────────────────────────────────────────
+  // -- Submit event -----------------------------------------------------------
   async function handleAddEvent() {
     if (!newEventText.trim()) { setModalError("Ingrese el texto del evento."); return; }
     if (!selectedTire) return;
@@ -232,7 +232,7 @@ const EventosPage: React.FC = () => {
     <div style={{ background: "white" }}>
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5">
 
-        {/* ── Error banner ──────────────────────────────────────────────── */}
+        {/* -- Error banner ------------------------------------------------ */}
         {error && (
           <div
             className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
@@ -244,7 +244,7 @@ const EventosPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Success banner ─────────────────────────────────────────────── */}
+        {/* -- Success banner ----------------------------------------------- */}
         {success && (
           <div
             className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
@@ -256,7 +256,7 @@ const EventosPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Search card ───────────────────────────────────────────────── */}
+        {/* -- Search card ------------------------------------------------- */}
         <Card className="p-4 sm:p-5">
           <CardTitle icon={Search} title="Buscar Vehículo" sub="Ingrese la placa para cargar las llantas" />
           <form onSubmit={handleSearch} className="flex gap-3">
@@ -286,7 +286,7 @@ const EventosPage: React.FC = () => {
           </form>
         </Card>
 
-        {/* ── Vehicle info ──────────────────────────────────────────────── */}
+        {/* -- Vehicle info ------------------------------------------------ */}
         {vehicle && (
           <Card className="p-4 sm:p-5">
             <CardTitle icon={CheckCircle} title="Vehículo Encontrado" />
@@ -312,7 +312,7 @@ const EventosPage: React.FC = () => {
           </Card>
         )}
 
-        {/* ── Tire grid ─────────────────────────────────────────────────── */}
+        {/* -- Tire grid --------------------------------------------------- */}
         {tires.length > 0 && (
           <div>
             <p className="text-xs font-black text-[#0A183A] uppercase tracking-wide mb-3">
@@ -402,7 +402,7 @@ const EventosPage: React.FC = () => {
         )}
       </div>
 
-      {/* ── Modal ─────────────────────────────────────────────────────────── */}
+      {/* -- Modal ----------------------------------------------------------- */}
       {showModal && selectedTire && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"

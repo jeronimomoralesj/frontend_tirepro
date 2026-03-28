@@ -9,7 +9,7 @@ import Image from 'next/image'
 import logo from "../../../public/logo_text.png"
 import logoTire from "../../../public/logo_tire.png"
 
-// ── Translations ──────────────────────────────────────────────────────────────
+// -- Translations --------------------------------------------------------------
 
 const translations = {
   en: {
@@ -76,7 +76,7 @@ const translations = {
   }
 }
 
-// ── Popup ─────────────────────────────────────────────────────────────────────
+// -- Popup ---------------------------------------------------------------------
 
 const Popup = ({ isOpen, onClose, type, t }: { isOpen: boolean; onClose: () => void; type: string | null; t: typeof translations['es'] }) => {
   useEffect(() => {
@@ -133,7 +133,7 @@ const Popup = ({ isOpen, onClose, type, t }: { isOpen: boolean; onClose: () => v
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// -- Page ----------------------------------------------------------------------
 
 const ContactPage = () => {
   const [language, setLanguage] = useState('es')
@@ -227,7 +227,7 @@ const ContactPage = () => {
         t={t}
       />
 
-      {/* ── Navbar — matches landing page exactly ── */}
+      {/* -- Navbar — matches landing page exactly -- */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
@@ -344,7 +344,7 @@ const ContactPage = () => {
         )}
       </nav>
 
-      {/* ── Hero / Contact Section ── */}
+      {/* -- Hero / Contact Section -- */}
       <section
         className="relative min-h-screen flex items-center pt-20"
         style={{ background: "linear-gradient(160deg, #f0f6fb 0%, #ffffff 55%, #e8f3fa 100%)" }}
@@ -558,7 +558,7 @@ const ContactPage = () => {
         </div>
       </section>
 
-      {/* ── Footer ── */}
+      {/* -- Footer -- */}
       <footer
         className="border-t py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
         style={{ borderColor: 'rgba(30,118,182,0.15)', backgroundColor: '#0A183A' }}

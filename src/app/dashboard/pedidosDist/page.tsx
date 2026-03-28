@@ -7,7 +7,7 @@ import {
   BarChart3, Calendar, Package,
 } from "lucide-react";
 
-// ── API ──────────────────────────────────────────────────────────────────────
+// -- API ----------------------------------------------------------------------
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -26,7 +26,7 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
   });
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// -- Types --------------------------------------------------------------------
 
 interface OrderItem {
   tireId?: string;
@@ -67,7 +67,7 @@ interface PurchaseOrder {
   company?: { id: string; name: string; profileImage?: string };
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// -- Helpers ------------------------------------------------------------------
 
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
@@ -97,12 +97,12 @@ function matchFilter(status: string, tab: FilterTab): boolean {
   return status === "completada" || status === "rechazada";
 }
 
-// ── Input classes ────────────────────────────────────────────────────────────
+// -- Input classes ------------------------------------------------------------
 
 const inputCls =
   "w-full px-3 py-2 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
 
-// ── Order card ───────────────────────────────────────────────────────────────
+// -- Order card ---------------------------------------------------------------
 
 function OrderCard({
   order,
@@ -435,9 +435,9 @@ function OrderCard({
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
+// ==============================================================================
 // Page
-// ══════════════════════════════════════════════════════════════════════════════
+// ==============================================================================
 
 export default function PedidosDistPage() {
   const router = useRouter();

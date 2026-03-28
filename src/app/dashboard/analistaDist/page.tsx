@@ -338,7 +338,7 @@ const IntegratedAnalysisPageDist: React.FC = () => {
   const [searchError,    setSearchError]    = useState("");
   const [searchLoading,  setSearchLoading]  = useState(false);
 
-  // ── Fetch distributor clients on mount ─────────────────────────────────────
+  // -- Fetch distributor clients on mount -------------------------------------
   useEffect(() => {
     authFetch(`${API_BASE}/companies/me/clients`)
       .then(r => r.ok ? r.json() : [])
@@ -352,7 +352,7 @@ const IntegratedAnalysisPageDist: React.FC = () => {
       .catch(console.error);
   }, []);
 
-  // ── Search ─────────────────────────────────────────────────────────────────
+  // -- Search -----------------------------------------------------------------
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setSearchError(""); setAnalysis(null);
@@ -380,7 +380,7 @@ const IntegratedAnalysisPageDist: React.FC = () => {
     <div className="min-h-screen" style={{ background: "white" }}>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-5">
 
-        {/* ── Page header ───────────────────────────────────────────────── */}
+        {/* -- Page header ------------------------------------------------- */}
         <div
           className="px-4 sm:px-6 py-5 rounded-2xl"
           style={{
@@ -433,7 +433,7 @@ const IntegratedAnalysisPageDist: React.FC = () => {
           )}
         </div>
 
-        {/* ── Search card ───────────────────────────────────────────────── */}
+        {/* -- Search card ------------------------------------------------- */}
         <Card className="p-4 sm:p-5">
           <CardTitle
             icon={Activity}
@@ -481,7 +481,7 @@ const IntegratedAnalysisPageDist: React.FC = () => {
           )}
         </Card>
 
-        {/* ── Results ───────────────────────────────────────────────────── */}
+        {/* -- Results ----------------------------------------------------- */}
         {analysis && (
           <div className="space-y-4">
             {/* Results header */}
@@ -529,7 +529,7 @@ const IntegratedAnalysisPageDist: React.FC = () => {
           </div>
         )}
 
-        {/* ── Empty state ───────────────────────────────────────────────── */}
+        {/* -- Empty state ------------------------------------------------- */}
         {!analysis && !searchLoading && (
           <Card className="p-10 flex flex-col items-center justify-center text-center">
             <div className="p-4 rounded-2xl mb-4" style={{ background: "rgba(30,118,182,0.06)" }}>

@@ -501,7 +501,7 @@ const Posicion: React.FC = () => {
   const [error,    setError]    = useState("");
   const [success,  setSuccess]  = useState("");
 
-  // ── Inventory fetch on mount ───────────────────────────────────────────────
+  // -- Inventory fetch on mount -----------------------------------------------
   useEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem("user") ?? "{}");
@@ -524,7 +524,7 @@ const Posicion: React.FC = () => {
     }
   }, []);
 
-  // ── Search ─────────────────────────────────────────────────────────────────
+  // -- Search -----------------------------------------------------------------
   async function handleSearch(e?: React.FormEvent) {
     e?.preventDefault();
     setError(""); setSuccess(""); setVehicle(null); setAllTires([]);
@@ -560,14 +560,14 @@ const Posicion: React.FC = () => {
     }
   }
 
-  // ── Computed ───────────────────────────────────────────────────────────────
+  // -- Computed ---------------------------------------------------------------
   const assigned   = allTires.filter(t => t.position && t.position !== "0");
   const unassigned = allTires.filter(t => !t.position || t.position === "0");
 
   const hasChanges = allTires.some(t => (t.position ?? null) !== originalState[t.id]) ||
     Object.keys(originalState).some(id => !allTires.find(t => t.id === id));
 
-  // ── Drop handler ──────────────────────────────────────────────────────────
+  // -- Drop handler ----------------------------------------------------------
   const handleDrop = useCallback((tireId: string, newPosition: string) => {
     const fromInventory = companyInventory.find(t => t.id === tireId);
 
@@ -630,7 +630,7 @@ const Posicion: React.FC = () => {
     }
   }, [allTires, companyInventory]);
 
-  // ── Save ──────────────────────────────────────────────────────────────────
+  // -- Save ------------------------------------------------------------------
   async function handleSave() {
     if (!vehicle) return;
     setSaving(true); setError(""); setSuccess("");
@@ -688,7 +688,7 @@ const Posicion: React.FC = () => {
     }
   }
 
-  // ── Cancel ─────────────────────────────────────────────────────────────────
+  // -- Cancel -----------------------------------------------------------------
   function handleCancel() { handleSearch(); }
 
   // ==========================================================================
@@ -700,7 +700,7 @@ const Posicion: React.FC = () => {
       <div style={{ background: "white" }}>
         <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5">
 
-          {/* ── Alerts ──────────────────────────────────────────────────── */}
+          {/* -- Alerts ---------------------------------------------------- */}
           {error && (
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
               style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}>
@@ -718,7 +718,7 @@ const Posicion: React.FC = () => {
             </div>
           )}
 
-          {/* ── Search ──────────────────────────────────────────────────── */}
+          {/* -- Search ---------------------------------------------------- */}
           <Card className="p-4 sm:p-5">
             <CardTitle icon={Search} title="Buscar Vehículo" sub="Ingrese la placa para cargar las llantas" />
             <form onSubmit={handleSearch} className="flex gap-3">
@@ -744,7 +744,7 @@ const Posicion: React.FC = () => {
             </form>
           </Card>
 
-          {/* ── Vehicle info ─────────────────────────────────────────────── */}
+          {/* -- Vehicle info ----------------------------------------------- */}
           {vehicle && (
             <Card className="p-4 sm:p-5">
               <CardTitle icon={CheckCircle} title="Vehículo Encontrado" />
@@ -762,7 +762,7 @@ const Posicion: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Available tires (unassigned vehicle tires) ──────────────── */}
+          {/* -- Available tires (unassigned vehicle tires) ---------------- */}
           {unassigned.length > 0 && (
             <Card className="p-4 sm:p-5">
               <CardTitle icon={Package} title="Llantas Sin Posición" sub="Arrastra al diagrama para asignar" />
@@ -774,7 +774,7 @@ const Posicion: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Company inventory ────────────────────────────────────────── */}
+          {/* -- Company inventory ------------------------------------------ */}
           {companyInventory.length > 0 && (
             <Card className="p-4 sm:p-5">
               <div className="flex items-center justify-between mb-4">
@@ -818,19 +818,19 @@ const Posicion: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Vehicle diagram ──────────────────────────────────────────── */}
+          {/* -- Vehicle diagram -------------------------------------------- */}
           {vehicle && (
             <VehicleDiagram tires={allTires} onDrop={(id, pos) => handleDrop(id, pos)} />
           )}
 
-          {/* ── Unassign zone ────────────────────────────────────────────── */}
+          {/* -- Unassign zone ---------------------------------------------- */}
           {vehicle && (
             <Card className="p-4 sm:p-5">
               <UnassignZone onDrop={(id) => handleDrop(id, "none")} />
             </Card>
           )}
 
-          {/* ── Alert legend ─────────────────────────────────────────────── */}
+          {/* -- Alert legend ----------------------------------------------- */}
           {allTires.some(t => t.alertLevel && t.alertLevel !== "ok") && (
             <Card className="p-4 sm:p-5">
               <CardTitle icon={Gauge} title="Leyenda de Alertas" />
@@ -846,7 +846,7 @@ const Posicion: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Action buttons ───────────────────────────────────────────── */}
+          {/* -- Action buttons --------------------------------------------- */}
           {vehicle && (
             <div className="flex flex-wrap gap-3 pb-6">
               <button

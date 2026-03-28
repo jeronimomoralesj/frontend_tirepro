@@ -221,7 +221,7 @@ const DesechosStats: React.FC = () => {
     run();
   }, []);
 
-  // ── Aggregations ───────────────────────────────────────────────────────────
+  // -- Aggregations -----------------------------------------------------------
   const groupBy = (keyFn: (d: DesechoData) => string, valueFn: (d: DesechoData) => number, agg: "average" | "sum") => {
     const map: Record<string, number[]> = {};
     desechos.forEach((d) => { const k = keyFn(d); (map[k] ??= []).push(valueFn(d)); });
@@ -250,7 +250,7 @@ const DesechosStats: React.FC = () => {
     [desechos]
   );
 
-  // ── Loading / error ────────────────────────────────────────────────────────
+  // -- Loading / error --------------------------------------------------------
   if (loading) {
     return (
       <div className="min-h-64 flex flex-col items-center justify-center gap-3">
@@ -272,7 +272,7 @@ const DesechosStats: React.FC = () => {
     );
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // -- Render -----------------------------------------------------------------
   return (
     <div className="space-y-4 sm:space-y-5">
 
