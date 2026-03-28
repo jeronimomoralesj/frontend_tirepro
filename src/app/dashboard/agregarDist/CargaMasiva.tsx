@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   FilePlus, Upload, Download, Info, ChevronDown,
-  X, AlertTriangle, CheckCircle, Loader2, Layers,
+  X, AlertTriangle, CheckCircle, Loader2,
 } from "lucide-react";
 
 // =============================================================================
@@ -226,76 +226,51 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
   // ==========================================================================
 
   return (
-    <div className="min-h-screen" style={{ background: "white" }}>
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-5">
+    <div style={{ background: "white" }}>
+      <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5">
 
-        {/* ── Page header ───────────────────────────────────────────────── */}
-        <div
-          className="px-4 sm:px-6 py-5 rounded-2xl"
-          style={{
-            background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)",
-            boxShadow: "0 8px 32px rgba(10,24,58,0.22)",
-          }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
-                <Layers className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-black text-white text-lg leading-none tracking-tight">
-                  Carga Masiva de Llantas
-                </h1>
-                <p className="text-xs text-white/60 mt-0.5">
-                  Sube tu archivo Excel para importar llantas
-                </p>
-              </div>
-            </div>
+        {/* ── Company selector ───────────────────────────────────────────── */}
+        {companies.length > 0 && (
+          <div className="relative flex justify-end" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowDropdown(v => !v)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-80"
+              style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(52,140,203,0.2)", color: "#0A183A" }}
+            >
+              <span className="max-w-[140px] truncate">
+                {selectedCompany === "Todos" ? "Seleccionar cliente" : selectedCompany}
+              </span>
+              <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
+            </button>
 
-            {/* Company selector — only shown when distributor has clients */}
-            {companies.length > 0 && (
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowDropdown(v => !v)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-80"
-                  style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)" }}
-                >
-                  <span className="max-w-[140px] truncate">
-                    {selectedCompany === "Todos" ? "Seleccionar cliente" : selectedCompany}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
-                </button>
-
-                {showDropdown && (
-                  <div
-                    className="absolute right-0 mt-2 w-64 rounded-2xl overflow-hidden z-50"
+            {showDropdown && (
+              <div
+                className="absolute right-0 mt-10 w-64 rounded-2xl overflow-hidden z-50"
+                style={{
+                  background: "white",
+                  border: "1px solid rgba(52,140,203,0.15)",
+                  boxShadow: "0 8px 32px rgba(10,24,58,0.12)",
+                }}
+              >
+                {companyOptions.map(name => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => { setSelectedCompany(name); setShowDropdown(false); }}
+                    className="w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[rgba(30,118,182,0.06)]"
                     style={{
-                      background: "white",
-                      border: "1px solid rgba(52,140,203,0.15)",
-                      boxShadow: "0 8px 32px rgba(10,24,58,0.12)",
+                      fontWeight: selectedCompany === name ? 800 : 500,
+                      color: selectedCompany === name ? "#1E76B6" : "#0A183A",
                     }}
                   >
-                    {companyOptions.map(name => (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() => { setSelectedCompany(name); setShowDropdown(false); }}
-                        className="w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[rgba(30,118,182,0.06)]"
-                        style={{
-                          fontWeight: selectedCompany === name ? 800 : 500,
-                          color: selectedCompany === name ? "#1E76B6" : "#0A183A",
-                        }}
-                      >
-                        {name === "Todos" ? "— Mi empresa —" : name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                    {name === "Todos" ? "— Mi empresa —" : name}
+                  </button>
+                ))}
               </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* ── Result banners ────────────────────────────────────────────── */}
         {message && messageType === "error" && (

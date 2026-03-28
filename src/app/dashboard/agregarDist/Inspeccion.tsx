@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Search,
   Clock,
@@ -21,8 +21,10 @@ import {
   User,
   ChevronDown,
   ChevronUp,
+  Zap,
 } from "lucide-react";
 import jsPDF from "jspdf";
+import FastMode from "./FastMode";
 
 // =============================================================================
 // Constants
@@ -398,6 +400,141 @@ function ExtrasPanel({
 }
 
 // =============================================================================
+// Vehicle diagram for inspection — click a position to inspect that tire
+// =============================================================================
+
+function InspectionDiagram({
+  tires,
+  tireUpdates,
+  selectedTireId,
+  onSelect,
+}: {
+  tires: Tire[];
+  tireUpdates: Record<string, TireUpdate>;
+  selectedTireId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  // Build axle layout from tire positions
+  const { layout, tireMap } = useMemo(() => {
+    const map: Record<number, Tire> = {};
+    tires.forEach((t) => { if (t.posicion > 0) map[t.posicion] = t; });
+    const maxPos = Math.max(0, ...tires.map((t) => t.posicion));
+
+    let axles: number[][];
+    if (maxPos <= 2)       axles = [[1, 2]];
+    else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
+    else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
+    else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
+    else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
+    else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
+    else {
+      // Fallback: pairs of 2
+      axles = [];
+      for (let i = 1; i <= maxPos; i += 2) axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
+    }
+
+    return { layout: axles, tireMap: map };
+  }, [tires]);
+
+  function tireStatus(pos: number): "done" | "partial" | "empty" | "none" {
+    const tire = tireMap[pos];
+    if (!tire) return "none";
+    const u = tireUpdates[tire.id];
+    if (!u) return "empty";
+    if (u.profundidadInt !== "" && u.profundidadCen !== "" && u.profundidadExt !== "") return "done";
+    if (u.profundidadInt !== "" || u.profundidadCen !== "" || u.profundidadExt !== "") return "partial";
+    return "empty";
+  }
+
+  const statusColor: Record<string, string> = {
+    done: "#22c55e",
+    partial: "#f97316",
+    empty: "rgba(52,140,203,0.3)",
+    none: "rgba(10,24,58,0.08)",
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-2">
+      {layout.map((axle, axleIdx) => {
+        const mid = Math.ceil(axle.length / 2);
+        const left = axle.slice(0, mid);
+        const right = axle.slice(mid);
+        return (
+          <div key={axleIdx} className="flex items-center gap-0">
+            {/* Left tires */}
+            <div className="flex items-center gap-0.5">
+              {left.map((pos) => {
+                const tire = tireMap[pos];
+                const status = tireStatus(pos);
+                const isSelected = tire && tire.id === selectedTireId;
+                return (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => tire && onSelect(tire.id)}
+                    disabled={!tire}
+                    className="relative flex flex-col items-center justify-center rounded-xl transition-all duration-200 disabled:opacity-30"
+                    style={{
+                      width: 56, height: 56,
+                      background: isSelected ? "rgba(30,118,182,0.15)" : "rgba(10,24,58,0.02)",
+                      border: isSelected ? "2px solid #1E76B6" : `2px solid ${statusColor[status]}`,
+                      boxShadow: isSelected ? "0 0 12px rgba(30,118,182,0.3)" : "none",
+                    }}
+                  >
+                    <span className="text-[9px] font-black" style={{ color: isSelected ? "#1E76B6" : "#0A183A" }}>P{pos}</span>
+                    {tire && <span className="text-[7px] font-bold truncate max-w-[44px]" style={{ color: "#348CCB" }}>{tire.marca}</span>}
+                    {status === "done" && <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-white" />}
+                    {status === "partial" && <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-400 border-2 border-white" />}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Axle bar */}
+            <div className="h-4 mx-1.5 rounded-full flex items-center justify-center" style={{ background: "#0A183A", minWidth: 40, width: 50 }}>
+              <div className="h-1 w-8 rounded-full" style={{ background: "#1E76B6" }} />
+            </div>
+            {/* Right tires */}
+            <div className="flex items-center gap-0.5">
+              {right.map((pos) => {
+                const tire = tireMap[pos];
+                const status = tireStatus(pos);
+                const isSelected = tire && tire.id === selectedTireId;
+                return (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => tire && onSelect(tire.id)}
+                    disabled={!tire}
+                    className="relative flex flex-col items-center justify-center rounded-xl transition-all duration-200 disabled:opacity-30"
+                    style={{
+                      width: 56, height: 56,
+                      background: isSelected ? "rgba(30,118,182,0.15)" : "rgba(10,24,58,0.02)",
+                      border: isSelected ? "2px solid #1E76B6" : `2px solid ${statusColor[status]}`,
+                      boxShadow: isSelected ? "0 0 12px rgba(30,118,182,0.3)" : "none",
+                    }}
+                  >
+                    <span className="text-[9px] font-black" style={{ color: isSelected ? "#1E76B6" : "#0A183A" }}>P{pos}</span>
+                    {tire && <span className="text-[7px] font-bold truncate max-w-[44px]" style={{ color: "#348CCB" }}>{tire.marca}</span>}
+                    {status === "done" && <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-white" />}
+                    {status === "partial" && <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-400 border-2 border-white" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-1">
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-green-500" /><span className="text-[9px] text-gray-400">Completa</span></div>
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-orange-400" /><span className="text-[9px] text-gray-400">Parcial</span></div>
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full" style={{ background: "rgba(52,140,203,0.3)" }} /><span className="text-[9px] text-gray-400">Pendiente</span></div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Tire inspection card
 // =============================================================================
 
@@ -637,7 +774,8 @@ function ExportModal({
 // Page
 // =============================================================================
 
-export default function InspeccionPage() {
+export default function InspeccionPage({ language }: { language?: string }) {
+  const [mode, setMode] = useState<"normal" | "fast">("normal");
   const [placaInput,      setPlacaInput]      = useState("");
   const [newKilometraje,  setNewKilometraje]  = useState(0);
   const [inspectorName,   setInspectorName]   = useState("");   // NEW
@@ -654,6 +792,7 @@ export default function InspeccionPage() {
   const [error,           setError]           = useState("");
   const [success,         setSuccess]         = useState("");
   const [showExport,      setShowExport]      = useState(false);
+  const [selectedTireId,  setSelectedTireId]  = useState<string | null>(null);
   const [inspectionData,  setInspectionData]  = useState<InspectionData | null>(null);
 
   // ===========================================================================
@@ -729,6 +868,9 @@ export default function InspeccionPage() {
         };
       });
       setTireUpdates(init);
+      // Auto-select the first tire for diagram mode
+      const firstTire = [...tData, ...uTires].find((t) => t.posicion > 0) ?? tData[0] ?? uTires[0];
+      if (firstTire) setSelectedTireId(firstTire.id);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error inesperado");
     } finally {
@@ -1041,32 +1183,35 @@ export default function InspeccionPage() {
   const kmDiff     = vehicle ? Number(newKilometraje) - vehicle.kilometrajeActual : 0;
 
   return (
-    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+    <div style={{ background: "#ffffff" }}>
+      <div className="max-w-3xl mx-auto space-y-4">
 
-      {/* Top bar */}
-      <div
-        className="sticky top-0 z-40 px-6 py-4 flex items-center gap-3"
-        style={{
-          background:    "rgba(255,255,255,0.92)",
-          backdropFilter:"blur(12px)",
-          borderBottom:  "1px solid rgba(52,140,203,0.15)",
-        }}
-      >
-        <div
-          className="p-2 rounded-xl"
-          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-        >
-          <Gauge className="w-5 h-5 text-white" />
+        {/* ── Mode toggle ─────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2">
+          {(["normal", "fast"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                background: mode === m ? "linear-gradient(135deg, #0A183A, #173D68)" : "white",
+                color: mode === m ? "#fff" : "#173D68",
+                border: mode === m ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)",
+              }}
+            >
+              {m === "fast" && <Zap className="w-3.5 h-3.5" />}
+              {m === "normal" ? "Normal" : "Modo Rápido"}
+            </button>
+          ))}
+          {mode === "fast" && (
+            <span className="text-[10px] text-[#348CCB] ml-1">Crea vehículos y llantas sobre la marcha</span>
+          )}
         </div>
-        <div>
-          <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
-            Inspección de Neumáticos
-          </h1>
-          <p className="text-xs text-[#348CCB] mt-0.5">Registre mediciones y genere reportes</p>
-        </div>
-      </div>
 
-      <div className="px-4 py-8 max-w-3xl mx-auto space-y-4">
+        {mode === "fast" ? (
+          <FastMode language={language ?? "es"} />
+        ) : (
+        <>
 
         {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
         {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
@@ -1186,13 +1331,22 @@ export default function InspeccionPage() {
                   title="Neumáticos — Vehículo Principal"
                   subtitle={`${vehicle!.placa.toUpperCase()} · ${tires.length} llantas`}
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {tires.map((t) => (
+
+                {/* Vehicle diagram — click to select */}
+                <InspectionDiagram
+                  tires={tires}
+                  tireUpdates={tireUpdates}
+                  selectedTireId={selectedTireId}
+                  onSelect={setSelectedTireId}
+                />
+
+                {/* Selected tire inspection form */}
+                {selectedTireId && tires.find((t) => t.id === selectedTireId) && (
+                  <div className="mt-4">
                     <TireInspectionCard
-                      key={t.id}
-                      tire={t}
+                      tire={tires.find((t) => t.id === selectedTireId)!}
                       updates={
-                        tireUpdates[t.id] ?? {
+                        tireUpdates[selectedTireId] ?? {
                           profundidadInt: "",
                           profundidadCen: "",
                           profundidadExt: "",
@@ -1200,11 +1354,38 @@ export default function InspeccionPage() {
                           image:          null,
                         }
                       }
-                      onChange={handleInputChange}
+                      onChange={(id, field, value) => {
+                        handleInputChange(id, field, value);
+                        // Auto-advance to next tire when all 3 depths are filled
+                        if (field === "profundidadExt" || field === "profundidadCen" || field === "profundidadInt") {
+                          const updated = { ...tireUpdates[id], [field]: value };
+                          if (updated.profundidadInt !== "" && updated.profundidadCen !== "" && updated.profundidadExt !== "") {
+                            const currentIdx = tires.findIndex((t) => t.id === id);
+                            if (currentIdx < tires.length - 1) {
+                              setTimeout(() => setSelectedTireId(tires[currentIdx + 1].id), 300);
+                            }
+                          }
+                        }
+                      }}
                       isUnion={false}
                     />
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {/* Fallback: show all if no tire selected */}
+                {!selectedTireId && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    {tires.map((t) => (
+                      <TireInspectionCard
+                        key={t.id}
+                        tire={t}
+                        updates={tireUpdates[t.id] ?? { profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null }}
+                        onChange={handleInputChange}
+                        isUnion={false}
+                      />
+                    ))}
+                  </div>
+                )}
               </Card>
             )}
 
@@ -1271,8 +1452,6 @@ export default function InspeccionPage() {
           </Card>
         )}
 
-      </div>
-
       {showExport && (
         <ExportModal
           onClose={()  => setShowExport(false)}
@@ -1280,6 +1459,11 @@ export default function InspeccionPage() {
           loading={pdfLoading}
         />
       )}
+
+        </>
+        )}
+
+      </div>
     </div>
   );
 }

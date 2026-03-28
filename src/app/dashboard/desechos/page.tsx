@@ -1,12 +1,16 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Bar } from "react-chartjs-2";
+import { Bar, Line, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Filler,
   Tooltip,
   Legend,
 } from "chart.js";
@@ -30,9 +34,13 @@ import {
   ChevronRight,
   Camera,
   ZoomIn,
+  Zap,
 } from "lucide-react";
+import FastModeDesechos from "./FastModeDesechos";
+import FilterFab from "../components/FilterFab";
+import type { FilterOption } from "../components/FilterFab";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend);
 
 // =============================================================================
 // Types
@@ -51,11 +59,15 @@ interface TireWithDesecho {
   desechos?: DesechoData | null;
   marca?: string;
   placa?: string;
+  eje?: string;
+  dimension?: string;
 }
 
 type EnrichedDesecho = DesechoData & {
   tireId: string;
   marca: string;
+  eje: string;
+  dimension: string;
   vehiclePlaca: string;
 };
 
@@ -140,6 +152,12 @@ function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: stri
   );
 }
 
+function fmtCompact(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(".0", "")}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n.toLocaleString("es-CO")}`;
+}
+
 function MetricCard({
   icon: Icon, title, value, sub, variant = "primary",
 }: {
@@ -152,19 +170,21 @@ function MetricCard({
     mid:       "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)",
     accent:    "linear-gradient(135deg, #348CCB 0%, #1E76B6 100%)",
   };
+  const strVal = String(value);
+  const textSize = strVal.length > 10 ? "text-lg" : strVal.length > 7 ? "text-xl" : "text-2xl";
   return (
     <div
-      className="rounded-2xl p-4 sm:p-5 flex flex-col justify-between"
-      style={{ background: bgs[variant], minHeight: 100, boxShadow: "0 4px 20px rgba(10,24,58,0.18)" }}
+      className="rounded-2xl p-4 sm:p-5 flex flex-col justify-between overflow-hidden"
+      style={{ background: bgs[variant], minHeight: 110, boxShadow: "0 4px 20px rgba(10,24,58,0.18)" }}
     >
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-3">
         <div className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.15)" }}>
           <Icon className="w-3.5 h-3.5 text-white" />
         </div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">{title}</p>
       </div>
-      <p className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none break-all">{value}</p>
-      {sub && <p className="text-xs font-bold text-white/60 mt-0.5">{sub}</p>}
-      <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mt-2">{title}</p>
+      <p className={`${textSize} font-black text-white tracking-tight leading-none truncate`}>{value}</p>
+      {sub && <p className="text-[10px] font-medium text-white/50 mt-1.5 truncate">{sub}</p>}
     </div>
   );
 }
@@ -253,59 +273,74 @@ function Dropdown({
 // Chart Card
 // =============================================================================
 
-function ChartCard({ title, icon: Icon, data }: { title: string; icon: React.ElementType; data: Record<string, number> }) {
-  const hasData = Object.keys(data).length > 0;
-  const labels = Object.keys(data).map((k) => (k.includes("-") ? formatMonth(k) : k));
-  const values = Object.values(data);
+const DOUGHNUT_COLORS = ["#0A183A", "#1E76B6", "#348CCB", "#5BA3D9", "#8BBDE0", "#f97316", "#22c55e", "#a855f7", "#ef4444", "#eab308"];
+
+function DoughnutCard({ title, icon: Icon, data }: { title: string; icon: React.ElementType; data: Record<string, number> }) {
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+  const hasData = entries.length > 0;
+  const total = entries.reduce((s, [, v]) => s + v, 0);
 
   return (
     <Card className="overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
-        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
-          <Icon className="w-4 h-4 text-[#1E76B6]" />
-        </div>
+        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}><Icon className="w-4 h-4 text-[#1E76B6]" /></div>
+        <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
+      </div>
+      <div className="p-5">
+        {hasData ? (
+          <div className="flex items-center gap-6">
+            <div className="w-48 h-48 flex-shrink-0">
+              <Doughnut
+                data={{ labels: entries.map(([k]) => k), datasets: [{ data: entries.map(([, v]) => v), backgroundColor: DOUGHNUT_COLORS.slice(0, entries.length), borderWidth: 0, hoverOffset: 6 }] }}
+                options={{ responsive: true, maintainAspectRatio: true, cutout: "65%", plugins: { legend: { display: false }, tooltip: { backgroundColor: "#0A183A", padding: 10, cornerRadius: 8, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed} (${Math.round((ctx.parsed / total) * 100)}%)` } } } }}
+              />
+            </div>
+            <div className="flex-1 space-y-1.5 max-h-48 overflow-y-auto">
+              {entries.map(([label, val], i) => (
+                <div key={label} className="flex items-center gap-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: DOUGHNUT_COLORS[i % DOUGHNUT_COLORS.length] }} />
+                  <span className="flex-1 text-[#0A183A] truncate">{label}</span>
+                  <span className="font-bold text-[#0A183A]">{val}</span>
+                  <span className="text-gray-400 w-8 text-right">{Math.round((val / total) * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="h-48 flex flex-col items-center justify-center text-gray-300 gap-2">
+            <BarChart3 className="w-10 h-10 opacity-40" />
+            <p className="text-sm text-gray-400">Sin datos</p>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function ChartCard({ title, icon: Icon, data, formatValue }: { title: string; icon: React.ElementType; data: Record<string, number>; formatValue?: (n: number) => string }) {
+  const hasData = Object.keys(data).length > 0;
+  const labels = Object.keys(data).map((k) => (k.includes("-") ? formatMonth(k) : k));
+  const values = Object.values(data);
+  const fmt = formatValue ?? ((n: number) => String(n));
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}><Icon className="w-4 h-4 text-[#1E76B6]" /></div>
         <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
       </div>
       <div className="p-5">
         {hasData ? (
           <div className="h-64">
             <Bar
-              data={{
-                labels,
-                datasets: [{
-                  label: title,
-                  data: values,
-                  backgroundColor: "rgba(30,118,182,0.75)",
-                  hoverBackgroundColor: "#0A183A",
-                  borderRadius: 6,
-                  barPercentage: 0.65,
-                  categoryPercentage: 0.75,
-                }],
-              }}
+              data={{ labels, datasets: [{ label: title, data: values, backgroundColor: "rgba(30,118,182,0.75)", hoverBackgroundColor: "#0A183A", borderRadius: 6, barPercentage: 0.65, categoryPercentage: 0.75 }] }}
               options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    backgroundColor: "#0A183A",
-                    titleColor: "white",
-                    bodyColor: "rgba(255,255,255,0.8)",
-                    cornerRadius: 8,
-                    displayColors: false,
-                    padding: 10,
-                  },
-                },
+                responsive: true, maintainAspectRatio: false,
+                animation: { duration: 800, easing: "easeOutQuart" },
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: "#0A183A", padding: 12, cornerRadius: 8, displayColors: false, callbacks: { label: (ctx) => fmt(ctx.parsed.y) } } },
                 scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: { color: "rgba(10,24,58,0.4)", font: { size: 11 } },
-                    grid: { color: "rgba(52,140,203,0.08)" },
-                  },
-                  x: {
-                    ticks: { color: "rgba(10,24,58,0.4)", font: { size: 10 }, maxRotation: 40 },
-                    grid: { display: false },
-                  },
+                  y: { beginAtZero: true, grid: { color: "rgba(52,140,203,0.06)" }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, callback: (v) => fmt(Number(v)) } },
+                  x: { grid: { display: false }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, maxRotation: 40 } },
                 },
               }}
             />
@@ -316,6 +351,123 @@ function ChartCard({ title, icon: Icon, data }: { title: string; icon: React.Ele
             <p className="text-sm text-gray-400">Sin datos para mostrar</p>
           </div>
         )}
+      </div>
+    </Card>
+  );
+}
+
+function LineChartCard({ title, icon: Icon, data, formatValue, color = "#1E76B6" }: {
+  title: string; icon: React.ElementType; data: Record<string, number>; formatValue?: (n: number) => string; color?: string;
+}) {
+  const entries = Object.entries(data);
+  const hasData = entries.length > 0;
+  const isSingle = entries.length === 1;
+  const labels = entries.map(([k]) => (k.includes("-") ? formatMonth(k) : k));
+  const values = entries.map(([, v]) => v);
+  const fmt = formatValue ?? ((n: number) => String(n));
+
+  const chartHeader = (
+    <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+      <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+        <Icon className="w-4 h-4 text-[#1E76B6]" />
+      </div>
+      <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
+    </div>
+  );
+
+  if (!hasData) {
+    return (
+      <Card className="overflow-hidden">
+        {chartHeader}
+        <div className="p-5 h-64 flex flex-col items-center justify-center text-gray-300 gap-2">
+          <BarChart3 className="w-10 h-10 opacity-40" />
+          <p className="text-sm text-gray-400">Sin datos para mostrar</p>
+        </div>
+      </Card>
+    );
+  }
+
+  // Single data point: show as a styled bar instead of a lonely dot
+  if (isSingle) {
+    return (
+      <Card className="overflow-hidden">
+        {chartHeader}
+        <div className="p-5 h-64">
+          <Bar
+            data={{
+              labels,
+              datasets: [{
+                label: title,
+                data: values,
+                backgroundColor: color,
+                hoverBackgroundColor: "#0A183A",
+                borderRadius: 8,
+                barPercentage: 0.4,
+              }],
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: { duration: 800, easing: "easeOutQuart" },
+              plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor: "#0A183A", padding: 12, cornerRadius: 8, displayColors: false, callbacks: { label: (ctx) => fmt(ctx.parsed.y) } },
+              },
+              scales: {
+                y: { grid: { color: "rgba(52,140,203,0.06)" }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, callback: (v) => fmt(Number(v)) } },
+                x: { grid: { display: false }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 } } },
+              },
+            }}
+          />
+        </div>
+      </Card>
+    );
+  }
+
+  // Multiple points: area line chart with gradient fill
+  return (
+    <Card className="overflow-hidden">
+      {chartHeader}
+      <div className="p-5 h-64">
+        <Line
+          data={{
+            labels,
+            datasets: [{
+              label: title,
+              data: values,
+              borderColor: color,
+              borderWidth: 2.5,
+              pointBackgroundColor: color,
+              pointRadius: 0,
+              pointHoverRadius: 5,
+              fill: "origin",
+              backgroundColor: (ctx) => {
+                const { ctx: c } = ctx.chart;
+                const h = c.canvas.clientHeight || 256;
+                const g = c.createLinearGradient(0, 0, 0, h);
+                g.addColorStop(0, color === "#f97316" ? "rgba(249,115,22,0.30)" : "rgba(30,118,182,0.30)");
+                g.addColorStop(0.6, color === "#f97316" ? "rgba(249,115,22,0.08)" : "rgba(30,118,182,0.08)");
+                g.addColorStop(1, "rgba(255,255,255,0)");
+                return g;
+              },
+              tension: 0.4,
+            }],
+          }}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 10, right: 10 } },
+            animation: { duration: 800, easing: "easeOutQuart" },
+            plugins: {
+              legend: { display: false },
+              tooltip: { backgroundColor: "#0A183A", padding: 12, cornerRadius: 8, titleFont: { size: 12, weight: "bold" }, bodyFont: { size: 12 }, displayColors: false, callbacks: { label: (ctx) => fmt(ctx.parsed.y) } },
+            },
+            scales: {
+              y: { grid: { color: "rgba(52,140,203,0.06)" }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, callback: (v) => fmt(Number(v)) } },
+              x: { grid: { display: false }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, maxRotation: 0 } },
+            },
+          }}
+        />
       </div>
     </Card>
   );
@@ -467,15 +619,15 @@ function ImageLightbox({ urls, onClose }: { urls: string[]; onClose: () => void 
 // =============================================================================
 
 const DesechosPage: React.FC = () => {
+  const [mode, setMode] = useState<"stats" | "fast">("stats");
   const [allDesechos, setAllDesechos] = useState<EnrichedDesecho[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Filters
-  const [selectedYear, setSelectedYear] = useState("todos");
-  const [selectedMonth, setSelectedMonth] = useState("todos");
-  const [selectedCausal, setSelectedCausal] = useState("todos");
+  // Filters (unified for FilterFab)
+  const [fv, setFv] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const setFilter = (key: string, value: string) => setFv((p) => ({ ...p, [key]: value }));
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -484,71 +636,74 @@ const DesechosPage: React.FC = () => {
   const [lightboxUrls, setLightboxUrls] = useState<string[] | null>(null);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      try {
-        const companyId = getCompanyIdFromToken();
-        if (!companyId) throw new Error("No se pudo obtener la empresa del token");
-        const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
-        if (!res.ok) throw new Error("Error al obtener neumáticos");
-        const tires: TireWithDesecho[] = await res.json();
-        const desechos: EnrichedDesecho[] = [];
-        tires.forEach((tire) => {
-          if (tire.desechos) {
-            desechos.push({
-              ...tire.desechos,
-              tireId: tire.id,
-              marca: tire.marca ?? "—",
-              vehiclePlaca: tire.placa ?? "—",
-            });
-          }
-        });
-        setAllDesechos(desechos);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Error cargando datos");
-      } finally {
-        setLoading(false);
-      }
-    };
-    run();
+  const fetchDesechos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const companyId = getCompanyIdFromToken();
+      if (!companyId) throw new Error("No se pudo obtener la empresa del token");
+      const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
+      if (!res.ok) throw new Error("Error al obtener neumáticos");
+      const tires: TireWithDesecho[] = await res.json();
+      const desechos: EnrichedDesecho[] = [];
+      tires.forEach((tire) => {
+        if (tire.desechos) {
+          desechos.push({
+            ...tire.desechos,
+            tireId: tire.id,
+            marca: tire.marca ?? "—",
+            vehiclePlaca: tire.placa ?? "—",
+            eje: tire.eje ?? "—",
+            dimension: tire.dimension ?? "—",
+          });
+        }
+      });
+      setAllDesechos(desechos);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error cargando datos");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // ── Filter options ────────────────────────────────────────────────────────
-  const yearOptions = useMemo(() => {
+  useEffect(() => {
+    fetchDesechos();
+  }, []);
+
+  // ── Filter options (for FilterFab) ───────────────────────────────────────
+  const filterOptions: FilterOption[] = useMemo(() => {
     const years = [...new Set(allDesechos.map((d) => new Date(d.fecha).getFullYear().toString()))].sort().reverse();
-    return [{ value: "todos", label: "Todos los años" }, ...years.map((y) => ({ value: y, label: y }))];
-  }, [allDesechos]);
-
-  const monthOptions = useMemo(() => [
-    { value: "todos", label: "Todos los meses" },
-    { value: "01", label: "Enero" }, { value: "02", label: "Febrero" },
-    { value: "03", label: "Marzo" }, { value: "04", label: "Abril" },
-    { value: "05", label: "Mayo" }, { value: "06", label: "Junio" },
-    { value: "07", label: "Julio" }, { value: "08", label: "Agosto" },
-    { value: "09", label: "Septiembre" }, { value: "10", label: "Octubre" },
-    { value: "11", label: "Noviembre" }, { value: "12", label: "Diciembre" },
-  ], []);
-
-  const causalOptions = useMemo(() => {
-    const cs = [...new Set(allDesechos.map((d) => d.causales.trim()))].sort();
-    return [{ value: "todos", label: "Todas las causales" }, ...cs.map((c) => ({ value: c, label: c }))];
+    const marcas = [...new Set(allDesechos.map((d) => d.marca))].sort();
+    const ejes = [...new Set(allDesechos.map((d) => d.eje))].sort();
+    const dims = [...new Set(allDesechos.map((d) => d.dimension))].sort();
+    const causales = [...new Set(allDesechos.map((d) => d.causales.trim()))].sort();
+    return [
+      { key: "year", label: "Año", options: ["Todos", ...years] },
+      { key: "month", label: "Mes", options: ["Todos", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"] },
+      { key: "marca", label: "Marca", options: ["Todos", ...marcas] },
+      { key: "eje", label: "Eje", options: ["Todos", ...ejes] },
+      { key: "dimension", label: "Dimensión", options: ["Todos", ...dims] },
+      { key: "causal", label: "Causal", options: ["Todos", ...causales] },
+    ];
   }, [allDesechos]);
 
   // ── Filtered data ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const fy = fv.year, fm = fv.month, fc = fv.causal, fma = fv.marca, fe = fv.eje, fd = fv.dimension;
     return allDesechos.filter((d) => {
       const date = new Date(d.fecha);
       const year = date.getFullYear().toString();
       const month = String(date.getMonth() + 1).padStart(2, "0");
-      if (selectedYear !== "todos" && year !== selectedYear) return false;
-      if (selectedMonth !== "todos" && month !== selectedMonth) return false;
-      if (selectedCausal !== "todos" && d.causales.trim() !== selectedCausal) return false;
+      if (fy && fy !== "Todos" && year !== fy) return false;
+      if (fm && fm !== "Todos" && month !== fm) return false;
+      if (fc && fc !== "Todos" && d.causales.trim() !== fc) return false;
+      if (fma && fma !== "Todos" && d.marca !== fma) return false;
+      if (fe && fe !== "Todos" && d.eje !== fe) return false;
+      if (fd && fd !== "Todos" && d.dimension !== fd) return false;
       if (q && !d.vehiclePlaca.toLowerCase().includes(q) && !d.tireId.toLowerCase().includes(q) && !d.marca.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [allDesechos, selectedYear, selectedMonth, selectedCausal, searchQuery]);
+  }, [allDesechos, fv, searchQuery]);
 
   useEffect(() => { setCurrentPage(1); }, [filtered]);
 
@@ -579,6 +734,11 @@ const DesechosPage: React.FC = () => {
     [groupBy]
   );
 
+  const totalRemanenteByMonth = useMemo(
+    () => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanente, "sum"),
+    [groupBy]
+  );
+
   const avgMilimetrosByMonth = useMemo(
     () => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.milimetrosDesechados, "average"),
     [groupBy]
@@ -594,11 +754,10 @@ const DesechosPage: React.FC = () => {
     [filtered]
   );
 
-  const hasActiveFilters = selectedYear !== "todos" || selectedMonth !== "todos" || selectedCausal !== "todos" || searchQuery.trim() !== "";
+  const hasActiveFilters = Object.values(fv).some((v) => v && v !== "Todos") || searchQuery.trim() !== "";
 
   const clearFilters = () => {
-    setSelectedYear("todos"); setSelectedMonth("todos");
-    setSelectedCausal("todos"); setSearchQuery("");
+    setFv({}); setSearchQuery("");
   };
 
   // ── Pagination ────────────────────────────────────────────────────────────
@@ -786,72 +945,39 @@ const DesechosPage: React.FC = () => {
           </div>
         </div>
 
-        <Card className="p-3 sm:p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
-                <Filter className="w-3.5 h-3.5 text-[#1E76B6]" />
-              </div>
-              <span className="text-xs font-black text-[#0A183A] uppercase tracking-wide">Filtros</span>
-            </div>
+        {/* Mode toggle */}
+        <div className="flex items-center gap-2">
+          {(["stats", "fast"] as const).map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: mode === m ? "linear-gradient(135deg, #0A183A, #173D68)" : "white", color: mode === m ? "#fff" : "#173D68", border: mode === m ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
+              {m === "fast" && <Zap className="w-3.5 h-3.5" />}
+              {m === "stats" ? "Estadísticas" : "Modo Rápido"}
+            </button>
+          ))}
+          {mode === "fast" && <span className="text-[10px] text-[#348CCB] ml-1">Busque y deseche llantas masivamente</span>}
+        </div>
 
-            {/* Search */}
-            <div className="relative flex-1 min-w-0" style={{ minWidth: 140, maxWidth: 280 }}>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Placa o ID neumático…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                style={{
-                  background: searchQuery ? "rgba(30,118,182,0.08)" : "white",
-                  border: searchQuery ? "1.5px solid rgba(30,118,182,0.3)" : "1.5px solid rgba(52,140,203,0.2)",
-                  color: "#0A183A",
-                }}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-100"
-                >
-                  <X className="w-3 h-3 text-gray-400" />
-                </button>
-              )}
-            </div>
+        {mode === "fast" ? (
+          <FastModeDesechos onDone={() => { setMode("stats"); fetchDesechos(); }} />
+        ) : (
+        <>
 
-            <Dropdown label="Año"     value={selectedYear}    options={yearOptions}    onChange={setSelectedYear} />
-            <Dropdown label="Mes"     value={selectedMonth}   options={monthOptions}   onChange={setSelectedMonth} />
-            <Dropdown label="Causal"  value={selectedCausal}  options={causalOptions}  onChange={setSelectedCausal} searchable />
-
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0"
-                style={{ background: "rgba(220,38,38,0.06)", color: "#DC2626", border: "1px solid rgba(220,38,38,0.15)" }}
-              >
-                <X className="w-3.5 h-3.5" />
-                Limpiar
-              </button>
-            )}
-
-            <div className="ml-auto shrink-0">
-              <span
-                className="text-[10px] font-bold px-2.5 py-1 rounded-full"
-                style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
-              >
-                {filtered.length} reg.
-              </span>
-            </div>
-          </div>
-        </Card>
+        <FilterFab
+          filters={filterOptions}
+          values={fv}
+          onChange={setFilter}
+          search={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Placa o ID neumático…"
+        />
 
         {/* ── KPI Cards ───────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length}                  sub={`de ${allDesechos.length} totales`} variant="primary"   />
-          <MetricCard icon={Target}     title="Prom. Remanente" value={`${avgGeneral} mm`}                                                        variant="secondary" />
-          <MetricCard icon={TrendingUp} title="mm Desechados"   value={totalMilimetros}                  sub="milímetros totales"                  variant="mid"       />
-          <MetricCard icon={BarChart3}  title="Causales únicas" value={Object.keys(dataCausales).length} sub={`en ${filtered.length} registros`}  variant="accent"    />
+          <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length.toLocaleString("es-CO")} sub={`de ${allDesechos.length} totales`} variant="primary"   />
+          <MetricCard icon={Target}     title="Prom. Remanente" value={fmtCompact(parseFloat(avgGeneral) || 0)} sub="valor promedio perdido"         variant="secondary" />
+          <MetricCard icon={TrendingUp} title="mm Desechados"   value={`${parseFloat(totalMilimetros).toLocaleString("es-CO")} mm`} sub="profundidad total descartada" variant="mid"       />
+          <MetricCard icon={BarChart3}  title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos en ${filtered.length} registros`} variant="accent"    />
         </div>
 
         {/* ── Insight cards ────────────────────────────────────────────────── */}
@@ -859,9 +985,10 @@ const DesechosPage: React.FC = () => {
 
         {/* ── Charts ──────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartCard title="Desechos por Causal"                 icon={BarChart3}  data={dataCausales}         />
-          <ChartCard title="Promedio Remanente por Mes"          icon={TrendingUp} data={avgRemanenteByMonth}  />
-          <ChartCard title="Prom. Milímetros Desechados por Mes" icon={Target}     data={avgMilimetrosByMonth} />
+          <DoughnutCard title="Desechos por Causal" icon={BarChart3} data={dataCausales} />
+          <LineChartCard title="Total Remanente por Mes"         icon={TrendingUp} data={totalRemanenteByMonth} formatValue={fmtCompact} />
+          <ChartCard title="Promedio Remanente por Mes"          icon={Target}     data={avgRemanenteByMonth} formatValue={fmtCompact} />
+          <ChartCard title="Prom. Milímetros Desechados por Mes" icon={Target}     data={avgMilimetrosByMonth} formatValue={(n) => `${n.toFixed(1)} mm`} />
         </div>
 
         {/* ── Records table ───────────────────────────────────────────────── */}
@@ -1060,12 +1187,15 @@ const DesechosPage: React.FC = () => {
           )}
         </div>
 
-      </div>
-
       {/* ── Lightbox ─────────────────────────────────────────────────────── */}
       {lightboxUrls && (
         <ImageLightbox urls={lightboxUrls} onClose={() => setLightboxUrls(null)} />
       )}
+
+        </>
+        )}
+
+      </div>
     </div>
   );
 };

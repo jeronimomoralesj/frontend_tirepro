@@ -36,7 +36,7 @@ export default function DashboardPage() {
         // 3) Route based on plan + role
         if (company.plan === 'distribuidor') {
           router.replace('/dashboard/distribuidor');
-        } else if (company.plan === 'pro') {
+        } else if (role === 'admin' || company.plan === 'pro' || company.plan === 'enterprise') {
           router.replace('/dashboard/resumen');
         } else {
           router.replace('/dashboard/agregarConductor');

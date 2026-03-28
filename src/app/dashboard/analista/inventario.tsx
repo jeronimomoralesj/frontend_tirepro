@@ -225,7 +225,7 @@ function TireCard({
 }) {
   const depth = getMinDepth(tire);
   const dc    = depthColor(depth);
-  const badge = alertBadge(tire.alertLevel);
+  const badge = alertBadge((tire as any).projectedAlertLevel ?? tire.alertLevel);
   const cost  = tire.costos?.at(-1)?.valor ?? null;
 
   return (

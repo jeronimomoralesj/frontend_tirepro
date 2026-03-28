@@ -746,7 +746,11 @@ function UpdateModal({
 // Page
 // =============================================================================
 
+// Lazy import to avoid circular deps
+const FastModeDesechos = React.lazy(() => import("../../dashboard/desechos/FastModeDesechos"));
+
 export default function VidaPage() {
+  const [viewMode, setViewMode] = useState<"vida" | "desechos">("vida");
   const [searchTerm, setSearchTerm] = useState("");
   const [vehicle,    setVehicle]    = useState<Vehicle | null>(null);
   const [tires,      setTires]      = useState<Tire[]>([]);
@@ -806,34 +810,33 @@ export default function VidaPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+    <div style={{ background: "#ffffff" }}>
+      <div className="max-w-5xl mx-auto space-y-4">
 
-      {/* Top bar */}
-      <div
-        className="sticky top-0 z-40 px-6 py-4 flex items-center gap-3"
-        style={{
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(52,140,203,0.15)",
-        }}
-      >
-        <div
-          className="p-2 rounded-xl"
-          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-        >
-          <RefreshCw className="w-5 h-5 text-white" />
+        {/* Mode toggle */}
+        <div className="flex items-center gap-2">
+          {(["vida", "desechos"] as const).map((m) => (
+            <button key={m} onClick={() => setViewMode(m)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                background: viewMode === m ? "linear-gradient(135deg, #0A183A, #173D68)" : "white",
+                color: viewMode === m ? "#fff" : "#173D68",
+                border: viewMode === m ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)",
+              }}>
+              {m === "vida" ? "Cambiar Vida" : "Desecho Rapido"}
+            </button>
+          ))}
+          {viewMode === "desechos" && (
+            <span className="text-[10px] text-[#348CCB] ml-1">Deseche multiples llantas a la vez</span>
+          )}
         </div>
-        <div>
-          <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
-            Actualizar Vida
-          </h1>
-          <p className="text-xs text-[#348CCB] mt-0.5">
-            Gestione el ciclo de vida de sus neumáticos
-          </p>
-        </div>
-      </div>
 
-      <div className="px-4 py-8 max-w-5xl mx-auto space-y-4">
+        {viewMode === "desechos" ? (
+          <React.Suspense fallback={<div className="py-10 text-center text-[#348CCB] text-sm">Cargando...</div>}>
+            <FastModeDesechos onDone={() => setViewMode("vida")} />
+          </React.Suspense>
+        ) : (
+        <>
 
         {/* Notifications */}
         {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
@@ -947,8 +950,6 @@ export default function VidaPage() {
           </div>
         )}
 
-      </div>
-
       {/* Update modal */}
       {modalTire && (
         <UpdateModal
@@ -957,6 +958,10 @@ export default function VidaPage() {
           onSuccess={handleUpdateSuccess}
         />
       )}
+        </>
+        )}
+
+      </div>
     </div>
   );
 }

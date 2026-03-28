@@ -5,7 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : 'http://localhost:6001/api'
 
-const BASE_URL = 'https://www.tirepro.com.co'
+const BASE_URL = 'https://tirepro.com.co'
 
 // ─── Helper — safe date that never throws ────────────────────────────────────
 function safeDate(value: string | null | undefined): Date {

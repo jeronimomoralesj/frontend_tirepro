@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Bar } from "react-chartjs-2";
+import { Bar, Line, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
+  Filler,
   Tooltip,
   Legend,
 } from "chart.js";
@@ -31,9 +34,14 @@ import {
   ZoomIn,
   ChevronLeft,
   ChevronRight,
+  Zap,
 } from "lucide-react";
+import FastModeDesechos from "./FastModeDesechos";
+import FilterFab from "../components/FilterFab";
+import type { FilterOption } from "../components/FilterFab";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+import { ArcElement } from "chart.js";
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend);
 
 // =============================================================================
 // Types
@@ -136,6 +144,12 @@ function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: stri
   );
 }
 
+function fmtCompact(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(".0", "")}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n.toLocaleString("es-CO")}`;
+}
+
 function MetricCard({
   icon: Icon, title, value, sub, variant = "primary", loading,
 }: {
@@ -148,28 +162,30 @@ function MetricCard({
     mid:       "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)",
     accent:    "linear-gradient(135deg, #348CCB 0%, #1E76B6 100%)",
   };
+  const strVal = String(value);
+  const textSize = strVal.length > 10 ? "text-lg" : strVal.length > 7 ? "text-xl" : "text-2xl";
   return (
     <div
-      className="rounded-2xl p-4 sm:p-5 flex flex-col justify-between"
-      style={{ background: bgs[variant], minHeight: 100, boxShadow: "0 4px 20px rgba(10,24,58,0.18)" }}
+      className="rounded-2xl p-4 sm:p-5 flex flex-col justify-between overflow-hidden"
+      style={{ background: bgs[variant], minHeight: 110, boxShadow: "0 4px 20px rgba(10,24,58,0.18)" }}
     >
       {loading ? (
         <div className="flex items-center gap-2 text-white/60">
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm">…</span>
+          <span className="text-sm">Cargando…</span>
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <div className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.15)" }}>
               <Icon className="w-3.5 h-3.5 text-white" />
             </div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">{title}</p>
           </div>
-          <p className="text-xl sm:text-2xl font-black text-white tracking-tight leading-none break-all">{value}</p>
-          {sub && <p className="text-xs font-bold text-white/60 mt-0.5">{sub}</p>}
+          <p className={`${textSize} font-black text-white tracking-tight leading-none truncate`}>{value}</p>
+          {sub && <p className="text-[10px] font-medium text-white/50 mt-1.5 truncate">{sub}</p>}
         </>
       )}
-      <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mt-2">{title}</p>
     </div>
   );
 }
@@ -258,73 +274,167 @@ function Dropdown({
 // Chart Card
 // =============================================================================
 
-function ChartCard({
-  title, icon: Icon, data,
-}: {
-  title: string; icon: React.ElementType; data: Record<string, number>;
-}) {
-  const hasData = Object.keys(data).length > 0;
-  const labels = Object.keys(data).map((k) => (k.includes("-") ? formatMonth(k) : k));
-  const values = Object.values(data);
+const DOUGHNUT_COLORS = ["#0A183A", "#1E76B6", "#348CCB", "#5BA3D9", "#8BBDE0", "#f97316", "#22c55e", "#a855f7", "#ef4444", "#eab308"];
 
+function DoughnutCard({ title, icon: Icon, data }: { title: string; icon: React.ElementType; data: Record<string, number> }) {
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+  const hasData = entries.length > 0;
+  const total = entries.reduce((s, [, v]) => s + v, 0);
   return (
     <Card className="overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
-        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
-          <Icon className="w-4 h-4 text-[#1E76B6]" />
-        </div>
+        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}><Icon className="w-4 h-4 text-[#1E76B6]" /></div>
+        <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
+      </div>
+      <div className="p-5">
+        {hasData ? (
+          <div className="flex items-center gap-6">
+            <div className="w-48 h-48 flex-shrink-0">
+              <Doughnut
+                data={{ labels: entries.map(([k]) => k), datasets: [{ data: entries.map(([, v]) => v), backgroundColor: DOUGHNUT_COLORS.slice(0, entries.length), borderWidth: 0, hoverOffset: 6 }] }}
+                options={{ responsive: true, maintainAspectRatio: true, cutout: "65%", plugins: { legend: { display: false }, tooltip: { backgroundColor: "#0A183A", padding: 10, cornerRadius: 8, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed} (${Math.round((ctx.parsed / total) * 100)}%)` } } } }}
+              />
+            </div>
+            <div className="flex-1 space-y-1.5 max-h-48 overflow-y-auto">
+              {entries.map(([label, val], i) => (
+                <div key={label} className="flex items-center gap-2 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: DOUGHNUT_COLORS[i % DOUGHNUT_COLORS.length] }} />
+                  <span className="flex-1 text-[#0A183A] truncate">{label}</span>
+                  <span className="font-bold text-[#0A183A]">{val}</span>
+                  <span className="text-gray-400 w-8 text-right">{Math.round((val / total) * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="h-48 flex flex-col items-center justify-center text-gray-300 gap-2"><BarChart3 className="w-10 h-10 opacity-40" /><p className="text-sm text-gray-400">Sin datos</p></div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function ChartCard({ title, icon: Icon, data, formatValue }: { title: string; icon: React.ElementType; data: Record<string, number>; formatValue?: (n: number) => string }) {
+  const hasData = Object.keys(data).length > 0;
+  const labels = Object.keys(data).map((k) => (k.includes("-") ? formatMonth(k) : k));
+  const values = Object.values(data);
+  const fmt = formatValue ?? ((n: number) => String(n));
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+        <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}><Icon className="w-4 h-4 text-[#1E76B6]" /></div>
         <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
       </div>
       <div className="p-5">
         {hasData ? (
           <div className="h-64">
             <Bar
-              data={{
-                labels,
-                datasets: [{
-                  label: title,
-                  data: values,
-                  backgroundColor: "rgba(30,118,182,0.75)",
-                  hoverBackgroundColor: "#0A183A",
-                  borderRadius: 6,
-                  barPercentage: 0.65,
-                  categoryPercentage: 0.75,
-                }],
-              }}
+              data={{ labels, datasets: [{ label: title, data: values, backgroundColor: "rgba(30,118,182,0.75)", hoverBackgroundColor: "#0A183A", borderRadius: 6, barPercentage: 0.65, categoryPercentage: 0.75 }] }}
               options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    backgroundColor: "#0A183A",
-                    titleColor: "white",
-                    bodyColor: "rgba(255,255,255,0.8)",
-                    cornerRadius: 8,
-                    displayColors: false,
-                    padding: 10,
-                  },
-                },
+                responsive: true, maintainAspectRatio: false, animation: { duration: 800, easing: "easeOutQuart" },
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: "#0A183A", padding: 12, cornerRadius: 8, displayColors: false, callbacks: { label: (ctx) => fmt(ctx.parsed.y) } } },
                 scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: { color: "rgba(10,24,58,0.4)", font: { size: 11 } },
-                    grid: { color: "rgba(52,140,203,0.08)" },
-                  },
-                  x: {
-                    ticks: { color: "rgba(10,24,58,0.4)", font: { size: 10 }, maxRotation: 40 },
-                    grid: { display: false },
-                  },
+                  y: { beginAtZero: true, grid: { color: "rgba(52,140,203,0.06)" }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, callback: (v) => fmt(Number(v)) } },
+                  x: { grid: { display: false }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, maxRotation: 40 } },
                 },
               }}
             />
           </div>
         ) : (
-          <div className="h-64 flex flex-col items-center justify-center text-gray-300 gap-2">
-            <BarChart3 className="w-10 h-10 opacity-40" />
-            <p className="text-sm text-gray-400">Sin datos para mostrar</p>
-          </div>
+          <div className="h-64 flex flex-col items-center justify-center text-gray-300 gap-2"><BarChart3 className="w-10 h-10 opacity-40" /><p className="text-sm text-gray-400">Sin datos</p></div>
         )}
+      </div>
+    </Card>
+  );
+}
+
+function LineChartCard({ title, icon: Icon, data, formatValue, color = "#1E76B6" }: {
+  title: string; icon: React.ElementType; data: Record<string, number>; formatValue?: (n: number) => string; color?: string;
+}) {
+  const entries = Object.entries(data);
+  const hasData = entries.length > 0;
+  const isSingle = entries.length === 1;
+  const labels = entries.map(([k]) => (k.includes("-") ? formatMonth(k) : k));
+  const values = entries.map(([, v]) => v);
+  const fmt = formatValue ?? ((n: number) => String(n));
+
+  const chartHeader = (
+    <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+      <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+        <Icon className="w-4 h-4 text-[#1E76B6]" />
+      </div>
+      <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
+    </div>
+  );
+
+  if (!hasData) {
+    return (
+      <Card className="overflow-hidden">
+        {chartHeader}
+        <div className="p-5 h-64 flex flex-col items-center justify-center text-gray-300 gap-2">
+          <BarChart3 className="w-10 h-10 opacity-40" />
+          <p className="text-sm text-gray-400">Sin datos para mostrar</p>
+        </div>
+      </Card>
+    );
+  }
+
+  if (isSingle) {
+    return (
+      <Card className="overflow-hidden">
+        {chartHeader}
+        <div className="p-5 h-64">
+          <Bar
+            data={{ labels, datasets: [{ label: title, data: values, backgroundColor: color, hoverBackgroundColor: "#0A183A", borderRadius: 8, barPercentage: 0.4 }] }}
+            options={{
+              responsive: true, maintainAspectRatio: false,
+              animation: { duration: 800, easing: "easeOutQuart" },
+              plugins: { legend: { display: false }, tooltip: { backgroundColor: "#0A183A", padding: 12, cornerRadius: 8, displayColors: false, callbacks: { label: (ctx) => fmt(ctx.parsed.y) } } },
+              scales: {
+                y: { grid: { color: "rgba(52,140,203,0.06)" }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, callback: (v) => fmt(Number(v)) } },
+                x: { grid: { display: false }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 } } },
+              },
+            }}
+          />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      {chartHeader}
+      <div className="p-5 h-64">
+        <Line
+          data={{
+            labels,
+            datasets: [{
+              label: title, data: values, borderColor: color, borderWidth: 2.5,
+              pointBackgroundColor: color, pointRadius: 0, pointHoverRadius: 5,
+              fill: "origin",
+              backgroundColor: (ctx) => {
+                const { ctx: c } = ctx.chart;
+                const h = c.canvas.clientHeight || 256;
+                const g = c.createLinearGradient(0, 0, 0, h);
+                g.addColorStop(0, color === "#f97316" ? "rgba(249,115,22,0.30)" : "rgba(30,118,182,0.30)");
+                g.addColorStop(0.6, color === "#f97316" ? "rgba(249,115,22,0.08)" : "rgba(30,118,182,0.08)");
+                g.addColorStop(1, "rgba(255,255,255,0)");
+                return g;
+              },
+              tension: 0.4,
+            }],
+          }}
+          options={{
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 10, right: 10 } },
+            animation: { duration: 800, easing: "easeOutQuart" },
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: "#0A183A", padding: 12, cornerRadius: 8, titleFont: { size: 12, weight: "bold" }, bodyFont: { size: 12 }, displayColors: false, callbacks: { label: (ctx) => fmt(ctx.parsed.y) } } },
+            scales: {
+              y: { grid: { color: "rgba(52,140,203,0.06)" }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, callback: (v) => fmt(Number(v)) } },
+              x: { grid: { display: false }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, maxRotation: 0 } },
+            },
+          }}
+        />
       </div>
     </Card>
   );
@@ -419,6 +529,7 @@ function ImageLightbox({ urls, onClose }: { urls: string[]; onClose: () => void 
 // =============================================================================
 
 const DesechosDistribuidor: React.FC = () => {
+  const [mode, setMode] = useState<"stats" | "fast">("stats");
   const [companies,        setCompanies]        = useState<Company[]>([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [allDesechos,      setAllDesechos]      = useState<EnrichedDesecho[]>([]);
@@ -426,10 +537,9 @@ const DesechosDistribuidor: React.FC = () => {
   const [error,            setError]            = useState("");
 
   // Filters
-  const [selectedCompany, setSelectedCompany] = useState("todas");
-  const [selectedYear,    setSelectedYear]    = useState("todos");
-  const [selectedMonth,   setSelectedMonth]   = useState("todos");
-  const [selectedCausal,  setSelectedCausal]  = useState("todos");
+  const [fv, setFv] = useState<Record<string, string>>({});
+  const setFilter = (key: string, value: string) => setFv((p) => ({ ...p, [key]: value }));
+  const selectedCompany = fv.company ?? "Todos";
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -455,47 +565,53 @@ const DesechosDistribuidor: React.FC = () => {
     run();
   }, []);
 
-  // ── Fetch desechos ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!companies.length) return;
-    const run = async () => {
-      setLoadingDesechos(true);
-      try {
-        const targets = selectedCompany === "todas"
-          ? companies
-          : companies.filter((c) => c.id === selectedCompany);
+  const companyNameToId = useMemo(() => {
+    const m: Record<string, string> = {};
+    companies.forEach((c) => { m[c.name] = c.id; });
+    return m;
+  }, [companies]);
 
-        const results: EnrichedDesecho[] = [];
-        await Promise.all(
-          targets.map(async (company) => {
-            try {
-              const res = await authFetch(`${API_BASE}/tires?companyId=${company.id}`);
-              if (!res.ok) return;
-              const tires: TireWithDesecho[] = await res.json();
-              tires.forEach((tire) => {
-                if (tire.desechos) {
-                  results.push({
-                    ...tire.desechos,
-                    companyId: company.id,
-                    companyName: company.name,
-                    tireId: tire.id,
-                    marca: tire.marca ?? "—",
-                    vehiclePlaca: tire.placa ?? "—",
-                  });
-                }
-              });
-            } catch {/* skip */}
-          })
-        );
-        setAllDesechos(results);
-      } catch {
-        setError("Error al cargar datos de desechos");
-      } finally {
-        setLoadingDesechos(false);
-      }
-    };
-    run();
-  }, [companies, selectedCompany]);
+  // ── Fetch desechos ─────────────────────────────────────────────────────────
+  const fetchDesechos = useCallback(async () => {
+    if (!companies.length) return;
+    setLoadingDesechos(true);
+    try {
+      const selectedId = companyNameToId[selectedCompany] ?? null;
+      const targets = (!selectedCompany || selectedCompany === "Todos" || !selectedId)
+        ? companies
+        : companies.filter((c) => c.id === selectedId);
+
+      const results: EnrichedDesecho[] = [];
+      await Promise.all(
+        targets.map(async (company) => {
+          try {
+            const res = await authFetch(`${API_BASE}/tires?companyId=${company.id}`);
+            if (!res.ok) return;
+            const tires: TireWithDesecho[] = await res.json();
+            tires.forEach((tire) => {
+              if (tire.desechos) {
+                results.push({
+                  ...tire.desechos,
+                  companyId: company.id,
+                  companyName: company.name,
+                  tireId: tire.id,
+                  marca: tire.marca ?? "—",
+                  vehiclePlaca: tire.placa ?? "—",
+                });
+              }
+            });
+          } catch {/* skip */}
+        })
+      );
+      setAllDesechos(results);
+    } catch {
+      setError("Error al cargar datos de desechos");
+    } finally {
+      setLoadingDesechos(false);
+    }
+  }, [companies, selectedCompany, companyNameToId]);
+
+  useEffect(() => { fetchDesechos(); }, [fetchDesechos]);
 
   // ── Filter option lists ────────────────────────────────────────────────────
   const yearOptions = useMemo(() => {
@@ -513,26 +629,32 @@ const DesechosDistribuidor: React.FC = () => {
     { value: "11", label: "Noviembre" }, { value: "12", label: "Diciembre" },
   ], []);
 
-  const causalOptions = useMemo(() => {
-    const cs = [...new Set(allDesechos.map((d) => d.causales.trim()))].sort();
-    return [{ value: "todos", label: "Todas las causales" }, ...cs.map((c) => ({ value: c, label: c }))];
-  }, [allDesechos]);
-
-  const companyOptions = useMemo(() => [
-    { value: "todas", label: "Todos los clientes" },
-    ...companies.map((c) => ({ value: c.id, label: c.name })),
-  ], [companies]);
+  const filterOptions: FilterOption[] = useMemo(() => {
+    const years = [...new Set(allDesechos.map((d) => new Date(d.fecha).getFullYear().toString()))].sort().reverse();
+    const causales = [...new Set(allDesechos.map((d) => d.causales.trim()))].sort();
+    return [
+      { key: "company", label: "Cliente", options: ["Todos", ...companies.map((c) => c.name)] },
+      { key: "year", label: "Año", options: ["Todos", ...years] },
+      { key: "month", label: "Mes", options: ["Todos", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"] },
+      { key: "causal", label: "Causal", options: ["Todos", ...causales] },
+    ];
+  }, [allDesechos, companies]);
 
   // ── Filtered data ──────────────────────────────────────────────────────────
-  const filtered = useMemo(() => allDesechos.filter((d) => {
-    const date  = new Date(d.fecha);
-    const year  = date.getFullYear().toString();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    if (selectedYear   !== "todos" && year              !== selectedYear)   return false;
-    if (selectedMonth  !== "todos" && month             !== selectedMonth)  return false;
-    if (selectedCausal !== "todos" && d.causales.trim() !== selectedCausal) return false;
-    return true;
-  }), [allDesechos, selectedYear, selectedMonth, selectedCausal]);
+  const filtered = useMemo(() => {
+    const fy = fv.year, fm = fv.month, fc = fv.causal, fco = fv.company;
+    const compId = fco && fco !== "Todos" ? companyNameToId[fco] : null;
+    return allDesechos.filter((d) => {
+      const date = new Date(d.fecha);
+      const year = date.getFullYear().toString();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      if (compId && d.companyId !== compId) return false;
+      if (fy && fy !== "Todos" && year !== fy) return false;
+      if (fm && fm !== "Todos" && month !== fm) return false;
+      if (fc && fc !== "Todos" && d.causales.trim() !== fc) return false;
+      return true;
+    });
+  }, [allDesechos, fv, companyNameToId]);
 
   useEffect(() => { setCurrentPage(1); }, [filtered]);
 
@@ -561,8 +683,8 @@ const DesechosDistribuidor: React.FC = () => {
   const avgGeneral      = useMemo(() => filtered.length === 0 ? 0 : (filtered.reduce((a, d) => a + d.remanente, 0) / filtered.length).toFixed(1), [filtered]);
   const totalMilimetros = useMemo(() => filtered.reduce((a, d) => a + d.milimetrosDesechados, 0).toFixed(1), [filtered]);
 
-  const hasActiveFilters = selectedCompany !== "todas" || selectedYear !== "todos" || selectedMonth !== "todos" || selectedCausal !== "todos";
-  const clearFilters = () => { setSelectedCompany("todas"); setSelectedYear("todos"); setSelectedMonth("todos"); setSelectedCausal("todos"); };
+  const hasActiveFilters = Object.values(fv).some((v) => v && v !== "Todos");
+  const clearFilters = () => setFv({});
 
   // ── Pagination ─────────────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
@@ -634,7 +756,7 @@ const DesechosDistribuidor: React.FC = () => {
       ).join("")}</tbody>
     </table>
   </div>
-  ${selectedCompany === "todas" ? `
+  ${(!selectedCompany || selectedCompany === "Todos") ? `
   <div class="section">
     <h2>Por Cliente</h2>
     <table>
@@ -747,52 +869,35 @@ const DesechosDistribuidor: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Filters ───────────────────────────────────────────────────── */}
-        <Card className="p-4 sm:p-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
-                <Filter className="w-3.5 h-3.5 text-[#1E76B6]" />
-              </div>
-              <span className="text-xs font-black text-[#0A183A] uppercase tracking-wide">Filtros</span>
-            </div>
+        {/* Mode toggle */}
+        <div className="flex items-center gap-2">
+          {(["stats", "fast"] as const).map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: mode === m ? "linear-gradient(135deg, #0A183A, #173D68)" : "white", color: mode === m ? "#fff" : "#173D68", border: mode === m ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
+              {m === "fast" && <Zap className="w-3.5 h-3.5" />}
+              {m === "stats" ? "Estadísticas" : "Modo Rápido"}
+            </button>
+          ))}
+        </div>
 
-            <Dropdown label="Todos los clientes" value={selectedCompany} options={companyOptions} onChange={(v) => { setSelectedCompany(v); setCurrentPage(1); }} searchable />
-            <Dropdown label="Todos los años"     value={selectedYear}    options={yearOptions}    onChange={setSelectedYear} />
-            <Dropdown label="Todos los meses"    value={selectedMonth}   options={monthOptions}   onChange={setSelectedMonth} />
-            <Dropdown label="Todas las causales" value={selectedCausal}  options={causalOptions}  onChange={setSelectedCausal} searchable />
+        {mode === "fast" ? (
+          <FastModeDesechos onDone={() => { setMode("stats"); fetchDesechos(); }} />
+        ) : (
+        <>
 
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-                style={{ background: "rgba(220,38,38,0.06)", color: "#DC2626", border: "1px solid rgba(220,38,38,0.15)" }}
-              >
-                <X className="w-3.5 h-3.5" />
-                Limpiar
-              </button>
-            )}
-
-            <div className="ml-auto flex items-center gap-2">
-              {loadingDesechos && <Loader2 className="w-4 h-4 animate-spin text-[#1E76B6]" />}
-              {!loadingDesechos && (
-                <span
-                  className="text-[10px] font-bold px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
-                >
-                  {filtered.length} registro{filtered.length !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-          </div>
-        </Card>
+        <FilterFab
+          filters={filterOptions}
+          values={fv}
+          onChange={setFilter}
+        />
 
         {/* ── KPI Cards ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length}                  sub={`de ${allDesechos.length} totales`} variant="primary"   loading={loadingDesechos} />
-          <MetricCard icon={Target}     title="Prom. Remanente" value={`${avgGeneral} mm`}                                                        variant="secondary" loading={loadingDesechos} />
-          <MetricCard icon={TrendingUp} title="mm Desechados"   value={totalMilimetros}                  sub="milímetros totales"                  variant="mid"       loading={loadingDesechos} />
-          <MetricCard icon={Users}      title="Causales únicas" value={Object.keys(dataCausales).length} sub={`${companies.length} clientes`}      variant="accent"    loading={loadingDesechos} />
+          <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length.toLocaleString("es-CO")} sub={`de ${allDesechos.length} totales`} variant="primary"   loading={loadingDesechos} />
+          <MetricCard icon={Target}     title="Prom. Remanente" value={fmtCompact(parseFloat(avgGeneral) || 0)} sub="valor promedio perdido"         variant="secondary" loading={loadingDesechos} />
+          <MetricCard icon={TrendingUp} title="mm Desechados"   value={`${parseFloat(totalMilimetros).toLocaleString("es-CO")} mm`} sub="profundidad total descartada" variant="mid" loading={loadingDesechos} />
+          <MetricCard icon={Users}      title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos · ${companies.length} clientes`} variant="accent" loading={loadingDesechos} />
         </div>
 
         {/* ── Charts ────────────────────────────────────────────────────── */}
@@ -811,13 +916,13 @@ const DesechosDistribuidor: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <ChartCard title="Desechos por Causal"                 icon={BarChart3}  data={dataCausales} />
-            {selectedCompany === "todas" && (
+            <DoughnutCard title="Desechos por Causal"              icon={BarChart3}  data={dataCausales} />
+            {(!selectedCompany || selectedCompany === "Todos") && (
               <ChartCard title="Desechos por Cliente"              icon={Building2}  data={dataByCompany} />
             )}
-            <ChartCard title="Promedio Remanente por Mes"          icon={TrendingUp} data={avgRemanenteByMonth} />
-            <ChartCard title="Total Remanente por Mes"             icon={Calendar}   data={totalRemanenteByMonth} />
-            <ChartCard title="Prom. Milímetros Desechados por Mes" icon={Target}     data={avgMilimetrosByMonth} />
+            <ChartCard title="Promedio Remanente por Mes"          icon={TrendingUp} data={avgRemanenteByMonth} formatValue={fmtCompact} />
+            <LineChartCard title="Total Remanente por Mes"         icon={Calendar}   data={totalRemanenteByMonth} formatValue={fmtCompact} />
+            <ChartCard title="Prom. Milímetros Desechados por Mes" icon={Target}     data={avgMilimetrosByMonth} formatValue={(n) => `${n.toFixed(1)} mm`} />
           </div>
         )}
 
@@ -973,12 +1078,15 @@ const DesechosDistribuidor: React.FC = () => {
           )}
         </Card>
 
-      </div>
-
       {/* ── Lightbox ─────────────────────────────────────────────────────── */}
       {lightboxUrls && (
         <ImageLightbox urls={lightboxUrls} onClose={() => setLightboxUrls(null)} />
       )}
+
+        </>
+        )}
+
+      </div>
     </div>
   );
 };

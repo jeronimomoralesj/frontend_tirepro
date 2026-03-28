@@ -6,7 +6,7 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import {
   Search, X, AlertTriangle, Loader2, CheckCircle,
   MapPin, Package, Save, RotateCcw, Download, ChevronRight,
-  Layers, Gauge, TrendingUp,
+  Gauge,
 } from "lucide-react";
 
 // =============================================================================
@@ -697,24 +697,8 @@ const Posicion: React.FC = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen" style={{ background: "white" }}>
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-5">
-
-          {/* ── Page header ─────────────────────────────────────────────── */}
-          <div
-            className="px-4 sm:px-6 py-5 rounded-2xl"
-            style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
-                <Layers className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-black text-white text-lg leading-none tracking-tight">Asignar Posiciones de Llantas</h1>
-                <p className="text-xs text-white/60 mt-0.5">Arrastra y suelta para gestionar la configuración del vehículo</p>
-              </div>
-            </div>
-          </div>
+      <div style={{ background: "white" }}>
+        <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5">
 
           {/* ── Alerts ──────────────────────────────────────────────────── */}
           {error && (

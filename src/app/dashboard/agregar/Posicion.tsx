@@ -946,23 +946,8 @@ export default function PosicionPage() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen" style={{ background: "#ffffff" }}>
-
-        {/* Top bar */}
-        <div
-          className="sticky top-0 z-40 px-6 py-4 flex items-center gap-3"
-          style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}
-        >
-          <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-            <Truck className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Asignar Posiciones</h1>
-            <p className="text-xs text-[#348CCB] mt-0.5">Gestione la ubicación de cada llanta en el vehículo</p>
-          </div>
-        </div>
-
-        <div className="px-4 py-8 max-w-5xl mx-auto space-y-4">
+      <div style={{ background: "#ffffff" }}>
+        <div className="max-w-5xl mx-auto space-y-4">
 
           {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
           {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}

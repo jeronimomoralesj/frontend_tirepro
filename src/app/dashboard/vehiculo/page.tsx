@@ -8,7 +8,7 @@ import React, {
   FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Truck, Edit, Trash2, Link2, X, ChevronDown, Unlink } from "lucide-react";
+import { Plus, Truck, Edit, Trash2, Link2, X, ChevronDown, Unlink, User, Phone, Loader2 } from "lucide-react";
 
 // =============================================================================
 // Constants
@@ -38,6 +38,13 @@ const VEHICLE_TYPES: Record<string, string> = {
 // Types
 // =============================================================================
 
+type Driver = {
+  id?: string;
+  nombre: string;
+  telefono: string;
+  isPrimary: boolean;
+};
+
 type Vehicle = {
   id: string;
   placa: string;
@@ -47,7 +54,10 @@ type Vehicle = {
   tipovhc: string;
   companyId: string;
   cliente: string | null;
+  tipoOperacion: string | null;
+  configuracion: string | null;
   union: string[];
+  drivers?: Driver[];
   _count: { tires: number };
 };
 
@@ -58,6 +68,8 @@ type VehicleFormData = {
   pesoCarga: number | "";
   tipovhc: string;
   cliente: string;
+  pctPavimento: number;
+  configuracion: string;
 };
 
 const BLANK_FORM: VehicleFormData = {
@@ -67,6 +79,18 @@ const BLANK_FORM: VehicleFormData = {
   pesoCarga: "",
   tipovhc: "2_ejes_trailer",
   cliente: "",
+  pctPavimento: 90,
+  configuracion: "",
+};
+
+const CONFIGURACIONES: Record<string, string> = {
+  "":       "Sin definir",
+  "2-2":    "2-2 (Camión sencillo)",
+  "2-4":    "2-4 (Sencillo con duales)",
+  "4-4":    "4-4 (Dobletroque)",
+  "2-4-4":  "2-4-4 (Tractomula 3 ejes)",
+  "6-4":    "6-4 (Tractomula 2 ejes)",
+  "2-2-2":  "2-2-2 (Bus 3 ejes)",
 };
 
 // =============================================================================
@@ -160,6 +184,7 @@ function VehicleForm({
   onCancel,
   label,
   existingTireCount,
+  children,
 }: {
   data: VehicleFormData;
   onChange: (d: VehicleFormData) => void;
@@ -167,6 +192,7 @@ function VehicleForm({
   onCancel: () => void;
   label: string;
   existingTireCount?: number;
+  children?: React.ReactNode;
 }) {
   const set =
     (field: keyof VehicleFormData) =>
@@ -258,6 +284,38 @@ function VehicleForm({
         />
       </FieldRow>
 
+      {/* Terreno / Operación */}
+      <FieldRow label={`Terreno: ${data.pctPavimento}% pavimento — ${100 - data.pctPavimento}% destapado`}>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold text-[#348CCB] w-16">Destapado</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={data.pctPavimento}
+            onChange={(e) => onChange({ ...data, pctPavimento: Number(e.target.value) })}
+            className="flex-1 accent-[#1E76B6] h-2"
+          />
+          <span className="text-[10px] font-bold text-[#1E76B6] w-16 text-right">Pavimento</span>
+        </div>
+      </FieldRow>
+
+      <FieldRow label="Configuración de ejes">
+        <div className="relative">
+          <select
+            value={data.configuracion}
+            onChange={set("configuracion")}
+            className={`${inputCls} appearance-none pr-8`}
+          >
+            {Object.entries(CONFIGURACIONES).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-[#1E76B6]" />
+        </div>
+      </FieldRow>
+
       {existingTireCount !== undefined && (
         <div
           className="flex items-center justify-between rounded-xl px-4 py-3 text-sm"
@@ -267,6 +325,8 @@ function VehicleForm({
           <span className="font-bold text-[#173D68] text-lg">{existingTireCount}</span>
         </div>
       )}
+
+      {children}
 
       <div className="flex gap-3 pt-2">
         <button
@@ -316,6 +376,7 @@ type CardProps = {
   onPlateChange: (v: string) => void;
   onAddUnion: () => void;
   onRemoveLeft: (() => void) | null;
+  onEditDrivers: () => void;
 };
 
 function VehicleCard({
@@ -329,13 +390,14 @@ function VehicleCard({
   onPlateChange,
   onAddUnion,
   onRemoveLeft,
+  onEditDrivers,
 }: CardProps) {
   const tc = tireCount(vehicle);
+  const drivers = vehicle.drivers ?? [];
 
   return (
     <div
-      className="relative flex-shrink-0 flex flex-col"
-      style={{ width: "280px" }}
+      className="relative flex-shrink-0 flex flex-col w-full sm:w-[300px]"
     >
       {/* Connector bar */}
       {connectionIndex > 0 && (
@@ -374,6 +436,21 @@ function VehicleCard({
               {vehicle.placa.toUpperCase()}
             </p>
             <p className="text-[#348CCB] text-xs font-medium mt-0.5">{labelFor(vehicle.tipovhc)}</p>
+            {/* Driver avatars */}
+            {drivers.length > 0 && (
+              <div className="flex items-center gap-1 mt-1.5">
+                {drivers.map((d, i) => (
+                  <div
+                    key={i}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black text-white flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+                    title={`${d.nombre}${d.isPrimary ? " (principal)" : ""}`}
+                  >
+                    {d.nombre.charAt(0).toUpperCase()}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           {/* Tire count badge */}
           <div
@@ -386,15 +463,59 @@ function VehicleCard({
         </div>
 
         {/* Stats grid */}
-        <div className="px-5 py-4 grid grid-cols-2 gap-x-4 gap-y-3" style={{ background: "#F8FBFF" }}>
+        <div className="px-5 py-4 grid grid-cols-2 gap-x-4 gap-y-2.5" style={{ background: "#F8FBFF" }}>
           <StatPill label="Kilometraje" value={`${(vehicle.kilometrajeActual ?? 0).toLocaleString()} km`} />
           <StatPill label="Peso carga" value={`${vehicle.pesoCarga ?? 0} kg`} />
           <StatPill label="Tipo carga" value={vehicle.carga || "N/A"} />
           <StatPill label="Dueño" value={vehicle.cliente ?? "Propio"} />
+          {vehicle.tipoOperacion && (
+            <StatPill label="Terreno" value={(() => { const p = vehicle.tipoOperacion!.split("-"); return `${p[0]}% pav / ${p[1] ?? (100 - Number(p[0]))}% dest`; })()}  />
+          )}
+          {vehicle.configuracion && (
+            <StatPill label="Config." value={vehicle.configuracion} />
+          )}
           {vehicle.union.length > 0 && (
             <div className="col-span-2">
               <StatPill label="Conectado con" value={vehicle.union.map(p => p.toUpperCase()).join(", ")} />
             </div>
+          )}
+        </div>
+
+        {/* Drivers section */}
+        <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(52,140,203,0.08)", background: "white" }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#348CCB]/70">
+              Conductores
+            </span>
+            <button
+              onClick={onEditDrivers}
+              className="text-[10px] font-semibold text-[#1E76B6] hover:opacity-70 transition-opacity"
+            >
+              ✏️ Conductores
+            </button>
+          </div>
+          {drivers.length > 0 ? (
+            <div className="space-y-1">
+              {drivers.map((d, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+                  >
+                    {d.nombre.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="font-medium text-[#0A183A] truncate">{d.nombre}</span>
+                  <span className="text-[#348CCB]/60 text-[10px] truncate">{d.telefono}</span>
+                  {d.isPrimary && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6]">
+                      Principal
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[10px] text-[#348CCB]/40 italic">Sin conductores</p>
           )}
         </div>
 
@@ -462,6 +583,258 @@ function VehicleCard({
 }
 
 // =============================================================================
+// Driver modal
+// =============================================================================
+
+function DriverModal({
+  vehicleId,
+  vehiclePlaca,
+  initialDrivers,
+  onClose,
+  onSaved,
+}: {
+  vehicleId: string;
+  vehiclePlaca: string;
+  initialDrivers: Driver[];
+  onClose: () => void;
+  onSaved: (drivers: Driver[]) => void;
+}) {
+  const [drivers, setDrivers] = useState<Driver[]>(
+    initialDrivers.length > 0 ? initialDrivers : [],
+  );
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  function addDriver() {
+    if (drivers.length >= 3) return;
+    setDrivers([...drivers, { nombre: "", telefono: "", isPrimary: drivers.length === 0 }]);
+  }
+
+  function removeDriver(idx: number) {
+    const next = drivers.filter((_, i) => i !== idx);
+    if (next.length > 0 && !next.some((d) => d.isPrimary)) next[0].isPrimary = true;
+    setDrivers(next);
+  }
+
+  function updateDriver(idx: number, field: keyof Driver, value: string | boolean) {
+    setDrivers(
+      drivers.map((d, i) => {
+        if (i !== idx) {
+          if (field === "isPrimary" && value === true) return { ...d, isPrimary: false };
+          return d;
+        }
+        return { ...d, [field]: value };
+      }),
+    );
+  }
+
+  async function save() {
+    const valid = drivers.filter((d) => d.nombre.trim() && d.telefono.trim());
+    setSaving(true);
+    setErr("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/drivers`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ drivers: valid }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Error al guardar");
+      const saved = await res.json();
+      onSaved(saved);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title={`Conductores — ${vehiclePlaca}`} onClose={onClose}>
+      <div className="p-5 space-y-4">
+        {err && (
+          <p className="text-xs font-semibold text-red-500 px-3 py-2 rounded-xl bg-red-50">{err}</p>
+        )}
+
+        {drivers.length === 0 && (
+          <p className="text-sm text-[#348CCB]/60 text-center py-4">
+            Sin conductores asignados
+          </p>
+        )}
+
+        {drivers.map((d, i) => (
+          <div
+            key={i}
+            className="rounded-xl p-3 space-y-2"
+            style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(52,140,203,0.12)" }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#173D68]">
+                Conductor {i + 1}
+              </span>
+              <button
+                onClick={() => removeDriver(i)}
+                className="text-red-400 hover:text-red-600 transition-colors p-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <div className="relative">
+                  <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#348CCB]/40" />
+                  <input
+                    type="text"
+                    value={d.nombre}
+                    onChange={(e) => updateDriver(i, "nombre", e.target.value)}
+                    placeholder="Nombre"
+                    maxLength={100}
+                    className={`${inputCls} pl-8 text-xs`}
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="relative">
+                  <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#348CCB]/40" />
+                  <input
+                    type="text"
+                    value={d.telefono}
+                    onChange={(e) => updateDriver(i, "telefono", e.target.value)}
+                    placeholder="+57 300 123 4567"
+                    maxLength={20}
+                    className={`${inputCls} pl-8 text-xs`}
+                  />
+                </div>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="primaryDriver"
+                checked={d.isPrimary}
+                onChange={() => updateDriver(i, "isPrimary", true)}
+                className="accent-[#1E76B6]"
+              />
+              <span className="text-[10px] font-medium text-[#173D68]">Conductor principal</span>
+            </label>
+          </div>
+        ))}
+
+        <button
+          onClick={addDriver}
+          disabled={drivers.length >= 3}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+          style={{
+            border: "2px dashed rgba(52,140,203,0.25)",
+            color: "#1E76B6",
+          }}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Agregar Conductor {drivers.length >= 3 && "(máx. 3)"}
+        </button>
+
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={onClose}
+            className="flex-1 border border-[#348CCB]/40 px-4 py-2.5 rounded-xl text-sm text-[#1E76B6] font-medium hover:bg-[#F0F7FF] transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm text-white font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// =============================================================================
+// Create vehicle drivers section (inline in form)
+// =============================================================================
+
+function CreateDriversSection({
+  drivers,
+  onChange,
+}: {
+  drivers: Driver[];
+  onChange: (d: Driver[]) => void;
+}) {
+  function add() {
+    if (drivers.length >= 3) return;
+    onChange([...drivers, { nombre: "", telefono: "", isPrimary: drivers.length === 0 }]);
+  }
+
+  function remove(idx: number) {
+    const next = drivers.filter((_, i) => i !== idx);
+    if (next.length > 0 && !next.some((d) => d.isPrimary)) next[0].isPrimary = true;
+    onChange(next);
+  }
+
+  function update(idx: number, field: keyof Driver, value: string | boolean) {
+    onChange(
+      drivers.map((d, i) => {
+        if (i !== idx) {
+          if (field === "isPrimary" && value === true) return { ...d, isPrimary: false };
+          return d;
+        }
+        return { ...d, [field]: value };
+      }),
+    );
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-[#173D68] uppercase tracking-wider mb-1.5">
+        Conductores (opcional)
+      </label>
+
+      {drivers.map((d, i) => (
+        <div key={i} className="flex gap-2 items-start mb-2">
+          <input
+            type="text"
+            value={d.nombre}
+            onChange={(e) => update(i, "nombre", e.target.value)}
+            placeholder="Nombre"
+            maxLength={100}
+            className={`${inputCls} flex-1 text-xs`}
+          />
+          <input
+            type="text"
+            value={d.telefono}
+            onChange={(e) => update(i, "telefono", e.target.value)}
+            placeholder="+57 300 123 4567"
+            maxLength={20}
+            className={`${inputCls} flex-1 text-xs`}
+          />
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="p-2 text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+
+      {drivers.length < 3 && (
+        <button
+          type="button"
+          onClick={add}
+          className="flex items-center gap-1 text-[10px] font-semibold text-[#1E76B6] hover:opacity-70 transition-opacity mt-1"
+        >
+          <Plus className="w-3 h-3" /> Agregar conductor
+        </button>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // Page
 // =============================================================================
 
@@ -478,8 +851,10 @@ export default function VehiculoPage() {
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
   const [unionToDelete, setUnionToDelete]     = useState<{ sourceId: string; targetPlaca: string } | null>(null);
 
-  const [createForm, setCreateForm] = useState<VehicleFormData>(BLANK_FORM);
-  const [editForm, setEditForm]     = useState<VehicleFormData>(BLANK_FORM);
+  const [createForm, setCreateForm]     = useState<VehicleFormData>(BLANK_FORM);
+  const [editForm, setEditForm]       = useState<VehicleFormData>(BLANK_FORM);
+  const [createDrivers, setCreateDrivers] = useState<Driver[]>([]);
+  const [driverModalVehicle, setDriverModalVehicle] = useState<Vehicle | null>(null);
 
   const [showUnionInput, setShowUnionInput] = useState<Record<string, boolean>>({});
   const [plateInputs, setPlateInputs]       = useState<Record<string, string>>({});
@@ -547,20 +922,26 @@ export default function VehiculoPage() {
     e.preventDefault();
     setError("");
     try {
+      const validDrivers = createDrivers.filter((d) => d.nombre.trim() && d.telefono.trim());
+      const { pctPavimento, configuracion, ...restCreate } = createForm;
       const res = await fetch(`${API_BASE}/vehicles/create`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
-          ...createForm,
-          placa:   createForm.placa.trim().toUpperCase(),
-          cliente: createForm.cliente.trim() || null,
+          ...restCreate,
+          placa:          restCreate.placa.trim().toUpperCase(),
+          cliente:        restCreate.cliente.trim() || null,
+          tipoOperacion:  `${pctPavimento}-${100 - pctPavimento}`,
+          configuracion:  configuracion || null,
           companyId,
+          ...(validDrivers.length > 0 ? { drivers: validDrivers } : {}),
         }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? "Error al crear");
       const vehicle = await res.json();
       setVehicles((prev) => [...prev, normalise(vehicle)]);
       setCreateForm(BLANK_FORM);
+      setCreateDrivers([]);
       setShowCreate(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error inesperado");
@@ -569,6 +950,12 @@ export default function VehiculoPage() {
 
   function openEdit(vehicle: Vehicle) {
     setVehicleToEdit(vehicle);
+    // Parse tipoOperacion "90-10" → pctPavimento = 90
+    let pctPav = 90;
+    if (vehicle.tipoOperacion) {
+      const parts = vehicle.tipoOperacion.split("-");
+      if (parts.length === 2) pctPav = Number(parts[0]) || 90;
+    }
     setEditForm({
       placa:             vehicle.placa.toUpperCase(),
       kilometrajeActual: vehicle.kilometrajeActual,
@@ -576,6 +963,8 @@ export default function VehiculoPage() {
       pesoCarga:         vehicle.pesoCarga,
       tipovhc:           vehicle.tipovhc,
       cliente:           vehicle.cliente ?? "",
+      pctPavimento:      pctPav,
+      configuracion:     vehicle.configuracion ?? "",
     });
   }
 
@@ -584,13 +973,16 @@ export default function VehiculoPage() {
     if (!vehicleToEdit) return;
     setError("");
     try {
+      const { pctPavimento, configuracion, ...rest } = editForm;
       const res = await fetch(`${API_BASE}/vehicles/${vehicleToEdit.id}`, {
         method: "PATCH",
         headers: authHeaders(),
         body: JSON.stringify({
-          ...editForm,
-          placa:   editForm.placa.trim().toUpperCase(),
-          cliente: editForm.cliente.trim() || null,
+          ...rest,
+          placa:          rest.placa.trim().toUpperCase(),
+          cliente:        rest.cliente.trim() || null,
+          tipoOperacion:  `${pctPavimento}-${100 - pctPavimento}`,
+          configuracion:  configuracion || null,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? "Error al editar");
@@ -672,6 +1064,7 @@ export default function VehiculoPage() {
         onPlateChange={(val) => setPlateInputs((p) => ({ ...p, [vehicle.id]: val }))}
         onAddUnion={() => handleAddUnion(vehicle.id)}
         onRemoveLeft={onRemoveLeft}
+        onEditDrivers={() => setDriverModalVehicle(vehicle)}
       />
     );
   }
@@ -681,48 +1074,36 @@ export default function VehiculoPage() {
   // ===========================================================================
 
   return (
-    <div className="min-h-screen antialiased" style={{ background: "#ffff", color: "#0A183A" }}>
+    <div className="min-h-screen antialiased" style={{ background: "#f8fafc", color: "#0A183A" }}>
 
-      {/* Top bar */}
-      <div
-        className="sticky top-0 z-40 px-6 py-4 flex items-center justify-between"
-        style={{
-          background: "rgba(240,246,255,0.85)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(52,140,203,0.15)",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="p-2 rounded-xl"
-            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-          >
-            <Truck className="w-5 h-5 text-white" />
-          </div>
+      {/* Hero header */}
+      <div className="relative overflow-hidden px-4 sm:px-6 py-6 sm:py-8" style={{ background: "linear-gradient(135deg, #030d1f 0%, #0A183A 40%, #173D68 100%)" }}>
+        <div className="absolute inset-0 opacity-[0.04]" aria-hidden="true" style={{ backgroundImage: "linear-gradient(rgba(30,118,182,1) 1px, transparent 1px), linear-gradient(90deg, rgba(30,118,182,1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: "#1E76B6" }} aria-hidden="true" />
+        <div className="relative max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
-              Gestión de Vehículos
-            </h1>
-            <p className="text-xs text-[#348CCB] mt-0.5">
-              {vehicles.length} vehículo{vehicles.length !== 1 ? "s" : ""} registrado{vehicles.length !== 1 ? "s" : ""}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#22c55e" }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#348CCB" }}>Flota activa</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Mis Vehiculos</h1>
+            <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {vehicles.length} vehiculo{vehicles.length !== 1 ? "s" : ""} registrado{vehicles.length !== 1 ? "s" : ""}
+              {vehicles.reduce((s, v) => s + tireCount(v), 0) > 0 && ` · ${vehicles.reduce((s, v) => s + tireCount(v), 0)} llantas`}
             </p>
           </div>
+          <button
+            onClick={() => { setCreateForm(BLANK_FORM); setCreateDrivers([]); setShowCreate(true); }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95"
+            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo Vehiculo
+          </button>
         </div>
-
-        <button
-          onClick={() => { setCreateForm(BLANK_FORM); setShowCreate(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95 shadow-lg"
-          style={{
-            background: "linear-gradient(135deg, #1E76B6, #173D68)",
-            boxShadow: "0 4px 16px rgba(30,118,182,0.35)",
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          Añadir Vehículo
-        </button>
       </div>
 
-      <div className="px-6 py-8 max-w-screen-2xl mx-auto">
+      <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-screen-2xl mx-auto">
 
         {/* Error */}
         {error && (
@@ -811,14 +1192,16 @@ export default function VehiculoPage() {
       {/* ── Modals ── */}
 
       {showCreate && (
-        <Modal title="Nuevo Vehículo" onClose={() => setShowCreate(false)}>
+        <Modal title="Nuevo Vehículo" onClose={() => { setShowCreate(false); setCreateDrivers([]); }}>
           <VehicleForm
             data={createForm}
             onChange={setCreateForm}
             onSubmit={handleCreate}
-            onCancel={() => setShowCreate(false)}
+            onCancel={() => { setShowCreate(false); setCreateDrivers([]); }}
             label="Crear Vehículo"
-          />
+          >
+            <CreateDriversSection drivers={createDrivers} onChange={setCreateDrivers} />
+          </VehicleForm>
         </Modal>
       )}
 
@@ -868,6 +1251,23 @@ export default function VehiculoPage() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {driverModalVehicle && (
+        <DriverModal
+          vehicleId={driverModalVehicle.id}
+          vehiclePlaca={driverModalVehicle.placa.toUpperCase()}
+          initialDrivers={driverModalVehicle.drivers ?? []}
+          onClose={() => setDriverModalVehicle(null)}
+          onSaved={(saved) => {
+            setVehicles((prev) =>
+              prev.map((v) =>
+                v.id === driverModalVehicle.id ? { ...v, drivers: saved } : v,
+              ),
+            );
+            setDriverModalVehicle(null);
+          }}
+        />
       )}
 
       {unionToDelete && (

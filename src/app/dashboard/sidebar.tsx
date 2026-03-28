@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Plus, Settings, Search, Car, ChartPie,
   LogOut, Glasses, LifeBuoy, User, Menu, X,
   ChevronLeft, ChevronRight, Truck, User2, Trash2,
-  Trash,
+  Trash, ClipboardList, Package, ShoppingCart,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -37,24 +37,25 @@ function buildLinks(plan: string, isAdmin: boolean): NavLink[] {
   if (plan === "distribuidor") {
     return [
       { name: "Resumen",   path: "/dashboard/distribuidor", icon: LayoutDashboard },
-      { name: "Agregar",   path: "/dashboard/agregarDist",  icon: Plus            },
-      { name: "Buscar",    path: "/dashboard/buscarDist",   icon: Search          },
-      { name: "Clientes",  path: "/dashboard/clientes",     icon: User2           },
       { name: "Analista",  path: "/dashboard/analistaDist", icon: Glasses         },
+      { name: "Pedidos",   path: "/dashboard/pedidosDist",  icon: ShoppingCart    },
       { name: "Desechos",  path: "/dashboard/desechosDist", icon: Trash2          },
+      { name: "Clientes",  path: "/dashboard/clientes",     icon: User2           },
       { name: "Vehículos", path: "/dashboard/vehiculoDist", icon: Truck           },
+      { name: "Buscar",    path: "/dashboard/buscarDist",   icon: Search          },
+      { name: "Agregar",   path: "/dashboard/agregarDist",  icon: Plus            },
     ];
   }
   if (isAdmin) {
     return [
-      { name: "Resumen",   path: "/dashboard/resumen",   icon: LayoutDashboard },
-      { name: "Flota",     path: "/dashboard/flota",     icon: LifeBuoy        },
-      { name: "Semáforo",  path: "/dashboard/semaforo",  icon: ChartPie        },
-      { name: "Agregar",   path: "/dashboard/agregar",   icon: Plus            },
-      { name: "Analista",  path: "/dashboard/analista",  icon: Glasses         },
-      { name: "Desechos",  path: "/dashboard/desechos",  icon: Trash         },
-      { name: "Vehículos", path: "/dashboard/vehiculo",  icon: Car             },
-      { name: "Buscar",    path: "/dashboard/buscar",    icon: Search          },
+      { name: "Resumen",    path: "/dashboard/resumen",    icon: LayoutDashboard },
+      { name: "Analista",   path: "/dashboard/analista",   icon: Glasses         },
+      { name: "Detalle",    path: "/dashboard/detalle",    icon: ClipboardList   },
+      { name: "Inventario", path: "/dashboard/inventario", icon: Package         },
+      { name: "Desechos",   path: "/dashboard/desechos",   icon: Trash2          },
+      { name: "Vehículos",  path: "/dashboard/vehiculo",   icon: Car             },
+      { name: "Agregar",    path: "/dashboard/agregar",    icon: Plus            },
+      { name: "Buscar",     path: "/dashboard/buscar",     icon: Search          },
     ];
   }
   return [

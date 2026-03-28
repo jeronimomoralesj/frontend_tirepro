@@ -384,7 +384,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
           animateCounter(setCounter1, 28, 1200)
           animateCounter(setCounter2, 3, 1400)
           animateCounter(setCounter3, 95, 1000)
-          animateCounter(setCounter4, 80, 800)
+          animateCounter(setCounter4, 2000, 6000)
         }
       },
       { threshold: 0.3 }
@@ -888,6 +888,141 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </section>
 
+      {/* ── AGENTS ──────────────────────────────────────────────────────────── */}
+      <section
+        className="relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 w-full overflow-hidden"
+        style={{ background: '#030d1f' }}
+        aria-labelledby="agents-heading"
+      >
+        {/* Animated grid background */}
+        <div className="absolute inset-0 opacity-[0.03]" aria-hidden="true"
+          style={{ backgroundImage: 'linear-gradient(rgba(30,118,182,1) 1px, transparent 1px), linear-gradient(90deg, rgba(30,118,182,1) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        {/* Glow orbs */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: '#1E76B6' }} aria-hidden="true" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-10 blur-3xl" style={{ background: '#348CCB' }} aria-hidden="true" />
+
+        <div className="relative max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-16 sm:mb-20">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6" style={{ background: 'rgba(30,118,182,0.15)', border: '1px solid rgba(30,118,182,0.25)' }}>
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#348CCB' }} />
+              <span className="text-xs font-bold tracking-widest uppercase" style={{ color: '#348CCB' }}>Agentes Activos</span>
+            </div>
+            <h2 id="agents-heading" className="font-black leading-none mb-6 text-white" style={{ fontSize: 'clamp(2rem, 5vw, 3.8rem)', letterSpacing: '-0.03em' }}>
+              Agentifica tu flota
+            </h2>
+            <p className="text-base sm:text-lg max-w-2xl mx-auto" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Seis agentes de IA especializados trabajan 24/7 analizando cada llanta de tu flota. Cada uno es experto en un dominio critico.
+            </p>
+          </div>
+
+          {/* Agent cards */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {[
+              {
+                codename: 'SENTINEL',
+                role: 'Agente de Desgaste',
+                desc: 'Monitorea profundidad en 3 zonas. Detecta sobreinflado, baja presion y desalineacion a 1.5mm de diferencia entre hombros. Nunca duerme.',
+                status: 'Analizando',
+                color: '#ef4444',
+                glow: 'rgba(239,68,68,0.15)',
+                metric: '< 1.5mm',
+                metricLabel: 'precision',
+              },
+              {
+                codename: 'ORACLE',
+                role: 'Agente Predictivo',
+                desc: 'Calcula fecha exacta de fin de vida, km restantes y punto optimo de retiro a 3mm para preservar el casco. Proyecta CPK futuro.',
+                status: 'Prediciendo',
+                color: '#8b5cf6',
+                glow: 'rgba(139,92,246,0.15)',
+                metric: '3.0mm',
+                metricLabel: 'retiro optimo',
+              },
+              {
+                codename: 'NEXUS',
+                role: 'Agente de Pedidos',
+                desc: 'Cruza necesidades de reemplazo contra 2,500+ SKUs del catalogo colombiano. Genera propuestas, envia a distribuidores, negocia cotizaciones.',
+                status: 'Conectando',
+                color: '#22c55e',
+                glow: 'rgba(34,197,94,0.15)',
+                metric: '2,500+',
+                metricLabel: 'SKUs',
+              },
+              {
+                codename: 'PHANTOM',
+                role: 'Agente de Campo',
+                desc: 'Modo rapido: crea vehiculos, registra llantas e inspecciona en un flujo. Autocomplete desde el catalogo. Funciona donde sea.',
+                status: 'Desplegado',
+                color: '#f97316',
+                glow: 'rgba(249,115,22,0.15)',
+                metric: '< 30s',
+                metricLabel: 'por llanta',
+              },
+              {
+                codename: 'GUARDIAN',
+                role: 'Agente de Conductores',
+                desc: 'Envia alertas via WhatsApp al conductor con instrucciones exactas y link de confirmacion. Hasta 3 reenvios automaticos por alerta.',
+                status: 'Notificando',
+                color: '#06b6d4',
+                glow: 'rgba(6,182,212,0.15)',
+                metric: 'WhatsApp',
+                metricLabel: 'integrado',
+              },
+              {
+                codename: 'REAPER',
+                role: 'Agente de Desechos',
+                desc: 'Rastrea cada llanta hasta su fin de vida. Causales, milimetros finales, fotos. Calcula remanente perdido y dinero desperdiciado por mes.',
+                status: 'Rastreando',
+                color: '#ec4899',
+                glow: 'rgba(236,72,153,0.15)',
+                metric: '$0',
+                metricLabel: 'desperdicio',
+              },
+            ].map((agent, i) => (
+              <article
+                key={i}
+                className="group relative rounded-2xl p-6 sm:p-7 transition-all duration-500 hover:-translate-y-1"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = agent.color + '40'; e.currentTarget.style.boxShadow = `0 0 60px ${agent.glow}`; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                {/* Status indicator */}
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: agent.color }} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: agent.color }}>{agent.status}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-black text-white leading-none">{agent.metric}</span>
+                    <p className="text-[9px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>{agent.metricLabel}</p>
+                  </div>
+                </div>
+
+                {/* Codename */}
+                <h3 className="font-black text-xl sm:text-2xl mb-1 tracking-tight" style={{ color: agent.color, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em' }}>
+                  {agent.codename}
+                </h3>
+                <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>{agent.role}</p>
+
+                {/* Description */}
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{agent.desc}</p>
+
+                {/* Bottom accent line */}
+                <div className="mt-5 h-px w-full transition-all duration-500 group-hover:w-full" style={{ background: `linear-gradient(90deg, ${agent.color}, transparent)`, opacity: 0.3 }} />
+              </article>
+            ))}
+          </div>
+
+          {/* Bottom tagline */}
+          <div className="mt-14 text-center">
+            <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Seis agentes. Una mision. <span className="font-bold text-white">Cero llantas desperdiciadas.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── HOW IT WORKS ─────────────────────────────────────────────────────── */}
       <section
         id="producto"
@@ -958,6 +1093,104 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
 
       {/* ── FEATURE SHOWCASE ──────────────────────────────────────────────────── */}
       <FeatureShowcase />
+
+      {/* ── PLATFORM POWER ──────────────────────────────────────────────────── */}
+      <section
+        className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 w-full"
+        style={{ background: '#ffffff' }}
+        aria-labelledby="platform-heading"
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.16em' }}>
+              Plataforma completa
+            </p>
+            <h2 id="platform-heading" className="font-bold leading-tight mb-5" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.8rem)', color: '#0A183A' }}>
+              Todo lo que necesitas para gestionar<br />
+              <span style={{ color: '#1E76B6' }}>llantas como un experto</span>
+            </h2>
+            <p className="text-base text-gray-500 max-w-2xl mx-auto">
+              Desde la primera inspeccion hasta el desecho final — cada decision respaldada por datos e ingenieria de llantas.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              {
+                icon: Zap,
+                title: 'Modo Rapido de Inspeccion',
+                desc: 'Crea vehiculos, registra llantas y realiza inspecciones en un solo flujo. Ideal para trabajo en campo donde cada minuto cuenta.',
+                accent: '#f97316',
+              },
+              {
+                icon: Target,
+                title: 'Analista con IA',
+                desc: 'Motor de recomendaciones que detecta desalineacion a 1.5mm, valida que el diseno de la llanta corresponda al eje, e identifica el punto optimo de retiro a 3mm.',
+                accent: '#1E76B6',
+              },
+              {
+                icon: DollarSign,
+                title: 'Pedidos Inteligentes',
+                desc: 'Genera propuestas de compra con la llanta optima del catalogo de 2,500+ SKUs. Envia a distribuidores, recibe cotizaciones con IVA, acepta y ejecuta con un click.',
+                accent: '#22c55e',
+              },
+              {
+                icon: Activity,
+                title: 'Semaforo de Alertas',
+                desc: 'Cuatro niveles: critico, precaucion, vigilancia y optimo. Cada llanta clasificada automaticamente. Alertas enviadas al conductor via WhatsApp con link de confirmacion.',
+                accent: '#ef4444',
+              },
+              {
+                icon: Shield,
+                title: 'Desechos y Trazabilidad',
+                desc: 'Registra causales de descarte, milimetros finales y fotos. Modo rapido para desechar multiples llantas a la vez. Estadisticas de remanente perdido por mes.',
+                accent: '#7c3aed',
+              },
+              {
+                icon: BarChart3,
+                title: 'Catalogo de 2,500+ SKUs',
+                desc: 'Base de datos con todas las llantas del mercado colombiano. Autocomplete al crear llantas — marca, dimension, banda, profundidad inicial y precio se llenan solos.',
+                accent: '#0A183A',
+              },
+              {
+                icon: TrendingDown,
+                title: 'CPK y Benchmarking',
+                desc: 'Costo por kilometro en tiempo real comparado contra promedios de la industria. Detecta que marcas y disenos rinden mas en tu operacion especifica.',
+                accent: '#348CCB',
+              },
+              {
+                icon: AlertTriangle,
+                title: 'Ingenieria de Desgaste',
+                desc: 'Analisis experto de geometria de desgaste: sobreinflado cronico, baja presion, desalineacion unilateral. Recomendaciones de alineacion, rotacion y regrabado.',
+                accent: '#f97316',
+              },
+              {
+                icon: CheckCircle2,
+                title: 'Inventario en Bodega',
+                desc: 'Organiza llantas por buckets personalizados. Mueve llantas entre vehiculos y bodega. Cruce automatico de necesidades de reemplazo contra stock disponible.',
+                accent: '#22c55e',
+              },
+            ].map((f, i) => (
+              <article
+                key={i}
+                className="group relative p-6 sm:p-7 rounded-2xl border transition-all duration-300 hover:-translate-y-1"
+                style={{ borderColor: 'rgba(52,140,203,0.12)', background: '#fafcff' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = f.accent + '40'; e.currentTarget.style.boxShadow = `0 12px 40px ${f.accent}15`; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(52,140,203,0.12)'; e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+                  style={{ background: f.accent + '12' }}
+                >
+                  <f.icon size={20} style={{ color: f.accent }} />
+                </div>
+                <h3 className="text-base font-bold mb-2" style={{ color: '#0A183A' }}>{f.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(10,24,58,0.55)' }}>{f.desc}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ── WHY TIREPRO (comparison) ─────────────────────────────────────────── */}
       <section

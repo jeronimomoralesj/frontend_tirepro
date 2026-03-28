@@ -7,6 +7,7 @@ import {
   Truck,
   CheckCircle2,
 } from "lucide-react";
+import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
 // =============================================================================
 // Types
@@ -242,6 +243,13 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
 
     setLoading(true);
     const now = new Date().toISOString();
+    const vidaVal = form.vida.toLowerCase();
+    const eventos: any[] = [
+      { tipo: "montaje", fecha: now, notas: vidaVal, metadata: { vidaValor: vidaVal } },
+    ];
+    if (vidaVal !== "nueva") {
+      eventos.push({ tipo: "reencauche", fecha: now, notas: vidaVal, metadata: { vidaValor: vidaVal } });
+    }
     const payload = {
       placa:                form.tirePlaca.trim() !== "" ? form.tirePlaca.toLowerCase() : randomId(),
       marca:                form.marca.toLowerCase(),
@@ -251,7 +259,8 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
       eje:                  form.eje.toLowerCase(),
       kilometrosRecorridos: Number(form.kilometrosRecorridos) || 0,
       costo:                [{ valor: Number(form.costo) || 0, fecha: now }],
-      vida:                 [{ valor: form.vida.toLowerCase(), fecha: now }],
+      vidaActual:           vidaVal,
+      eventos,
       posicion:             Number(form.posicion),
       companyId:            selectedCompany.id,
       vehicleId:            selectedVehicle?.id ?? null,
@@ -292,6 +301,13 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
   setLoading(true);
 
   const now = new Date().toISOString();
+  const vidaVal2 = form.vida.toLowerCase();
+  const eventos2: any[] = [
+    { tipo: "montaje", fecha: now, notas: vidaVal2, metadata: { vidaValor: vidaVal2 } },
+  ];
+  if (vidaVal2 !== "nueva") {
+    eventos2.push({ tipo: "reencauche", fecha: now, notas: vidaVal2, metadata: { vidaValor: vidaVal2 } });
+  }
   const payload = {
     placa:                suggestedPlaca.toLowerCase(),
     marca:                form.marca.toLowerCase(),
@@ -301,7 +317,8 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
     eje:                  form.eje.toLowerCase(),
     kilometrosRecorridos: Number(form.kilometrosRecorridos) || 0,
     costo:                [{ valor: Number(form.costo) || 0, fecha: now }],
-    vida:                 [{ valor: form.vida.toLowerCase(), fecha: now }],
+    vidaActual:           vidaVal2,
+    eventos:              eventos2,
     posicion:             Number(form.posicion),
     companyId:            selectedCompany!.id,
     vehicleId:            selectedVehicle?.id ?? null,
@@ -329,7 +346,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
   // ==========================================================================
 
   return (
-    <div className="min-h-screen" style={{ background: "white" }}>
+    <div style={{ background: "white" }}>
 
       {duplicateInfo && (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -403,69 +420,53 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
   </div>
 )}
 
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
 
-        {/* ── Page header ───────────────────────────────────────────────── */}
-        <div
-          className="px-4 sm:px-6 py-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-          style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
-              <Plus className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="font-black text-white text-lg leading-none tracking-tight">Crear Nueva Llanta</h1>
-              <p className="text-xs text-white/60 mt-0.5">Complete el formulario para registrar una llanta</p>
-            </div>
-          </div>
+        {/* ── Company selector ───────────────────────────────────────────── */}
+        <div className="relative flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+            style={{
+              background: "rgba(30,118,182,0.08)",
+              border: "1.5px solid rgba(52,140,203,0.2)",
+              color: "#0A183A",
+              minWidth: 200,
+            }}
+          >
+            <span className="flex-1 text-left truncate">
+              {selectedCompany ? selectedCompany.name : "Seleccionar cliente"}
+            </span>
+            <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${showCompanyDropdown ? "rotate-180" : ""}`} />
+          </button>
 
-          {/* Company selector */}
-          <div className="relative flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
-              style={{
-                background: "rgba(255,255,255,0.15)",
-                border: "1.5px solid rgba(255,255,255,0.2)",
-                color: "white",
-                minWidth: 200,
-              }}
-            >
-              <span className="flex-1 text-left truncate">
-                {selectedCompany ? selectedCompany.name : "Seleccionar cliente"}
-              </span>
-              <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${showCompanyDropdown ? "rotate-180" : ""}`} />
-            </button>
-
-            {showCompanyDropdown && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowCompanyDropdown(false)} />
-                <div
-                  className="absolute right-0 mt-1 w-64 rounded-xl overflow-hidden z-20"
-                  style={{ background: "white", border: "1px solid rgba(52,140,203,0.2)", boxShadow: "0 8px 32px rgba(10,24,58,0.15)" }}
-                >
-                  <div className="max-h-60 overflow-y-auto">
-                    {companies.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => { setSelectedCompany(c); setShowCompanyDropdown(false); }}
-                        className="block w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#F0F7FF]"
-                        style={{ color: selectedCompany?.id === c.id ? "#1E76B6" : "#0A183A", fontWeight: selectedCompany?.id === c.id ? 700 : 400 }}
-                      >
-                        {c.name}
-                      </button>
-                    ))}
-                    {companies.length === 0 && (
-                      <p className="text-center text-xs text-gray-400 py-4">Sin clientes</p>
-                    )}
-                  </div>
+          {showCompanyDropdown && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowCompanyDropdown(false)} />
+              <div
+                className="absolute right-0 mt-12 w-64 rounded-xl overflow-hidden z-20"
+                style={{ background: "white", border: "1px solid rgba(52,140,203,0.2)", boxShadow: "0 8px 32px rgba(10,24,58,0.15)" }}
+              >
+                <div className="max-h-60 overflow-y-auto">
+                  {companies.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { setSelectedCompany(c); setShowCompanyDropdown(false); }}
+                      className="block w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#F0F7FF]"
+                      style={{ color: selectedCompany?.id === c.id ? "#1E76B6" : "#0A183A", fontWeight: selectedCompany?.id === c.id ? 700 : 400 }}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                  {companies.length === 0 && (
+                    <p className="text-center text-xs text-gray-400 py-4">Sin clientes</p>
+                  )}
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Feedback banners ──────────────────────────────────────────── */}
@@ -583,19 +584,17 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
               </Field>
 
               <Field label="Marca" required>
-                <input
-                  type="text" name="marca" value={form.marca}
-                  onChange={handleFormChange} required
-                  className={inputCls} style={inputStyle}
-                />
+                <CatalogAutocomplete value={form.marca} field="marca" placeholder="Michelin" required
+                  className={inputCls}
+                  onChange={(v) => setForm((f: any) => ({ ...f, marca: v }))}
+                  onSelect={(item) => setForm((f: any) => ({ ...f, marca: item.marca, dimension: item.dimension, diseno: item.modelo, profundidadInicial: item.rtdMm ?? f.profundidadInicial }))} />
               </Field>
 
-              <Field label="Diseño" required>
-                <input
-                  type="text" name="diseno" value={form.diseno}
-                  onChange={handleFormChange} required
-                  className={inputCls} style={inputStyle}
-                />
+              <Field label="Diseño / Banda" required>
+                <CatalogAutocomplete value={form.diseno} field="modelo" filterMarca={form.marca} placeholder="XDS2" required
+                  className={inputCls}
+                  onChange={(v) => setForm((f: any) => ({ ...f, diseno: v }))}
+                  onSelect={(item) => setForm((f: any) => ({ ...f, diseno: item.modelo, marca: item.marca, dimension: item.dimension, profundidadInicial: item.rtdMm ?? f.profundidadInicial }))} />
               </Field>
 
               <Field label="Profundidad Inicial (mm)" required>
@@ -607,11 +606,10 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
               </Field>
 
               <Field label="Dimensión" required>
-                <input
-                  type="text" name="dimension" value={form.dimension}
-                  onChange={handleFormChange} required
-                  className={inputCls} style={inputStyle}
-                />
+                <CatalogAutocomplete value={form.dimension} field="dimension" filterMarca={form.marca} placeholder="295/80R22.5" required
+                  className={inputCls}
+                  onChange={(v) => setForm((f: any) => ({ ...f, dimension: v }))}
+                  onSelect={(item) => setForm((f: any) => ({ ...f, dimension: item.dimension, marca: item.marca, diseno: item.modelo, profundidadInicial: item.rtdMm ?? f.profundidadInicial }))} />
               </Field>
 
               <Field label="Eje" required>

@@ -40,16 +40,12 @@ export default function Evento({ language = 'es' }: EventoProps) {
 
   const t = translations[language];
 
-  const getTitleByOption = () => {
-    return t.titleByOption[selectedOption] || t.defaultTitle;
-  }  
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-blue-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <div style={{ background: "white" }}>
+      <div className="max-w-4xl mx-auto">
 
         {/* Options Cards Container */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {/* Vida Card */}
           <div 
             onClick={() => setSelectedOption("vida")}
@@ -106,16 +102,10 @@ export default function Evento({ language = 'es' }: EventoProps) {
         </div>
 
         {/* Form Container */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 overflow-hidden">
-          <div className="mb-6 border-b border-gray-100 pb-4">
-            <h2 className="text-xl font-semibold text-[#0A183A]">{getTitleByOption()}</h2>
-          </div>
-          
-          <div>
-            {selectedOption === "vida" && <Vida language={language} />}
-            {selectedOption === "posicion" && <Posicion language={language} />}
-            {selectedOption === "evento" && <OtherEvent language={language} />}
-          </div>
+        <div>
+          {selectedOption === "vida" && <Vida language={language} />}
+          {selectedOption === "posicion" && <Posicion language={language} />}
+          {selectedOption === "evento" && <OtherEvent language={language} />}
         </div>
       </div>
     </div>

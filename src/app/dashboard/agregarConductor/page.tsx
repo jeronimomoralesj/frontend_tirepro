@@ -1,15 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { 
-  Users, 
-  Tag, 
-  Search, 
-  Timer, 
-  FileText, 
-  Camera, 
-  AlertTriangle 
-} from "lucide-react";
+import { Users, Tag, Search, Timer, Camera, AlertTriangle, ArrowLeft } from "lucide-react";
 
 export type UserData = {
   id: string;
@@ -20,539 +12,278 @@ export type UserData = {
   plates: string[];
 };
 
-type Vehicle = {
-  id: string;
-  placa: string;
-  tipovhc: string;
-  tireCount: number;
-  kilometrajeActual: number;
-};
+type Vehicle = { id: string; placa: string; tipovhc: string; tireCount: number; kilometrajeActual: number };
+type Tire = { id: string; placa: string; marca: string; posicion: number };
 
-type Tire = {
-  id: string;
-  placa: string;
-  marca: string;
-  posicion: number;
-};
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "https://api.tirepro.com.co/api";
+
+const inputCls =
+  "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
+
+function convertFileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+  });
+}
 
 const UserPlateInspection: React.FC = () => {
-  // User and Plates States
   const [user, setUser] = useState<UserData | null>(null);
   const [users, setUsers] = useState<UserData[]>([]);
   const [userLoading, setUserLoading] = useState(true);
   const [userError, setUserError] = useState("");
-  
-  // Search State
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  
-  // Selected Plate State
-  const [selectedPlate, setSelectedPlate] = useState<string>("");
-  
-  // Inspection States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPlate, setSelectedPlate] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [tires, setTires] = useState<Tire[]>([]);
-  const [tireUpdates, setTireUpdates] = useState<{
-    [id: string]: { 
-      profundidadInt: number; 
-      profundidadCen: number; 
-      profundidadExt: number; 
-      image: File | null 
-    }
-  }>({});
-  const [newKilometraje, setNewKilometraje] = useState<number>(0);
+  const [tireUpdates, setTireUpdates] = useState<Record<string, { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null }>>({});
+  const [newKilometraje, setNewKilometraje] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // This effect replicates the exact SingleLoggedUser logic:
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
     if (storedUser && storedToken) {
       try {
-        // Assuming your auth flow stores the user as an object
         const parsedUser: UserData = JSON.parse(storedUser);
         setUser(parsedUser);
-        if (parsedUser.companyId) {
-          fetchUsers(parsedUser.companyId);
-        } else {
-          setUserError("No company assigned to user");
-          setUserLoading(false);
-        }
-      } catch (error) {
-        console.error("Error parsing user data:", error);
-        setUserError("Error parsing user data");
-        setUserLoading(false);
-      }
-    } else {
-      setUserError("User or token not found");
-      setUserLoading(false);
-      // Optionally, redirect to login here.
-    }
+        if (parsedUser.companyId) fetchUsers(parsedUser.companyId);
+        else { setUserError("No company assigned"); setUserLoading(false); }
+      } catch { setUserError("Error parsing user"); setUserLoading(false); }
+    } else { setUserError("User not found"); setUserLoading(false); }
   }, []);
 
   async function fetchUsers(companyId: string) {
     try {
-      const res = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/users?companyId=${companyId}`
-          : `https://api.tirepro.com.co/api/users?companyId=${companyId}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch users");
-      const data: UserData[] = await res.json();
-      setUsers(data);
-    } catch (err) {
-      setUserError(err instanceof Error ? err.message : "Unexpected error");
-    } finally {
-      setUserLoading(false);
-    }
-  }
-
-  // Helper function to convert File to base64 string
-  function convertFileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
+      const res = await fetch(`${API_BASE}/users?companyId=${companyId}`);
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setUsers(data); setUserLoading(false);
+    } catch { setUserError("Error fetching users"); setUserLoading(false); }
   }
 
   async function handlePlateSelection(plate: string) {
     setSelectedPlate(plate);
-    await fetchVehicleData(plate);
-  }
-
-  async function fetchVehicleData(placa: string) {
     setError("");
-    setVehicle(null);
-    setTires([]);
-    setTireUpdates({});
     setLoading(true);
-    
     try {
-      // Fetch vehicle by placa.
-      const vehicleRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/placa?placa=${encodeURIComponent(placa.trim())}`
-          : `https://api.tirepro.com.co/api/vehicles/placa?placa=${encodeURIComponent(placa.trim())}`
-      );
-      if (!vehicleRes.ok) {
-        throw new Error("Vehículo no encontrado");
-      }
-      const vehicleData = await vehicleRes.json();
-      setVehicle(vehicleData);
-      setNewKilometraje(vehicleData.kilometrajeActual);
+      const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${plate}`);
+      if (!vRes.ok) throw new Error("Vehicle not found");
+      const v = await vRes.json();
+      setVehicle({ id: v.id, placa: v.placa, tipovhc: v.tipovhc, tireCount: v._count?.tires ?? 0, kilometrajeActual: v.kilometrajeActual });
+      setNewKilometraje(v.kilometrajeActual);
 
-      // Fetch tires by vehicle id.
-      const tiresRes = await fetch(
-        process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/vehicle?vehicleId=${vehicleData.id}`
-          : `https://api.tirepro.com.co/api/tires/vehicle?vehicleId=${vehicleData.id}`
-      );
-      if (!tiresRes.ok) {
-        throw new Error("Error al obtener los neumáticos");
-      }
-      const tiresData: Tire[] = await tiresRes.json();
-      // Sort tires by posicion
-      tiresData.sort((a, b) => a.posicion - b.posicion);
-      setTires(tiresData);
-
-      // Initialize tireUpdates state with default values.
-      const initialUpdates: { [id: string]: { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null } } = {};
-      tiresData.forEach((tire) => {
-        initialUpdates[tire.id] = {
-          profundidadInt: 0,
-          profundidadCen: 0,
-          profundidadExt: 0,
-          image: null,
-        };
-      });
-      setTireUpdates(initialUpdates);
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Error inesperado");
-      }
-    }
-    finally {
-      setLoading(false);
-    }
+      const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${v.id}`);
+      if (!tRes.ok) throw new Error("Error fetching tires");
+      const tData = await tRes.json();
+      setTires(tData);
+      const init: typeof tireUpdates = {};
+      tData.forEach((t: Tire) => { init[t.id] = { profundidadInt: 0, profundidadCen: 0, profundidadExt: 0, image: null }; });
+      setTireUpdates(init);
+    } catch (e: any) { setError(e.message); }
+    setLoading(false);
   }
 
-  function handleInputChange(
-    tireId: string,
-    field: "profundidadInt" | "profundidadCen" | "profundidadExt" | "image",
-    value: number | File | null
-  ) {
-    setTireUpdates((prev) => ({
-      ...prev,
-      [tireId]: {
-        ...prev[tireId],
-        [field]: value,
-      },
-    }));
+  function handleInputChange(tireId: string, field: string, value: any) {
+    setTireUpdates((prev) => ({ ...prev, [tireId]: { ...prev[tireId], [field]: value } }));
   }
 
-  async function handleSubmitInspections(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
-      // Validate inputs before submission
-      const invalidTires = tires.filter(tire => {
-        const update = tireUpdates[tire.id];
-        return (
-          isNaN(update.profundidadInt) || 
-          isNaN(update.profundidadCen) || 
-          isNaN(update.profundidadExt)
-        );
-      });
-  
-      if (invalidTires.length > 0) {
-        throw new Error("Por favor ingrese valores numéricos válidos para todas las profundidades");
-      }
-  
-      // Loop over tires and send updates
-      const updatePromises = tires.map(async (tire) => {
-        const updateData = tireUpdates[tire.id];
-        
-        // Prepare the payload to match the UpdateInspectionDto
-        const payload = {
-          profundidadInt: Number(updateData.profundidadInt),
-          profundidadCen: Number(updateData.profundidadCen),
-          profundidadExt: Number(updateData.profundidadExt),
-          newKilometraje: Number(newKilometraje),
-          imageUrl: updateData.image 
-            ? await convertFileToBase64(updateData.image) 
-            : ""
-        };
-  
-        const res = await fetch(
-          process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires/${tire.id}/inspection`
-            : `https://api.tirepro.com.co/api/tires/${tire.id}/inspection`,
-          {
-            method: "PATCH",
-            headers: { 
-              "Content-Type": "application/json",
-              "Accept": "application/json"
-            },
-            body: JSON.stringify(payload),
-          }
-        );
-        
-        if (!res.ok) {
-          const errorBody = await res.text();
-          throw new Error(`Error al actualizar el neumático ${tire.id}: ${errorBody}`);
-        }
-        return await res.json();
-      });
-      
-      await Promise.all(updatePromises);
-      alert("Inspecciones actualizadas exitosamente");
+      const invalid = tires.filter((t) => { const u = tireUpdates[t.id]; return isNaN(u.profundidadInt) || isNaN(u.profundidadCen) || isNaN(u.profundidadExt); });
+      if (invalid.length) throw new Error("Ingrese valores numéricos válidos para todas las profundidades");
 
-      // Clear inspection fields after successful update.
-      if (tires.length > 0) {
-        const initialUpdates: { [id: string]: { profundidadInt: number; profundidadCen: number; profundidadExt: number; image: File | null } } = {};
-        tires.forEach((tire) => {
-          initialUpdates[tire.id] = {
-            profundidadInt: 0,
-            profundidadCen: 0,
-            profundidadExt: 0,
-            image: null,
-          };
+      await Promise.all(tires.map(async (tire) => {
+        const u = tireUpdates[tire.id];
+        const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profundidadInt: Number(u.profundidadInt),
+            profundidadCen: Number(u.profundidadCen),
+            profundidadExt: Number(u.profundidadExt),
+            newKilometraje: Number(newKilometraje),
+            imageUrl: u.image ? await convertFileToBase64(u.image) : "",
+          }),
         });
-        setTireUpdates(initialUpdates);
-      }
-      // Optionally, reset the kilometraje field
-      setNewKilometraje(0);
-      // Go back to plate selection
-      setSelectedPlate("");
-      setVehicle(null);
-      setTires([]);
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error("Full error:", err);
-        setError(err.message);
-      } else {
-        setError("Error desconocido");
-      }
-    }
-    finally {
-      setLoading(false);
-    }
+        if (!res.ok) throw new Error(`Error al actualizar ${tire.placa}`);
+      }));
+      alert("Inspecciones actualizadas exitosamente");
+      setSelectedPlate(""); setVehicle(null); setTires([]); setNewKilometraje(0);
+    } catch (e: any) { setError(e.message); }
+    setLoading(false);
   }
 
-  if (userLoading) return <p className="p-4">Cargando...</p>;
-  if (userError) return <p className="p-4 text-red-500">Error: {userError}</p>;
-  if (!user) return <p className="p-4">No se encontró el usuario</p>;
+  if (userLoading) return <div className="flex items-center justify-center py-20 text-[#1E76B6]"><div className="animate-spin w-5 h-5 border-2 border-[#1E76B6] border-t-transparent rounded-full" /></div>;
+  if (userError) return <div className="max-w-md mx-auto mt-8 p-4 bg-red-50 rounded-xl text-red-600 text-sm">{userError}</div>;
+  if (!user) return null;
 
-  // Filter the fetched users to include only the logged-in user (by email)
   const filteredUsers = users.filter((u) => u.email === user.email);
-  // Get available plates and filter by search query
-  const availablePlates = filteredUsers.length > 0 ? filteredUsers[0].plates || [] : [];
-  const filteredPlates = searchQuery.trim() 
-    ? availablePlates.filter(plate => 
-        plate.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : availablePlates;
+  const availablePlates = filteredUsers[0]?.plates ?? [];
+  const filteredPlates = searchQuery.trim() ? availablePlates.filter((p) => p.toLowerCase().includes(searchQuery.toLowerCase())) : availablePlates;
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {!selectedPlate ? (
-        // Plate Selection View with Search Bar
-        <div className="p-4">
-          <h1 className="text-2xl font-bold mb-4">Seleccione una Placa para Inspección</h1>
-          {filteredUsers.length === 0 ? (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <p className="text-gray-500 text-sm">No se encontró el usuario</p>
+    <div className="min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+        {!selectedPlate ? (
+          <>
+            {/* Header */}
+            <div className="mb-6">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#0A183A]">Inspección por Conductor</h1>
+              <p className="text-sm text-[#348CCB] mt-1">Seleccione una placa para registrar inspección</p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredUsers.map((u) => (
-                <div key={u.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center">
-                    <div className="bg-blue-200 text-blue-600 p-2 rounded-full mr-3">
-                      <Users className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-medium text-gray-900">{u.name}</h3>
-                      <p className="text-sm text-gray-500">{u.email}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Search Bar */}
-                  {u.plates && u.plates.length > 0 && (
-                    <div className="p-4 border-b border-gray-200">
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Search className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Buscar placa..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="p-4">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Mis Placa</h4>
-                    {u.plates && u.plates.length > 0 ? (
-                      filteredPlates.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {filteredPlates.map((plate) => (
-                            <button
-                              key={plate}
-                              onClick={() => handlePlateSelection(plate)}
-                              className="flex items-center bg-gray-100 hover:bg-blue-100 px-3 py-1 rounded-full transition-colors"
-                            >
-                              <Tag className="h-4 w-4 mr-1 text-gray-500" />
-                              <span className="text-sm text-gray-700">{plate}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-gray-500 text-sm">No se encontraron placas que coincidan con {searchQuery}</p>
-                      )
-                    ) : (
-                      <p className="text-gray-500 text-sm">No hay placas asignadas</p>
-                    )}
-                  </div>
-                </div>
-              ))}
+
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#348CCB]" />
+              <input
+                type="text"
+                placeholder="Buscar placa..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`${inputCls} pl-10`}
+              />
             </div>
-          )}
-        </div>
-      ) : (
-        // Inspection View
-        <div className="min-h-screen bg-white text-[#0A183A] font-sans">
-          <div className="container mx-auto px-4 py-8 max-w-6xl">
-            {/* Back to Plates Button */}
+
+            {/* Plates grid */}
+            {filteredPlates.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {filteredPlates.map((plate) => (
+                  <button
+                    key={plate}
+                    onClick={() => handlePlateSelection(plate)}
+                    className="flex items-center gap-2 px-4 py-3 bg-white rounded-xl text-sm font-bold text-[#0A183A] transition-all hover:shadow-md active:scale-95"
+                    style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+                  >
+                    <Tag className="w-4 h-4 text-[#1E76B6]" />
+                    {plate}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-[#348CCB] text-sm">
+                {searchQuery ? `No se encontraron placas para "${searchQuery}"` : "No hay placas asignadas"}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Back button */}
             <button
-              onClick={() => {
-                setSelectedPlate("");
-                setVehicle(null);
-                setTires([]);
-                setError("");
-                setSearchQuery(""); // Reset search query when going back
-              }}
-              className="mb-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center"
+              onClick={() => { setSelectedPlate(""); setVehicle(null); setTires([]); setError(""); setSearchQuery(""); }}
+              className="flex items-center gap-1.5 text-sm font-semibold text-[#1E76B6] mb-4 hover:text-[#0A183A] transition-colors"
             >
-              ← Volver a mis placas
+              <ArrowLeft className="w-4 h-4" /> Volver a mis placas
             </button>
 
-            {/* Placa Selected Display */}
-            <div className="bg-[#348CCB]/10 rounded-xl p-6 mb-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="bg-[#1E76B6] p-2 rounded-full text-white mr-3">
-                    <Tag className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-lg font-semibold">
-                    Placa seleccionada: <span className="text-[#1E76B6]">{selectedPlate}</span>
-                  </h2>
+            {/* Vehicle header */}
+            <div className="rounded-xl overflow-hidden mb-6" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+              <div className="px-5 py-4 flex items-center gap-4" style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-[#348CCB]" />
                 </div>
-                {loading && (
-                  <div className="text-sm text-gray-600">
-                    <span className="animate-pulse">Cargando datos...</span>
-                  </div>
-                )}
+                <div>
+                  <p className="font-mono font-black text-white text-lg tracking-wider">{selectedPlate}</p>
+                  {vehicle && <p className="text-xs text-white/50">{vehicle.tipovhc} — {vehicle.tireCount} llantas</p>}
+                </div>
               </div>
+
               {error && (
-                <div className="mt-4 flex items-center text-red-600 bg-red-50 p-3 rounded-lg">
-                  <AlertTriangle className="mr-3 text-red-600" />
-                  {error}
+                <div className="flex items-center gap-2 px-5 py-3 bg-red-50 text-red-600 text-xs">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
+                </div>
+              )}
+
+              {/* Kilometraje */}
+              {vehicle && (
+                <div className="px-5 py-4 bg-white">
+                  <label className="block text-xs font-semibold text-[#173D68] uppercase tracking-wider mb-1.5">
+                    <Timer className="w-3.5 h-3.5 inline mr-1" />Kilometraje actual
+                  </label>
+                  <input
+                    type="number"
+                    value={newKilometraje}
+                    onChange={(e) => setNewKilometraje(Number(e.target.value))}
+                    className={inputCls}
+                  />
                 </div>
               )}
             </div>
 
-            {/* Vehicle Details */}
-            {vehicle && (
-              <div className="bg-[#173D68]/5 rounded-xl p-6 mb-6 shadow-sm">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                      <FileText className="w-6 h-6 text-[#1E76B6]" />
-                      Datos del Vehículo
-                    </h2>
-                    <div className="space-y-2">
-                      <p className="flex justify-between">
-                        <span className="font-medium">Placa:</span> 
-                        <span>{vehicle.placa}</span>
-                      </p>
-                      <p className="flex justify-between">
-                        <span className="font-medium">Tipo VHC:</span> 
-                        <span>{vehicle.tipovhc}</span>
-                      </p>
-                      <p className="flex justify-between">
-                        <span className="font-medium">Cantidad de Llantas:</span> 
-                        <span>{vehicle.tireCount}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                      <Timer className="w-6 h-6 text-[#1E76B6]" />
-                      Kilometraje
-                    </h2>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={newKilometraje}
-                        onChange={(e) => setNewKilometraje(Number(e.target.value))}
-                        className="w-full px-4 py-3 border-2 border-[#1E76B6]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">km</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tire Inspections */}
+            {/* Tire inspection cards */}
             {tires.length > 0 && (
-              <form onSubmit={handleSubmitInspections}>
-                <div className="space-y-6">
-                  {tires.map((tire) => (
-                    <div 
-                      key={tire.id} 
-                      className="bg-[#173D68]/5 rounded-xl p-6 shadow-sm border-l-4 border-[#1E76B6]"
-                    >
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <Camera className="w-5 h-5 text-[#1E76B6]" />
-                            Detalles del Neumático
-                          </h3>
-                          <div className="space-y-2">
-                            <p className="flex justify-baseline">
-                              <span className="font-medium">ID: </span> 
-                              <span>{tire.placa}</span>
-                            </p>
-                            <p className="flex justify-baseline">
-                              <span className="font-medium">Marca: </span> 
-                              <span>{tire.marca}</span>
-                            </p>
-                            <p className="flex justify-baseline">
-                              <span className="font-medium">Posición: </span> 
-                              <span>{tire.posicion}</span>
-                            </p>
-                          </div>
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold mb-4">Mediciones de Profundidad</h3>
-                          <div className="grid grid-cols-3 gap-3">
-                            {['profundidadInt', 'profundidadCen', 'profundidadExt'].map((field) => (
-                              <div key={field}>
-                                <label className="block text-sm font-medium mb-1 text-center">
-                                  {field === 'profundidadInt' ? 'Interior' : 
-                                   field === 'profundidadCen' ? 'Central' : 'Exterior'}
-                                </label>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={30}
-                                  value={tireUpdates[tire.id]?.[field as "profundidadInt" | "profundidadCen" | "profundidadExt"] || 0}
-                                  onChange={(e) =>
-                                    handleInputChange(
-                                      tire.id,
-                                      field as "profundidadInt" | "profundidadCen" | "profundidadExt",
-                                      Number(e.target.value)
-                                    )
-                                  }
-                                  className="w-full px-3 py-2 border-2 border-[#1E76B6]/30 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                          <div className="mt-4">
-                            <label className="block text-sm font-medium mb-1">Imagen del Neumático</label>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {tires.map((tire) => (
+                  <div key={tire.id} className="bg-white rounded-xl overflow-hidden"
+                    style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                    {/* Tire header */}
+                    <div className="px-4 py-3 flex items-center gap-3" style={{ background: "rgba(30,118,182,0.06)" }}>
+                      <Camera className="w-4 h-4 text-[#1E76B6]" />
+                      <span className="font-mono font-bold text-[#0A183A] text-sm">{tire.placa}</span>
+                      <span className="text-[10px] text-[#348CCB]">P{tire.posicion} — {tire.marca}</span>
+                    </div>
+
+                    <div className="p-4">
+                      {/* 3 depth fields in a row */}
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        {(["profundidadInt", "profundidadCen", "profundidadExt"] as const).map((field) => (
+                          <div key={field}>
+                            <label className="block text-[10px] font-semibold text-[#173D68] uppercase tracking-wider mb-1 text-center">
+                              {field === "profundidadInt" ? "Interior" : field === "profundidadCen" ? "Central" : "Exterior"}
+                            </label>
                             <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) =>
-                                handleInputChange(
-                                  tire.id,
-                                  "image",
-                                  e.target.files ? e.target.files[0] : null
-                                )
-                              }
-                              className="w-full file:mr-4 file:rounded-lg file:border-0 file:bg-[#1E76B6] file:text-white file:px-4 file:py-2 hover:file:bg-[#173D68]"
+                              type="number"
+                              min={0}
+                              max={30}
+                              step={0.1}
+                              value={tireUpdates[tire.id]?.[field] ?? 0}
+                              onChange={(e) => handleInputChange(tire.id, field, Number(e.target.value))}
+                              className={`${inputCls} text-center font-bold`}
                             />
                           </div>
-                        </div>
+                        ))}
                       </div>
+
+                      {/* Image upload */}
+                      <label className="block text-[10px] font-semibold text-[#173D68] uppercase tracking-wider mb-1">Foto (opcional)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleInputChange(tire.id, "image", e.target.files?.[0] ?? null)}
+                        className="w-full text-xs text-[#348CCB] file:mr-3 file:rounded-xl file:border-0 file:bg-[#1E76B6] file:text-white file:px-4 file:py-2 file:text-xs file:font-semibold hover:file:bg-[#173D68] file:transition-colors"
+                      />
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+
                 <button
                   type="submit"
                   disabled={loading}
-                  className="mt-6 w-full bg-[#0A183A] text-white py-3 rounded-lg hover:bg-[#1E76B6] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}
                 >
-                  {loading ? (
-                    <span className="animate-pulse">Actualizando...</span>
-                  ) : (
-                    "Actualizar Inspecciones"
-                  )}
+                  {loading ? "Actualizando..." : "Actualizar Inspecciones"}
                 </button>
               </form>
             )}
 
-            {/* No tires message */}
             {vehicle && tires.length === 0 && !loading && (
-              <div className="text-center bg-[#348CCB]/10 p-6 rounded-xl">
-                <p className="text-[#0A183A]">No se encontraron neumáticos para este vehículo.</p>
+              <div className="text-center py-12 bg-[#F0F7FF] rounded-xl text-[#348CCB] text-sm">
+                No se encontraron llantas para este vehículo.
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

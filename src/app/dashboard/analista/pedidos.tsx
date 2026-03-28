@@ -29,6 +29,8 @@ const C = {
   DEPTH_WATCH_MM:           6,
   DEPTH_PLAN_MM:            9,
   IRREGULAR_WEAR_DELTA:     3,
+  ALIGNMENT_WARN_MM:        1.5,  // Unilateral shoulder delta → alignment needed
+  OPTIMAL_RETIREMENT_MM:    3,    // Casing preservation threshold
   CPK_POOR_MULTIPLIER:      1.3,
   CPK_GREAT_MULTIPLIER:     0.85,
   CONF_W_DEPTH:             0.30,
@@ -393,16 +395,34 @@ function calcCpkSignals(tire: Tire, recType: RecommendationType, benchmark: RawB
 }
 
 function determineRecommendationType(tire: Tire, minDepth: number, avgDepth: number, presionDelta: number | null, maxDelta: number, reencaucheCount: number, maxReencauches: number): { type: RecommendationType; reason: string } {
-  if (presionDelta !== null && presionDelta <= -C.PRESSURE_UNDER_CRIT_PSI) return { type:"ajustar_presion", reason:`🔴 Presión crítica: ${Math.abs(Math.round(presionDelta))} PSI bajo lo recomendado.` };
-  if (minDepth <= C.DEPTH_CRITICAL_MM) {
-    if (reencaucheCount >= maxReencauches) return { type:"nueva", reason:`🔴 Profundidad crítica (${minDepth.toFixed(1)}mm). Llanta nueva requerida.` };
-    return { type:"reencauche", reason:`🔴 Profundidad crítica (${minDepth.toFixed(1)}mm). Reencauche urgente.` };
+  if (presionDelta !== null && presionDelta <= -C.PRESSURE_UNDER_CRIT_PSI) return { type:"ajustar_presion", reason:`🔴 Presión crítica: ${Math.abs(Math.round(presionDelta))} PSI bajo lo recomendado. Riesgo de falla estructural.` };
+
+  // Check alignment: unilateral shoulder wear
+  const lastInsp = tire.inspecciones?.[0];
+  if (lastInsp) {
+    const shoulderDelta = Math.abs(lastInsp.profundidadInt - lastInsp.profundidadExt);
+    if (shoulderDelta >= C.ALIGNMENT_WARN_MM && maxDelta <= C.IRREGULAR_WEAR_DELTA) {
+      const side = lastInsp.profundidadInt < lastInsp.profundidadExt ? 'interior' : 'exterior';
+      if (minDepth > C.DEPTH_CRITICAL_MM) {
+        return { type:"rotar", reason:`🟡 Desalineación: Δ${shoulderDelta.toFixed(1)}mm hombro ${side}. Alinear ejes y rotar cruzado antes de que destruya el casco.` };
+      }
+    }
+  }
+
+  if (minDepth <= C.LIMITE_LEGAL_MM) {
+    if (reencaucheCount >= maxReencauches) return { type:"nueva", reason:`🔴 Límite legal (${minDepth.toFixed(1)}mm). Casco posiblemente dañado. Llanta nueva requerida.` };
+    return { type:"reencauche", reason:`🔴 Límite legal (${minDepth.toFixed(1)}mm). Casco en riesgo — evaluar si aún es reencauchable.` };
+  }
+  if (minDepth <= C.OPTIMAL_RETIREMENT_MM) {
+    // Optimal retirement zone — preserve casing
+    if (reencaucheCount >= maxReencauches) return { type:"nueva", reason:`🔴 Retiro óptimo (${minDepth.toFixed(1)}mm). Retirar ahora. Llanta nueva requerida.` };
+    return { type:"reencauche", reason:`🔴 Retiro óptimo (${minDepth.toFixed(1)}mm). Retirar AHORA preserva casco para 2-3 reencauches.` };
   }
   if (minDepth <= C.DEPTH_WATCH_MM) {
     if (reencaucheCount >= maxReencauches) return { type:"nueva", reason:`🟡 Profundidad baja (${minDepth.toFixed(1)}mm). Límite de reencauches alcanzado.` };
     return { type:"reencauche", reason:`🟡 Profundidad baja (${minDepth.toFixed(1)}mm). Reencauche recomendado.` };
   }
-  if (maxDelta > C.IRREGULAR_WEAR_DELTA && minDepth <= C.DEPTH_PLAN_MM) return { type:"rotar", reason:`🟡 Desgaste irregular: ${maxDelta.toFixed(1)}mm entre zonas.` };
+  if (maxDelta > C.IRREGULAR_WEAR_DELTA && minDepth <= C.DEPTH_PLAN_MM) return { type:"rotar", reason:`🟡 Desgaste irregular: ${maxDelta.toFixed(1)}mm entre zonas. Rotar y revisar mecánica.` };
   if (minDepth <= C.DEPTH_PLAN_MM) {
     if (reencaucheCount >= maxReencauches) return { type:"nueva", reason:`🔵 Planificar compra nueva (${minDepth.toFixed(1)}mm).` };
     return { type:"reencauche", reason:`🔵 Planificar reencauche en 30–60 días (${minDepth.toFixed(1)}mm).` };
@@ -426,7 +446,8 @@ function analyzeTires(tires: Tire[], benchmarks: Map<string, RawBenchmark>): Ped
   for (const tire of tires) {
     if (tire.vidaActual === "fin") continue;
     if (!tire.inspecciones?.length) continue;
-    const lastInsp = tire.inspecciones[tire.inspecciones.length-1];
+    // inspecciones come sorted desc from API — [0] is the latest
+    const lastInsp = tire.inspecciones[0];
     const minDepth = getMinDepth(lastInsp);
     const avgDepth = getAvgDepth(lastInsp);
     const maxDelta = getMaxZoneDelta(lastInsp);

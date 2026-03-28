@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
+const FastModeDesechos = React.lazy(() => import("../../dashboard/desechosDist/FastModeDesechos"));
 import {
   Search, X, AlertTriangle, Clock, DollarSign,
   Loader2, CheckCircle, Layers,
@@ -131,6 +132,7 @@ const inputStyle = { border: "1.5px solid rgba(52,140,203,0.2)" };
 // =============================================================================
 
 const VidaPage: React.FC = () => {
+  const [viewMode, setViewMode]         = useState<"vida" | "desechos">("vida");
   const [searchTerm, setSearchTerm]     = useState("");
   const [vehicle,    setVehicle]        = useState<Vehicle | null>(null);
   const [tires,      setTires]          = useState<Tire[]>([]);
@@ -296,24 +298,30 @@ const VidaPage: React.FC = () => {
   // ==========================================================================
 
   return (
-    <div className="min-h-screen" style={{ background: "white" }}>
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-5">
+    <div style={{ background: "white" }}>
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5">
 
-        {/* ── Page header ───────────────────────────────────────────────── */}
-        <div
-          className="px-4 sm:px-6 py-5 rounded-2xl"
-          style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.22)" }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
-              <Layers className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="font-black text-white text-lg leading-none tracking-tight">Actualizar Vida de Llanta</h1>
-              <p className="text-xs text-white/60 mt-0.5">Gestione el ciclo de vida y reencauches</p>
-            </div>
-          </div>
+        {/* Mode toggle */}
+        <div className="flex items-center gap-2">
+          {(["vida", "desechos"] as const).map((m) => (
+            <button key={m} onClick={() => setViewMode(m)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                background: viewMode === m ? "linear-gradient(135deg, #0A183A, #173D68)" : "white",
+                color: viewMode === m ? "#fff" : "#173D68",
+                border: viewMode === m ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)",
+              }}>
+              {m === "vida" ? "Cambiar Vida" : "Desecho Rapido"}
+            </button>
+          ))}
         </div>
+
+        {viewMode === "desechos" ? (
+          <Suspense fallback={<div className="py-10 text-center text-[#348CCB] text-sm">Cargando...</div>}>
+            <FastModeDesechos onDone={() => setViewMode("vida")} />
+          </Suspense>
+        ) : (
+        <>
 
         {/* ── Error banner ──────────────────────────────────────────────── */}
         {error && (
@@ -441,8 +449,6 @@ const VidaPage: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
-
       {/* ── Modal ─────────────────────────────────────────────────────────── */}
       {showModal && selectedTire && (
         <div
@@ -720,6 +726,9 @@ const VidaPage: React.FC = () => {
           </Card>
         </div>
       )}
+        </>
+        )}
+      </div>
     </div>
   );
 };

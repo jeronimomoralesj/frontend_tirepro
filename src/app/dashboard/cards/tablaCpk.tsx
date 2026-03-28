@@ -24,6 +24,7 @@ export type Tire = {
   placa: string;
   marca: string;
   diseno?: string;
+  banda?: string;
   dimension?: string;
   posicion: number;
   kilometrosRecorridos?: number;
@@ -85,13 +86,25 @@ function groupKey(marca: string, dimension: string, diseno: string): string {
 // Per-vida inspection helpers
 // =============================================================================
 function tireHasVida(tire: Tire, vida: VidaKey): boolean {
-  return tire.vida.some(v => v.valor.toLowerCase() === vida);
+  return tire.vida.some(v => normalizeVidaValue(v.valor) === vida);
+}
+
+function isReencaucheVida(vida: VidaKey): boolean {
+  return vida === "reencauche1" || vida === "reencauche2" || vida === "reencauche3";
+}
+
+function getGroupingDesign(tire: Tire, vida: VidaKey): string {
+  if (isReencaucheVida(vida)) {
+    return tire.banda?.trim() || tire.diseno?.trim() || "Sin banda";
+  }
+  return tire.diseno?.trim() || tire.banda?.trim() || "Sin diseño";
 }
 
 function getVidaStart(tire: Tire, vida: VidaKey): Date | null {
   const evt = tire.vida
-    .filter(v => v.valor.toLowerCase() === vida)
+    .filter(v => normalizeVidaValue(v.valor) === vida)
     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
+
   return evt ? new Date(evt.fecha) : null;
 }
 
@@ -103,38 +116,61 @@ function getVidaEnd(tire: Tire, vida: VidaKey): Date | null {
 }
 
 function getInspeccionesForVida(tire: Tire, vida: VidaKey): Inspection[] {
-  const tagged = tire.inspecciones.filter(i => i.vidaAlMomento?.toLowerCase() === vida);
-  if (tagged.length > 0)
-    return tagged.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+  const sortedAll = [...tire.inspecciones].sort(
+    (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+  );
+
+  const tagged = sortedAll.filter(
+    (i) => normalizeVidaValue(i.vidaAlMomento) === vida
+  );
+  if (tagged.length > 0) return tagged;
 
   const start = getVidaStart(tire, vida);
-  if (!start) return [];
   const end = getVidaEnd(tire, vida);
-  return tire.inspecciones
-    .filter(i => {
+
+  if (start) {
+    const ranged = sortedAll.filter((i) => {
       const d = new Date(i.fecha);
       return d >= start && (!end || d < end);
-    })
-    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+    });
+    if (ranged.length > 0) return ranged;
+  }
+
+  // Fallback: if the tire belongs to this vida but tagging/dates are incomplete,
+  // still use all inspections so it does not disappear from the table.
+  return sortedAll;
 }
 
+function normalizeVidaValue(value?: string | null): VidaKey | null {
+  const v = (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+
+  if (v === "nueva") return "nueva";
+  if (v === "reencauche1") return "reencauche1";
+  if (v === "reencauche2") return "reencauche2";
+  if (v === "reencauche3") return "reencauche3";
+
+  return null;
+}
 // =============================================================================
 // Group rows
 // =============================================================================
 interface GroupRow {
-  // canonical display values (first seen spelling)
+  key: string;
   marca: string;
   dimension: string;
   diseno: string;
-  // aggregated across tires in group
-  count: number;           // tires with CPK
+  count: number;
   avgCpk: number;
   minCpk: number;
   maxCpk: number;
   avgCpkProy: number | null;
   avgDepth: number | null;
   totalKm: number;
-  // the individual tires
   tires: { tire: Tire; cpk: number; cpkProy: number | null; depth: number | null; insps: Inspection[] }[];
 }
 
@@ -154,12 +190,19 @@ function buildGroups(tires: Tire[], vida: VidaKey): GroupRow[] {
   for (const tire of tires) {
     if (!tireHasVida(tire, vida)) continue;
     const insps = getInspeccionesForVida(tire, vida);
-    const last  = insps.length ? insps[insps.length - 1] : null;
-    if (!last || last.cpk == null) continue;
+    const last = insps.length ? insps[insps.length - 1] : null;
+    if (!last) continue;
 
-    const m = tire.marca     || "";
-    const d = tire.dimension || "";
-    const s = tire.diseno    || "";
+    const effectiveCpk =
+      last.cpk ??
+      last.cpkProyectado ??
+      null;
+
+    if (effectiveCpk == null) continue;
+
+    const m = tire.marca?.trim() || "";
+    const d = tire.dimension?.trim() || "";
+    const s = getGroupingDesign(tire, vida);
 
     const nm = norm(m), nd = norm(d), ns = norm(s);
 
@@ -182,10 +225,18 @@ function buildGroups(tires: Tire[], vida: VidaKey): GroupRow[] {
       buckets[bucketKey]         = [];
     }
 
-    const depth = (last.profundidadInt + last.profundidadCen + last.profundidadExt) / 3;
+    const depthValues = [
+      last.profundidadInt,
+      last.profundidadCen,
+      last.profundidadExt,
+    ].filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
+
+    const depth = depthValues.length
+      ? depthValues.reduce((a, b) => a + b, 0) / depthValues.length
+      : null;
     buckets[bucketKey].push({
       tire,
-      cpk:     last.cpk,
+      cpk: effectiveCpk,
       cpkProy: last.cpkProyectado ?? null,
       depth,
       insps,
@@ -199,17 +250,18 @@ function buildGroups(tires: Tire[], vida: VidaKey): GroupRow[] {
     const kms     = rows.flatMap(r => r.insps.map(i => i.kilometrosEstimados ?? 0));
 
     return {
-      marca:     marcaLabels[key],
+      key,
+      marca: marcaLabels[key],
       dimension: dimensionLabels[key],
-      diseno:    disenoLabels[key],
-      count:     rows.length,
-      avgCpk:    cpks.reduce((a, b) => a + b, 0) / cpks.length,
-      minCpk:    Math.min(...cpks),
-      maxCpk:    Math.max(...cpks),
+      diseno: disenoLabels[key],
+      count: rows.length,
+      avgCpk: cpks.reduce((a, b) => a + b, 0) / cpks.length,
+      minCpk: Math.min(...cpks),
+      maxCpk: Math.max(...cpks),
       avgCpkProy: proys.length ? proys.reduce((a, b) => a + b, 0) / proys.length : null,
-      avgDepth:  depths.length ? depths.reduce((a, b) => a + b, 0) / depths.length : null,
-      totalKm:   kms.length ? Math.max(...kms) : 0,
-      tires:     rows.sort((a, b) => a.cpk - b.cpk),
+      avgDepth: depths.length ? depths.reduce((a, b) => a + b, 0) / depths.length : null,
+      totalKm: kms.length ? Math.max(...kms) : 0,
+      tires: rows.sort((a, b) => a.cpk - b.cpk),
     };
   }).sort((a, b) => a.avgCpk - b.avgCpk);
 }
@@ -252,9 +304,9 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
     if (!search.trim()) return groups;
     const q = search.toLowerCase();
     return groups.filter(g =>
-      g.marca.toLowerCase().includes(q) ||
-      g.dimension.toLowerCase().includes(q) ||
-      g.diseno.toLowerCase().includes(q)
+      (g.marca || "").toLowerCase().includes(q) ||
+      (g.dimension || "").toLowerCase().includes(q) ||
+      (g.diseno || "").toLowerCase().includes(q)
     );
   }, [groups, search]);
 
@@ -281,7 +333,11 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
         <div className="flex items-center justify-between gap-2 mb-4">
           <div>
             <h2 className="text-white font-black text-base tracking-tight">Ranking CPK</h2>
-            <p className="text-white/50 text-xs mt-0.5">Agrupado por marca · dimensión · diseño</p>
+            <p className="text-white/50 text-xs mt-0.5">
+              {activeVida === "nueva"
+                ? "Agrupado por marca · dimensión · diseño"
+                : "Agrupado por marca · dimensión · banda"}
+            </p>
           </div>
           <div className="relative sm:w-52">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
@@ -330,7 +386,11 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
       {/* Column headers */}
       <div className="grid gap-0 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-gray-400"
         style={{ gridTemplateColumns: "1fr auto auto auto auto", borderBottom: "1px solid rgba(10,24,58,0.07)", background: "rgba(10,24,58,0.02)" }}>
-        <span>Marca · Dimensión · Diseño</span>
+        <span>
+          {activeVida === "nueva"
+            ? "Marca · Dimensión · Diseño"
+            : "Marca · Dimensión · Banda"}
+        </span>
         <span className="text-right w-16">CPK Prom.</span>
         <span className="text-right w-16 hidden sm:block">CPK Proy.</span>
         <span className="text-right w-16 hidden md:block">Prof. Prom.</span>
@@ -338,7 +398,13 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
       </div>
 
       {/* Rows */}
-      <div className="divide-y" style={{ borderColor: "rgba(10,24,58,0.05)" }}>
+      <div
+        className="divide-y overflow-y-auto"
+        style={{
+          borderColor: "rgba(10,24,58,0.05)",
+          maxHeight: "28rem",
+        }}
+      >
         {filtered.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-10">
             {search ? "Sin resultados" : `No hay datos para ${vida.label}`}
@@ -346,7 +412,7 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
         )}
 
         {filtered.map((g, rank) => {
-          const key = rowKey(g);
+          const key = g.key;
           const isOpen = expanded === key;
 
           return (
@@ -419,7 +485,7 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
 
               {/* Expanded: individual tires in this group */}
               {isOpen && (
-                <div className="px-4 pb-4 pt-2 space-y-2"
+                <div   className="px-4 pb-4 pt-2 space-y-2 max-h-80 overflow-y-auto"
                   style={{ background: `${vida.color}04`, borderTop: `1px solid ${vida.color}18` }}>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
                     Llantas individuales — {g.count} en esta combinación

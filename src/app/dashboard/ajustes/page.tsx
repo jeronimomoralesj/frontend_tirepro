@@ -49,6 +49,7 @@ export type CompanyData = {
   profileImage: string;
   periodicity: number;
   plan: string;
+  emailAtencion?: string | null;
   _count: {
     users: number;
     tires: number;
@@ -194,6 +195,75 @@ function GhostBtn({ children, onClick, className = "" }: {
 }
 
 // =============================================================================
+// Email Atencion Card (distributor proposal email)
+// =============================================================================
+
+function EmailAtencionCard({ companyId, initialEmail, onSaved, toast }: {
+  companyId: string; initialEmail: string;
+  onSaved: (email: string) => void;
+  toast: (msg: string, type: "success" | "error") => void;
+}) {
+  const [email, setEmail] = useState(initialEmail);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!email.trim() || !email.includes("@")) { toast("Ingrese un email válido", "error"); return; }
+    setSaving(true);
+    try {
+      const token = localStorage.getItem("token") ?? "";
+      const res = await fetch(
+        `${(process.env.NEXT_PUBLIC_API_URL ?? "https://api.tirepro.com.co")}/api/companies/${companyId}/email-atencion`,
+        { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ email: email.trim() }) },
+      );
+      if (!res.ok) throw new Error();
+      onSaved(email.trim());
+      toast("Email de propuestas actualizado", "success");
+    } catch { toast("Error al guardar email", "error"); }
+    setSaving(false);
+  }
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.18)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}>
+      <div className="px-5 py-4 flex items-center gap-3" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+        <Mail className="w-5 h-5 text-white/80" />
+        <div>
+          <p className="text-sm font-bold text-white">Email para Propuestas de Compra</p>
+          <p className="text-[10px] text-white/60">Los clientes enviarán sus pedidos de llantas a este email</p>
+        </div>
+      </div>
+      <div className="p-5 space-y-3 bg-white">
+        <p className="text-xs text-[#348CCB]">
+          Cuando un cliente cree una propuesta de compra, recibirá una notificación en este correo con un enlace para ver y cotizar el pedido en TirePro.
+        </p>
+        <div className="flex gap-3">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ventas@miempresa.com"
+            className="flex-1 px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+            Guardar
+          </button>
+        </div>
+        {initialEmail && (
+          <p className="text-[10px] text-[#348CCB]">
+            Actual: <span className="font-bold text-[#0A183A]">{initialEmail}</span>
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Tab nav definition
 // =============================================================================
 
@@ -217,6 +287,9 @@ const AjustesPage: React.FC = () => {
   const [logoPreview,  setLogoPreview]  = useState<string | null>(null);
 
   const [newUserData, setNewUserData] = useState({ name: "", email: "", password: "", role: "regular" });
+  const [notifChannel, setNotifChannel] = useState<string>("none");
+  const [notifContact, setNotifContact] = useState("");
+  const [savingNotif, setSavingNotif] = useState(false);
   const [plateInputs, setPlateInputs] = useState<Record<string, string>>({});
   const [savingUser,  setSavingUser]  = useState(false);
 
@@ -266,6 +339,16 @@ const AjustesPage: React.FC = () => {
     if (!storedUser || !storedToken) { localStorage.clear(); router.push("/login"); return; }
     const parsed: UserData = JSON.parse(storedUser);
     setUser(parsed);
+    // Fetch notification prefs
+    authFetch(`${API_BASE}/users/${parsed.id}/notification-prefs`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setNotifChannel(data.notifChannel ?? "none");
+          setNotifContact(data.notifContact ?? "");
+        }
+      })
+      .catch(() => {});
     if (parsed.companyId) {
       fetchCompany(parsed.companyId);
       if (parsed.role === "admin") {
@@ -595,6 +678,85 @@ const AjustesPage: React.FC = () => {
                 </div>
               )}
             </Card>
+
+            {/* Notification preferences card */}
+            <Card className="p-5 sm:p-6">
+              <SectionTitle icon={Mail} title="Mis Notificaciones" />
+              <p className="text-xs text-gray-400 mb-4">
+                Elige como quieres recibir alertas cuando el agente detecte problemas en tus llantas.
+              </p>
+
+              <div className="space-y-2.5 mb-4">
+                {[
+                  { key: "email", label: "Correo electronico", desc: "Recibe alertas por email", placeholder: "tu@email.com" },
+                  { key: "whatsapp", label: "WhatsApp", desc: "Recibe alertas por mensaje de WhatsApp", placeholder: "+57 300 123 4567" },
+                  { key: "none", label: "Solo en plataforma", desc: "Las alertas solo aparecen dentro de TirePro", placeholder: "" },
+                ].map((opt) => {
+                  const active = notifChannel === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setNotifChannel(opt.key)}
+                      className="w-full text-left rounded-xl p-4 transition-all"
+                      style={{
+                        border: active ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.15)",
+                        background: active ? "rgba(30,118,182,0.04)" : "white",
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="mt-0.5 w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center"
+                          style={{ border: active ? "2px solid #1E76B6" : "2px solid #cbd5e1", background: active ? "#1E76B6" : "transparent" }}
+                        >
+                          {active && <div className="w-2 h-2 rounded-full bg-white" />}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold" style={{ color: active ? "#0A183A" : "#334155" }}>{opt.label}</p>
+                          <p className="text-xs text-gray-400">{opt.desc}</p>
+                          {active && opt.key !== "none" && (
+                            <input
+                              type={opt.key === "email" ? "email" : "text"}
+                              value={notifContact}
+                              onChange={(e) => setNotifContact(e.target.value)}
+                              placeholder={opt.placeholder}
+                              onClick={(e) => e.stopPropagation()}
+                              className={inputCls + " mt-3"}
+                              style={inputStyle}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <PrimaryBtn
+                disabled={savingNotif}
+                onClick={async () => {
+                  if (!user) return;
+                  setSavingNotif(true);
+                  try {
+                    const res = await authFetch(`${API_BASE}/users/${user.id}/notification-prefs`, {
+                      method: "PATCH",
+                      body: JSON.stringify({
+                        notifChannel: notifChannel === "none" ? null : notifChannel,
+                        notifContact: notifChannel === "none" ? null : notifContact.trim() || null,
+                      }),
+                    });
+                    if (!res.ok) throw new Error();
+                    toast("Preferencias de notificacion guardadas", "success");
+                  } catch {
+                    toast("Error al guardar preferencias", "error");
+                  }
+                  setSavingNotif(false);
+                }}
+              >
+                {savingNotif ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Guardar preferencias
+              </PrimaryBtn>
+            </Card>
           </div>
         )}
 
@@ -608,11 +770,11 @@ const AjustesPage: React.FC = () => {
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                 {/* Logo */}
                 <div className="relative flex-shrink-0 group">
-                  <div className="w-20 h-20 rounded-2xl overflow-hidden" style={{ border: "2px solid rgba(52,140,203,0.2)" }}>
+                  <div className="w-24 h-20 rounded-2xl overflow-hidden bg-[#F0F7FF] flex items-center justify-center p-1.5" style={{ border: "2px solid rgba(52,140,203,0.2)" }}>
                     <img
                       src={logoPreview || company.profileImage}
                       alt={company.name}
-                      className="w-full h-full object-cover"
+                      className="max-w-full max-h-full object-contain"
                     />
                   </div>
                   {user?.role === "admin" && (
@@ -652,6 +814,11 @@ const AjustesPage: React.FC = () => {
                 </Card>
               ))}
             </div>
+
+            {/* Email de atención para propuestas (distribuidor) */}
+            {user?.role === "admin" && (
+              <EmailAtencionCard companyId={company.id} initialEmail={company.emailAtencion ?? ""} onSaved={(email) => setCompany((c) => c ? { ...c, emailAtencion: email } : c)} toast={toast} />
+            )}
 
             {/* Admin config note */}
             {user?.role === "admin" && (
@@ -866,7 +1033,9 @@ const AjustesPage: React.FC = () => {
                       style={{ border: "1px solid rgba(52,140,203,0.15)" }}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <img src={d.profileImage} alt={d.name} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                        <div className="w-10 h-10 rounded-xl bg-[#F0F7FF] flex items-center justify-center flex-shrink-0 p-1" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                          <img src={d.profileImage} alt={d.name} className="max-w-full max-h-full object-contain" />
+                        </div>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-[#0A183A] truncate">{d.name}</p>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ background: "#1E76B6" }}>Distribuidor</span>
@@ -887,7 +1056,9 @@ const AjustesPage: React.FC = () => {
                   {selectedDistributors.map((d) => (
                     <div key={d.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
                       <div className="flex items-center gap-3 min-w-0">
-                        <img src={d.profileImage} alt={d.name} className="w-9 h-9 rounded-lg object-cover" />
+                        <div className="w-9 h-9 rounded-lg bg-[#F0F7FF] flex items-center justify-center flex-shrink-0 p-0.5" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                          <img src={d.profileImage} alt={d.name} className="max-w-full max-h-full object-contain" />
+                        </div>
                         <span className="text-sm font-bold text-[#0A183A] truncate">{d.name}</span>
                       </div>
                       <button onClick={() => removeFromSelection(d.id)} style={{ color: "#DC2626" }}>
@@ -921,7 +1092,9 @@ const AjustesPage: React.FC = () => {
                     return (
                       <div key={dist.id} className="flex items-center justify-between gap-3 p-3 rounded-xl" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
                         <div className="flex items-center gap-3 min-w-0">
-                          <img src={dist.profileImage} alt={dist.name} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                          <div className="w-10 h-10 rounded-xl bg-[#F0F7FF] flex items-center justify-center flex-shrink-0 p-1" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                            <img src={dist.profileImage} alt={dist.name} className="max-w-full max-h-full object-contain" />
+                          </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-[#0A183A] truncate">{dist.name}</p>
                             <span className="flex items-center gap-1 text-[10px] font-bold text-green-700">

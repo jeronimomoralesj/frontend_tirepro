@@ -1190,11 +1190,26 @@ const BuscarPage: React.FC = () => {
         setTires(raw.filter(t => t.companyId === companyId).map(normalise).sort((a, b) => a.posicion - b.posicion));
       } else {
         const tRes = await authFetch(
-          `${API_BASE}/tires?companyId=${companyId}&placa=${encodeURIComponent(searchTerm.trim())}`
+          `${API_BASE}/tires?companyId=${companyId}`
         );
         if (!tRes.ok) throw new Error("Llanta no encontrada");
         const raw: RawTire[] = await tRes.json();
-        setTires(raw.map(normalise).sort((a, b) => a.posicion - b.posicion));
+        const term = searchTerm.trim().toLowerCase();
+        const matched = raw
+          .filter(t => t.placa.toLowerCase() === term || t.placa.toLowerCase().includes(term))
+          .sort((a, b) => {
+            // Exact match first, then by how close the match is
+            const aExact = a.placa.toLowerCase() === term ? 0 : 1;
+            const bExact = b.placa.toLowerCase() === term ? 0 : 1;
+            if (aExact !== bExact) return aExact - bExact;
+            // Then by startsWith
+            const aStarts = a.placa.toLowerCase().startsWith(term) ? 0 : 1;
+            const bStarts = b.placa.toLowerCase().startsWith(term) ? 0 : 1;
+            if (aStarts !== bStarts) return aStarts - bStarts;
+            return a.posicion - b.posicion;
+          });
+        if (matched.length === 0) throw new Error(`No se encontró la llanta "${searchTerm.trim()}"`);
+        setTires(matched.map(normalise));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado");

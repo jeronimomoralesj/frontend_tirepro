@@ -179,8 +179,8 @@ function ClientCard({ client, onAddUser }: { client: Client; onAddUser: (c: Clie
               className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center"
               style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
             >
-              {client.profileImage?.startsWith("data:") ? (
-                <img src={client.profileImage} alt={client.name} className="w-full h-full object-cover" />
+              {client.profileImage && client.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+                <img src={client.profileImage} alt={client.name} className="max-w-full max-h-full object-contain p-1" />
               ) : (
                 <span className="text-white font-black text-lg">{client.name.charAt(0).toUpperCase()}</span>
               )}
@@ -283,47 +283,50 @@ export default function ClientesPage() {
       if (!res.ok) throw new Error("Error al cargar los clientes");
       const data = await res.json();
 
-      // data is DistributorAccess[] → each has { company: { id, name, plan, profileImage } }
-      // We then fetch full company details to get _count (vehicles, tires, users)
-      const enriched: Client[] = await Promise.all(
-        data.map(async (access: any) => {
-          const companyId = access.company?.id;
-          if (!companyId) return null;
+      // Load list instantly from /me/clients — no extra API calls per client
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const list: Client[] = data
+        .filter((access: any) => access.company?.id)
+        .map((access: any) => ({
+          id:           access.company.id,
+          name:         access.company.name,
+          profileImage: access.company.profileImage ?? "",
+          plan:         access.company.plan ?? "basic",
+          vehicleCount: 0,
+          tireCount:    0,
+        }));
 
-          try {
-            // FIX: Single request to getCompanyById which already returns _count
-            const detailRes = await fetch(`${API_BASE}/companies/${companyId}`, {
-              headers: authHeaders(),
-            });
+      setClients(list);
 
-            if (detailRes.ok) {
+      // Fetch counts in background (non-blocking, batched in small groups)
+      const BATCH = 10;
+      for (let i = 0; i < list.length; i += BATCH) {
+        const batch = list.slice(i, i + BATCH);
+        Promise.all(
+          batch.map(async (client) => {
+            try {
+              const detailRes = await fetch(`${API_BASE}/companies/${client.id}`, { headers: authHeaders() });
+              if (!detailRes.ok) return null;
               const detail = await detailRes.json();
               return {
-                id:           detail.id,
-                name:         detail.name,
-                profileImage: detail.profileImage ?? "",
-                plan:         detail.plan ?? "basic",
+                id: client.id,
                 vehicleCount: detail._count?.vehicles ?? 0,
-                tireCount:    detail._count?.tires    ?? 0,
-              } satisfies Client;
-            }
-          } catch {
-            // fall through to minimal fallback
+                tireCount: detail._count?.tires ?? 0,
+              };
+            } catch { return null; }
+          })
+        ).then((results) => {
+          const updates = results.filter(Boolean) as { id: string; vehicleCount: number; tireCount: number }[];
+          if (updates.length > 0) {
+            setClients((prev) =>
+              prev.map((c) => {
+                const u = updates.find((r) => r.id === c.id);
+                return u ? { ...c, vehicleCount: u.vehicleCount, tireCount: u.tireCount } : c;
+              })
+            );
           }
-
-          // Fallback: use only what /me/clients returned
-          return {
-            id:           access.company.id,
-            name:         access.company.name,
-            profileImage: access.company.profileImage ?? "",
-            plan:         access.company.plan ?? "basic",
-            vehicleCount: 0,
-            tireCount:    0,
-          } satisfies Client;
-        })
-      );
-
-      setClients(enriched.filter(Boolean) as Client[]);
+        });
+      }
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Error inesperado", "error");
     } finally {
@@ -640,8 +643,8 @@ export default function ClientesPage() {
                 className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden"
                 style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
               >
-                {selectedClient.profileImage?.startsWith("data:") ? (
-                  <img src={selectedClient.profileImage} className="w-full h-full object-cover" alt="" />
+                {selectedClient.profileImage && selectedClient.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+                  <img src={selectedClient.profileImage} className="max-w-full max-h-full object-contain p-1" alt="" />
                 ) : (
                   <span className="text-white font-black text-sm">{selectedClient.name.charAt(0)}</span>
                 )}

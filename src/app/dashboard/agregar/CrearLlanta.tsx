@@ -23,6 +23,7 @@ import {
   MapPin,
   Plus,
 } from "lucide-react";
+import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
 // =============================================================================
 // Constants
@@ -105,6 +106,24 @@ function generateRandomString(length: number): string {
   let result = "";
   for (let i = 0; i < length; i++) result += chars[Math.floor(Math.random() * chars.length)];
   return result;
+}
+
+/** Fire-and-forget: enrich the catalog with crowdsourced data from this tire */
+async function crowdsourceEnrich(data: {
+  marca: string;
+  dimension: string;
+  modelo: string;
+  eje?: string;
+  profundidadInicial?: number;
+  precioCop?: number;
+}) {
+  try {
+    await fetch(`${API_BASE}/catalog/crowdsource`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+  } catch { /* best-effort */ }
 }
 
 // =============================================================================
@@ -470,6 +489,14 @@ export default function TirePage() {
     const now       = new Date().toISOString();
     const finalId   = form.tirePlaca.trim() !== "" ? form.tirePlaca.trim() : generateRandomString(8);
 
+    const vidaVal = form.vida.toLowerCase();
+    const eventos: any[] = [
+      { tipo: "montaje", fecha: now, notas: vidaVal, metadata: { vidaValor: vidaVal } },
+    ];
+    if (vidaVal !== "nueva") {
+      eventos.push({ tipo: "reencauche", fecha: now, notas: vidaVal, metadata: { vidaValor: vidaVal } });
+    }
+
     const payload = {
       placa:                finalId.toUpperCase(),
       marca:                form.marca.trim().toLowerCase(),
@@ -479,14 +506,8 @@ export default function TirePage() {
       eje:                  form.eje.toLowerCase(),
       kilometrosRecorridos: Number(form.kilometrosRecorridos) || 0,
       costo: [{ valor: Number(form.costo) || 0, fecha: now }],
-      eventos: [
-        {
-          tipo:     "montaje",
-          fecha:    now,
-          notas:    form.vida.toLowerCase(),
-          metadata: { vidaValor: form.vida.toLowerCase() },
-        },
-      ],
+      vidaActual: vidaVal,
+      eventos,
       posicion: Number(form.posicion) || 0,
       companyId,
       vehicleId:            selectedVehicle?.id ?? null,
@@ -508,6 +529,17 @@ export default function TirePage() {
         return; // don't reset form, user will confirm
       }
       setSuccess("Llanta creada exitosamente");
+
+      // Enrich catalog with this tire's data (fire-and-forget)
+      crowdsourceEnrich({
+        marca: form.marca.trim(),
+        dimension: form.dimension.trim(),
+        modelo: form.diseno.trim(),
+        eje: form.eje,
+        profundidadInicial: Number(form.profundidadInicial) || undefined,
+        precioCop: Number(form.costo) || undefined,
+      });
+
       setForm(BLANK_FORM);
       setSelected(null);
     } catch (err: unknown) {
@@ -528,6 +560,13 @@ export default function TirePage() {
   setSubmitting(true);
 
   const now = new Date().toISOString();
+  const vidaVal2 = form.vida.toLowerCase();
+  const eventos2: any[] = [
+    { tipo: "montaje", fecha: now, notas: vidaVal2, metadata: { vidaValor: vidaVal2 } },
+  ];
+  if (vidaVal2 !== "nueva") {
+    eventos2.push({ tipo: "reencauche", fecha: now, notas: vidaVal2, metadata: { vidaValor: vidaVal2 } });
+  }
   const payload = {
     placa:                suggestedPlaca,
     marca:                form.marca.trim().toLowerCase(),
@@ -537,12 +576,8 @@ export default function TirePage() {
     eje:                  form.eje.toLowerCase(),
     kilometrosRecorridos: Number(form.kilometrosRecorridos) || 0,
     costo: [{ valor: Number(form.costo) || 0, fecha: now }],
-    eventos: [{
-      tipo:     "montaje",
-      fecha:    now,
-      notas:    form.vida.toLowerCase(),
-      metadata: { vidaValor: form.vida.toLowerCase() },
-    }],
+    vidaActual: vidaVal2,
+    eventos: eventos2,
     posicion:  Number(form.posicion) || 0,
     companyId,
     vehicleId: selectedVehicle?.id ?? null,
@@ -557,6 +592,17 @@ export default function TirePage() {
     const body = await res.json();
     if (!res.ok) throw new Error(body.message ?? "Error al crear llanta");
     setSuccess(`Llanta creada como ${suggestedPlaca}`);
+
+    // Enrich catalog with this tire's data (fire-and-forget)
+    crowdsourceEnrich({
+      marca: form.marca.trim(),
+      dimension: form.dimension.trim(),
+      modelo: form.diseno.trim(),
+      eje: form.eje,
+      profundidadInicial: Number(form.profundidadInicial) || undefined,
+      precioCop: Number(form.costo) || undefined,
+    });
+
     setForm(BLANK_FORM);
     setSelected(null);
   } catch (err: unknown) {
@@ -766,25 +812,56 @@ export default function TirePage() {
               {/* Marca */}
               <div>
                 <FieldLabel icon={Tag} label="Marca" required />
-                <input
-                  type="text"
+                <CatalogAutocomplete
                   value={form.marca}
-                  onChange={set("marca")}
-                  required
+                  onChange={(v) => setForm((f) => ({ ...f, marca: v }))}
+                  onSelect={(item) => setForm((f) => ({
+                    ...f,
+                    marca: item.marca,
+                    dimension: item.dimension,
+                    diseno: item.modelo,
+                    profundidadInicial: item.rtdMm ?? f.profundidadInicial,
+                    ...(item.precioCop && !f.costo ? { costo: item.precioCop } : {}),
+                  }))}
+                  onCrowdCreate={(val) => setForm((f) => ({ ...f, marca: val }))}
+                  field="marca"
                   placeholder="ej: Michelin"
+                  required
                   className={inputCls}
                 />
               </div>
 
               {/* Diseño */}
               <div>
-                <FieldLabel icon={Layers} label="Diseño" required />
-                <input
-                  type="text"
+                <FieldLabel icon={Layers} label="Diseño / Banda" required />
+                <CatalogAutocomplete
                   value={form.diseno}
-                  onChange={set("diseno")}
-                  required
+                  onChange={(v) => setForm((f) => ({ ...f, diseno: v }))}
+                  onSelect={(item) => setForm((f) => ({
+                    ...f,
+                    diseno: item.modelo,
+                    dimension: item.dimension,
+                    marca: item.marca,
+                    profundidadInicial: item.rtdMm ?? f.profundidadInicial,
+                    ...(item.precioCop && !f.costo ? { costo: item.precioCop } : {}),
+                  }))}
+                  onCrowdCreate={(val, stats) => {
+                    setForm((f) => ({
+                      ...f,
+                      diseno: val,
+                      ...(stats?.initialDepth && !f.profundidadInicial
+                        ? { profundidadInicial: stats.initialDepth.median }
+                        : {}),
+                      ...(stats?.price && !f.costo
+                        ? { costo: stats.price.median }
+                        : {}),
+                    }));
+                  }}
+                  field="modelo"
+                  filterMarca={form.marca}
+                  filterDimension={form.dimension}
                   placeholder="ej: XDS2"
+                  required
                   className={inputCls}
                 />
               </div>
@@ -825,12 +902,33 @@ export default function TirePage() {
               {/* Dimensión */}
               <div>
                 <FieldLabel icon={Ruler} label="Dimensión" required />
-                <input
-                  type="text"
+                <CatalogAutocomplete
                   value={form.dimension}
-                  onChange={set("dimension")}
-                  required
+                  onChange={(v) => setForm((f) => ({ ...f, dimension: v }))}
+                  onSelect={(item) => setForm((f) => ({
+                    ...f,
+                    dimension: item.dimension,
+                    marca: item.marca,
+                    diseno: item.modelo,
+                    profundidadInicial: item.rtdMm ?? f.profundidadInicial,
+                    ...(item.precioCop && !f.costo ? { costo: item.precioCop } : {}),
+                  }))}
+                  onCrowdCreate={(val, stats) => {
+                    setForm((f) => ({
+                      ...f,
+                      dimension: val,
+                      ...(stats?.initialDepth && !f.profundidadInicial
+                        ? { profundidadInicial: stats.initialDepth.median }
+                        : {}),
+                      ...(stats?.price && !f.costo
+                        ? { costo: stats.price.median }
+                        : {}),
+                    }));
+                  }}
+                  field="dimension"
+                  filterMarca={form.marca}
                   placeholder="ej: 295/80R22.5"
+                  required
                   className={inputCls}
                 />
               </div>
