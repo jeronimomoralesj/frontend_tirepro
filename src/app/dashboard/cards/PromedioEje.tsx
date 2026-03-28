@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle, BarChart3, Ruler } from "lucide-react";
+import AgentCardHeader from "../../../components/AgentCardHeader";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
@@ -76,8 +77,33 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
     return Object.entries(ejeGroups).map(([eje, data]) => ({
       eje,
       averageDepth: data.count ? parseFloat((data.totalDepth / data.count).toFixed(2)) : 0,
+      count: data.count,
     }));
   }, [tires, t.unknown]);
+
+  // Dynamic SENTINEL insight from axle data
+  const sentinelInsight = useMemo(() => {
+    if (averageDepthData.length < 2) return "";
+    const sorted = [...averageDepthData].sort((a, b) => a.averageDepth - b.averageDepth);
+    const worst = sorted[0];
+    const best = sorted[sorted.length - 1];
+    const delta = best.averageDepth - worst.averageDepth;
+    const lines: string[] = [];
+
+    if (delta > 3) {
+      lines.push(`Hay ${delta.toFixed(1)}mm de diferencia entre el eje "${worst.eje}" (${worst.averageDepth}mm) y "${best.eje}" (${best.averageDepth}mm). Esto es excesivo — el eje ${worst.eje} se esta desgastando mucho mas rapido. Revisa presiones y alineacion en ese eje.`);
+    } else if (delta > 1.5) {
+      lines.push(`El eje "${worst.eje}" tiene ${delta.toFixed(1)}mm menos que "${best.eje}". La diferencia es moderada pero vale la pena monitorear. Considera rotar llantas entre ejes si es posible.`);
+    } else {
+      lines.push(`El desgaste entre ejes esta equilibrado (diferencia de solo ${delta.toFixed(1)}mm). Tus llantas se estan usando de forma pareja.`);
+    }
+
+    if (worst.averageDepth < 5) {
+      lines.push(`El eje "${worst.eje}" tiene un promedio de ${worst.averageDepth}mm con ${worst.count} llantas. Varias de estas llantas estan cerca del limite legal de 2mm.`);
+    }
+
+    return lines.join("\n\n");
+  }, [averageDepthData]);
 
   const chartData = {
     labels: averageDepthData.map((item) => item.eje),
@@ -168,8 +194,8 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
       <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <BarChart3 size={18} className="text-white/90 shrink-0" />
-            <h2 className="text-sm sm:text-base font-semibold truncate">{t.title}</h2>
+            <AgentCardHeader agent="sentinel" insight={sentinelInsight} />
+            <h2 className="text-sm sm:text-base font-semibold truncate leading-tight">{t.title}</h2>
           </div>
           <div className="relative shrink-0">
             <button

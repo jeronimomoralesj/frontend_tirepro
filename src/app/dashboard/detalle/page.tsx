@@ -322,7 +322,8 @@ export default function DetallePage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Summary badges */}
         {!loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
+          <div className="mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {(["ok", "watch", "warning", "critical", "none"] as const).map((key) => {
               const m = ALERT_META[key];
               return (
@@ -341,6 +342,7 @@ export default function DetallePage() {
                 </div>
               );
             })}
+          </div>
           </div>
         )}
         {loading ? (

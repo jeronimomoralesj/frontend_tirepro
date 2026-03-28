@@ -467,10 +467,7 @@ function VehicleCard({
           <StatPill label="Kilometraje" value={`${(vehicle.kilometrajeActual ?? 0).toLocaleString()} km`} />
           <StatPill label="Peso carga" value={`${vehicle.pesoCarga ?? 0} kg`} />
           <StatPill label="Tipo carga" value={vehicle.carga || "N/A"} />
-          <StatPill label="Dueño" value={vehicle.cliente ?? "Propio"} />
-          {vehicle.tipoOperacion && (
-            <StatPill label="Terreno" value={(() => { const p = vehicle.tipoOperacion!.split("-"); return `${p[0]}% pav / ${p[1] ?? (100 - Number(p[0]))}% dest`; })()}  />
-          )}
+          <StatPill label="Cliente" value={vehicle.cliente ?? "Propio"} />
           {vehicle.configuracion && (
             <StatPill label="Config." value={vehicle.configuracion} />
           )}
@@ -481,33 +478,63 @@ function VehicleCard({
           )}
         </div>
 
+        {/* Terreno bar */}
+        {vehicle.tipoOperacion && (() => {
+          const parts = vehicle.tipoOperacion!.split("-");
+          const pav = Number(parts[0]) || 0;
+          const dest = 100 - pav;
+          return (
+            <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(52,140,203,0.08)", background: "#F8FBFF" }}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#348CCB]/70">Terreno</span>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-[10px] font-bold text-[#1E76B6] w-8 text-right">{pav}%</span>
+                <div className="flex-1 h-3 rounded-full overflow-hidden bg-[#e8d5b0]/40">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${pav}%`,
+                      background: "linear-gradient(90deg, #1E76B6, #348CCB)",
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-[#a0845e] w-8">{dest}%</span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-[9px] text-[#1E76B6] font-medium">Pavimento</span>
+                <span className="text-[9px] text-[#a0845e] font-medium">Destapado</span>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Drivers section */}
         <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(52,140,203,0.08)", background: "white" }}>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#348CCB]/70">
-              Conductores
-            </span>
-            <button
-              onClick={onEditDrivers}
-              className="text-[10px] font-semibold text-[#1E76B6] hover:opacity-70 transition-opacity"
-            >
-              ✏️ Conductores
-            </button>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <User className="w-3 h-3 text-[#348CCB]/70" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#348CCB]/70">
+                Conductores
+              </span>
+            </div>
           </div>
           {drivers.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1.5 mb-2">
               {drivers.map((d, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs">
                   <div
-                    className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black text-white flex-shrink-0"
+                    style={{ background: d.isPrimary ? "linear-gradient(135deg, #1E76B6, #348CCB)" : "linear-gradient(135deg, #64748b, #94a3b8)" }}
                   >
                     {d.nombre.charAt(0).toUpperCase()}
                   </div>
-                  <span className="font-medium text-[#0A183A] truncate">{d.nombre}</span>
-                  <span className="text-[#348CCB]/60 text-[10px] truncate">{d.telefono}</span>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-semibold text-[#0A183A] truncate text-xs leading-tight">{d.nombre}</span>
+                    <span className="text-[#348CCB]/60 text-[10px] leading-tight flex items-center gap-0.5">
+                      <Phone className="w-2.5 h-2.5" />{d.telefono}
+                    </span>
+                  </div>
                   {d.isPrimary && (
-                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6]">
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6] flex-shrink-0">
                       Principal
                     </span>
                   )}
@@ -515,8 +542,23 @@ function VehicleCard({
               ))}
             </div>
           ) : (
-            <p className="text-[10px] text-[#348CCB]/40 italic">Sin conductores</p>
+            <p className="text-[10px] text-[#348CCB]/40 italic mb-2">Sin conductores asignados</p>
           )}
+          <button
+            onClick={onEditDrivers}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+            style={{
+              background: drivers.length > 0 ? "rgba(30,118,182,0.06)" : "rgba(30,118,182,0.1)",
+              color: "#1E76B6",
+              border: "1px dashed rgba(30,118,182,0.3)",
+            }}
+          >
+            {drivers.length > 0 ? (
+              <><Edit className="w-3 h-3" /> Editar conductores</>
+            ) : (
+              <><Plus className="w-3 h-3" /> Agregar conductores</>
+            )}
+          </button>
         </div>
 
         {/* Action buttons */}

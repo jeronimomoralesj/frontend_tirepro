@@ -2,6 +2,7 @@
 
 import React from "react";
 import { HelpCircle } from "lucide-react";
+import AgentCardHeader from "../../../components/AgentCardHeader";
 
 export type Inspection = {
   profundidadInt: number;
@@ -60,13 +61,41 @@ const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({
 
   const progressPercentage = (averageProgress * 100).toFixed(2);
 
+  // Dynamic SENTINEL insight
+  const sentinelInsight = (() => {
+    if (progresses.length === 0) return "";
+    const pct = averageProgress * 100;
+    const belowHalf = progresses.filter((p) => p < 0.5).length;
+    const below20 = progresses.filter((p) => p < 0.2).length;
+    const lines: string[] = [];
+
+    if (pct < 30) {
+      lines.push(`Tu flota tiene solo ${pct.toFixed(0)}% de vida util restante en promedio. Esto es critico — necesitas planificar reemplazos masivos para las proximas semanas.`);
+    } else if (pct < 50) {
+      lines.push(`La flota esta al ${pct.toFixed(0)}% de vida util. Es buen momento para cotizar llantas y reencauches antes de que los precios suban por urgencia.`);
+    } else {
+      lines.push(`Tu flota conserva ${pct.toFixed(0)}% de vida util promedio. Estado saludable.`);
+    }
+
+    if (below20 > 0) {
+      lines.push(`${below20} de ${progresses.length} llantas inspeccionadas tienen menos del 20% de vida. Estas son prioridad de reemplazo.`);
+    }
+
+    if (belowHalf > progresses.length * 0.6) {
+      lines.push(`Mas del 60% de las llantas ya pasaron la mitad de su vida. Considera aumentar la frecuencia de inspeccion a quincenal para no perder cascos reencauchables.`);
+    }
+
+    return lines.join("\n\n");
+  })();
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden w-full">
       {/* Header */}
       <div className="bg-[#173D68] text-white px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-2">
-        <h2 className="text-base sm:text-xl font-bold leading-tight truncate">
-          {t.title}
-        </h2>
+        <div className="flex items-center gap-2 min-w-0">
+          <AgentCardHeader agent="sentinel" insight={sentinelInsight} />
+          <h2 className="text-base sm:text-xl font-bold leading-tight truncate">{t.title}</h2>
+        </div>
         <div className="group relative cursor-pointer flex-shrink-0">
           <HelpCircle
             className="text-white hover:text-gray-200 transition-colors"

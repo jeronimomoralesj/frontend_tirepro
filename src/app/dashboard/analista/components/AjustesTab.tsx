@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, Check, Zap, User, ClipboardList, Bot, Hand } from "lucide-react";
+import { AGENT_LIST, DEFAULT_AGENT_TOGGLES } from "../../../../lib/agents";
+import type { AgentId } from "../../../../lib/agents";
 
 // -- API ----------------------------------------------------------------------
 
@@ -26,6 +28,7 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
 
 interface AgentSettings {
   agentEnabled: boolean;
+  agents: Record<AgentId, boolean>;
   alertMode: "agent_auto" | "notify_person" | "display_only";
   alertRecipientName?: string;
   alertRecipientPhone?: string;
@@ -35,6 +38,7 @@ interface AgentSettings {
 
 const DEFAULT_SETTINGS: AgentSettings = {
   agentEnabled: false,
+  agents: { ...DEFAULT_AGENT_TOGGLES },
   alertMode: "display_only",
   purchaseMode: "manual",
 };
@@ -221,6 +225,77 @@ export default function AjustesTab() {
         </div>
       </div>
 
+      {/* -- 1b. Per-agent toggles ---------------------------------------- */}
+      {settings.agentEnabled && (
+        <div className="py-6 border-b border-gray-100">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#348CCB] mb-1">
+            Agentes activos
+          </p>
+          <p className="text-xs text-gray-400 mb-4">
+            Activa o desactiva cada agente individualmente
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {AGENT_LIST.map((agent) => {
+              const isOn = settings.agents?.[agent.id] ?? true;
+              const Icon = agent.icon;
+              return (
+                <button
+                  key={agent.id}
+                  type="button"
+                  onClick={() =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      agents: { ...DEFAULT_AGENT_TOGGLES, ...prev.agents, [agent.id]: !isOn },
+                    }))
+                  }
+                  className="flex items-center gap-3 p-3 rounded-xl transition-all text-left"
+                  style={{
+                    border: isOn
+                      ? `2px solid ${agent.color}30`
+                      : "1px solid rgba(100,116,139,0.12)",
+                    background: isOn ? agent.bg : "rgba(100,116,139,0.03)",
+                  }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                    style={{
+                      background: isOn ? agent.color : "#cbd5e1",
+                    }}
+                  >
+                    <Icon className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="text-xs font-black tracking-wide"
+                        style={{ color: isOn ? agent.color : "#94a3b8", fontFamily: "'DM Mono', monospace" }}
+                      >
+                        {agent.codename}
+                      </span>
+                      {isOn && (
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: agent.color }} />
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-400 truncate">{agent.role}</p>
+                  </div>
+                  {/* Mini toggle */}
+                  <div
+                    className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
+                    style={{ background: isOn ? agent.color : "#cbd5e1" }}
+                  >
+                    <span
+                      className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                      style={{ transform: isOn ? "translateX(16px)" : "translateX(0)" }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* -- 2. Alert mode ----------------------------------------------- */}
       <div className="py-6 border-b border-gray-100">
         <p className="text-xs font-bold uppercase tracking-wider text-[#348CCB] mb-1">
@@ -304,26 +379,8 @@ export default function AjustesTab() {
             icon={Bot}
             title="Automatico"
             description="Cuando una llanta necesita cambio, el agente envia propuestas al distribuidor vinculado."
-          >
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1 block">
-                Presupuesto mensual maximo (COP)
-              </label>
-              <input
-                type="number"
-                value={settings.monthlyBudgetCap ?? ""}
-                onChange={(e) =>
-                  set(
-                    "monthlyBudgetCap",
-                    e.target.value ? Number(e.target.value) : undefined,
-                  )
-                }
-                placeholder="Ej: 5000000"
-                min={0}
-                className={inputCls}
-              />
-            </div>
-          </RadioCard>
+          />
+
 
           <RadioCard
             selected={settings.purchaseMode === "manual"}
@@ -335,6 +392,33 @@ export default function AjustesTab() {
           />
         </div>
       </div>
+
+      {/* -- 4. Monthly budget ------------------------------------------- */}
+      {settings.agentEnabled && (
+        <div className="py-6 border-b border-gray-100">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#348CCB] mb-1">
+            Presupuesto mensual
+          </p>
+          <p className="text-xs text-gray-400 mb-4">
+            Limite mensual de gasto en llantas y reencauches. NEXUS te avisara cuando te acerques al limite. Si no lo defines, se usara el del mes anterior.
+          </p>
+          <input
+            type="number"
+            value={settings.monthlyBudgetCap ?? ""}
+            onChange={(e) =>
+              set("monthlyBudgetCap", e.target.value ? Number(e.target.value) : undefined)
+            }
+            placeholder="Ej: 5000000"
+            min={0}
+            className={inputCls}
+          />
+          {settings.monthlyBudgetCap && settings.monthlyBudgetCap > 0 && (
+            <p className="text-[10px] text-gray-400 mt-2">
+              Presupuesto actual: {new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(settings.monthlyBudgetCap)} / mes
+            </p>
+          )}
+        </div>
+      )}
 
       {/* -- Save button ------------------------------------------------- */}
       <div className="py-6">

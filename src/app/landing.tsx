@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
+import { AGENT_LIST } from '../lib/agents'
 import {
   Calendar,
   BarChart3,
@@ -918,68 +919,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
 
           {/* Agent cards */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {[
-              {
-                codename: 'SENTINEL',
-                role: 'Agente de Desgaste',
-                desc: 'Monitorea profundidad en 3 zonas. Detecta sobreinflado, baja presion y desalineacion a 1.5mm de diferencia entre hombros. Nunca duerme.',
-                status: 'Analizando',
-                color: '#ef4444',
-                glow: 'rgba(239,68,68,0.15)',
-                metric: '< 1.5mm',
-                metricLabel: 'precision',
-              },
-              {
-                codename: 'ORACLE',
-                role: 'Agente Predictivo',
-                desc: 'Calcula fecha exacta de fin de vida, km restantes y punto optimo de retiro a 3mm para preservar el casco. Proyecta CPK futuro.',
-                status: 'Prediciendo',
-                color: '#8b5cf6',
-                glow: 'rgba(139,92,246,0.15)',
-                metric: '3.0mm',
-                metricLabel: 'retiro optimo',
-              },
-              {
-                codename: 'NEXUS',
-                role: 'Agente de Pedidos',
-                desc: 'Cruza necesidades de reemplazo contra 2,500+ SKUs del catalogo colombiano. Genera propuestas, envia a distribuidores, negocia cotizaciones.',
-                status: 'Conectando',
-                color: '#22c55e',
-                glow: 'rgba(34,197,94,0.15)',
-                metric: '2,500+',
-                metricLabel: 'SKUs',
-              },
-              {
-                codename: 'PHANTOM',
-                role: 'Agente de Campo',
-                desc: 'Modo rapido: crea vehiculos, registra llantas e inspecciona en un flujo. Autocomplete desde el catalogo. Funciona donde sea.',
-                status: 'Desplegado',
-                color: '#f97316',
-                glow: 'rgba(249,115,22,0.15)',
-                metric: '< 30s',
-                metricLabel: 'por llanta',
-              },
-              {
-                codename: 'GUARDIAN',
-                role: 'Agente de Conductores',
-                desc: 'Envia alertas via WhatsApp al conductor con instrucciones exactas y link de confirmacion. Hasta 3 reenvios automaticos por alerta.',
-                status: 'Notificando',
-                color: '#06b6d4',
-                glow: 'rgba(6,182,212,0.15)',
-                metric: 'WhatsApp',
-                metricLabel: 'integrado',
-              },
-              {
-                codename: 'REAPER',
-                role: 'Agente de Desechos',
-                desc: 'Rastrea cada llanta hasta su fin de vida. Causales, milimetros finales, fotos. Calcula remanente perdido y dinero desperdiciado por mes.',
-                status: 'Rastreando',
-                color: '#ec4899',
-                glow: 'rgba(236,72,153,0.15)',
-                metric: '$0',
-                metricLabel: 'desperdicio',
-              },
-            ].map((agent, i) => (
+            {AGENT_LIST.map((agent, i) => (
               <article
                 key={i}
                 className="group relative rounded-2xl p-6 sm:p-7 transition-all duration-500 hover:-translate-y-1"
@@ -999,14 +939,17 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                   </div>
                 </div>
 
-                {/* Codename */}
-                <h3 className="font-black text-xl sm:text-2xl mb-1 tracking-tight" style={{ color: agent.color, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em' }}>
-                  {agent.codename}
-                </h3>
+                {/* Icon + Codename */}
+                <div className="flex items-center gap-2 mb-1">
+                  <span style={{ color: agent.color }}>{(() => { const Icon = agent.icon; return <Icon className="w-5 h-5" />; })()}</span>
+                  <h3 className="font-black text-xl sm:text-2xl tracking-tight" style={{ color: agent.color, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em' }}>
+                    {agent.codename}
+                  </h3>
+                </div>
                 <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>{agent.role}</p>
 
                 {/* Description */}
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{agent.desc}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{agent.description}</p>
 
                 {/* Bottom accent line */}
                 <div className="mt-5 h-px w-full transition-all duration-500 group-hover:w-full" style={{ background: `linear-gradient(90deg, ${agent.color}, transparent)`, opacity: 0.3 }} />

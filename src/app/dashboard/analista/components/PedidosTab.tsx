@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { AGENTS } from "../../../../lib/agents";
+import AgentCardHeader from "../../../../components/AgentCardHeader";
 import {
   Loader2, Check, X, Send, Package, ChevronDown,
   ChevronRight, AlertTriangle, Truck, RotateCcw,
@@ -279,8 +281,28 @@ function AgentView({ orders, budget }: { orders: PurchaseOrder[]; budget: number
     <div className="space-y-5">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="bg-[#173D68] text-white p-5">
-          <h2 className="text-lg font-bold">Agente Automatico</h2>
-          <p className="text-sm text-white/60 mt-1">El agente ha procesado {thisMonth.length} solicitudes este mes</p>
+          <div className="flex items-center gap-2.5 mb-1">
+            <AgentCardHeader agent="nexus" insight={(() => {
+              const lines: string[] = [];
+              if (thisMonth.length > 0) {
+                lines.push(`He procesado ${thisMonth.length} solicitud${thisMonth.length > 1 ? "es" : ""} este mes por un total de ${fmtCOP(spent)}.`);
+                if (budget > 0) {
+                  const pctUsed = Math.round((spent / budget) * 100);
+                  lines.push(pctUsed > 80
+                    ? `Ya usaste el ${pctUsed}% de tu presupuesto mensual. Considera pausar pedidos no urgentes o aumentar el limite.`
+                    : `Llevas ${pctUsed}% del presupuesto. Tienes margen para cubrir pedidos urgentes.`);
+                }
+              } else {
+                lines.push("No hay solicitudes este mes. Cuando una llanta necesite cambio, generare automaticamente la propuesta y la enviare a tu distribuidor.");
+              }
+              return lines.join("\n\n");
+            })()} />
+            <div>
+              <h2 className="text-lg font-bold">{AGENTS.nexus.codename}</h2>
+              <p className="text-[10px] uppercase tracking-wider text-white/40">{AGENTS.nexus.role}</p>
+            </div>
+          </div>
+          <p className="text-sm text-white/60 mt-1">Ha procesado {thisMonth.length} solicitudes este mes</p>
         </div>
         {budget > 0 && (
           <div className="p-5">
@@ -320,7 +342,7 @@ function AgentView({ orders, budget }: { orders: PurchaseOrder[]; budget: number
 // ===============================================================================
 
 function ManualView({
-  recs, orders, distributors, allDistributors, buckets, companyId, onRefresh,
+  recs, orders, distributors, allDistributors, buckets, companyId, onRefresh, budget,
 }: {
   recs: Recommendation[];
   orders: PurchaseOrder[];
@@ -329,6 +351,7 @@ function ManualView({
   buckets: Bucket[];
   companyId: string;
   onRefresh: () => void;
+  budget: number;
 }) {
   const [tab, setTab] = useState<"reencauche" | "nueva">("reencauche");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -340,6 +363,8 @@ function ManualView({
   const [accepting, setAccepting] = useState(false);
   const [bucketId, setBucketId] = useState("");
   const [sending, setSending] = useState(false);
+  const [showSolicitudes, setShowSolicitudes] = useState(false);
+  const [showHistorial, setShowHistorial] = useState(false);
 
   const filtered = useMemo(() => recs.filter((r) => r.type === tab), [recs, tab]);
   const groups = useMemo(() => {
@@ -529,8 +554,49 @@ function ManualView({
     onRefresh();
   }
 
+  const thisMonthOrders = orders.filter((o) => { const d = new Date(o.createdAt); const now = new Date(); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+  const monthSpent = thisMonthOrders.reduce((s, o) => s + (o.totalCotizado ?? o.totalEstimado ?? 0), 0);
+  const budgetPct = budget > 0 ? Math.min((monthSpent / budget) * 100, 100) : 0;
+
+  const nexusInsight = (() => {
+    const totalRecs = recs.length;
+    const critical = recs.filter((r) => r.urgency === "critical").length;
+    const reenc = recs.filter((r) => r.type === "reencauche").length;
+    const nueva = recs.filter((r) => r.type === "nueva").length;
+    const totalEst = recs.reduce((s, r) => s + (r.catalogMatch?.precioCop ?? r.estimatedPrice), 0);
+    const lines: string[] = [];
+    if (totalRecs === 0) { lines.push("Tu flota no tiene llantas que necesiten reemplazo o reencauche. Todo en orden."); return lines.join("\n\n"); }
+    lines.push(`Analice ${totalRecs} llantas que requieren atencion: ${reenc} para reencauche y ${nueva} para compra nueva.`);
+    if (critical > 0) lines.push(`${critical} son criticas — cada dia adicional en servicio deteriora el casco y puede hacerlo irreencauchable.`);
+    if (reenc > nueva && reenc > 0) lines.push(`El ${Math.round((reenc / totalRecs) * 100)}% son reencauches. Buen signo — estas aprovechando la vida util de tus cascos.`);
+    if (totalEst > 0) lines.push(`Inversion total estimada: ${fmtCOP(totalEst)}.${budget > 0 ? ` ${budgetPct > 80 ? " Cuidado: ya estas cerca del limite presupuestario." : " Dentro del presupuesto."}` : ""}`);
+    return lines.join("\n\n");
+  })();
+
   return (
     <div className="space-y-5">
+      {/* NEXUS header + budget */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
+        <div className="bg-[#173D68] text-white p-4 rounded-t-xl flex items-center gap-3">
+          <AgentCardHeader agent="nexus" insight={nexusInsight} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold leading-tight">Recomendaciones de {AGENTS.nexus.codename}</p>
+            <p className="text-[10px] text-white/50">{recs.length} llantas analizadas · {orders.length} ordenes este mes</p>
+          </div>
+        </div>
+        {budget > 0 && (
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="text-gray-400">Gastado este mes: {fmtCOP(monthSpent)}</span>
+              <span className="font-bold text-[#0A183A]">Presupuesto: {fmtCOP(budget)}</span>
+            </div>
+            <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{ width: `${budgetPct}%`, background: budgetPct > 80 ? "#ef4444" : "linear-gradient(90deg, #22c55e, #348CCB)" }} />
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Sub-tabs + Select All */}
       <div className="flex items-center gap-2 flex-wrap">
         {(["reencauche", "nueva"] as const).map((t) => {
@@ -569,14 +635,16 @@ function ManualView({
         ))
       )}
 
-      {/* ========== Solicitudes enviadas ========== */}
+      {/* ========== Solicitudes enviadas (collapsible) ========== */}
       {orders.filter((o) => o.status === "solicitud_enviada").length > 0 && (
         <div>
-          <div className="flex items-center gap-3 mb-3">
+          <button onClick={() => setShowSolicitudes(!showSolicitudes)} className="w-full flex items-center gap-3 mb-3 group">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#348CCB]">Solicitudes Enviadas</h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#348CCB]/10 text-[#348CCB]">{orders.filter((o) => o.status === "solicitud_enviada").length}</span>
             <div className="flex-1 h-px bg-gray-200" />
-          </div>
-          <div className="space-y-2">
+            {showSolicitudes ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+          </button>
+          {showSolicitudes && <div className="space-y-2">
             {orders.filter((o) => o.status === "solicitud_enviada").map((o) => (
               <div key={o.id} className="bg-white rounded-xl shadow-sm p-4" style={{ border: "1px solid rgba(52,140,203,0.12)" }}>
                 <div className="flex items-center gap-3">
@@ -589,7 +657,7 @@ function ManualView({
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       )}
 
@@ -660,14 +728,16 @@ function ManualView({
         </div>
       )}
 
-      {/* ========== Historial (aceptadas/rechazadas) ========== */}
+      {/* ========== Historial (collapsible) ========== */}
       {orders.filter((o) => o.status === "aceptada" || o.status === "rechazada").length > 0 && (
         <div>
-          <div className="flex items-center gap-3 mb-3">
+          <button onClick={() => setShowHistorial(!showHistorial)} className="w-full flex items-center gap-3 mb-3 group">
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Historial</h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{orders.filter((o) => o.status === "aceptada" || o.status === "rechazada").length}</span>
             <div className="flex-1 h-px bg-gray-200" />
-          </div>
-          <div className="space-y-2">
+            {showHistorial ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+          </button>
+          {showHistorial && <div className="space-y-2">
             {orders.filter((o) => o.status === "aceptada" || o.status === "rechazada").map((o) => {
               const isAccepted = o.status === "aceptada";
               return (
@@ -681,7 +751,7 @@ function ManualView({
                 </div>
               );
             })}
-          </div>
+          </div>}
         </div>
       )}
 
@@ -908,7 +978,7 @@ function VehicleRecGroup({
   onToggle: (id: string) => void;
   tab: "reencauche" | "nueva";
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <div>
@@ -1118,6 +1188,7 @@ export default function PedidosTab() {
       buckets={buckets}
       companyId={companyId}
       onRefresh={() => fetchAll(companyId)}
+      budget={settings?.monthlyBudgetCap ?? 0}
     />
   );
 }

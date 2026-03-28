@@ -12,6 +12,39 @@ import {
   Truck,
   User,
 } from "lucide-react";
+import { AGENTS } from "../../../../lib/agents";
+import type { AgentId } from "../../../../lib/agents";
+
+// Map notification actionType to the agent that generated it
+function resolveAgent(actionType: string | null): AgentId | null {
+  if (!actionType) return null;
+  const map: Record<string, AgentId> = {
+    remove_from_service: "sentinel",
+    retread: "oracle",
+    inspect: "sentinel",
+    rotate: "sentinel",
+    replace: "oracle",
+    buy_brand: "nexus",
+    pressure_adjust: "sentinel",
+  };
+  return map[actionType] ?? "sentinel";
+}
+
+function AgentBadge({ actionType }: { actionType: string | null }) {
+  const agentId = resolveAgent(actionType);
+  if (!agentId) return null;
+  const agent = AGENTS[agentId];
+  const Icon = agent.icon;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md flex-shrink-0"
+      style={{ background: agent.bg, color: agent.color, border: `1px solid ${agent.color}20` }}
+    >
+      <Icon className="w-2.5 h-2.5" />
+      {agent.codename}
+    </span>
+  );
+}
 
 // -- API ----------------------------------------------------------------------
 
@@ -198,14 +231,17 @@ function NotificationCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <AgentBadge actionType={n.actionType} />
+            {n.tire && (
+              <span className="text-[10px] font-mono font-bold text-[#348CCB] bg-[#348CCB]/8 px-2 py-0.5 rounded-md flex-shrink-0">
+                {n.tire.placa}
+              </span>
+            )}
+          </div>
           <p className="text-sm font-bold text-[#0A183A]">{n.title}</p>
           <p className="text-xs text-gray-400 mt-0.5">{n.message}</p>
         </div>
-        {n.tire && (
-          <span className="text-[10px] font-mono font-bold text-[#348CCB] bg-[#348CCB]/8 px-2 py-0.5 rounded-md flex-shrink-0">
-            {n.tire.placa}
-          </span>
-        )}
       </div>
 
       {/* Projection warning — tire may have worsened since inspection */}

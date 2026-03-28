@@ -12,6 +12,7 @@ import {
   ChevronLeft, ChevronRight, Send, Layers, Check, Warehouse,
   ArrowRight, Truck,
 } from "lucide-react";
+import AgentCardHeader from "../../../components/AgentCardHeader";
 
 // -----------------------------------------------------------------------------
 // DOMAIN CONSTANTS
@@ -1756,9 +1757,17 @@ const handleSendGroup = useCallback(async (state: SendGroupState) => {
         <div className="rounded-2xl" style={{ background:"linear-gradient(135deg,#0A183A 0%,#173D68 60%,#1E76B6 100%)", boxShadow:"0 8px 32px rgba(10,24,58,0.22)", padding:"16px 20px" }}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              {company.profileImage
-                ? <img src={company.profileImage} alt="" className="w-9 h-9 rounded-xl object-contain flex-shrink-0" style={{ background:"rgba(255,255,255,0.1)" }}/>
-                : <div className="p-2.5 rounded-xl flex-shrink-0" style={{ background:"rgba(255,255,255,0.12)" }}><ShoppingCart className="w-5 h-5 text-white"/></div>}
+              <AgentCardHeader agent="nexus" insight={(() => {
+                if (!data) return "Ejecuta el analisis para que NEXUS cruce las necesidades de tu flota contra el catalogo de 2,500+ SKUs colombianos.";
+                const total = data.critical.length + data.immediate.length + data.nextMonth.length + data.plan.length;
+                const lines: string[] = [];
+                if (data.critical.length > 0) lines.push(`${data.critical.length} llanta${data.critical.length > 1 ? "s" : ""} en estado critico necesita${data.critical.length > 1 ? "n" : ""} reemplazo inmediato. Cada dia sin cambiarlas es riesgo de multa y accidente.`);
+                if (data.immediate.length > 0) lines.push(`${data.immediate.length} reemplazo${data.immediate.length > 1 ? "s" : ""} urgente${data.immediate.length > 1 ? "s" : ""} — estas llantas no llegaran al proximo mes. Cotiza ya con tu distribuidor.`);
+                if (data.nextMonth.length > 0) lines.push(`${data.nextMonth.length} llanta${data.nextMonth.length > 1 ? "s" : ""} necesitaran cambio el proximo mes. Buen momento para negociar volumen y bajar el CPK.`);
+                if (data.totalEstimatedCost > 0) lines.push(`Inversion estimada: $${Math.round(data.totalEstimatedCost / 1000000)}M COP para ${total} llantas.${data.totalSavingsAnual > 0 ? ` Ahorro proyectado: $${Math.round(data.totalSavingsAnual / 1000000)}M/ano optimizando marcas y reencauches.` : ""}`);
+                if (total === 0) lines.push("Tu flota no tiene necesidades de reemplazo inmediatas. Bien hecho.");
+                return lines.join("\n\n");
+              })()} />
               <div className="min-w-0">
                 <h1 className="font-black text-white text-base leading-none tracking-tight truncate">
                   Pedidos{company.name?` — ${company.name}`:""}
