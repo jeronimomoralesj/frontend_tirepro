@@ -1269,63 +1269,171 @@ function BucketSection({
 // =============================================================================
 
 function SelectionBar({
-  count, withVehicle, onReturn, onAssign, onClear, returning,
+  count, withVehicle, onReturn, onAssign, onMoveBucket, onFinVida, onClear, returning, buckets,
 }: {
   count: number; withVehicle: number;
-  onReturn: () => void; onAssign: () => void; onClear: () => void;
+  onReturn: () => void; onAssign: () => void;
+  onMoveBucket: (bucketId: string) => void; onFinVida: () => void;
+  onClear: () => void;
   returning: boolean;
+  buckets: InventoryBucket[];
 }) {
+  const [showBucketMenu, setShowBucketMenu] = useState(false);
+  const [showFinConfirm, setShowFinConfirm] = useState(false);
+
   if (count === 0) return null;
   return (
+    <>
     <div
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 px-5 py-3.5 rounded-2xl shadow-2xl"
       style={{
         background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
         border:     "1px solid rgba(255,255,255,0.12)",
         boxShadow:  "0 16px 48px rgba(10,24,58,0.4)",
-        minWidth:   "min(92vw, 560px)",
+        minWidth:   "min(92vw, 580px)",
+        maxWidth:   "min(95vw, 680px)",
       }}
     >
-      <div className="flex items-center gap-2.5 flex-1">
-        <div className="w-8 h-8 rounded-xl bg-white/12 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-black text-sm">{count}</span>
+      {/* Top row: count + close */}
+      <div className="flex items-center gap-3 mb-2.5">
+        <div className="flex items-center gap-2.5 flex-1">
+          <div className="w-7 h-7 rounded-lg bg-white/12 flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-black text-xs">{count}</span>
+          </div>
+          <div>
+            <p className="text-white font-bold text-xs leading-none">
+              {count} llanta{count !== 1 ? "s" : ""} seleccionada{count !== 1 ? "s" : ""}
+            </p>
+            <p className="text-white/40 text-[9px] mt-0.5">
+              {withVehicle} con vehículo registrado
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-white font-bold text-sm leading-none">
-            {count} llanta{count !== 1 ? "s" : ""} seleccionada{count !== 1 ? "s" : ""}
-          </p>
-          <p className="text-white/40 text-[10px] mt-0.5">
-            {withVehicle} con retorno registrado
-          </p>
+        <button
+          onClick={onClear}
+          className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-all"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Action buttons row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Assign to vehicle */}
+        <button
+          onClick={onAssign}
+          disabled={returning}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+          style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "1px solid rgba(255,255,255,0.2)" }}
+        >
+          <Truck className="w-3 h-3" />
+          Asignar a Vehículo
+        </button>
+
+        {/* Return to last vehicle */}
+        {withVehicle > 0 && (
+          <button
+            onClick={onReturn}
+            disabled={returning}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+            style={{ background: "white", color: "#0A183A" }}
+          >
+            {returning ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+            Retornar al Vehículo
+          </button>
+        )}
+
+        {/* Move to bucket */}
+        <div className="relative">
+          <button
+            onClick={() => setShowBucketMenu((v) => !v)}
+            disabled={returning}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+            style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            <Layers className="w-3 h-3" />
+            Mover a Grupo
+          </button>
+          {showBucketMenu && (
+            <div
+              className="absolute bottom-full mb-2 left-0 w-48 rounded-xl overflow-hidden shadow-2xl"
+              style={{ background: "#0A183A", border: "1px solid rgba(255,255,255,0.15)" }}
+            >
+              <div className="py-1">
+                <button
+                  onClick={() => { onMoveBucket(""); setShowBucketMenu(false); }}
+                  className="w-full text-left px-3 py-2 text-[10px] font-bold text-white/70 hover:bg-white/10 transition-colors flex items-center gap-2"
+                >
+                  <span>✅</span> Disponible
+                </button>
+                {buckets.map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => { onMoveBucket(b.id); setShowBucketMenu(false); }}
+                    className="w-full text-left px-3 py-2 text-[10px] font-bold text-white/70 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  >
+                    <span>{b.icono}</span> {b.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Fin de vida */}
+        <button
+          onClick={() => setShowFinConfirm(true)}
+          disabled={returning}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+          style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}
+        >
+          <Trash2 className="w-3 h-3" />
+          Fin de Vida
+        </button>
+      </div>
+    </div>
+
+    {/* Fin de vida confirmation */}
+    {showFinConfirm && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(10,24,58,0.65)", backdropFilter: "blur(8px)" }}
+      >
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" style={{ border: "1px solid rgba(239,68,68,0.2)" }}>
+          <div className="px-5 py-4" style={{ background: "linear-gradient(135deg, #991b1b, #ef4444)" }}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-white" />
+              <h3 className="font-black text-white text-sm">Confirmar Fin de Vida</h3>
+            </div>
+          </div>
+          <div className="px-5 py-4">
+            <p className="text-sm text-gray-700">
+              ¿Marcar <strong>{count} llanta{count !== 1 ? "s" : ""}</strong> como fin de vida?
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Esta accion cambia la vida a "fin" y las retira del inventario activo.
+            </p>
+          </div>
+          <div className="px-5 py-3 flex gap-2" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+            <button
+              onClick={() => setShowFinConfirm(false)}
+              className="flex-1 py-2 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
+              style={{ border: "1px solid rgba(0,0,0,0.08)" }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => { setShowFinConfirm(false); onFinVida(); }}
+              className="flex-1 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
+              style={{ background: "#ef4444" }}
+            >
+              Confirmar
+            </button>
+          </div>
         </div>
       </div>
-      <button
-        onClick={onClear}
-        className="p-2 rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition-all"
-      >
-        <X className="w-4 h-4" />
-      </button>
-      <button
-        onClick={onAssign}
-        disabled={returning}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-black transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-        style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "1px solid rgba(255,255,255,0.25)" }}
-      >
-        <Truck className="w-3.5 h-3.5" />
-        Asignar a Vehículo
-      </button>
-      {withVehicle > 0 && (
-        <button
-          onClick={onReturn}
-          disabled={returning}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-black text-[#0A183A] transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-          style={{ background: "white" }}
-        >
-          {returning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-          {returning ? "Preparando…" : "Retornar al Vehículo"}
-        </button>
-      )}
-    </div>
+    )}
+    </>
   );
 }
 
@@ -1605,6 +1713,62 @@ await load(companyId);
     }
   }
 
+  // -- Move to bucket ----------------------------------------------------------
+
+  async function handleMoveBucket(bucketId: string) {
+    if (selectedIds.size === 0) return;
+    setReturning(true);
+    try {
+      const tireIds = [...selectedIds];
+      if (bucketId) {
+        // Move to specific bucket
+        await authFetch(`${API_BASE}/inventory-buckets/bulk-move`, {
+          method: "POST",
+          body: JSON.stringify({ tireIds, bucketId, companyId }),
+        });
+      } else {
+        // Move to Disponible (null bucket)
+        await authFetch(`${API_BASE}/inventory-buckets/bulk-move`, {
+          method: "POST",
+          body: JSON.stringify({ tireIds, bucketId: null, companyId }),
+        });
+      }
+      const bucketName = bucketId ? buckets.find((b) => b.id === bucketId)?.nombre ?? "grupo" : "Disponible";
+      setSuccess(`${tireIds.length} llanta${tireIds.length !== 1 ? "s" : ""} movida${tireIds.length !== 1 ? "s" : ""} a ${bucketName}`);
+      setSelectedIds(new Set());
+      await load(companyId);
+    } catch (e: any) {
+      setError(e.message ?? "Error al mover llantas");
+    } finally {
+      setReturning(false);
+    }
+  }
+
+  // -- Fin de vida -------------------------------------------------------------
+
+  async function handleFinVida() {
+    if (selectedIds.size === 0) return;
+    setReturning(true);
+    try {
+      const tireIds = [...selectedIds];
+      await Promise.all(
+        tireIds.map((id) =>
+          authFetch(`${API_BASE}/tires/${id}/vida`, {
+            method: "POST",
+            body: JSON.stringify({ vida: "fin" }),
+          })
+        )
+      );
+      setSuccess(`${tireIds.length} llanta${tireIds.length !== 1 ? "s" : ""} marcada${tireIds.length !== 1 ? "s" : ""} como fin de vida`);
+      setSelectedIds(new Set());
+      await load(companyId);
+    } catch (e: any) {
+      setError(e.message ?? "Error al marcar fin de vida");
+    } finally {
+      setReturning(false);
+    }
+  }
+
   // -- Bucket CRUD -------------------------------------------------------------
 
   function handleBucketSaved(saved: InventoryBucket) {
@@ -1779,8 +1943,11 @@ await load(companyId);
   withVehicle={withVehicle}
   onReturn={() => handleInitiateReturn()}
   onAssign={() => setShowAssignModal(true)}
+  onMoveBucket={handleMoveBucket}
+  onFinVida={handleFinVida}
   onClear={() => setSelectedIds(new Set())}
   returning={buildingResolved}
+  buckets={buckets}
 />
 
       {conflictModal && (
