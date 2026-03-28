@@ -139,13 +139,11 @@
 }
 
 /* =============================================================================
-   SATURN V MODE
+   SATURN V MODE — performant dark space theme
    ============================================================================= */
 
-/* Stars background */
-.saturn-v body,
-.saturn-v .min-h-screen,
-.saturn-v main {
+/* Background — single static gradient, no animations on body pseudo-elements */
+.saturn-v body {
   background: #050510 !important;
 }
 
@@ -156,192 +154,167 @@
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(1.5px 1.5px at 20% 15%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(1px 1px at 40% 35%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(1.5px 1.5px at 60% 20%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(1px 1px at 80% 45%, rgba(255,255,255,0.4), transparent),
-    radial-gradient(1.5px 1.5px at 10% 60%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(1px 1px at 50% 70%, rgba(255,255,255,0.3), transparent),
-    radial-gradient(1.5px 1.5px at 30% 85%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(1px 1px at 70% 90%, rgba(255,255,255,0.4), transparent),
-    radial-gradient(1px 1px at 90% 10%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(1.5px 1.5px at 15% 40%, rgba(255,255,255,0.3), transparent),
-    radial-gradient(1px 1px at 85% 65%, rgba(255,255,255,0.4), transparent),
-    radial-gradient(1.5px 1.5px at 45% 50%, rgba(255,255,255,0.2), transparent);
-  animation: saturn-stars-drift 120s linear infinite;
+    radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 30% 40%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 55% 20%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 75% 55%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 90% 30%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 20% 70%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 65% 80%, rgba(255,255,255,0.35), transparent),
+    radial-gradient(1px 1px at 45% 95%, rgba(255,255,255,0.25), transparent),
+    radial-gradient(1.5px 1.5px at 85% 75%, rgba(249,115,22,0.5), transparent),
+    radial-gradient(1.5px 1.5px at 40% 10%, rgba(139,92,246,0.4), transparent);
 }
 
-@keyframes saturn-stars-drift {
-  0%   { transform: translateY(0); }
-  100% { transform: translateY(-30px); }
+/* All page wrappers → dark */
+.saturn-v .min-h-screen,
+.saturn-v main,
+.saturn-v div[style*="background: white"],
+.saturn-v div[style*="background: \"white\""] {
+  background: #050510 !important;
 }
 
-/* Twinkling layer */
-.saturn-v body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(2px 2px at 25% 25%, rgba(249,115,22,0.6), transparent),
-    radial-gradient(2px 2px at 75% 50%, rgba(139,92,246,0.5), transparent),
-    radial-gradient(2px 2px at 50% 80%, rgba(249,115,22,0.4), transparent);
-  animation: saturn-twinkle 4s ease-in-out infinite alternate;
-}
+/* Content above stars */
+.saturn-v body > * { position: relative; z-index: 1; }
 
-@keyframes saturn-twinkle {
-  0%   { opacity: 0.3; }
-  100% { opacity: 0.8; }
-}
-
-/* Content sits above stars */
-.saturn-v body > *,
-.saturn-v main > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* Cards — dark glass */
-.saturn-v .bg-white {
-  background: rgba(10, 10, 30, 0.85) !important;
-  border-color: rgba(249, 115, 22, 0.12) !important;
-  backdrop-filter: blur(12px);
-}
-
-.saturn-v .bg-white .text-gray-700,
-.saturn-v .bg-white .text-gray-600,
-.saturn-v .bg-white .text-gray-500 {
-  color: rgba(255, 255, 255, 0.5) !important;
-}
-
-.saturn-v .bg-white .text-gray-400 {
-  color: rgba(255, 255, 255, 0.35) !important;
-}
-
-.saturn-v .bg-white .text-gray-800,
-.saturn-v .bg-white .text-gray-900 {
-  color: rgba(255, 255, 255, 0.85) !important;
-}
-
-/* Main text colors */
-.saturn-v .text-\[\#0A183A\] {
-  color: #f0f0f0 !important;
-}
-
-.saturn-v .text-\[\#173D68\] {
-  color: rgba(249, 115, 22, 0.8) !important;
+/* ── GLOBAL TEXT: force all dark text to light ─────────────────────────── */
+.saturn-v .text-\[\#0A183A\],
+.saturn-v .text-\[\#173D68\],
+.saturn-v .text-\[\#1E76B6\],
+.saturn-v [style*="color: #0A183A"],
+.saturn-v [style*="color: rgb(10, 24, 58)"],
+.saturn-v [class*="text-gray-9"],
+.saturn-v [class*="text-gray-8"],
+.saturn-v [class*="text-gray-7"] {
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
 .saturn-v .text-\[\#348CCB\] {
-  color: rgba(249, 115, 22, 0.6) !important;
-}
-
-.saturn-v .text-\[\#1E76B6\] {
   color: #f97316 !important;
 }
 
-/* Gradient headers — space theme */
-.saturn-v [style*="linear-gradient(135deg, #0A183A"],
-.saturn-v [style*="linear-gradient(135deg, #1E76B6"],
-.saturn-v .bg-\[\#173D68\] {
-  background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a0a1a 100%) !important;
-  border-bottom: 1px solid rgba(249, 115, 22, 0.2) !important;
+.saturn-v [class*="text-gray-6"],
+.saturn-v [class*="text-gray-5"] {
+  color: rgba(255, 255, 255, 0.55) !important;
 }
 
-/* Buttons — orange accent */
-.saturn-v button[style*="linear-gradient(135deg, #1E76B6"],
-.saturn-v button[style*="linear-gradient(135deg, #0A183A"] {
-  background: linear-gradient(135deg, #f97316, #ea580c) !important;
-  box-shadow: 0 0 16px rgba(249, 115, 22, 0.25) !important;
+.saturn-v [class*="text-gray-4"],
+.saturn-v [class*="text-gray-3"] {
+  color: rgba(255, 255, 255, 0.4) !important;
 }
 
-/* Input fields */
-.saturn-v .bg-\[\#F0F7FF\],
-.saturn-v input[class*="bg-\[#F0F7FF\]"] {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(249, 115, 22, 0.2) !important;
-  color: #f0f0f0 !important;
+/* Black text catch-all for inline styles */
+.saturn-v .font-black,
+.saturn-v .font-bold,
+.saturn-v .font-semibold {
+  color: inherit;
 }
 
-/* Border overrides */
-.saturn-v .border-gray-100,
-.saturn-v .border-gray-200 {
-  border-color: rgba(249, 115, 22, 0.08) !important;
-}
-
-/* Sidebar */
-.saturn-v aside,
-.saturn-v nav {
-  background: rgba(5, 5, 16, 0.95) !important;
+/* ── CARDS ─────────────────────────────────────────────────────────────── */
+.saturn-v .bg-white {
+  background: rgba(12, 12, 28, 0.92) !important;
   border-color: rgba(249, 115, 22, 0.1) !important;
 }
 
-/* Scroll bars */
-.saturn-v ::-webkit-scrollbar {
-  width: 6px;
-}
-.saturn-v ::-webkit-scrollbar-track {
-  background: rgba(10, 10, 30, 0.5);
-}
-.saturn-v ::-webkit-scrollbar-thumb {
-  background: rgba(249, 115, 22, 0.3);
-  border-radius: 3px;
-}
-
-/* Card hover glow */
 .saturn-v .shadow-lg,
-.saturn-v .shadow-sm {
-  box-shadow: 0 0 24px rgba(249, 115, 22, 0.06), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+.saturn-v .shadow-sm,
+.saturn-v .shadow-2xl {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
 }
 
-.saturn-v .rounded-2xl:hover,
-.saturn-v .rounded-xl:hover {
-  box-shadow: 0 0 32px rgba(249, 115, 22, 0.12), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+/* ── SIDEBAR — inline style overrides need higher specificity ──────── */
+.saturn-v aside[style],
+.saturn-v div[style*="background: white"][class*="fixed"] {
+  background: rgba(8, 8, 22, 0.97) !important;
+  border-color: rgba(249, 115, 22, 0.1) !important;
 }
 
-/* Loader spinners — orange */
-.saturn-v .animate-spin {
-  color: #f97316 !important;
+/* Sidebar nav links */
+.saturn-v aside .text-\[\#173D68\],
+.saturn-v aside [class*="text-gray"],
+.saturn-v div[class*="fixed"] .text-\[\#173D68\] {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
-/* Zero-G float on metric cards */
-.saturn-v .rounded-xl {
-  animation: saturn-float 6s ease-in-out infinite;
-  animation-delay: calc(var(--float-delay, 0) * 1s);
+.saturn-v aside [style*="background: rgba(30,118,182"],
+.saturn-v aside .bg-red-50,
+.saturn-v div[class*="fixed"] [style*="background: rgba(30,118,182"] {
+  background: rgba(249, 115, 22, 0.1) !important;
 }
 
-@keyframes saturn-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-3px); }
+/* Mobile sidebar panel */
+.saturn-v div[class*="fixed"][class*="w-72"] {
+  background: rgba(8, 8, 22, 0.98) !important;
+  border-color: rgba(249, 115, 22, 0.1) !important;
 }
 
-/* Chart backgrounds */
-.saturn-v canvas {
-  filter: hue-rotate(20deg) saturate(1.2);
+/* ── GRADIENT HEADERS ──────────────────────────────────────────────── */
+.saturn-v [style*="linear-gradient(135deg, #0A183A"],
+.saturn-v [style*="linear-gradient(135deg, #1E76B6"],
+.saturn-v .bg-\[\#173D68\] {
+  background: linear-gradient(135deg, #0a0a1a 0%, #150a28 100%) !important;
 }
 
-/* Sticky headers */
-.saturn-v .sticky {
-  background: rgba(5, 5, 16, 0.92) !important;
-  backdrop-filter: blur(12px) !important;
-  border-bottom-color: rgba(249, 115, 22, 0.15) !important;
+/* ── STICKY HEADERS ───────────────────────────────────────────────── */
+.saturn-v .sticky,
+.saturn-v [style*="backdrop-filter"] {
+  background: rgba(5, 5, 16, 0.95) !important;
+  border-bottom-color: rgba(249, 115, 22, 0.12) !important;
 }
 
-/* Tab pills */
-.saturn-v .rounded-full[style*="background: transparent"] {
-  border-color: rgba(249, 115, 22, 0.2) !important;
-  color: rgba(255, 255, 255, 0.6) !important;
+/* ── BUTTONS ──────────────────────────────────────────────────────── */
+.saturn-v button[style*="linear-gradient(135deg, #1E76B6"],
+.saturn-v button[style*="linear-gradient(135deg, #0A183A"] {
+  background: linear-gradient(135deg, #f97316, #ea580c) !important;
 }
 
-/* Alert badges */
+/* Active tab pills */
+.saturn-v button[style*="background: #0A183A"],
+.saturn-v button[style*="background: rgb(10, 24, 58)"] {
+  background: #f97316 !important;
+}
+
+/* ── INPUTS ───────────────────────────────────────────────────────── */
+.saturn-v .bg-\[\#F0F7FF\],
+.saturn-v input,
+.saturn-v select,
+.saturn-v textarea {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(249, 115, 22, 0.15) !important;
+  color: #f0f0f0 !important;
+}
+
+.saturn-v input::placeholder,
+.saturn-v textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ── BORDERS ──────────────────────────────────────────────────────── */
+.saturn-v .border-gray-100,
+.saturn-v .border-gray-200,
+.saturn-v [class*="divide-gray"] > * + * {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── LIGHT BACKGROUNDS → DARK ─────────────────────────────────────── */
+.saturn-v .bg-gray-50,
 .saturn-v .bg-gray-100,
-.saturn-v .bg-gray-50 {
+.saturn-v .bg-gray-200,
+.saturn-v .hover\:bg-gray-50:hover,
+.saturn-v .bg-\[\#F0F7FF\] {
   background: rgba(255, 255, 255, 0.04) !important;
 }
 
-/* Selection / highlights */
-.saturn-v ::selection {
-  background: rgba(249, 115, 22, 0.3);
-  color: white;
-}
+/* ── SCROLLBARS ───────────────────────────────────────────────────── */
+.saturn-v ::-webkit-scrollbar { width: 6px; }
+.saturn-v ::-webkit-scrollbar-track { background: transparent; }
+.saturn-v ::-webkit-scrollbar-thumb { background: rgba(249, 115, 22, 0.25); border-radius: 3px; }
+
+/* ── SPINNERS ─────────────────────────────────────────────────────── */
+.saturn-v .animate-spin { color: #f97316 !important; }
+
+/* ── CHARTS ───────────────────────────────────────────────────────── */
+.saturn-v canvas { filter: hue-rotate(15deg) saturate(1.1); }
+
+/* ── SELECTION ────────────────────────────────────────────────────── */
+.saturn-v ::selection { background: rgba(249, 115, 22, 0.3); color: white; }
