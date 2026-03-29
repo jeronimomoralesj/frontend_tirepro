@@ -96,66 +96,59 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
 
   return (
     <>
-      {/* Main nav bar */}
-      <header className="sticky top-0 z-50" style={{ background: "#0A183A" }}>
-        <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 sm:gap-3 py-2.5">
-            {/* Mobile menu */}
-            <button onClick={() => setMobileMenu(!mobileMenu)} className="lg:hidden text-white/70 hover:text-white p-1 flex-shrink-0">
+      <header className="sticky top-0 z-50 bg-white" style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.06)" }}>
+        {/* Main row */}
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-14 sm:h-16 gap-4">
+            {/* Hamburger (mobile) */}
+            <button onClick={() => setMobileMenu(!mobileMenu)} className="lg:hidden text-[#0A183A] hover:text-[#1E76B6] transition-colors flex-shrink-0 -ml-1">
               <Menu className="w-5 h-5" />
             </button>
 
             {/* Logo */}
             <Link href="/marketplace" className="flex-shrink-0">
-              <Image src="/logo_full.png" alt="TirePro" width={90} height={27} className="h-5 sm:h-7 w-auto brightness-0 invert" />
+              <Image src="/logo_full.png" alt="TirePro" width={100} height={30} className="h-6 sm:h-7 w-auto" />
             </Link>
 
-            {/* Desktop search bar */}
-            <div ref={wrapperRef} className="hidden sm:flex flex-1 max-w-2xl relative min-w-0">
-              <form onSubmit={handleSubmit} className="flex w-full">
+            {/* Desktop search */}
+            <div ref={wrapperRef} className="hidden sm:block flex-1 max-w-xl relative min-w-0 mx-auto">
+              <form onSubmit={handleSubmit} className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   value={q}
                   onChange={(e) => { setQ(e.target.value); setShowSuggestions(true); }}
                   onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
                   placeholder="Buscar llantas, marcas, distribuidores..."
-                  className="flex-1 min-w-0 px-4 py-2 sm:py-2.5 rounded-l-full text-sm bg-white border-0 focus:outline-none text-[#0A183A] placeholder-gray-400"
+                  className="w-full pl-11 pr-12 py-2.5 rounded-full text-[13px] bg-[#f5f5f7] border border-transparent focus:border-[#0A183A]/15 focus:bg-white focus:shadow-lg focus:outline-none text-[#0A183A] placeholder-gray-400 transition-all"
                 />
-                <button type="submit"
-                  className="px-4 sm:px-5 rounded-r-full flex items-center justify-center flex-shrink-0 transition-colors"
-                  style={{ background: "#1E76B6" }}>
-                  <Search className="w-4 h-4 text-white" />
+                <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0A183A] flex items-center justify-center hover:bg-[#173D68] transition-colors">
+                  <Search className="w-3.5 h-3.5 text-white" />
                 </button>
               </form>
 
-              {/* Suggestions dropdown */}
+              {/* Suggestions */}
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-[60]">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-black/5 overflow-hidden z-[60]">
                   {suggestions.map((s) => {
                     const imgs = Array.isArray(s.imageUrls) ? s.imageUrls : [];
                     const cover = imgs.length > 0 ? imgs[s.coverIndex ?? 0] ?? imgs[0] : null;
                     return (
                       <button key={s.id} onClick={() => selectSuggestion(s)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
-                        <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {cover ? (
-                            <img src={cover} alt="" className="w-full h-full object-contain p-1" />
-                          ) : (
-                            <Package className="w-4 h-4 text-gray-300" />
-                          )}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f5f5f7] transition-colors text-left">
+                        <div className="w-11 h-11 rounded-xl bg-[#f5f5f7] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1.5" /> : <Package className="w-4 h-4 text-gray-300" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-[#0A183A] truncate">
-                            <span className="font-bold">{s.marca}</span> {s.modelo}
-                          </p>
-                          <p className="text-[10px] text-gray-400">{s.dimension} · {s.distributor.name}</p>
+                          <p className="text-[13px] text-[#0A183A] truncate"><span className="font-semibold">{s.marca}</span> {s.modelo}</p>
+                          <p className="text-[11px] text-gray-400">{s.dimension} · {s.distributor.name}</p>
                         </div>
-                        <span className="text-sm font-bold text-[#0A183A] flex-shrink-0">{fmtCOPShort(s.precioCop)}</span>
+                        <span className="text-[13px] font-semibold text-[#0A183A] flex-shrink-0">{fmtCOPShort(s.precioCop)}</span>
                       </button>
                     );
                   })}
                   <button onClick={(e) => { handleSubmit(e as any); }}
-                    className="w-full px-4 py-2.5 text-xs font-bold text-[#1E76B6] hover:bg-blue-50 transition-colors text-center border-t border-gray-100">
+                    className="w-full px-4 py-3 text-[12px] font-semibold text-[#1E76B6] hover:bg-[#f5f5f7] transition-colors text-center" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
                     Ver todos los resultados para &quot;{q}&quot;
                   </button>
                 </div>
@@ -163,52 +156,40 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
             </div>
 
             {/* Mobile search icon */}
-            <button onClick={() => setMobileSearch(!mobileSearch)} className="sm:hidden text-white/70 hover:text-white p-1 flex-shrink-0 ml-auto">
+            <button onClick={() => setMobileSearch(!mobileSearch)} className="sm:hidden text-[#0A183A] hover:text-[#1E76B6] p-1 flex-shrink-0 ml-auto transition-colors">
               <Search className="w-5 h-5" />
             </button>
 
             {/* Right actions */}
-            <div className="hidden sm:flex items-center gap-1 lg:gap-3 flex-shrink-0 ml-auto">
-              {/* Account */}
+            <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
               {isLoggedIn ? (
-                <Link href="/dashboard/ajustes" className="hidden lg:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
-                  <span className="text-[9px] text-white/50 leading-none">Hola, {userName?.split(" ")[0]}</span>
-                  <span className="text-[11px] font-bold text-white leading-tight">Mi Cuenta</span>
+                <Link href="/dashboard/ajustes" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f5f5f7] transition-colors">
+                  <User className="w-4 h-4 text-[#0A183A]" />
+                  <span className="text-[12px] font-medium text-[#0A183A]">{userName?.split(" ")[0]}</span>
                 </Link>
               ) : (
-                <Link href="/login" className="hidden lg:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
-                  <span className="text-[9px] text-white/50 leading-none">Hola, ingresa</span>
-                  <span className="text-[11px] font-bold text-white leading-tight">Cuenta</span>
+                <Link href="/login" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f5f5f7] transition-colors">
+                  <User className="w-4 h-4 text-gray-500" />
+                  <span className="text-[12px] font-medium text-[#0A183A]">Ingresar</span>
                 </Link>
               )}
 
-              {/* Orders */}
-              <Link href={isLoggedIn ? "/dashboard/analista" : "/login"} className="hidden lg:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
-                <span className="text-[9px] text-white/50 leading-none">{isLoggedIn ? "Mis" : "Tus"}</span>
-                <span className="text-[11px] font-bold text-white leading-tight">Pedidos</span>
-              </Link>
-
-              {/* Cart */}
-              <Link href="/marketplace/cart" className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors relative">
-                <div className="relative">
-                  <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  {cart.count > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 rounded-full text-[9px] font-black flex items-center justify-center"
-                      style={{ background: "#f97316", color: "white", minWidth: 18, height: 18 }}>
-                      {cart.count}
-                    </span>
-                  )}
-                </div>
-                <span className="hidden lg:block text-[11px] font-bold text-white">Carrito</span>
+              <Link href="/marketplace/cart" className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f5f5f7] transition-colors relative">
+                <ShoppingCart className="w-5 h-5 text-[#0A183A]" />
+                {cart.count > 0 && (
+                  <span className="absolute top-0.5 left-6 w-[18px] h-[18px] rounded-full bg-[#0A183A] text-white text-[9px] font-bold flex items-center justify-center">
+                    {cart.count}
+                  </span>
+                )}
+                <span className="hidden lg:block text-[12px] font-medium text-[#0A183A]">Carrito</span>
               </Link>
             </div>
 
-            {/* Mobile cart only */}
+            {/* Mobile cart */}
             <Link href="/marketplace/cart" className="sm:hidden relative flex-shrink-0 p-1">
-              <ShoppingCart className="w-5 h-5 text-white" />
+              <ShoppingCart className="w-5 h-5 text-[#0A183A]" />
               {cart.count > 0 && (
-                <span className="absolute -top-1 -right-1 rounded-full text-[8px] font-black flex items-center justify-center"
-                  style={{ background: "#f97316", color: "white", minWidth: 16, height: 16 }}>
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#0A183A] text-white text-[8px] font-bold flex items-center justify-center">
                   {cart.count}
                 </span>
               )}
@@ -216,32 +197,25 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
           </div>
         </div>
 
-        {/* Mobile search bar — slides down */}
+        {/* Mobile search */}
         {mobileSearch && (
-          <div className="sm:hidden px-3 pb-2.5" ref={wrapperRef}>
-            <form onSubmit={(e) => { handleSubmit(e); setMobileSearch(false); }} className="flex">
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => { setQ(e.target.value); setShowSuggestions(true); }}
-                autoFocus
+          <div className="sm:hidden px-4 pb-3 border-t border-black/5" ref={wrapperRef}>
+            <form onSubmit={(e) => { handleSubmit(e); setMobileSearch(false); }} className="relative mt-2">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input type="text" value={q} onChange={(e) => { setQ(e.target.value); setShowSuggestions(true); }} autoFocus
                 placeholder="Buscar llantas..."
-                className="flex-1 min-w-0 px-4 py-2.5 rounded-l-full text-sm bg-white border-0 focus:outline-none text-[#0A183A] placeholder-gray-400"
-              />
-              <button type="submit" className="px-4 rounded-r-full flex items-center justify-center" style={{ background: "#1E76B6" }}>
-                <Search className="w-4 h-4 text-white" />
-              </button>
+                className="w-full pl-10 pr-4 py-2.5 rounded-full text-sm bg-[#f5f5f7] border-0 focus:outline-none text-[#0A183A] placeholder-gray-400" />
             </form>
             {showSuggestions && suggestions.length > 0 && (
-              <div className="mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+              <div className="mt-2 bg-white rounded-xl shadow-xl border border-black/5 overflow-hidden">
                 {suggestions.slice(0, 4).map((s) => (
                   <button key={s.id} onClick={() => { selectSuggestion(s); setMobileSearch(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left">
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-[#f5f5f7] text-left transition-colors">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-[#0A183A] truncate"><span className="font-bold">{s.marca}</span> {s.modelo}</p>
-                      <p className="text-[9px] text-gray-400">{s.dimension}</p>
+                      <p className="text-[13px] text-[#0A183A] truncate"><span className="font-semibold">{s.marca}</span> {s.modelo}</p>
+                      <p className="text-[10px] text-gray-400">{s.dimension}</p>
                     </div>
-                    <span className="text-xs font-bold text-[#0A183A]">{fmtCOPShort(s.precioCop)}</span>
+                    <span className="text-[13px] font-semibold text-[#0A183A]">{fmtCOPShort(s.precioCop)}</span>
                   </button>
                 ))}
               </div>
@@ -249,26 +223,23 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
           </div>
         )}
 
-        {/* Bottom bar — categories */}
-        <div style={{ background: "#173D68" }}>
-          <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-1 py-1.5 overflow-x-auto scrollbar-hide text-[11px]">
-              <Link href="/marketplace" className="px-3 py-1 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap font-medium">
-                Todo
-              </Link>
-              <Link href="/marketplace?tipo=nueva" className="px-3 py-1 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap font-medium">
-                Llantas Nuevas
-              </Link>
-              <Link href="/marketplace?tipo=reencauche" className="px-3 py-1 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap font-medium">
-                Reencauche
-              </Link>
-              <div className="w-px h-4 bg-white/20 mx-1 flex-shrink-0" />
-              <Link href="/marketplace" className="px-3 py-1 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap font-medium flex items-center gap-1">
-                <Truck className="w-3 h-3" /> Distribuidores
-              </Link>
-              <Link href="/companyregister" className="px-3 py-1 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap font-medium">
-                Vender en TirePro
-              </Link>
+        {/* Categories strip */}
+        <div className="border-t border-black/[0.04]">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-0.5 py-2 overflow-x-auto scrollbar-hide">
+              {[
+                { href: "/marketplace", label: "Todo" },
+                { href: "/marketplace?tipo=nueva", label: "Nuevas" },
+                { href: "/marketplace?tipo=reencauche", label: "Reencauche" },
+                { href: "/marketplace", label: "Distribuidores", icon: true },
+                { href: "/companyregister", label: "Vender" },
+              ].map((item) => (
+                <Link key={item.label} href={item.href}
+                  className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-gray-600 hover:text-[#0A183A] hover:bg-[#f5f5f7] transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1">
+                  {item.icon && <Truck className="w-3 h-3" />}
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
