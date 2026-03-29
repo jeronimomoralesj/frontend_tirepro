@@ -8,6 +8,7 @@ import {
   MapPin, Globe, ShoppingCart, Clock, CheckCircle, ChevronLeft, ChevronRight,
   Store, Star, Shield, Recycle, Building2,
 } from "lucide-react";
+import { MarketplaceNav, MarketplaceFooter, FloatingCartButton } from "../../../../components/MarketplaceShell";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -90,20 +91,7 @@ export default function DistributorStorefront() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
-      {/* Nav */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
-          <Link href="/marketplace" className="flex items-center gap-2 text-sm font-bold text-[#555] hover:text-[#0A183A] transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Marketplace</span>
-          </Link>
-          <div className="flex-1" />
-          <Link href="/marketplace" className="flex items-center gap-2">
-            <ShoppingCart className="w-4 h-4 text-[#1E76B6]" />
-            <span className="text-xs font-bold text-[#0A183A] hidden sm:block">TirePro Marketplace</span>
-          </Link>
-        </div>
-      </header>
+      <MarketplaceNav />
 
       {/* Banner */}
       <div className="relative h-48 sm:h-64 lg:h-72">
@@ -293,9 +281,8 @@ export default function DistributorStorefront() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 py-8 text-center" style={{ borderTop: "1px solid #e5e5e5" }}>
-        <Link href="/marketplace" className="text-sm font-bold text-[#1E76B6] hover:underline">Volver al Marketplace</Link>
-      </footer>
+      <MarketplaceFooter />
+      <FloatingCartButton />
     </div>
   );
 }

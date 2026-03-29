@@ -9,6 +9,7 @@ import {
   ChevronRight, Minus, Plus, X, Check,
 } from "lucide-react";
 import { useCart } from "../../../../lib/useCart";
+import { MarketplaceNav, MarketplaceFooter, FloatingCartButton } from "../../../../components/MarketplaceShell";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -95,23 +96,7 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
-      {/* Nav */}
-      <header className="sticky top-0 z-50 bg-white shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
-          <Link href="/marketplace" className="flex items-center gap-2 text-sm font-bold text-[#555] hover:text-[#0A183A]">
-            <ArrowLeft className="w-4 h-4" /> Marketplace
-          </Link>
-          <div className="flex-1" />
-          <Link href="/marketplace/cart" className="relative flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-gray-50 transition-colors">
-            <ShoppingCart className="w-4 h-4 text-[#0A183A]" />
-            {cart.count > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-[#1E76B6] text-white text-[8px] font-black flex items-center justify-center" style={{ minWidth: 18, height: 18 }}>
-                {cart.count}
-              </span>
-            )}
-          </Link>
-        </div>
-      </header>
+      <MarketplaceNav />
 
       {/* Added to cart notification */}
       {addedToCart && (
@@ -297,9 +282,8 @@ export default function ProductPage() {
         )}
       </main>
 
-      <footer className="mt-12 py-6 text-center border-t border-gray-200">
-        <Link href="/marketplace" className="text-sm font-bold text-[#1E76B6] hover:underline">Volver al Marketplace</Link>
-      </footer>
+      <MarketplaceFooter />
+      <FloatingCartButton />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   ChevronDown, Recycle, CircleDot, Building2,
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
+import { MarketplaceNav, MarketplaceFooter, FloatingCartButton } from "../../components/MarketplaceShell";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -92,53 +93,23 @@ export default function PublicMarketplace() {
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       {/* ═══ NAV ═══ */}
-      <header className="sticky top-0 z-50 bg-white shadow-sm">
-        {/* Top bar */}
+      <MarketplaceNav />
+
+      {/* Search + Filters bar */}
+      <div className="sticky top-[52px] z-40 bg-white border-b border-gray-100">
+        {/* Top announcement */}
         <div className="bg-[#0A183A] text-white/70 text-[10px] text-center py-1.5 font-medium tracking-wide">
           Marketplace de llantas para flotas — Encuentra las mejores ofertas de distribuidores verificados
         </div>
 
-        {/* Main nav */}
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 py-3">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
-                <ShoppingCart className="w-4 h-4 text-white" />
-              </div>
-              <div className="hidden sm:block">
-                <p className="font-black text-[#0A183A] text-sm leading-none">TirePro</p>
-                <p className="text-[9px] text-[#348CCB] font-bold">Marketplace</p>
-              </div>
-            </Link>
-
-            {/* Search */}
-            <div className="flex-1 max-w-2xl relative">
+          {/* Search bar */}
+          <div className="py-3">
+            <div className="relative max-w-2xl mx-auto">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar llantas, marcas, distribuidores..."
-                className="w-full pl-11 pr-4 py-3 rounded-full text-sm bg-gray-100 border-0 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/30 text-[#0A183A] placeholder-gray-400"
-              />
-            </div>
-
-            {/* Right actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Link href="/marketplace/cart" className="relative p-2.5 rounded-full hover:bg-gray-50 transition-colors">
-                <ShoppingCart className="w-5 h-5 text-[#0A183A]" />
-                {cart.count > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 rounded-full bg-[#1E76B6] text-white text-[8px] font-black flex items-center justify-center" style={{ minWidth: 18, height: 18 }}>
-                    {cart.count}
-                  </span>
-                )}
-              </Link>
-              <Link href="/login" className="hidden sm:flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-[#0A183A] border border-gray-200 hover:bg-gray-50 transition-colors">
-                Ingresar
-              </Link>
-              <Link href="/companyregister" className="px-4 py-2.5 rounded-full text-xs font-bold text-white transition-all hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
-                Registrarse
-              </Link>
+                className="w-full pl-11 pr-4 py-3 rounded-full text-sm bg-gray-100 border-0 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/30 text-[#0A183A] placeholder-gray-400" />
             </div>
           </div>
 
@@ -207,7 +178,8 @@ export default function PublicMarketplace() {
             </div>
           </div>
         )}
-      </header>
+        </div>
+      </div>
 
       {/* ═══ HERO CAROUSEL + CATEGORIES ═══ */}
       {!search && !activeFilters && (
@@ -364,41 +336,8 @@ export default function PublicMarketplace() {
         </div>
       </div>
 
-      {/* ═══ FOOTER ═══ */}
-      <footer className="bg-[#0A183A] mt-16">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            <div>
-              <p className="font-black text-white text-sm mb-2">TirePro Marketplace</p>
-              <p className="text-xs text-white/40 leading-relaxed">
-                La plataforma de llantas para flotas mas grande de Colombia.
-                Encuentra las mejores ofertas de distribuidores verificados.
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Enlaces</p>
-              <div className="space-y-2">
-                <Link href="/" className="block text-xs text-white/40 hover:text-white transition-colors">Inicio</Link>
-                <Link href="/marketplace" className="block text-xs text-white/40 hover:text-white transition-colors">Marketplace</Link>
-                <Link href="/blog" className="block text-xs text-white/40 hover:text-white transition-colors">Blog</Link>
-                <Link href="/login" className="block text-xs text-white/40 hover:text-white transition-colors">Ingresar</Link>
-              </div>
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Distribuidores</p>
-              <p className="text-xs text-white/40 leading-relaxed">
-                ¿Vendes llantas? Registrate como distribuidor y publica tu catalogo.
-              </p>
-              <Link href="/companyregister" className="inline-block mt-3 px-4 py-2 rounded-full text-[10px] font-bold text-[#0A183A] bg-white hover:bg-gray-100 transition-colors">
-                Registrar mi empresa
-              </Link>
-            </div>
-          </div>
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <p className="text-[10px] text-white/30">tirepro.com.co — Marketplace de llantas para flotas en Colombia</p>
-          </div>
-        </div>
-      </footer>
+      <MarketplaceFooter />
+      <FloatingCartButton />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   CheckCircle, Package, Truck,
 } from "lucide-react";
 import { useCart } from "../../../lib/useCart";
+import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -82,19 +83,7 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
-      {/* Nav */}
-      <header className="sticky top-0 z-50 bg-white shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
-          <Link href="/marketplace" className="flex items-center gap-2 text-sm font-bold text-[#555] hover:text-[#0A183A]">
-            <ArrowLeft className="w-4 h-4" /> Marketplace
-          </Link>
-          <div className="flex-1" />
-          <div className="flex items-center gap-1.5">
-            <ShoppingCart className="w-4 h-4 text-[#1E76B6]" />
-            <span className="text-sm font-black text-[#0A183A]">Carrito ({count})</span>
-          </div>
-        </div>
-      </header>
+      <MarketplaceNav />
 
       {/* Success */}
       {success && (
@@ -260,6 +249,7 @@ export default function CartPage() {
           </div>
         )}
       </main>
+      <MarketplaceFooter />
     </div>
   );
 }
