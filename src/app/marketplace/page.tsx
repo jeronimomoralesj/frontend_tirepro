@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2, Package, Truck, X, Store, MapPin,
   ChevronLeft, ChevronRight, Star,
@@ -9,7 +10,6 @@ import {
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
-import DistributorMap from "../../components/DistributorMap";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -41,6 +41,7 @@ interface Filters { dimensions: string[]; marcas: string[]; distributors: Distri
 // =============================================================================
 
 export default function PublicMarketplace() {
+  const searchParams = useSearchParams();
   const [listings, setListings] = useState<Listing[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -48,10 +49,10 @@ export default function PublicMarketplace() {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>({ dimensions: [], marcas: [], distributors: [] });
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [dimension, setDimension] = useState("");
   const [marca, setMarca] = useState("");
-  const [tipo, setTipo] = useState("");
+  const [tipo, setTipo] = useState(searchParams.get("tipo") ?? "");
   const [distributorId, setDistributorId] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [sortBy, setSortBy] = useState("relevance");
@@ -301,13 +302,6 @@ export default function PublicMarketplace() {
               </Link>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* ═══ DISTRIBUTOR MAP ═══ */}
-      {!search && !activeFilters && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-5">
-          <DistributorMap />
         </div>
       )}
 

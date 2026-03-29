@@ -28,19 +28,19 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         p.catalog?.terreno ?? "", p.distributor?.name ?? "",
       ].filter(Boolean),
       openGraph: {
-        title: `${p.marca} ${p.modelo} — ${price}`,
+        title: `${p.marca} ${p.modelo} ${p.dimension} — ${price}`,
         description,
         url: `https://tirepro.com.co/marketplace/product/${id}`,
         siteName: "TirePro Marketplace",
         locale: "es_CO",
         type: "website",
-        images: [{ url: cover, width: 800, height: 800 }],
+        images: [{ url: cover, width: 800, height: 800, alt: `${p.marca} ${p.modelo} ${p.dimension}` }],
       },
       twitter: {
         card: "summary_large_image",
         title: `${p.marca} ${p.modelo} — ${price}`,
-        description: `${p.marca} ${p.modelo} ${p.dimension} por ${price}. Distribuidor: ${p.distributor?.name}`,
-        images: [cover],
+        description: `${p.marca} ${p.modelo} ${p.dimension} por ${price}. ${p.distributor?.name ?? "TirePro Marketplace"}`,
+        images: [{ url: cover, alt: `${p.marca} ${p.modelo}` }],
       },
       alternates: { canonical: `https://tirepro.com.co/marketplace/product/${id}` },
       other: {

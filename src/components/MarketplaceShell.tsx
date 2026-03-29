@@ -83,7 +83,8 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
     if (onSearch) {
       onSearch(q);
     } else {
-      router.push(`/marketplace${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+      // Use window.location for reliable cross-page navigation with query params
+      window.location.href = `/marketplace${q ? `?q=${encodeURIComponent(q)}` : ""}`;
     }
   }
 
