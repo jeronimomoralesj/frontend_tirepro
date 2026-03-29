@@ -66,19 +66,8 @@ export default function VentasDistPage() {
   const filtered = tab === "all" ? orders : orders.filter((o) => o.status === tab);
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center gap-3"
-        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}>
-        <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-          <ShoppingCart className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="font-black text-[#0A183A] text-lg leading-none">Ventas del Marketplace</h1>
-          <p className="text-xs text-[#348CCB] mt-0.5">{orders.length} pedido{orders.length !== 1 ? "s" : ""} total{orders.length !== 1 ? "es" : ""}</p>
-        </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 space-y-6">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-[#1E76B6]"><Loader2 className="w-5 h-5 animate-spin" /></div>
         ) : (

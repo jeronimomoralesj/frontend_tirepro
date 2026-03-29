@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, ChevronDown, ChevronUp, Send, Check, X,
-  BarChart3, Calendar, Package, Gavel, Clock, DollarSign,
+  BarChart3, Calendar, Package, Gavel, Clock, DollarSign, Store,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
+
+const VentasDistPage = React.lazy(() => import("../ventasDist/page"));
 
 // -- API ----------------------------------------------------------------------
 
@@ -622,6 +624,50 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
 // =============================================================================
 
 export default function PedidosDistPage() {
+  const [section, setSection] = useState<"pedidos" | "marketplace">("pedidos");
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center gap-3"
+        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}>
+        <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+          <Package className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Pedidos y Ventas</h1>
+          <p className="text-xs text-[#348CCB] mt-0.5">Gestiona pedidos de clientes y ventas del marketplace</p>
+        </div>
+      </div>
+
+      {/* Section tabs */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-2">
+        <div className="flex gap-2">
+          <button onClick={() => setSection("pedidos")}
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
+            style={{ background: section === "pedidos" ? "#0A183A" : "transparent", color: section === "pedidos" ? "#fff" : "#173D68", border: section === "pedidos" ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
+            <Package className="w-4 h-4" /> Pedidos
+          </button>
+          <button onClick={() => setSection("marketplace")}
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
+            style={{ background: section === "marketplace" ? "#0A183A" : "transparent", color: section === "marketplace" ? "#fff" : "#173D68", border: section === "marketplace" ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
+            <Store className="w-4 h-4" /> Marketplace
+          </button>
+        </div>
+      </div>
+
+      {section === "pedidos" ? (
+        <PedidosSection />
+      ) : (
+        <React.Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-[#1E76B6]" /></div>}>
+          <VentasDistPage />
+        </React.Suspense>
+      )}
+    </div>
+  );
+}
+
+function PedidosSection() {
   const router = useRouter();
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -665,31 +711,8 @@ export default function PedidosDistPage() {
   }), [orders]);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div
-        className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center gap-3"
-        style={{
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(52,140,203,0.15)",
-        }}
-      >
-        <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-          <Package className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
-            Pedidos de Clientes
-          </h1>
-          <p className="text-xs text-[#348CCB] mt-0.5 flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {orders.length} pedido{orders.length !== 1 ? "s" : ""} total{orders.length !== 1 ? "es" : ""}
-          </p>
-        </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+    <div>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 space-y-5">
         {/* Filter tabs */}
         <div className="flex gap-2 flex-wrap">
           {([
