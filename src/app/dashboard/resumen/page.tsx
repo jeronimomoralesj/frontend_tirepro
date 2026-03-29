@@ -436,6 +436,55 @@ export default function ResumenPage() {
     };
   }
 
+  function makeBarData(data: (number | null)[], color: string): ChartData<"bar"> {
+    return {
+      labels: months.map((m) => m.label),
+      datasets: [{
+        data,
+        backgroundColor: data.map((_, i) => i === data.length - 1 ? color : hexToRgba(color, 0.55)),
+        borderRadius: 6,
+        borderSkipped: false,
+        barPercentage: 0.65,
+        categoryPercentage: 0.75,
+      }],
+    };
+  }
+
+  function makeBarOpts(
+    data: (number | null)[],
+    yFmt: (v: number) => string,
+    tooltipLabel: (v: number) => string,
+  ): ChartOptions<"bar"> {
+    const kp = keyPointLabels(data);
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 28, right: 10, left: 5 } },
+      animation: { duration: 800, easing: "easeOutQuart" as const },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, maxRotation: 0 } },
+        y: { grid: { color: "rgba(52,140,203,0.06)" }, border: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 }, callback: (v) => yFmt(v as number) } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: "#0A183A", padding: 12, cornerRadius: 8, borderWidth: 0, titleFont: { size: 12, weight: "bold" }, bodyFont: { size: 12 }, callbacks: { label: (ctx) => tooltipLabel(ctx.parsed.y) } },
+        datalabels: {
+          display: (ctx) => kp.has(ctx.dataIndex),
+          anchor: "end" as const,
+          align: "top" as const,
+          offset: 4,
+          clamp: true,
+          color: "#1E76B6",
+          font: { size: 10, weight: "bold" as const },
+          backgroundColor: "rgba(30,118,182,0.1)",
+          borderRadius: 4,
+          padding: { top: 2, bottom: 2, left: 5, right: 5 },
+          formatter: (v: number | null) => (v !== null && v !== 0) ? yFmt(v) : "",
+        },
+      },
+    };
+  }
+
   // -- Export ------------------------------------------------------------------
 
   const handleExport = useCallback(() => {
@@ -508,10 +557,10 @@ export default function ResumenPage() {
             {/* Row 1: CPK Evolution + Por Vida */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <CardWrap title="CPK Proyectado" description="Promedio ponderado por km del CPK proyectado de la flota en los ultimos 12 meses. Un valor menor indica mejor rendimiento por kilometro.">
-                <Line
+                <Bar
                   key={`cpk-${chartKey}`}
-                  data={makeLineData(cpkEvolution, COLORS.accent)}
-                  options={makeLineOpts(cpkEvolution, (v) => fmtCOP(v), (v) => `CPK Proy: ${fmtCOP(v)}`)}
+                  data={makeBarData(cpkEvolution, COLORS.accent)}
+                  options={makeBarOpts(cpkEvolution, (v) => fmtCOP(v), (v) => `CPK Proy: ${fmtCOP(v)}`)}
                 />
               </CardWrap>
               <PorVida tires={filtered.map((t) => ({ id: t.id, vida: [{ valor: t.vidaActual ?? "nueva", fecha: new Date().toISOString() }] }))} />
@@ -520,10 +569,10 @@ export default function ResumenPage() {
             {/* Row 2: Inversion Mensual + Por Marca */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <CardWrap title="Inversion Mensual" description="Total invertido en llantas por mes incluyendo compras nuevas, reencauches y reparaciones.">
-                <Line
+                <Bar
                   key={`inv-${chartKey}`}
-                  data={makeLineData(inversionMensual, COLORS.accent)}
-                  options={makeLineOpts(inversionMensual, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => fmtCOP(v))}
+                  data={makeBarData(inversionMensual, COLORS.accent)}
+                  options={makeBarOpts(inversionMensual, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => fmtCOP(v))}
                 />
               </CardWrap>
               <PorMarca groupData={marcaData} />
