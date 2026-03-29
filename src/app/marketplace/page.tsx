@@ -349,7 +349,7 @@ function ProductCard({ l }: { l: Listing }) {
     ? l.reviews.reduce((s, r) => s + r.rating, 0) / l.reviews.length : 0;
 
   return (
-    <Link href={`/marketplace/distributor/${l.distributor.id}`}
+    <Link href={`/marketplace/product/${l.id}`}
       className="bg-white rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group block">
 
       {/* Image */}
