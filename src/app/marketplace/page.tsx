@@ -3,10 +3,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  Search, Loader2, Package, Truck, X, MapPin,
-  ShoppingCart, ChevronLeft, ChevronRight, Store,
-  SlidersHorizontal, Clock, CheckCircle, Star, Shield,
-  ChevronDown, Recycle, CircleDot, Building2,
+  Loader2, Package, Truck, X, Store,
+  ChevronLeft, ChevronRight, Star,
+  Recycle, Clock,
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter, FloatingCartButton } from "../../components/MarketplaceShell";
@@ -55,7 +54,6 @@ export default function PublicMarketplace() {
   const [distributorId, setDistributorId] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [sortBy, setSortBy] = useState("price_asc");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const cart = useCart();
 
   useEffect(() => {
@@ -93,41 +91,14 @@ export default function PublicMarketplace() {
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       {/* ═══ NAV ═══ */}
-      <MarketplaceNav />
+      <MarketplaceNav initialSearch={search} onSearch={setSearch} />
 
-      {/* Search + Filters bar */}
-      <div className="sticky top-[52px] z-40 bg-white border-b border-gray-100">
-        {/* Top announcement */}
-        <div className="bg-[#0A183A] text-white/70 text-[10px] text-center py-1.5 font-medium tracking-wide">
-          Marketplace de llantas para flotas — Encuentra las mejores ofertas de distribuidores verificados
-        </div>
-
+      {/* Filters bar */}
+      <div className="bg-white border-b border-gray-100">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Search bar */}
-          <div className="py-3">
-            <div className="relative max-w-2xl mx-auto">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar llantas, marcas, distribuidores..."
-                className="w-full pl-11 pr-4 py-3 rounded-full text-sm bg-gray-100 border-0 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/30 text-[#0A183A] placeholder-gray-400" />
-            </div>
-          </div>
-
-          {/* Categories + filters row */}
-          <div className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-hide">
-            {/* Type pills */}
-            {[{ v: "", l: "Todo" }, { v: "nueva", l: "Llantas Nuevas" }, { v: "reencauche", l: "Reencauche" }].map((t) => (
-              <button key={t.v} onClick={() => setTipo(t.v)}
-                className="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex-shrink-0"
-                style={{ background: tipo === t.v ? "#0A183A" : "white", color: tipo === t.v ? "white" : "#555", border: tipo === t.v ? "none" : "1px solid #e5e5e5" }}>
-                {t.l}
-              </button>
-            ))}
-
-            <div className="w-px h-5 bg-gray-200 mx-1 flex-shrink-0" />
-
-            {/* Dimension quick picks — show top 4 */}
-            {filters.dimensions.slice(0, 4).map((d) => (
+          <div className="flex items-center gap-2 py-2.5 overflow-x-auto scrollbar-hide">
+            {/* Dimension quick picks */}
+            {filters.dimensions.slice(0, 5).map((d) => (
               <button key={d} onClick={() => setDimension(dimension === d ? "" : d)}
                 className="px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all flex-shrink-0"
                 style={{ background: dimension === d ? "#1E76B6" : "white", color: dimension === d ? "white" : "#777", border: dimension === d ? "none" : "1px solid #e5e5e5" }}>
@@ -135,49 +106,31 @@ export default function PublicMarketplace() {
               </button>
             ))}
 
-            <button onClick={() => setFiltersOpen(!filtersOpen)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0 ml-auto"
-              style={{ background: filtersOpen ? "#0A183A" : "white", color: filtersOpen ? "white" : "#555", border: filtersOpen ? "none" : "1px solid #e5e5e5" }}>
-              <SlidersHorizontal className="w-3 h-3" />
-              Mas filtros
-              {activeFilters > 0 && <span className="w-4 h-4 rounded-full bg-[#1E76B6] text-white text-[8px] font-black flex items-center justify-center ml-0.5">{activeFilters}</span>}
-            </button>
+            <div className="w-px h-4 bg-gray-200 mx-1 flex-shrink-0" />
+
+            <select value={marca} onChange={(e) => setMarca(e.target.value)}
+              className="px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] flex-shrink-0">
+              <option value="">Marca</option>
+              {filters.marcas.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}
+              className="px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] flex-shrink-0">
+              <option value="">Distribuidor</option>
+              {filters.distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad"
+              className="px-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-white text-[#555] w-24 placeholder-gray-400 flex-shrink-0" />
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] flex-shrink-0 ml-auto">
+              <option value="price_asc">Menor precio</option>
+              <option value="price_desc">Mayor precio</option>
+              <option value="newest">Recientes</option>
+            </select>
+            {activeFilters > 0 && (
+              <button onClick={clearFilters} className="text-[11px] font-bold text-red-500 hover:underline flex-shrink-0">Limpiar</button>
+            )}
           </div>
         </div>
-
-        {/* Expanded filters */}
-        {filtersOpen && (
-          <div className="bg-gray-50 border-t border-gray-100">
-            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex gap-3 flex-wrap items-center">
-              <select value={dimension} onChange={(e) => setDimension(e.target.value)}
-                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333]">
-                <option value="">Todas las dimensiones</option>
-                {filters.dimensions.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-              <select value={marca} onChange={(e) => setMarca(e.target.value)}
-                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333]">
-                <option value="">Todas las marcas</option>
-                {filters.marcas.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}
-                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333]">
-                <option value="">Todos los distribuidores</option>
-                {filters.distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-              <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad de entrega"
-                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333] w-36 placeholder-gray-400" />
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333]">
-                <option value="price_asc">Menor precio</option>
-                <option value="price_desc">Mayor precio</option>
-                <option value="newest">Mas recientes</option>
-              </select>
-              {activeFilters > 0 && (
-                <button onClick={clearFilters} className="text-xs font-bold text-red-500 hover:underline">Limpiar filtros</button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ═══ HERO CAROUSEL + CATEGORIES ═══ */}
