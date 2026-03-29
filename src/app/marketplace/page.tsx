@@ -53,7 +53,7 @@ export default function PublicMarketplace() {
   const [tipo, setTipo] = useState("");
   const [distributorId, setDistributorId] = useState("");
   const [ciudad, setCiudad] = useState("");
-  const [sortBy, setSortBy] = useState("price_asc");
+  const [sortBy, setSortBy] = useState("relevance");
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<{ type: string; listings: Listing[] }>({ type: "", listings: [] });
   const cart = useCart();
@@ -148,6 +148,7 @@ export default function PublicMarketplace() {
               className="px-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-white text-[#555] w-24 placeholder-gray-400 flex-shrink-0" />
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
               className="px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] flex-shrink-0 ml-auto">
+              <option value="relevance">Relevancia</option>
               <option value="price_asc">Menor precio</option>
               <option value="price_desc">Mayor precio</option>
               <option value="newest">Recientes</option>
