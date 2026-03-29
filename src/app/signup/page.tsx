@@ -41,7 +41,7 @@ export default function SignupChooser() {
         </Link>
 
         {/* Full platform */}
-        <Link href="/companyregister"
+        <Link href="/companyregister?plan=pro"
           className="group relative rounded-2xl p-6 transition-all hover:shadow-xl hover:-translate-y-1"
           style={{ border: "2px solid #1E76B6", background: "linear-gradient(180deg, #f0f7ff 0%, white 40%)" }}>
           <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: "#0A183A" }}>
