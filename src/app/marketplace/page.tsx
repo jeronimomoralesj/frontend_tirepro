@@ -54,12 +54,23 @@ export default function PublicMarketplace() {
   const [distributorId, setDistributorId] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [sortBy, setSortBy] = useState("price_asc");
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const cart = useCart();
 
   useEffect(() => {
     fetch(`${API_BASE}/marketplace/listings/filters`)
       .then((r) => (r.ok ? r.json() : { dimensions: [], marcas: [], distributors: [] }))
       .then(setFilters).catch(() => {});
+    // Fetch recent orders if logged in
+    try {
+      const token = localStorage.getItem("token");
+      const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+      if (token && user.id) {
+        fetch(`${API_BASE}/marketplace/orders/user?userId=${user.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((r) => (r.ok ? r.json() : [])).then(setRecentOrders).catch(() => {});
+      }
+    } catch { /* guest */ }
   }, []);
 
   const fetchListings = useCallback(async () => {
@@ -133,37 +144,22 @@ export default function PublicMarketplace() {
         </div>
       </div>
 
-      {/* ═══ HERO CAROUSEL + CATEGORIES ═══ */}
+      {/* ═══ HERO CAROUSEL (full width) ═══ */}
       {!search && !activeFilters && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Carousel */}
-            <div className="lg:col-span-2">
-              <HeroCarousel />
-            </div>
-            {/* Categories */}
-            <div className="flex flex-col gap-4">
-              <button onClick={() => setTipo("nueva")}
-                className="flex-1 rounded-2xl overflow-hidden relative group cursor-pointer"
-                style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)", minHeight: 120 }}>
-                <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
-                <div className="relative p-5 flex flex-col justify-end h-full">
-                  <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Categoria</p>
-                  <p className="text-lg font-black text-white group-hover:translate-x-1 transition-transform">Llantas Nuevas</p>
-                  <p className="text-[11px] text-white/50 mt-0.5">Todas las marcas disponibles</p>
-                </div>
-              </button>
-              <button onClick={() => setTipo("reencauche")}
-                className="flex-1 rounded-2xl overflow-hidden relative group cursor-pointer"
-                style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", minHeight: 120 }}>
-                <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
-                <div className="relative p-5 flex flex-col justify-end h-full">
-                  <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Categoria</p>
-                  <p className="text-lg font-black text-white group-hover:translate-x-1 transition-transform">Reencauche</p>
-                  <p className="text-[11px] text-white/50 mt-0.5">Reutiliza y ahorra hasta 40%</p>
-                </div>
-              </button>
-            </div>
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <HeroCarousel />
+          {/* Category pills */}
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => setTipo("nueva")}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all hover:shadow-md"
+              style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)", color: "white" }}>
+              Llantas Nuevas
+            </button>
+            <button onClick={() => setTipo("reencauche")}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all hover:shadow-md"
+              style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", color: "white" }}>
+              Reencauche
+            </button>
           </div>
         </div>
       )}
@@ -190,6 +186,32 @@ export default function PublicMarketplace() {
                 </div>
               </Link>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ RECENT PURCHASES ═══ */}
+      {recentOrders.length > 0 && !search && !activeFilters && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <h2 className="text-sm font-black text-[#0A183A] mb-2">Tus compras recientes</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {recentOrders.map((o: any) => {
+              const imgs = Array.isArray(o.listing?.imageUrls) ? o.listing.imageUrls : [];
+              const cover = imgs.length > 0 ? imgs[o.listing?.coverIndex ?? 0] ?? imgs[0] : null;
+              return (
+                <Link key={o.id} href={`/marketplace/product/${o.listingId}`}
+                  className="flex-shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white border border-gray-100 hover:shadow-md transition-all"
+                  style={{ minWidth: 240 }}>
+                  <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-200" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#0A183A] truncate">{o.listing?.marca} {o.listing?.modelo}</p>
+                    <p className="text-[10px] text-gray-400">{o.quantity} uds · {new Date(o.createdAt).toLocaleDateString("es-CO")}</p>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
@@ -326,7 +348,7 @@ function HeroCarousel() {
   const slide = HERO_SLIDES[idx];
 
   return (
-    <div className="relative rounded-2xl overflow-hidden" style={{ height: 268 }}>
+    <div className="relative rounded-2xl overflow-hidden" style={{ height: "clamp(180px, 30vw, 320px)" }}>
       {/* Image */}
       <div className="absolute inset-0 transition-opacity duration-700" key={idx}>
         <img src={slide.img} alt="" className="w-full h-full object-cover" />

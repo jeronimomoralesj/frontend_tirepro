@@ -160,8 +160,8 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               )}
             </div>
 
-            {/* Right actions */}
-            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            {/* Right actions — pushed to end */}
+            <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 ml-auto">
               {/* Account */}
               {isLoggedIn ? (
                 <Link href="/dashboard/ajustes" className="hidden sm:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
