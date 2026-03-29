@@ -176,7 +176,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               )}
 
               {isLoggedIn ? (
-                <Link href={hasCompany ? "/settings" : "/marketplace/cart"} className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
+                <Link href="/settings" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
                   <User className="w-4 h-4 text-[#0A183A]" />
                   <span className="text-[12px] font-medium text-[#0A183A]">{userName?.split(" ")[0]}</span>
                 </Link>
