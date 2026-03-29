@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
-import { ShoppingCart, Bell, Settings, BarChart3, Calendar } from "lucide-react";
+import React, { useState, lazy, Suspense } from "react";
+import { ShoppingCart, Bell, Settings, BarChart3, Calendar, Trash2, Loader2 } from "lucide-react";
 import PedidosTab from "./components/PedidosTab";
 import NotificacionesTab from "./components/NotificacionesTab";
 import AjustesTab from "./components/AjustesTab";
 
+const DesechosPage = lazy(() => import("../desechos/page"));
+
 const TABS = [
   { key: "pedidos",         label: "Pedidos",         icon: ShoppingCart },
   { key: "notificaciones",  label: "Notificaciones",  icon: Bell },
+  { key: "desechos",        label: "Desechos",        icon: Trash2 },
   { key: "ajustes",         label: "Ajustes",         icon: Settings },
 ] as const;
 
@@ -76,6 +79,11 @@ export default function AnalistaPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         {active === "pedidos" && <PedidosTab />}
         {active === "notificaciones" && <NotificacionesTab />}
+        {active === "desechos" && (
+          <Suspense fallback={<div className="flex items-center justify-center py-20 text-[#1E76B6]"><Loader2 className="w-5 h-5 animate-spin" /></div>}>
+            <DesechosPage />
+          </Suspense>
+        )}
         {active === "ajustes" && <AjustesTab />}
       </div>
     </div>

@@ -54,7 +54,6 @@ function buildLinks(plan: string, isAdmin: boolean): NavLink[] {
       { name: "Analista",   path: "/dashboard/analista",   icon: Glasses         },
       { name: "Detalle",    path: "/dashboard/detalle",    icon: ClipboardList   },
       { name: "Inventario", path: "/dashboard/inventario", icon: Package         },
-      { name: "Desechos",   path: "/dashboard/desechos",   icon: Trash2          },
       { name: "Vehículos",  path: "/dashboard/vehiculo",   icon: Car             },
       { name: "Agregar",    path: "/dashboard/agregar",    icon: Plus            },
       { name: "Buscar",     path: "/dashboard/buscar",     icon: Search          },
