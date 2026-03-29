@@ -435,13 +435,13 @@ export default function LoginPage() {
                 <div className="mt-8 text-center">
                   <p className="text-gray-500 text-sm mb-4">¿No tienes una cuenta?</p>
                   <Link
-                    href="/companyregister"
+                    href="/signup"
                     className="inline-flex items-center space-x-2 font-semibold transition-colors"
                     style={{ color: "#1E76B6" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#173D68")}
                     onMouseLeave={e => (e.currentTarget.style.color = "#1E76B6")}
                   >
-                    <span>Registra tu empresa</span>
+                    <span>Crear cuenta</span>
                     <ChevronRight size={16} />
                   </Link>
                 </div>

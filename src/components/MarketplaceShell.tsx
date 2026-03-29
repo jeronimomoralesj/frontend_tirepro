@@ -293,8 +293,8 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                   )}
                   {hasCompany && <Link href="/dashboard/analista" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Mis Pedidos</Link>}
                   {!hasCompany && (
-                    <Link href="/companyregister" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">
-                      Crear empresa (gratis)
+                    <Link href="/signup" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">
+                      Activar plataforma (gratis)
                     </Link>
                   )}
                   <div className="h-px bg-gray-100 my-2" />

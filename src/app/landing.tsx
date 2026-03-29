@@ -228,7 +228,7 @@ function FeatureShowcase() {
                 </li>
               ))}
             </ul>
-            <a href="/companyregister">
+            <a href="/signup">
               <button
                 className="text-white px-7 py-3.5 rounded-full font-semibold text-sm transition-all inline-flex items-center gap-2"
                 style={{ background: '#1E76B6', boxShadow: '0 4px 20px rgba(30,118,182,0.35)' }}
@@ -629,7 +629,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
               <a href="/marketplace" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Marketplace</a>
               <a href="/blog" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Blog</a>
               <a href="/login" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Ingresar</a>
-              <a href="/companyregister">
+              <a href="/signup">
                 <button
                   className="text-white px-4 xl:px-6 py-2 sm:py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap shadow-md hover:shadow-lg"
                   style={{ backgroundColor: '#1E76B6' }}
@@ -659,7 +659,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
               <a href="#preguntas" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Preguntas</a>
               <a href="/marketplace" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Marketplace</a>
               <a href="/login" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Ingresar</a>
-              <a href="/companyregister">
+              <a href="/signup">
                 <button
                   className="w-full text-white px-6 py-3 rounded-full text-sm font-semibold mt-2"
                   style={{ backgroundColor: '#1E76B6' }}
