@@ -54,7 +54,8 @@ export default function CatalogoDistPage() {
   const [form, setForm] = useState({
     marca: "", modelo: "", dimension: "", eje: "", tipo: "nueva",
     precioCop: 0, precioPromo: 0, cantidadDisponible: 0,
-    tiempoEntrega: "1-3 dias", catalogId: "",
+    tiempoEntrega: "1-3 dias", catalogId: "", descripcion: "",
+    imageUrls: [] as string[], coverIndex: 0,
   });
 
   // Edit inline
@@ -95,7 +96,7 @@ export default function CatalogoDistPage() {
         }),
       });
       if (!res.ok) throw new Error();
-      setForm({ marca: "", modelo: "", dimension: "", eje: "", tipo: "nueva", precioCop: 0, precioPromo: 0, cantidadDisponible: 0, tiempoEntrega: "1-3 dias", catalogId: "" });
+      setForm({ marca: "", modelo: "", dimension: "", eje: "", tipo: "nueva", precioCop: 0, precioPromo: 0, cantidadDisponible: 0, tiempoEntrega: "1-3 dias", catalogId: "", descripcion: "", imageUrls: [], coverIndex: 0 });
       setShowAdd(false);
       setSuccess("Producto agregado al catalogo");
       setTimeout(() => setSuccess(""), 3000);
@@ -264,6 +265,55 @@ export default function CatalogoDistPage() {
                     <option value="2 semanas">2 semanas</option>
                   </select>
                 </div>
+                {/* Description */}
+                <div>
+                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Descripcion del producto</label>
+                  <textarea value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+                    rows={2} placeholder="Detalles, especificaciones, garantia..." className={`${inputCls} resize-none`} />
+                </div>
+
+                {/* Photos — up to 5 URLs */}
+                <div>
+                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Fotos (max 5)</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {form.imageUrls.map((url, i) => (
+                      <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 group">
+                        <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                        <button onClick={() => setForm((f) => ({ ...f, imageUrls: f.imageUrls.filter((_, j) => j !== i), coverIndex: f.coverIndex >= f.imageUrls.length - 1 ? 0 : f.coverIndex }))}
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                        {form.coverIndex === i && (
+                          <span className="absolute bottom-0 left-0 right-0 bg-[#1E76B6] text-white text-[7px] font-bold text-center py-0.5">Portada</span>
+                        )}
+                        {form.coverIndex !== i && (
+                          <button onClick={() => setForm((f) => ({ ...f, coverIndex: i }))}
+                            className="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-[7px] text-center py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Portada
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {form.imageUrls.length < 5 && (
+                      <div>
+                        <input type="url" placeholder="URL de imagen"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const val = (e.target as HTMLInputElement).value.trim();
+                              if (val && form.imageUrls.length < 5) {
+                                setForm((f) => ({ ...f, imageUrls: [...f.imageUrls, val] }));
+                                (e.target as HTMLInputElement).value = "";
+                              }
+                              e.preventDefault();
+                            }
+                          }}
+                          className="w-40 px-2 py-1.5 rounded-lg text-[10px] border border-dashed border-[#348CCB]/30 bg-[#F0F7FF] text-[#0A183A] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6]" />
+                        <p className="text-[8px] text-gray-400 mt-0.5">Pega URL y presiona Enter</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {form.catalogId && (
                   <p className="text-[9px] text-green-500 font-bold flex items-center gap-1">
                     <Check className="w-3 h-3" /> Vinculado al catalogo TirePro

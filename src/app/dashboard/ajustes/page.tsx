@@ -198,6 +198,18 @@ function GhostBtn({ children, onClick, className = "" }: {
 // Email Atencion Card (distributor proposal email)
 // =============================================================================
 
+const COLOMBIAN_CITIES = [
+  "Bogota","Medellin","Cali","Barranquilla","Cartagena","Bucaramanga","Cucuta",
+  "Pereira","Santa Marta","Ibague","Manizales","Villavicencio","Pasto","Monteria",
+  "Neiva","Armenia","Popayan","Valledupar","Sincelejo","Tunja","Riohacha",
+  "Florencia","Quibdo","Yopal","Mocoa","Leticia","Arauca","San Jose del Guaviare",
+  "Puerto Carreno","Mitu","Inirida","Sogamoso","Duitama","Girardot","Zipaquira",
+  "Facatativa","Fusagasuga","Soacha","Bello","Envigado","Itagui","Sabaneta",
+  "Rionegro","Apartado","Turbo","Palmira","Buenaventura","Tulua","Buga",
+  "Cartago","Soledad","Maicao","Barrancabermeja","Piedecuesta","Floridablanca",
+  "Giron","Dosquebradas","La Virginia","Tuquerres","Ipiales","Tumaco",
+];
+
 function DistributorProfileEditor({ companyId, toast }: {
   companyId: string;
   toast: (msg: string, type: "success" | "error") => void;
@@ -206,7 +218,9 @@ function DistributorProfileEditor({ companyId, toast }: {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     telefono: "", descripcion: "", bannerImage: "", direccion: "", ciudad: "", sitioWeb: "",
+    cobertura: [] as string[], tipoEntrega: "ambos",
   });
+  const [citySearch, setCitySearch] = useState("");
 
   useEffect(() => {
     authFetch(`${API_BASE}/marketplace/distributor/${companyId}/profile`)
@@ -216,6 +230,8 @@ function DistributorProfileEditor({ companyId, toast }: {
           telefono: data.telefono ?? "", descripcion: data.descripcion ?? "",
           bannerImage: data.bannerImage ?? "", direccion: data.direccion ?? "",
           ciudad: data.ciudad ?? "", sitioWeb: data.sitioWeb ?? "",
+          cobertura: Array.isArray(data.cobertura) ? data.cobertura : [],
+          tipoEntrega: data.tipoEntrega ?? "ambos",
         });
       })
       .catch(() => {})
@@ -282,6 +298,54 @@ function DistributorProfileEditor({ companyId, toast }: {
           </div>
         )}
       </div>
+
+      {/* Delivery type */}
+      <div className="mb-4">
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Tipo de entrega</label>
+        <div className="flex rounded-xl overflow-hidden border border-[#348CCB]/30">
+          {[{ value: "domicilio", label: "Domicilio" }, { value: "recogida", label: "Recogida" }, { value: "ambos", label: "Ambos" }].map((t) => (
+            <button key={t.value} type="button" onClick={() => setForm((f) => ({ ...f, tipoEntrega: t.value }))}
+              className="flex-1 px-3 py-2 text-xs font-bold transition-all"
+              style={{ background: form.tipoEntrega === t.value ? "#0A183A" : "#F0F7FF", color: form.tipoEntrega === t.value ? "white" : "#173D68" }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Coverage cities */}
+      <div className="mb-4">
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+          Ciudades de cobertura ({form.cobertura.length})
+        </label>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {form.cobertura.map((city) => (
+            <span key={city} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#1E76B6]/10 text-[#1E76B6]">
+              {city}
+              <button onClick={() => setForm((f) => ({ ...f, cobertura: f.cobertura.filter((c) => c !== city) }))}
+                className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
+            </span>
+          ))}
+        </div>
+        <div className="relative">
+          <input type="text" value={citySearch} onChange={(e) => setCitySearch(e.target.value)}
+            placeholder="Buscar ciudad..." className={inputCls} />
+          {citySearch.length >= 2 && (
+            <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-lg border border-gray-200 max-h-32 overflow-y-auto">
+              {COLOMBIAN_CITIES
+                .filter((c) => c.toLowerCase().includes(citySearch.toLowerCase()) && !form.cobertura.includes(c))
+                .slice(0, 8)
+                .map((city) => (
+                  <button key={city} onClick={() => { setForm((f) => ({ ...f, cobertura: [...f.cobertura, city] })); setCitySearch(""); }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-[#F0F7FF] text-[#0A183A]">
+                    {city}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <PrimaryBtn onClick={handleSave} disabled={saving}>
         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
         Guardar Perfil

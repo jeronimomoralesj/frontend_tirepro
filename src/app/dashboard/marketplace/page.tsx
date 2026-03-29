@@ -61,6 +61,7 @@ export default function MarketplacePage() {
   const [marca, setMarca] = useState("");
   const [tipo, setTipo] = useState("");
   const [distributorId, setDistributorId] = useState("");
+  const [ciudad, setCiudad] = useState("");
   const [sortBy, setSortBy] = useState("price_asc");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -79,6 +80,7 @@ export default function MarketplacePage() {
     if (marca) params.set("marca", marca);
     if (tipo) params.set("tipo", tipo);
     if (distributorId) params.set("distributorId", distributorId);
+    if (ciudad) params.set("ciudad", ciudad);
     params.set("sortBy", sortBy);
     params.set("page", String(page));
     params.set("limit", "24");
@@ -87,12 +89,12 @@ export default function MarketplacePage() {
       if (res.ok) { const d = await res.json(); setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1); }
     } catch { /* */ }
     setLoading(false);
-  }, [search, dimension, marca, tipo, distributorId, sortBy, page]);
+  }, [search, dimension, marca, tipo, distributorId, ciudad, sortBy, page]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
-  useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, sortBy]);
+  useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, ciudad, sortBy]);
 
-  const activeFilterCount = [dimension, marca, tipo, distributorId].filter(Boolean).length;
+  const activeFilterCount = [dimension, marca, tipo, distributorId, ciudad].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-white">
@@ -170,6 +172,9 @@ export default function MarketplacePage() {
               <option value="">Distribuidores</option>
               {filters.distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
+            <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)}
+              placeholder="Tu ciudad..."
+              className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68] w-32 placeholder-gray-400" />
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
               className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68] sm:hidden">
               <option value="price_asc">Menor precio</option>
@@ -177,7 +182,7 @@ export default function MarketplacePage() {
               <option value="newest">Recientes</option>
             </select>
             {activeFilterCount > 0 && (
-              <button onClick={() => { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); }}
+              <button onClick={() => { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setCiudad(""); }}
                 className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50">
                 <X className="w-3 h-3" /> Limpiar
               </button>
