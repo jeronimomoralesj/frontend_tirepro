@@ -363,11 +363,10 @@ const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> 
 
 function PlateSearch() {
   const [placa, setPlaca] = useState("")
-  const [step, setStep] = useState<"input" | "select" | "results">("input")
-  const [vehicleType, setVehicleType] = useState("")
-  const [searching, setSearching] = useState(false)
+  const [step, setStep] = useState<"input" | "loading" | "results" | "select">("input")
+  const [vehicleInfo, setVehicleInfo] = useState<{ marca?: string; linea?: string; modelo?: string; clase?: string; source?: string }>({})
   const [foundDimensions, setFoundDimensions] = useState<string[]>([])
-  const [foundVehicle, setFoundVehicle] = useState<string>("")
+  const [vehicleType, setVehicleType] = useState("")
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL
     ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -375,38 +374,22 @@ function PlateSearch() {
 
   async function handleSearch() {
     if (placa.length < 4) return
-    setSearching(true)
+    setStep("loading")
 
-    // Try to find in our TirePro database first
     try {
-      const token = localStorage.getItem("token") ?? ""
-      if (token) {
-        const res = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (res.ok) {
-          const vehicle = await res.json()
-          // Get tires from this vehicle to find its dimensions
-          const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicle.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          if (tRes.ok) {
-            const tires: any[] = await tRes.json()
-            const dims = [...new Set(tires.map((t: any) => t.dimension).filter(Boolean))]
-            if (dims.length > 0) {
-              setFoundDimensions(dims)
-              setFoundVehicle(`${vehicle.placa} — ${vehicle.tipovhc ?? "Vehiculo"}`)
-              setStep("results")
-              setSearching(false)
-              return
-            }
-          }
+      const res = await fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placa)}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.found && data.dimensions.length > 0) {
+          setVehicleInfo({ marca: data.marca, linea: data.linea, modelo: data.modelo, clase: data.clase, source: data.source })
+          setFoundDimensions(data.dimensions)
+          setStep("results")
+          return
         }
       }
-    } catch { /* not logged in or not found — fallback to manual */ }
+    } catch { /* fallback */ }
 
-    // Not found in DB — ask user to select vehicle type
-    setSearching(false)
+    // Not found anywhere — manual selection
     setStep("select")
   }
 
@@ -414,8 +397,8 @@ function PlateSearch() {
     const match = VEHICLE_TIRE_MAP[type]
     if (!match) return
     setVehicleType(type)
+    setVehicleInfo({ clase: match.label })
     setFoundDimensions(match.dimensions)
-    setFoundVehicle(`${placa.toUpperCase()} — ${match.label}`)
     setStep("results")
   }
 
@@ -423,37 +406,44 @@ function PlateSearch() {
     window.location.href = `/marketplace?q=${encodeURIComponent(dim)}`
   }
 
+  const vehicleLabel = [vehicleInfo.marca, vehicleInfo.linea, vehicleInfo.modelo].filter(Boolean).join(" ") || vehicleInfo.clase || "Vehiculo"
+
   return (
     <div className="mt-8 mb-4 max-w-lg mx-auto">
       {step === "input" && (
-        <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
+        <div>
+          <p className="text-[11px] text-white/40 text-center mb-2">Busca las llantas exactas para tu vehiculo</p>
+          <div className="flex items-center gap-2">
             <input
               type="text"
               value={placa}
               onChange={(e) => setPlaca(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
-              placeholder="Ingresa tu placa (ej: NFZ837)"
+              placeholder="Tu placa (ej: NFZ837)"
               maxLength={6}
-              className="w-full pl-4 pr-4 py-3.5 rounded-full text-base font-bold text-center tracking-[0.3em] bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:bg-white/15 focus:border-white/40 transition-all"
+              className="flex-1 pl-4 pr-4 py-3.5 rounded-full text-base font-bold text-center tracking-[0.3em] bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:bg-white/15 focus:border-white/40 transition-all"
               style={{ fontFamily: "'DM Mono', monospace" }}
               onKeyDown={(e) => { if (e.key === "Enter") handleSearch() }}
             />
+            <button onClick={handleSearch} disabled={placa.length < 4}
+              className="px-6 py-3.5 rounded-full font-semibold text-sm transition-all disabled:opacity-40 hover:shadow-lg"
+              style={{ background: "#1E76B6", color: "white" }}>
+              Buscar
+            </button>
           </div>
-          <button
-            onClick={handleSearch}
-            disabled={placa.length < 4 || searching}
-            className="px-6 py-3.5 rounded-full font-semibold text-sm transition-all disabled:opacity-40"
-            style={{ background: "#1E76B6", color: "white" }}
-          >
-            {searching ? "..." : "Buscar llantas"}
-          </button>
+        </div>
+      )}
+
+      {step === "loading" && (
+        <div className="text-center py-4">
+          <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-xs text-white/50">Consultando placa <span className="font-bold text-white tracking-wider">{placa}</span>...</p>
         </div>
       )}
 
       {step === "select" && (
         <div>
           <p className="text-white/60 text-xs text-center mb-3">
-            Placa <span className="font-bold text-white tracking-wider">{placa}</span> — Selecciona el tipo de vehiculo:
+            <span className="font-bold text-white tracking-wider">{placa}</span> — Selecciona tu tipo de vehiculo:
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
@@ -464,7 +454,7 @@ function PlateSearch() {
               </button>
             ))}
           </div>
-          <button onClick={() => setStep("input")} className="mt-2 text-[10px] text-white/30 hover:text-white/60 mx-auto block">
+          <button onClick={() => { setStep("input"); setPlaca(""); }} className="mt-2 text-[10px] text-white/30 hover:text-white/60 mx-auto block">
             Cambiar placa
           </button>
         </div>
@@ -472,27 +462,28 @@ function PlateSearch() {
 
       {step === "results" && (
         <div>
-          <p className="text-white/60 text-xs text-center mb-3">
-            {foundVehicle} — Dimensiones compatibles:
-          </p>
+          <div className="text-center mb-3">
+            <p className="text-xs text-white/40">
+              <span className="font-bold text-white tracking-wider">{placa}</span>
+              {vehicleInfo.source === "runt" && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300">RUNT</span>}
+              {vehicleInfo.source === "tirepro" && <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300">TirePro</span>}
+            </p>
+            <p className="text-sm font-bold text-white mt-0.5">{vehicleLabel}</p>
+          </div>
           <div className="flex flex-wrap gap-2 justify-center">
             {foundDimensions.map((dim) => (
               <button key={dim} onClick={() => goToMarketplace(dim)}
-                className="px-4 py-2.5 rounded-full text-sm font-bold text-white transition-all hover:scale-105"
+                className="px-5 py-2.5 rounded-full text-sm font-bold text-white transition-all hover:scale-105"
                 style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", boxShadow: "0 4px 16px rgba(30,118,182,0.3)" }}>
                 {dim}
               </button>
             ))}
           </div>
-          <button onClick={() => { setStep("input"); setPlaca(""); }} className="mt-3 text-[10px] text-white/30 hover:text-white/60 mx-auto block">
+          <button onClick={() => { setStep("input"); setPlaca(""); setVehicleInfo({}); }} className="mt-3 text-[10px] text-white/30 hover:text-white/60 mx-auto block">
             Buscar otra placa
           </button>
         </div>
       )}
-
-      <p className="text-[10px] text-white/20 text-center mt-3">
-        Busca las llantas exactas para tu vehiculo en segundos
-      </p>
     </div>
   )
 }
