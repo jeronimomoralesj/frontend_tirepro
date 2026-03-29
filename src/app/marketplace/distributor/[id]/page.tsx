@@ -22,7 +22,7 @@ interface Profile {
   emailAtencion: string | null; telefono: string | null;
   descripcion: string | null; bannerImage: string | null;
   direccion: string | null; ciudad: string | null; sitioWeb: string | null;
-  cobertura: string[] | null; tipoEntrega: string | null;
+  cobertura: any[] | null; tipoEntrega: string | null; colorMarca: string | null;
   _count: { listings: number };
 }
 

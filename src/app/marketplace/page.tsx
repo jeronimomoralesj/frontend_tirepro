@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
+import DistributorMap from "../../components/DistributorMap";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -300,6 +301,13 @@ export default function PublicMarketplace() {
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ═══ DISTRIBUTOR MAP ═══ */}
+      {!search && !activeFilters && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+          <DistributorMap />
         </div>
       )}
 

@@ -210,6 +210,8 @@ const COLOMBIAN_CITIES = [
   "Giron","Dosquebradas","La Virginia","Tuquerres","Ipiales","Tumaco",
 ];
 
+type CoberturaItem = { ciudad: string; direccion: string; lat: number | null; lng: number | null };
+
 function DistributorProfileEditor({ companyId, toast }: {
   companyId: string;
   toast: (msg: string, type: "success" | "error") => void;
@@ -218,25 +220,58 @@ function DistributorProfileEditor({ companyId, toast }: {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     telefono: "", descripcion: "", bannerImage: "", direccion: "", ciudad: "", sitioWeb: "",
-    cobertura: [] as string[], tipoEntrega: "ambos",
+    cobertura: [] as CoberturaItem[], tipoEntrega: "ambos", colorMarca: "#1E76B6",
   });
   const [citySearch, setCitySearch] = useState("");
+  const [newAddress, setNewAddress] = useState("");
+  const [geocoding, setGeocoding] = useState(false);
 
   useEffect(() => {
     authFetch(`${API_BASE}/marketplace/distributor/${companyId}/profile`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) setForm({
-          telefono: data.telefono ?? "", descripcion: data.descripcion ?? "",
-          bannerImage: data.bannerImage ?? "", direccion: data.direccion ?? "",
-          ciudad: data.ciudad ?? "", sitioWeb: data.sitioWeb ?? "",
-          cobertura: Array.isArray(data.cobertura) ? data.cobertura : [],
-          tipoEntrega: data.tipoEntrega ?? "ambos",
-        });
+        if (data) {
+          // Migrate old string[] cobertura to new format
+          let cob: CoberturaItem[] = [];
+          if (Array.isArray(data.cobertura)) {
+            cob = data.cobertura.map((c: any) =>
+              typeof c === "string" ? { ciudad: c, direccion: "", lat: null, lng: null } : c
+            );
+          }
+          setForm({
+            telefono: data.telefono ?? "", descripcion: data.descripcion ?? "",
+            bannerImage: data.bannerImage ?? "", direccion: data.direccion ?? "",
+            ciudad: data.ciudad ?? "", sitioWeb: data.sitioWeb ?? "",
+            cobertura: cob, tipoEntrega: data.tipoEntrega ?? "ambos",
+            colorMarca: data.colorMarca ?? "#1E76B6",
+          });
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [companyId]);
+
+  async function geocodeAndAdd(city: string) {
+    setGeocoding(true);
+    let lat: number | null = null;
+    let lng: number | null = null;
+    const addr = newAddress.trim();
+    const query = addr ? `${addr}, ${city}, Colombia` : `${city}, Colombia`;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=co`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length > 0) { lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon); }
+      }
+    } catch { /* fallback: no coords */ }
+    setForm((f) => ({
+      ...f,
+      cobertura: [...f.cobertura, { ciudad: city, direccion: addr, lat, lng }],
+    }));
+    setCitySearch("");
+    setNewAddress("");
+    setGeocoding(false);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -273,23 +308,41 @@ function DistributorProfileEditor({ companyId, toast }: {
             placeholder="https://..." className={inputCls} />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Ciudad</label>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Ciudad principal</label>
           <input type="text" value={form.ciudad} onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value }))}
             placeholder="Bogota" className={inputCls} />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Direccion</label>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Direccion principal</label>
           <input type="text" value={form.direccion} onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
             placeholder="Calle 80 #45-12" className={inputCls} />
         </div>
       </div>
+
+      {/* Color picker */}
+      <div className="mb-4">
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Color de marca</label>
+        <div className="flex items-center gap-3">
+          <input type="color" value={form.colorMarca} onChange={(e) => setForm((f) => ({ ...f, colorMarca: e.target.value }))}
+            className="w-10 h-10 rounded-xl border-2 border-gray-200 cursor-pointer" />
+          <span className="text-xs font-mono text-gray-500">{form.colorMarca}</span>
+          <div className="flex gap-1">
+            {["#1E76B6", "#ef4444", "#22c55e", "#f97316", "#8b5cf6", "#0A183A"].map((c) => (
+              <button key={c} onClick={() => setForm((f) => ({ ...f, colorMarca: c }))}
+                className="w-6 h-6 rounded-full border-2 transition-all"
+                style={{ background: c, borderColor: form.colorMarca === c ? "#0A183A" : "transparent" }} />
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="mb-4">
         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Descripcion</label>
         <textarea value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
           rows={3} placeholder="Describe tu empresa, servicios y especialidades..." className={`${inputCls} resize-none`} />
       </div>
       <div className="mb-4">
-        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">URL de imagen de portada</label>
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Imagen de portada (URL)</label>
         <input type="url" value={form.bannerImage} onChange={(e) => setForm((f) => ({ ...f, bannerImage: e.target.value }))}
           placeholder="https://...imagen-portada.jpg" className={inputCls} />
         {form.bannerImage && (
@@ -313,36 +366,55 @@ function DistributorProfileEditor({ companyId, toast }: {
         </div>
       </div>
 
-      {/* Coverage cities */}
+      {/* Coverage locations with geocoding */}
       <div className="mb-4">
         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-          Ciudades de cobertura ({form.cobertura.length})
+          Puntos de cobertura ({form.cobertura.length})
         </label>
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {form.cobertura.map((city) => (
-            <span key={city} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#1E76B6]/10 text-[#1E76B6]">
-              {city}
-              <button onClick={() => setForm((f) => ({ ...f, cobertura: f.cobertura.filter((c) => c !== city) }))}
-                className="hover:text-red-500"><X className="w-2.5 h-2.5" /></button>
-            </span>
+        <div className="space-y-1.5 mb-3">
+          {form.cobertura.map((loc, i) => (
+            <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F0F7FF] border border-[#348CCB]/10">
+              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: form.colorMarca }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-[#0A183A]">{loc.ciudad}</p>
+                {loc.direccion && <p className="text-[10px] text-gray-400">{loc.direccion}</p>}
+              </div>
+              {loc.lat && <span className="text-[8px] text-green-500 font-bold flex-shrink-0">GPS</span>}
+              <button onClick={() => setForm((f) => ({ ...f, cobertura: f.cobertura.filter((_, j) => j !== i) }))}
+                className="text-gray-400 hover:text-red-500 flex-shrink-0"><X className="w-3 h-3" /></button>
+            </div>
           ))}
         </div>
-        <div className="relative">
-          <input type="text" value={citySearch} onChange={(e) => setCitySearch(e.target.value)}
-            placeholder="Buscar ciudad..." className={inputCls} />
-          {citySearch.length >= 2 && (
-            <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-lg border border-gray-200 max-h-32 overflow-y-auto">
-              {COLOMBIAN_CITIES
-                .filter((c) => c.toLowerCase().includes(citySearch.toLowerCase()) && !form.cobertura.includes(c))
-                .slice(0, 8)
-                .map((city) => (
-                  <button key={city} onClick={() => { setForm((f) => ({ ...f, cobertura: [...f.cobertura, city] })); setCitySearch(""); }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-[#F0F7FF] text-[#0A183A]">
-                    {city}
-                  </button>
-                ))}
+        <div className="space-y-2 p-3 rounded-xl border border-dashed border-[#348CCB]/30">
+          <p className="text-[10px] font-bold text-gray-400">Agregar punto de cobertura</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="relative">
+              <input type="text" value={citySearch} onChange={(e) => setCitySearch(e.target.value)}
+                placeholder="Ciudad" className={inputCls} />
+              {citySearch.length >= 2 && (
+                <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-lg border border-gray-200 max-h-28 overflow-y-auto">
+                  {COLOMBIAN_CITIES
+                    .filter((c) => c.toLowerCase().includes(citySearch.toLowerCase()))
+                    .slice(0, 6)
+                    .map((city) => (
+                      <button key={city} onClick={() => setCitySearch(city)}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F0F7FF] text-[#0A183A]">
+                        {city}
+                      </button>
+                    ))}
+                </div>
+              )}
             </div>
-          )}
+            <input type="text" value={newAddress} onChange={(e) => setNewAddress(e.target.value)}
+              placeholder="Direccion (opcional)" className={inputCls} />
+          </div>
+          <button
+            disabled={!citySearch.trim() || geocoding}
+            onClick={() => geocodeAndAdd(citySearch.trim())}
+            className="w-full py-2 rounded-lg text-xs font-bold text-white disabled:opacity-40 transition-all"
+            style={{ background: form.colorMarca }}>
+            {geocoding ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : "Agregar y geolocalizar"}
+          </button>
         </div>
       </div>
 
