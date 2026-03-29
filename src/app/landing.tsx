@@ -347,6 +347,156 @@ function FeatureShowcase() {
   )
 }
 
+// =============================================================================
+// Plate Search — find tires by license plate
+// =============================================================================
+
+const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> = {
+  tractomula:    { label: "Tractomula",           dimensions: ["295/80R22.5", "11R22.5", "315/80R22.5", "12R22.5"] },
+  bus:           { label: "Bus / Buseta",         dimensions: ["295/80R22.5", "275/80R22.5", "11R22.5"] },
+  camion_pesado: { label: "Camion Pesado",        dimensions: ["295/80R22.5", "11R22.5", "12R22.5"] },
+  camion_mediano:{ label: "Camion Mediano",       dimensions: ["235/75R17.5", "215/75R17.5", "9.5R17.5"] },
+  camion_liviano:{ label: "Camion Liviano",       dimensions: ["7.50R16", "215/75R17.5", "225/70R19.5"] },
+  volqueta:      { label: "Volqueta",             dimensions: ["12R24.5", "11R24.5", "315/80R22.5"] },
+  furgon:        { label: "Furgon",               dimensions: ["215/75R17.5", "235/75R17.5", "7.50R16"] },
+};
+
+function PlateSearch() {
+  const [placa, setPlaca] = useState("")
+  const [step, setStep] = useState<"input" | "select" | "results">("input")
+  const [vehicleType, setVehicleType] = useState("")
+  const [searching, setSearching] = useState(false)
+  const [foundDimensions, setFoundDimensions] = useState<string[]>([])
+  const [foundVehicle, setFoundVehicle] = useState<string>("")
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+    : "https://api.tirepro.com.co/api"
+
+  async function handleSearch() {
+    if (placa.length < 4) return
+    setSearching(true)
+
+    // Try to find in our TirePro database first
+    try {
+      const token = localStorage.getItem("token") ?? ""
+      if (token) {
+        const res = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const vehicle = await res.json()
+          // Get tires from this vehicle to find its dimensions
+          const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicle.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (tRes.ok) {
+            const tires: any[] = await tRes.json()
+            const dims = [...new Set(tires.map((t: any) => t.dimension).filter(Boolean))]
+            if (dims.length > 0) {
+              setFoundDimensions(dims)
+              setFoundVehicle(`${vehicle.placa} — ${vehicle.tipovhc ?? "Vehiculo"}`)
+              setStep("results")
+              setSearching(false)
+              return
+            }
+          }
+        }
+      }
+    } catch { /* not logged in or not found — fallback to manual */ }
+
+    // Not found in DB — ask user to select vehicle type
+    setSearching(false)
+    setStep("select")
+  }
+
+  function handleTypeSelect(type: string) {
+    const match = VEHICLE_TIRE_MAP[type]
+    if (!match) return
+    setVehicleType(type)
+    setFoundDimensions(match.dimensions)
+    setFoundVehicle(`${placa.toUpperCase()} — ${match.label}`)
+    setStep("results")
+  }
+
+  function goToMarketplace(dim: string) {
+    window.location.href = `/marketplace?q=${encodeURIComponent(dim)}`
+  }
+
+  return (
+    <div className="mt-8 mb-4 max-w-lg mx-auto">
+      {step === "input" && (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={placa}
+              onChange={(e) => setPlaca(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
+              placeholder="Ingresa tu placa (ej: NFZ837)"
+              maxLength={6}
+              className="w-full pl-4 pr-4 py-3.5 rounded-full text-base font-bold text-center tracking-[0.3em] bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:bg-white/15 focus:border-white/40 transition-all"
+              style={{ fontFamily: "'DM Mono', monospace" }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSearch() }}
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            disabled={placa.length < 4 || searching}
+            className="px-6 py-3.5 rounded-full font-semibold text-sm transition-all disabled:opacity-40"
+            style={{ background: "#1E76B6", color: "white" }}
+          >
+            {searching ? "..." : "Buscar llantas"}
+          </button>
+        </div>
+      )}
+
+      {step === "select" && (
+        <div>
+          <p className="text-white/60 text-xs text-center mb-3">
+            Placa <span className="font-bold text-white tracking-wider">{placa}</span> — Selecciona el tipo de vehiculo:
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
+              <button key={key} onClick={() => handleTypeSelect(key)}
+                className="px-3 py-2.5 rounded-xl text-xs font-medium text-white/80 hover:text-white hover:bg-white/15 transition-all text-left"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                {val.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setStep("input")} className="mt-2 text-[10px] text-white/30 hover:text-white/60 mx-auto block">
+            Cambiar placa
+          </button>
+        </div>
+      )}
+
+      {step === "results" && (
+        <div>
+          <p className="text-white/60 text-xs text-center mb-3">
+            {foundVehicle} — Dimensiones compatibles:
+          </p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {foundDimensions.map((dim) => (
+              <button key={dim} onClick={() => goToMarketplace(dim)}
+                className="px-4 py-2.5 rounded-full text-sm font-bold text-white transition-all hover:scale-105"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", boxShadow: "0 4px 16px rgba(30,118,182,0.3)" }}>
+                {dim}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => { setStep("input"); setPlaca(""); }} className="mt-3 text-[10px] text-white/30 hover:text-white/60 mx-auto block">
+            Buscar otra placa
+          </button>
+        </div>
+      )}
+
+      <p className="text-[10px] text-white/20 text-center mt-3">
+        Busca las llantas exactas para tu vehiculo en segundos
+      </p>
+    </div>
+  )
+}
+
 const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -805,6 +955,9 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                 </button>
               </a>
             </div>
+
+            {/* Plate search */}
+            <PlateSearch />
 
             <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>
               Sin tarjeta de crédito · Plan Inicio gratis para siempre · Configuración en 10 min
