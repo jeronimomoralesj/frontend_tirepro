@@ -34,6 +34,8 @@ export default function VentasDistPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
+  const [cancelModal, setCancelModal] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const fetchData = useCallback(async (cId: string) => {
     setLoading(true);
@@ -54,9 +56,9 @@ export default function VentasDistPage() {
     try { const u = JSON.parse(stored); if (u.companyId) { setCompanyId(u.companyId); fetchData(u.companyId); } } catch { router.push("/login"); }
   }, [router, fetchData]);
 
-  async function updateStatus(orderId: string, status: string) {
+  async function updateStatus(orderId: string, status: string, cancelReasonText?: string) {
     await authFetch(`${API_BASE}/marketplace/orders/${orderId}/status`, {
-      method: "PATCH", body: JSON.stringify({ distributorId: companyId, status }),
+      method: "PATCH", body: JSON.stringify({ distributorId: companyId, status, cancelReason: cancelReasonText }),
     });
     fetchData(companyId);
   }
@@ -99,6 +101,15 @@ export default function VentasDistPage() {
                   <p className="text-xl font-black text-[#0A183A]">{stats.totalOrders}</p>
                   <p className="text-[10px] text-gray-400 uppercase">Pedidos</p>
                 </div>
+                {stats.avgResponseTimeHours != null && (
+                  <div className="rounded-xl p-4 bg-white border border-gray-100 col-span-2 sm:col-span-1">
+                    <Clock className="w-4 h-4 text-[#f97316] mb-1" />
+                    <p className="text-xl font-black text-[#0A183A]">
+                      {stats.avgResponseTimeHours < 1 ? `${Math.round(stats.avgResponseTimeHours * 60)}min` : `${stats.avgResponseTimeHours}h`}
+                    </p>
+                    <p className="text-[10px] text-gray-400 uppercase">Tiempo de respuesta prom.</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -169,7 +180,7 @@ export default function VentasDistPage() {
                                 className="px-2 py-1 rounded-lg text-[9px] font-bold text-white bg-[#1E76B6] hover:opacity-90">
                                 Confirmar
                               </button>
-                              <button onClick={() => updateStatus(order.id, "cancelado")}
+                              <button onClick={() => { setCancelModal(order.id); setCancelReason(""); }}
                                 className="px-2 py-1 rounded-lg text-[9px] font-bold text-red-500 border border-red-200 hover:bg-red-50">
                                 Cancelar
                               </button>
@@ -197,6 +208,51 @@ export default function VentasDistPage() {
           </>
         )}
       </div>
+
+      {/* Cancel modal */}
+      {cancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="px-5 py-4" style={{ background: "linear-gradient(135deg, #991b1b, #ef4444)" }}>
+              <h3 className="font-bold text-white text-sm">Cancelar pedido</h3>
+              <p className="text-[10px] text-white/70 mt-0.5">El cliente recibira un email con el motivo.</p>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">Motivo de cancelacion *</label>
+                <select value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm border border-gray-200 bg-gray-50 text-[#0A183A] focus:outline-none focus:border-red-300">
+                  <option value="">Seleccionar motivo...</option>
+                  <option value="Producto agotado">Producto agotado</option>
+                  <option value="Precio incorrecto">Precio incorrecto</option>
+                  <option value="No se puede entregar en esa zona">No se puede entregar en esa zona</option>
+                  <option value="Datos del comprador incorrectos">Datos del comprador incorrectos</option>
+                  <option value="Tiempo de entrega no viable">Tiempo de entrega no viable</option>
+                </select>
+              </div>
+              <textarea value={cancelReason.startsWith("Otro:") ? cancelReason.slice(5) : ""}
+                onChange={(e) => setCancelReason(e.target.value ? `Otro: ${e.target.value}` : cancelReason)}
+                rows={2} placeholder="O escribe un motivo personalizado..."
+                className="w-full px-3 py-2 rounded-xl text-sm border border-gray-200 bg-gray-50 text-[#0A183A] focus:outline-none focus:border-red-300 resize-none placeholder-gray-400" />
+              <div className="flex gap-2">
+                <button onClick={() => setCancelModal(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 border border-gray-200 hover:bg-gray-50">
+                  Volver
+                </button>
+                <button disabled={!cancelReason}
+                  onClick={async () => {
+                    await updateStatus(cancelModal, "cancelado", cancelReason);
+                    setCancelModal(null);
+                    setCancelReason("");
+                  }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 bg-red-500 hover:bg-red-600 transition-colors">
+                  Cancelar pedido
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
