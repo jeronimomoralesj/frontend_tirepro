@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -24,11 +24,27 @@ const API_BASE =
     ? `${process.env.NEXT_PUBLIC_API_URL}/api`
     : "https://api.tirepro.com.co/api";
 
-export default function CompanyRegisterPage() {
-  const [step, setStep] = useState<"userType" | "passwordVerification" | "companyDetails">("userType");
-  const [userType, setUserType] = useState<UserType>(null);
+export default function CompanyRegisterWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <CompanyRegisterPage />
+    </Suspense>
+  );
+}
+
+function CompanyRegisterPage() {
+  const searchParams = useSearchParams();
+  const planParam = searchParams.get("plan");
+
+  // If plan param is set, skip the type selection
+  const initialStep = planParam === "distribuidor" ? "passwordVerification" as const : planParam ? "companyDetails" as const : "userType" as const;
+  const initialType = planParam === "distribuidor" ? "distributor" as UserType : planParam ? "fleet" as UserType : null;
+  const initialPlan = planParam === "distribuidor" ? "distribuidor" : "pro";
+
+  const [step, setStep] = useState<"userType" | "passwordVerification" | "companyDetails">(initialStep);
+  const [userType, setUserType] = useState<UserType>(initialType);
   const [name, setName] = useState("");
-  const [plan, setPlan] = useState("pro");
+  const [plan, setPlan] = useState(initialPlan);
   const [companyId, setCompanyId] = useState("");
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -242,9 +258,10 @@ export default function CompanyRegisterPage() {
     );
   }
 
-  // -- User Type Selection Step -----------------------------------------------
+  // -- User Type Selection Step — redirect to /signup if no plan param --------
 
   if (step === "userType") {
+    if (typeof window !== "undefined") { window.location.href = "/signup"; return null; }
     return (
       <div className="min-h-screen bg-white overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(135deg, #f0f6fb 0%, #ffffff 50%, #e8f3fa 100%)" }} />
@@ -373,158 +390,72 @@ export default function CompanyRegisterPage() {
   const selectedOption = userTypeOptions.find((opt) => opt.id === userType);
   const IconComponent = selectedOption?.icon || Users;
 
+  const isDistributor = plan === "distribuidor";
+
   return (
-    <div className="min-h-screen bg-white overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(135deg, #f0f6fb 0%, #ffffff 60%, #e8f3fa 100%)" }} />
-      <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none" style={{ backgroundColor: "rgba(30,118,182,0.07)" }} />
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <Link href="/signup" className="flex justify-center mb-8">
+          <img src="/logo_full.png" alt="TirePro" className="h-8 w-auto" />
+        </Link>
 
-      <div className="relative z-10">
-        <nav className="border-b border-gray-200 bg-white/90 backdrop-blur-xl shadow-sm">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6">
-            <button
-              onClick={handleBackToUserType}
-              className="inline-flex items-center space-x-2 text-gray-500 transition-colors"
-              onMouseEnter={e => (e.currentTarget.style.color = "#0A183A")}
-              onMouseLeave={e => (e.currentTarget.style.color = "")}
-            >
-              <ArrowLeft size={20} />
-              <span>Cambiar tipo de perfil</span>
-            </button>
-          </div>
-        </nav>
+        {!companyId ? (
+          <>
+            <h1 className="text-2xl font-black text-[#0A183A] text-center mb-1">
+              {isDistributor ? "Registrar distribuidor" : "Registrar empresa"}
+            </h1>
+            <p className="text-sm text-gray-400 text-center mb-6">
+              {isDistributor ? "Vende llantas y llega a flotas en Colombia" : "Controla tus llantas y reduce costos hasta 35%"}
+            </p>
 
-        <div className="max-w-2xl mx-auto px-6 lg:px-8 py-20">
-          {!companyId ? (
-            <>
-              <div className="text-center mb-12">
-                <div
-                  className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-6 border"
-                  style={{ backgroundColor: selectedOption?.iconBg ?? "rgba(30,118,182,0.1)", borderColor: "rgba(30,118,182,0.2)" }}
-                >
-                  <IconComponent size={32} style={{ color: selectedOption?.iconColor ?? "#1E76B6" }} />
-                </div>
-                <h1 className="text-4xl md:text-5xl font-semibold mb-4" style={{ color: "#0A183A" }}>
-                  Registrar Empresa
-                </h1>
-                <p className="text-xl text-gray-500 mb-6">
-                  Complete los datos para crear su cuenta empresarial
-                </p>
-                {selectedOption && (
-                  <div
-                    className="inline-flex items-center px-6 py-3 rounded-full border"
-                    style={{ backgroundColor: "rgba(30,118,182,0.06)", borderColor: "rgba(30,118,182,0.2)" }}
-                  >
-                    <IconComponent size={16} style={{ color: selectedOption.iconColor, marginRight: "0.5rem" }} />
-                    <span className="text-sm text-gray-700">
-                      {selectedOption.title} — Plan{" "}
-                      <span className="font-semibold capitalize" style={{ color: "#1E76B6" }}>{plan}</span>
-                    </span>
-                  </div>
-                )}
-              </div>
+            <div className="mb-5 flex items-center justify-center gap-2">
+              <span className="text-[10px] font-bold px-3 py-1 rounded-full"
+                style={{ background: isDistributor ? "#f5f0ff" : "#f0f7ff", color: isDistributor ? "#8b5cf6" : "#1E76B6" }}>
+                {isDistributor ? "Distribuidor" : "Plan Plus — Gratis"}
+              </span>
+              <Link href="/signup" className="text-[10px] text-gray-400 hover:text-[#1E76B6]">Cambiar</Link>
+            </div>
 
-              <div
-                className="bg-white rounded-3xl border p-8 shadow-xl"
-                style={{ borderColor: "rgba(30,118,182,0.15)", boxShadow: "0 8px 40px rgba(30,118,182,0.1)" }}
-              >
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Company name */}
-                  <div>
-                    <label className="block text-sm font-semibold mb-3" style={{ color: "#0A183A" }}>
-                      Nombre de la Empresa *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl text-gray-900 placeholder-gray-400 transition-all outline-none"
-                      style={{ border: "1.5px solid rgba(30,118,182,0.2)", backgroundColor: "#f8fafd" }}
-                      onFocus={e => (e.currentTarget.style.borderColor = "#1E76B6")}
-                      onBlur={e => (e.currentTarget.style.borderColor = "rgba(30,118,182,0.2)")}
-                      placeholder="Ingresa el nombre de tu empresa"
-                      maxLength={100}
-                    />
-                  </div>
-
-                  {/* Plan display */}
-                  <div>
-                    <label className="block text-sm font-semibold mb-3" style={{ color: "#0A183A" }}>
-                      Plan Seleccionado
-                    </label>
-                    <div
-                      className="px-4 py-3 rounded-xl border"
-                      style={{ backgroundColor: "#f8fafd", borderColor: "rgba(30,118,182,0.15)" }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center"
-                            style={{ backgroundColor: selectedOption?.iconBg ?? "rgba(30,118,182,0.1)" }}
-                          >
-                            <IconComponent size={20} style={{ color: selectedOption?.iconColor ?? "#1E76B6" }} />
-                          </div>
-                          <div>
-                            <span className="font-semibold capitalize" style={{ color: "#0A183A" }}>Plan {plan}</span>
-                            <p className="text-sm text-gray-500">{selectedOption?.subtitle}</p>
-                          </div>
-                        </div>
-                        <Zap size={20} style={{ color: "#1E76B6" }} />
-                      </div>
-                    </div>
-                  </div>
+            <div className="space-y-0">
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl text-sm bg-[#f5f5f7] border border-transparent focus:border-[#1E76B6]/20 focus:bg-white focus:shadow-sm focus:outline-none text-[#0A183A] placeholder-gray-400 transition-all"
+                    placeholder="Nombre de la empresa"
+                    maxLength={100}
+                  />
 
                   {/* Terms */}
-                  <div
-                    className="flex items-start space-x-3 p-4 rounded-xl border"
-                    style={{ backgroundColor: "rgba(30,118,182,0.04)", borderColor: "rgba(30,118,182,0.15)" }}
-                  >
-                    <input
-                      id="terms"
-                      type="checkbox"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="mt-1 w-4 h-4 rounded"
-                      style={{ accentColor: "#1E76B6" }}
-                    />
-                    <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                      Acepto los{" "}
-                      <Link href="/legal#terms-section" style={{ color: "#1E76B6" }} className="hover:underline">
-                        Términos de Servicio
-                      </Link>{" "}
-                      y la{" "}
-                      <Link href="/legal#privacy-section" style={{ color: "#1E76B6" }} className="hover:underline">
-                        Política de Privacidad
-                      </Link>
-                    </label>
-                  </div>
+                  <label className="flex items-start gap-2.5 pt-2 cursor-pointer">
+                    <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded accent-[#1E76B6]" />
+                    <span className="text-[11px] text-gray-400 leading-relaxed">
+                      Acepto los <Link href="/legal" className="text-[#1E76B6] hover:underline">terminos de servicio</Link> y la <Link href="/legal" className="text-[#1E76B6] hover:underline">politica de privacidad</Link>
+                    </span>
+                  </label>
 
                   {/* Submit */}
-                  <button
-                    type="submit"
-                    disabled={loading || !termsAccepted}
-                    className="w-full py-4 px-6 rounded-xl font-semibold transition-all duration-200 text-white shadow-md hover:shadow-lg disabled:cursor-not-allowed"
-                    style={{ backgroundColor: termsAccepted && !loading ? "#1E76B6" : "#d1d5db", color: termsAccepted && !loading ? "white" : "#9ca3af" }}
-                    onMouseEnter={e => { if (termsAccepted && !loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#173D68" }}
-                    onMouseLeave={e => { if (termsAccepted && !loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#1E76B6" }}
-                  >
-                    {loading ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Registrando empresa...</span>
-                      </div>
-                    ) : (
-                      "Registrar Empresa"
-                    )}
+                  <button type="submit" disabled={loading || !termsAccepted}
+                    className="w-full py-3.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-all hover:shadow-lg"
+                    style={{ background: "#1E76B6" }}>
+                    {loading ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Registrando...</span>
+                      : isDistributor ? "Registrar distribuidor" : "Registrar empresa"}
                   </button>
 
                   {error && (
-                    <div className="p-4 rounded-xl border" style={{ backgroundColor: "rgba(239,68,68,0.06)", borderColor: "rgba(239,68,68,0.2)" }}>
-                      <p className="text-red-500 text-sm">{error}</p>
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-medium">
+                      {error}
                     </div>
                   )}
                 </form>
               </div>
+
+              <p className="text-xs text-gray-400 text-center mt-5">
+                ¿Ya tienes cuenta? <Link href="/login" className="text-[#1E76B6] font-semibold hover:underline">Ingresar</Link>
+              </p>
             </>
           ) : (
             /* Success State */
@@ -595,7 +526,6 @@ export default function CompanyRegisterPage() {
               </div>
             </>
           )}
-        </div>
       </div>
     </div>
   );
