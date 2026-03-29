@@ -57,7 +57,6 @@ function buildLinks(plan: string, isAdmin: boolean): NavLink[] {
       { name: "Vehículos",  path: "/dashboard/vehiculo",   icon: Car             },
       { name: "Agregar",    path: "/dashboard/agregar",    icon: Plus            },
       { name: "Buscar",     path: "/dashboard/buscar",     icon: Search          },
-      { name: "Marketplace",path: "/marketplace",           icon: ShoppingCart   },
     ];
   }
   return [
@@ -334,6 +333,13 @@ export default function Sidebar({
               Ajustes
             </Link>
           )}
+          <a href="/marketplace" target="_blank" rel="noopener noreferrer" onClick={closeMobile}
+            className="flex items-center gap-3 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#348CCB]/70 hover:bg-[rgba(30,118,182,0.06)]">
+            <div className="p-1 rounded-md" style={{ background: "rgba(30,118,182,0.06)" }}>
+              <ShoppingCart className="w-3.5 h-3.5 text-[#348CCB]/60" />
+            </div>
+            Marketplace
+          </a>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-red-500 transition-all hover:bg-red-50"
@@ -447,6 +453,17 @@ export default function Sidebar({
           className="flex-shrink-0 px-2 pb-3 pt-2 space-y-0.5"
           style={{ borderTop: "1px solid rgba(52,140,203,0.1)" }}
         >
+          <a
+            href="/marketplace"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-3 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#348CCB]/70 transition-all hover:bg-[rgba(30,118,182,0.06)] hover:text-[#1E76B6]"
+          >
+            <div className="flex-shrink-0 p-1 rounded-md" style={{ background: "rgba(30,118,182,0.06)" }}>
+              <ShoppingCart className="w-3.5 h-3.5 text-[#348CCB]/60" />
+            </div>
+            {!collapsed && <span className="truncate">Marketplace</span>}
+          </a>
           {company.plan !== "mini" && isAdmin && (
             <Link
               href="/dashboard/ajustes"
