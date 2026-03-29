@@ -176,7 +176,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               )}
 
               {isLoggedIn ? (
-                <Link href={hasCompany ? "/dashboard/ajustes" : "/marketplace/cart"} className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
+                <Link href={hasCompany ? "/settings" : "/marketplace/cart"} className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
                   <User className="w-4 h-4 text-[#0A183A]" />
                   <span className="text-[12px] font-medium text-[#0A183A]">{userName?.split(" ")[0]}</span>
                 </Link>
@@ -269,7 +269,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                 <button onClick={() => setMobileMenu(false)} className="text-white/70 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
               {isLoggedIn ? (
-                <Link href="/dashboard/ajustes" className="flex items-center gap-2 text-white">
+                <Link href="/settings" className="flex items-center gap-2 text-white">
                   <User className="w-5 h-5" />
                   <span className="text-sm font-bold">Hola, {userName?.split(" ")[0]}</span>
                 </Link>

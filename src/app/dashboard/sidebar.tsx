@@ -323,7 +323,7 @@ export default function Sidebar({
         >
           {company.plan !== "mini" && isAdmin && (
             <Link
-              href="/dashboard/ajustes"
+              href="/settings"
               onClick={closeMobile}
               className="flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-[#173D68] transition-all hover:bg-[rgba(30,118,182,0.08)]"
             >
@@ -464,7 +464,7 @@ export default function Sidebar({
           </a>
           {company.plan !== "mini" && isAdmin && (
             <Link
-              href="/dashboard/ajustes"
+              href="/settings"
               className="group flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-[#173D68] transition-all hover:bg-[rgba(30,118,182,0.08)]"
             >
               <div className="flex-shrink-0 p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.08)" }}>
