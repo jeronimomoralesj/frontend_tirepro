@@ -178,7 +178,6 @@ export default function PublicMarketplace() {
             </div>
           </div>
         )}
-        </div>
       </div>
 
       {/* ═══ HERO CAROUSEL + CATEGORIES ═══ */}
