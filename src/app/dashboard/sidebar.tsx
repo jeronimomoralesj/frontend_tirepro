@@ -333,7 +333,7 @@ export default function Sidebar({
               Ajustes
             </Link>
           )}
-          <a href="/marketplace" target="_blank" rel="noopener noreferrer" onClick={closeMobile}
+          <a href="/marketplace" onClick={closeMobile}
             className="flex items-center gap-3 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#348CCB]/70 hover:bg-[rgba(30,118,182,0.06)]">
             <div className="p-1 rounded-md" style={{ background: "rgba(30,118,182,0.06)" }}>
               <ShoppingCart className="w-3.5 h-3.5 text-[#348CCB]/60" />
@@ -455,8 +455,6 @@ export default function Sidebar({
         >
           <a
             href="/marketplace"
-            target="_blank"
-            rel="noopener noreferrer"
             className="group flex items-center gap-3 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#348CCB]/70 transition-all hover:bg-[rgba(30,118,182,0.06)] hover:text-[#1E76B6]"
           >
             <div className="flex-shrink-0 p-1 rounded-md" style={{ background: "rgba(30,118,182,0.06)" }}>
