@@ -26,6 +26,9 @@ import {
   Building2,
   Link2,
   Link2Off,
+  ShoppingCart,
+  Package,
+  Clock,
 } from "lucide-react";
 import CambiarContrasena from "./CambiarContraseña";
 
@@ -554,7 +557,7 @@ function EmailAtencionCard({ companyId, initialEmail, onSaved, toast }: {
 // Tab nav definition
 // =============================================================================
 
-type TabId = "profile" | "company" | "users" | "addUser" | "distributors";
+type TabId = "profile" | "orders" | "company" | "users" | "addUser" | "distributors";
 
 // =============================================================================
 // Main Page
@@ -579,6 +582,7 @@ const AjustesPage: React.FC = () => {
   const [savingNotif, setSavingNotif] = useState(false);
   const [plateInputs, setPlateInputs] = useState<Record<string, string>>({});
   const [savingUser,  setSavingUser]  = useState(false);
+  const [marketplaceOrders, setMarketplaceOrders] = useState<any[]>([]);
 
   // Saturn V mode
   const [showSaturnChallenge, setShowSaturnChallenge] = useState(false);
@@ -657,6 +661,14 @@ const AjustesPage: React.FC = () => {
         }
       })
       .catch(() => {});
+    // Fetch marketplace orders
+    if (parsed.id) {
+      const token = localStorage.getItem("token") ?? "";
+      authFetch(`${API_BASE}/marketplace/orders/user?userId=${parsed.id}`)
+        .then((r) => r.ok ? r.json() : [])
+        .then(setMarketplaceOrders)
+        .catch(() => {});
+    }
     if (parsed.companyId) {
       fetchCompany(parsed.companyId);
       if (parsed.role === "admin") {
@@ -823,6 +835,7 @@ const AjustesPage: React.FC = () => {
   // -- Tab definitions -------------------------------------------------------
   const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean }[] = [
     { id: "profile",      label: "Perfil",          icon: User                             },
+    { id: "orders",       label: "Mis Pedidos",     icon: ShoppingCart                     },
     { id: "company",      label: "Empresa",         icon: Building                         },
     { id: "users",        label: "Usuarios",        icon: Users,    adminOnly: true        },
     { id: "addUser",      label: "Nuevo Usuario",   icon: UserPlus, adminOnly: true        },
@@ -1346,6 +1359,66 @@ const AjustesPage: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ================================================================ */}
+        {/* ORDERS TAB                                                        */}
+        {/* ================================================================ */}
+        {activeTab === "orders" && (
+          <div className="space-y-4">
+            <Card className="p-5 sm:p-6">
+              <SectionTitle icon={ShoppingCart} title="Historial de Pedidos" />
+              {marketplaceOrders.length === 0 ? (
+                <div className="text-center py-10 text-gray-400">
+                  <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm font-bold text-[#0A183A]">Sin pedidos</p>
+                  <p className="text-xs mt-1">Tus compras del marketplace apareceran aqui.</p>
+                  <a href="/marketplace" className="inline-block mt-3 px-4 py-2 rounded-full text-xs font-bold text-white" style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+                    Ir al Marketplace
+                  </a>
+                </div>
+              ) : (
+                <div className="space-y-3 mt-3">
+                  {marketplaceOrders.map((o: any) => {
+                    const imgs = Array.isArray(o.listing?.imageUrls) ? o.listing.imageUrls : [];
+                    const cover = imgs.length > 0 ? imgs[o.listing?.coverIndex ?? 0] ?? imgs[0] : null;
+                    const fmtCOP = (n: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+                    const statusMeta: Record<string, { label: string; color: string; bg: string }> = {
+                      pendiente:  { label: "Pendiente",  color: "#f97316", bg: "rgba(249,115,22,0.1)" },
+                      confirmado: { label: "Confirmado", color: "#1E76B6", bg: "rgba(30,118,182,0.1)" },
+                      enviado:    { label: "Enviado",    color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
+                      entregado:  { label: "Entregado",  color: "#22c55e", bg: "rgba(34,197,94,0.1)" },
+                      cancelado:  { label: "Cancelado",  color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
+                    };
+                    const st = statusMeta[o.status] ?? statusMeta.pendiente;
+                    return (
+                      <div key={o.id} className="flex items-center gap-3 p-3 rounded-xl bg-white" style={{ border: "1px solid rgba(52,140,203,0.1)" }}>
+                        <div className="w-14 h-14 rounded-xl bg-[#f5f5f7] flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1.5" /> : <Package className="w-5 h-5 text-gray-300" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <a href={`/marketplace/product/${o.listingId}`} className="text-sm font-bold text-[#0A183A] hover:text-[#1E76B6] truncate">
+                              {o.listing?.marca} {o.listing?.modelo}
+                            </a>
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {o.listing?.dimension} · {o.quantity} uds · #{o.id.slice(0, 8).toUpperCase()}
+                          </p>
+                          <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {new Date(o.createdAt).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
+                          </p>
+                        </div>
+                        <p className="text-sm font-black text-[#0A183A] flex-shrink-0">{fmtCOP(o.totalCop)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
           </div>
         )}
 
