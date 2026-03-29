@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  Search, Loader2, Package, Truck, X, ArrowLeft,
-  ShoppingCart, ChevronLeft, ChevronRight,
-  SlidersHorizontal, Clock, CheckCircle,
+  Search, Loader2, Package, Truck, X, MapPin,
+  ShoppingCart, ChevronLeft, ChevronRight, Store,
+  SlidersHorizontal, Clock, CheckCircle, Star, Shield,
+  ChevronDown, Recycle, CircleDot, Building2,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -16,18 +17,12 @@ const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 interface Listing {
-  id: string;
-  marca: string;
-  modelo: string;
-  dimension: string;
-  eje: string | null;
-  precioCop: number;
-  precioPromo: number | null;
-  promoHasta: string | null;
-  incluyeIva: boolean;
-  cantidadDisponible: number;
-  tiempoEntrega: string | null;
-  imageUrl: string | null;
+  id: string; marca: string; modelo: string; dimension: string;
+  eje: string | null; tipo: string; precioCop: number;
+  precioPromo: number | null; promoHasta: string | null;
+  incluyeIva: boolean; cantidadDisponible: number;
+  tiempoEntrega: string | null; descripcion: string | null;
+  imageUrls: string[] | null; coverIndex: number;
   distributor: { id: string; name: string; profileImage: string };
   catalog: {
     terreno: string | null; reencauchable: boolean;
@@ -38,6 +33,8 @@ interface Listing {
 
 interface DistributorOption { id: string; name: string; profileImage: string }
 interface Filters { dimensions: string[]; marcas: string[]; distributors: DistributorOption[] }
+
+// =============================================================================
 
 export default function PublicMarketplace() {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -54,7 +51,7 @@ export default function PublicMarketplace() {
   const [distributorId, setDistributorId] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [sortBy, setSortBy] = useState("price_asc");
-  const [showFilters, setShowFilters] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE}/marketplace/listings/filters`)
@@ -64,18 +61,18 @@ export default function PublicMarketplace() {
 
   const fetchListings = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    if (dimension) params.set("dimension", dimension);
-    if (marca) params.set("marca", marca);
-    if (tipo) params.set("tipo", tipo);
-    if (distributorId) params.set("distributorId", distributorId);
-    if (ciudad) params.set("ciudad", ciudad);
-    params.set("sortBy", sortBy);
-    params.set("page", String(page));
-    params.set("limit", "24");
+    const p = new URLSearchParams();
+    if (search) p.set("search", search);
+    if (dimension) p.set("dimension", dimension);
+    if (marca) p.set("marca", marca);
+    if (tipo) p.set("tipo", tipo);
+    if (distributorId) p.set("distributorId", distributorId);
+    if (ciudad) p.set("ciudad", ciudad);
+    p.set("sortBy", sortBy);
+    p.set("page", String(page));
+    p.set("limit", "24");
     try {
-      const res = await fetch(`${API_BASE}/marketplace/listings?${params}`);
+      const res = await fetch(`${API_BASE}/marketplace/listings?${p}`);
       if (res.ok) { const d = await res.json(); setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1); }
     } catch { /* */ }
     setLoading(false);
@@ -84,174 +81,209 @@ export default function PublicMarketplace() {
   useEffect(() => { fetchListings(); }, [fetchListings]);
   useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, ciudad, sortBy]);
 
-  const activeFilterCount = [dimension, marca, tipo, distributorId, ciudad].filter(Boolean).length;
+  const activeFilters = [dimension, marca, tipo, distributorId, ciudad].filter(Boolean).length;
+
+  function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setCiudad(""); }
 
   return (
-    <div className="min-h-screen" style={{ background: "#f8fafc" }}>
-      {/* Top nav */}
-      <header className="sticky top-0 z-50 bg-white" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)", boxShadow: "0 1px 4px rgba(10,24,58,0.04)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 flex-shrink-0 group">
-            <div className="p-1.5 rounded-lg" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-              <ShoppingCart className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-black text-[#0A183A] text-base hidden sm:block">TirePro <span className="text-[#348CCB] font-bold">Marketplace</span></span>
-          </Link>
+    <div className="min-h-screen bg-[#f5f5f7]">
+      {/* ═══ NAV ═══ */}
+      <header className="sticky top-0 z-50 bg-white shadow-sm">
+        {/* Top bar */}
+        <div className="bg-[#0A183A] text-white/70 text-[10px] text-center py-1.5 font-medium tracking-wide">
+          Marketplace de llantas para flotas — Encuentra las mejores ofertas de distribuidores verificados
+        </div>
 
-          <div className="flex-1 relative max-w-2xl">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar llantas..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 text-[#0A183A] placeholder-gray-400"
-            />
+        {/* Main nav */}
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 py-3">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+                <ShoppingCart className="w-4 h-4 text-white" />
+              </div>
+              <div className="hidden sm:block">
+                <p className="font-black text-[#0A183A] text-sm leading-none">TirePro</p>
+                <p className="text-[9px] text-[#348CCB] font-bold">Marketplace</p>
+              </div>
+            </Link>
+
+            {/* Search */}
+            <div className="flex-1 max-w-2xl relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar llantas, marcas, distribuidores..."
+                className="w-full pl-11 pr-4 py-3 rounded-full text-sm bg-gray-100 border-0 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/30 text-[#0A183A] placeholder-gray-400"
+              />
+            </div>
+
+            {/* Right actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Link href="/login" className="hidden sm:flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-[#0A183A] border border-gray-200 hover:bg-gray-50 transition-colors">
+                Ingresar
+              </Link>
+              <Link href="/companyregister" className="px-4 py-2.5 rounded-full text-xs font-bold text-white transition-all hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+                Registrarse
+              </Link>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold text-[#173D68] border border-gray-200 hover:bg-gray-50">
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Filtros</span>
-              {activeFilterCount > 0 && <span className="w-4 h-4 rounded-full bg-[#1E76B6] text-white text-[8px] font-black flex items-center justify-center">{activeFilterCount}</span>}
+          {/* Categories + filters row */}
+          <div className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-hide">
+            {/* Type pills */}
+            {[{ v: "", l: "Todo" }, { v: "nueva", l: "Llantas Nuevas" }, { v: "reencauche", l: "Reencauche" }].map((t) => (
+              <button key={t.v} onClick={() => setTipo(t.v)}
+                className="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex-shrink-0"
+                style={{ background: tipo === t.v ? "#0A183A" : "white", color: tipo === t.v ? "white" : "#555", border: tipo === t.v ? "none" : "1px solid #e5e5e5" }}>
+                {t.l}
+              </button>
+            ))}
+
+            <div className="w-px h-5 bg-gray-200 mx-1 flex-shrink-0" />
+
+            {/* Dimension quick picks — show top 4 */}
+            {filters.dimensions.slice(0, 4).map((d) => (
+              <button key={d} onClick={() => setDimension(dimension === d ? "" : d)}
+                className="px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all flex-shrink-0"
+                style={{ background: dimension === d ? "#1E76B6" : "white", color: dimension === d ? "white" : "#777", border: dimension === d ? "none" : "1px solid #e5e5e5" }}>
+                {d}
+              </button>
+            ))}
+
+            <button onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0 ml-auto"
+              style={{ background: filtersOpen ? "#0A183A" : "white", color: filtersOpen ? "white" : "#555", border: filtersOpen ? "none" : "1px solid #e5e5e5" }}>
+              <SlidersHorizontal className="w-3 h-3" />
+              Mas filtros
+              {activeFilters > 0 && <span className="w-4 h-4 rounded-full bg-[#1E76B6] text-white text-[8px] font-black flex items-center justify-center ml-0.5">{activeFilters}</span>}
             </button>
-            <Link href="/login"
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-white"
-              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-              Ingresar
-            </Link>
           </div>
         </div>
 
-        {showFilters && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-3 flex gap-2 flex-wrap">
-            <div className="flex rounded-lg overflow-hidden border border-gray-200">
-              {[{ value: "", label: "Todas" }, { value: "nueva", label: "Nuevas" }, { value: "reencauche", label: "Reencauche" }].map((t) => (
-                <button key={t.value} onClick={() => setTipo(t.value)}
-                  className="px-3 py-2 text-xs font-bold transition-all"
-                  style={{ background: tipo === t.value ? "#0A183A" : "white", color: tipo === t.value ? "white" : "#173D68" }}>
-                  {t.label}
-                </button>
-              ))}
+        {/* Expanded filters */}
+        {filtersOpen && (
+          <div className="bg-gray-50 border-t border-gray-100">
+            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex gap-3 flex-wrap items-center">
+              <select value={dimension} onChange={(e) => setDimension(e.target.value)}
+                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333]">
+                <option value="">Todas las dimensiones</option>
+                {filters.dimensions.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <select value={marca} onChange={(e) => setMarca(e.target.value)}
+                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333]">
+                <option value="">Todas las marcas</option>
+                {filters.marcas.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}
+                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333]">
+                <option value="">Todos los distribuidores</option>
+                {filters.distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+              <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad de entrega"
+                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333] w-36 placeholder-gray-400" />
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#333]">
+                <option value="price_asc">Menor precio</option>
+                <option value="price_desc">Mayor precio</option>
+                <option value="newest">Mas recientes</option>
+              </select>
+              {activeFilters > 0 && (
+                <button onClick={clearFilters} className="text-xs font-bold text-red-500 hover:underline">Limpiar filtros</button>
+              )}
             </div>
-            <select value={dimension} onChange={(e) => setDimension(e.target.value)}
-              className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68]">
-              <option value="">Dimensiones</option>
-              {filters.dimensions.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <select value={marca} onChange={(e) => setMarca(e.target.value)}
-              className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68]">
-              <option value="">Marcas</option>
-              {filters.marcas.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}
-              className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68]">
-              <option value="">Distribuidores</option>
-              {filters.distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-            <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)}
-              placeholder="Tu ciudad..."
-              className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68] w-32 placeholder-gray-400" />
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68]">
-              <option value="price_asc">Menor precio</option>
-              <option value="price_desc">Mayor precio</option>
-              <option value="newest">Recientes</option>
-            </select>
-            {activeFilterCount > 0 && (
-              <button onClick={() => { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setCiudad(""); }}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50">
-                <X className="w-3 h-3" /> Limpiar
-              </button>
-            )}
           </div>
         )}
       </header>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      {/* ═══ DISTRIBUTORS CAROUSEL ═══ */}
+      {filters.distributors.length > 0 && !distributorId && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <h2 className="text-sm font-black text-[#0A183A] mb-3">Distribuidores verificados</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {filters.distributors.map((d) => (
+              <Link key={d.id} href={`/marketplace/distributor/${d.id}`}
+                className="flex-shrink-0 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-white border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all"
+                style={{ minWidth: 180 }}>
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {d.profileImage && d.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+                    <img src={d.profileImage} alt={d.name} className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <Store className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-[#0A183A] truncate">{d.name}</p>
+                  <p className="text-[9px] text-gray-400">Ver catalogo</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ RESULTS ═══ */}
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-32 text-[#1E76B6]">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-sm font-medium">Cargando productos...</span>
+          <div className="flex flex-col items-center justify-center py-32">
+            <Loader2 className="w-8 h-8 animate-spin text-[#1E76B6] mb-3" />
+            <p className="text-sm text-gray-500">Buscando productos...</p>
           </div>
         ) : listings.length === 0 ? (
-          <div className="flex flex-col items-center py-32 text-gray-400">
-            <Package className="w-12 h-12 mb-3 opacity-30" />
-            <p className="text-base font-bold text-[#0A183A]">Sin productos disponibles</p>
-            <p className="text-sm mt-1">Pronto habra llantas disponibles en el marketplace.</p>
-            <Link href="/" className="mt-4 flex items-center gap-1 text-sm font-bold text-[#1E76B6] hover:underline">
-              <ArrowLeft className="w-4 h-4" /> Volver al inicio
-            </Link>
+          <div className="flex flex-col items-center py-32">
+            <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+              <Package className="w-8 h-8 text-gray-300" />
+            </div>
+            <p className="text-lg font-bold text-[#0A183A]">Sin resultados</p>
+            <p className="text-sm text-gray-400 mt-1 text-center max-w-sm">
+              {activeFilters > 0 ? "Intenta con menos filtros o una busqueda diferente." : "Los distribuidores aun no han publicado productos."}
+            </p>
+            {activeFilters > 0 && (
+              <button onClick={clearFilters} className="mt-4 px-5 py-2 rounded-full text-sm font-bold text-[#1E76B6] border border-[#1E76B6]/30 hover:bg-[#1E76B6]/5">
+                Limpiar filtros
+              </button>
+            )}
           </div>
         ) : (
           <>
-            <p className="text-xs text-gray-400 mb-4">{total} resultado{total !== 1 ? "s" : ""}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {listings.map((l) => {
-                const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
-                const price = hasPromo ? l.precioPromo! : l.precioCop;
-                const cpk = l.catalog?.crowdAvgCpk ?? l.catalog?.cpkEstimado;
-                const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
-
-                return (
-                  <div key={l.id} className="bg-white rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-xl hover:-translate-y-1 group"
-                    style={{ border: "1px solid rgba(10,24,58,0.06)" }}>
-                    <div className="relative h-36 flex items-center justify-center overflow-hidden" style={{ background: "#f8fafc" }}>
-                      {l.imageUrl ? (
-                        <img src={l.imageUrl} alt={`${l.marca} ${l.modelo}`} className="h-full w-full object-contain p-4 group-hover:scale-105 transition-transform" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ background: "rgba(30,118,182,0.06)" }}>
-                          <Package className="w-7 h-7 text-[#348CCB]/30" />
-                        </div>
-                      )}
-                      {hasPromo && <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[9px] font-black text-white bg-red-500">-{discount}%</span>}
-                    </div>
-                    <div className="p-4">
-                      <p className="text-[10px] font-bold text-[#348CCB] uppercase tracking-wider">{l.marca}</p>
-                      <p className="text-sm font-black text-[#0A183A] mt-0.5 leading-tight">{l.modelo}</p>
-                      <p className="text-[11px] text-gray-400 mt-0.5">{l.dimension}</p>
-
-                      <div className="mt-2.5">
-                        <span className="text-xl font-black text-[#0A183A]">{fmtCOP(price)}</span>
-                        {hasPromo && <span className="text-xs text-gray-400 line-through ml-2">{fmtCOP(l.precioCop)}</span>}
-                      </div>
-
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {l.catalog?.terreno && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{l.catalog.terreno}</span>}
-                        {cpk != null && cpk > 0 && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-green-50 text-green-600">CPK {fmtCOP(Math.round(cpk))}</span>}
-                        {l.catalog?.reencauchable && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">Reencauchable</span>}
-                      </div>
-
-                      <div className="mt-3 pt-2.5 space-y-1" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
-                        <div className="flex items-center gap-1.5">
-                          <Truck className="w-3 h-3 text-[#348CCB]" />
-                          <a href={`/marketplace/distributor/${l.distributor.id}`} className="text-[10px] font-medium text-[#173D68] hover:text-[#1E76B6] hover:underline">{l.distributor.name}</a>
-                        </div>
-                        {l.tiempoEntrega && (
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3 h-3 text-green-500" />
-                            <span className="text-[10px] text-green-600 font-bold">{l.tiempoEntrega}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Results header */}
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-gray-500"><span className="font-bold text-[#0A183A]">{total}</span> producto{total !== 1 ? "s" : ""}</p>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-xs border border-gray-200 bg-white text-[#333] hidden sm:block">
+                <option value="price_asc">Menor precio</option>
+                <option value="price_desc">Mayor precio</option>
+                <option value="newest">Mas recientes</option>
+              </select>
             </div>
 
+            {/* Product grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+              {listings.map((l) => <ProductCard key={l.id} l={l} />)}
+            </div>
+
+            {/* Pagination */}
             {pages > 1 && (
-              <div className="flex items-center justify-center gap-3 pt-8">
+              <div className="flex items-center justify-center gap-2 pt-10">
                 <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
-                  className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-bold text-[#173D68] border border-gray-200 disabled:opacity-30 hover:bg-gray-50">
-                  <ChevronLeft className="w-4 h-4" /> Anterior
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-xs text-gray-400">Pagina {page} de {pages}</span>
+                {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
+                  const p = page <= 4 ? i + 1 : Math.min(page + i - 3, pages - 6 + i + 1);
+                  if (p < 1 || p > pages) return null;
+                  return (
+                    <button key={p} onClick={() => setPage(p)}
+                      className="w-9 h-9 rounded-full text-xs font-bold transition-all"
+                      style={{ background: p === page ? "#0A183A" : "transparent", color: p === page ? "white" : "#555" }}>
+                      {p}
+                    </button>
+                  );
+                })}
                 <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)}
-                  className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-bold text-[#173D68] border border-gray-200 disabled:opacity-30 hover:bg-gray-50">
-                  Siguiente <ChevronRight className="w-4 h-4" />
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -259,11 +291,136 @@ export default function PublicMarketplace() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="mt-12 py-8 text-center" style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}>
-        <Link href="/" className="text-sm font-bold text-[#348CCB] hover:underline">tirepro.com.co</Link>
-        <p className="text-xs text-gray-400 mt-1">Marketplace de llantas para flotas en Colombia</p>
+      {/* ═══ FOOTER ═══ */}
+      <footer className="bg-[#0A183A] mt-16">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            <div>
+              <p className="font-black text-white text-sm mb-2">TirePro Marketplace</p>
+              <p className="text-xs text-white/40 leading-relaxed">
+                La plataforma de llantas para flotas mas grande de Colombia.
+                Encuentra las mejores ofertas de distribuidores verificados.
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Enlaces</p>
+              <div className="space-y-2">
+                <Link href="/" className="block text-xs text-white/40 hover:text-white transition-colors">Inicio</Link>
+                <Link href="/marketplace" className="block text-xs text-white/40 hover:text-white transition-colors">Marketplace</Link>
+                <Link href="/blog" className="block text-xs text-white/40 hover:text-white transition-colors">Blog</Link>
+                <Link href="/login" className="block text-xs text-white/40 hover:text-white transition-colors">Ingresar</Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Distribuidores</p>
+              <p className="text-xs text-white/40 leading-relaxed">
+                ¿Vendes llantas? Registrate como distribuidor y publica tu catalogo.
+              </p>
+              <Link href="/companyregister" className="inline-block mt-3 px-4 py-2 rounded-full text-[10px] font-bold text-[#0A183A] bg-white hover:bg-gray-100 transition-colors">
+                Registrar mi empresa
+              </Link>
+            </div>
+          </div>
+          <div className="mt-8 pt-6 border-t border-white/10 text-center">
+            <p className="text-[10px] text-white/30">tirepro.com.co — Marketplace de llantas para flotas en Colombia</p>
+          </div>
+        </div>
       </footer>
     </div>
+  );
+}
+
+// =============================================================================
+// Product Card
+// =============================================================================
+
+function ProductCard({ l }: { l: Listing }) {
+  const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+  const coverImg = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+  const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+  const price = hasPromo ? l.precioPromo! : l.precioCop;
+  const cpk = l.catalog?.crowdAvgCpk ?? l.catalog?.cpkEstimado;
+  const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
+  const isReencauche = l.tipo === "reencauche";
+
+  return (
+    <Link href={`/marketplace/distributor/${l.distributor.id}`}
+      className="bg-white rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group block">
+
+      {/* Image */}
+      <div className="relative aspect-square flex items-center justify-center overflow-hidden bg-[#fafafa]">
+        {coverImg ? (
+          <img src={coverImg} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform duration-300" />
+        ) : (
+          <div className="flex flex-col items-center gap-1">
+            <Package className="w-10 h-10 text-gray-200" />
+            <p className="text-[9px] text-gray-300 font-medium">{l.marca}</p>
+          </div>
+        )}
+
+        {/* Badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
+          {hasPromo && (
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white bg-red-500 shadow-sm">-{discount}%</span>
+          )}
+          {isReencauche && (
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-purple-700 bg-purple-100 flex items-center gap-0.5">
+              <Recycle className="w-2.5 h-2.5" /> Reencauche
+            </span>
+          )}
+        </div>
+
+        {l.cantidadDisponible > 0 && l.cantidadDisponible <= 3 && (
+          <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[8px] font-bold text-orange-700 bg-orange-100">
+            Ultimas {l.cantidadDisponible} unidades
+          </span>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="p-3 sm:p-4">
+        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{l.marca}</p>
+        <p className="text-sm font-bold text-[#111] mt-0.5 leading-snug line-clamp-2">{l.modelo}</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">{l.dimension}{l.eje ? ` · ${l.eje}` : ""}</p>
+
+        {/* Price */}
+        <div className="mt-2.5">
+          <span className="text-lg font-black text-[#111]">{fmtCOP(price)}</span>
+          {hasPromo && (
+            <span className="text-[11px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>
+          )}
+        </div>
+
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1 mt-2">
+          {l.catalog?.terreno && (
+            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{l.catalog.terreno}</span>
+          )}
+          {cpk != null && cpk > 0 && (
+            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">CPK {fmtCOP(Math.round(cpk))}</span>
+          )}
+          {l.catalog?.reencauchable && !isReencauche && (
+            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600">Reencauchable</span>
+          )}
+        </div>
+
+        {/* Distributor + delivery */}
+        <div className="mt-3 pt-2.5 flex items-center justify-between" style={{ borderTop: "1px solid #f0f0f0" }}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {l.distributor.profileImage && l.distributor.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+                <img src={l.distributor.profileImage} alt="" className="w-full h-full object-contain" />
+              ) : (
+                <Store className="w-2.5 h-2.5 text-gray-400" />
+              )}
+            </div>
+            <span className="text-[10px] text-gray-500 truncate">{l.distributor.name}</span>
+          </div>
+          {l.tiempoEntrega && (
+            <span className="text-[9px] font-medium text-emerald-600 flex-shrink-0">{l.tiempoEntrega}</span>
+          )}
+        </div>
+      </div>
+    </Link>
   );
 }

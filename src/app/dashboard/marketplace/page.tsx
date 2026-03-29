@@ -35,7 +35,8 @@ interface Listing {
   cantidadDisponible: number;
   tiempoEntrega: string | null;
   descripcion: string | null;
-  imageUrl: string | null;
+  imageUrls: string[] | null;
+  coverIndex: number;
   distributor: { id: string; name: string; profileImage: string };
   catalog: {
     id: string; skuRef: string; terreno: string | null; reencauchable: boolean;
@@ -249,6 +250,8 @@ export default function MarketplacePage() {
 // =============================================================================
 
 function ProductCard({ listing: l }: { listing: Listing }) {
+  const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+  const coverImg = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
   const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
   const price = hasPromo ? l.precioPromo! : l.precioCop;
   const cpk = l.catalog?.crowdAvgCpk ?? l.catalog?.cpkEstimado;
@@ -261,8 +264,8 @@ function ProductCard({ listing: l }: { listing: Listing }) {
 
       {/* Image area */}
       <div className="relative h-40 flex items-center justify-center overflow-hidden" style={{ background: "#f8fafc" }}>
-        {l.imageUrl ? (
-          <img src={l.imageUrl} alt={`${l.marca} ${l.modelo}`} className="h-full w-full object-contain p-4 group-hover:scale-105 transition-transform" />
+        {coverImg ? (
+          <img src={coverImg} alt={`${l.marca} ${l.modelo}`} className="h-full w-full object-contain p-4 group-hover:scale-105 transition-transform" />
         ) : (
           <div className="text-center">
             <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-2" style={{ background: "rgba(30,118,182,0.06)" }}>
