@@ -137,27 +137,17 @@ export default function CatalogoDistPage() {
   const activeCount = listings.filter((l) => l.isActive).length;
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center justify-between gap-3"
-        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-            <Tag className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Mi Catalogo</h1>
-            <p className="text-xs text-[#348CCB] mt-0.5">{activeCount} producto{activeCount !== 1 ? "s" : ""} activo{activeCount !== 1 ? "s" : ""}</p>
-          </div>
+    <div>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 space-y-4">
+        {/* Inline header */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-400">{activeCount} producto{activeCount !== 1 ? "s" : ""} activo{activeCount !== 1 ? "s" : ""}</p>
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+            <Plus className="w-4 h-4" /> Agregar
+          </button>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-          <Plus className="w-4 h-4" /> Agregar
-        </button>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-4">
         {success && (
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
             <Check className="w-4 h-4 text-green-500" />

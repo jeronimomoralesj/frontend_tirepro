@@ -9,6 +9,7 @@ import {
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
 const VentasDistPage = React.lazy(() => import("../ventasDist/page"));
+const CatalogoDistPage = React.lazy(() => import("../catalogoDist/page"));
 
 // -- API ----------------------------------------------------------------------
 
@@ -624,7 +625,7 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
 // =============================================================================
 
 export default function PedidosDistPage() {
-  const [section, setSection] = useState<"pedidos" | "marketplace">("pedidos");
+  const [section, setSection] = useState<"pedidos" | "marketplace" | "catalogo">("pedidos");
 
   return (
     <div className="min-h-screen bg-white">
@@ -653,14 +654,23 @@ export default function PedidosDistPage() {
             style={{ background: section === "marketplace" ? "#0A183A" : "transparent", color: section === "marketplace" ? "#fff" : "#173D68", border: section === "marketplace" ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
             <Store className="w-4 h-4" /> Marketplace
           </button>
+          <button onClick={() => setSection("catalogo")}
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
+            style={{ background: section === "catalogo" ? "#0A183A" : "transparent", color: section === "catalogo" ? "#fff" : "#173D68", border: section === "catalogo" ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
+            <Package className="w-4 h-4" /> Catalogo
+          </button>
         </div>
       </div>
 
-      {section === "pedidos" ? (
-        <PedidosSection />
-      ) : (
+      {section === "pedidos" && <PedidosSection />}
+      {section === "marketplace" && (
         <React.Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-[#1E76B6]" /></div>}>
           <VentasDistPage />
+        </React.Suspense>
+      )}
+      {section === "catalogo" && (
+        <React.Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-[#1E76B6]" /></div>}>
+          <CatalogoDistPage />
         </React.Suspense>
       )}
     </div>
