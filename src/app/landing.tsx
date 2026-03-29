@@ -626,6 +626,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
               <a href="#producto" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Producto</a>
               <a href="#beneficios" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Beneficios</a>
               <a href="#preguntas" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Preguntas</a>
+              <a href="/marketplace" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Marketplace</a>
               <a href="/blog" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Blog</a>
               <a href="/login" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Ingresar</a>
               <a href="/companyregister">
@@ -656,6 +657,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
               <a href="#producto" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Producto</a>
               <a href="#beneficios" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Beneficios</a>
               <a href="#preguntas" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Preguntas</a>
+              <a href="/marketplace" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Marketplace</a>
               <a href="/login" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Ingresar</a>
               <a href="/companyregister">
                 <button
