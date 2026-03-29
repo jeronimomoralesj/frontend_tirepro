@@ -50,7 +50,18 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
   const [vrLoading, setVrLoading] = useState(false);
   const [vrResult, setVrResult] = useState<{ positions: string[]; reason: string } | null>(null);
   const [vrError, setVrError] = useState("");
+  const [isProUser, setIsProUser] = useState(false);
   const cart = useCart();
+
+  // Check if user belongs to a pro company
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+      if (user.companyId && user.userPlan && user.userPlan !== "distribuidor") {
+        setIsProUser(true);
+      }
+    } catch { /* */ }
+  }, []);
 
   useEffect(() => {
     if (!id || initialProduct) return;
@@ -286,10 +297,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
 
             {/* ═══ RETREADABILITY INDEX ═══ */}
             <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
-              <div className="flex items-center gap-2 mb-3">
-                <Recycle className="w-4 h-4 text-purple-500" />
-                <p className="text-sm font-bold text-[#0A183A]">Indice de Reencauchabilidad</p>
-              </div>
+              <p className="text-sm font-bold text-[#0A183A] mb-3">Indice de Reencauchabilidad</p>
               {(() => {
                 const reencauchable = product.catalog?.reencauchable ?? false;
                 const kmEst = product.catalog?.kmEstimadosReales ?? 0;
@@ -315,30 +323,11 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                       <span className="text-sm font-black" style={{ color }}>{score}/100</span>
                     </div>
                     <p className="text-xs font-bold" style={{ color }}>{label}</p>
-                    <div className="mt-2 space-y-1">
-                      <div className="flex items-center gap-2 text-[10px]">
-                        {reencauchable
-                          ? <><CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" /><span className="text-gray-600">Casco reencauchable — puede tener hasta 3 vidas adicionales</span></>
-                          : <><X className="w-3 h-3 text-red-400 flex-shrink-0" /><span className="text-gray-400">No reencauchable segun fabricante</span></>}
-                      </div>
-                      {rtd > 0 && (
-                        <div className="flex items-center gap-2 text-[10px]">
-                          <CheckCircle className="w-3 h-3 flex-shrink-0" style={{ color: rtd >= 18 ? "#22c55e" : rtd >= 14 ? "#f59e0b" : "#ef4444" }} />
-                          <span className="text-gray-600">Profundidad inicial: {rtd}mm {rtd >= 18 ? "(optima para reencauche)" : rtd >= 14 ? "(adecuada)" : "(limitada)"}</span>
-                        </div>
-                      )}
-                      {kmEst > 0 && (
-                        <div className="flex items-center gap-2 text-[10px]">
-                          <CheckCircle className="w-3 h-3 flex-shrink-0" style={{ color: kmEst >= 150000 ? "#22c55e" : "#f59e0b" }} />
-                          <span className="text-gray-600">{(kmEst / 1000).toFixed(0)}K km estimados por vida</span>
-                        </div>
-                      )}
-                      {isReencauche && (
-                        <div className="flex items-center gap-2 text-[10px]">
-                          <Recycle className="w-3 h-3 text-purple-500 flex-shrink-0" />
-                          <span className="text-gray-600">Este producto ya es un reencauche — ahorro estimado vs nueva: ~40%</span>
-                        </div>
-                      )}
+                    <div className="mt-2 space-y-1 text-[10px] text-gray-500">
+                      <p>{reencauchable ? "Casco reencauchable — puede tener hasta 3 vidas adicionales" : "No reencauchable segun fabricante"}</p>
+                      {rtd > 0 && <p>Profundidad inicial: {rtd}mm {rtd >= 18 ? "(optima para reencauche)" : rtd >= 14 ? "(adecuada)" : "(limitada)"}</p>}
+                      {kmEst > 0 && <p>{(kmEst / 1000).toFixed(0)}K km estimados por vida</p>}
+                      {isReencauche && <p>Este producto ya es un reencauche — ahorro estimado vs nueva: ~40%</p>}
                     </div>
                   </div>
                 );
@@ -347,10 +336,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
 
             {/* ═══ VEHICLE COMPATIBILITY ═══ */}
             <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
-              <div className="flex items-center gap-2 mb-3">
-                <Truck className="w-4 h-4 text-[#1E76B6]" />
-                <p className="text-sm font-bold text-[#0A183A]">Vehiculos compatibles</p>
-              </div>
+              <p className="text-sm font-bold text-[#0A183A] mb-3">Vehiculos compatibles</p>
               {(() => {
                 const dim = product.dimension;
                 const eje = product.eje;
@@ -393,7 +379,6 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                   <div className="space-y-2">
                     {vehicles.map((v, i) => (
                       <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: "rgba(30,118,182,0.03)", border: "1px solid rgba(30,118,182,0.08)" }}>
-                        <Truck className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-[#0A183A]">{v.name}</p>
                           <p className="text-[10px] text-gray-500">{v.positions}</p>
@@ -401,14 +386,12 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                       </div>
                     ))}
                     {terreno && (
-                      <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3 text-green-500" />
+                      <p className="text-[10px] text-gray-400 mt-1">
                         Optimizada para terreno: <span className="font-bold text-gray-600">{terreno}</span>
                       </p>
                     )}
                     {eje && (
-                      <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3 text-[#1E76B6]" />
+                      <p className="text-[10px] text-gray-400">
                         Posicion recomendada: <span className="font-bold text-gray-600">Eje de {eje}</span>
                       </p>
                     )}
@@ -417,12 +400,10 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
               })()}
             </div>
 
-            {/* ═══ VEHICLE RECOMMENDATION AGENT ═══ */}
+            {/* ═══ VEHICLE RECOMMENDATION AGENT (pro users only) ═══ */}
+            {isProUser && (
             <div className="mt-6 p-4 rounded-2xl border border-gray-200" style={{ background: "linear-gradient(135deg, rgba(10,24,58,0.03), rgba(30,118,182,0.03))" }}>
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: "#ef4444" }}>
-                  <Shield className="w-3 h-3 text-white" />
-                </div>
                 <p className="text-sm font-bold text-[#0A183A]">Agente SENTINEL</p>
                 <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#ef4444]/10 text-[#ef4444]">IA</span>
               </div>
@@ -527,6 +508,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
 
