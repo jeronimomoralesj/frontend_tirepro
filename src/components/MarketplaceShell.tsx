@@ -245,7 +245,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                 { href: "/marketplace?tipo=nueva", label: "Nuevas" },
                 { href: "/marketplace?tipo=reencauche", label: "Reencauche" },
                 { href: "/marketplace", label: "Distribuidores", icon: true },
-                { href: "/companyregister", label: "Vender" },
+                ...(!isLoggedIn ? [{ href: "/companyregister", label: "Vender" }] : []),
               ].map((item) => (
                 <a key={item.label} href={item.href}
                   className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-[#173D68]/70 hover:text-[#0A183A] hover:bg-[#f0f7ff] transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1">
@@ -308,7 +308,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               {!isLoggedIn && (
                 <Link href="/login" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">Ingresar</Link>
               )}
-              <Link href="/companyregister" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">Vender en TirePro</Link>
+              {!isLoggedIn && <Link href="/companyregister" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">Vender en TirePro</Link>}
               <Link href="/" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50">Ir a tirepro.com.co</Link>
             </div>
           </div>
