@@ -40,6 +40,11 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
   const [qty, setQty] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [similar, setSimilar] = useState<any[]>([]);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
   const cart = useCart();
 
   useEffect(() => {
@@ -273,28 +278,135 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
           </div>
         </div>
 
-        {/* Reviews section */}
-        {product.reviews.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-lg font-black text-[#0A183A] mb-4">Resenas ({product._count.reviews})</h2>
+        {/* Reviews & Ratings section */}
+        <div className="mt-12">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-black text-[#0A183A]">
+              Resenas y calificaciones
+              {product._count.reviews > 0 && <span className="text-gray-400 font-normal ml-2">({product._count.reviews})</span>}
+            </h2>
+          </div>
+
+          {/* Rating summary */}
+          {product.reviews.length > 0 && (
+            <div className="flex items-start gap-6 mb-6 p-5 bg-white rounded-2xl border border-gray-100">
+              <div className="text-center flex-shrink-0">
+                <p className="text-4xl font-black text-[#0A183A]">{avgRating.toFixed(1)}</p>
+                <div className="flex justify-center mt-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className="w-4 h-4" fill={s <= Math.round(avgRating) ? "#f59e0b" : "none"} style={{ color: s <= Math.round(avgRating) ? "#f59e0b" : "#e5e7eb" }} />
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">{product._count.reviews} resena{product._count.reviews !== 1 ? "s" : ""}</p>
+              </div>
+              {/* Star distribution */}
+              <div className="flex-1 space-y-1">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = product.reviews.filter((r) => r.rating === star).length;
+                  const pct = product.reviews.length > 0 ? (count / product.reviews.length) * 100 : 0;
+                  return (
+                    <div key={star} className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 w-3 text-right">{star}</span>
+                      <Star className="w-3 h-3 text-gray-300" fill="#f59e0b" style={{ color: "#f59e0b" }} />
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[10px] text-gray-400 w-6 text-right">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Write a review */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-5">
+            <p className="text-sm font-bold text-[#0A183A] mb-3">Escribe una resena</p>
+            {reviewSuccess ? (
+              <div className="flex items-center gap-2 text-green-600 text-sm font-bold">
+                <CheckCircle className="w-4 h-4" /> Resena publicada. Gracias!
+              </div>
+            ) : (
+              <>
+                {/* Star picker */}
+                <div className="flex items-center gap-1 mb-3">
+                  <span className="text-xs text-gray-400 mr-2">Tu calificacion:</span>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button key={s} type="button"
+                      onMouseEnter={() => setReviewHover(s)}
+                      onMouseLeave={() => setReviewHover(0)}
+                      onClick={() => setReviewRating(s)}
+                      className="transition-transform hover:scale-110">
+                      <Star className="w-6 h-6" fill={s <= (reviewHover || reviewRating) ? "#f59e0b" : "none"}
+                        style={{ color: s <= (reviewHover || reviewRating) ? "#f59e0b" : "#d1d5db" }} />
+                    </button>
+                  ))}
+                  {reviewRating > 0 && <span className="text-xs text-gray-400 ml-2">{reviewRating}/5</span>}
+                </div>
+                <textarea value={reviewComment} onChange={(e) => setReviewComment(e.target.value)}
+                  rows={3} placeholder="Comparte tu experiencia con este producto..."
+                  className="w-full px-4 py-3 rounded-xl text-sm bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] text-[#0A183A] placeholder-gray-400 resize-none" />
+                <div className="flex justify-end mt-3">
+                  <button
+                    disabled={reviewRating === 0 || reviewSubmitting}
+                    onClick={async () => {
+                      setReviewSubmitting(true);
+                      try {
+                        let userId: string | undefined;
+                        try { userId = JSON.parse(localStorage.getItem("user") ?? "{}").id; } catch { /* */ }
+                        const token = localStorage.getItem("token") ?? "";
+                        if (!userId || !token) { alert("Debes iniciar sesion para dejar una resena"); setReviewSubmitting(false); return; }
+                        const res = await fetch(`${API_BASE}/marketplace/listings/${product.id}/reviews`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ userId, rating: reviewRating, comment: reviewComment || undefined }),
+                        });
+                        if (res.ok) { setReviewSuccess(true); setReviewComment(""); }
+                      } catch { /* */ }
+                      setReviewSubmitting(false);
+                    }}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-40 transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+                    {reviewSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Publicar resena"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Existing reviews */}
+          {product.reviews.length > 0 ? (
             <div className="space-y-3">
               {product.reviews.map((r) => (
                 <div key={r.id} className="bg-white rounded-xl p-4 border border-gray-100">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="flex">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star key={s} className="w-3.5 h-3.5" fill={s <= r.rating ? "#f59e0b" : "none"} style={{ color: s <= r.rating ? "#f59e0b" : "#d1d5db" }} />
-                      ))}
+                    <div className="w-8 h-8 rounded-full bg-[#0A183A] flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-black text-white">{r.user.name.charAt(0).toUpperCase()}</span>
                     </div>
-                    <span className="text-xs font-bold text-[#0A183A]">{r.user.name}</span>
-                    <span className="text-[10px] text-gray-400">{new Date(r.createdAt).toLocaleDateString("es-CO")}</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#0A183A]">{r.user.name}</span>
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star key={s} className="w-3 h-3" fill={s <= r.rating ? "#f59e0b" : "none"} style={{ color: s <= r.rating ? "#f59e0b" : "#d1d5db" }} />
+                          ))}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-gray-400">{new Date(r.createdAt).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}</span>
+                    </div>
                   </div>
-                  {r.comment && <p className="text-sm text-gray-600">{r.comment}</p>}
+                  {r.comment && <p className="text-sm text-gray-600 leading-relaxed ml-10">{r.comment}</p>}
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : !reviewSuccess && (
+            <div className="text-center py-8 text-gray-400">
+              <Star className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-bold text-[#0A183A]">Sin resenas todavia</p>
+              <p className="text-xs mt-1">Se el primero en calificar este producto.</p>
+            </div>
+          )}
+        </div>
         {/* Similar products */}
         {similar.length > 0 && (
           <div className="mt-12">
