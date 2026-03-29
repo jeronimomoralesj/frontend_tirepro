@@ -42,11 +42,16 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
   // Auth state
   const [userName, setUserName] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hasCompany, setHasCompany] = useState(false);
   useEffect(() => {
     try {
       const token = localStorage.getItem("token");
       const user = JSON.parse(localStorage.getItem("user") ?? "{}");
-      if (token && user.name) { setUserName(user.name); setIsLoggedIn(true); }
+      if (token && user.name) {
+        setUserName(user.name);
+        setIsLoggedIn(true);
+        setHasCompany(!!user.companyId);
+      }
     } catch { /* guest */ }
   }, []);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -163,8 +168,15 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
 
             {/* Right actions */}
             <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+              {/* Plataforma link — only for users with a company */}
+              {isLoggedIn && hasCompany && (
+                <Link href="/dashboard/resumen" className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-full bg-[#0A183A] hover:bg-[#173D68] transition-colors">
+                  <span className="text-[11px] font-semibold text-white">Plataforma</span>
+                </Link>
+              )}
+
               {isLoggedIn ? (
-                <Link href="/dashboard/ajustes" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
+                <Link href={hasCompany ? "/dashboard/ajustes" : "/marketplace/cart"} className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
                   <User className="w-4 h-4 text-[#0A183A]" />
                   <span className="text-[12px] font-medium text-[#0A183A]">{userName?.split(" ")[0]}</span>
                 </Link>
@@ -272,8 +284,19 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               {isLoggedIn && (
                 <>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">Mi cuenta</p>
-                  <Link href="/dashboard/resumen" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Mi Dashboard</Link>
-                  <Link href="/dashboard/analista" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Mis Pedidos</Link>
+                  {hasCompany && (
+                    <Link href="/dashboard/resumen" onClick={() => setMobileMenu(false)}
+                      className="block px-3 py-2.5 rounded-lg text-sm font-semibold text-white mb-1"
+                      style={{ background: "#0A183A" }}>
+                      Ir a Plataforma
+                    </Link>
+                  )}
+                  {hasCompany && <Link href="/dashboard/analista" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Mis Pedidos</Link>}
+                  {!hasCompany && (
+                    <Link href="/companyregister" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">
+                      Crear empresa (gratis)
+                    </Link>
+                  )}
                   <div className="h-px bg-gray-100 my-2" />
                 </>
               )}

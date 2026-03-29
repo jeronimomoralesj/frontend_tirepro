@@ -68,7 +68,16 @@ function PublicMarketplace() {
   const [recommendations, setRecommendations] = useState<{ type: string; listings: Listing[] }>({ type: "", listings: [] });
   const [showLocationBanner, setShowLocationBanner] = useState(false);
   const [detectedCity, setDetectedCity] = useState("");
+  const [userHasCompany, setUserHasCompany] = useState(false);
   const cart = useCart();
+
+  // Check if logged in user has a company
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+      if (user.companyId) setUserHasCompany(true);
+    } catch { /* */ }
+  }, []);
 
   // Location detection
   useEffect(() => {
@@ -422,6 +431,7 @@ function PublicMarketplace() {
       </main>
 
       {/* ═══ CTA BANNER ═══ */}
+      {!userHasCompany && (
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="rounded-xl overflow-hidden relative flex items-center justify-between gap-4 px-5 sm:px-8 py-4" style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
           <div className="min-w-0">
@@ -434,6 +444,7 @@ function PublicMarketplace() {
           </Link>
         </div>
       </div>
+      )}
 
       <MarketplaceFooter />
 
