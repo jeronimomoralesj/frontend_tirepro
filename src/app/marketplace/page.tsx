@@ -516,7 +516,6 @@ function PlateSearchBar({ onDimensionSelect }: { onDimensionSelect: (dim: string
     setVehicleInfo({ clase: v.label, source: "community" });
     setDims(v.dimensions);
     setStep("found");
-    // Save to community DB so the next person gets instant results
     fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placa)}/community`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -529,87 +528,79 @@ function PlateSearchBar({ onDimensionSelect }: { onDimensionSelect: (dim: string
   const vehicleLabel = [vehicleInfo.marca, vehicleInfo.linea, vehicleInfo.modelo].filter(Boolean).join(" ") || vehicleInfo.clase || "";
 
   return (
-    <div className="mt-4 rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}>
-      <div className="px-5 py-4">
-        {step === "idle" && (
-          <div>
-            <p className="text-[11px] text-white/50 mb-2 font-medium">
-              <Search className="w-3 h-3 inline mr-1 -mt-0.5" />
-              Busca por placa — te decimos que llanta necesitas
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={placa}
-                onChange={(e) => setPlaca(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
-                placeholder="Ej: JWY890"
-                maxLength={6}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-center tracking-[0.25em] bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:bg-white/15 focus:border-[#1E76B6] transition-all"
-                style={{ fontFamily: "'DM Mono', monospace" }}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-              />
-              <button
-                onClick={handleSearch}
-                disabled={placa.length < 4}
-                className="px-5 py-2.5 rounded-xl font-bold text-xs transition-all disabled:opacity-30 hover:opacity-90"
-                style={{ background: "#1E76B6", color: "white" }}>
-                Buscar
+    <div className="rounded-xl border border-gray-200 bg-white p-4">
+      {step === "idle" && (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
+            <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <input
+              type="text"
+              value={placa}
+              onChange={(e) => setPlaca(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
+              placeholder="Ingresa tu placa"
+              maxLength={6}
+              className="flex-1 text-sm font-bold tracking-[0.2em] bg-transparent text-[#0A183A] placeholder-gray-400 focus:outline-none"
+              onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            disabled={placa.length < 4}
+            className="px-5 py-2.5 rounded-lg text-xs font-bold text-white transition-all disabled:opacity-30 hover:opacity-90"
+            style={{ background: "#1E76B6" }}>
+            Buscar
+          </button>
+        </div>
+      )}
+
+      {step === "loading" && (
+        <div className="flex items-center justify-center gap-3 py-1">
+          <div className="w-4 h-4 border-2 border-gray-200 border-t-[#1E76B6] rounded-full animate-spin" />
+          <p className="text-xs text-gray-500">Buscando <span className="font-bold text-[#0A183A] tracking-wider">{placa}</span>...</p>
+        </div>
+      )}
+
+      {step === "select" && (
+        <div>
+          <p className="text-xs text-gray-500 mb-2.5">
+            <span className="font-bold text-[#0A183A] tracking-wider">{placa}</span> — Selecciona tu tipo de vehiculo:
+          </p>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+            {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
+              <button key={key} onClick={() => handleTypeSelect(key)}
+                className="px-2.5 py-2 rounded-lg text-[10px] font-medium text-gray-600 hover:text-[#0A183A] hover:bg-[#1E76B6]/5 transition-all bg-gray-50 border border-gray-200 text-center">
+                {val.label}
               </button>
-            </div>
+            ))}
           </div>
-        )}
+          <button onClick={reset} className="mt-2 text-[10px] text-gray-400 hover:text-gray-600 mx-auto block">
+            Cambiar placa
+          </button>
+        </div>
+      )}
 
-        {step === "loading" && (
-          <div className="flex items-center justify-center gap-3 py-2">
-            <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            <p className="text-xs text-white/60">Buscando <span className="font-bold text-white tracking-wider">{placa}</span>...</p>
-          </div>
-        )}
-
-        {step === "select" && (
-          <div>
-            <p className="text-xs text-white/60 mb-2.5">
-              <span className="font-bold text-white tracking-wider">{placa}</span> — Selecciona tu tipo de vehiculo:
-            </p>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-              {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
-                <button key={key} onClick={() => handleTypeSelect(key)}
-                  className="px-2.5 py-2 rounded-lg text-[10px] font-medium text-white/80 hover:text-white hover:bg-white/15 transition-all bg-white/5 border border-white/10 text-center">
-                  {val.label}
-                </button>
-              ))}
-            </div>
-            <button onClick={reset} className="mt-2 text-[10px] text-white/30 hover:text-white/60 mx-auto block">
-              Cambiar placa
+      {step === "found" && (
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-bold text-[#0A183A] tracking-wider">{placa}</span>
+            {vehicleInfo.source === "runt" && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">RUNT</span>}
+            {vehicleInfo.source === "tirepro" && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold">TirePro</span>}
+            {vehicleLabel && <p className="text-xs text-gray-500 truncate">{vehicleLabel}</p>}
+            <button onClick={reset} className="ml-auto text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0">
+              Otra placa
             </button>
           </div>
-        )}
-
-        {step === "found" && (
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold text-white tracking-wider">{placa}</span>
-                {vehicleInfo.source === "runt" && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 font-bold">RUNT</span>}
-                {vehicleInfo.source === "tirepro" && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold">TirePro</span>}
-              </div>
-              {vehicleLabel && <p className="text-xs text-white/70 truncate">{vehicleLabel}</p>}
-              <button onClick={reset} className="ml-auto text-[10px] text-white/30 hover:text-white/60 flex-shrink-0">
-                Otra placa
+          <div className="flex flex-wrap gap-2">
+            {dims.map((dim) => (
+              <button key={dim} onClick={() => onDimensionSelect(dim)}
+                className="px-4 py-2 rounded-lg text-xs font-bold text-white transition-all hover:shadow-md"
+                style={{ background: "#1E76B6" }}>
+                {dim}
               </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {dims.map((dim) => (
-                <button key={dim} onClick={() => onDimensionSelect(dim)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 hover:shadow-lg"
-                  style={{ background: "linear-gradient(135deg, #1E76B6, #2a8fd4)", boxShadow: "0 2px 12px rgba(30,118,182,0.3)" }}>
-                  {dim}
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

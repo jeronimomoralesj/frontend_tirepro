@@ -147,7 +147,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* LEFT — Images */}
-          <div className="sticky top-20 self-start">
+          <div className="lg:sticky lg:top-20 lg:self-start">
             <div className="aspect-square rounded-3xl overflow-hidden bg-[#f5f5f7] flex items-center justify-center mb-4">
               {imgs.length > 0 ? (
                 <img src={imgs[selectedImg] ?? imgs[0]} alt={product.modelo} className="w-full h-full object-contain p-10 sm:p-12" />
@@ -357,27 +357,27 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                 const terreno = product.catalog?.terreno;
 
                 // Map dimension patterns to vehicle types
-                const COMPAT: { dim: RegExp; vehicles: { name: string; icon: string; positions: string }[] }[] = [
+                const COMPAT: { dim: RegExp; vehicles: { name: string; positions: string }[] }[] = [
                   { dim: /22\.5/, vehicles: [
-                    { name: "Tractomula (cabezote)", icon: "🚛", positions: eje === "direccion" ? "Eje delantero (P1, P2)" : eje === "traccion" ? "Ejes traseros (P3-P6)" : "Todas las posiciones" },
-                    { name: "Trailer 3 ejes", icon: "📦", positions: eje === "libre" || !eje ? "Todos los ejes" : `Eje de ${eje}` },
-                    { name: "Bus interurbano", icon: "🚌", positions: eje === "direccion" ? "Eje direccional" : "Ejes de traccion" },
+                    { name: "Tractomula (cabezote)", positions: eje === "direccion" ? "Eje delantero (P1, P2)" : eje === "traccion" ? "Ejes traseros (P3-P6)" : "Todas las posiciones" },
+                    { name: "Trailer 3 ejes", positions: eje === "libre" || !eje ? "Todos los ejes" : `Eje de ${eje}` },
+                    { name: "Bus interurbano", positions: eje === "direccion" ? "Eje direccional" : "Ejes de traccion" },
                   ]},
                   { dim: /19\.5/, vehicles: [
-                    { name: "Camion mediano", icon: "🚚", positions: eje === "direccion" ? "Eje delantero" : "Eje trasero" },
-                    { name: "Bus urbano", icon: "🚌", positions: "Todos los ejes" },
+                    { name: "Camion mediano", positions: eje === "direccion" ? "Eje delantero" : "Eje trasero" },
+                    { name: "Bus urbano", positions: "Todos los ejes" },
                   ]},
                   { dim: /17\.5/, vehicles: [
-                    { name: "Camion liviano", icon: "🚚", positions: eje === "direccion" ? "Eje delantero" : "Todas las posiciones" },
-                    { name: "Furgon", icon: "📦", positions: "Todos los ejes" },
+                    { name: "Camion liviano", positions: eje === "direccion" ? "Eje delantero" : "Todas las posiciones" },
+                    { name: "Furgon", positions: "Todos los ejes" },
                   ]},
                   { dim: /24\.5/, vehicles: [
-                    { name: "Volqueta", icon: "🚛", positions: eje === "traccion" ? "Ejes de traccion" : "Eje direccional" },
-                    { name: "Mixer (mezcladora)", icon: "🏗️", positions: "Ejes de carga" },
+                    { name: "Volqueta", positions: eje === "traccion" ? "Ejes de traccion" : "Eje direccional" },
+                    { name: "Mixer (mezcladora)", positions: "Ejes de carga" },
                   ]},
                   { dim: /20/, vehicles: [
-                    { name: "Camion pesado", icon: "🚛", positions: eje === "direccion" ? "Eje delantero" : "Ejes traseros" },
-                    { name: "Bus intermunicipal", icon: "🚌", positions: "Todos los ejes" },
+                    { name: "Camion pesado", positions: eje === "direccion" ? "Eje delantero" : "Ejes traseros" },
+                    { name: "Bus intermunicipal", positions: "Todos los ejes" },
                   ]},
                 ];
 
@@ -385,15 +385,15 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                 const vehicles = matches.length > 0
                   ? matches.flatMap((m) => m.vehicles)
                   : [
-                    { name: "Vehiculo de carga", icon: "🚛", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
-                    { name: "Bus / transporte", icon: "🚌", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
+                    { name: "Vehiculo de carga", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
+                    { name: "Bus / transporte", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
                   ];
 
                 return (
                   <div className="space-y-2">
                     {vehicles.map((v, i) => (
                       <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: "rgba(30,118,182,0.03)", border: "1px solid rgba(30,118,182,0.08)" }}>
-                        <span className="text-lg flex-shrink-0">{v.icon}</span>
+                        <Truck className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-[#0A183A]">{v.name}</p>
                           <p className="text-[10px] text-gray-500">{v.positions}</p>
