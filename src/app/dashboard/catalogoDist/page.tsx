@@ -295,8 +295,34 @@ export default function CatalogoDistPage() {
                       </div>
                     ))}
                     {form.imageUrls.length < 5 && (
-                      <div>
-                        <input type="url" placeholder="URL de imagen"
+                      <div className="flex flex-col gap-1.5">
+                        {/* File upload */}
+                        <label className="flex items-center justify-center w-16 h-16 rounded-lg border-2 border-dashed border-[#348CCB]/30 bg-[#F0F7FF] cursor-pointer hover:border-[#1E76B6] transition-colors">
+                          <Plus className="w-5 h-5 text-[#348CCB]/50" />
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file || form.imageUrls.length >= 5) return;
+                              const fd = new FormData();
+                              fd.append("image", file);
+                              fd.append("distributorId", companyId);
+                              try {
+                                const res = await fetch(`${API_BASE}/marketplace/upload`, {
+                                  method: "POST",
+                                  headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
+                                  body: fd,
+                                });
+                                if (res.ok) {
+                                  const { url } = await res.json();
+                                  setForm((f) => ({ ...f, imageUrls: [...f.imageUrls, url] }));
+                                }
+                              } catch { /* */ }
+                              e.target.value = "";
+                            }} />
+                        </label>
+                        <p className="text-[8px] text-gray-400">Subir o pegar URL</p>
+                        {/* URL fallback */}
+                        <input type="url" placeholder="URL..."
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               const val = (e.target as HTMLInputElement).value.trim();
@@ -307,8 +333,7 @@ export default function CatalogoDistPage() {
                               e.preventDefault();
                             }
                           }}
-                          className="w-40 px-2 py-1.5 rounded-lg text-[10px] border border-dashed border-[#348CCB]/30 bg-[#F0F7FF] text-[#0A183A] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6]" />
-                        <p className="text-[8px] text-gray-400 mt-0.5">Pega URL y presiona Enter</p>
+                          className="w-32 px-2 py-1 rounded-md text-[9px] border border-[#348CCB]/20 bg-[#F0F7FF] text-[#0A183A] placeholder-[#93b8d4]" />
                       </div>
                     )}
                   </div>

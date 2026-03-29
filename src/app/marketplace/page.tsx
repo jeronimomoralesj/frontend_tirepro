@@ -29,6 +29,8 @@ interface Listing {
     kmEstimadosReales: number | null; cpkEstimado: number | null;
     crowdAvgCpk: number | null;
   } | null;
+  _count?: { reviews: number };
+  reviews?: { rating: number }[];
 }
 
 interface DistributorOption { id: string; name: string; profileImage: string }
@@ -342,6 +344,9 @@ function ProductCard({ l }: { l: Listing }) {
   const cpk = l.catalog?.crowdAvgCpk ?? l.catalog?.cpkEstimado;
   const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
   const isReencauche = l.tipo === "reencauche";
+  const reviewCount = l._count?.reviews ?? 0;
+  const avgRating = l.reviews && l.reviews.length > 0
+    ? l.reviews.reduce((s, r) => s + r.rating, 0) / l.reviews.length : 0;
 
   return (
     <Link href={`/marketplace/distributor/${l.distributor.id}`}
@@ -382,6 +387,18 @@ function ProductCard({ l }: { l: Listing }) {
         <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{l.marca}</p>
         <p className="text-sm font-bold text-[#111] mt-0.5 leading-snug line-clamp-2">{l.modelo}</p>
         <p className="text-[11px] text-gray-400 mt-0.5">{l.dimension}{l.eje ? ` · ${l.eje}` : ""}</p>
+
+        {/* Stars */}
+        {reviewCount > 0 && (
+          <div className="flex items-center gap-1 mt-1.5">
+            <div className="flex">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star key={s} className="w-3 h-3" style={{ color: s <= Math.round(avgRating) ? "#f59e0b" : "#e5e7eb" }} fill={s <= Math.round(avgRating) ? "#f59e0b" : "none"} />
+              ))}
+            </div>
+            <span className="text-[9px] text-gray-400">({reviewCount})</span>
+          </div>
+        )}
 
         {/* Price */}
         <div className="mt-2.5">
