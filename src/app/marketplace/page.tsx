@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import {
   Loader2, Package, Truck, X, Store, MapPin,
   ChevronLeft, ChevronRight, Star,
-  Recycle, Clock,
+  Recycle, Clock, Search,
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
@@ -276,10 +276,22 @@ function PublicMarketplace() {
         </div>
       )}
 
-      {/* ═══ HERO CAROUSEL (full width) ═══ */}
+      {/* ═══ HERO CAROUSEL + PLATE SEARCH ═══ */}
       {!search && !activeFilters && (
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
           <HeroCarousel />
+
+          {/* Plate search section */}
+          <div className="mt-5">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+              <p className="text-xs font-bold text-[#0A183A] whitespace-nowrap">¿No sabes que necesitas?</p>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+            </div>
+            <p className="text-[11px] text-gray-400 text-center mb-3">Agrega la placa de tu vehiculo y te diremos la llanta exacta</p>
+            <PlateSearchBar onDimensionSelect={(dim) => { setSearch(dim); }} />
+          </div>
+
           {/* Category pills */}
           <div className="flex gap-2 mt-3">
             <button onClick={() => setTipo("nueva")}
@@ -455,6 +467,146 @@ function PublicMarketplace() {
 // =============================================================================
 // Product Card
 // =============================================================================
+
+// =============================================================================
+// Plate Search Bar
+// =============================================================================
+
+const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> = {
+  tractocamion: { label: "Tractocamion / Tractomula", dimensions: ["295/80R22.5", "11R22.5", "315/80R22.5"] },
+  camion:       { label: "Camion", dimensions: ["295/80R22.5", "11R22.5", "12R22.5"] },
+  volqueta:     { label: "Volqueta", dimensions: ["12R24.5", "11R24.5", "315/80R22.5"] },
+  bus:          { label: "Bus", dimensions: ["295/80R22.5", "275/80R22.5", "11R22.5"] },
+  buseta:       { label: "Buseta / Microbus", dimensions: ["215/75R17.5", "235/75R17.5", "7.50R16"] },
+  camioneta:    { label: "Camioneta / Pickup", dimensions: ["235/75R15", "265/70R16", "245/70R16"] },
+  campero:      { label: "Campero / SUV", dimensions: ["265/70R16", "245/70R16", "235/75R15"] },
+  automovil:    { label: "Automovil / Sedan", dimensions: ["195/65R15", "205/55R16", "215/60R16"] },
+  furgon:       { label: "Furgon", dimensions: ["215/75R17.5", "235/75R17.5", "7.50R16"] },
+};
+
+function PlateSearchBar({ onDimensionSelect }: { onDimensionSelect: (dim: string) => void }) {
+  const [placa, setPlaca] = useState("");
+  const [step, setStep] = useState<"idle" | "loading" | "found" | "select">("idle");
+  const [vehicleInfo, setVehicleInfo] = useState<{
+    marca?: string; linea?: string; modelo?: string; clase?: string; source?: string;
+  }>({});
+  const [dims, setDims] = useState<string[]>([]);
+
+  async function handleSearch() {
+    if (placa.length < 4) return;
+    setStep("loading");
+    try {
+      const res = await fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placa)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.dimensions?.length > 0) {
+          setVehicleInfo({ marca: data.marca, linea: data.linea, modelo: data.modelo, clase: data.clase, source: data.source });
+          setDims(data.dimensions);
+          setStep("found");
+          return;
+        }
+      }
+    } catch { /* fallback */ }
+    setStep("select");
+  }
+
+  function handleTypeSelect(key: string) {
+    const v = VEHICLE_TIRE_MAP[key];
+    if (!v) return;
+    setVehicleInfo({ clase: v.label });
+    setDims(v.dimensions);
+    setStep("found");
+  }
+
+  function reset() { setStep("idle"); setPlaca(""); setVehicleInfo({}); setDims([]); }
+
+  const vehicleLabel = [vehicleInfo.marca, vehicleInfo.linea, vehicleInfo.modelo].filter(Boolean).join(" ") || vehicleInfo.clase || "";
+
+  return (
+    <div className="mt-4 rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}>
+      <div className="px-5 py-4">
+        {step === "idle" && (
+          <div>
+            <p className="text-[11px] text-white/50 mb-2 font-medium">
+              <Search className="w-3 h-3 inline mr-1 -mt-0.5" />
+              Busca por placa — te decimos que llanta necesitas
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={placa}
+                onChange={(e) => setPlaca(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
+                placeholder="Ej: JWY890"
+                maxLength={6}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-center tracking-[0.25em] bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:bg-white/15 focus:border-[#1E76B6] transition-all"
+                style={{ fontFamily: "'DM Mono', monospace" }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+              />
+              <button
+                onClick={handleSearch}
+                disabled={placa.length < 4}
+                className="px-5 py-2.5 rounded-xl font-bold text-xs transition-all disabled:opacity-30 hover:opacity-90"
+                style={{ background: "#1E76B6", color: "white" }}>
+                Buscar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "loading" && (
+          <div className="flex items-center justify-center gap-3 py-2">
+            <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <p className="text-xs text-white/60">Buscando <span className="font-bold text-white tracking-wider">{placa}</span>...</p>
+          </div>
+        )}
+
+        {step === "select" && (
+          <div>
+            <p className="text-xs text-white/60 mb-2.5">
+              <span className="font-bold text-white tracking-wider">{placa}</span> — Selecciona tu tipo de vehiculo:
+            </p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+              {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
+                <button key={key} onClick={() => handleTypeSelect(key)}
+                  className="px-2.5 py-2 rounded-lg text-[10px] font-medium text-white/80 hover:text-white hover:bg-white/15 transition-all bg-white/5 border border-white/10 text-center">
+                  {val.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={reset} className="mt-2 text-[10px] text-white/30 hover:text-white/60 mx-auto block">
+              Cambiar placa
+            </button>
+          </div>
+        )}
+
+        {step === "found" && (
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold text-white tracking-wider">{placa}</span>
+                {vehicleInfo.source === "runt" && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 font-bold">RUNT</span>}
+                {vehicleInfo.source === "tirepro" && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold">TirePro</span>}
+              </div>
+              {vehicleLabel && <p className="text-xs text-white/70 truncate">{vehicleLabel}</p>}
+              <button onClick={reset} className="ml-auto text-[10px] text-white/30 hover:text-white/60 flex-shrink-0">
+                Otra placa
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {dims.map((dim) => (
+                <button key={dim} onClick={() => onDimensionSelect(dim)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:scale-105 hover:shadow-lg"
+                  style={{ background: "linear-gradient(135deg, #1E76B6, #2a8fd4)", boxShadow: "0 2px 12px rgba(30,118,182,0.3)" }}>
+                  {dim}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // =============================================================================
 // Hero Carousel
