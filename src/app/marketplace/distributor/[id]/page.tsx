@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -78,8 +78,48 @@ export default function DistributorStorefront() {
   useEffect(() => { fetchListings(); }, [fetchListings]);
   useEffect(() => { setPage(1); }, [search, tipo]);
 
-  const cobertura = Array.isArray(profile?.cobertura) ? profile!.cobertura : [];
+  const rawCobertura = Array.isArray(profile?.cobertura) ? profile!.cobertura : [];
+  const cobertura = rawCobertura.map((c: any) => typeof c === "string" ? { ciudad: c, direccion: "", lat: null, lng: null } : c);
+  const cobWithCoords = cobertura.filter((c: any) => c.lat && c.lng);
   const entrega = profile?.tipoEntrega;
+  const brandColor = profile?.colorMarca ?? "#1E76B6";
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  // Render map for this distributor's locations
+  useEffect(() => {
+    if (!profile || cobWithCoords.length === 0 || !mapRef.current || mapReady) return;
+    if (!document.getElementById("leaflet-css")) {
+      const link = document.createElement("link"); link.id = "leaflet-css"; link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(link);
+    }
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.onload = () => {
+      const L = (window as any).L;
+      if (!L || !mapRef.current) return;
+      const map = L.map(mapRef.current).setView([cobWithCoords[0].lat, cobWithCoords[0].lng], cobWithCoords.length === 1 ? 13 : 6);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap", maxZoom: 18 }).addTo(map);
+      cobWithCoords.forEach((loc: any) => {
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="width:28px;height:28px;border-radius:50%;background:${brandColor};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
+            <span style="color:white;font-size:9px;font-weight:900;">${profile?.name?.charAt(0) ?? ""}</span>
+          </div>`,
+          iconSize: [28, 28], iconAnchor: [14, 14],
+        });
+        L.marker([loc.lat, loc.lng], { icon }).addTo(map)
+          .bindPopup(`<div style="font-family:system-ui"><p style="font-weight:800;margin:0;font-size:12px;">${loc.ciudad}</p>${loc.direccion ? `<p style="font-size:11px;color:#666;margin:2px 0 0;">${loc.direccion}</p>` : ""}</div>`);
+      });
+      if (cobWithCoords.length > 1) {
+        const bounds = L.latLngBounds(cobWithCoords.map((c: any) => [c.lat, c.lng]));
+        map.fitBounds(bounds, { padding: [30, 30] });
+      }
+      setMapReady(true);
+    };
+    if (!(window as any).L) document.body.appendChild(script);
+    else script.onload?.(new Event("load"));
+  }, [profile, cobWithCoords, brandColor, mapReady]);
 
   if (profileLoading) {
     return (
@@ -146,7 +186,7 @@ export default function DistributorStorefront() {
                   {profile?.telefono && (
                     <a href={`tel:${profile.telefono}`}
                       className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-white transition-all hover:opacity-90"
-                      style={{ background: "#22c55e" }}>
+                      style={{ background: brandColor }}>
                       <Phone className="w-3.5 h-3.5" /> Llamar
                     </a>
                   )}
@@ -170,12 +210,16 @@ export default function DistributorStorefront() {
                 <p className="text-sm text-gray-600 mt-3 leading-relaxed max-w-2xl">{profile.descripcion}</p>
               )}
 
-              {/* Coverage */}
+              {/* Coverage badges */}
               {cobertura.length > 0 && (
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-bold text-gray-400 uppercase">Cobertura:</span>
-                  {cobertura.slice(0, 8).map((c) => (
-                    <span key={c} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{c}</span>
+                  {cobertura.slice(0, 8).map((c: any, i: number) => (
+                    <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1"
+                      style={{ background: `${brandColor}10`, color: brandColor }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: brandColor }} />
+                      {c.ciudad ?? c}
+                    </span>
                   ))}
                   {cobertura.length > 8 && (
                     <span className="text-[10px] text-gray-400">+{cobertura.length - 8} mas</span>
@@ -186,6 +230,17 @@ export default function DistributorStorefront() {
           </div>
         </div>
       </div>
+
+      {/* Map */}
+      {cobWithCoords.length > 0 && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div ref={mapRef} className="h-56 sm:h-64 rounded-2xl overflow-hidden border border-gray-200" style={{ zIndex: 0 }} />
+          <div className="flex items-center gap-2 mt-2">
+            <span className="w-3 h-3 rounded-full" style={{ background: brandColor }} />
+            <span className="text-[10px] font-bold text-gray-500">{cobWithCoords.length} punto{cobWithCoords.length !== 1 ? "s" : ""} de presencia</span>
+          </div>
+        </div>
+      )}
 
       {/* Search + Filters */}
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
@@ -199,7 +254,7 @@ export default function DistributorStorefront() {
           {[{ v: "", l: "Todo" }, { v: "nueva", l: "Nuevas" }, { v: "reencauche", l: "Reencauche" }].map((t) => (
             <button key={t.v} onClick={() => setTipo(t.v)}
               className="px-4 py-2 rounded-full text-xs font-bold transition-all"
-              style={{ background: tipo === t.v ? "#0A183A" : "white", color: tipo === t.v ? "white" : "#555", border: tipo === t.v ? "none" : "1px solid #e5e5e5" }}>
+              style={{ background: tipo === t.v ? brandColor : "white", color: tipo === t.v ? "white" : "#555", border: tipo === t.v ? "none" : "1px solid #e5e5e5" }}>
               {t.l}
             </button>
           ))}
