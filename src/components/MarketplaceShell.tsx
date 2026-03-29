@@ -247,11 +247,11 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                 { href: "/marketplace", label: "Distribuidores", icon: true },
                 { href: "/companyregister", label: "Vender" },
               ].map((item) => (
-                <Link key={item.label} href={item.href}
+                <a key={item.label} href={item.href}
                   className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-[#173D68]/70 hover:text-[#0A183A] hover:bg-[#f0f7ff] transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1">
                   {item.icon && <Truck className="w-3 h-3" />}
                   {item.label}
-                </Link>
+                </a>
               ))}
             </div>
           </div>
@@ -301,9 +301,9 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                 </>
               )}
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">Categorias</p>
-              <Link href="/marketplace" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Todo</Link>
-              <Link href="/marketplace?tipo=nueva" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas Nuevas</Link>
-              <Link href="/marketplace?tipo=reencauche" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Reencauche</Link>
+              <a href="/marketplace" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Todo</a>
+              <a href="/marketplace?tipo=nueva" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas Nuevas</a>
+              <a href="/marketplace?tipo=reencauche" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Reencauche</a>
               <div className="h-px bg-gray-100 my-2" />
               {!isLoggedIn && (
                 <Link href="/login" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">Ingresar</Link>
