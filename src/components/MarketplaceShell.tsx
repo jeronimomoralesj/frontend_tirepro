@@ -120,9 +120,9 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                   onChange={(e) => { setQ(e.target.value); setShowSuggestions(true); }}
                   onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
                   placeholder="Buscar llantas, marcas, distribuidores..."
-                  className="w-full pl-11 pr-12 py-2.5 rounded-full text-[13px] bg-[#f5f5f7] border border-transparent focus:border-[#0A183A]/15 focus:bg-white focus:shadow-lg focus:outline-none text-[#0A183A] placeholder-gray-400 transition-all"
+                  className="w-full pl-11 pr-12 py-2.5 rounded-full text-[13px] bg-[#f0f7ff] border border-[#1E76B6]/10 focus:border-[#1E76B6]/30 focus:bg-white focus:shadow-lg focus:outline-none text-[#0A183A] placeholder-[#1E76B6]/40 transition-all"
                 />
-                <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0A183A] flex items-center justify-center hover:bg-[#173D68] transition-colors">
+                <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#1E76B6] flex items-center justify-center hover:bg-[#173D68] transition-colors">
                   <Search className="w-3.5 h-3.5 text-white" />
                 </button>
               </form>
@@ -163,21 +163,21 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
             {/* Right actions */}
             <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
               {isLoggedIn ? (
-                <Link href="/dashboard/ajustes" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f5f5f7] transition-colors">
+                <Link href="/dashboard/ajustes" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
                   <User className="w-4 h-4 text-[#0A183A]" />
                   <span className="text-[12px] font-medium text-[#0A183A]">{userName?.split(" ")[0]}</span>
                 </Link>
               ) : (
-                <Link href="/login" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f5f5f7] transition-colors">
+                <Link href="/login" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
                   <User className="w-4 h-4 text-gray-500" />
                   <span className="text-[12px] font-medium text-[#0A183A]">Ingresar</span>
                 </Link>
               )}
 
-              <Link href="/marketplace/cart" className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f5f5f7] transition-colors relative">
+              <Link href="/marketplace/cart" className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors relative">
                 <ShoppingCart className="w-5 h-5 text-[#0A183A]" />
                 {cart.count > 0 && (
-                  <span className="absolute top-0.5 left-6 w-[18px] h-[18px] rounded-full bg-[#0A183A] text-white text-[9px] font-bold flex items-center justify-center">
+                  <span className="absolute top-0.5 left-6 w-[18px] h-[18px] rounded-full bg-[#1E76B6] text-white text-[9px] font-bold flex items-center justify-center">
                     {cart.count}
                   </span>
                 )}
@@ -189,7 +189,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
             <Link href="/marketplace/cart" className="sm:hidden relative flex-shrink-0 p-1">
               <ShoppingCart className="w-5 h-5 text-[#0A183A]" />
               {cart.count > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#0A183A] text-white text-[8px] font-bold flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#1E76B6] text-white text-[8px] font-bold flex items-center justify-center">
                   {cart.count}
                 </span>
               )}
@@ -235,7 +235,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                 { href: "/companyregister", label: "Vender" },
               ].map((item) => (
                 <Link key={item.label} href={item.href}
-                  className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-gray-600 hover:text-[#0A183A] hover:bg-[#f5f5f7] transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1">
+                  className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-[#173D68]/70 hover:text-[#0A183A] hover:bg-[#f0f7ff] transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1">
                   {item.icon && <Truck className="w-3 h-3" />}
                   {item.label}
                 </Link>
