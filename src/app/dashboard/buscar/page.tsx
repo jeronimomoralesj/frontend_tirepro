@@ -479,6 +479,111 @@ function CpkChart({ inspecciones }: { inspecciones: Inspection[] }) {
 // =============================================================================
 // Vehicle Fleet Overview
 // =============================================================================
+// SENTINEL vehicle-level quick verdict
+// =============================================================================
+
+function VehicleVerdict({ tires, stats }: { tires: Tire[]; stats: ReturnType<typeof calcFleetStats> }) {
+  const verdict = useMemo(() => {
+    if (tires.length === 0) return null;
+
+    const withInsp = tires.filter((t) => t.inspecciones.length > 0);
+    if (withInsp.length === 0) return null;
+
+    // Overall grade
+    const h = stats.avgHealth ?? 0;
+    let grade: { label: string; color: string; emoji: string };
+    if (h >= 70) grade = { label: "Buen estado", color: "#22c55e", emoji: "✅" };
+    else if (h >= 45) grade = { label: "Requiere atencion", color: "#f97316", emoji: "⚠️" };
+    else grade = { label: "Estado critico", color: "#ef4444", emoji: "🔴" };
+
+    // Issues
+    const issues: string[] = [];
+
+    // Alignment check — any tire with shoulder delta >= 1.5mm
+    const alignmentProblems = withInsp.filter((t) => {
+      const l = t.inspecciones[t.inspecciones.length - 1];
+      return Math.abs(l.profundidadInt - l.profundidadExt) >= 1.5;
+    });
+    if (alignmentProblems.length > 0) {
+      issues.push(`${alignmentProblems.length} llanta${alignmentProblems.length > 1 ? "s" : ""} con desgaste desigual — revisar alineacion`);
+    }
+
+    // Pressure problems
+    const pressureProblems = withInsp.filter((t) => {
+      const l = t.inspecciones[t.inspecciones.length - 1];
+      return l.presionDelta != null && Math.abs(l.presionDelta) > 10;
+    });
+    if (pressureProblems.length > 0) {
+      issues.push(`${pressureProblems.length} llanta${pressureProblems.length > 1 ? "s" : ""} con presion fuera de rango`);
+    }
+
+    // Urgent replacements
+    const urgentCount = stats.counts.cambioInmediato;
+    const soonCount = stats.counts.dias30;
+    if (urgentCount > 0) issues.push(`${urgentCount} llanta${urgentCount > 1 ? "s" : ""} en estado urgente — cambio inmediato`);
+    else if (soonCount > 0) issues.push(`${soonCount} llanta${soonCount > 1 ? "s" : ""} a 30 dias de retiro`);
+
+    // CPK assessment
+    if (stats.avgCpk != null && stats.avgCpk > 0) {
+      if (stats.avgCpk > 150) issues.push(`CPK alto ($${Math.round(stats.avgCpk).toLocaleString("es-CO")}/km) — evaluar marcas o condiciones de operacion`);
+    }
+
+    // Top recommendation
+    let recommendation = "";
+    if (urgentCount > 0) {
+      recommendation = "Prioridad: retirar las llantas urgentes antes de que se pierdan los cascos para reencauche.";
+    } else if (alignmentProblems.length > 0) {
+      recommendation = "Programar revision de alineacion para evitar desgaste prematuro y preservar cascos.";
+    } else if (pressureProblems.length > 0) {
+      recommendation = "Corregir presiones de inflado para optimizar vida util y reducir consumo de combustible.";
+    } else if (soonCount > 0) {
+      recommendation = "Cotizar reencauches o reemplazos para las llantas que se acercan a retiro optimo.";
+    } else if (h >= 70) {
+      recommendation = "Vehiculo en buen estado. Mantener frecuencia de inspeccion actual.";
+    } else {
+      recommendation = "Monitorear de cerca y aumentar frecuencia de inspeccion.";
+    }
+
+    return { grade, issues, recommendation };
+  }, [tires, stats]);
+
+  if (!verdict) return null;
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${verdict.grade.color}25` }}>
+      <div className="px-4 py-3 flex items-center gap-3" style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
+        <AgentCardHeader agent="sentinel" insight={
+          `Vehiculo con ${tires.length} llantas — ${verdict.grade.label}.\n\n` +
+          (verdict.issues.length > 0 ? verdict.issues.map((i) => `• ${i}`).join("\n") + "\n\n" : "") +
+          `Recomendacion: ${verdict.recommendation}`
+        } />
+        <span className="text-sm font-black text-white">Diagnostico Rapido</span>
+        <span className="ml-auto text-base">{verdict.grade.emoji}</span>
+      </div>
+      <div className="px-4 py-3 flex items-start gap-3" style={{ background: `${verdict.grade.color}06` }}>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black" style={{ color: verdict.grade.color }}>{verdict.grade.label}</p>
+          {verdict.issues.length > 0 ? (
+            <div className="mt-1.5 space-y-1">
+              {verdict.issues.map((issue, i) => (
+                <p key={i} className="text-[11px] text-gray-600 flex items-start gap-1.5">
+                  <span className="text-[9px] mt-0.5">•</span> {issue}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-gray-500 mt-0.5">Sin problemas detectados.</p>
+          )}
+          <p className="text-[11px] font-bold text-[#173D68] mt-2 pt-2" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+            {verdict.recommendation}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 function VehicleFleetOverview({ tires }: { tires: Tire[] }) {
   const stats = useMemo(() => calcFleetStats(tires), [tires]);
 
@@ -524,6 +629,9 @@ function VehicleFleetOverview({ tires }: { tires: Tire[] }) {
           })}
         </div>
       </div>
+
+      {/* SENTINEL vehicle verdict */}
+      <VehicleVerdict tires={tires} stats={stats} />
 
       {/* Urgent tires */}
       {stats.urgent.length > 0 && (
