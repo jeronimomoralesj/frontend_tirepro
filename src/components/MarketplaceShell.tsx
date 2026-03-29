@@ -1,11 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShoppingCart, Search, MapPin, User, Menu, X, Truck } from "lucide-react";
+import { ShoppingCart, Search, MapPin, User, Menu, X, Truck, Package, Store } from "lucide-react";
 import { useCart } from "../lib/useCart";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "https://api.tirepro.com.co/api";
+
+const fmtCOPShort = (n: number) =>
+  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+
+interface Suggestion {
+  id: string;
+  marca: string;
+  modelo: string;
+  dimension: string;
+  precioCop: number;
+  tipo: string;
+  imageUrls: string[] | null;
+  coverIndex: number;
+  distributor: { id: string; name: string };
+}
 
 // =============================================================================
 // NAVBAR — Amazon/MercadoLibre style
@@ -16,14 +35,50 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
   const router = useRouter();
   const [q, setQ] = useState(initialSearch ?? "");
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Debounced search suggestions
+  useEffect(() => {
+    if (q.length < 2) { setSuggestions([]); return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/marketplace/listings?search=${encodeURIComponent(q)}&limit=6&sortBy=price_asc`);
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data.listings ?? []);
+          setShowSuggestions(true);
+        }
+      } catch { /* */ }
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [q]);
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setShowSuggestions(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setShowSuggestions(false);
     if (onSearch) {
       onSearch(q);
     } else {
       router.push(`/marketplace${q ? `?q=${encodeURIComponent(q)}` : ""}`);
     }
+  }
+
+  function selectSuggestion(s: Suggestion) {
+    setShowSuggestions(false);
+    router.push(`/marketplace/product/${s.id}`);
   }
 
   return (
@@ -42,21 +97,57 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               <Image src="/logo_full.png" alt="TirePro" width={90} height={27} className="h-6 sm:h-7 w-auto brightness-0 invert" />
             </Link>
 
-            {/* Search bar */}
-            <form onSubmit={handleSubmit} className="flex-1 flex max-w-2xl">
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar llantas, marcas, distribuidores..."
-                className="flex-1 px-4 py-2 sm:py-2.5 rounded-l-full text-sm bg-white border-0 focus:outline-none text-[#0A183A] placeholder-gray-400"
-              />
-              <button type="submit"
-                className="px-4 sm:px-5 rounded-r-full flex items-center justify-center transition-colors"
-                style={{ background: "#1E76B6" }}>
-                <Search className="w-4 h-4 text-white" />
-              </button>
-            </form>
+            {/* Search bar with suggestions */}
+            <div ref={wrapperRef} className="flex-1 max-w-2xl relative">
+              <form onSubmit={handleSubmit} className="flex">
+                <input
+                  type="text"
+                  value={q}
+                  onChange={(e) => { setQ(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                  placeholder="Buscar llantas, marcas, distribuidores..."
+                  className="flex-1 px-4 py-2 sm:py-2.5 rounded-l-full text-sm bg-white border-0 focus:outline-none text-[#0A183A] placeholder-gray-400"
+                />
+                <button type="submit"
+                  className="px-4 sm:px-5 rounded-r-full flex items-center justify-center transition-colors"
+                  style={{ background: "#1E76B6" }}>
+                  <Search className="w-4 h-4 text-white" />
+                </button>
+              </form>
+
+              {/* Suggestions dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-[60]">
+                  {suggestions.map((s) => {
+                    const imgs = Array.isArray(s.imageUrls) ? s.imageUrls : [];
+                    const cover = imgs.length > 0 ? imgs[s.coverIndex ?? 0] ?? imgs[0] : null;
+                    return (
+                      <button key={s.id} onClick={() => selectSuggestion(s)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left">
+                        <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {cover ? (
+                            <img src={cover} alt="" className="w-full h-full object-contain p-1" />
+                          ) : (
+                            <Package className="w-4 h-4 text-gray-300" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-[#0A183A] truncate">
+                            <span className="font-bold">{s.marca}</span> {s.modelo}
+                          </p>
+                          <p className="text-[10px] text-gray-400">{s.dimension} · {s.distributor.name}</p>
+                        </div>
+                        <span className="text-sm font-bold text-[#0A183A] flex-shrink-0">{fmtCOPShort(s.precioCop)}</span>
+                      </button>
+                    );
+                  })}
+                  <button onClick={handleSubmit}
+                    className="w-full px-4 py-2.5 text-xs font-bold text-[#1E76B6] hover:bg-blue-50 transition-colors text-center border-t border-gray-100">
+                    Ver todos los resultados para &quot;{q}&quot;
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Right actions */}
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
