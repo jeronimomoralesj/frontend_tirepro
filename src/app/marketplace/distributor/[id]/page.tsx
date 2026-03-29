@@ -231,7 +231,7 @@ export default function DistributorStorefront() {
                 const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
 
                 return (
-                  <div key={l.id} className="bg-white rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group">
+                  <Link key={l.id} href={`/marketplace/product/${l.id}`} className="bg-white rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group block">
                     <div className="relative aspect-square flex items-center justify-center overflow-hidden bg-[#fafafa]">
                       {coverImg ? (
                         <img src={coverImg} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform duration-300" />
@@ -258,7 +258,7 @@ export default function DistributorStorefront() {
                         {l.tiempoEntrega && <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">{l.tiempoEntrega}</span>}
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
