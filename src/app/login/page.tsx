@@ -59,7 +59,14 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (auth.user) router.push("/dashboard");
+    if (auth.user) {
+      const user = auth.user as any;
+      if (user.companyId) {
+        router.push("/dashboard");
+      } else {
+        router.push("/marketplace");
+      }
+    }
   }, [auth.user, router]);
 
   useEffect(() => {
