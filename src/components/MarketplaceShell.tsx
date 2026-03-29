@@ -38,6 +38,17 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auth state
+  const [userName, setUserName] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("token");
+      const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+      if (token && user.name) { setUserName(user.name); setIsLoggedIn(true); }
+    } catch { /* guest */ }
+  }, []);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Debounced search suggestions
@@ -152,14 +163,21 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
             {/* Right actions */}
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               {/* Account */}
-              <Link href="/login" className="hidden sm:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
-                <span className="text-[9px] text-white/50 leading-none">Hola, ingresa</span>
-                <span className="text-[11px] font-bold text-white leading-tight">Cuenta</span>
-              </Link>
+              {isLoggedIn ? (
+                <Link href="/dashboard/ajustes" className="hidden sm:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+                  <span className="text-[9px] text-white/50 leading-none">Hola, {userName?.split(" ")[0]}</span>
+                  <span className="text-[11px] font-bold text-white leading-tight">Mi Cuenta</span>
+                </Link>
+              ) : (
+                <Link href="/login" className="hidden sm:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+                  <span className="text-[9px] text-white/50 leading-none">Hola, ingresa</span>
+                  <span className="text-[11px] font-bold text-white leading-tight">Cuenta</span>
+                </Link>
+              )}
 
               {/* Orders */}
-              <Link href="/marketplace" className="hidden md:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
-                <span className="text-[9px] text-white/50 leading-none">Tus</span>
+              <Link href={isLoggedIn ? "/dashboard/analista" : "/login"} className="hidden md:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+                <span className="text-[9px] text-white/50 leading-none">{isLoggedIn ? "Mis" : "Tus"}</span>
                 <span className="text-[11px] font-bold text-white leading-tight">Pedidos</span>
               </Link>
 
@@ -215,17 +233,35 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                 <span className="text-white font-bold text-sm">Menu</span>
                 <button onClick={() => setMobileMenu(false)} className="text-white/70 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
-              <Link href="/login" className="flex items-center gap-2 text-white">
-                <User className="w-5 h-5" />
-                <span className="text-sm font-bold">Hola, ingresa a tu cuenta</span>
-              </Link>
+              {isLoggedIn ? (
+                <Link href="/dashboard/ajustes" className="flex items-center gap-2 text-white">
+                  <User className="w-5 h-5" />
+                  <span className="text-sm font-bold">Hola, {userName?.split(" ")[0]}</span>
+                </Link>
+              ) : (
+                <Link href="/login" className="flex items-center gap-2 text-white">
+                  <User className="w-5 h-5" />
+                  <span className="text-sm font-bold">Hola, ingresa</span>
+                </Link>
+              )}
             </div>
             <div className="p-4 space-y-1">
+              {isLoggedIn && (
+                <>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">Mi cuenta</p>
+                  <Link href="/dashboard/resumen" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Mi Dashboard</Link>
+                  <Link href="/dashboard/analista" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Mis Pedidos</Link>
+                  <div className="h-px bg-gray-100 my-2" />
+                </>
+              )}
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">Categorias</p>
               <Link href="/marketplace" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Todo</Link>
               <Link href="/marketplace?tipo=nueva" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas Nuevas</Link>
               <Link href="/marketplace?tipo=reencauche" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Reencauche</Link>
               <div className="h-px bg-gray-100 my-2" />
+              {!isLoggedIn && (
+                <Link href="/login" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">Ingresar</Link>
+              )}
               <Link href="/companyregister" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">Vender en TirePro</Link>
               <Link href="/" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50">Ir a tirepro.com.co</Link>
             </div>

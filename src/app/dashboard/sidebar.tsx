@@ -51,13 +51,13 @@ function buildLinks(plan: string, isAdmin: boolean): NavLink[] {
   if (isAdmin) {
     return [
       { name: "Resumen",    path: "/dashboard/resumen",    icon: LayoutDashboard },
-      { name: "Marketplace",path: "/dashboard/marketplace", icon: ShoppingCart   },
       { name: "Analista",   path: "/dashboard/analista",   icon: Glasses         },
       { name: "Detalle",    path: "/dashboard/detalle",    icon: ClipboardList   },
       { name: "Inventario", path: "/dashboard/inventario", icon: Package         },
       { name: "Vehículos",  path: "/dashboard/vehiculo",   icon: Car             },
       { name: "Agregar",    path: "/dashboard/agregar",    icon: Plus            },
       { name: "Buscar",     path: "/dashboard/buscar",     icon: Search          },
+      { name: "Marketplace",path: "/marketplace",           icon: ShoppingCart   },
     ];
   }
   return [
