@@ -198,6 +198,98 @@ function GhostBtn({ children, onClick, className = "" }: {
 // Email Atencion Card (distributor proposal email)
 // =============================================================================
 
+function DistributorProfileEditor({ companyId, toast }: {
+  companyId: string;
+  toast: (msg: string, type: "success" | "error") => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    telefono: "", descripcion: "", bannerImage: "", direccion: "", ciudad: "", sitioWeb: "",
+  });
+
+  useEffect(() => {
+    authFetch(`${API_BASE}/marketplace/distributor/${companyId}/profile`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setForm({
+          telefono: data.telefono ?? "", descripcion: data.descripcion ?? "",
+          bannerImage: data.bannerImage ?? "", direccion: data.direccion ?? "",
+          ciudad: data.ciudad ?? "", sitioWeb: data.sitioWeb ?? "",
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [companyId]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/distributor/${companyId}/profile`, {
+        method: "PATCH", body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error();
+      toast("Perfil del marketplace actualizado", "success");
+    } catch { toast("Error al guardar", "error"); }
+    setSaving(false);
+  }
+
+  const inputCls = "w-full px-3 py-2 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
+
+  if (loading) return null;
+
+  return (
+    <Card className="p-5 sm:p-6">
+      <SectionTitle icon={Building} title="Perfil en Marketplace" />
+      <p className="text-xs text-gray-400 mb-4">
+        Esta informacion aparece en tu pagina publica del marketplace.
+        <a href={`/marketplace/distributor/${companyId}`} target="_blank" rel="noopener" className="ml-1 text-[#1E76B6] font-bold hover:underline">Ver mi pagina</a>
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Telefono</label>
+          <input type="tel" value={form.telefono} onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+            placeholder="+57 300 123 4567" className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Sitio Web</label>
+          <input type="url" value={form.sitioWeb} onChange={(e) => setForm((f) => ({ ...f, sitioWeb: e.target.value }))}
+            placeholder="https://..." className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Ciudad</label>
+          <input type="text" value={form.ciudad} onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value }))}
+            placeholder="Bogota" className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Direccion</label>
+          <input type="text" value={form.direccion} onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
+            placeholder="Calle 80 #45-12" className={inputCls} />
+        </div>
+      </div>
+      <div className="mb-4">
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Descripcion</label>
+        <textarea value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+          rows={3} placeholder="Describe tu empresa, servicios y especialidades..." className={`${inputCls} resize-none`} />
+      </div>
+      <div className="mb-4">
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">URL de imagen de portada</label>
+        <input type="url" value={form.bannerImage} onChange={(e) => setForm((f) => ({ ...f, bannerImage: e.target.value }))}
+          placeholder="https://...imagen-portada.jpg" className={inputCls} />
+        {form.bannerImage && (
+          <div className="mt-2 h-20 rounded-xl overflow-hidden bg-gray-100">
+            <img src={form.bannerImage} alt="Banner" className="w-full h-full object-cover" />
+          </div>
+        )}
+      </div>
+      <PrimaryBtn onClick={handleSave} disabled={saving}>
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+        Guardar Perfil
+      </PrimaryBtn>
+    </Card>
+  );
+}
+
 function EmailAtencionCard({ companyId, initialEmail, onSaved, toast }: {
   companyId: string; initialEmail: string;
   onSaved: (email: string) => void;
@@ -1120,6 +1212,11 @@ const AjustesPage: React.FC = () => {
             {/* Email de atención para propuestas (distribuidor) */}
             {user?.role === "admin" && (
               <EmailAtencionCard companyId={company.id} initialEmail={company.emailAtencion ?? ""} onSaved={(email) => setCompany((c) => c ? { ...c, emailAtencion: email } : c)} toast={toast} />
+            )}
+
+            {/* Distributor marketplace profile */}
+            {user?.role === "admin" && company.plan === "distribuidor" && (
+              <DistributorProfileEditor companyId={company.id} toast={toast} />
             )}
 
             {/* Admin config note */}

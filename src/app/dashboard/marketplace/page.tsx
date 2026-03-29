@@ -326,7 +326,7 @@ function ProductCard({ listing: l }: { listing: Listing }) {
           )}
           <div className="flex items-center gap-1.5">
             <Truck className="w-3 h-3 text-[#348CCB]" />
-            <span className="text-[10px] font-medium text-[#173D68]">{l.distributor.name}</span>
+            <a href={`/marketplace/distributor/${l.distributor.id}`} target="_blank" rel="noopener" className="text-[10px] font-medium text-[#173D68] hover:text-[#1E76B6] hover:underline">{l.distributor.name}</a>
           </div>
           {l.cantidadDisponible > 0 && (
             <div className="flex items-center gap-1.5">
