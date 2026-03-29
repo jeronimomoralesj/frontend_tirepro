@@ -209,6 +209,41 @@ export default function PublicMarketplace() {
         )}
       </header>
 
+      {/* ═══ HERO CAROUSEL + CATEGORIES ═══ */}
+      {!search && !activeFilters && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Carousel */}
+            <div className="lg:col-span-2">
+              <HeroCarousel />
+            </div>
+            {/* Categories */}
+            <div className="flex flex-col gap-4">
+              <button onClick={() => setTipo("nueva")}
+                className="flex-1 rounded-2xl overflow-hidden relative group cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)", minHeight: 120 }}>
+                <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
+                <div className="relative p-5 flex flex-col justify-end h-full">
+                  <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Categoria</p>
+                  <p className="text-lg font-black text-white group-hover:translate-x-1 transition-transform">Llantas Nuevas</p>
+                  <p className="text-[11px] text-white/50 mt-0.5">Todas las marcas disponibles</p>
+                </div>
+              </button>
+              <button onClick={() => setTipo("reencauche")}
+                className="flex-1 rounded-2xl overflow-hidden relative group cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", minHeight: 120 }}>
+                <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
+                <div className="relative p-5 flex flex-col justify-end h-full">
+                  <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Categoria</p>
+                  <p className="text-lg font-black text-white group-hover:translate-x-1 transition-transform">Reencauche</p>
+                  <p className="text-[11px] text-white/50 mt-0.5">Reutiliza y ahorra hasta 40%</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ DISTRIBUTORS CAROUSEL ═══ */}
       {filters.distributors.length > 0 && !distributorId && (
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
@@ -303,6 +338,32 @@ export default function PublicMarketplace() {
         )}
       </main>
 
+      {/* ═══ CTA BANNER ═══ */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="rounded-3xl overflow-hidden relative" style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 50%, #348CCB 100%)" }}>
+          <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 80% 30%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
+          <div className="relative px-8 sm:px-12 py-10 sm:py-14 text-center">
+            <p className="text-[11px] font-bold text-white/50 uppercase tracking-[0.2em] mb-3">Gestion de flotas</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight max-w-xl mx-auto">
+              ¿Quieres empezar a llevar el detalle de tus llantas?
+            </h2>
+            <p className="text-sm sm:text-base text-white/60 mt-3 max-w-md mx-auto leading-relaxed">
+              Empieza en TirePro 100% gratis. Controla desgaste, CPK, inventario y reduce costos hasta 35%.
+            </p>
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <Link href="/companyregister"
+                className="px-8 py-3.5 rounded-full text-sm font-bold text-[#0A183A] bg-white hover:bg-gray-100 transition-colors shadow-lg">
+                Comenzar Gratis
+              </Link>
+              <Link href="/"
+                className="px-6 py-3.5 rounded-full text-sm font-bold text-white border border-white/20 hover:bg-white/10 transition-colors">
+                Conocer mas
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ═══ FOOTER ═══ */}
       <footer className="bg-[#0A183A] mt-16">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -338,6 +399,73 @@ export default function PublicMarketplace() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// =============================================================================
+// Product Card
+// =============================================================================
+
+// =============================================================================
+// Hero Carousel
+// =============================================================================
+
+const HERO_SLIDES = [
+  {
+    img: "https://mqplatform.blob.core.windows.net/attributeimageresized/caf4efd9-b23a-5f43-eb34-648c9d77bb36.png?sv=2025-05-05&ss=bfqt&srt=sco&st=2026-03-28T05%3A18%3A16Z&se=2026-03-30T05%3A18%3A16Z&sp=rwdxylacuptfi&sig=iGId38CRD3HDcQ4ie4CS3%2FJVt%2FgSSswt5VukinTAt%2F0%3D",
+    title: "Las mejores llantas para tu flota",
+    sub: "Encuentra ofertas de distribuidores verificados en toda Colombia",
+  },
+  {
+    img: "https://mqplatform.blob.core.windows.net/attributeimageresized/3c4ab77f-0ba0-44b1-0eb9-d3a1224693ce.png?sv=2025-05-05&ss=bfqt&srt=sco&st=2026-03-28T05%3A18%3A16Z&se=2026-03-30T05%3A18%3A16Z&sp=rwdxylacuptfi&sig=iGId38CRD3HDcQ4ie4CS3%2FJVt%2FgSSswt5VukinTAt%2F0%3D",
+    title: "Compara precios en segundos",
+    sub: "Cotiza con multiples distribuidores y elige la mejor opcion",
+  },
+];
+
+function HeroCarousel() {
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % HERO_SLIDES.length), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const slide = HERO_SLIDES[idx];
+
+  return (
+    <div className="relative rounded-2xl overflow-hidden" style={{ height: 268 }}>
+      {/* Image */}
+      <div className="absolute inset-0 transition-opacity duration-700" key={idx}>
+        <img src={slide.img} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+      </div>
+
+      {/* Text */}
+      <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8">
+        <h2 className="text-xl sm:text-2xl font-black text-white leading-tight max-w-sm">{slide.title}</h2>
+        <p className="text-sm text-white/70 mt-1 max-w-xs">{slide.sub}</p>
+      </div>
+
+      {/* Dots */}
+      <div className="absolute bottom-3 right-4 flex gap-1.5">
+        {HERO_SLIDES.map((_, i) => (
+          <button key={i} onClick={() => setIdx(i)}
+            className="w-2 h-2 rounded-full transition-all"
+            style={{ background: i === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+        ))}
+      </div>
+
+      {/* Arrows */}
+      <button onClick={() => setIdx((i) => (i - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition-colors">
+        <ChevronLeft className="w-4 h-4 text-white" />
+      </button>
+      <button onClick={() => setIdx((i) => (i + 1) % HERO_SLIDES.length)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition-colors">
+        <ChevronRight className="w-4 h-4 text-white" />
+      </button>
     </div>
   );
 }
