@@ -498,6 +498,8 @@ function VehicleVerdict({ tires, stats }: { tires: Tire[]; stats: ReturnType<typ
 
     // Scan every tire for issues
     const issues: string[] = [];
+    const posLabel = (t: Tire) => `P${t.posicion}`;
+    const posLabels = (arr: Tire[]) => arr.map(posLabel).join(", ");
 
     // Alignment check — shoulder delta >= 1.5mm
     const alignmentProblems = withInsp.filter((t) => {
@@ -505,7 +507,7 @@ function VehicleVerdict({ tires, stats }: { tires: Tire[]; stats: ReturnType<typ
       return Math.abs(l.profundidadInt - l.profundidadExt) >= 1.5;
     });
     if (alignmentProblems.length > 0) {
-      issues.push(`${alignmentProblems.length} llanta${alignmentProblems.length > 1 ? "s" : ""} con desgaste desigual entre hombros — revisar alineacion`);
+      issues.push(`Desgaste desigual entre hombros (${posLabels(alignmentProblems)}) — revisar alineacion`);
     }
 
     // Center vs edges — over/under inflation wear pattern
@@ -518,10 +520,10 @@ function VehicleVerdict({ tires, stats }: { tires: Tire[]; stats: ReturnType<typ
       return ((l.profundidadInt + l.profundidadExt) / 2) - l.profundidadCen > 1.5;
     });
     if (underInflated.length > 0) {
-      issues.push(`${underInflated.length} llanta${underInflated.length > 1 ? "s" : ""} con desgaste en hombros excesivo — indica baja presion`);
+      issues.push(`Desgaste en hombros excesivo (${posLabels(underInflated)}) — indica baja presion`);
     }
     if (overInflated.length > 0) {
-      issues.push(`${overInflated.length} llanta${overInflated.length > 1 ? "s" : ""} con desgaste central excesivo — indica sobreinflado`);
+      issues.push(`Desgaste central excesivo (${posLabels(overInflated)}) — indica sobreinflado`);
     }
 
     // Pressure reading problems
@@ -530,14 +532,17 @@ function VehicleVerdict({ tires, stats }: { tires: Tire[]; stats: ReturnType<typ
       return l.presionDelta != null && Math.abs(l.presionDelta) > 10;
     });
     if (pressureProblems.length > 0) {
-      issues.push(`${pressureProblems.length} llanta${pressureProblems.length > 1 ? "s" : ""} con presion fuera de rango vs recomendada`);
+      issues.push(`Presion fuera de rango (${posLabels(pressureProblems)})`);
     }
 
     // Urgent replacements
-    const urgentCount = stats.counts.cambioInmediato;
-    const soonCount = stats.counts.dias30;
-    if (urgentCount > 0) issues.push(`${urgentCount} llanta${urgentCount > 1 ? "s" : ""} en estado urgente — cambio inmediato`);
-    else if (soonCount > 0) issues.push(`${soonCount} llanta${soonCount > 1 ? "s" : ""} a 30 dias de retiro`);
+    const urgentTires = tires.filter((t) => getSemaforoCondition(t) === "cambioInmediato");
+    const soonTires = tires.filter((t) => getSemaforoCondition(t) === "dias30");
+    if (urgentTires.length > 0) {
+      issues.push(`Cambio inmediato requerido (${posLabels(urgentTires)})`);
+    } else if (soonTires.length > 0) {
+      issues.push(`A 30 dias de retiro (${posLabels(soonTires)})`);
+    }
 
     // High wear rate on any tire
     const highWearTires = withInsp.filter((t) => {
@@ -551,23 +556,21 @@ function VehicleVerdict({ tires, stats }: { tires: Tire[]; stats: ReturnType<typ
       return months >= 1 && (firstMin - lastMin) / months > 1.5;
     });
     if (highWearTires.length > 0) {
-      issues.push(`${highWearTires.length} llanta${highWearTires.length > 1 ? "s" : ""} con tasa de desgaste alta (>1.5mm/mes)`);
+      issues.push(`Desgaste acelerado >1.5mm/mes (${posLabels(highWearTires)})`);
     }
 
     // CPK assessment
     if (stats.avgCpk != null && stats.avgCpk > 150) {
-      issues.push(`CPK alto ($${Math.round(stats.avgCpk).toLocaleString("es-CO")}/km) — evaluar marcas o condiciones de operacion`);
+      issues.push(`CPK alto ($${Math.round(stats.avgCpk).toLocaleString("es-CO")}/km) — evaluar marcas o condiciones`);
     }
 
     // Recalculate grade based on actual issues found
-    const hasAnyCritical = urgentCount > 0;
-    const hasAnyWarn = issues.length > 0;
-    if (hasAnyCritical) grade = { label: "Estado critico", color: "#ef4444", emoji: "🔴" };
-    else if (hasAnyWarn) grade = { label: "Requiere atencion", color: "#f97316", emoji: "⚠️" };
+    if (urgentTires.length > 0) grade = { label: "Estado critico", color: "#ef4444", emoji: "🔴" };
+    else if (issues.length > 0) grade = { label: "Requiere atencion", color: "#f97316", emoji: "⚠️" };
 
     // Top recommendation — prioritized
     let recommendation = "";
-    if (urgentCount > 0) {
+    if (urgentTires.length > 0) {
       recommendation = "Prioridad: retirar las llantas urgentes antes de que se pierdan los cascos para reencauche.";
     } else if (underInflated.length > 0 || overInflated.length > 0) {
       recommendation = "Corregir presiones de inflado. Desgaste irregular en hombros o centro reduce vida util y aumenta costos.";
@@ -577,7 +580,7 @@ function VehicleVerdict({ tires, stats }: { tires: Tire[]; stats: ReturnType<typ
       recommendation = "Investigar causa de desgaste acelerado: sobrecarga, velocidad excesiva, o condiciones de ruta.";
     } else if (pressureProblems.length > 0) {
       recommendation = "Ajustar presiones a los valores recomendados para optimizar vida util.";
-    } else if (soonCount > 0) {
+    } else if (soonTires.length > 0) {
       recommendation = "Cotizar reencauches o reemplazos para las llantas que se acercan a retiro optimo.";
     } else if (issues.length === 0) {
       recommendation = "Vehiculo en buen estado. Mantener frecuencia de inspeccion actual.";
