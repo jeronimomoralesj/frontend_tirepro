@@ -567,7 +567,7 @@ export default function ResumenPage() {
             </div>
 
             {/* Row 2: Inversion Mensual + Por Marca */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               <CardWrap title="Inversion Mensual" description="Total invertido en llantas por mes incluyendo compras nuevas, reencauches y reparaciones.">
                 <Bar
                   key={`inv-${chartKey}`}
