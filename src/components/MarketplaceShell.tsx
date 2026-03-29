@@ -92,35 +92,37 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
     router.push(`/marketplace/product/${s.id}`);
   }
 
+  const [mobileSearch, setMobileSearch] = useState(false);
+
   return (
     <>
       {/* Main nav bar */}
       <header className="sticky top-0 z-50" style={{ background: "#0A183A" }}>
         <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3 py-2.5">
+          <div className="flex items-center gap-2 sm:gap-3 py-2.5">
             {/* Mobile menu */}
-            <button onClick={() => setMobileMenu(!mobileMenu)} className="lg:hidden text-white/70 hover:text-white p-1">
+            <button onClick={() => setMobileMenu(!mobileMenu)} className="lg:hidden text-white/70 hover:text-white p-1 flex-shrink-0">
               <Menu className="w-5 h-5" />
             </button>
 
             {/* Logo */}
-            <Link href="/marketplace" className="flex-shrink-0 mr-1">
-              <Image src="/logo_full.png" alt="TirePro" width={90} height={27} className="h-6 sm:h-7 w-auto brightness-0 invert" />
+            <Link href="/marketplace" className="flex-shrink-0">
+              <Image src="/logo_full.png" alt="TirePro" width={90} height={27} className="h-5 sm:h-7 w-auto brightness-0 invert" />
             </Link>
 
-            {/* Search bar with suggestions */}
-            <div ref={wrapperRef} className="flex-1 max-w-2xl relative">
-              <form onSubmit={handleSubmit} className="flex">
+            {/* Desktop search bar */}
+            <div ref={wrapperRef} className="hidden sm:flex flex-1 max-w-2xl relative min-w-0">
+              <form onSubmit={handleSubmit} className="flex w-full">
                 <input
                   type="text"
                   value={q}
                   onChange={(e) => { setQ(e.target.value); setShowSuggestions(true); }}
                   onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
                   placeholder="Buscar llantas, marcas, distribuidores..."
-                  className="flex-1 px-4 py-2 sm:py-2.5 rounded-l-full text-sm bg-white border-0 focus:outline-none text-[#0A183A] placeholder-gray-400"
+                  className="flex-1 min-w-0 px-4 py-2 sm:py-2.5 rounded-l-full text-sm bg-white border-0 focus:outline-none text-[#0A183A] placeholder-gray-400"
                 />
                 <button type="submit"
-                  className="px-4 sm:px-5 rounded-r-full flex items-center justify-center transition-colors"
+                  className="px-4 sm:px-5 rounded-r-full flex items-center justify-center flex-shrink-0 transition-colors"
                   style={{ background: "#1E76B6" }}>
                   <Search className="w-4 h-4 text-white" />
                 </button>
@@ -152,7 +154,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                       </button>
                     );
                   })}
-                  <button onClick={handleSubmit}
+                  <button onClick={(e) => { handleSubmit(e as any); }}
                     className="w-full px-4 py-2.5 text-xs font-bold text-[#1E76B6] hover:bg-blue-50 transition-colors text-center border-t border-gray-100">
                     Ver todos los resultados para &quot;{q}&quot;
                   </button>
@@ -160,23 +162,28 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               )}
             </div>
 
-            {/* Right actions — pushed to end */}
-            <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 ml-auto">
+            {/* Mobile search icon */}
+            <button onClick={() => setMobileSearch(!mobileSearch)} className="sm:hidden text-white/70 hover:text-white p-1 flex-shrink-0 ml-auto">
+              <Search className="w-5 h-5" />
+            </button>
+
+            {/* Right actions */}
+            <div className="hidden sm:flex items-center gap-1 lg:gap-3 flex-shrink-0 ml-auto">
               {/* Account */}
               {isLoggedIn ? (
-                <Link href="/dashboard/ajustes" className="hidden sm:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+                <Link href="/dashboard/ajustes" className="hidden lg:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
                   <span className="text-[9px] text-white/50 leading-none">Hola, {userName?.split(" ")[0]}</span>
                   <span className="text-[11px] font-bold text-white leading-tight">Mi Cuenta</span>
                 </Link>
               ) : (
-                <Link href="/login" className="hidden sm:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+                <Link href="/login" className="hidden lg:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
                   <span className="text-[9px] text-white/50 leading-none">Hola, ingresa</span>
                   <span className="text-[11px] font-bold text-white leading-tight">Cuenta</span>
                 </Link>
               )}
 
               {/* Orders */}
-              <Link href={isLoggedIn ? "/dashboard/analista" : "/login"} className="hidden md:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+              <Link href={isLoggedIn ? "/dashboard/analista" : "/login"} className="hidden lg:flex flex-col items-start px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
                 <span className="text-[9px] text-white/50 leading-none">{isLoggedIn ? "Mis" : "Tus"}</span>
                 <span className="text-[11px] font-bold text-white leading-tight">Pedidos</span>
               </Link>
@@ -184,7 +191,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               {/* Cart */}
               <Link href="/marketplace/cart" className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors relative">
                 <div className="relative">
-                  <ShoppingCart className="w-6 h-6 text-white" />
+                  <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   {cart.count > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 rounded-full text-[9px] font-black flex items-center justify-center"
                       style={{ background: "#f97316", color: "white", minWidth: 18, height: 18 }}>
@@ -192,11 +199,55 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                     </span>
                   )}
                 </div>
-                <span className="hidden sm:block text-[11px] font-bold text-white">Carrito</span>
+                <span className="hidden lg:block text-[11px] font-bold text-white">Carrito</span>
               </Link>
             </div>
+
+            {/* Mobile cart only */}
+            <Link href="/marketplace/cart" className="sm:hidden relative flex-shrink-0 p-1">
+              <ShoppingCart className="w-5 h-5 text-white" />
+              {cart.count > 0 && (
+                <span className="absolute -top-1 -right-1 rounded-full text-[8px] font-black flex items-center justify-center"
+                  style={{ background: "#f97316", color: "white", minWidth: 16, height: 16 }}>
+                  {cart.count}
+                </span>
+              )}
+            </Link>
           </div>
         </div>
+
+        {/* Mobile search bar — slides down */}
+        {mobileSearch && (
+          <div className="sm:hidden px-3 pb-2.5" ref={wrapperRef}>
+            <form onSubmit={(e) => { handleSubmit(e); setMobileSearch(false); }} className="flex">
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => { setQ(e.target.value); setShowSuggestions(true); }}
+                autoFocus
+                placeholder="Buscar llantas..."
+                className="flex-1 min-w-0 px-4 py-2.5 rounded-l-full text-sm bg-white border-0 focus:outline-none text-[#0A183A] placeholder-gray-400"
+              />
+              <button type="submit" className="px-4 rounded-r-full flex items-center justify-center" style={{ background: "#1E76B6" }}>
+                <Search className="w-4 h-4 text-white" />
+              </button>
+            </form>
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+                {suggestions.slice(0, 4).map((s) => (
+                  <button key={s.id} onClick={() => { selectSuggestion(s); setMobileSearch(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-[#0A183A] truncate"><span className="font-bold">{s.marca}</span> {s.modelo}</p>
+                      <p className="text-[9px] text-gray-400">{s.dimension}</p>
+                    </div>
+                    <span className="text-xs font-bold text-[#0A183A]">{fmtCOPShort(s.precioCop)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Bottom bar — categories */}
         <div style={{ background: "#173D68" }}>
