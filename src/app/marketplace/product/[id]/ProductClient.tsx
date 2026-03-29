@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
   Mail, Globe, Star, Clock, CheckCircle, Shield, Recycle, ChevronLeft,
-  ChevronRight, Minus, Plus, X, Check,
+  ChevronRight, Minus, Plus, X, Check, Search, Zap,
 } from "lucide-react";
 import { useCart } from "../../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
@@ -45,6 +45,11 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  // Vehicle recommendation
+  const [vrPlaca, setVrPlaca] = useState("");
+  const [vrLoading, setVrLoading] = useState(false);
+  const [vrResult, setVrResult] = useState<{ positions: string[]; reason: string } | null>(null);
+  const [vrError, setVrError] = useState("");
   const cart = useCart();
 
   useEffect(() => {
@@ -272,6 +277,178 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                   <span className="text-[9px] text-gray-400 font-bold mr-1">Cobertura:</span>
                   {cobertura.slice(0, 6).map((c) => <span key={c} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{c}</span>)}
                   {cobertura.length > 6 && <span className="text-[9px] text-gray-400">+{cobertura.length - 6}</span>}
+                </div>
+              )}
+            </div>
+
+            {/* ═══ RETREADABILITY INDEX ═══ */}
+            <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Recycle className="w-4 h-4 text-purple-500" />
+                <p className="text-sm font-bold text-[#0A183A]">Indice de Reencauchabilidad</p>
+              </div>
+              {(() => {
+                const reencauchable = product.catalog?.reencauchable ?? false;
+                const kmEst = product.catalog?.kmEstimadosReales ?? 0;
+                const rtd = product.catalog?.rtdMm ?? 0;
+                const isReencauche = product.tipo === "reencauche";
+
+                // Calculate index 0-100
+                let score = 0;
+                if (reencauchable) score += 40;
+                if (rtd >= 18) score += 20; else if (rtd >= 14) score += 10;
+                if (kmEst >= 150000) score += 20; else if (kmEst >= 100000) score += 10;
+                if (!isReencauche) score += 20; // new tires have more retread potential
+
+                const color = score >= 70 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
+                const label = score >= 70 ? "Excelente" : score >= 40 ? "Moderado" : "Bajo";
+
+                return (
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${score}%`, background: color }} />
+                      </div>
+                      <span className="text-sm font-black" style={{ color }}>{score}/100</span>
+                    </div>
+                    <p className="text-xs font-bold" style={{ color }}>{label}</p>
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center gap-2 text-[10px]">
+                        {reencauchable
+                          ? <><CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" /><span className="text-gray-600">Casco reencauchable — puede tener hasta 3 vidas adicionales</span></>
+                          : <><X className="w-3 h-3 text-red-400 flex-shrink-0" /><span className="text-gray-400">No reencauchable segun fabricante</span></>}
+                      </div>
+                      {rtd > 0 && (
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <CheckCircle className="w-3 h-3 flex-shrink-0" style={{ color: rtd >= 18 ? "#22c55e" : rtd >= 14 ? "#f59e0b" : "#ef4444" }} />
+                          <span className="text-gray-600">Profundidad inicial: {rtd}mm {rtd >= 18 ? "(optima para reencauche)" : rtd >= 14 ? "(adecuada)" : "(limitada)"}</span>
+                        </div>
+                      )}
+                      {kmEst > 0 && (
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <CheckCircle className="w-3 h-3 flex-shrink-0" style={{ color: kmEst >= 150000 ? "#22c55e" : "#f59e0b" }} />
+                          <span className="text-gray-600">{(kmEst / 1000).toFixed(0)}K km estimados por vida</span>
+                        </div>
+                      )}
+                      {isReencauche && (
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <Recycle className="w-3 h-3 text-purple-500 flex-shrink-0" />
+                          <span className="text-gray-600">Este producto ya es un reencauche — ahorro estimado vs nueva: ~40%</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ═══ VEHICLE RECOMMENDATION AGENT ═══ */}
+            <div className="mt-6 p-4 rounded-2xl border border-gray-200" style={{ background: "linear-gradient(135deg, rgba(10,24,58,0.03), rgba(30,118,182,0.03))" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: "#ef4444" }}>
+                  <Shield className="w-3 h-3 text-white" />
+                </div>
+                <p className="text-sm font-bold text-[#0A183A]">Agente SENTINEL</p>
+                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#ef4444]/10 text-[#ef4444]">IA</span>
+              </div>
+              <p className="text-[10px] text-gray-400 mb-3">Ingresa la placa de tu vehiculo y te recomendamos donde instalar esta llanta.</p>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={vrPlaca}
+                  onChange={(e) => setVrPlaca(e.target.value.toUpperCase())}
+                  placeholder="Ej: ABC123"
+                  maxLength={6}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#ef4444]/20 focus:border-[#ef4444] text-[#0A183A] placeholder-gray-400 uppercase"
+                  style={{ fontFamily: "'DM Mono', monospace" }}
+                />
+                <button
+                  disabled={vrPlaca.length < 3 || vrLoading}
+                  onClick={async () => {
+                    setVrLoading(true); setVrError(""); setVrResult(null);
+                    try {
+                      const token = localStorage.getItem("token") ?? "";
+                      if (!token) { setVrError("Inicia sesion para usar el agente"); setVrLoading(false); return; }
+                      // Fetch vehicle tires
+                      const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(vrPlaca)}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      if (!vRes.ok) { setVrError("Vehiculo no encontrado"); setVrLoading(false); return; }
+                      const vehicle = await vRes.json();
+                      const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicle.id}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const tires: any[] = tRes.ok ? await tRes.json() : [];
+
+                      // Analyze — which positions would this tire work for?
+                      const tireEje = product.eje;
+                      const tireDimension = product.dimension;
+                      const positions: string[] = [];
+                      const reasons: string[] = [];
+
+                      // Check empty positions
+                      const occupiedPos = new Set(tires.map((t: any) => t.posicion));
+                      const maxPos = Math.max(0, ...tires.map((t: any) => t.posicion), 6);
+
+                      for (let p = 1; p <= maxPos; p++) {
+                        if (!occupiedPos.has(p)) {
+                          positions.push(`P${p} (vacia)`);
+                        }
+                      }
+
+                      // Check positions where current tire is worn
+                      tires.forEach((t: any) => {
+                        const depth = t.currentProfundidad ?? 99;
+                        const matchesDim = t.dimension === tireDimension;
+                        const matchesEje = !tireEje || t.eje === tireEje || tireEje === "libre";
+
+                        if (depth <= 4 && matchesDim && matchesEje) {
+                          positions.push(`P${t.posicion} (reemplazar ${t.marca} — ${depth.toFixed(1)}mm)`);
+                          reasons.push(`La llanta en P${t.posicion} tiene solo ${depth.toFixed(1)}mm y necesita reemplazo.`);
+                        } else if (depth <= 6 && matchesDim && matchesEje) {
+                          reasons.push(`P${t.posicion}: ${t.marca} a ${depth.toFixed(1)}mm — considerar reemplazo pronto.`);
+                        }
+                      });
+
+                      if (!tireEje || tireEje === "libre") {
+                        reasons.push(`Esta llanta es para eje ${tireEje ?? "no especificado"} — compatible con multiples posiciones.`);
+                      } else {
+                        reasons.push(`Llanta de eje ${tireEje} — instalar solo en posiciones de ${tireEje}.`);
+                      }
+
+                      if (positions.length === 0) {
+                        reasons.unshift("No hay posiciones criticas que necesiten esta llanta en este momento.");
+                      }
+
+                      setVrResult({
+                        positions,
+                        reason: reasons.join(" "),
+                      });
+                    } catch { setVrError("Error al analizar el vehiculo"); }
+                    setVrLoading(false);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-40 transition-all hover:opacity-90 flex-shrink-0"
+                  style={{ background: "#ef4444" }}>
+                  {vrLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Zap className="w-3.5 h-3.5 inline mr-1" />Analizar</>}
+                </button>
+              </div>
+
+              {vrError && <p className="text-xs text-red-500 font-bold mt-2">{vrError}</p>}
+
+              {vrResult && (
+                <div className="mt-3 p-3 rounded-xl bg-white border border-gray-100">
+                  {vrResult.positions.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-[10px] font-bold text-[#0A183A] uppercase tracking-wider mb-1.5">Posiciones recomendadas</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {vrResult.positions.map((p, i) => (
+                          <span key={i} className="text-[10px] font-bold px-2 py-1 rounded-lg bg-[#ef4444]/10 text-[#ef4444]">{p}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[11px] text-gray-600 leading-relaxed">{vrResult.reason}</p>
                 </div>
               )}
             </div>
