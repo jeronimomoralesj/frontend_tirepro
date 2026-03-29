@@ -52,7 +52,7 @@ export default function CatalogoDistPage() {
 
   // Add form
   const [form, setForm] = useState({
-    marca: "", modelo: "", dimension: "", eje: "",
+    marca: "", modelo: "", dimension: "", eje: "", tipo: "nueva",
     precioCop: 0, precioPromo: 0, cantidadDisponible: 0,
     tiempoEntrega: "1-3 dias", catalogId: "",
   });
@@ -95,7 +95,7 @@ export default function CatalogoDistPage() {
         }),
       });
       if (!res.ok) throw new Error();
-      setForm({ marca: "", modelo: "", dimension: "", eje: "", precioCop: 0, precioPromo: 0, cantidadDisponible: 0, tiempoEntrega: "1-3 dias", catalogId: "" });
+      setForm({ marca: "", modelo: "", dimension: "", eje: "", tipo: "nueva", precioCop: 0, precioPromo: 0, cantidadDisponible: 0, tiempoEntrega: "1-3 dias", catalogId: "" });
       setShowAdd(false);
       setSuccess("Producto agregado al catalogo");
       setTimeout(() => setSuccess(""), 3000);
@@ -224,6 +224,18 @@ export default function CatalogoDistPage() {
                       <option value="libre">Libre</option>
                       <option value="remolque">Remolque</option>
                     </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Tipo</label>
+                  <div className="flex rounded-lg overflow-hidden border border-[#348CCB]/30">
+                    {[{ value: "nueva", label: "Llanta Nueva" }, { value: "reencauche", label: "Reencauche" }].map((t) => (
+                      <button key={t.value} type="button" onClick={() => setForm((f) => ({ ...f, tipo: t.value }))}
+                        className="flex-1 px-3 py-2 text-xs font-bold transition-all"
+                        style={{ background: form.tipo === t.value ? "#0A183A" : "#F0F7FF", color: form.tipo === t.value ? "white" : "#173D68" }}>
+                        {t.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3">

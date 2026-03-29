@@ -45,7 +45,8 @@ interface Listing {
   } | null;
 }
 
-interface Filters { dimensions: string[]; marcas: string[] }
+interface DistributorOption { id: string; name: string; profileImage: string }
+interface Filters { dimensions: string[]; marcas: string[]; distributors: DistributorOption[] }
 
 export default function MarketplacePage() {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -53,17 +54,19 @@ export default function MarketplacePage() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<Filters>({ dimensions: [], marcas: [] });
+  const [filters, setFilters] = useState<Filters>({ dimensions: [], marcas: [], distributors: [] });
 
   const [search, setSearch] = useState("");
   const [dimension, setDimension] = useState("");
   const [marca, setMarca] = useState("");
+  const [tipo, setTipo] = useState("");
+  const [distributorId, setDistributorId] = useState("");
   const [sortBy, setSortBy] = useState("price_asc");
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     authFetch(`${API_BASE}/marketplace/listings/filters`)
-      .then((r) => (r.ok ? r.json() : { dimensions: [], marcas: [] }))
+      .then((r) => (r.ok ? r.json() : { dimensions: [], marcas: [], distributors: [] }))
       .then(setFilters)
       .catch(() => {});
   }, []);
@@ -74,6 +77,8 @@ export default function MarketplacePage() {
     if (search) params.set("search", search);
     if (dimension) params.set("dimension", dimension);
     if (marca) params.set("marca", marca);
+    if (tipo) params.set("tipo", tipo);
+    if (distributorId) params.set("distributorId", distributorId);
     params.set("sortBy", sortBy);
     params.set("page", String(page));
     params.set("limit", "24");
@@ -82,12 +87,12 @@ export default function MarketplacePage() {
       if (res.ok) { const d = await res.json(); setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1); }
     } catch { /* */ }
     setLoading(false);
-  }, [search, dimension, marca, sortBy, page]);
+  }, [search, dimension, marca, tipo, distributorId, sortBy, page]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
-  useEffect(() => { setPage(1); }, [search, dimension, marca, sortBy]);
+  useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, sortBy]);
 
-  const activeFilterCount = [dimension, marca].filter(Boolean).length;
+  const activeFilterCount = [dimension, marca, tipo, distributorId].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-white">
@@ -139,16 +144,31 @@ export default function MarketplacePage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Filter bar */}
         {showFilters && (
-          <div className="flex gap-3 flex-wrap py-3 border-b border-gray-100">
+          <div className="flex gap-2 flex-wrap py-3 border-b border-gray-100">
+            {/* Tipo */}
+            <div className="flex rounded-lg overflow-hidden border border-gray-200">
+              {[{ value: "", label: "Todas" }, { value: "nueva", label: "Nuevas" }, { value: "reencauche", label: "Reencauche" }].map((t) => (
+                <button key={t.value} onClick={() => setTipo(t.value)}
+                  className="px-3 py-2 text-xs font-bold transition-all"
+                  style={{ background: tipo === t.value ? "#0A183A" : "white", color: tipo === t.value ? "white" : "#173D68" }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
             <select value={dimension} onChange={(e) => setDimension(e.target.value)}
               className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68]">
-              <option value="">Todas las dimensiones</option>
+              <option value="">Dimensiones</option>
               {filters.dimensions.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
             <select value={marca} onChange={(e) => setMarca(e.target.value)}
               className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68]">
-              <option value="">Todas las marcas</option>
+              <option value="">Marcas</option>
               {filters.marcas.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}
+              className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68]">
+              <option value="">Distribuidores</option>
+              {filters.distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
               className="px-3 py-2 rounded-lg text-xs border border-gray-200 bg-white text-[#173D68] sm:hidden">
@@ -157,7 +177,7 @@ export default function MarketplacePage() {
               <option value="newest">Recientes</option>
             </select>
             {activeFilterCount > 0 && (
-              <button onClick={() => { setDimension(""); setMarca(""); }}
+              <button onClick={() => { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); }}
                 className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50">
                 <X className="w-3 h-3" /> Limpiar
               </button>
