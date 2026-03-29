@@ -8,6 +8,7 @@ import {
   AlertTriangle, Shield, ChevronRight, Zap, Layers,
   CheckCircle2, Timer, AlertOctagon, RotateCcw,
 } from "lucide-react";
+import AgentCardHeader from "../../../components/AgentCardHeader";
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement,
   LineElement, Title, Tooltip, Filler, BarElement,
@@ -787,6 +788,200 @@ function InspectionTable({ tire, onDelete }: { tire: Tire; onDelete: (fecha: str
 }
 
 // =============================================================================
+// SENTINEL Analysis — per-tire deep analysis with recommendations
+// =============================================================================
+
+function SentinelAnalysis({ tire }: { tire: Tire }) {
+  const analysis = useMemo(() => {
+    const findings: { icon: string; title: string; detail: string; severity: "ok" | "warn" | "critical" | "info" }[] = [];
+    const recommendations: string[] = [];
+    const insps = tire.inspecciones;
+
+    if (insps.length === 0) return { findings, recommendations, insight: "" };
+
+    const last = insps[insps.length - 1];
+    const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+    const maxDepth = Math.max(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+    const shoulderDelta = Math.abs(last.profundidadInt - last.profundidadExt);
+    const centerVsEdge = last.profundidadCen - ((last.profundidadInt + last.profundidadExt) / 2);
+    const health = calcMmHealthScore(tire);
+
+    // 1. Shoulder delta → alignment
+    if (shoulderDelta >= 1.5) {
+      findings.push({
+        icon: "⚠️", title: "Desgaste desigual detectado",
+        detail: `Diferencia de ${shoulderDelta.toFixed(1)}mm entre hombros (Int: ${last.profundidadInt}mm, Ext: ${last.profundidadExt}mm). Umbral: 1.5mm.`,
+        severity: shoulderDelta >= 2.5 ? "critical" : "warn",
+      });
+      recommendations.push(
+        shoulderDelta >= 2.5
+          ? "URGENTE: Revisar alineacion del vehiculo inmediatamente. Desgaste severo en un hombro indica desalineacion que destruye el casco."
+          : "Programar revision de alineacion. La diferencia entre hombros sugiere un angulo incorrecto."
+      );
+    } else {
+      findings.push({ icon: "✅", title: "Desgaste uniforme entre hombros", detail: `Delta: ${shoulderDelta.toFixed(1)}mm — dentro del rango aceptable (<1.5mm).`, severity: "ok" });
+    }
+
+    // 2. Center vs edges → pressure
+    if (centerVsEdge > 1.5) {
+      findings.push({
+        icon: "🔴", title: "Desgaste central excesivo",
+        detail: `Centro ${centerVsEdge.toFixed(1)}mm por encima de los hombros. Indica sobreinflado cronico.`,
+        severity: "warn",
+      });
+      recommendations.push("Reducir la presion de inflado. El centro se desgasta mas rapido cuando hay sobreinflado, lo cual reduce la huella de contacto y acorta la vida util.");
+    } else if (centerVsEdge < -1.5) {
+      findings.push({
+        icon: "🔴", title: "Desgaste en hombros excesivo",
+        detail: `Hombros ${Math.abs(centerVsEdge).toFixed(1)}mm por encima del centro. Indica baja presion cronica.`,
+        severity: "warn",
+      });
+      recommendations.push("Aumentar la presion de inflado a la recomendada. Baja presion causa desgaste excesivo en los hombros, mayor consumo de combustible y riesgo de falla.");
+    } else {
+      findings.push({ icon: "✅", title: "Perfil de presion correcto", detail: "Desgaste equilibrado entre centro y hombros.", severity: "ok" });
+    }
+
+    // 3. Wear rate trend
+    if (insps.length >= 2) {
+      const sorted = [...insps].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+      const first = sorted[0];
+      const firstMin = Math.min(first.profundidadInt, first.profundidadCen, first.profundidadExt);
+      const months = (new Date(last.fecha).getTime() - new Date(first.fecha).getTime()) / (1000 * 60 * 60 * 24 * 30);
+      if (months >= 1) {
+        const rate = (firstMin - minDepth) / months;
+        findings.push({
+          icon: "📉", title: "Tasa de desgaste",
+          detail: `${rate.toFixed(2)}mm/mes en ${months.toFixed(0)} meses (${insps.length} inspecciones).`,
+          severity: rate > 1.5 ? "warn" : "info",
+        });
+        if (rate > 1.5) {
+          recommendations.push(`Tasa de desgaste alta (${rate.toFixed(2)}mm/mes). Normal: 0.5-1.2mm/mes. Revisar condiciones de operacion, peso de carga, velocidad y presion.`);
+        }
+        // Projected retirement
+        const mmToRetire = minDepth - 3;
+        if (mmToRetire > 0 && rate > 0) {
+          const monthsLeft = mmToRetire / rate;
+          const retireDate = new Date(Date.now() + monthsLeft * 30 * 24 * 60 * 60 * 1000);
+          findings.push({
+            icon: "📅", title: "Retiro proyectado",
+            detail: `~${Math.round(monthsLeft)} meses (${retireDate.toLocaleDateString("es-CO", { month: "short", year: "numeric" })}) a 3mm optimo para preservar casco.`,
+            severity: monthsLeft < 2 ? "critical" : monthsLeft < 4 ? "warn" : "info",
+          });
+          if (monthsLeft < 2) {
+            recommendations.push("Esta llanta llegara a retiro optimo en menos de 2 meses. Solicita cotizacion de reencauche o reemplazo ahora.");
+          }
+        }
+      }
+    }
+
+    // 4. Pressure check
+    if (last.presionPsi != null && last.presionRecomendadaPsi != null) {
+      const delta = last.presionPsi - last.presionRecomendadaPsi;
+      if (Math.abs(delta) > 10) {
+        findings.push({
+          icon: delta < 0 ? "🔽" : "🔼",
+          title: delta < 0 ? "Presion baja" : "Presion alta",
+          detail: `${last.presionPsi} PSI vs ${last.presionRecomendadaPsi} PSI recomendada (${delta > 0 ? "+" : ""}${delta.toFixed(0)} PSI).`,
+          severity: Math.abs(delta) > 20 ? "critical" : "warn",
+        });
+        recommendations.push(
+          delta < 0
+            ? `Inflar a ${last.presionRecomendadaPsi} PSI. Baja presion aumenta consumo de combustible ~3% y reduce vida util hasta 25%.`
+            : `Reducir a ${last.presionRecomendadaPsi} PSI. Sobreinflado reduce area de contacto y causa desgaste central acelerado.`
+        );
+      }
+    }
+
+    // 5. CPK trend
+    const cpkValues = insps.filter((i) => i.cpk != null && i.cpk > 0).map((i) => i.cpk!);
+    if (cpkValues.length >= 3) {
+      const recentCpk = cpkValues.slice(-2).reduce((a, b) => a + b, 0) / 2;
+      const olderCpk = cpkValues.slice(0, -2).reduce((a, b) => a + b, 0) / Math.max(1, cpkValues.length - 2);
+      if (recentCpk > olderCpk * 1.15) {
+        findings.push({ icon: "💰", title: "CPK en aumento", detail: `CPK reciente: $${Math.round(recentCpk).toLocaleString("es-CO")} vs historico: $${Math.round(olderCpk).toLocaleString("es-CO")}. Rendimiento economico deteriorandose.`, severity: "warn" });
+        recommendations.push("El costo por kilometro esta subiendo. Evalua si la llanta esta cerca de su vida util optima y si vale la pena continuar o retirar.");
+      }
+    }
+
+    // 6. Reencauche opportunity
+    const currentVida = tire.vida.length ? tire.vida[tire.vida.length - 1].valor : "nueva";
+    if (minDepth <= 4 && minDepth > 2 && currentVida !== "reencauche3" && currentVida !== "fin") {
+      const vidaNum = currentVida === "nueva" ? 0 : currentVida === "reencauche1" ? 1 : currentVida === "reencauche2" ? 2 : 3;
+      if (vidaNum < 3 && shoulderDelta < 2) {
+        findings.push({ icon: "♻️", title: "Candidata a reencauche", detail: `Profundidad ${minDepth.toFixed(1)}mm con desgaste uniforme. Casco en condiciones de ser reencauchado (vida actual: ${currentVida}).`, severity: "info" });
+        recommendations.push("Retirar a 3mm para preservar el casco y enviar a reencauche. Esperar mas alla de 3mm puede dañar el casco e impedir el reencauche.");
+      }
+    }
+
+    // Build insight string
+    const lines: string[] = [];
+    lines.push(`Analisis de llanta ${tire.placa.toUpperCase()} — ${insps.length} inspecciones, salud ${health}%.`);
+    const critCount = findings.filter((f) => f.severity === "critical").length;
+    const warnCount = findings.filter((f) => f.severity === "warn").length;
+    if (critCount > 0) lines.push(`${critCount} hallazgo${critCount > 1 ? "s" : ""} critico${critCount > 1 ? "s" : ""} detectado${critCount > 1 ? "s" : ""}.`);
+    if (warnCount > 0) lines.push(`${warnCount} advertencia${warnCount > 1 ? "s" : ""}.`);
+    if (recommendations.length > 0) lines.push(`Recomendaciones:\n${recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}`);
+
+    return { findings, recommendations, insight: lines.join("\n\n") };
+  }, [tire]);
+
+  if (tire.inspecciones.length === 0) return null;
+
+  const sevColors = {
+    ok: { bg: "rgba(34,197,94,0.06)", border: "rgba(34,197,94,0.15)", text: "#22c55e" },
+    warn: { bg: "rgba(249,115,22,0.06)", border: "rgba(249,115,22,0.15)", text: "#f97316" },
+    critical: { bg: "rgba(239,68,68,0.06)", border: "rgba(239,68,68,0.15)", text: "#ef4444" },
+    info: { bg: "rgba(52,140,203,0.06)", border: "rgba(52,140,203,0.15)", text: "#348CCB" },
+  };
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(239,68,68,0.1)", background: "white" }}>
+      {/* Header */}
+      <div className="px-4 py-3 flex items-center gap-3" style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
+        <AgentCardHeader agent="sentinel" insight={analysis.insight} />
+        <div>
+          <p className="text-sm font-black text-white">Analisis SENTINEL</p>
+          <p className="text-[10px] text-white/50">
+            {analysis.findings.length} hallazgos &middot; {analysis.recommendations.length} recomendaciones
+          </p>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-3">
+        {/* Findings */}
+        {analysis.findings.map((f, i) => {
+          const c = sevColors[f.severity];
+          return (
+            <div key={i} className="flex items-start gap-3 rounded-xl px-3 py-2.5" style={{ background: c.bg, border: `1px solid ${c.border}` }}>
+              <span className="text-base flex-shrink-0 mt-0.5">{f.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black" style={{ color: c.text }}>{f.title}</p>
+                <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{f.detail}</p>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Recommendations */}
+        {analysis.recommendations.length > 0 && (
+          <div className="mt-2 rounded-xl px-4 py-3" style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(10,24,58,0.06)" }}>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#0A183A] mb-2">Recomendaciones</p>
+            <div className="space-y-2">
+              {analysis.recommendations.map((rec, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="text-[10px] font-black text-[#1E76B6] mt-0.5 flex-shrink-0">{i + 1}.</span>
+                  <p className="text-[11px] text-gray-700 leading-relaxed">{rec}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // TIRE DETAIL MODAL — all tabs fully rendered, no conditional short-circuit
 // =============================================================================
 type ModalTab = "overview" | "inspecciones" | "costos" | "vida";
@@ -1079,6 +1274,9 @@ function TireDetailModal({
                 <WearChart inspecciones={tire.inspecciones} />
                 <CpkChart inspecciones={tire.inspecciones} />
               </div>
+
+              {/* SENTINEL analysis & recommendations */}
+              <SentinelAnalysis tire={tire} />
             </div>
           )}
 
