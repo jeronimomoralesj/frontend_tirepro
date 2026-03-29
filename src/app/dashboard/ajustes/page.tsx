@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Settings,
@@ -222,9 +222,10 @@ function DistributorProfileEditor({ companyId, toast }: {
     telefono: "", descripcion: "", bannerImage: "", direccion: "", ciudad: "", sitioWeb: "",
     cobertura: [] as CoberturaItem[], tipoEntrega: "ambos", colorMarca: "#1E76B6",
   });
-  const [citySearch, setCitySearch] = useState("");
-  const [newAddress, setNewAddress] = useState("");
-  const [geocoding, setGeocoding] = useState(false);
+  const [addressQuery, setAddressQuery] = useState("");
+  const [addressResults, setAddressResults] = useState<{ display: string; city: string; address: string; lat: number; lng: number }[]>([]);
+  const [addressSearching, setAddressSearching] = useState(false);
+  const addressDebounce = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     authFetch(`${API_BASE}/marketplace/distributor/${companyId}/profile`)
@@ -251,26 +252,42 @@ function DistributorProfileEditor({ companyId, toast }: {
       .finally(() => setLoading(false));
   }, [companyId]);
 
-  async function geocodeAndAdd(city: string) {
-    setGeocoding(true);
-    let lat: number | null = null;
-    let lng: number | null = null;
-    const addr = newAddress.trim();
-    const query = addr ? `${addr}, ${city}, Colombia` : `${city}, Colombia`;
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=co`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.length > 0) { lat = parseFloat(data[0].lat); lng = parseFloat(data[0].lon); }
-      }
-    } catch { /* fallback: no coords */ }
+  // Debounced address search via Nominatim
+  function handleAddressSearch(query: string) {
+    setAddressQuery(query);
+    setAddressResults([]);
+    if (addressDebounce.current) clearTimeout(addressDebounce.current);
+    if (query.length < 3) return;
+    addressDebounce.current = setTimeout(async () => {
+      setAddressSearching(true);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", Colombia")}&format=json&limit=5&countrycodes=co&accept-language=es`);
+        if (res.ok) {
+          const data = await res.json();
+          setAddressResults(data.map((r: any) => {
+            const parts = (r.display_name ?? "").split(",").map((s: string) => s.trim());
+            const city = parts.find((p: string) => COLOMBIAN_CITIES.some((c) => p.toLowerCase().includes(c.toLowerCase()))) ?? parts[1] ?? "";
+            return {
+              display: r.display_name ?? query,
+              city: city.replace("Bogotá D.C.", "Bogota").replace("Bogotá", "Bogota").replace("Medellín", "Medellin"),
+              address: parts.slice(0, 2).join(", "),
+              lat: parseFloat(r.lat),
+              lng: parseFloat(r.lon),
+            };
+          }));
+        }
+      } catch { /* */ }
+      setAddressSearching(false);
+    }, 400);
+  }
+
+  function addCoveragePoint(result: { city: string; address: string; lat: number; lng: number }) {
     setForm((f) => ({
       ...f,
-      cobertura: [...f.cobertura, { ciudad: city, direccion: addr, lat, lng }],
+      cobertura: [...f.cobertura, { ciudad: result.city || addressQuery, direccion: result.address, lat: result.lat, lng: result.lng }],
     }));
-    setCitySearch("");
-    setNewAddress("");
-    setGeocoding(false);
+    setAddressQuery("");
+    setAddressResults([]);
   }
 
   async function handleSave() {
@@ -366,55 +383,97 @@ function DistributorProfileEditor({ companyId, toast }: {
         </div>
       </div>
 
-      {/* Coverage locations with geocoding */}
+      {/* Coverage locations */}
       <div className="mb-4">
         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
           Puntos de cobertura ({form.cobertura.length})
         </label>
-        <div className="space-y-1.5 mb-3">
-          {form.cobertura.map((loc, i) => (
-            <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F0F7FF] border border-[#348CCB]/10">
-              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: form.colorMarca }} />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-[#0A183A]">{loc.ciudad}</p>
-                {loc.direccion && <p className="text-[10px] text-gray-400">{loc.direccion}</p>}
-              </div>
-              {loc.lat && <span className="text-[8px] text-green-500 font-bold flex-shrink-0">GPS</span>}
-              <button onClick={() => setForm((f) => ({ ...f, cobertura: f.cobertura.filter((_, j) => j !== i) }))}
-                className="text-gray-400 hover:text-red-500 flex-shrink-0"><X className="w-3 h-3" /></button>
-            </div>
-          ))}
-        </div>
-        <div className="space-y-2 p-3 rounded-xl border border-dashed border-[#348CCB]/30">
-          <p className="text-[10px] font-bold text-gray-400">Agregar punto de cobertura</p>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="relative">
-              <input type="text" value={citySearch} onChange={(e) => setCitySearch(e.target.value)}
-                placeholder="Ciudad" className={inputCls} />
-              {citySearch.length >= 2 && (
-                <div className="absolute z-10 mt-1 w-full bg-white rounded-xl shadow-lg border border-gray-200 max-h-28 overflow-y-auto">
-                  {COLOMBIAN_CITIES
-                    .filter((c) => c.toLowerCase().includes(citySearch.toLowerCase()))
-                    .slice(0, 6)
-                    .map((city) => (
-                      <button key={city} onClick={() => setCitySearch(city)}
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#F0F7FF] text-[#0A183A]">
-                        {city}
-                      </button>
-                    ))}
+
+        {/* Existing points */}
+        {form.cobertura.length > 0 && (
+          <div className="space-y-1.5 mb-3">
+            {form.cobertura.map((loc, i) => (
+              <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white border border-gray-100 shadow-sm">
+                <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm" style={{ background: form.colorMarca, border: "2px solid white", boxShadow: `0 0 0 1px ${form.colorMarca}40` }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-[#0A183A]">{loc.ciudad}</p>
+                  {loc.direccion && <p className="text-[10px] text-gray-400 truncate">{loc.direccion}</p>}
                 </div>
+                {loc.lat && loc.lng && (
+                  <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 flex-shrink-0">
+                    📍 {loc.lat.toFixed(2)}, {loc.lng.toFixed(2)}
+                  </span>
+                )}
+                <button onClick={() => setForm((f) => ({ ...f, cobertura: f.cobertura.filter((_, j) => j !== i) }))}
+                  className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new — single smart search */}
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={addressQuery}
+                onChange={(e) => handleAddressSearch(e.target.value)}
+                placeholder="Buscar direccion, barrio o ciudad..."
+                className={inputCls}
+              />
+              {addressSearching && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-[#348CCB]" />
               )}
             </div>
-            <input type="text" value={newAddress} onChange={(e) => setNewAddress(e.target.value)}
-              placeholder="Direccion (opcional)" className={inputCls} />
           </div>
-          <button
-            disabled={!citySearch.trim() || geocoding}
-            onClick={() => geocodeAndAdd(citySearch.trim())}
-            className="w-full py-2 rounded-lg text-xs font-bold text-white disabled:opacity-40 transition-all"
-            style={{ background: form.colorMarca }}>
-            {geocoding ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : "Agregar y geolocalizar"}
-          </button>
+
+          {/* Search results dropdown */}
+          {addressResults.length > 0 && (
+            <div className="absolute z-20 mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+              {addressResults.map((r, i) => (
+                <button key={i} onClick={() => addCoveragePoint(r)}
+                  className="w-full text-left px-4 py-3 hover:bg-[#F0F7FF] transition-colors border-b border-gray-50 last:border-0">
+                  <p className="text-xs font-bold text-[#0A183A]">{r.city || "Colombia"}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{r.display}</p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Quick add Colombian cities */}
+          {!addressQuery && form.cobertura.length < 3 && (
+            <div className="mt-2">
+              <p className="text-[9px] text-gray-400 mb-1.5">Agregar rapidamente:</p>
+              <div className="flex flex-wrap gap-1">
+                {COLOMBIAN_CITIES.slice(0, 10)
+                  .filter((c) => !form.cobertura.some((loc) => loc.ciudad === c))
+                  .slice(0, 6)
+                  .map((city) => (
+                    <button key={city} onClick={() => {
+                      handleAddressSearch(city);
+                      // Also auto-search so they get results
+                      setTimeout(() => {
+                        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city + ", Colombia")}&format=json&limit=1&countrycodes=co`)
+                          .then((r) => r.ok ? r.json() : [])
+                          .then((data) => {
+                            if (data.length > 0) {
+                              addCoveragePoint({ city, address: "", lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+                            } else {
+                              setForm((f) => ({ ...f, cobertura: [...f.cobertura, { ciudad: city, direccion: "", lat: null, lng: null }] }));
+                            }
+                          })
+                          .catch(() => setForm((f) => ({ ...f, cobertura: [...f.cobertura, { ciudad: city, direccion: "", lat: null, lng: null }] })));
+                        setAddressQuery("");
+                      }, 100);
+                    }}
+                      className="px-2.5 py-1 rounded-full text-[10px] font-medium text-[#1E76B6] bg-[#1E76B6]/5 hover:bg-[#1E76B6]/10 transition-colors">
+                      + {city}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
