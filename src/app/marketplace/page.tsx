@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  Loader2, Package, Truck, X, Store,
+  Loader2, Package, Truck, X, Store, MapPin,
   ChevronLeft, ChevronRight, Star,
   Recycle, Clock,
 } from "lucide-react";
@@ -56,7 +56,66 @@ export default function PublicMarketplace() {
   const [sortBy, setSortBy] = useState("relevance");
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<{ type: string; listings: Listing[] }>({ type: "", listings: [] });
+  const [showLocationBanner, setShowLocationBanner] = useState(false);
+  const [detectedCity, setDetectedCity] = useState("");
   const cart = useCart();
+
+  // Location detection
+  useEffect(() => {
+    // 1. Check localStorage first
+    const saved = localStorage.getItem("marketplace_city");
+    if (saved) { setCiudad(saved); setDetectedCity(saved); return; }
+
+    // 2. Try to get from logged-in user's company
+    try {
+      const token = localStorage.getItem("token");
+      const user = JSON.parse(localStorage.getItem("user") ?? "{}");
+      if (token && user.companyId) {
+        fetch(`${API_BASE}/companies/${user.companyId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((r) => r.ok ? r.json() : null).then((company) => {
+          if (company?.ciudad) {
+            setCiudad(company.ciudad);
+            setDetectedCity(company.ciudad);
+            localStorage.setItem("marketplace_city", company.ciudad);
+            return;
+          }
+          // No company city → ask
+          setShowLocationBanner(true);
+        }).catch(() => setShowLocationBanner(true));
+        return;
+      }
+    } catch { /* guest */ }
+
+    // 3. Guest — try browser geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&accept-language=es`);
+            if (res.ok) {
+              const data = await res.json();
+              const city = data.address?.city || data.address?.town || data.address?.state || "";
+              if (city) {
+                // Normalize common Colombian city names
+                const normalized = city.replace("Bogotá D.C.", "Bogota").replace("Bogotá", "Bogota")
+                  .replace("Medellín", "Medellin").replace("Barranquilla", "Barranquilla");
+                setCiudad(normalized);
+                setDetectedCity(normalized);
+                localStorage.setItem("marketplace_city", normalized);
+                return;
+              }
+            }
+          } catch { /* */ }
+          setShowLocationBanner(true);
+        },
+        () => setShowLocationBanner(true),
+        { timeout: 5000 }
+      );
+    } else {
+      setShowLocationBanner(true);
+    }
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/marketplace/listings/filters`)
@@ -159,6 +218,44 @@ export default function PublicMarketplace() {
           </div>
         </div>
       </div>
+
+      {/* ═══ LOCATION BANNER ═══ */}
+      {detectedCity && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-3">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <MapPin className="w-3 h-3 text-[#1E76B6]" />
+            <span>Mostrando productos con envio a <strong className="text-[#0A183A]">{detectedCity}</strong></span>
+            <button onClick={() => { setCiudad(""); setDetectedCity(""); localStorage.removeItem("marketplace_city"); setShowLocationBanner(true); }}
+              className="text-[10px] text-[#1E76B6] font-bold hover:underline ml-1">Cambiar</button>
+          </div>
+        </div>
+      )}
+      {showLocationBanner && !detectedCity && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-3">
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#1E76B6]/5 border border-[#1E76B6]/10">
+            <MapPin className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+            <p className="text-xs text-[#0A183A] flex-1">¿Donde necesitas tus llantas? Mostramos distribuidores que entregan en tu ciudad.</p>
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  setCiudad(e.target.value);
+                  setDetectedCity(e.target.value);
+                  localStorage.setItem("marketplace_city", e.target.value);
+                  setShowLocationBanner(false);
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs border border-[#1E76B6]/20 bg-white text-[#0A183A] flex-shrink-0">
+              <option value="">Seleccionar ciudad</option>
+              {["Bogota","Medellin","Cali","Barranquilla","Cartagena","Bucaramanga","Cucuta","Pereira","Santa Marta","Ibague","Manizales","Villavicencio","Pasto","Monteria","Neiva","Armenia"].map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <button onClick={() => setShowLocationBanner(false)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ═══ HERO CAROUSEL (full width) ═══ */}
       {!search && !activeFilters && (
