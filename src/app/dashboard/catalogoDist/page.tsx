@@ -31,13 +31,18 @@ interface Listing {
   modelo: string;
   dimension: string;
   eje: string | null;
+  tipo: string;
   precioCop: number;
   precioPromo: number | null;
   cantidadDisponible: number;
   tiempoEntrega: string | null;
+  descripcion: string | null;
+  imageUrls: string[] | null;
+  coverIndex: number;
   isActive: boolean;
   catalogId: string | null;
   catalog?: { skuRef: string } | null;
+  _count?: { orders: number; reviews: number };
 }
 
 export default function CatalogoDistPage() {
@@ -58,9 +63,12 @@ export default function CatalogoDistPage() {
     imageUrls: [] as string[], coverIndex: 0,
   });
 
-  // Edit inline
+  // Edit
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ precioCop: 0, cantidadDisponible: 0, tiempoEntrega: "", isActive: true });
+  const [editForm, setEditForm] = useState({
+    precioCop: 0, cantidadDisponible: 0, tiempoEntrega: "", isActive: true,
+    descripcion: "", modelo: "", marca: "",
+  });
 
   const fetchListings = useCallback(async (cId: string) => {
     setLoading(true);
@@ -364,53 +372,138 @@ export default function CatalogoDistPage() {
             <p className="text-xs mt-1">Agrega tus llantas para que aparezcan en el marketplace.</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {filtered.map((l) => {
               const isEditing = editingId === l.id;
+              const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+              const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+              const salesCount = l._count?.orders ?? 0;
+              const reviewCount = l._count?.reviews ?? 0;
+
               return (
-                <div key={l.id} className="rounded-xl overflow-hidden transition-all" style={{
+                <div key={l.id} className="rounded-2xl overflow-hidden bg-white transition-all" style={{
                   border: `1px solid ${l.isActive ? "rgba(52,140,203,0.12)" : "rgba(0,0,0,0.06)"}`,
                   opacity: l.isActive ? 1 : 0.5,
                 }}>
-                  <div className="px-4 py-3 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black text-[#0A183A]">{l.marca} {l.modelo}</p>
-                      <p className="text-[10px] text-gray-400">{l.dimension}{l.eje ? ` · ${l.eje}` : ""}{l.catalog ? ` · SKU: ${l.catalog.skuRef}` : ""}</p>
+                  {/* Main row */}
+                  <div className="px-4 py-3 flex items-start gap-3">
+                    {/* Thumbnail */}
+                    <div className="w-14 h-14 rounded-xl bg-[#f5f5f7] flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-300" />}
                     </div>
 
-                    {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <input type="number" value={editForm.precioCop || ""} placeholder="Precio"
-                          onChange={(e) => setEditForm((f) => ({ ...f, precioCop: Number(e.target.value) }))}
-                          className="w-24 px-2 py-1.5 rounded-lg text-xs border border-[#348CCB]/30 text-center" />
-                        <input type="number" value={editForm.cantidadDisponible || ""} placeholder="Cant"
-                          onChange={(e) => setEditForm((f) => ({ ...f, cantidadDisponible: Number(e.target.value) }))}
-                          className="w-16 px-2 py-1.5 rounded-lg text-xs border border-[#348CCB]/30 text-center" />
-                        <button onClick={() => handleUpdate(l.id)} disabled={saving}
-                          className="p-1.5 rounded-lg text-white" style={{ background: "#22c55e" }}>
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-black text-[#0A183A]">{l.marca} {l.modelo}</p>
+                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: l.tipo === "reencauche" ? "#f3e8ff" : "#dbeafe", color: l.tipo === "reencauche" ? "#7c3aed" : "#1d4ed8" }}>
+                          {l.tipo === "reencauche" ? "Reencauche" : "Nueva"}
+                        </span>
+                        {!l.isActive && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">Inactivo</span>}
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <p className="text-sm font-black text-[#0A183A]">{fmtCOP(l.precioCop)}</p>
-                          <p className="text-[9px] text-gray-400">{l.cantidadDisponible} uds · {l.tiempoEntrega ?? "—"}</p>
-                        </div>
-                        <button onClick={() => { setEditingId(l.id); setEditForm({ precioCop: l.precioCop, cantidadDisponible: l.cantidadDisponible, tiempoEntrega: l.tiempoEntrega ?? "", isActive: l.isActive }); }}
-                          className="p-1.5 rounded-lg text-[#348CCB] hover:bg-[#F0F7FF]">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => handleDelete(l.id)}
-                          className="p-1.5 rounded-lg text-red-400 hover:bg-red-50">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{l.dimension}{l.eje ? ` · ${l.eje}` : ""}</p>
+                      {l.descripcion && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{l.descripcion}</p>}
+
+                      {/* Stats row */}
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-sm font-black text-[#0A183A]">{fmtCOP(l.precioCop)}</span>
+                        <span className="text-[9px] text-gray-400">{l.cantidadDisponible} uds</span>
+                        {salesCount > 0 && <span className="text-[9px] font-bold text-[#22c55e]">{salesCount} vendido{salesCount !== 1 ? "s" : ""}</span>}
+                        {reviewCount > 0 && <span className="text-[9px] text-gray-400">{reviewCount} resena{reviewCount !== 1 ? "s" : ""}</span>}
+                        {imgs.length > 0 && <span className="text-[9px] text-gray-400">{imgs.length} foto{imgs.length !== 1 ? "s" : ""}</span>}
                       </div>
-                    )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => {
+                        setEditingId(isEditing ? null : l.id);
+                        if (!isEditing) setEditForm({
+                          precioCop: l.precioCop, cantidadDisponible: l.cantidadDisponible,
+                          tiempoEntrega: l.tiempoEntrega ?? "", isActive: l.isActive,
+                          descripcion: l.descripcion ?? "", modelo: l.modelo, marca: l.marca,
+                        });
+                      }}
+                        className="p-1.5 rounded-lg text-[#348CCB] hover:bg-[#F0F7FF] transition-colors">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(l.id)}
+                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Expanded edit form */}
+                  {isEditing && (
+                    <div className="px-4 pb-4 pt-2 space-y-2.5" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Marca</label>
+                          <input type="text" value={editForm.marca}
+                            onChange={(e) => setEditForm((f) => ({ ...f, marca: e.target.value }))}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF]" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Modelo</label>
+                          <input type="text" value={editForm.modelo}
+                            onChange={(e) => setEditForm((f) => ({ ...f, modelo: e.target.value }))}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF]" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Precio COP</label>
+                          <input type="number" value={editForm.precioCop || ""}
+                            onChange={(e) => setEditForm((f) => ({ ...f, precioCop: Number(e.target.value) }))}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF]" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Cantidad</label>
+                          <input type="number" value={editForm.cantidadDisponible || ""}
+                            onChange={(e) => setEditForm((f) => ({ ...f, cantidadDisponible: Number(e.target.value) }))}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF]" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Entrega</label>
+                          <select value={editForm.tiempoEntrega}
+                            onChange={(e) => setEditForm((f) => ({ ...f, tiempoEntrega: e.target.value }))}
+                            className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF]">
+                            <option value="Inmediato">Inmediato</option>
+                            <option value="1-3 dias">1-3 dias</option>
+                            <option value="1 semana">1 semana</option>
+                            <option value="2 semanas">2 semanas</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 uppercase">Descripcion</label>
+                        <textarea value={editForm.descripcion}
+                          onChange={(e) => setEditForm((f) => ({ ...f, descripcion: e.target.value }))}
+                          rows={2} placeholder="Descripcion del producto..."
+                          className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF] resize-none" />
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={editForm.isActive}
+                            onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.checked }))}
+                            className="accent-[#1E76B6]" />
+                          <span className="text-[10px] font-medium text-gray-500">Activo en marketplace</span>
+                        </label>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditingId(null)}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-gray-500 border border-gray-200 hover:bg-gray-50">
+                            Cancelar
+                          </button>
+                          <button onClick={() => handleUpdate(l.id)} disabled={saving}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-white bg-[#1E76B6] hover:opacity-90 disabled:opacity-40">
+                            Guardar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
