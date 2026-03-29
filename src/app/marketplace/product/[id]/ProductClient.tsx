@@ -25,7 +25,7 @@ interface Product {
   tipo: string; precioCop: number; precioPromo: number | null; promoHasta: string | null;
   incluyeIva: boolean; cantidadDisponible: number; tiempoEntrega: string | null;
   descripcion: string | null; imageUrls: string[] | null; coverIndex: number;
-  distributor: { id: string; name: string; profileImage: string; ciudad: string | null; telefono: string | null; emailAtencion: string | null; tipoEntrega: string | null; cobertura: string[] | null };
+  distributor: { id: string; name: string; profileImage: string; ciudad: string | null; telefono: string | null; emailAtencion: string | null; tipoEntrega: string | null; cobertura: any[] | null };
   catalog: { terreno: string | null; reencauchable: boolean; kmEstimadosReales: number | null; cpkEstimado: number | null; crowdAvgCpk: number | null; psiRecomendado: number | null; rtdMm: number | null } | null;
   reviews: Review[];
   _count: { reviews: number };
@@ -278,7 +278,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
               {cobertura.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-1">
                   <span className="text-[9px] text-gray-400 font-bold mr-1">Cobertura:</span>
-                  {cobertura.slice(0, 6).map((c) => <span key={c} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{c}</span>)}
+                  {cobertura.slice(0, 6).map((c: any, i: number) => <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">{typeof c === "string" ? c : c.ciudad ?? "—"}</span>)}
                   {cobertura.length > 6 && <span className="text-[9px] text-gray-400">+{cobertura.length - 6}</span>}
                 </div>
               )}
