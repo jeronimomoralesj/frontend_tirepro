@@ -8,7 +8,7 @@ import {
   MapPin, Globe, ShoppingCart, Clock, CheckCircle, ChevronLeft, ChevronRight,
   Store, Star, Shield, Recycle, Building2,
 } from "lucide-react";
-import { MarketplaceNav, MarketplaceFooter, FloatingCartButton } from "../../../../components/MarketplaceShell";
+import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -282,7 +282,7 @@ export default function DistributorStorefront() {
 
       {/* Footer */}
       <MarketplaceFooter />
-      <FloatingCartButton />
+
     </div>
   );
 }

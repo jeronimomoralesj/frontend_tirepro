@@ -9,7 +9,7 @@ import {
   ChevronRight, Minus, Plus, X, Check,
 } from "lucide-react";
 import { useCart } from "../../../../lib/useCart";
-import { MarketplaceNav, MarketplaceFooter, FloatingCartButton } from "../../../../components/MarketplaceShell";
+import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -331,7 +331,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
       </main>
 
       <MarketplaceFooter />
-      <FloatingCartButton />
+
     </div>
   );
 }
