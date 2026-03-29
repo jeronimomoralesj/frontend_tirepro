@@ -314,28 +314,16 @@ export default function PublicMarketplace() {
       </main>
 
       {/* ═══ CTA BANNER ═══ */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="rounded-3xl overflow-hidden relative" style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 50%, #348CCB 100%)" }}>
-          <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 80% 30%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
-          <div className="relative px-8 sm:px-12 py-10 sm:py-14 text-center">
-            <p className="text-[11px] font-bold text-white/50 uppercase tracking-[0.2em] mb-3">Gestion de flotas</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight max-w-xl mx-auto">
-              ¿Quieres empezar a llevar el detalle de tus llantas?
-            </h2>
-            <p className="text-sm sm:text-base text-white/60 mt-3 max-w-md mx-auto leading-relaxed">
-              Empieza en TirePro 100% gratis. Controla desgaste, CPK, inventario y reduce costos hasta 35%.
-            </p>
-            <div className="flex items-center justify-center gap-3 mt-6">
-              <Link href="/companyregister"
-                className="px-8 py-3.5 rounded-full text-sm font-bold text-[#0A183A] bg-white hover:bg-gray-100 transition-colors shadow-lg">
-                Comenzar Gratis
-              </Link>
-              <Link href="/"
-                className="px-6 py-3.5 rounded-full text-sm font-bold text-white border border-white/20 hover:bg-white/10 transition-colors">
-                Conocer mas
-              </Link>
-            </div>
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="rounded-xl overflow-hidden relative flex items-center justify-between gap-4 px-5 sm:px-8 py-4" style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-bold text-white leading-snug">¿Quieres llevar el detalle de tus llantas?</p>
+            <p className="text-[10px] text-white/50 mt-0.5">TirePro 100% gratis — Desgaste, CPK, inventario.</p>
           </div>
+          <Link href="/companyregister"
+            className="px-4 py-2 rounded-full text-[11px] font-bold text-[#0A183A] bg-white hover:bg-gray-100 transition-colors flex-shrink-0">
+            Comenzar Gratis
+          </Link>
         </div>
       </div>
 
