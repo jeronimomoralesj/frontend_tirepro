@@ -54,6 +54,7 @@ type Vehicle = {
   id: string;
   placa: string;
   tipovhc: string;
+  configuracion?: string | null;
   tireCount?: number;
   _count?: { tires: number };
   kilometrajeActual: number;
@@ -409,33 +410,49 @@ function InspectionDiagram({
   tireUpdates,
   selectedTireId,
   onSelect,
+  configuracion,
 }: {
   tires: Tire[];
   tireUpdates: Record<string, TireUpdate>;
   selectedTireId: string | null;
   onSelect: (id: string) => void;
+  configuracion?: string | null;
 }) {
-  // Build axle layout from tire positions
+  // Build axle layout from vehicle configuracion or fallback to position-based
   const { layout, tireMap } = useMemo(() => {
     const map: Record<number, Tire> = {};
     tires.forEach((t) => { if (t.posicion > 0) map[t.posicion] = t; });
     const maxPos = Math.max(0, ...tires.map((t) => t.posicion));
 
-    let axles: number[][];
-    if (maxPos <= 2)       axles = [[1, 2]];
-    else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
-    else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
-    else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
-    else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
-    else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
-    else {
-      // Fallback: pairs of 2
-      axles = [];
-      for (let i = 1; i <= maxPos; i += 2) axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
+    let axles: number[][] = [];
+
+    if (configuracion) {
+      const parts = configuracion.split("-").map(Number).filter((n) => n > 0);
+      if (parts.length > 0) {
+        let pos = 1;
+        for (const count of parts) {
+          const axle: number[] = [];
+          for (let i = 0; i < count; i++) axle.push(pos++);
+          axles.push(axle);
+        }
+      }
+    }
+
+    if (axles.length === 0) {
+      if (maxPos <= 2)       axles = [[1, 2]];
+      else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
+      else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
+      else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
+      else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
+      else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
+      else {
+        axles = [];
+        for (let i = 1; i <= maxPos; i += 2) axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
+      }
     }
 
     return { layout: axles, tireMap: map };
-  }, [tires]);
+  }, [tires, configuracion]);
 
   function tireStatus(pos: number): "done" | "partial" | "empty" | "none" {
     const tire = tireMap[pos];
@@ -1349,6 +1366,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
                   tireUpdates={tireUpdates}
                   selectedTireId={selectedTireId}
                   onSelect={setSelectedTireId}
+                  configuracion={vehicle?.configuracion}
                 />
 
                 {/* Selected tire inspection form */}
@@ -1365,19 +1383,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
                           image:          null,
                         }
                       }
-                      onChange={(id, field, value) => {
-                        handleInputChange(id, field, value);
-                        // Auto-advance to next tire when all 3 depths are filled
-                        if (field === "profundidadExt" || field === "profundidadCen" || field === "profundidadInt") {
-                          const updated = { ...tireUpdates[id], [field]: value };
-                          if (updated.profundidadInt !== "" && updated.profundidadCen !== "" && updated.profundidadExt !== "") {
-                            const currentIdx = tires.findIndex((t) => t.id === id);
-                            if (currentIdx < tires.length - 1) {
-                              setTimeout(() => setSelectedTireId(tires[currentIdx + 1].id), 300);
-                            }
-                          }
-                        }
-                      }}
+                      onChange={handleInputChange}
                       isUnion={false}
                     />
                   </div>
