@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { ShoppingCart, Bell, Settings, BarChart3, Calendar } from "lucide-react";
+import { ShoppingCart, Bell, Settings, BarChart3, Calendar, Store } from "lucide-react";
 import PedidosTab from "./components/PedidosTab";
 import NotificacionesTab from "./components/NotificacionesTab";
+import MarketplaceTab from "./components/MarketplaceTab";
 import AjustesTab from "./components/AjustesTab";
 
 const TABS = [
   { key: "pedidos",         label: "Pedidos",         icon: ShoppingCart },
+  { key: "marketplace",     label: "Marketplace",     icon: Store },
   { key: "notificaciones",  label: "Notificaciones",  icon: Bell },
   { key: "ajustes",         label: "Ajustes",         icon: Settings },
 ] as const;
@@ -75,6 +77,7 @@ export default function AnalistaPage() {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         {active === "pedidos" && <PedidosTab />}
+        {active === "marketplace" && <MarketplaceTab />}
         {active === "notificaciones" && <NotificacionesTab />}
         {active === "ajustes" && <AjustesTab />}
       </div>

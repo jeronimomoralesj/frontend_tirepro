@@ -365,6 +365,9 @@ function ManualView({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionModal, setActionModal] = useState<"send" | "bucket" | "acceptConfirm" | null>(null);
   const [sendDistId, setSendDistId] = useState("");
+  const [sendDistIds, setSendDistIds] = useState<Set<string>>(new Set());
+  const [bidDeadlineHours, setBidDeadlineHours] = useState(48);
+  const [bidRequests, setBidRequests] = useState<any[]>([]);
   const [sendNotes, setSendNotes] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [orderToAccept, setOrderToAccept] = useState<PurchaseOrder | null>(null);
@@ -411,17 +414,56 @@ function ManualView({
     return [...connected, ...others];
   }, [distributors, allDistributors, connectedIds]);
 
+  // Fetch bid requests on mount
+  useEffect(() => { fetchBidRequests(); }, [companyId]);
+
+  // Build items from selected recommendations
+  function buildItems() {
+    return selectedRecs.map((r) => ({
+      tireId: r.tire.id, marca: r.tire.marca, dimension: r.tire.dimension,
+      diseno: r.tire.diseno, eje: r.tire.eje,
+      cantidad: 1, tipo: r.type, vehiclePlaca: r.vehiclePlaca, urgency: r.urgency,
+      catalogId: r.catalogMatch?.skuRef ?? null,
+      catalogSuggestion: r.catalogMatch ? `${r.catalogMatch.marca} ${r.catalogMatch.modelo}` : null,
+      bandaRecomendada: r.bandaRecomendada ?? null,
+    }));
+  }
+
+  // Send as bid request to multiple distributors
+  async function handleSendBid() {
+    if (sendDistIds.size === 0 || selected.size === 0) return;
+    setSending(true);
+    try {
+      const items = buildItems();
+      const deadline = new Date(Date.now() + bidDeadlineHours * 60 * 60 * 1000).toISOString();
+      const fullNotes = [sendNotes, deliveryAddress ? `[Entrega] ${deliveryAddress}` : ""].filter(Boolean).join("\n") || null;
+      const res = await authFetch(`${API_BASE}/marketplace/bid-requests`, {
+        method: "POST",
+        body: JSON.stringify({
+          companyId,
+          items,
+          totalEstimado: totalEstimated,
+          notas: fullNotes,
+          deliveryAddress: deliveryAddress || null,
+          deadline,
+          distributorIds: [...sendDistIds],
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setSelected(new Set()); setActionModal(null); setSendNotes(""); setDeliveryAddress("");
+      setSendDistIds(new Set());
+      fetchBidRequests();
+      onRefresh();
+    } catch { /* */ }
+    setSending(false);
+  }
+
+  // Legacy single-distributor send (backward compat)
   async function handleSend() {
     if (!sendDistId || selected.size === 0) return;
     setSending(true);
     try {
-      const items = selectedRecs.map((r) => ({
-        tireId: r.tire.id, marca: r.tire.marca, dimension: r.tire.dimension,
-        eje: r.tire.eje,
-        cantidad: 1, tipo: r.type, vehiclePlaca: r.vehiclePlaca, urgency: r.urgency,
-        catalogSuggestion: r.catalogMatch ? `${r.catalogMatch.marca} ${r.catalogMatch.modelo}` : null,
-        bandaRecomendada: r.bandaRecomendada ?? null,
-      }));
+      const items = buildItems();
       const fullNotes = [sendNotes, deliveryAddress ? `[Entrega] ${deliveryAddress}` : ""].filter(Boolean).join("\n") || null;
       const res = await authFetch(`${API_BASE}/purchase-orders`, {
         method: "POST",
@@ -431,6 +473,26 @@ function ManualView({
       setSelected(new Set()); setActionModal(null); setSendNotes(""); setDeliveryAddress(""); onRefresh();
     } catch { /* */ }
     setSending(false);
+  }
+
+  // Fetch active bid requests
+  async function fetchBidRequests() {
+    if (!companyId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/bid-requests/company?companyId=${companyId}`);
+      if (res.ok) setBidRequests(await res.json());
+    } catch { /* */ }
+  }
+
+  // Award a bid
+  async function handleAwardBid(bidRequestId: string, distributorId: string) {
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/bid-requests/${bidRequestId}/award`, {
+        method: "PATCH",
+        body: JSON.stringify({ distributorId, companyId }),
+      });
+      if (res.ok) fetchBidRequests();
+    } catch { /* */ }
   }
 
   async function handleBulkMoveToBucket() {
@@ -742,6 +804,96 @@ function ManualView({
         </div>
       )}
 
+      {/* ========== Licitaciones activas ========== */}
+      {bidRequests.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#8b5cf6]">Licitaciones</h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6]">{bidRequests.length}</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+          <div className="space-y-3">
+            {bidRequests.map((bid: any) => {
+              const items = Array.isArray(bid.items) ? bid.items : [];
+              const responses = bid.responses ?? [];
+              const quoted = responses.filter((r: any) => r.status === "cotizada" || r.status === "ganadora");
+              const winner = responses.find((r: any) => r.status === "ganadora");
+              const isOpen = bid.status === "abierta";
+              const deadline = bid.deadline ? new Date(bid.deadline) : null;
+              const hoursLeft = deadline ? Math.max(0, Math.round((deadline.getTime() - Date.now()) / (1000 * 60 * 60))) : null;
+
+              return (
+                <div key={bid.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: `1px solid ${isOpen ? "rgba(139,92,246,0.2)" : "rgba(0,0,0,0.06)"}` }}>
+                  {/* Header */}
+                  <div className="px-4 py-3 flex items-center justify-between" style={{ background: isOpen ? "rgba(139,92,246,0.04)" : "rgba(0,0,0,0.02)" }}>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-[#0A183A]">{items.length} llantas</p>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{
+                          background: bid.status === "abierta" ? "rgba(139,92,246,0.1)" : bid.status === "adjudicada" ? "rgba(34,197,94,0.1)" : "rgba(0,0,0,0.05)",
+                          color: bid.status === "abierta" ? "#8b5cf6" : bid.status === "adjudicada" ? "#22c55e" : "#64748b",
+                        }}>
+                          {bid.status === "abierta" ? "Abierta" : bid.status === "adjudicada" ? "Adjudicada" : bid.status === "cerrada" ? "Cerrada" : "Cancelada"}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {fmtDate(bid.createdAt)} — {responses.length} invitados, {quoted.length} cotizaron
+                        {isOpen && hoursLeft !== null && <> — <span className="font-bold text-[#8b5cf6]">{hoursLeft}h restantes</span></>}
+                      </p>
+                    </div>
+                    <p className="text-sm font-black text-[#0A183A]">{fmtCOP(bid.totalEstimado ?? 0)}</p>
+                  </div>
+
+                  {/* Responses comparison */}
+                  {quoted.length > 0 && (
+                    <div className="px-4 py-3 space-y-2" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                      {quoted.sort((a: any, b: any) => (a.totalCotizado ?? Infinity) - (b.totalCotizado ?? Infinity)).map((resp: any, i: number) => {
+                        const isWinner = resp.status === "ganadora";
+                        const isBest = i === 0 && !winner;
+                        return (
+                          <div key={resp.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{
+                            background: isWinner ? "rgba(34,197,94,0.06)" : isBest ? "rgba(30,118,182,0.04)" : "rgba(0,0,0,0.01)",
+                            border: isWinner ? "1px solid rgba(34,197,94,0.2)" : isBest ? "1px solid rgba(30,118,182,0.15)" : "1px solid rgba(0,0,0,0.04)",
+                          }}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-bold text-[#0A183A]">{resp.distributor?.name ?? "Distribuidor"}</p>
+                                {isWinner && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-green-500 text-white">GANADOR</span>}
+                                {isBest && !winner && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6]">Mejor precio</span>}
+                              </div>
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                {resp.tiempoEntrega ?? "Sin tiempo estimado"} {resp.incluyeIva ? "· IVA incluido" : ""}
+                              </p>
+                            </div>
+                            <p className="text-base font-black text-[#0A183A]">{fmtCOP(resp.totalCotizado ?? 0)}</p>
+                            {isOpen && !winner && resp.status === "cotizada" && (
+                              <button onClick={() => handleAwardBid(bid.id, resp.distributorId)}
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white transition-all hover:opacity-90"
+                                style={{ background: "#22c55e" }}>
+                                Adjudicar
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Pending responses */}
+                  {isOpen && responses.filter((r: any) => r.status === "pendiente").length > 0 && (
+                    <div className="px-4 py-2" style={{ background: "rgba(0,0,0,0.01)", borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                      <p className="text-[10px] text-gray-400">
+                        Esperando: {responses.filter((r: any) => r.status === "pendiente").map((r: any) => r.distributor?.name).join(", ")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ========== Historial (collapsible) ========== */}
       {orders.filter((o) => o.status === "aceptada" || o.status === "rechazada").length > 0 && (
         <div>
@@ -804,36 +956,67 @@ function ManualView({
 
       {/* ============== Send Proposal Modal ============== */}
       {actionModal === "send" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
-          <div className="bg-white rounded-xl shadow-sm w-full max-w-md overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
-            <div className="bg-[#173D68] text-white px-6 py-4 flex justify-between items-center">
-              <h2 className="font-bold text-sm">Enviar Propuesta a Distribuidor</h2>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+            <div className="bg-[#173D68] text-white px-5 py-3.5 flex justify-between items-center flex-shrink-0">
+              <div>
+                <h2 className="font-bold text-sm">Solicitar Cotizaciones</h2>
+                <p className="text-[10px] text-white/50">{selected.size} llantas — Total estimado: {fmtCOP(totalEstimated)}</p>
+              </div>
               <button onClick={() => setActionModal(null)} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-5 space-y-4">
-              <p className="text-xs text-gray-400">{selected.size} llantas — Total: {fmtCOP(totalEstimated)}</p>
-
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Distributor multi-select */}
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Distribuidor</label>
-                <select value={sendDistId} onChange={(e) => setSendDistId(e.target.value)} className={inputCls}>
-                  <option value="">Seleccionar distribuidor...</option>
-                  {sortedDistributors.length > 0 && connectedIds.size > 0 && <option disabled className="font-bold">-- Mis distribuidores --</option>}
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
+                  Distribuidores ({sendDistIds.size} seleccionados)
+                </label>
+                <div className="max-h-36 overflow-y-auto rounded-xl border border-[#348CCB]/20 divide-y divide-gray-50">
+                  {sortedDistributors.filter((d) => d.isConnected).length > 0 && (
+                    <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-[#348CCB] bg-[#F0F7FF]">Mis distribuidores</p>
+                  )}
                   {sortedDistributors.filter((d) => d.isConnected).map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
+                    <label key={d.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F7FF] cursor-pointer transition-colors">
+                      <input type="checkbox" checked={sendDistIds.has(d.id)}
+                        onChange={() => setSendDistIds((prev) => { const n = new Set(prev); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n; })}
+                        className="accent-[#1E76B6] w-3.5 h-3.5" />
+                      <span className="text-xs font-medium text-[#0A183A]">{d.name}</span>
+                      <span className="ml-auto text-[9px] text-green-500 font-bold">Conectado</span>
+                    </label>
                   ))}
-                  {sortedDistributors.some((d) => !d.isConnected) && <option disabled className="font-bold">-- Otros distribuidores --</option>}
+                  {sortedDistributors.filter((d) => !d.isConnected).length > 0 && (
+                    <p className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-gray-400 bg-gray-50">Otros distribuidores</p>
+                  )}
                   {sortedDistributors.filter((d) => !d.isConnected).map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
+                    <label key={d.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F7FF] cursor-pointer transition-colors">
+                      <input type="checkbox" checked={sendDistIds.has(d.id)}
+                        onChange={() => setSendDistIds((prev) => { const n = new Set(prev); n.has(d.id) ? n.delete(d.id) : n.add(d.id); return n; })}
+                        className="accent-[#1E76B6] w-3.5 h-3.5" />
+                      <span className="text-xs font-medium text-[#0A183A]">{d.name}</span>
+                    </label>
                   ))}
+                </div>
+              </div>
+
+              {/* Deadline */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Plazo para cotizar</label>
+                <select value={bidDeadlineHours} onChange={(e) => setBidDeadlineHours(Number(e.target.value))} className={inputCls}>
+                  <option value={24}>24 horas</option>
+                  <option value={48}>48 horas</option>
+                  <option value={72}>72 horas</option>
+                  <option value={168}>1 semana</option>
                 </select>
               </div>
 
+              {/* Delivery address */}
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Dirección de entrega</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Direccion de entrega</label>
                 <input type="text" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="Ej: Bodega Calle 80 #45-12, Bogotá" className={inputCls} />
+                  placeholder="Ej: Bodega Calle 80 #45-12, Bogota" className={inputCls} />
               </div>
 
+              {/* Notes */}
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Notas (opcional)</label>
                 <textarea value={sendNotes} onChange={(e) => setSendNotes(e.target.value)} rows={2}
@@ -843,18 +1026,34 @@ function ManualView({
               {selectedRecs.some((r) => r.urgency === "critical") && (
                 <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 text-xs text-red-600">
                   <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                  Incluye llantas en estado critico que requieren atencion inmediata.
+                  Incluye llantas criticas que requieren atencion inmediata.
                 </div>
               )}
 
-              <div className="flex gap-3 pt-1">
-                <button onClick={() => setActionModal(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">Cancelar</button>
-                <button onClick={handleSend} disabled={sending || !sendDistId}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
-                  style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Enviar
-                </button>
+              {/* Items summary */}
+              <div className="rounded-lg p-3" style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(10,24,58,0.06)" }}>
+                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-2">Llantas solicitadas</p>
+                <div className="space-y-1">
+                  {selectedRecs.slice(0, 5).map((r) => (
+                    <div key={r.tire.id} className="flex items-center justify-between text-[10px]">
+                      <span className="text-gray-600">{r.tire.marca} {r.tire.dimension} · {r.type === "reencauche" ? "Reencauche" : "Nueva"}</span>
+                      <span className="font-bold text-[#0A183A]">{fmtCOP(r.catalogMatch?.precioCop ?? r.estimatedPrice)}</span>
+                    </div>
+                  ))}
+                  {selectedRecs.length > 5 && <p className="text-[9px] text-gray-400">+{selectedRecs.length - 5} mas...</p>}
+                </div>
               </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
+              <button onClick={() => setActionModal(null)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">Cancelar</button>
+              <button onClick={handleSendBid} disabled={sending || sendDistIds.size === 0}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Solicitar a {sendDistIds.size} distribuidor{sendDistIds.size !== 1 ? "es" : ""}
+              </button>
             </div>
           </div>
         </div>
@@ -1148,6 +1347,7 @@ export default function PedidosTab() {
     if (!stored) return;
     try { const user = JSON.parse(stored); if (!user.companyId) return; setCompanyId(user.companyId); fetchAll(user.companyId); } catch { /* */ }
   }, [fetchAll]);
+
 
   const rawRecs = useMemo(() => analyzeFleet(tires), [tires]);
 
