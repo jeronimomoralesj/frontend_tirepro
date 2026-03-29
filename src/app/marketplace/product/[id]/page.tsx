@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -39,6 +39,7 @@ export default function ProductPage() {
   const [selectedImg, setSelectedImg] = useState(0);
   const [qty, setQty] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [similar, setSimilar] = useState<any[]>([]);
   const cart = useCart();
 
   useEffect(() => {
@@ -50,6 +51,15 @@ export default function ProductPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Fetch similar products
+  useEffect(() => {
+    if (!product) return;
+    fetch(`${API_BASE}/marketplace/listings?dimension=${encodeURIComponent(product.dimension)}&limit=5&sortBy=price_asc`)
+      .then((r) => (r.ok ? r.json() : { listings: [] }))
+      .then((d) => setSimilar((d.listings ?? []).filter((l: any) => l.id !== product.id).slice(0, 4)))
+      .catch(() => {});
+  }, [product]);
 
   function handleAddToCart() {
     if (!product) return;
@@ -281,6 +291,39 @@ export default function ProductPage() {
                   {r.comment && <p className="text-sm text-gray-600">{r.comment}</p>}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+        {/* Similar products */}
+        {similar.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-lg font-black text-[#0A183A] mb-4">Productos similares</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {similar.map((l: any) => {
+                const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+                const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+                const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+                const p = hasPromo ? l.precioPromo : l.precioCop;
+                return (
+                  <Link key={l.id} href={`/marketplace/product/${l.id}`}
+                    className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-all group border border-gray-100">
+                    <div className="aspect-square flex items-center justify-center bg-[#fafafa] overflow-hidden">
+                      {cover ? (
+                        <img src={cover} alt="" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" />
+                      ) : (
+                        <Package className="w-8 h-8 text-gray-200" />
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="text-[10px] text-gray-400 uppercase">{l.marca}</p>
+                      <p className="text-xs font-bold text-[#0A183A] leading-snug truncate">{l.modelo}</p>
+                      <p className="text-[10px] text-gray-400">{l.dimension}</p>
+                      <p className="text-sm font-black text-[#0A183A] mt-1">{fmtCOP(p)}</p>
+                      {l.distributor && <p className="text-[9px] text-gray-400 mt-1">{l.distributor.name}</p>}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}

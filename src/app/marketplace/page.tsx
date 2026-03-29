@@ -55,13 +55,14 @@ export default function PublicMarketplace() {
   const [ciudad, setCiudad] = useState("");
   const [sortBy, setSortBy] = useState("price_asc");
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<{ type: string; listings: Listing[] }>({ type: "", listings: [] });
   const cart = useCart();
 
   useEffect(() => {
     fetch(`${API_BASE}/marketplace/listings/filters`)
       .then((r) => (r.ok ? r.json() : { dimensions: [], marcas: [], distributors: [] }))
       .then(setFilters).catch(() => {});
-    // Fetch recent orders if logged in
+    // Fetch recent orders + recommendations
     try {
       const token = localStorage.getItem("token");
       const user = JSON.parse(localStorage.getItem("user") ?? "{}");
@@ -69,8 +70,22 @@ export default function PublicMarketplace() {
         fetch(`${API_BASE}/marketplace/orders/user?userId=${user.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         }).then((r) => (r.ok ? r.json() : [])).then(setRecentOrders).catch(() => {});
+        // Personalized recommendations
+        fetch(`${API_BASE}/marketplace/recommendations?userId=${user.id}`)
+          .then((r) => (r.ok ? r.json() : { type: "", listings: [] }))
+          .then(setRecommendations).catch(() => {});
+      } else {
+        // Guest — popular/newest
+        fetch(`${API_BASE}/marketplace/recommendations`)
+          .then((r) => (r.ok ? r.json() : { type: "", listings: [] }))
+          .then(setRecommendations).catch(() => {});
       }
-    } catch { /* guest */ }
+    } catch {
+      // Guest fallback
+      fetch(`${API_BASE}/marketplace/recommendations`)
+        .then((r) => (r.ok ? r.json() : { type: "", listings: [] }))
+        .then(setRecommendations).catch(() => {});
+    }
   }, []);
 
   const fetchListings = useCallback(async () => {
@@ -212,6 +227,20 @@ export default function PublicMarketplace() {
                 </Link>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ RECOMMENDATIONS ═══ */}
+      {recommendations.listings.length > 0 && !search && !activeFilters && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+          <h2 className="text-sm font-black text-[#0A183A] mb-3">
+            {recommendations.type === "personalized" ? "Recomendado para ti" : recommendations.type === "popular" ? "Mas vendidos" : "Productos destacados"}
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {recommendations.listings.slice(0, 4).map((l) => (
+              <ProductCard key={l.id} l={l} />
+            ))}
           </div>
         </div>
       )}
