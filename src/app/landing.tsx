@@ -400,6 +400,12 @@ function PlateSearch() {
     setVehicleInfo({ clase: match.label })
     setFoundDimensions(match.dimensions)
     setStep("results")
+    // Save to community DB so the next person gets instant results
+    fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placa)}/community`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clase: type.toUpperCase() }),
+    }).catch(() => {})
   }
 
   function goToMarketplace(dim: string) {

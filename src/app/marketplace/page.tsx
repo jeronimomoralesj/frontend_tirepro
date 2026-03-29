@@ -513,9 +513,15 @@ function PlateSearchBar({ onDimensionSelect }: { onDimensionSelect: (dim: string
   function handleTypeSelect(key: string) {
     const v = VEHICLE_TIRE_MAP[key];
     if (!v) return;
-    setVehicleInfo({ clase: v.label });
+    setVehicleInfo({ clase: v.label, source: "community" });
     setDims(v.dimensions);
     setStep("found");
+    // Save to community DB so the next person gets instant results
+    fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placa)}/community`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clase: key.toUpperCase() }),
+    }).catch(() => {});
   }
 
   function reset() { setStep("idle"); setPlaca(""); setVehicleInfo({}); setDims([]); }
