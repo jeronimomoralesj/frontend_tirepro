@@ -113,9 +113,55 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url:             `${BASE_URL}/blog/${post.slug}`,
       lastModified:    safeDate(post.updatedAt || post.createdAt),
       changeFrequency: 'monthly' as const,
-      // Featured posts get a small priority boost
       priority:        post.featured ? 0.85 : 0.75,
     }))
 
-  return [...staticPages, ...postEntries]
+  // -- Marketplace pages -------------------------------------------------------
+  const marketplaceStatic: MetadataRoute.Sitemap = [
+    {
+      url:             `${BASE_URL}/marketplace`,
+      lastModified:    new Date(),
+      changeFrequency: 'daily',
+      priority:        0.95,
+    },
+  ]
+
+  // Fetch marketplace listings for product pages
+  let productEntries: MetadataRoute.Sitemap = []
+  let distributorEntries: MetadataRoute.Sitemap = []
+  try {
+    const listingsRes = await fetch(`${API_URL}/marketplace/listings?limit=500&sortBy=newest`, {
+      next: { revalidate: 3600 },
+    })
+    if (listingsRes.ok) {
+      const data = await listingsRes.json()
+      const listings = data.listings ?? []
+      productEntries = listings.map((l: any) => ({
+        url:             `${BASE_URL}/marketplace/product/${l.id}`,
+        lastModified:    safeDate(l.updatedAt),
+        changeFrequency: 'weekly' as const,
+        priority:        0.8,
+      }))
+
+      // Extract unique distributors
+      const distIds = new Set<string>()
+      const distEntries: MetadataRoute.Sitemap = []
+      for (const l of listings) {
+        if (l.distributor?.id && !distIds.has(l.distributor.id)) {
+          distIds.add(l.distributor.id)
+          distEntries.push({
+            url:             `${BASE_URL}/marketplace/distributor/${l.distributor.id}`,
+            lastModified:    new Date(),
+            changeFrequency: 'weekly' as const,
+            priority:        0.75,
+          })
+        }
+      }
+      distributorEntries = distEntries
+    }
+  } catch (error) {
+    console.error('Sitemap marketplace fetch error:', error)
+  }
+
+  return [...staticPages, ...postEntries, ...marketplaceStatic, ...productEntries, ...distributorEntries]
 }

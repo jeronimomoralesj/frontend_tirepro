@@ -100,6 +100,34 @@ export default function ProductPage() {
   const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
   const hasPromo = product.precioPromo != null && product.promoHasta && new Date(product.promoHasta) > new Date();
   const price = hasPromo ? product.precioPromo! : product.precioCop;
+
+  // Structured data for SEO
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: `${product.marca} ${product.modelo}`,
+    description: product.descripcion || `${product.marca} ${product.modelo} ${product.dimension}`,
+    image: imgs,
+    brand: { "@type": "Brand", name: product.marca },
+    sku: product.id,
+    offers: {
+      "@type": "Offer",
+      url: `https://tirepro.com.co/marketplace/product/${product.id}`,
+      priceCurrency: "COP",
+      price: price,
+      availability: product.cantidadDisponible > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: { "@type": "Organization", name: product.distributor.name },
+    },
+    ...(product.reviews.length > 0 && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: (product.reviews.reduce((s, r) => s + r.rating, 0) / product.reviews.length).toFixed(1),
+        reviewCount: product.reviews.length,
+        bestRating: 5,
+        worstRating: 1,
+      },
+    }),
+  };
   const discount = hasPromo ? Math.round(((product.precioCop - product.precioPromo!) / product.precioCop) * 100) : 0;
   const cpk = product.catalog?.crowdAvgCpk ?? product.catalog?.cpkEstimado;
   const avgRating = product.reviews.length > 0 ? product.reviews.reduce((s, r) => s + r.rating, 0) / product.reviews.length : 0;
@@ -107,6 +135,7 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <MarketplaceNav />
 
       {/* Added to cart notification */}
