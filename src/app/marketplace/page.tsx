@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -40,7 +40,15 @@ interface Filters { dimensions: string[]; marcas: string[]; distributors: Distri
 
 // =============================================================================
 
-export default function PublicMarketplace() {
+export default function PublicMarketplaceWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f5f5f7]" />}>
+      <PublicMarketplace />
+    </Suspense>
+  );
+}
+
+function PublicMarketplace() {
   const searchParams = useSearchParams();
   const [listings, setListings] = useState<Listing[]>([]);
   const [total, setTotal] = useState(0);
