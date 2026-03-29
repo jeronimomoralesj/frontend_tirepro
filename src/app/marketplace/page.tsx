@@ -8,6 +8,7 @@ import {
   SlidersHorizontal, Clock, CheckCircle, Star, Shield,
   ChevronDown, Recycle, CircleDot, Building2,
 } from "lucide-react";
+import { useCart } from "../../lib/useCart";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -54,6 +55,7 @@ export default function PublicMarketplace() {
   const [ciudad, setCiudad] = useState("");
   const [sortBy, setSortBy] = useState("price_asc");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const cart = useCart();
 
   useEffect(() => {
     fetch(`${API_BASE}/marketplace/listings/filters`)
@@ -122,6 +124,14 @@ export default function PublicMarketplace() {
 
             {/* Right actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Link href="/marketplace/cart" className="relative p-2.5 rounded-full hover:bg-gray-50 transition-colors">
+                <ShoppingCart className="w-5 h-5 text-[#0A183A]" />
+                {cart.count > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 rounded-full bg-[#1E76B6] text-white text-[8px] font-black flex items-center justify-center" style={{ minWidth: 18, height: 18 }}>
+                    {cart.count}
+                  </span>
+                )}
+              </Link>
               <Link href="/login" className="hidden sm:flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-[#0A183A] border border-gray-200 hover:bg-gray-50 transition-colors">
                 Ingresar
               </Link>

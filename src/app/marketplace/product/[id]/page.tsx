@@ -6,8 +6,9 @@ import Link from "next/link";
 import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
   Mail, Globe, Star, Clock, CheckCircle, Shield, Recycle, ChevronLeft,
-  ChevronRight, Minus, Plus, X,
+  ChevronRight, Minus, Plus, X, Check,
 } from "lucide-react";
+import { useCart } from "../../../../lib/useCart";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -35,19 +36,8 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [selectedImg, setSelectedImg] = useState(0);
   const [qty, setQty] = useState(1);
-  const [showOrder, setShowOrder] = useState(false);
-  const [orderForm, setOrderForm] = useState({ buyerName: "", buyerEmail: "", buyerPhone: "", buyerAddress: "", buyerCity: "", buyerCompany: "", notas: "" });
-  const [submitting, setSubmitting] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
-  const [orderId, setOrderId] = useState("");
-
-  // Try to pre-fill from logged in user
-  useEffect(() => {
-    try {
-      const user = JSON.parse(localStorage.getItem("user") ?? "{}");
-      if (user.name) setOrderForm((f) => ({ ...f, buyerName: user.name, buyerEmail: user.email ?? "" }));
-    } catch { /* guest */ }
-  }, []);
+  const [addedToCart, setAddedToCart] = useState(false);
+  const cart = useCart();
 
   useEffect(() => {
     if (!id) return;
@@ -59,25 +49,24 @@ export default function ProductPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function handleOrder() {
-    if (!product || !orderForm.buyerName || !orderForm.buyerEmail) return;
-    setSubmitting(true);
-    try {
-      let userId: string | undefined;
-      try { userId = JSON.parse(localStorage.getItem("user") ?? "{}").id; } catch { /* guest */ }
-      const token = localStorage.getItem("token") ?? "";
-      const res = await fetch(`${API_BASE}/marketplace/orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ listingId: product.id, quantity: qty, userId, ...orderForm }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setOrderId(data.id?.slice(0, 8).toUpperCase() ?? "");
-        setOrderSuccess(true);
-      }
-    } catch { /* */ }
-    setSubmitting(false);
+  function handleAddToCart() {
+    if (!product) return;
+    const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+    cart.addItem({
+      listingId: product.id,
+      marca: product.marca,
+      modelo: product.modelo,
+      dimension: product.dimension,
+      precioCop: product.precioCop,
+      precioPromo: product.precioPromo,
+      promoHasta: product.promoHasta,
+      tipo: product.tipo,
+      imageUrl: imgs.length > 0 ? imgs[product.coverIndex ?? 0] ?? imgs[0] : null,
+      distributorId: product.distributor.id,
+      distributorName: product.distributor.name,
+    }, qty);
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 3000);
   }
 
   if (loading) return (
@@ -104,8 +93,6 @@ export default function ProductPage() {
   const avgRating = product.reviews.length > 0 ? product.reviews.reduce((s, r) => s + r.rating, 0) / product.reviews.length : 0;
   const cobertura = Array.isArray(product.distributor.cobertura) ? product.distributor.cobertura : [];
 
-  const inputCls = "w-full px-3.5 py-2.5 rounded-xl text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] text-[#0A183A] placeholder-gray-400";
-
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       {/* Nav */}
@@ -115,31 +102,26 @@ export default function ProductPage() {
             <ArrowLeft className="w-4 h-4" /> Marketplace
           </Link>
           <div className="flex-1" />
-          <Link href="/marketplace" className="flex items-center gap-1.5">
-            <ShoppingCart className="w-4 h-4 text-[#1E76B6]" />
-            <span className="text-xs font-bold text-[#0A183A] hidden sm:block">TirePro</span>
+          <Link href="/marketplace/cart" className="relative flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-gray-50 transition-colors">
+            <ShoppingCart className="w-4 h-4 text-[#0A183A]" />
+            {cart.count > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-[#1E76B6] text-white text-[8px] font-black flex items-center justify-center" style={{ minWidth: 18, height: 18 }}>
+                {cart.count}
+              </span>
+            )}
           </Link>
         </div>
       </header>
 
-      {/* Order success overlay */}
-      {orderSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-green-500" />
-            </div>
-            <h2 className="text-xl font-black text-[#0A183A] mb-2">Pedido Confirmado</h2>
-            <p className="text-sm text-gray-500 mb-1">Pedido #{orderId}</p>
-            <p className="text-sm text-gray-500 mb-6">Te enviamos un email de confirmacion. El distribuidor se comunicara contigo.</p>
-            <div className="flex gap-3">
-              <Link href="/marketplace" className="flex-1 py-2.5 rounded-xl text-sm font-bold text-[#1E76B6] border border-gray-200 hover:bg-gray-50 text-center">
-                Seguir comprando
-              </Link>
-              <button onClick={() => setOrderSuccess(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
-                Cerrar
-              </button>
-            </div>
+      {/* Added to cart notification */}
+      {addedToCart && (
+        <div className="fixed top-20 right-4 z-50 bg-white rounded-xl shadow-2xl p-4 flex items-center gap-3 animate-in slide-in-from-right" style={{ border: "1px solid rgba(34,197,94,0.2)" }}>
+          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+            <Check className="w-4 h-4 text-green-500" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#0A183A]">Agregado al carrito</p>
+            <Link href="/marketplace/cart" className="text-[10px] font-bold text-[#1E76B6] hover:underline">Ver carrito ({cart.count})</Link>
           </div>
         </div>
       )}
@@ -248,63 +230,19 @@ export default function ProductPage() {
                 <span className="text-lg font-black text-[#0A183A] ml-auto">{fmtCOP(price * qty)}</span>
               </div>
 
-              {!showOrder ? (
-                <button onClick={() => setShowOrder(true)}
-                  className="w-full py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+              <div className="flex gap-3">
+                <button onClick={handleAddToCart}
+                  className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
                   style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
-                  Ordenar ahora
+                  <ShoppingCart className="w-4 h-4 inline mr-2" />
+                  Agregar al carrito
                 </button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Nombre *</label>
-                      <input type="text" value={orderForm.buyerName} onChange={(e) => setOrderForm((f) => ({ ...f, buyerName: e.target.value }))}
-                        placeholder="Tu nombre" className={inputCls} />
-                    </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Email *</label>
-                      <input type="email" value={orderForm.buyerEmail} onChange={(e) => setOrderForm((f) => ({ ...f, buyerEmail: e.target.value }))}
-                        placeholder="tu@email.com" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Telefono</label>
-                      <input type="tel" value={orderForm.buyerPhone} onChange={(e) => setOrderForm((f) => ({ ...f, buyerPhone: e.target.value }))}
-                        placeholder="+57 300..." className={inputCls} />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Ciudad</label>
-                      <input type="text" value={orderForm.buyerCity} onChange={(e) => setOrderForm((f) => ({ ...f, buyerCity: e.target.value }))}
-                        placeholder="Bogota" className={inputCls} />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Direccion de entrega</label>
-                      <input type="text" value={orderForm.buyerAddress} onChange={(e) => setOrderForm((f) => ({ ...f, buyerAddress: e.target.value }))}
-                        placeholder="Calle, carrera, barrio..." className={inputCls} />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Empresa (opcional)</label>
-                      <input type="text" value={orderForm.buyerCompany} onChange={(e) => setOrderForm((f) => ({ ...f, buyerCompany: e.target.value }))}
-                        placeholder="Nombre de tu empresa" className={inputCls} />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Notas</label>
-                      <textarea value={orderForm.notas} onChange={(e) => setOrderForm((f) => ({ ...f, notas: e.target.value }))}
-                        rows={2} placeholder="Instrucciones especiales..." className={`${inputCls} resize-none`} />
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => setShowOrder(false)} className="flex-1 py-3 rounded-xl text-sm font-bold text-gray-500 border border-gray-200 hover:bg-gray-50">
-                      Cancelar
-                    </button>
-                    <button onClick={handleOrder} disabled={submitting || !orderForm.buyerName || !orderForm.buyerEmail}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all hover:opacity-90"
-                      style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
-                      {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Confirmar — ${fmtCOP(price * qty)}`}
-                    </button>
-                  </div>
-                </div>
-              )}
+                <Link href="/marketplace/cart"
+                  className="px-5 py-3.5 rounded-xl text-sm font-bold text-[#0A183A] border border-gray-200 hover:bg-gray-50 flex items-center gap-1.5 transition-colors">
+                  Ir al carrito
+                  {cart.count > 0 && <span className="w-5 h-5 rounded-full bg-[#1E76B6] text-white text-[9px] font-black flex items-center justify-center">{cart.count}</span>}
+                </Link>
+              </div>
             </div>
 
             {/* Distributor info */}
