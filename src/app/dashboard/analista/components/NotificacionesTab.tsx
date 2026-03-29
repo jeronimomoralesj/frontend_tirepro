@@ -374,7 +374,11 @@ export default function NotificacionesTab() {
     setLoading(true);
     try {
       const res = await authFetch(`${API_BASE}/notifications/actionable?companyId=${cId}`);
-      if (res.ok) setNotifications(await res.json());
+      if (res.ok) {
+        const all: Notification[] = await res.json();
+        const sentinelTypes = new Set(["remove_from_service", "inspect", "rotate", "pressure_adjust"]);
+        setNotifications(all.filter((n) => !n.actionType || sentinelTypes.has(n.actionType)));
+      }
     } catch { /* */ }
     setLoading(false);
   }, []);
