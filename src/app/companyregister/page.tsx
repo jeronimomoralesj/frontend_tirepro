@@ -258,10 +258,9 @@ function CompanyRegisterPage() {
     );
   }
 
-  // -- User Type Selection Step — redirect to /signup if no plan param --------
+  // -- User Type Selection Step ------------------------------------------------
 
   if (step === "userType") {
-    if (typeof window !== "undefined") { window.location.href = "/signup"; return null; }
     return (
       <div className="min-h-screen bg-white overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(135deg, #f0f6fb 0%, #ffffff 50%, #e8f3fa 100%)" }} />
