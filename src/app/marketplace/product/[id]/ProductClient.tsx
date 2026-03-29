@@ -342,6 +342,78 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
               })()}
             </div>
 
+            {/* ═══ VEHICLE COMPATIBILITY ═══ */}
+            <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Truck className="w-4 h-4 text-[#1E76B6]" />
+                <p className="text-sm font-bold text-[#0A183A]">Vehiculos compatibles</p>
+              </div>
+              {(() => {
+                const dim = product.dimension;
+                const eje = product.eje;
+                const terreno = product.catalog?.terreno;
+
+                // Map dimension patterns to vehicle types
+                const COMPAT: { dim: RegExp; vehicles: { name: string; icon: string; positions: string }[] }[] = [
+                  { dim: /22\.5/, vehicles: [
+                    { name: "Tractomula (cabezote)", icon: "🚛", positions: eje === "direccion" ? "Eje delantero (P1, P2)" : eje === "traccion" ? "Ejes traseros (P3-P6)" : "Todas las posiciones" },
+                    { name: "Trailer 3 ejes", icon: "📦", positions: eje === "libre" || !eje ? "Todos los ejes" : `Eje de ${eje}` },
+                    { name: "Bus interurbano", icon: "🚌", positions: eje === "direccion" ? "Eje direccional" : "Ejes de traccion" },
+                  ]},
+                  { dim: /19\.5/, vehicles: [
+                    { name: "Camion mediano", icon: "🚚", positions: eje === "direccion" ? "Eje delantero" : "Eje trasero" },
+                    { name: "Bus urbano", icon: "🚌", positions: "Todos los ejes" },
+                  ]},
+                  { dim: /17\.5/, vehicles: [
+                    { name: "Camion liviano", icon: "🚚", positions: eje === "direccion" ? "Eje delantero" : "Todas las posiciones" },
+                    { name: "Furgon", icon: "📦", positions: "Todos los ejes" },
+                  ]},
+                  { dim: /24\.5/, vehicles: [
+                    { name: "Volqueta", icon: "🚛", positions: eje === "traccion" ? "Ejes de traccion" : "Eje direccional" },
+                    { name: "Mixer (mezcladora)", icon: "🏗️", positions: "Ejes de carga" },
+                  ]},
+                  { dim: /20/, vehicles: [
+                    { name: "Camion pesado", icon: "🚛", positions: eje === "direccion" ? "Eje delantero" : "Ejes traseros" },
+                    { name: "Bus intermunicipal", icon: "🚌", positions: "Todos los ejes" },
+                  ]},
+                ];
+
+                const matches = COMPAT.filter((c) => c.dim.test(dim));
+                const vehicles = matches.length > 0
+                  ? matches.flatMap((m) => m.vehicles)
+                  : [
+                    { name: "Vehiculo de carga", icon: "🚛", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
+                    { name: "Bus / transporte", icon: "🚌", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
+                  ];
+
+                return (
+                  <div className="space-y-2">
+                    {vehicles.map((v, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: "rgba(30,118,182,0.03)", border: "1px solid rgba(30,118,182,0.08)" }}>
+                        <span className="text-lg flex-shrink-0">{v.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-[#0A183A]">{v.name}</p>
+                          <p className="text-[10px] text-gray-500">{v.positions}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {terreno && (
+                      <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3 text-green-500" />
+                        Optimizada para terreno: <span className="font-bold text-gray-600">{terreno}</span>
+                      </p>
+                    )}
+                    {eje && (
+                      <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3 text-[#1E76B6]" />
+                        Posicion recomendada: <span className="font-bold text-gray-600">Eje de {eje}</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* ═══ VEHICLE RECOMMENDATION AGENT ═══ */}
             <div className="mt-6 p-4 rounded-2xl border border-gray-200" style={{ background: "linear-gradient(135deg, rgba(10,24,58,0.03), rgba(30,118,182,0.03))" }}>
               <div className="flex items-center gap-2 mb-1">
