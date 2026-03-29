@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, ChevronDown, ChevronUp, Send, Check, X,
-  BarChart3, Calendar, Package,
+  BarChart3, Calendar, Package, Gavel, Clock, DollarSign,
 } from "lucide-react";
+import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
 // -- API ----------------------------------------------------------------------
 
@@ -439,18 +440,205 @@ function OrderCard({
 // Page
 // ==============================================================================
 
+// =============================================================================
+// Bid Request Card — distributor responds with prices
+// =============================================================================
+
+function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: string; onUpdated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const items: any[] = Array.isArray(bid.items) ? bid.items : [];
+  const myResponse = (bid.responses ?? [])[0]; // already filtered by distributorId in API
+  const hasQuoted = myResponse?.status === "cotizada";
+  const deadline = bid.deadline ? new Date(bid.deadline) : null;
+  const hoursLeft = deadline ? Math.max(0, Math.round((deadline.getTime() - Date.now()) / (1000 * 60 * 60))) : null;
+
+  const [cotItems, setCotItems] = useState<Array<{
+    precioUnitario: number; disponible: boolean; tiempoEntrega: string; notas: string; alternativeMarca: string; alternativeModelo: string;
+  }>>(
+    items.map(() => ({ precioUnitario: 0, disponible: true, tiempoEntrega: "1-3 dias", notas: "", alternativeMarca: "", alternativeModelo: "" }))
+  );
+  const [globalNotas, setGlobalNotas] = useState("");
+  const [incluyeIva, setIncluyeIva] = useState(false);
+
+  const totalCotizado = cotItems.reduce((s, c) => s + (c.disponible ? c.precioUnitario : 0), 0) * (incluyeIva ? 1.19 : 1);
+
+  async function handleSubmitBid() {
+    setSubmitting(true);
+    try {
+      const cotizacion = cotItems.map((c, i) => ({
+        itemIndex: i,
+        precioUnitario: c.precioUnitario,
+        disponible: c.disponible,
+        tiempoEntrega: c.tiempoEntrega,
+        notas: c.notas,
+        alternativeTire: c.alternativeMarca && c.alternativeModelo
+          ? `${c.alternativeMarca} ${c.alternativeModelo}` : undefined,
+      }));
+      await authFetch(`${API_BASE}/marketplace/bid-responses`, {
+        method: "POST",
+        body: JSON.stringify({
+          bidRequestId: bid.id,
+          distributorId: companyId,
+          cotizacion,
+          totalCotizado: Math.round(totalCotizado),
+          notas: globalNotas || null,
+          incluyeIva,
+          tiempoEntrega: cotItems[0]?.tiempoEntrega ?? "1-3 dias",
+        }),
+      });
+      onUpdated();
+    } catch { /* */ }
+    setSubmitting(false);
+  }
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${hasQuoted ? "rgba(34,197,94,0.2)" : "rgba(139,92,246,0.2)"}` }}>
+      <button onClick={() => setOpen(!open)} className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors">
+        <Gavel className="w-4 h-4 text-[#8b5cf6] flex-shrink-0" />
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-bold text-[#0A183A]">{bid.company?.name ?? "Cliente"}</p>
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{
+              background: hasQuoted ? "rgba(34,197,94,0.1)" : "rgba(139,92,246,0.1)",
+              color: hasQuoted ? "#22c55e" : "#8b5cf6",
+            }}>
+              {hasQuoted ? "Cotizado" : "Pendiente"}
+            </span>
+          </div>
+          <p className="text-[10px] text-gray-400">
+            {items.length} llantas · Est: ${(bid.totalEstimado ?? 0).toLocaleString("es-CO")}
+            {hoursLeft !== null && <> · <Clock className="w-3 h-3 inline" /> {hoursLeft}h restantes</>}
+            {bid._count && <> · {bid._count.invitations} distribuidores invitados</>}
+          </p>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-3" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+          {/* Notas del cliente */}
+          {bid.notas && (
+            <div className="px-3 py-2 rounded-lg text-xs text-gray-600" style={{ background: "rgba(10,24,58,0.02)" }}>
+              <span className="font-bold text-gray-400">Notas: </span>{bid.notas}
+            </div>
+          )}
+
+          {/* Per-item pricing */}
+          <div className="space-y-2">
+            {items.map((item: any, idx: number) => {
+              const cot = cotItems[idx];
+              return (
+                <div key={idx} className="rounded-lg p-3" style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(10,24,58,0.05)" }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-xs font-bold text-[#0A183A]">{item.marca} {item.dimension}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {item.tipo === "reencauche" ? "Reencauche" : "Nueva"} · Eje: {item.eje ?? "—"}
+                        {item.catalogSuggestion && <> · Sugerido: {item.catalogSuggestion}</>}
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={cot.disponible}
+                        onChange={(e) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, disponible: e.target.checked } : c))}
+                        className="accent-[#22c55e]" />
+                      <span className="text-[10px] font-bold text-gray-500">Disponible</span>
+                    </label>
+                  </div>
+
+                  {cot.disponible ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 uppercase">Precio unitario</label>
+                        <input type="number" value={cot.precioUnitario || ""} placeholder="COP"
+                          onChange={(e) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, precioUnitario: Number(e.target.value) } : c))}
+                          className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 uppercase">Tiempo entrega</label>
+                        <select value={cot.tiempoEntrega}
+                          onChange={(e) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, tiempoEntrega: e.target.value } : c))}
+                          className={inputCls}>
+                          <option value="Inmediato">Inmediato</option>
+                          <option value="1-3 dias">1-3 dias</option>
+                          <option value="1 semana">1 semana</option>
+                          <option value="2 semanas">2 semanas</option>
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-gray-400">Sugerir alternativa:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <CatalogAutocomplete
+                          value={cot.alternativeMarca}
+                          onChange={(v) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, alternativeMarca: v } : c))}
+                          field="marca"
+                          placeholder="Marca alternativa"
+                        />
+                        <CatalogAutocomplete
+                          value={cot.alternativeModelo}
+                          onChange={(v) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, alternativeModelo: v } : c))}
+                          field="modelo"
+                          filterMarca={cot.alternativeMarca}
+                          placeholder="Modelo"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer: IVA toggle + total + notes + submit */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" checked={incluyeIva} onChange={(e) => setIncluyeIva(e.target.checked)} className="accent-[#1E76B6]" />
+              <span className="text-[10px] font-bold text-gray-500">Incluye IVA (19%)</span>
+            </label>
+            <div className="flex-1" />
+            <p className="text-sm font-black text-[#0A183A]">Total: ${Math.round(totalCotizado).toLocaleString("es-CO")}</p>
+          </div>
+
+          <textarea value={globalNotas} onChange={(e) => setGlobalNotas(e.target.value)}
+            placeholder="Notas generales de la cotizacion..." rows={2}
+            className={`${inputCls} resize-none`} />
+
+          <button onClick={handleSubmitBid} disabled={submitting || totalCotizado <= 0}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg, #8b5cf6, #6d28d9)" }}>
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {hasQuoted ? "Actualizar Cotizacion" : "Enviar Cotizacion"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Main Page
+// =============================================================================
+
 export default function PedidosDistPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [companyId, setCompanyId] = useState("");
   const [tab, setTab] = useState<FilterTab>("nuevas");
+  const [bidRequests, setBidRequests] = useState<any[]>([]);
+  const [showBids, setShowBids] = useState(false);
 
   const fetchOrders = useCallback(async (cId: string) => {
     setLoading(true);
     try {
-      const res = await authFetch(`${API_BASE}/purchase-orders/distributor?companyId=${cId}`);
-      if (res.ok) setOrders(await res.json());
+      const [ordersRes, bidsRes] = await Promise.all([
+        authFetch(`${API_BASE}/purchase-orders/distributor?companyId=${cId}`),
+        authFetch(`${API_BASE}/marketplace/bid-requests/available?distributorId=${cId}`),
+      ]);
+      if (ordersRes.ok) setOrders(await ordersRes.json());
+      if (bidsRes.ok) setBidRequests(await bidsRes.json());
     } catch { /* */ }
     setLoading(false);
   }, []);
@@ -532,17 +720,37 @@ export default function PedidosDistPage() {
           ))}
         </div>
 
+        {/* Licitaciones activas */}
+        {bidRequests.length > 0 && (
+          <div>
+            <button onClick={() => setShowBids(!showBids)} className="w-full flex items-center gap-3 mb-3">
+              <Gavel className="w-4 h-4 text-[#8b5cf6]" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#8b5cf6]">Licitaciones Abiertas</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6]">{bidRequests.length}</span>
+              <div className="flex-1 h-px bg-gray-200" />
+              {showBids ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+            </button>
+            {showBids && (
+              <div className="space-y-3 mb-6">
+                {bidRequests.map((bid: any) => (
+                  <BidRequestCard key={bid.id} bid={bid} companyId={companyId} onUpdated={() => fetchOrders(companyId)} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-20 text-[#1E76B6]">
             <Loader2 className="w-5 h-5 animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && bidRequests.length === 0 ? (
           <div className="flex flex-col items-center py-20 text-gray-400">
             <Package className="w-8 h-8 mb-2" />
             <p className="text-sm font-bold text-[#0A183A]">Sin pedidos en esta categoria</p>
           </div>
-        ) : (
+        ) : filtered.length > 0 ? (
           <div className="space-y-3">
             {filtered.map((order) => (
               <OrderCard
@@ -553,7 +761,7 @@ export default function PedidosDistPage() {
               />
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
