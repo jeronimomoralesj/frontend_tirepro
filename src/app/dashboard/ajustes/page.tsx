@@ -675,8 +675,6 @@ const AjustesPage: React.FC = () => {
         fetchUsers(parsed.companyId);
         fetchConnectedDistributors(parsed.companyId);
       }
-    } else {
-      setError("No hay empresa asignada al usuario");
     }
     setLoading(false);
   }, [router, fetchCompany, fetchUsers, fetchConnectedDistributors]);
@@ -833,13 +831,14 @@ const AjustesPage: React.FC = () => {
   };
 
   // -- Tab definitions -------------------------------------------------------
-  const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean }[] = [
+  const hasCompanyId = !!user?.companyId;
+  const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean; requiresCompany?: boolean }[] = [
     { id: "profile",      label: "Perfil",          icon: User                             },
     { id: "orders",       label: "Mis Pedidos",     icon: ShoppingCart                     },
-    { id: "company",      label: "Empresa",         icon: Building                         },
-    { id: "users",        label: "Usuarios",        icon: Users,    adminOnly: true        },
-    { id: "addUser",      label: "Nuevo Usuario",   icon: UserPlus, adminOnly: true        },
-    { id: "distributors", label: "Distribuidores",  icon: Link2,    adminOnly: true, hideForDistributor: true },
+    { id: "company",      label: "Empresa",         icon: Building,    requiresCompany: true },
+    { id: "users",        label: "Usuarios",        icon: Users,    adminOnly: true, requiresCompany: true },
+    { id: "addUser",      label: "Nuevo Usuario",   icon: UserPlus, adminOnly: true, requiresCompany: true },
+    { id: "distributors", label: "Distribuidores",  icon: Link2,    adminOnly: true, hideForDistributor: true, requiresCompany: true },
   ];
 
   // ==========================================================================
@@ -899,9 +898,9 @@ const AjustesPage: React.FC = () => {
 
         {/* -- Tab nav -- */}
         <Card className="p-1.5">
-          <nav className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor")).length}, minmax(0,1fr))` }}>
+          <nav className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor") && (!t.requiresCompany || hasCompanyId)).length}, minmax(0,1fr))` }}>
             {tabs
-              .filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor"))
+              .filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor") && (!t.requiresCompany || hasCompanyId))
               .map((tab) => {
                 const active = activeTab === tab.id;
                 return (
