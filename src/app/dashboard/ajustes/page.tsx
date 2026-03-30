@@ -1647,10 +1647,7 @@ const AjustesPage: React.FC = () => {
               <EmailAtencionCard companyId={company.id} initialEmail={company.emailAtencion ?? ""} onSaved={(email) => setCompany((c) => c ? { ...c, emailAtencion: email } : c)} toast={toast} />
             )}
 
-            {/* Distributor marketplace profile */}
-            {user?.role === "admin" && company.plan === "distribuidor" && (
-              <DistributorProfileEditor companyId={company.id} toast={toast} />
-            )}
+            {/* Distributor marketplace profile — moved to Pedidos & Ventas tab */}
 
             {/* Admin config note */}
             {user?.role === "admin" && (

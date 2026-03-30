@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, ChevronDown, ChevronUp, Send, Check, X,
   BarChart3, Calendar, Package, Gavel, Clock, DollarSign, Store,
+  Building, CheckCircle, AlertCircle, User,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
@@ -623,9 +624,345 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
 // =============================================================================
 // Main Page
 // =============================================================================
+// Distributor Marketplace Profile Editor
+// =============================================================================
+
+const COLOMBIAN_CITIES = [
+  "Bogota","Medellin","Cali","Barranquilla","Cartagena","Bucaramanga","Cucuta",
+  "Pereira","Santa Marta","Ibague","Manizales","Villavicencio","Pasto","Monteria",
+  "Neiva","Armenia","Popayan","Valledupar","Sincelejo","Tunja","Riohacha",
+  "Florencia","Quibdo","Yopal","Mocoa","Leticia","Arauca","San Jose del Guaviare",
+  "Puerto Carreno","Mitu","Inirida","Sogamoso","Duitama","Girardot","Zipaquira",
+  "Facatativa","Fusagasuga","Soacha","Bello","Envigado","Itagui","Sabaneta",
+  "Rionegro","Apartado","Turbo","Palmira","Buenaventura","Tulua","Buga",
+  "Cartago","Soledad","Maicao","Barrancabermeja","Piedecuesta","Floridablanca",
+  "Giron","Dosquebradas","La Virginia","Tuquerres","Ipiales","Tumaco",
+];
+
+type CoberturaItem = { ciudad: string; direccion: string; lat: number | null; lng: number | null };
+
+type ToastType = { id: number; message: string; type: "success" | "error" };
+
+function ToastContainer({ toasts, onDismiss }: { toasts: ToastType[]; onDismiss: (id: number) => void }) {
+  return (
+    <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
+      {toasts.map((t) => (
+        <div key={t.id}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg pointer-events-auto transition-all"
+          style={{ background: t.type === "success" ? "rgba(22,163,74,0.96)" : "rgba(220,38,38,0.96)", minWidth: 260, maxWidth: 360 }}
+          onClick={() => onDismiss(t.id)}>
+          {t.type === "success" ? <CheckCircle className="w-4 h-4 text-white flex-shrink-0" /> : <AlertCircle className="w-4 h-4 text-white flex-shrink-0" />}
+          <span className="text-white text-sm font-medium flex-1">{t.message}</span>
+          <X className="w-3.5 h-3.5 text-white/70 flex-shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DistributorProfileSection() {
+  const router = useRouter();
+  const [companyId, setCompanyId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [toasts, setToasts] = useState<ToastType[]>([]);
+  const [form, setForm] = useState({
+    telefono: "", descripcion: "", bannerImage: "", direccion: "", ciudad: "", sitioWeb: "",
+    cobertura: [] as CoberturaItem[], tipoEntrega: "ambos", colorMarca: "#1E76B6",
+  });
+  const [addressQuery, setAddressQuery] = useState("");
+  const [addressResults, setAddressResults] = useState<{ display: string; city: string; address: string; lat: number; lng: number }[]>([]);
+  const [addressSearching, setAddressSearching] = useState(false);
+  const addressDebounce = React.useRef<NodeJS.Timeout | null>(null);
+
+  const toast = useCallback((msg: string, type: "success" | "error") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message: msg, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
+  }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    if (!stored) { router.push("/login"); return; }
+    let user: { companyId?: string };
+    try { user = JSON.parse(stored); } catch { router.push("/login"); return; }
+    const cId = user.companyId ?? "";
+    if (!cId) return;
+    setCompanyId(cId);
+
+    authFetch(`${API_BASE}/marketplace/distributor/${cId}/profile`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          let cob: CoberturaItem[] = [];
+          if (Array.isArray(data.cobertura)) {
+            cob = data.cobertura.map((c: any) =>
+              typeof c === "string" ? { ciudad: c, direccion: "", lat: null, lng: null } : c
+            );
+          }
+          setForm({
+            telefono: data.telefono ?? "", descripcion: data.descripcion ?? "",
+            bannerImage: data.bannerImage ?? "", direccion: data.direccion ?? "",
+            ciudad: data.ciudad ?? "", sitioWeb: data.sitioWeb ?? "",
+            cobertura: cob, tipoEntrega: data.tipoEntrega ?? "ambos",
+            colorMarca: data.colorMarca ?? "#1E76B6",
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [router]);
+
+  function handleAddressSearch(query: string) {
+    setAddressQuery(query);
+    setAddressResults([]);
+    if (addressDebounce.current) clearTimeout(addressDebounce.current);
+    if (query.length < 3) return;
+    addressDebounce.current = setTimeout(async () => {
+      setAddressSearching(true);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", Colombia")}&format=json&limit=5&countrycodes=co&accept-language=es`);
+        if (res.ok) {
+          const data = await res.json();
+          setAddressResults(data.map((r: any) => {
+            const parts = (r.display_name ?? "").split(",").map((s: string) => s.trim());
+            const city = parts.find((p: string) => COLOMBIAN_CITIES.some((c) => p.toLowerCase().includes(c.toLowerCase()))) ?? parts[1] ?? "";
+            return {
+              display: r.display_name ?? query,
+              city: city.replace("Bogotá D.C.", "Bogota").replace("Bogotá", "Bogota").replace("Medellín", "Medellin"),
+              address: parts.slice(0, 2).join(", "),
+              lat: parseFloat(r.lat),
+              lng: parseFloat(r.lon),
+            };
+          }));
+        }
+      } catch { /* */ }
+      setAddressSearching(false);
+    }, 400);
+  }
+
+  function addCoveragePoint(result: { city: string; address: string; lat: number; lng: number }) {
+    setForm((f) => ({
+      ...f,
+      cobertura: [...f.cobertura, { ciudad: result.city || addressQuery, direccion: result.address, lat: result.lat, lng: result.lng }],
+    }));
+    setAddressQuery("");
+    setAddressResults([]);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/distributor/${companyId}/profile`, {
+        method: "PATCH", body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error();
+      toast("Perfil del marketplace actualizado", "success");
+    } catch { toast("Error al guardar", "error"); }
+    setSaving(false);
+  }
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="w-5 h-5 animate-spin text-[#1E76B6]" />
+    </div>
+  );
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+      <ToastContainer toasts={toasts} onDismiss={(id) => setToasts((prev) => prev.filter((t) => t.id !== id))} />
+
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(30,118,182,0.1)" }}>
+          <Building className="w-4 h-4 text-[#1E76B6]" />
+        </div>
+        <h3 className="text-sm font-black text-[#0A183A] tracking-tight">Perfil en Marketplace</h3>
+      </div>
+      <p className="text-xs text-gray-400 mb-5">
+        Esta informacion aparece en tu pagina publica del marketplace.
+        {companyId && (
+          <a href={`/marketplace/distributor/${companyId}`} target="_blank" rel="noopener" className="ml-1 text-[#1E76B6] font-bold hover:underline">Ver mi pagina</a>
+        )}
+      </p>
+
+      <div className="rounded-2xl p-5 sm:p-6" style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)", boxShadow: "0 4px 24px rgba(10,24,58,0.05)" }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Telefono</label>
+            <input type="tel" value={form.telefono} onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+              placeholder="+57 300 123 4567" className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Sitio Web</label>
+            <input type="url" value={form.sitioWeb} onChange={(e) => setForm((f) => ({ ...f, sitioWeb: e.target.value }))}
+              placeholder="https://..." className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Ciudad principal</label>
+            <input type="text" value={form.ciudad} onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value }))}
+              placeholder="Bogota" className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Direccion principal</label>
+            <input type="text" value={form.direccion} onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
+              placeholder="Calle 80 #45-12" className={inputCls} />
+          </div>
+        </div>
+
+        {/* Color picker */}
+        <div className="mb-4">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Color de marca</label>
+          <div className="flex items-center gap-3">
+            <input type="color" value={form.colorMarca} onChange={(e) => setForm((f) => ({ ...f, colorMarca: e.target.value }))}
+              className="w-10 h-10 rounded-xl border-2 border-gray-200 cursor-pointer" />
+            <span className="text-xs font-mono text-gray-500">{form.colorMarca}</span>
+            <div className="flex gap-1">
+              {["#1E76B6", "#ef4444", "#22c55e", "#f97316", "#8b5cf6", "#0A183A"].map((c) => (
+                <button key={c} onClick={() => setForm((f) => ({ ...f, colorMarca: c }))}
+                  className="w-6 h-6 rounded-full border-2 transition-all"
+                  style={{ background: c, borderColor: form.colorMarca === c ? "#0A183A" : "transparent" }} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Descripcion</label>
+          <textarea value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+            rows={3} placeholder="Describe tu empresa, servicios y especialidades..." className={`${inputCls} resize-none`} />
+        </div>
+        <div className="mb-4">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Imagen de portada (URL)</label>
+          <input type="url" value={form.bannerImage} onChange={(e) => setForm((f) => ({ ...f, bannerImage: e.target.value }))}
+            placeholder="https://...imagen-portada.jpg" className={inputCls} />
+          {form.bannerImage && (
+            <div className="mt-2 h-20 rounded-xl overflow-hidden bg-gray-100">
+              <img src={form.bannerImage} alt="Banner" className="w-full h-full object-cover" />
+            </div>
+          )}
+        </div>
+
+        {/* Delivery type */}
+        <div className="mb-4">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Tipo de entrega</label>
+          <div className="flex rounded-xl overflow-hidden border border-[#348CCB]/30">
+            {[{ value: "domicilio", label: "Domicilio" }, { value: "recogida", label: "Recogida" }, { value: "ambos", label: "Ambos" }].map((t) => (
+              <button key={t.value} type="button" onClick={() => setForm((f) => ({ ...f, tipoEntrega: t.value }))}
+                className="flex-1 px-3 py-2 text-xs font-bold transition-all"
+                style={{ background: form.tipoEntrega === t.value ? "#0A183A" : "#F0F7FF", color: form.tipoEntrega === t.value ? "white" : "#173D68" }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Coverage locations */}
+        <div className="mb-4">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+            Puntos de cobertura ({form.cobertura.length})
+          </label>
+
+          {form.cobertura.length > 0 && (
+            <div className="space-y-1.5 mb-3">
+              {form.cobertura.map((loc, i) => (
+                <div key={i} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white border border-gray-100 shadow-sm">
+                  <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm" style={{ background: form.colorMarca, border: "2px solid white", boxShadow: `0 0 0 1px ${form.colorMarca}40` }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-[#0A183A]">{loc.ciudad}</p>
+                    {loc.direccion && <p className="text-[10px] text-gray-400 truncate">{loc.direccion}</p>}
+                  </div>
+                  {loc.lat && loc.lng && (
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 flex-shrink-0">
+                      📍 {loc.lat.toFixed(2)}, {loc.lng.toFixed(2)}
+                    </span>
+                  )}
+                  <button onClick={() => setForm((f) => ({ ...f, cobertura: f.cobertura.filter((_, j) => j !== i) }))}
+                    className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add new — smart search */}
+          <div className="relative">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative">
+                <input type="text" value={addressQuery} onChange={(e) => handleAddressSearch(e.target.value)}
+                  placeholder="Buscar direccion, barrio o ciudad..." className={inputCls} />
+                {addressSearching && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-[#348CCB]" />
+                )}
+              </div>
+            </div>
+
+            {addressResults.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+                {addressResults.map((r, i) => (
+                  <button key={i} onClick={() => addCoveragePoint(r)}
+                    className="w-full text-left px-4 py-3 hover:bg-[#F0F7FF] transition-colors border-b border-gray-50 last:border-0">
+                    <p className="text-xs font-bold text-[#0A183A]">{r.city || "Colombia"}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{r.display}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!addressQuery && form.cobertura.length < 3 && (
+              <div className="mt-2">
+                <p className="text-[9px] text-gray-400 mb-1.5">Agregar rapidamente:</p>
+                <div className="flex flex-wrap gap-1">
+                  {COLOMBIAN_CITIES.slice(0, 10)
+                    .filter((c) => !form.cobertura.some((loc) => loc.ciudad === c))
+                    .slice(0, 6)
+                    .map((city) => (
+                      <button key={city} onClick={() => {
+                        handleAddressSearch(city);
+                        setTimeout(() => {
+                          fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city + ", Colombia")}&format=json&limit=1&countrycodes=co`)
+                            .then((r) => r.ok ? r.json() : [])
+                            .then((data) => {
+                              if (data.length > 0) {
+                                addCoveragePoint({ city, address: "", lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
+                              } else {
+                                setForm((f) => ({ ...f, cobertura: [...f.cobertura, { ciudad: city, direccion: "", lat: null, lng: null }] }));
+                              }
+                            })
+                            .catch(() => setForm((f) => ({ ...f, cobertura: [...f.cobertura, { ciudad: city, direccion: "", lat: null, lng: null }] })));
+                          setAddressQuery("");
+                        }, 100);
+                      }}
+                        className="px-2.5 py-1 rounded-full text-[10px] font-medium text-[#1E76B6] bg-[#1E76B6]/5 hover:bg-[#1E76B6]/10 transition-colors">
+                        + {city}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+          Guardar Perfil
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 
 export default function PedidosDistPage() {
-  const [section, setSection] = useState<"pedidos" | "marketplace" | "catalogo">("pedidos");
+  const [section, setSection] = useState<"pedidos" | "marketplace" | "catalogo" | "perfil">("pedidos");
+
+  const tabs: { key: typeof section; icon: React.ElementType; label: string }[] = [
+    { key: "pedidos", icon: Package, label: "Pedidos" },
+    { key: "marketplace", icon: Store, label: "Marketplace" },
+    { key: "catalogo", icon: Package, label: "Catalogo" },
+    { key: "perfil", icon: User, label: "Mi Perfil" },
+  ];
 
   return (
     <div className="min-h-screen bg-white">
@@ -643,22 +980,14 @@ export default function PedidosDistPage() {
 
       {/* Section tabs */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-2">
-        <div className="flex gap-2">
-          <button onClick={() => setSection("pedidos")}
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
-            style={{ background: section === "pedidos" ? "#0A183A" : "transparent", color: section === "pedidos" ? "#fff" : "#173D68", border: section === "pedidos" ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
-            <Package className="w-4 h-4" /> Pedidos
-          </button>
-          <button onClick={() => setSection("marketplace")}
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
-            style={{ background: section === "marketplace" ? "#0A183A" : "transparent", color: section === "marketplace" ? "#fff" : "#173D68", border: section === "marketplace" ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
-            <Store className="w-4 h-4" /> Marketplace
-          </button>
-          <button onClick={() => setSection("catalogo")}
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
-            style={{ background: section === "catalogo" ? "#0A183A" : "transparent", color: section === "catalogo" ? "#fff" : "#173D68", border: section === "catalogo" ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
-            <Package className="w-4 h-4" /> Catalogo
-          </button>
+        <div className="flex gap-2 overflow-x-auto">
+          {tabs.map((t) => (
+            <button key={t.key} onClick={() => setSection(t.key)}
+              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all whitespace-nowrap"
+              style={{ background: section === t.key ? "#0A183A" : "transparent", color: section === t.key ? "#fff" : "#173D68", border: section === t.key ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
+              <t.icon className="w-4 h-4" /> {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -673,6 +1002,7 @@ export default function PedidosDistPage() {
           <CatalogoDistPage />
         </React.Suspense>
       )}
+      {section === "perfil" && <DistributorProfileSection />}
     </div>
   );
 }
