@@ -719,6 +719,7 @@ function FechaInstalacionEditor({ tire, onUpdated }: { tire: Tire; onUpdated: (t
       <input
         type="date"
         value={value}
+        max={new Date().toISOString().split("T")[0]}
         onChange={(e) => setValue(e.target.value)}
         disabled={saving}
         className="px-2 py-1 rounded-lg text-xs border border-[#1E76B6]/20 bg-white focus:outline-none focus:ring-1 focus:ring-[#1E76B6] disabled:opacity-50"
@@ -727,10 +728,10 @@ function FechaInstalacionEditor({ tire, onUpdated }: { tire: Tire; onUpdated: (t
         <button onClick={handleSave} disabled={saving}
           className="px-3 py-1 rounded-lg text-[10px] font-bold text-white disabled:opacity-50"
           style={{ background: "#1E76B6" }}>
-          {saving ? "Recalculando..." : "Guardar"}
+          {saving ? "Guardando..." : "Guardar"}
         </button>
       )}
-      {!changed && <span className="text-[9px] text-gray-400">Cambiar recalcula CPK/CPT</span>}
+      {!changed && <span className="text-[9px] text-gray-400">Solo actualiza dias rodando y CPT</span>}
     </div>
   );
 }
