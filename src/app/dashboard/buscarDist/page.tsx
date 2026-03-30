@@ -50,7 +50,7 @@ export type RawTire = {
   primeraVida?: Array<{ cpk?: number; diseno?: string; costo?: number; kilometros?: number }>;
   desechos?: unknown; costos: RawCosto[]; inspecciones: RawInspeccion[]; eventos: RawEvento[];
 };
-export type CostEntry = { valor: number; fecha: string };
+export type CostEntry = { id: string; valor: number; fecha: string };
 export type Inspection = {
   fecha: string;
   profundidadInt: number; profundidadCen: number; profundidadExt: number;
@@ -107,7 +107,7 @@ function toISO(d: string | Date | null | undefined): string {
 function normalise(raw: RawTire): Tire {
   const costo: CostEntry[] = [...(raw.costos ?? [])]
     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
-    .map((c) => ({ valor: typeof c.valor === "number" ? c.valor : 0, fecha: toISO(c.fecha) }));
+    .map((c) => ({ id: c.id ?? "", valor: typeof c.valor === "number" ? c.valor : 0, fecha: toISO(c.fecha) }));
   const inspecciones: Inspection[] = [...(raw.inspecciones ?? [])]
     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
     .map((i) => ({
@@ -687,6 +687,97 @@ function VidaHistory({ tire }: { tire: Tire }) {
 }
 
 // =============================================================================
+// Costo Editor
+// =============================================================================
+function CostoEditor({ tire, onUpdated }: { tire: Tire; onUpdated: (t: Tire) => void }) {
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editValor, setEditValor] = useState(0);
+  const [editFecha, setEditFecha] = useState("");
+  const [saving, setSaving] = useState(false);
+  const totalCost = tire.costo.reduce((s, c) => s + c.valor, 0);
+
+  function startEdit(entry: CostEntry) {
+    setEditId(entry.id);
+    setEditValor(entry.valor);
+    setEditFecha(new Date(entry.fecha).toISOString().split("T")[0]);
+  }
+
+  async function handleSave() {
+    if (!editId) return;
+    setSaving(true);
+    try {
+      const original = tire.costo.find(c => c.id === editId);
+      const body: any = { costoId: editId };
+      if (original && editValor !== original.valor) body.valor = editValor;
+      if (original && editFecha !== new Date(original.fecha).toISOString().split("T")[0]) body.fecha = new Date(editFecha).toISOString();
+      if (!body.valor && !body.fecha) { setEditId(null); setSaving(false); return; }
+      const res = await authFetch(`${API_BASE}/tires/${tire.id}/costo/edit`, {
+        method: "PATCH", body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      const raw = await res.json();
+      onUpdated(normalise(raw));
+      setEditId(null);
+    } catch { alert("Error al guardar costo"); }
+    setSaving(false);
+  }
+
+  return (
+    <div className="space-y-2">
+      {tire.costo.map((entry, idx) => {
+        const isEditing = editId === entry.id;
+        return (
+          <div key={entry.id || idx} className="flex items-center justify-between p-3 rounded-xl"
+            style={{ background: isEditing ? "rgba(30,118,182,0.04)" : "rgba(10,24,58,0.02)", border: `1px solid ${isEditing ? "rgba(30,118,182,0.15)" : "rgba(10,24,58,0.05)"}` }}>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(30,118,182,0.1)" }}>
+                <DollarSign className="w-4 h-4 text-[#1E76B6]" />
+              </div>
+              {isEditing ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input type="date" value={editFecha} onChange={(e) => setEditFecha(e.target.value)}
+                    max={new Date().toISOString().split("T")[0]}
+                    className="px-2 py-1 rounded-lg text-xs border border-[#1E76B6]/20 bg-[#F0F7FF] focus:outline-none" />
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-400">$</span>
+                    <input type="number" value={editValor || ""} onChange={(e) => setEditValor(Number(e.target.value))}
+                      className="w-28 px-2 py-1 rounded-lg text-xs font-bold border border-[#1E76B6]/20 bg-[#F0F7FF] focus:outline-none" />
+                  </div>
+                </div>
+              ) : (
+                <div className="cursor-pointer" onClick={() => startEdit(entry)}>
+                  <p className="text-xs font-bold text-[#0A183A]">
+                    {new Date(entry.fecha).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
+                  </p>
+                  <p className="text-[10px] text-gray-400">{entry.id ? "Clic para editar" : `Entrada #${idx + 1}`}</p>
+                </div>
+              )}
+            </div>
+            {isEditing ? (
+              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                <button onClick={handleSave} disabled={saving} className="p-1.5 rounded-lg hover:bg-green-50"><Check className="w-3.5 h-3.5 text-green-500" /></button>
+                <button onClick={() => setEditId(null)} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="w-3.5 h-3.5 text-gray-400" /></button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <p className="text-sm font-black text-[#0A183A]">${entry.valor.toLocaleString("es-CO")}</p>
+                <button onClick={() => startEdit(entry)} className="p-1.5 rounded-lg hover:bg-blue-50"><Pencil className="w-3.5 h-3.5 text-[#1E76B6]" /></button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div className="flex items-center justify-between p-3 rounded-xl mt-2"
+        style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+        <span className="text-white font-bold text-sm">Total Invertido</span>
+        <span className="text-white font-black text-lg">${totalCost.toLocaleString("es-CO")}</span>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Fecha Instalacion Editor
 // =============================================================================
 function FechaInstalacionEditor({ tire, onUpdated }: { tire: Tire; onUpdated: (t: Tire) => void }) {
@@ -1219,31 +1310,7 @@ function TireDetailModal({
               {tire.costo.length === 0 ? (
                 <p className="text-sm text-gray-400 py-6 text-center">Sin registros de costo</p>
               ) : (
-                <div className="space-y-2">
-                  {tire.costo.map((entry, idx) => (
-                    <div key={`costo-${idx}`} className="flex items-center justify-between p-3 rounded-xl"
-                      style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(10,24,58,0.05)" }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ background: "rgba(30,118,182,0.1)" }}>
-                          <DollarSign className="w-4 h-4 text-[#1E76B6]" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-[#0A183A]">
-                            {new Date(entry.fecha).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
-                          </p>
-                          <p className="text-[10px] text-gray-400">Entrada #{idx + 1}</p>
-                        </div>
-                      </div>
-                      <p className="text-sm font-black text-[#0A183A]">${entry.valor.toLocaleString("es-CO")}</p>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between p-3 rounded-xl mt-2"
-                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
-                    <span className="text-white font-bold text-sm">Total Invertido</span>
-                    <span className="text-white font-black text-lg">${totalCost.toLocaleString("es-CO")}</span>
-                  </div>
-                </div>
+                <CostoEditor tire={tire} onUpdated={onUpdate} />
               )}
             </div>
           )}
