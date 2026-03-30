@@ -56,8 +56,10 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    // Find matching rule
-    const rule = Object.entries(ROUTE_ACCESS).find(([prefix]) => pathname.startsWith(prefix));
+    // Find matching rule — sort by longest prefix first so /analistaDist matches before /analista
+    const rule = Object.entries(ROUTE_ACCESS)
+      .filter(([prefix]) => pathname.startsWith(prefix))
+      .sort((a, b) => b[0].length - a[0].length)[0];
     if (!rule) {
       // Unknown route under /dashboard — allow (could be a card/component route)
       setAllowed(true);
