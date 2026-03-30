@@ -182,6 +182,9 @@ export default function CatalogoDistPage() {
     : listings;
 
   const activeCount = listings.filter((l) => l.isActive).length;
+  const promoProducts = filtered.filter((l) => l.precioPromo != null && l.isActive);
+  const nonPromoProducts = filtered.filter((l) => l.precioPromo == null || !l.isActive);
+  const totalPromoSales = promoProducts.reduce((sum, l) => sum + (l._count?.orders ?? 0), 0);
 
   return (
     <div>
@@ -415,6 +418,23 @@ export default function CatalogoDistPage() {
           </div>
         )}
 
+        {/* Promo group */}
+        {!loading && promoProducts.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black text-white bg-red-500">EN PROMOCION</span>
+                <span className="text-xs text-gray-400">{promoProducts.length} producto{promoProducts.length !== 1 ? "s" : ""}</span>
+              </div>
+              {totalPromoSales > 0 && (
+                <span className="text-[10px] font-bold text-green-600 px-2 py-1 rounded-full" style={{ background: "rgba(34,197,94,0.08)" }}>
+                  {totalPromoSales} venta{totalPromoSales !== 1 ? "s" : ""} con promo
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Listings table */}
         {loading ? (
           <div className="flex items-center justify-center py-20 text-[#1E76B6]">
@@ -428,7 +448,8 @@ export default function CatalogoDistPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map((l) => {
+            {/* Render promo products first, then non-promo */}
+            {[...promoProducts, ...nonPromoProducts].map((l) => {
               const isEditing = editingId === l.id;
               const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
               const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;

@@ -41,6 +41,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
   const [qty, setQty] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [similar, setSimilar] = useState<any[]>([]);
+  const [promoListings, setPromoListings] = useState<any[]>([]);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewHover, setReviewHover] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
@@ -86,12 +87,19 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
     return () => { trackProductDwell(product.id, (Date.now() - start) / 1000); };
   }, [product?.id]);
 
-  // Fetch similar products
+  // Fetch similar products + promo listings from same distributor
   useEffect(() => {
     if (!product) return;
     fetch(`${API_BASE}/marketplace/listings?dimension=${encodeURIComponent(product.dimension)}&limit=5&sortBy=price_asc`)
       .then((r) => (r.ok ? r.json() : { listings: [] }))
       .then((d) => setSimilar((d.listings ?? []).filter((l: any) => l.id !== product.id).slice(0, 4)))
+      .catch(() => {});
+    // Fetch promo listings from same distributor
+    fetch(`${API_BASE}/marketplace/listings?distributorId=${product.distributor.id}&limit=10&sortBy=price_asc`)
+      .then((r) => (r.ok ? r.json() : { listings: [] }))
+      .then((d) => setPromoListings(
+        (d.listings ?? []).filter((l: any) => l.id !== product.id && l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date()).slice(0, 4)
+      ))
       .catch(() => {});
   }, [product]);
 
@@ -141,7 +149,9 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
   const price = hasPromo ? product.precioPromo! : product.precioCop;
 
   const discount = hasPromo ? Math.round(((product.precioCop - product.precioPromo!) / product.precioCop) * 100) : 0;
-  const cpk = product.catalog?.crowdAvgCpk ?? product.catalog?.cpkEstimado;
+  // CPK = price / estimated km (this tire's actual projected cost per km)
+  const kmEstimados = product.catalog?.kmEstimadosReales ?? 0;
+  const cpk = kmEstimados > 0 ? price / kmEstimados : null;
   const avgRating = product.reviews.length > 0 ? product.reviews.reduce((s, r) => s + r.rating, 0) / product.reviews.length : 0;
   const cobertura = Array.isArray(product.distributor.cobertura) ? product.distributor.cobertura : [];
 
@@ -221,17 +231,22 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
             {/* Divider */}
             <div className="h-px bg-gray-100 my-5" />
 
+            {/* Promo banner */}
+            {hasPromo && (
+              <div className="px-4 py-2.5 rounded-xl mb-3 flex items-center gap-3" style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.12)" }}>
+                <span className="text-xs font-black text-red-500 px-2 py-0.5 rounded-full bg-red-500/10">-{discount}%</span>
+                <p className="text-xs text-red-600 font-medium">Promocion hasta {new Date(product.promoHasta!).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}</p>
+              </div>
+            )}
+
             {/* Price */}
             <div className="flex items-baseline gap-3">
               <span className="text-[34px] font-black text-[#0A183A] tracking-tight">{fmtCOP(price)}</span>
               {hasPromo && (
-                <>
-                  <span className="text-lg text-gray-300 line-through">{fmtCOP(product.precioCop)}</span>
-                  <span className="text-xs font-bold text-[#1E76B6] bg-[#1E76B6]/8 px-2.5 py-1 rounded-full">-{discount}%</span>
-                </>
+                <span className="text-lg text-gray-300 line-through">{fmtCOP(product.precioCop)}</span>
               )}
             </div>
-            {product.incluyeIva && <p className="text-xs text-gray-400 mt-0.5">IVA incluido</p>}
+            <p className="text-xs text-gray-400 mt-0.5">+ IVA</p>
 
             {/* Tags */}
             <div className="flex flex-wrap gap-2 mt-4">
@@ -258,7 +273,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                 {product.catalog.rtdMm != null && <div className="px-4 py-3 rounded-2xl bg-[#f5f5f7]"><p className="text-[10px] text-gray-400 font-medium">Prof. inicial</p><p className="text-[15px] font-semibold text-[#0A183A] mt-0.5">{product.catalog.rtdMm} mm</p></div>}
                 {product.catalog.kmEstimadosReales != null && <div className="px-4 py-3 rounded-2xl bg-[#f5f5f7]"><p className="text-[10px] text-gray-400 font-medium">Km estimados</p><p className="text-[15px] font-semibold text-[#0A183A] mt-0.5">{(product.catalog.kmEstimadosReales / 1000).toFixed(0)}K km</p></div>}
                 {product.catalog.psiRecomendado != null && <div className="px-4 py-3 rounded-2xl bg-[#f5f5f7]"><p className="text-[10px] text-gray-400 font-medium">Presion rec.</p><p className="text-[15px] font-semibold text-[#0A183A] mt-0.5">{product.catalog.psiRecomendado} PSI</p></div>}
-                {cpk != null && cpk > 0 && <div className="px-4 py-3 rounded-2xl bg-[#f0f7ff]"><p className="text-[10px] text-[#1E76B6] font-medium">CPK promedio</p><p className="text-[15px] font-semibold text-[#1E76B6] mt-0.5">{fmtCOP(Math.round(cpk))}/km</p></div>}
+                {cpk != null && cpk > 0 && <div className="px-4 py-3 rounded-2xl bg-[#f0f7ff]"><p className="text-[10px] text-[#1E76B6] font-medium">CPK estimado</p><p className="text-[15px] font-semibold text-[#1E76B6] mt-0.5">{fmtCOP(Math.round(cpk))}/km</p><p className="text-[9px] text-gray-400 mt-0.5">{fmtCOP(price)} / {(kmEstimados / 1000).toFixed(0)}K km</p></div>}
               </div>
             )}
 
@@ -659,6 +674,38 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
             </div>
           )}
         </div>
+        {/* Promo listings from same distributor */}
+        {promoListings.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-lg font-black text-[#0A183A] mb-4">Mas llantas en promocion de {product.distributor.name}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {promoListings.map((l: any) => {
+                const pImgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+                const pCover = pImgs.length > 0 ? pImgs[l.coverIndex ?? 0] ?? pImgs[0] : null;
+                const pDiscount = Math.round(((l.precioCop - l.precioPromo) / l.precioCop) * 100);
+                return (
+                  <Link key={l.id} href={`/marketplace/product/${l.id}`}
+                    className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-all group border border-gray-100 relative">
+                    <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full text-[9px] font-black text-white bg-red-500">-{pDiscount}%</div>
+                    <div className="aspect-square flex items-center justify-center bg-[#fafafa] overflow-hidden">
+                      {pCover ? <img src={pCover} alt="" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" /> : <Package className="w-8 h-8 text-gray-200" />}
+                    </div>
+                    <div className="p-3">
+                      <p className="text-[10px] text-gray-400 uppercase">{l.marca}</p>
+                      <p className="text-xs font-bold text-[#0A183A] leading-snug truncate">{l.modelo}</p>
+                      <p className="text-[10px] text-gray-400">{l.dimension}</p>
+                      <div className="flex items-baseline gap-1.5 mt-1">
+                        <p className="text-sm font-black text-red-500">{fmtCOP(l.precioPromo)}</p>
+                        <p className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Similar products */}
         {similar.length > 0 && (
           <div className="mt-12">
