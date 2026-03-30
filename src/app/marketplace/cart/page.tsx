@@ -205,8 +205,12 @@ export default function CartPage() {
 
                 <div className="space-y-2 mb-4 pb-4 border-b border-gray-100">
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">{count} producto{count !== 1 ? "s" : ""}</span>
+                    <span className="text-gray-500">Subtotal ({count} producto{count !== 1 ? "s" : ""})</span>
                     <span className="font-bold text-[#0A183A]">{fmtCOP(total)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">IVA (19%)</span>
+                    <span className="font-bold text-[#0A183A]">{fmtCOP(Math.round(total * 0.19))}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Distribuidores</span>
@@ -214,10 +218,11 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-between mb-5">
-                  <span className="text-sm font-bold text-[#0A183A]">Total</span>
-                  <span className="text-xl font-black text-[#0A183A]">{fmtCOP(total)}</span>
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-bold text-[#0A183A]">Total con IVA</span>
+                  <span className="text-xl font-black text-[#0A183A]">{fmtCOP(Math.round(total * 1.19))}</span>
                 </div>
+                <p className="text-[9px] text-gray-400 mb-5">Subtotal {fmtCOP(total)} + IVA {fmtCOP(Math.round(total * 0.19))}</p>
 
                 {!showCheckout ? (
                   <button onClick={() => setShowCheckout(true)}
@@ -247,7 +252,7 @@ export default function CartPage() {
                       disabled={submitting || !form.buyerName || !form.buyerEmail}
                       className="w-full py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all hover:opacity-90"
                       style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
-                      {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Confirmar — ${fmtCOP(total)}`}
+                      {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Confirmar — ${fmtCOP(Math.round(total * 1.19))}`}
                     </button>
                     <button onClick={() => setShowCheckout(false)} className="w-full py-2 text-xs font-bold text-gray-400 hover:text-gray-600">
                       Volver
