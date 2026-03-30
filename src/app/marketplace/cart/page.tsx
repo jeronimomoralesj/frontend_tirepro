@@ -225,7 +225,7 @@ export default function CartPage() {
                           {/* Image */}
                           <div className="w-20 h-20 rounded-xl bg-[#fafafa] flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-100">
                             {item.imageUrl ? (
-                              <img src={item.imageUrl} alt="" className="w-full h-full object-contain p-2" />
+                              <img src={item.imageUrl} alt={`${item.marca} ${item.modelo} ${item.dimension}`} className="w-full h-full object-contain p-2" />
                             ) : (
                               <Package className="w-6 h-6 text-gray-200" />
                             )}

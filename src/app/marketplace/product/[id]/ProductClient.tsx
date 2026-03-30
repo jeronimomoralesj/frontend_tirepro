@@ -200,7 +200,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                   <button key={i} onClick={() => setSelectedImg(i)}
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 transition-all"
                     style={{ background: "#f5f5f7", border: i === selectedImg ? "2px solid #1E76B6" : "2px solid transparent", opacity: i === selectedImg ? 1 : 0.5 }}>
-                    <img src={url} alt="" className="w-full h-full object-contain p-1.5" />
+                    <img src={url} alt={`${product.marca} ${product.modelo} ${product.dimension} - imagen ${i + 1}`} className="w-full h-full object-contain p-1.5" />
                   </button>
                 ))}
               </div>
@@ -307,7 +307,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
               <Link href={`/marketplace/distributor/${product.distributor.id}`} className="flex items-center gap-3 group">
                 <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
                   {product.distributor.profileImage && product.distributor.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png"
-                    ? <img src={product.distributor.profileImage} alt="" className="max-w-full max-h-full object-contain" />
+                    ? <img src={product.distributor.profileImage} alt={`Logo de ${product.distributor.name} — distribuidor de llantas`} className="max-w-full max-h-full object-contain" />
                     : <Truck className="w-5 h-5 text-gray-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -767,7 +767,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                     className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-all group border border-gray-100 relative">
                     <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full text-[9px] font-black text-white bg-red-500">-{pDiscount}%</div>
                     <div className="aspect-square flex items-center justify-center bg-[#fafafa] overflow-hidden">
-                      {pCover ? <img src={pCover} alt="" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" /> : <Package className="w-8 h-8 text-gray-200" />}
+                      {pCover ? <img src={pCover} alt={`${l.marca} ${l.modelo} ${l.dimension}`} className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" /> : <Package className="w-8 h-8 text-gray-200" />}
                     </div>
                     <div className="p-3">
                       <p className="text-[10px] text-gray-400 uppercase">{l.marca}</p>
@@ -800,7 +800,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                     className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-all group border border-gray-100">
                     <div className="aspect-square flex items-center justify-center bg-[#fafafa] overflow-hidden">
                       {cover ? (
-                        <img src={cover} alt="" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" />
+                        <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension} — llanta en Colombia`} className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" />
                       ) : (
                         <Package className="w-8 h-8 text-gray-200" />
                       )}

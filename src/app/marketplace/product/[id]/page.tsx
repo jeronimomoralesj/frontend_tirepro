@@ -5,6 +5,17 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
 
+export async function generateStaticParams() {
+  try {
+    const res = await fetch(`${API_BASE}/marketplace/listings?limit=500&sortBy=newest`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.listings ?? []).map((l: any) => ({ id: l.id }));
+  } catch {
+    return [];
+  }
+}
+
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 

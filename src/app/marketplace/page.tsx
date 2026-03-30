@@ -356,7 +356,7 @@ function PublicMarketplace() {
                   className="flex-shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white border border-gray-100 hover:shadow-md transition-all"
                   style={{ minWidth: 240 }}>
                   <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-200" />}
+                    {cover ? <img src={cover} alt={`${o.listing?.marca} ${o.listing?.modelo}`} className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-200" />}
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-[#0A183A] truncate">{o.listing?.marca} {o.listing?.modelo}</p>
@@ -666,7 +666,7 @@ function HeroCarousel() {
     <div className="relative rounded-2xl overflow-hidden" style={{ height: "clamp(180px, 30vw, 320px)" }}>
       {/* Image */}
       <div className="absolute inset-0 transition-opacity duration-700" key={idx}>
-        <img src={slide.img} alt="" className="w-full h-full object-cover" />
+        <img src={slide.img} alt={`${slide.title} — Marketplace de llantas TirePro Colombia`} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
       </div>
 
@@ -794,7 +794,7 @@ function ProductCard({ l }: { l: Listing }) {
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
               {l.distributor.profileImage && l.distributor.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
-                <img src={l.distributor.profileImage} alt="" className="w-full h-full object-contain" />
+                <img src={l.distributor.profileImage} alt={`${l.distributor.name}`} className="w-full h-full object-contain" />
               ) : (
                 <Store className="w-2.5 h-2.5 text-gray-400" />
               )}

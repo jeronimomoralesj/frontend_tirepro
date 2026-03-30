@@ -6,8 +6,13 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/dashboard/', '/api/', '/driver-action/', '/login', '/registeruser', '/verify', '/delete', '/blog/admin/', '/_next/'],
+        disallow: ['/dashboard/', '/api/', '/driver-action/', '/login', '/registeruser', '/verify', '/delete', '/blog/admin/', '/_next/', '/settings'],
       },
+      // Google — full access to all public content including images
+      { userAgent: 'Googlebot', allow: '/' },
+      { userAgent: 'Googlebot-Image', allow: '/' },
+      { userAgent: 'Storebot-Google', allow: '/' },
+      // AI crawlers — allow indexing for AI search (Perplexity, ChatGPT, etc.)
       { userAgent: 'GPTBot', allow: '/', disallow: ['/dashboard/', '/api/', '/_next/'] },
       { userAgent: 'ChatGPT-User', allow: '/' },
       { userAgent: 'PerplexityBot', allow: '/' },
@@ -16,10 +21,14 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: 'Google-Extended', allow: '/' },
       { userAgent: 'cohere-ai', allow: '/' },
       { userAgent: 'meta-externalagent', allow: '/' },
+      // Block crawl-budget wasters
       { userAgent: 'AhrefsBot', disallow: ['/'] },
       { userAgent: 'SemrushBot', disallow: ['/'] },
       { userAgent: 'MJ12bot', disallow: ['/'] },
+      { userAgent: 'DotBot', disallow: ['/'] },
+      { userAgent: 'BLEXBot', disallow: ['/'] },
     ],
     sitemap: 'https://tirepro.com.co/sitemap.xml',
+    host: 'https://tirepro.com.co',
   }
 }
