@@ -171,6 +171,9 @@ function PublicMarketplace() {
     }
   }, []);
 
+  // Track whether user explicitly set the city filter (vs auto-detected)
+  const [ciudadManual, setCiudadManual] = useState(false);
+
   const fetchListings = useCallback(async () => {
     setLoading(true);
     const p = new URLSearchParams();
@@ -179,7 +182,8 @@ function PublicMarketplace() {
     if (marca) p.set("marca", marca);
     if (tipo) p.set("tipo", tipo);
     if (distributorId) p.set("distributorId", distributorId);
-    if (ciudad) p.set("ciudad", ciudad);
+    // Only send ciudad as hard filter if user set it manually
+    if (ciudad && ciudadManual) p.set("ciudad", ciudad);
     p.set("sortBy", sortBy);
     p.set("page", String(page));
     p.set("limit", "24");
@@ -188,14 +192,14 @@ function PublicMarketplace() {
       if (res.ok) { const d = await res.json(); setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1); }
     } catch { /* */ }
     setLoading(false);
-  }, [search, dimension, marca, tipo, distributorId, ciudad, sortBy, page]);
+  }, [search, dimension, marca, tipo, distributorId, ciudad, ciudadManual, sortBy, page]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
   useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, ciudad, sortBy]);
 
-  const activeFilters = [dimension, marca, tipo, distributorId, ciudad].filter(Boolean).length;
+  const activeFilters = [dimension, marca, tipo, distributorId, ciudadManual ? ciudad : ""].filter(Boolean).length;
 
-  function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setCiudad(""); }
+  function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setCiudad(""); setCiudadManual(false); }
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
@@ -227,7 +231,7 @@ function PublicMarketplace() {
               <option value="">Distribuidor</option>
               {filters.distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
-            <input type="text" value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Ciudad"
+            <input type="text" value={ciudad} onChange={(e) => { setCiudad(e.target.value); setCiudadManual(true); }} placeholder="Ciudad"
               className="px-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-white text-[#555] w-24 placeholder-gray-400 flex-shrink-0" />
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
               className="px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] flex-shrink-0 ml-auto">
@@ -263,6 +267,7 @@ function PublicMarketplace() {
               onChange={(e) => {
                 if (e.target.value) {
                   setCiudad(e.target.value);
+                  setCiudadManual(true);
                   setDetectedCity(e.target.value);
                   localStorage.setItem("marketplace_city", e.target.value);
                   setShowLocationBanner(false);
