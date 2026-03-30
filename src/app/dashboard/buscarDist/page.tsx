@@ -691,15 +691,18 @@ function VidaHistory({ tire }: { tire: Tire }) {
 // =============================================================================
 function FechaInstalacionEditor({ tire, onUpdated }: { tire: Tire; onUpdated: (t: Tire) => void }) {
   const [saving, setSaving] = useState(false);
+  const [value, setValue] = useState(tire.fechaInstalacion ? new Date(tire.fechaInstalacion).toISOString().split("T")[0] : "");
+  const original = tire.fechaInstalacion ? new Date(tire.fechaInstalacion).toISOString().split("T")[0] : "";
+  const changed = value && value !== original && value.length === 10;
 
-  async function handleChange(dateStr: string) {
-    if (!dateStr || !tire.inspecciones.length) return;
+  async function handleSave() {
+    if (!value || !tire.inspecciones.length) return;
     setSaving(true);
     try {
       const firstInsp = tire.inspecciones[0];
       const res = await authFetch(
         `${API_BASE}/tires/${tire.id}/inspection/edit?fecha=${encodeURIComponent(firstInsp.fecha)}`,
-        { method: "PATCH", body: JSON.stringify({ fechaInstalacion: new Date(dateStr).toISOString() }) }
+        { method: "PATCH", body: JSON.stringify({ fechaInstalacion: new Date(value).toISOString() }) }
       );
       if (!res.ok) throw new Error();
       const raw = await res.json();
@@ -715,15 +718,19 @@ function FechaInstalacionEditor({ tire, onUpdated }: { tire: Tire; onUpdated: (t
       <span className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Fecha instalacion:</span>
       <input
         type="date"
-        defaultValue={tire.fechaInstalacion ? new Date(tire.fechaInstalacion).toISOString().split("T")[0] : ""}
-        onChange={(e) => handleChange(e.target.value)}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
         disabled={saving}
         className="px-2 py-1 rounded-lg text-xs border border-[#1E76B6]/20 bg-white focus:outline-none focus:ring-1 focus:ring-[#1E76B6] disabled:opacity-50"
       />
-      {saving
-        ? <span className="text-[9px] text-[#1E76B6] font-bold">Recalculando...</span>
-        : <span className="text-[9px] text-gray-400">Cambiar recalcula CPK/CPT de todas las inspecciones</span>
-      }
+      {changed && (
+        <button onClick={handleSave} disabled={saving}
+          className="px-3 py-1 rounded-lg text-[10px] font-bold text-white disabled:opacity-50"
+          style={{ background: "#1E76B6" }}>
+          {saving ? "Recalculando..." : "Guardar"}
+        </button>
+      )}
+      {!changed && <span className="text-[9px] text-gray-400">Cambiar recalcula CPK/CPT</span>}
     </div>
   );
 }
