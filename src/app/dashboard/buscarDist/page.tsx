@@ -864,7 +864,7 @@ function TireDetailModal({
   onClose: () => void;
   onUpdate: (t: Tire) => void;
   onDelete: (fecha: string) => void;
-  onEdit: (oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string }) => void;
+  onEdit: (oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string; kilometrosEstimados?: number; fechaInstalacion?: string }) => void;
 }) {
   const [activeTab, setActiveTab] = useState<ModalTab>("overview");
   const [editMode, setEditMode] = useState(false);
@@ -1147,6 +1147,29 @@ function TireDetailModal({
               style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)" }}>
               <div className="p-4 border-b border-gray-50">
                 <SectionTitle icon={Calendar} title="Historial de Inspecciones" badge={`${tire.inspecciones.length} registros`} />
+                <div className="flex items-center gap-3 mt-2 p-2.5 rounded-xl" style={{ background: "rgba(30,118,182,0.03)", border: "1px solid rgba(30,118,182,0.08)" }}>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Fecha instalacion:</span>
+                  <input
+                    type="date"
+                    defaultValue={tire.fechaInstalacion ? new Date(tire.fechaInstalacion).toISOString().split("T")[0] : ""}
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const firstInsp = tire.inspecciones[0];
+                      if (firstInsp) {
+                        onEdit(firstInsp.fecha, {
+                          fecha: new Date(firstInsp.fecha).toISOString().split("T")[0],
+                          profundidadInt: firstInsp.profundidadInt,
+                          profundidadCen: firstInsp.profundidadCen,
+                          profundidadExt: firstInsp.profundidadExt,
+                          inspeccionadoPorNombre: firstInsp.inspeccionadoPorNombre ?? "",
+                          fechaInstalacion: e.target.value,
+                        });
+                      }
+                    }}
+                    className="px-2 py-1 rounded-lg text-xs border border-[#1E76B6]/20 bg-white focus:outline-none focus:ring-1 focus:ring-[#1E76B6]"
+                  />
+                  <span className="text-[9px] text-gray-400">Cambiar recalcula CPK/CPT de todas las inspecciones</span>
+                </div>
               </div>
               <div className="p-4">
                 <InspectionTable tire={tire} onDelete={onDelete} onEdit={onEdit} />
@@ -1308,6 +1331,7 @@ const BuscarDist: React.FC = () => {
       if (oldInsp && data.profundidadExt !== oldInsp.profundidadExt) body.profundidadExt = data.profundidadExt;
       if (data.inspeccionadoPorNombre !== (oldInsp?.inspeccionadoPorNombre ?? "")) body.inspeccionadoPorNombre = data.inspeccionadoPorNombre;
       if (data.kilometrosEstimados !== undefined && data.kilometrosEstimados !== (oldInsp?.kilometrosEstimados ?? undefined)) body.kilometrosEstimados = data.kilometrosEstimados;
+      if (data.fechaInstalacion) body.fechaInstalacion = new Date(data.fechaInstalacion).toISOString();
 
       if (Object.keys(body).length === 0) return;
 
