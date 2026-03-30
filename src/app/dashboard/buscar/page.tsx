@@ -852,9 +852,9 @@ function VidaHistory({ tire }: { tire: Tire }) {
 // =============================================================================
 // Inspection Table
 // =============================================================================
-function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fecha: string) => void; onEdit: (oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string }) => void }) {
+function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fecha: string) => void; onEdit: (oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string; kilometrosEstimados?: number }) => void }) {
   const [editIdx, setEditIdx] = useState<number | null>(null);
-  const [editData, setEditData] = useState({ fecha: "", profundidadInt: 0, profundidadCen: 0, profundidadExt: 0, inspeccionadoPorNombre: "" });
+  const [editData, setEditData] = useState({ fecha: "", profundidadInt: 0, profundidadCen: 0, profundidadExt: 0, inspeccionadoPorNombre: "", kilometrosEstimados: undefined as number | undefined });
 
   if (tire.inspecciones.length === 0)
     return <p className="text-sm text-gray-400 py-6 text-center">Sin inspecciones registradas</p>;
@@ -872,6 +872,7 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
       profundidadCen: insp.profundidadCen,
       profundidadExt: insp.profundidadExt,
       inspeccionadoPorNombre: insp.inspeccionadoPorNombre ?? "",
+      kilometrosEstimados: insp.kilometrosEstimados ?? undefined,
     });
   }
 
@@ -941,7 +942,15 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
                   {insp.cpkProyectado != null ? `$${Math.round(insp.cpkProyectado).toLocaleString("es-CO")}` : "—"}
                 </td>
                 <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
-                  {insp.kilometrosEstimados != null ? insp.kilometrosEstimados.toLocaleString("es-CO") : "—"}
+                  {isEditing ? (
+                    <input type="number" value={editData.kilometrosEstimados ?? ""} placeholder="Km"
+                      onChange={(e) => setEditData((d) => ({ ...d, kilometrosEstimados: e.target.value ? Number(e.target.value) : undefined }))}
+                      className={editInputCls} style={{ width: "5rem" }} />
+                  ) : (
+                    <span className="cursor-pointer" onClick={() => startEdit(idx)}>
+                      {insp.kilometrosEstimados != null ? insp.kilometrosEstimados.toLocaleString("es-CO") : "—"}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   {insp.presionPsi != null ? (
@@ -1653,30 +1662,28 @@ const BuscarPage: React.FC = () => {
     }
   }
 
-  async function handleEditInspection(oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string }) {
+  async function handleEditInspection(oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string; kilometrosEstimados?: number }) {
     if (!selectedTire) return;
     try {
-      // 1. Delete old inspection
-      const delRes = await authFetch(
-        `${API_BASE}/tires/${selectedTire.id}/inspection?fecha=${encodeURIComponent(oldFecha)}`,
-        { method: "DELETE" }
+      const body: any = {};
+      // Only send fields that actually changed
+      const oldInsp = selectedTire.inspecciones.find(i => i.fecha === oldFecha);
+      if (data.fecha && data.fecha !== new Date(oldFecha).toISOString().split("T")[0]) body.fecha = new Date(data.fecha).toISOString();
+      if (oldInsp && data.profundidadInt !== oldInsp.profundidadInt) body.profundidadInt = data.profundidadInt;
+      if (oldInsp && data.profundidadCen !== oldInsp.profundidadCen) body.profundidadCen = data.profundidadCen;
+      if (oldInsp && data.profundidadExt !== oldInsp.profundidadExt) body.profundidadExt = data.profundidadExt;
+      if (data.inspeccionadoPorNombre !== (oldInsp?.inspeccionadoPorNombre ?? "")) body.inspeccionadoPorNombre = data.inspeccionadoPorNombre;
+      if (data.kilometrosEstimados !== undefined && data.kilometrosEstimados !== (oldInsp?.kilometrosEstimados ?? undefined)) body.kilometrosEstimados = data.kilometrosEstimados;
+
+      if (Object.keys(body).length === 0) return; // Nothing changed
+
+      const res = await authFetch(
+        `${API_BASE}/tires/${selectedTire.id}/inspection/edit?fecha=${encodeURIComponent(oldFecha)}`,
+        { method: "PATCH", body: JSON.stringify(body) }
       );
-      if (!delRes.ok) throw new Error("No se pudo eliminar la inspección anterior");
+      if (!res.ok) throw new Error("No se pudo guardar");
 
-      // 2. Create new inspection with edited values (backend recalculates CPK)
-      const addRes = await authFetch(`${API_BASE}/tires/${selectedTire.id}/inspection`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          fecha: data.fecha ? new Date(data.fecha).toISOString() : undefined,
-          profundidadInt: data.profundidadInt,
-          profundidadCen: data.profundidadCen,
-          profundidadExt: data.profundidadExt,
-          inspeccionadoPorNombre: data.inspeccionadoPorNombre || undefined,
-        }),
-      });
-      if (!addRes.ok) throw new Error("No se pudo guardar la inspección editada");
-
-      // 3. Refetch the tire to get recalculated data
+      // Refetch tire to get updated data
       const tireRes = await authFetch(`${API_BASE}/tires/${selectedTire.id}`);
       if (tireRes.ok) {
         const raw = await tireRes.json();
