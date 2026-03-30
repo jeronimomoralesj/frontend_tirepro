@@ -770,10 +770,10 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
               </a>
             </div>
             <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-              <a href="#producto" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Producto</a>
+              <a href="/marketplace" className="text-sm text-[#1E76B6] hover:text-[#0A183A] transition-colors font-bold">Marketplace</a>
+              <a href="#producto" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Plataforma</a>
               <a href="#beneficios" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Beneficios</a>
               <a href="#preguntas" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Preguntas</a>
-              <a href="/marketplace" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Marketplace</a>
               <a href="/blog" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Blog</a>
               <a href="/login" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Ingresar</a>
               <a href="/signup">
@@ -801,10 +801,10 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         {isMobileMenuOpen && (
           <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg" role="menu">
             <div className="px-4 sm:px-6 py-4 space-y-3">
-              <a href="#producto" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Producto</a>
+              <a href="/marketplace" className="block text-[#1E76B6] hover:text-[#0A183A] transition-colors py-2 font-bold" role="menuitem">Marketplace</a>
+              <a href="#producto" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Plataforma</a>
               <a href="#beneficios" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Beneficios</a>
               <a href="#preguntas" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Preguntas</a>
-              <a href="/marketplace" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Marketplace</a>
               <a href="/login" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Ingresar</a>
               <a href="/signup">
                 <button
@@ -872,8 +872,11 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-28 sm:pt-32 md:pt-36 pb-0">
 
-          {/* Headline */}
+          {/* Headline — marketplace + platform */}
           <div className="max-w-5xl mx-auto text-center">
+            <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-4" style={{ color: '#62b8f0', letterSpacing: '0.18em' }}>
+              Marketplace + Plataforma de Gestion
+            </p>
             <h1
               className="font-bold leading-[1.05] tracking-tight mb-6"
               style={{
@@ -881,7 +884,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                 color: '#ffffff',
               }}
             >
-              Software de gestión de llantas{' '}
+              Compra llantas al mejor precio.{' '}
               <span
                 style={{
                   background: 'linear-gradient(90deg, #1E76B6, #62b8f0, #1E76B6)',
@@ -891,10 +894,8 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                   backgroundClip: 'text',
                 }}
               >
-                con IA para flotas
+                Gestiona tu flota con IA.
               </span>
-              <br />
-              en Colombia
             </h1>
 
             <p
@@ -902,20 +903,20 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
               style={{
                 fontSize: 'clamp(1rem, 2vw, 1.25rem)',
                 color: 'rgba(255,255,255,0.6)',
-                maxWidth: '680px',
+                maxWidth: '720px',
               }}
             >
-              TirePro reduce el costo por kilómetro (CPK) de llantas para flotas de camiones, buses y tractocamiones en Colombia. Inspecciones digitales, seguimiento inteligente de neumáticos y alertas predictivas de reencauche — todo en una plataforma.
+              El marketplace de llantas mas grande de Colombia con distribuidores verificados. Compara precios, compra online y — si tienes flota — gestiona el desgaste, CPK y reencauche de cada neumatico con inteligencia artificial.
             </p>
 
             {/* SEO-rich sr-only paragraph for crawlers */}
             <p className="sr-only">
-              TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas pesadas en Colombia. Diseñado para camiones, buses, volquetas y tractocamiones, TirePro automatiza el cálculo del costo por kilómetro (CPK), predice el momento óptimo de reencauche, detecta desgaste irregular y genera alertas de mantenimiento preventivo. Gerentes de flota en Bogotá, Medellín, Cali, Barranquilla y toda Colombia usan TirePro para reducir costos de neumáticos y optimizar la vida útil de cada llanta.
+              TirePro es el marketplace de llantas y software de gestion de neumaticos con inteligencia artificial para Colombia. Compra llantas nuevas y de reencauche para camiones, buses, volquetas, tractocamiones, camionetas y automoviles a los mejores precios de distribuidores verificados en Bogota, Medellin, Cali, Barranquilla, Bucaramanga, Pereira y toda Colombia. Gestiona tu flota con analisis de desgaste, costo por kilometro CPK, prediccion de reemplazo, inspecciones digitales, alertas de mantenimiento preventivo y agentes de IA. Software de llantas, control de neumaticos, gestion de flotas pesadas, marketplace de llantas Colombia, comprar llantas online, llantas baratas, llantas para tractomula, llantas para camion, reencauche de llantas.
             </p>
 
-            {/* CTAs */}
+            {/* CTAs — marketplace first */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-              <a href="/companyregister" className="w-full sm:w-auto">
+              <a href="/marketplace" className="w-full sm:w-auto">
                 <button
                   className="w-full sm:w-auto text-white px-8 py-4 rounded-full font-semibold transition-all flex items-center justify-center gap-2 text-base"
                   style={{
@@ -924,13 +925,13 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                   }}
                   onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                   onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-                  aria-label="Solicitar demo gratis de TirePro"
+                  aria-label="Comprar llantas en el marketplace de TirePro Colombia"
                 >
-                  Solicitar Demo Gratis
+                  Comprar llantas
                   <ArrowRight size={18} />
                 </button>
               </a>
-              <a href="#producto" className="w-full sm:w-auto">
+              <a href="/signup" className="w-full sm:w-auto">
                 <button
                   className="w-full sm:w-auto px-8 py-4 rounded-full font-semibold transition-all text-base"
                   style={{
@@ -948,7 +949,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                     ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.2)'
                   }}
                 >
-                  Ver cómo funciona
+                  Gestionar mi flota gratis
                 </button>
               </a>
             </div>
@@ -957,7 +958,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
             <PlateSearch />
 
             <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>
-              Sin tarjeta de crédito · Plan Inicio gratis para siempre · Configuración en 10 min
+              Sin tarjeta de credito · 100% gratis · Distribuidores verificados en toda Colombia
             </p>
           </div>
 
@@ -1003,6 +1004,69 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
           </figure>
         </div>
       </header>
+
+      {/* -- MARKETPLACE SECTION ------------------------------------------------- */}
+      <section
+        className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 w-full"
+        style={{ background: '#ffffff' }}
+        aria-labelledby="marketplace-heading"
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.18em' }}>
+              Marketplace de llantas
+            </p>
+            <h2 id="marketplace-heading" className="font-bold leading-tight mb-5" style={{ fontSize: 'clamp(1.8rem, 4vw, 3.2rem)', color: '#0A183A' }}>
+              Encuentra la llanta perfecta al mejor precio
+            </h2>
+            <p className="text-base max-w-2xl mx-auto" style={{ color: 'rgba(10,24,58,0.55)' }}>
+              Distribuidores verificados en toda Colombia. Compara precios de llantas nuevas y reencauche para camiones, buses, tractomulas, camionetas y automoviles. Compra online con envio a tu ciudad.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {[
+              { title: 'Compara precios al instante', desc: 'Cotiza llantas de multiples distribuidores en segundos. Filtra por dimension, marca, tipo de eje y ciudad de entrega.', stat: '50+ distribuidores' },
+              { title: 'Busca por placa', desc: 'Ingresa la placa de tu vehiculo y te recomendamos la llanta exacta. Sin necesidad de saber la dimension — nosotros la encontramos por ti.', stat: 'Cualquier vehiculo' },
+              { title: 'Compra segura y directa', desc: 'Paga directamente al distribuidor. Seguimiento de tu pedido en tiempo real. Resenas verificadas de otros compradores.', stat: 'Envio a toda Colombia' },
+            ].map((item, i) => (
+              <div key={i} className="p-6 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-lg" style={{ background: 'rgba(30,118,182,0.03)', border: '1px solid rgba(30,118,182,0.1)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: '#1E76B6' }}>{item.stat}</p>
+                <h3 className="text-lg font-black text-[#0A183A] mb-2">{item.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(10,24,58,0.55)' }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-12">
+            {['Llantas para camion', 'Llantas para tractomula', 'Llantas para bus', 'Reencauche certificado', 'Llantas para camioneta', 'Llantas para automovil', 'Llantas para volqueta', 'Llantas 295/80R22.5'].map((cat) => (
+              <a key={cat} href={`/marketplace?q=${encodeURIComponent(cat.replace('Llantas para ', '').replace('Llantas ', ''))}`}
+                className="px-4 py-3 rounded-xl text-xs font-bold text-center transition-all hover:shadow-md hover:-translate-y-0.5"
+                style={{ background: 'rgba(10,24,58,0.03)', border: '1px solid rgba(10,24,58,0.08)', color: '#0A183A' }}>
+                {cat}
+              </a>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <a href="/marketplace"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-semibold text-white transition-all hover:shadow-lg hover:-translate-y-0.5"
+              style={{ background: 'linear-gradient(135deg, #1E76B6, #173D68)', boxShadow: '0 8px 32px rgba(30,118,182,0.3)' }}>
+              Explorar marketplace
+              <ArrowRight size={18} />
+            </a>
+            <p className="text-xs mt-3" style={{ color: 'rgba(10,24,58,0.35)' }}>
+              Llantas nuevas y reencauche · Precios directos de fabrica · Envio a toda Colombia
+            </p>
+          </div>
+        </div>
+
+        {/* SEO hidden content for marketplace keywords */}
+        <div className="sr-only">
+          <h3>Comprar llantas online en Colombia</h3>
+          <p>TirePro es el marketplace de llantas mas grande de Colombia. Compra llantas nuevas, llantas de reencauche, llantas para camion, llantas para tractomula, llantas para bus, llantas para volqueta, llantas para camioneta, llantas para automovil. Distribuidores verificados en Bogota, Medellin, Cali, Barranquilla, Bucaramanga, Pereira, Cartagena, Santa Marta, Cucuta, Ibague, Manizales y toda Colombia. Marcas como Bridgestone, Michelin, Goodyear, Continental, Hankook, Yokohama, Firestone. Dimensiones 295/80R22.5, 11R22.5, 315/80R22.5, 12R22.5, 235/75R15, 265/70R16. Precios de llantas, cotizar llantas, comprar neumaticos online Colombia.</p>
+        </div>
+      </section>
 
       {/* -- TRUST / STATS BAR --------------------------------------------------- */}
       <section
