@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import {
   Search, Car, X, Info, ChevronDown, Eye, Circle, BarChart3,
-  Calendar, Ruler, Repeat, Trash2, Pencil, CheckCircle,
+  Calendar, Ruler, Repeat, Trash2, Pencil, CheckCircle, Check,
   AlertCircle, Loader2, Activity, DollarSign, Gauge,
   AlertTriangle, Shield, ChevronRight, Zap, Layers,
   CheckCircle2, Timer, AlertOctagon, RotateCcw,
@@ -852,13 +852,35 @@ function VidaHistory({ tire }: { tire: Tire }) {
 // =============================================================================
 // Inspection Table
 // =============================================================================
-function InspectionTable({ tire, onDelete }: { tire: Tire; onDelete: (fecha: string) => void }) {
+function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fecha: string) => void; onEdit: (oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string }) => void }) {
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editData, setEditData] = useState({ fecha: "", profundidadInt: 0, profundidadCen: 0, profundidadExt: 0, inspeccionadoPorNombre: "" });
+
   if (tire.inspecciones.length === 0)
     return <p className="text-sm text-gray-400 py-6 text-center">Sin inspecciones registradas</p>;
 
   const sorted = [...tire.inspecciones].sort(
     (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
   );
+
+  function startEdit(idx: number) {
+    const insp = sorted[idx];
+    setEditIdx(idx);
+    setEditData({
+      fecha: new Date(insp.fecha).toISOString().split("T")[0],
+      profundidadInt: insp.profundidadInt,
+      profundidadCen: insp.profundidadCen,
+      profundidadExt: insp.profundidadExt,
+      inspeccionadoPorNombre: insp.inspeccionadoPorNombre ?? "",
+    });
+  }
+
+  function saveEdit(oldFecha: string) {
+    onEdit(oldFecha, editData);
+    setEditIdx(null);
+  }
+
+  const editInputCls = "w-16 px-1.5 py-1 rounded-lg text-xs font-bold text-center border border-[#1E76B6]/30 bg-[#F0F7FF] focus:outline-none focus:ring-1 focus:ring-[#1E76B6]";
 
   return (
     <div className="overflow-x-auto">
@@ -876,25 +898,41 @@ function InspectionTable({ tire, onDelete }: { tire: Tire; onDelete: (fecha: str
           {sorted.map((insp, idx) => {
             const avg = (insp.profundidadInt + insp.profundidadCen + insp.profundidadExt) / 3;
             const isLatest = idx === 0;
+            const isEditing = editIdx === idx;
             return (
               <tr key={`${insp.fecha}-${idx}`} className="border-b transition-colors"
-                style={{ borderColor: "rgba(10,24,58,0.05)", background: isLatest ? "rgba(30,118,182,0.02)" : undefined }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(30,118,182,0.03)")}
-                onMouseLeave={e => (e.currentTarget.style.background = isLatest ? "rgba(30,118,182,0.02)" : "")}>
+                style={{ borderColor: "rgba(10,24,58,0.05)", background: isEditing ? "rgba(30,118,182,0.06)" : isLatest ? "rgba(30,118,182,0.02)" : undefined }}
+                onMouseEnter={e => { if (!isEditing) e.currentTarget.style.background = "rgba(30,118,182,0.03)"; }}
+                onMouseLeave={e => { if (!isEditing) e.currentTarget.style.background = isLatest ? "rgba(30,118,182,0.02)" : ""; }}>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    {isLatest && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#1E76B6]" />}
-                    <span className="text-xs text-gray-600">{new Date(insp.fecha).toLocaleDateString("es-CO")}</span>
-                  </div>
+                  {isEditing ? (
+                    <input type="date" value={editData.fecha} onChange={(e) => setEditData((d) => ({ ...d, fecha: e.target.value }))}
+                      className="px-1.5 py-1 rounded-lg text-xs border border-[#1E76B6]/30 bg-[#F0F7FF] focus:outline-none" />
+                  ) : (
+                    <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => startEdit(idx)}>
+                      {isLatest && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#1E76B6]" />}
+                      <span className="text-xs text-gray-600">{new Date(insp.fecha).toLocaleDateString("es-CO")}</span>
+                    </div>
+                  )}
                 </td>
-                {[insp.profundidadInt, insp.profundidadCen, insp.profundidadExt].map((v, vi) => (
-                  <td key={vi} className="px-3 py-2.5">
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-bold"
-                      style={{ background: depthBg(v), color: depthColor(v) }}>{v} mm</span>
-                  </td>
-                ))}
+                {isEditing ? (
+                  <>
+                    <td className="px-2 py-2"><input type="number" step="0.1" value={editData.profundidadInt} onChange={(e) => setEditData((d) => ({ ...d, profundidadInt: Number(e.target.value) }))} className={editInputCls} /></td>
+                    <td className="px-2 py-2"><input type="number" step="0.1" value={editData.profundidadCen} onChange={(e) => setEditData((d) => ({ ...d, profundidadCen: Number(e.target.value) }))} className={editInputCls} /></td>
+                    <td className="px-2 py-2"><input type="number" step="0.1" value={editData.profundidadExt} onChange={(e) => setEditData((d) => ({ ...d, profundidadExt: Number(e.target.value) }))} className={editInputCls} /></td>
+                  </>
+                ) : (
+                  [insp.profundidadInt, insp.profundidadCen, insp.profundidadExt].map((v, vi) => (
+                    <td key={vi} className="px-3 py-2.5 cursor-pointer" onClick={() => startEdit(idx)}>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-lg text-xs font-bold"
+                        style={{ background: depthBg(v), color: depthColor(v) }}>{v} mm</span>
+                    </td>
+                  ))
+                )}
                 <td className="px-3 py-2.5">
-                  <span className="text-xs font-black" style={{ color: depthColor(avg) }}>{avg.toFixed(1)} mm</span>
+                  <span className="text-xs font-black" style={{ color: depthColor(isEditing ? (editData.profundidadInt + editData.profundidadCen + editData.profundidadExt) / 3 : avg) }}>
+                    {(isEditing ? (editData.profundidadInt + editData.profundidadCen + editData.profundidadExt) / 3 : avg).toFixed(1)} mm
+                  </span>
                 </td>
                 <td className="px-3 py-2.5 text-xs font-bold text-[#0A183A] whitespace-nowrap">
                   {insp.cpk != null ? `$${Math.round(insp.cpk).toLocaleString("es-CO")}` : "—"}
@@ -920,15 +958,41 @@ function InspectionTable({ tire, onDelete }: { tire: Tire; onDelete: (fecha: str
                   ) : <span className="text-gray-300 text-xs">—</span>}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  {insp.presionPsi != null ? (
-                    <span className="text-xs font-bold">{insp.inspeccionadoPorNombre}</span>
-                  ) : <span className="text-gray-300 text-xs">—</span>}
+                  {isEditing ? (
+                    <input type="text" value={editData.inspeccionadoPorNombre} onChange={(e) => setEditData((d) => ({ ...d, inspeccionadoPorNombre: e.target.value }))}
+                      placeholder="Inspector" className="w-20 px-1.5 py-1 rounded-lg text-xs border border-[#1E76B6]/30 bg-[#F0F7FF] focus:outline-none" />
+                  ) : (
+                    <span className="text-xs font-bold cursor-pointer" onClick={() => startEdit(idx)}>
+                      {insp.inspeccionadoPorNombre || "—"}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5">
-                  <button onClick={() => onDelete(insp.fecha)}
-                    className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Eliminar">
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {isEditing ? (
+                      <>
+                        <button onClick={() => saveEdit(insp.fecha)}
+                          className="p-1.5 rounded-lg hover:bg-green-50 transition-colors" title="Guardar">
+                          <Check className="w-3.5 h-3.5 text-green-500" />
+                        </button>
+                        <button onClick={() => setEditIdx(null)}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Cancelar">
+                          <X className="w-3.5 h-3.5 text-gray-400" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(idx)}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="Editar">
+                          <Pencil className="w-3.5 h-3.5 text-[#1E76B6]" />
+                        </button>
+                        <button onClick={() => onDelete(insp.fecha)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Eliminar">
+                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             );
@@ -1139,12 +1203,13 @@ function SentinelAnalysis({ tire }: { tire: Tire }) {
 type ModalTab = "overview" | "inspecciones" | "costos" | "vida";
 
 function TireDetailModal({
-  tire, onClose, onUpdate, onDelete,
+  tire, onClose, onUpdate, onDelete, onEdit,
 }: {
   tire: Tire;
   onClose: () => void;
   onUpdate: (t: Tire) => void;
   onDelete: (fecha: string) => void;
+  onEdit: (oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string }) => void;
 }) {
   const [activeTab, setActiveTab] = useState<ModalTab>("overview");
   const [editMode, setEditMode] = useState(false);
@@ -1440,7 +1505,7 @@ function TireDetailModal({
                 <SectionTitle icon={Calendar} title="Historial de Inspecciones" badge={`${tire.inspecciones.length} registros`} />
               </div>
               <div className="p-4">
-                <InspectionTable tire={tire} onDelete={onDelete} />
+                <InspectionTable tire={tire} onDelete={onDelete} onEdit={onEdit} />
               </div>
             </div>
           )}
@@ -1588,6 +1653,41 @@ const BuscarPage: React.FC = () => {
     }
   }
 
+  async function handleEditInspection(oldFecha: string, data: { fecha: string; profundidadInt: number; profundidadCen: number; profundidadExt: number; inspeccionadoPorNombre: string }) {
+    if (!selectedTire) return;
+    try {
+      // 1. Delete old inspection
+      const delRes = await authFetch(
+        `${API_BASE}/tires/${selectedTire.id}/inspection?fecha=${encodeURIComponent(oldFecha)}`,
+        { method: "DELETE" }
+      );
+      if (!delRes.ok) throw new Error("No se pudo eliminar la inspección anterior");
+
+      // 2. Create new inspection with edited values (backend recalculates CPK)
+      const addRes = await authFetch(`${API_BASE}/tires/${selectedTire.id}/inspection`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          profundidadInt: data.profundidadInt,
+          profundidadCen: data.profundidadCen,
+          profundidadExt: data.profundidadExt,
+          inspeccionadoPorNombre: data.inspeccionadoPorNombre || undefined,
+        }),
+      });
+      if (!addRes.ok) throw new Error("No se pudo guardar la inspección editada");
+
+      // 3. Refetch the tire to get recalculated data
+      const tireRes = await authFetch(`${API_BASE}/tires/${selectedTire.id}`);
+      if (tireRes.ok) {
+        const raw = await tireRes.json();
+        const updated = normalise(raw);
+        setSelectedTire(updated);
+        setTires(ts => ts.map(t => t.id === updated.id ? updated : t));
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error al editar la inspección");
+    }
+  }
+
   return (
     <div className="min-h-screen" style={{ background: "#ffff" }}>
       {/* Header */}
@@ -1691,6 +1791,7 @@ const BuscarPage: React.FC = () => {
             setTires(ts => ts.map(t => t.id === updated.id ? updated : t));
           }}
           onDelete={handleDeleteInspection}
+          onEdit={handleEditInspection}
         />
       )}
     </div>
