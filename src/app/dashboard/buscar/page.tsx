@@ -932,8 +932,15 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
 
   const editInputCls = "w-16 px-1.5 py-1 rounded-lg text-xs font-bold text-center border border-[#1E76B6]/30 bg-[#F0F7FF] focus:outline-none focus:ring-1 focus:ring-[#1E76B6]";
 
+  const hasCosts = tire.costo && tire.costo.length > 0;
+
   return (
     <div className="overflow-x-auto">
+      {!hasCosts && (
+        <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg text-[10px] font-bold" style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.15)", color: "#c2410c" }}>
+          CPK muestra $0 porque esta llanta no tiene costos registrados. Agrega un costo en la pestana Costos.
+        </div>
+      )}
       <table className="w-full text-sm min-w-[640px]">
         <thead>
           <tr style={{ background: "rgba(10,24,58,0.03)" }}>
