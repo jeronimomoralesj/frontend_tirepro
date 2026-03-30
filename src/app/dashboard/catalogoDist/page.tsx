@@ -26,6 +26,32 @@ const fmtCOP = (n: number) =>
 
 const inputCls = "w-full px-3 py-2 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
 
+// --- Formatting helpers ---
+/** Marca: first letter uppercase, rest lowercase. E.g. "BRIDGESTONE" → "Bridgestone" */
+function fmtMarca(v: string): string {
+  const trimmed = v.trim();
+  if (!trimmed) return "";
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+/** Modelo/Diseño: ALL UPPERCASE. E.g. "conti eco contact" → "CONTI ECO CONTACT" */
+function fmtModelo(v: string): string {
+  return v.toUpperCase();
+}
+
+/** Dimension: normalize to format like "295/80 R22.5"
+ *  Handles: "295/80R22.5", "295/80r22.5", "295/80 r22.5", "11R22.5", "7.50R16" etc. */
+function fmtDimension(v: string): string {
+  let d = v.trim().toUpperCase();
+  // Standard format: 295/80R22.5 → 295/80 R22.5
+  d = d.replace(/(\d)\s*R\s*(\d)/g, "$1 R$2");
+  // Numeric format: 11R22.5 → 11 R22.5 (but not if there's a slash)
+  if (!d.includes("/")) {
+    d = d.replace(/^(\d+(?:\.\d+)?)\s*R\s*(\d)/g, "$1R$2");
+  }
+  return d;
+}
+
 interface Listing {
   id: string;
   marca: string;
@@ -102,6 +128,10 @@ export default function CatalogoDistPage() {
   async function handleAdd() {
     if (!form.marca || !form.modelo || !form.dimension || form.precioCop <= 0) return;
     setSaving(true);
+    // Normalize formats before sending
+    const normalizedMarca = fmtMarca(form.marca);
+    const normalizedModelo = fmtModelo(form.modelo);
+    const normalizedDimension = fmtDimension(form.dimension);
     try {
       const { profundidadInicial, ...formData } = form;
       const res = await authFetch(`${API_BASE}/marketplace/listings`, {
@@ -109,6 +139,9 @@ export default function CatalogoDistPage() {
         body: JSON.stringify({
           distributorId: companyId,
           ...formData,
+          marca: normalizedMarca,
+          modelo: normalizedModelo,
+          dimension: normalizedDimension,
           catalogId: form.catalogId || undefined,
           eje: form.eje || undefined,
           precioPromo: form.precioPromo > 0 ? form.precioPromo : undefined,
@@ -297,21 +330,23 @@ export default function CatalogoDistPage() {
                     <CatalogAutocomplete
                       value={form.marca}
                       onChange={(v) => setForm((f) => ({ ...f, marca: v }))}
-                      onSelect={(item) => setForm((f) => ({ ...f, marca: item.marca }))}
+                      onSelect={(item) => setForm((f) => ({ ...f, marca: fmtMarca(item.marca), catalogId: item.skuRef || "" }))}
                       field="marca"
-                      placeholder="Marca"
+                      placeholder="Marca (ej: Bridgestone)"
                     />
+                    <p className="text-[8px] text-gray-400 mt-0.5">Primera letra mayuscula, resto minuscula</p>
                   </div>
                   <div>
                     <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Modelo/Diseno</label>
                     <CatalogAutocomplete
                       value={form.modelo}
-                      onChange={(v) => setForm((f) => ({ ...f, modelo: v }))}
-                      onSelect={(item) => setForm((f) => ({ ...f, modelo: item.modelo, dimension: item.dimension || f.dimension }))}
+                      onChange={(v) => setForm((f) => ({ ...f, modelo: fmtModelo(v) }))}
+                      onSelect={(item) => setForm((f) => ({ ...f, modelo: fmtModelo(item.modelo), dimension: item.dimension || f.dimension, catalogId: item.skuRef || f.catalogId }))}
                       field="modelo"
                       filterMarca={form.marca}
-                      placeholder="Modelo"
+                      placeholder="MODELO EN MAYUSCULAS"
                     />
+                    <p className="text-[8px] text-gray-400 mt-0.5">Todo en MAYUSCULAS</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -320,11 +355,11 @@ export default function CatalogoDistPage() {
                     <CatalogAutocomplete
                       value={form.dimension}
                       onChange={(v) => setForm((f) => ({ ...f, dimension: v }))}
-                      onSelect={(item) => setForm((f) => ({ ...f, dimension: item.dimension }))}
+                      onSelect={(item) => setForm((f) => ({ ...f, dimension: fmtDimension(item.dimension) }))}
                       field="dimension"
-                      filterMarca={form.marca}
-                      placeholder="Ej: 295/80R22.5"
+                      placeholder="Ej: 295/80 R22.5"
                     />
+                    <p className="text-[8px] text-gray-400 mt-0.5">Formato: 295/80 R22.5 (espacio antes de R)</p>
                   </div>
                   <div>
                     <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Eje</label>

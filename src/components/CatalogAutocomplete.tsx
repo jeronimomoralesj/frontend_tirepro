@@ -147,20 +147,45 @@ export default function CatalogAutocomplete({
       else if (field === "dimension") params.set("dimension", query);
       else if (field === "modelo") params.set("q", query);
 
-      if (filterMarca) params.set("marca", filterMarca);
+      // For dimension, don't filter by marca — dimensions are universal across brands
+      if (field !== "dimension" && filterMarca) params.set("marca", filterMarca);
       if (filterDimension) params.set("dimension", filterDimension);
 
       const res = await fetch(`${API_BASE}/catalog/search?${params.toString()}`);
-      if (res.ok) {
-        const data: CatalogItem[] = await res.json();
-        setSuggestions(data);
-        setNoResults(data.length === 0 && query.length >= 2);
-        // If no results, fetch crowd stats to show what we know from real data
-        if (data.length === 0 && query.length >= 2) {
-          fetchCrowdStats(query);
-        } else {
-          setCrowdStats(null);
-        }
+      let data: CatalogItem[] = [];
+      if (res.ok) data = await res.json();
+
+      // Fallback: also search marketplace listings for recently added tires
+      if (data.length === 0 && query.length >= 2) {
+        try {
+          const mlParams = new URLSearchParams({ search: query, limit: "20" });
+          const mlRes = await fetch(`${API_BASE}/marketplace/listings?${mlParams.toString()}`);
+          if (mlRes.ok) {
+            const mlData = await mlRes.json();
+            const listings = mlData.listings ?? [];
+            // Convert listings to CatalogItem-like format, deduplicated
+            const seen = new Set<string>();
+            for (const l of listings) {
+              const key = `${l.marca}|${l.modelo}|${l.dimension}`.toLowerCase();
+              if (seen.has(key)) continue;
+              seen.add(key);
+              data.push({
+                marca: l.marca, modelo: l.modelo, dimension: l.dimension,
+                rtdMm: null, psiRecomendado: null, precioCop: l.precioCop,
+                kmEstimadosReales: null, terreno: l.catalog?.terreno ?? null,
+                skuRef: l.catalogId ?? "", fuente: "marketplace",
+              });
+            }
+          }
+        } catch { /* */ }
+      }
+
+      setSuggestions(data);
+      setNoResults(data.length === 0 && query.length >= 2);
+      if (data.length === 0 && query.length >= 2) {
+        fetchCrowdStats(query);
+      } else {
+        setCrowdStats(null);
       }
     } catch { /* */ }
     setLoading(false);
