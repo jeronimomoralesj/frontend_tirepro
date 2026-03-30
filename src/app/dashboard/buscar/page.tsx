@@ -1667,6 +1667,7 @@ const BuscarPage: React.FC = () => {
       const addRes = await authFetch(`${API_BASE}/tires/${selectedTire.id}/inspection`, {
         method: "PATCH",
         body: JSON.stringify({
+          fecha: data.fecha ? new Date(data.fecha).toISOString() : undefined,
           profundidadInt: data.profundidadInt,
           profundidadCen: data.profundidadCen,
           profundidadExt: data.profundidadExt,
