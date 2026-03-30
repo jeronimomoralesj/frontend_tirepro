@@ -928,7 +928,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
         <div className="absolute pointer-events-none" style={{ top: '-10%', right: '-5%', width: '55%', height: '70%', background: 'radial-gradient(ellipse at center, rgba(30,118,182,0.18) 0%, transparent 70%)' }} aria-hidden="true" />
         <div className="absolute pointer-events-none" style={{ bottom: '-5%', left: '-10%', width: '45%', height: '50%', background: 'radial-gradient(ellipse at center, rgba(23,61,104,0.25) 0%, transparent 70%)' }} aria-hidden="true" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-28 sm:pt-36 md:pt-44 pb-20 sm:pb-28">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-28 sm:pt-36 md:pt-44 pb-16 sm:pb-24">
           <div className="max-w-3xl mx-auto text-center">
 
             {/* Badge */}
@@ -939,11 +939,11 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
 
             <h1 className="font-bold leading-[1.08] tracking-tight mb-5"
               style={{ fontSize: 'clamp(2.2rem, 5.5vw, 4.5rem)', color: '#ffffff' }}>
-              Reduce hasta un 25% el costo de tus llantas
+              Software de Gestion de Llantas con IA para Flotas
             </h1>
 
             <p className="mx-auto mb-8 leading-relaxed" style={{ fontSize: 'clamp(0.95rem, 1.8vw, 1.15rem)', color: 'rgba(255,255,255,0.55)', maxWidth: '600px' }}>
-              TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas. Analizamos cada dato para decirte exactamente que hacer, cuando hacerlo y que comprar — para que cada peso invertido en llantas rinda al maximo.
+              Reduce hasta un 25% el costo de tus llantas. Analizamos cada dato para decirte exactamente que hacer, cuando hacerlo y que comprar — para que cada peso invertido en neumaticos rinda al maximo.
             </p>
 
             {/* SEO sr-only */}
@@ -966,7 +966,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
             </div>
 
             {/* Value props row */}
-            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-10">
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-12">
               {[
                 { icon: BarChart3, text: 'CPK en tiempo real' },
                 { icon: Target, text: 'Prediccion de reemplazo' },
@@ -980,42 +980,18 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
               ))}
             </div>
 
-            {/* Divider */}
-            <div className="flex items-center gap-4 max-w-sm mx-auto mb-6">
-              <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
-              <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.2)' }}>Busca llantas por placa o dimension</span>
-              <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            {/* Landing image */}
+            <div className="max-w-4xl mx-auto">
+              <Image
+                src={landing}
+                alt="TirePro — Dashboard de gestión inteligente de llantas con IA para flotas de transporte en Colombia"
+                className="w-full h-auto rounded-2xl shadow-2xl"
+                style={{ boxShadow: '0 30px 80px rgba(0,0,0,0.4)' }}
+                priority
+              />
             </div>
 
-            {/* Compact search bar */}
-            <div className="max-w-lg mx-auto mb-4">
-              <div className="flex items-center bg-white/[0.08] rounded-full overflow-hidden border border-white/10">
-                <input type="text" id="hero-search"
-                  placeholder="Buscar llanta... ej: 295/80R22.5, Bridgestone"
-                  className="flex-1 px-5 py-3 text-sm text-white placeholder-white/30 bg-transparent focus:outline-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const val = (e.target as HTMLInputElement).value.trim()
-                      if (val) { trackSearch(val, -1); window.location.href = `/marketplace?q=${encodeURIComponent(val)}` }
-                    }
-                  }}
-                />
-                <button onClick={() => {
-                    const input = document.getElementById('hero-search') as HTMLInputElement
-                    const val = input?.value?.trim()
-                    if (val) { trackSearch(val, -1); window.location.href = `/marketplace?q=${encodeURIComponent(val)}` }
-                    else window.location.href = '/marketplace'
-                  }}
-                  className="px-5 py-3 font-bold text-xs text-white transition-all flex-shrink-0"
-                  style={{ background: '#1E76B6' }}>
-                  Buscar
-                </button>
-              </div>
-            </div>
-
-            <PlateSearch />
-
-            <p className="mt-6" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.75rem' }}>
+            <p className="mt-8" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.75rem' }}>
               100% gratis · Para flotas de 1 a 1,000+ vehiculos
             </p>
           </div>
@@ -1076,9 +1052,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
           </div>
         </div>
       </section>
-
-      {/* -- BEST SELLERS (cached 24h via ISR) ----------------------------------- */}
-      <BestSellers items={bestSellers} />
 
       {/* -- TRUST / STATS BAR --------------------------------------------------- */}
       <section
