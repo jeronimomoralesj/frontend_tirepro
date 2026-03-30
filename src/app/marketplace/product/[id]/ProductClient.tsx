@@ -375,38 +375,116 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                 const eje = product.eje;
                 const terreno = product.catalog?.terreno;
 
-                // Map dimension patterns to vehicle types
-                const COMPAT: { dim: RegExp; vehicles: { name: string; positions: string }[] }[] = [
-                  { dim: /22\.5/, vehicles: [
-                    { name: "Tractomula (cabezote)", positions: eje === "direccion" ? "Eje delantero (P1, P2)" : eje === "traccion" ? "Ejes traseros (P3-P6)" : "Todas las posiciones" },
-                    { name: "Trailer 3 ejes", positions: eje === "libre" || !eje ? "Todos los ejes" : `Eje de ${eje}` },
-                    { name: "Bus interurbano", positions: eje === "direccion" ? "Eje direccional" : "Ejes de traccion" },
-                  ]},
-                  { dim: /19\.5/, vehicles: [
-                    { name: "Camion mediano", positions: eje === "direccion" ? "Eje delantero" : "Eje trasero" },
-                    { name: "Bus urbano", positions: "Todos los ejes" },
-                  ]},
-                  { dim: /17\.5/, vehicles: [
-                    { name: "Camion liviano", positions: eje === "direccion" ? "Eje delantero" : "Todas las posiciones" },
-                    { name: "Furgon", positions: "Todos los ejes" },
-                  ]},
-                  { dim: /24\.5/, vehicles: [
-                    { name: "Volqueta", positions: eje === "traccion" ? "Ejes de traccion" : "Eje direccional" },
-                    { name: "Mixer (mezcladora)", positions: "Ejes de carga" },
-                  ]},
-                  { dim: /20/, vehicles: [
-                    { name: "Camion pesado", positions: eje === "direccion" ? "Eje delantero" : "Ejes traseros" },
-                    { name: "Bus intermunicipal", positions: "Todos los ejes" },
-                  ]},
-                ];
+                // Parse dimension to extract width, aspect ratio, and rim diameter
+                // Formats: "195/55R16", "295/80R22.5", "11R22.5", "7.50R16", "120/80-17"
+                const numericMatch = dim.match(/^(\d+(?:\.\d+)?)R(\d+(?:\.\d+)?)$/i);       // e.g. 11R22.5
+                const standardMatch = dim.match(/^(\d+)\/(\d+)\s*R?\s*(\d+(?:\.\d+)?)$/i);  // e.g. 195/55R16
+                const motoMatch = dim.match(/^(\d+)\/(\d+)\s*-\s*(\d+)$/);                  // e.g. 120/80-17
 
-                const matches = COMPAT.filter((c) => c.dim.test(dim));
-                const vehicles = matches.length > 0
-                  ? matches.flatMap((m) => m.vehicles)
-                  : [
-                    { name: "Vehiculo de carga", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
-                    { name: "Bus / transporte", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
+                const width = standardMatch ? parseInt(standardMatch[1]) : numericMatch ? parseFloat(numericMatch[1]) * 25.4 : 0;
+                const rim = standardMatch ? parseFloat(standardMatch[3]) : numericMatch ? parseFloat(numericMatch[2]) : motoMatch ? parseFloat(motoMatch[3]) : 0;
+                const isMoto = !!motoMatch || dim.includes('-');
+
+                type VehicleCompat = { name: string; examples: string; positions: string };
+                let vehicles: VehicleCompat[] = [];
+
+                if (isMoto) {
+                  vehicles = [
+                    { name: "Motocicleta", examples: "Honda CB190, Yamaha FZ, Bajaj Pulsar, Suzuki Gixxer", positions: "Delantera o trasera segun medida" },
                   ];
+                } else if (rim >= 22) {
+                  // Heavy truck / bus — R22.5, R24.5
+                  if (rim >= 24) {
+                    vehicles = [
+                      { name: "Volqueta", examples: "Kenworth T800, International 7600, Mack Granite", positions: eje === "traccion" ? "Ejes de traccion" : eje === "direccion" ? "Eje direccional" : "Todas las posiciones" },
+                      { name: "Mixer / Mezcladora", examples: "International HX520, Freightliner 114SD", positions: "Ejes de carga" },
+                    ];
+                  } else {
+                    vehicles = [
+                      { name: "Tractomula (cabezote)", examples: "Kenworth T680, Freightliner Cascadia, International LT", positions: eje === "direccion" ? "Eje delantero (P1, P2)" : eje === "traccion" ? "Ejes traseros (P3-P6)" : "Todas las posiciones" },
+                      { name: "Trailer / Semirremolque", examples: "Trailer 2 y 3 ejes, cama baja, cisterna", positions: eje === "libre" || !eje ? "Todos los ejes" : `Eje de ${eje}` },
+                      { name: "Bus interurbano", examples: "Mercedes-Benz O500, Marcopolo Paradiso", positions: eje === "direccion" ? "Eje direccional" : "Ejes de traccion" },
+                    ];
+                  }
+                } else if (rim >= 19 && rim < 22) {
+                  // Medium truck / bus — R19.5, R20
+                  vehicles = [
+                    { name: "Camion mediano", examples: "Chevrolet NQR, Hino FC, JAC X350", positions: eje === "direccion" ? "Eje delantero" : "Eje trasero" },
+                    { name: "Bus urbano", examples: "Chevrolet LV150, Hino AK, SITP Bogota", positions: "Todos los ejes" },
+                  ];
+                } else if (rim >= 17 && rim < 19) {
+                  // Light truck or SUV depending on width
+                  if (width >= 200 || numericMatch) {
+                    // Wide or numeric format (7.50R16, 215/75R17.5) = light truck
+                    vehicles = [
+                      { name: "Camion liviano", examples: "Chevrolet NHR, Hyundai HD65, JMC Carrying", positions: eje === "direccion" ? "Eje delantero" : "Todas las posiciones" },
+                      { name: "Furgon de reparto", examples: "Chevrolet NLR, Hyundai HD45, Kia K2700", positions: "Todos los ejes" },
+                    ];
+                  } else {
+                    // Narrower R17/R18 = SUV, crossover, sedan deportivo
+                    vehicles = [
+                      { name: "SUV / Crossover", examples: "Toyota RAV4, Mazda CX-5, Hyundai Tucson, Kia Sportage", positions: "Las 4 ruedas" },
+                      { name: "Sedan mediano", examples: "Toyota Camry, Mazda 3, Honda Civic, Kia Cerato", positions: "Las 4 ruedas" },
+                    ];
+                    if (width >= 235) {
+                      vehicles.unshift({ name: "Camioneta / Pickup", examples: "Toyota Hilux, Nissan Frontier, Chevrolet D-MAX, Ford Ranger", positions: "Las 4 ruedas" });
+                    }
+                  }
+                } else if (rim >= 15 && rim < 17) {
+                  // Passenger car / small SUV — R15, R16
+                  if (width >= 255) {
+                    // Wide R15/R16 = pickup / SUV
+                    vehicles = [
+                      { name: "Camioneta / Pickup", examples: "Toyota Hilux, Nissan Frontier, Mitsubishi L200", positions: "Las 4 ruedas" },
+                      { name: "Campero / SUV", examples: "Toyota Prado, Nissan Pathfinder, Chevrolet TrailBlazer", positions: "Las 4 ruedas" },
+                    ];
+                  } else if (width >= 215) {
+                    vehicles = [
+                      { name: "Sedan mediano / Grande", examples: "Toyota Corolla, Mazda 3, Honda Civic, Kia Cerato", positions: "Las 4 ruedas" },
+                      { name: "SUV compacto", examples: "Hyundai Tucson, Kia Sportage, Nissan Qashqai, Renault Duster", positions: "Las 4 ruedas" },
+                    ];
+                  } else if (width >= 185) {
+                    vehicles = [
+                      { name: "Sedan compacto", examples: "Renault Logan, Chevrolet Onix, Kia Rio, Hyundai Accent", positions: "Las 4 ruedas" },
+                      { name: "Hatchback", examples: "Honda Fit, Mazda 2, Renault Sandero, Volkswagen Polo", positions: "Las 4 ruedas" },
+                    ];
+                  } else {
+                    vehicles = [
+                      { name: "Auto compacto / City car", examples: "Kia Picanto, Chevrolet Spark, Renault Kwid, Suzuki Swift", positions: "Las 4 ruedas" },
+                    ];
+                  }
+                } else if (rim >= 13 && rim < 15) {
+                  // Small car — R13, R14
+                  if (width >= 175) {
+                    vehicles = [
+                      { name: "Sedan compacto", examples: "Renault Logan, Chevrolet Sail, Kia Rio, Hyundai i25", positions: "Las 4 ruedas" },
+                      { name: "Hatchback", examples: "Renault Sandero, Chevrolet Onix, Suzuki Swift", positions: "Las 4 ruedas" },
+                    ];
+                  } else {
+                    vehicles = [
+                      { name: "City car", examples: "Kia Picanto, Chevrolet Spark, Suzuki Alto, Renault Kwid", positions: "Las 4 ruedas" },
+                    ];
+                  }
+                } else if (numericMatch && rim === 16 && width > 150) {
+                  // Numeric format R16 (e.g. 7.50R16) = light truck
+                  vehicles = [
+                    { name: "Camion liviano", examples: "Chevrolet NHR, Hyundai HD45, Kia K2700", positions: "Todas las posiciones" },
+                    { name: "Furgon", examples: "JMC Carrying, Foton Aumark, Hyundai HD65", positions: "Todos los ejes" },
+                  ];
+                }
+
+                // Fallback: try to infer from rim and width if nothing matched
+                if (vehicles.length === 0) {
+                  if (rim <= 16 && width <= 250) {
+                    vehicles = [
+                      { name: "Automovil", examples: "Consulta el manual de tu vehiculo para confirmar compatibilidad", positions: "Las 4 ruedas" },
+                    ];
+                  } else {
+                    vehicles = [
+                      { name: "Vehiculo comercial", examples: "Consulta el manual de tu vehiculo para confirmar compatibilidad", positions: eje ? `Eje de ${eje}` : "Consultar posicion" },
+                    ];
+                  }
+                }
 
                 return (
                   <div className="space-y-2">
@@ -414,7 +492,8 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                       <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: "rgba(30,118,182,0.03)", border: "1px solid rgba(30,118,182,0.08)" }}>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-[#0A183A]">{v.name}</p>
-                          <p className="text-[10px] text-gray-500">{v.positions}</p>
+                          <p className="text-[10px] text-gray-500">{v.examples}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{v.positions}</p>
                         </div>
                       </div>
                     ))}
