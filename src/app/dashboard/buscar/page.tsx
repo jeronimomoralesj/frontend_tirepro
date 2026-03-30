@@ -1683,14 +1683,11 @@ const BuscarPage: React.FC = () => {
       );
       if (!res.ok) throw new Error("No se pudo guardar");
 
-      // Refetch tire to get updated data
-      const tireRes = await authFetch(`${API_BASE}/tires/${selectedTire.id}`);
-      if (tireRes.ok) {
-        const raw = await tireRes.json();
-        const updated = normalise(raw);
-        setSelectedTire(updated);
-        setTires(ts => ts.map(t => t.id === updated.id ? updated : t));
-      }
+      // The edit endpoint returns the full updated tire
+      const raw = await res.json();
+      const updated = normalise(raw);
+      setSelectedTire(updated);
+      setTires(ts => ts.map(t => t.id === updated.id ? updated : t));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error al editar la inspección");
     }
