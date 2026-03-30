@@ -922,71 +922,77 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
         }}
       >
         {/* Cinematic grid overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(30,118,182,0.04) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(30,118,182,0.04) 1px, transparent 1px)
-            `,
-            backgroundSize: '60px 60px',
-          }}
-          aria-hidden="true"
-        />
-
-        {/* Radial glow top-right */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            top: '-10%',
-            right: '-5%',
-            width: '55%',
-            height: '70%',
-            background: 'radial-gradient(ellipse at center, rgba(30,118,182,0.18) 0%, transparent 70%)',
-          }}
-          aria-hidden="true"
-        />
-
-        {/* Radial glow bottom-left */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            bottom: '-5%',
-            left: '-10%',
-            width: '45%',
-            height: '50%',
-            background: 'radial-gradient(ellipse at center, rgba(23,61,104,0.25) 0%, transparent 70%)',
-          }}
-          aria-hidden="true"
-        />
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ backgroundImage: 'linear-gradient(rgba(30,118,182,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(30,118,182,0.04) 1px, transparent 1px)', backgroundSize: '60px 60px' }}
+          aria-hidden="true" />
+        <div className="absolute pointer-events-none" style={{ top: '-10%', right: '-5%', width: '55%', height: '70%', background: 'radial-gradient(ellipse at center, rgba(30,118,182,0.18) 0%, transparent 70%)' }} aria-hidden="true" />
+        <div className="absolute pointer-events-none" style={{ bottom: '-5%', left: '-10%', width: '45%', height: '50%', background: 'radial-gradient(ellipse at center, rgba(23,61,104,0.25) 0%, transparent 70%)' }} aria-hidden="true" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-28 sm:pt-36 md:pt-44 pb-20 sm:pb-28">
-
           <div className="max-w-3xl mx-auto text-center">
-            <h1
-              className="font-bold leading-[1.08] tracking-tight mb-5"
-              style={{ fontSize: 'clamp(2.2rem, 5.5vw, 4.5rem)', color: '#ffffff' }}
-            >
-              Encuentra la llanta exacta para tu vehiculo
+
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6" style={{ background: 'rgba(30,118,182,0.12)', border: '1px solid rgba(30,118,182,0.2)' }}>
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#62b8f0' }} />
+              <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: '#62b8f0' }}>Analisis de datos + IA</span>
+            </div>
+
+            <h1 className="font-bold leading-[1.08] tracking-tight mb-5"
+              style={{ fontSize: 'clamp(2.2rem, 5.5vw, 4.5rem)', color: '#ffffff' }}>
+              Reduce hasta un 25% el costo de tus llantas
             </h1>
 
-            <p className="mx-auto mb-8 leading-relaxed" style={{ fontSize: 'clamp(0.95rem, 1.8vw, 1.15rem)', color: 'rgba(255,255,255,0.55)', maxWidth: '560px' }}>
-              Busca por dimension, marca o ingresa tu placa y te decimos que necesitas. Distribuidores verificados en toda Colombia.
+            <p className="mx-auto mb-8 leading-relaxed" style={{ fontSize: 'clamp(0.95rem, 1.8vw, 1.15rem)', color: 'rgba(255,255,255,0.55)', maxWidth: '600px' }}>
+              TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas. Analizamos cada dato para decirte exactamente que hacer, cuando hacerlo y que comprar — para que cada peso invertido en llantas rinda al maximo.
             </p>
 
             {/* SEO sr-only */}
             <p className="sr-only">
-              TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas y el marketplace de llantas mas grande de Colombia. Compra llantas nuevas y de reencauche para camiones, buses, volquetas, tractocamiones, camionetas y automoviles a los mejores precios de distribuidores verificados en Bogota, Medellin, Cali, Barranquilla, Bucaramanga, Pereira y toda Colombia. Software de llantas, control de neumaticos, gestion de flotas pesadas, CPK en tiempo real, prediccion de fallas con IA, marketplace de llantas Colombia, comprar llantas online, venta de llantas, tienda de llantas.
+              TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas y el marketplace de llantas mas grande de Colombia. Plataforma de analisis de datos para gestion de neumaticos. Compra llantas nuevas y de reencauche para camiones, buses, volquetas, tractocamiones, camionetas y automoviles a los mejores precios de distribuidores verificados en Bogota, Medellin, Cali, Barranquilla, Bucaramanga, Pereira y toda Colombia. Software de llantas, control de neumaticos, gestion de flotas pesadas, CPK en tiempo real, prediccion de fallas con IA, marketplace de llantas Colombia, comprar llantas online.
             </p>
 
-            {/* Search bar */}
-            <div className="max-w-2xl mx-auto mb-6">
-              <div className="flex items-center bg-white rounded-full overflow-hidden shadow-2xl" style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-                <input
-                  type="text"
-                  id="hero-search"
-                  placeholder="Buscar llanta... ej: 295/80R22.5, Bridgestone, camion"
-                  className="flex-1 px-6 py-4 sm:py-5 text-sm sm:text-base text-[#0A183A] placeholder-gray-400 bg-transparent focus:outline-none"
+            {/* CTA buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
+              <a href="/signup"
+                className="px-8 py-4 rounded-full text-sm font-bold text-white transition-all hover:scale-105 hover:shadow-xl"
+                style={{ background: 'linear-gradient(135deg, #1E76B6, #173D68)', boxShadow: '0 4px 20px rgba(30,118,182,0.3)' }}>
+                Comenzar gratis
+              </a>
+              <a href="/marketplace"
+                className="px-8 py-4 rounded-full text-sm font-bold transition-all hover:bg-white/10"
+                style={{ color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                Ir al marketplace
+              </a>
+            </div>
+
+            {/* Value props row */}
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-10">
+              {[
+                { icon: BarChart3, text: 'CPK en tiempo real' },
+                { icon: Target, text: 'Prediccion de reemplazo' },
+                { icon: Activity, text: '6 agentes de IA 24/7' },
+                { icon: DollarSign, text: 'Ahorro medido en pesos' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <item.icon className="w-3.5 h-3.5" style={{ color: '#62b8f0' }} />
+                  <span className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>{item.text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 max-w-sm mx-auto mb-6">
+              <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+              <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.2)' }}>Busca llantas por placa o dimension</span>
+              <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            </div>
+
+            {/* Compact search bar */}
+            <div className="max-w-lg mx-auto mb-4">
+              <div className="flex items-center bg-white/[0.08] rounded-full overflow-hidden border border-white/10">
+                <input type="text" id="hero-search"
+                  placeholder="Buscar llanta... ej: 295/80R22.5, Bridgestone"
+                  className="flex-1 px-5 py-3 text-sm text-white placeholder-white/30 bg-transparent focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const val = (e.target as HTMLInputElement).value.trim()
@@ -994,100 +1000,73 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
                     }
                   }}
                 />
-                <button
-                  onClick={() => {
+                <button onClick={() => {
                     const input = document.getElementById('hero-search') as HTMLInputElement
                     const val = input?.value?.trim()
                     if (val) { trackSearch(val, -1); window.location.href = `/marketplace?q=${encodeURIComponent(val)}` }
                     else window.location.href = '/marketplace'
                   }}
-                  className="px-6 sm:px-8 py-4 sm:py-5 font-bold text-sm text-white transition-all flex-shrink-0"
-                  style={{ background: '#1E76B6' }}
-                >
+                  className="px-5 py-3 font-bold text-xs text-white transition-all flex-shrink-0"
+                  style={{ background: '#1E76B6' }}>
                   Buscar
                 </button>
               </div>
             </div>
 
-            {/* Quick category links */}
-            <div className="flex flex-wrap justify-center gap-2 mb-8">
-              {['295/80R22.5', '11R22.5', '265/70R16', '205/55R16', 'Reencauche', 'Camion', 'Camioneta'].map((q) => (
-                <a key={q} href={`/marketplace?q=${encodeURIComponent(q)}`}
-                  className="px-3 py-1.5 rounded-full text-[11px] font-medium transition-all hover:bg-white/15"
-                  style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  {q}
-                </a>
-              ))}
-            </div>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4 max-w-md mx-auto mb-6">
-              <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.1)' }} />
-              <span className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>o busca con tu placa</span>
-              <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.1)' }} />
-            </div>
-
-            {/* Plate search */}
             <PlateSearch />
 
-            <p className="mt-8" style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.78rem' }}>
-              100% gratis · Distribuidores verificados · Envio a toda Colombia
+            <p className="mt-6" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.75rem' }}>
+              100% gratis · Para flotas de 1 a 1,000+ vehiculos
             </p>
           </div>
         </div>
       </header>
 
-      {/* -- BEST SELLERS (cached 24h via ISR) ----------------------------------- */}
-      <BestSellers items={bestSellers} />
-
-      {/* -- PLATFORM INTRO ------------------------------------------------------ */}
+      {/* -- MISSION ------------------------------------------------------------- */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 w-full" style={{ background: '#ffffff' }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.18em' }}>
-              Mas que un marketplace
-            </p>
-            <h2 className="font-bold leading-tight mb-5" style={{ fontSize: 'clamp(1.8rem, 4vw, 3.2rem)', color: '#0A183A' }}>
-              La plataforma completa para llantas en Colombia
-            </h2>
-            <p className="text-base max-w-2xl mx-auto" style={{ color: 'rgba(10,24,58,0.5)' }}>
-              Compra llantas al mejor precio en nuestro marketplace. Y si manejas una flota, activa la gestion inteligente con IA — desgaste, CPK, reencauche, alertas y 6 agentes de inteligencia artificial que trabajan 24/7 por tus neumaticos.
-            </p>
-          </div>
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-xs font-semibold tracking-widest uppercase mb-5" style={{ color: '#1E76B6', letterSpacing: '0.18em' }}>
+            Nuestra mision
+          </p>
+          <h2 className="font-bold leading-tight mb-6" style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.8rem)', color: '#0A183A' }}>
+            Estamos obsesionados con ayudarle a nuestros clientes a alcanzar la perfeccion en la gestion de sus llantas
+          </h2>
+          <p className="text-base sm:text-lg leading-relaxed mb-10 max-w-2xl mx-auto" style={{ color: 'rgba(10,24,58,0.5)' }}>
+            Somos una empresa de analisis de datos que construyo dos productos para resolver un mismo problema: que cada llanta rinda lo maximo posible. Nuestra plataforma de gestion con IA le dice a tu flota exactamente que hacer, cuando hacerlo y por que. Y nuestro marketplace conecta esa decision con la compra perfecta — el neumatico correcto, al precio justo, del distribuidor indicado.
+          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-14">
-            {/* Marketplace card */}
-            <a href="/marketplace" className="group p-7 sm:p-8 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-xl" style={{ background: 'linear-gradient(135deg, #f0f7ff 0%, #e8f2fc 100%)', border: '1px solid rgba(30,118,182,0.12)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#1E76B6' }}>Marketplace</p>
-              <h3 className="text-xl sm:text-2xl font-black text-[#0A183A] mb-2 group-hover:text-[#1E76B6] transition-colors">Compra llantas online</h3>
-              <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(10,24,58,0.5)' }}>
-                Distribuidores verificados, precios directos, envio a toda Colombia. Compara marcas, dimensiones y reencauche en un solo lugar.
-              </p>
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#1E76B6] group-hover:gap-2 transition-all">
-                Explorar marketplace <ArrowRight size={14} />
-              </span>
-            </a>
-
-            {/* Platform card */}
-            <a href="/signup" className="group p-7 sm:p-8 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-xl" style={{ background: 'linear-gradient(135deg, #0A183A 0%, #132d5e 100%)', border: '1px solid rgba(30,118,182,0.2)' }}>
+          {/* Two products */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-12">
+            <a href="/signup" className="group p-7 sm:p-8 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-xl text-left" style={{ background: 'linear-gradient(135deg, #0A183A 0%, #132d5e 100%)', border: '1px solid rgba(30,118,182,0.2)' }}>
               <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#62b8f0' }}>Plataforma de gestion</p>
-              <h3 className="text-xl sm:text-2xl font-black text-white mb-2">Gestiona tu flota con IA</h3>
+              <h3 className="text-xl sm:text-2xl font-black text-white mb-2">Visibilidad total de tu flota</h3>
               <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Inspecciones digitales, analisis de CPK, prediccion de reemplazo, control de inventario y 6 agentes de IA especializados. 100% gratis.
+                Sabe exactamente cuando cambiar cada llanta, que comprar, cuando reencauchar y cuanto estas ahorrando. CPK en tiempo real, predicciones con IA y 6 agentes especializados que trabajan 24/7.
               </p>
               <span className="inline-flex items-center gap-1 text-xs font-bold text-[#62b8f0] group-hover:gap-2 transition-all">
                 Comenzar gratis <ArrowRight size={14} />
               </span>
             </a>
+
+            <a href="/marketplace" className="group p-7 sm:p-8 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-xl text-left" style={{ background: 'linear-gradient(135deg, #f0f7ff 0%, #e8f2fc 100%)', border: '1px solid rgba(30,118,182,0.12)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#1E76B6' }}>Marketplace</p>
+              <h3 className="text-xl sm:text-2xl font-black text-[#0A183A] mb-2 group-hover:text-[#1E76B6] transition-colors">Compra la llanta correcta</h3>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(10,24,58,0.5)' }}>
+                Distribuidores verificados en toda Colombia. Compara precios, dimensiones y reencauche. Conectado con la plataforma para que siempre compres lo que realmente necesitas.
+              </p>
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#1E76B6] group-hover:gap-2 transition-all">
+                Explorar marketplace <ArrowRight size={14} />
+              </span>
+            </a>
           </div>
 
-          {/* What the platform does — quick grid */}
+          {/* What data analysis gives you */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { title: 'Inspecciones digitales', desc: 'Registra profundidad y presion en segundos desde cualquier dispositivo' },
-              { title: 'CPK en tiempo real', desc: 'Costo por kilometro calculado con datos historicos reales' },
-              { title: 'Prediccion de reemplazo', desc: 'IA predice cuando cambiar cada llanta antes de que falle' },
-              { title: 'Agentes de IA', desc: '6 agentes especializados analizan tu flota 24/7 automaticamente' },
+              { title: 'Que cambiar', desc: 'Clasificacion por prioridad: reencauche, llanta nueva o seguimiento' },
+              { title: 'Cuando hacerlo', desc: 'Prediccion del momento exacto de reemplazo antes de la falla' },
+              { title: 'Que comprar', desc: 'Recomendacion de la llanta optima segun historial y posicion' },
+              { title: 'Cuanto ahorras', desc: 'Ahorro calculado en pesos colombianos por cada decision' },
             ].map((item, i) => (
               <div key={i} className="p-4 rounded-xl" style={{ background: 'rgba(10,24,58,0.02)', border: '1px solid rgba(10,24,58,0.06)' }}>
                 <h3 className="text-xs font-black text-[#0A183A] mb-1">{item.title}</h3>
@@ -1097,6 +1076,9 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
           </div>
         </div>
       </section>
+
+      {/* -- BEST SELLERS (cached 24h via ISR) ----------------------------------- */}
+      <BestSellers items={bestSellers} />
 
       {/* -- TRUST / STATS BAR --------------------------------------------------- */}
       <section

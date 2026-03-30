@@ -14,14 +14,14 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://tirepro.com.co'),
 
   title: {
-    default: 'TirePro — Compra Llantas Online y Gestión Inteligente de Flotas en Colombia',
+    default: 'TirePro — Software de Seguimiento y Control de Llantas con IA para Flotas | Marketplace',
     template: '%s | TirePro',
   },
 
   description:
-    'TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas ' +
-    'y el marketplace #1 de llantas en Colombia. Compra llantas nuevas y reencauche para camiones, tractomulas, ' +
-    'buses, camionetas y autos de distribuidores verificados. Reduce costos de flota hasta 35% con CPK en tiempo real.',
+    'TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas. ' +
+    'Reduce costos hasta 25% con analisis de datos: CPK en tiempo real, prediccion de reemplazo, recomendaciones de compra. ' +
+    'Marketplace de llantas con distribuidores verificados en toda Colombia.',
 
   keywords: [
     // Fleet management (preserve existing positioning)
@@ -58,15 +58,15 @@ export const metadata: Metadata = {
     locale: 'es_CO',
     url: 'https://tirepro.com.co',
     siteName: 'TirePro',
-    title: 'TirePro — Compra Llantas Online y Gestión Inteligente de Flotas con IA',
-    description: 'Marketplace de llantas en Colombia con distribuidores verificados. Software de seguimiento y control de llantas con IA para flotas. Reduce costos hasta 35%.',
-    images: [{ url: 'https://tirepro.com.co/og-image.png', width: 1200, height: 630, alt: 'TirePro — Marketplace de Llantas y Gestión de Flotas' }],
+    title: 'TirePro — Software de Control de Llantas con IA | Marketplace de Llantas Colombia',
+    description: 'TirePro es el software de seguimiento y control de llantas con IA para flotas. Analisis de datos, CPK, prediccion de reemplazo. Marketplace con distribuidores verificados.',
+    images: [{ url: 'https://tirepro.com.co/og-image.png', width: 1200, height: 630, alt: 'TirePro — Analisis de Datos para Llantas de Flotas' }],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'TirePro — Marketplace de Llantas y Gestión de Flotas con IA',
-    description: 'Compra llantas online de distribuidores verificados. Software de control de llantas con IA para flotas en Colombia.',
+    title: 'TirePro — Software de Control de Llantas con IA para Flotas Colombia',
+    description: 'Analisis de datos para llantas de flotas. Reduce costos hasta 25%. Marketplace con distribuidores verificados en Colombia.',
     images: ['https://tirepro.com.co/og-image.png'],
     creator: '@TireProCO',
   },
