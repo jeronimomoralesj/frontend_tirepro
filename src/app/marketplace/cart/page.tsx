@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import {
   ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Loader2,
-  CheckCircle, Package, Truck,
+  CheckCircle, Package, Truck, CreditCard,
 } from "lucide-react";
 import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
@@ -13,6 +14,15 @@ import { trackViewCart, trackBeginCheckout, trackPurchase, trackRemoveFromCart }
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
+
+const WOMPI_PUBLIC_KEY = process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY ?? "";
+const WOMPI_ENV = process.env.NEXT_PUBLIC_WOMPI_ENV ?? "sandbox";
+
+declare global {
+  interface Window {
+    WidgetCheckout?: new (config: any) => { open: () => void };
+  }
+}
 
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
@@ -33,11 +43,14 @@ export default function CartPage() {
     if (items.length > 0) trackViewCart(total, count);
   }, []);
 
+  const totalWithIva = Math.round(total * 1.19);
+
   async function handleCheckout() {
     if (!form.buyerName || !form.buyerEmail || items.length === 0) return;
     trackBeginCheckout(total, items.map((i) => ({ id: i.listingId, marca: i.marca, modelo: i.modelo, precioCop: i.precioCop, quantity: i.quantity })));
     setSubmitting(true);
     const ids: string[] = [];
+    const fullIds: string[] = [];
     let userId: string | undefined;
     try { userId = JSON.parse(localStorage.getItem("user") ?? "{}").id; } catch { /* */ }
     const token = localStorage.getItem("token") ?? "";
@@ -45,7 +58,6 @@ export default function CartPage() {
     // Create one order per item (each may go to a different distributor)
     for (const item of items) {
       try {
-        const hasPromo = item.precioPromo != null && item.promoHasta && new Date(item.promoHasta) > new Date();
         const res = await fetch(`${API_BASE}/marketplace/orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -59,16 +71,53 @@ export default function CartPage() {
         if (res.ok) {
           const data = await res.json();
           ids.push(data.id?.slice(0, 8).toUpperCase() ?? "");
+          fullIds.push(data.id);
         }
       } catch { /* continue with other items */ }
     }
 
+    // Try Wompi payment if configured
+    if (WOMPI_PUBLIC_KEY && fullIds.length > 0 && window.WidgetCheckout) {
+      const reference = fullIds.join("_");
+      const amountInCents = totalWithIva * 100;
+
+      try {
+        // Get integrity signature from backend
+        const sigRes = await fetch(`${API_BASE}/marketplace/payments/integrity`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reference, amountInCents }),
+        });
+        const { signature } = await sigRes.json();
+
+        const checkout = new window.WidgetCheckout({
+          currency: "COP",
+          amountInCents,
+          reference,
+          publicKey: WOMPI_PUBLIC_KEY,
+          signature: { integrity: signature },
+          redirectUrl: `${window.location.origin}/marketplace/cart?paid=true&ref=${reference}`,
+          customerData: {
+            email: form.buyerEmail,
+            fullName: form.buyerName,
+            phoneNumber: form.buyerPhone || undefined,
+          },
+        });
+        checkout.open();
+        setSubmitting(false);
+        return; // Wompi handles the rest via redirect
+      } catch (err) {
+        console.warn("Wompi widget failed, falling back to direct order:", err);
+      }
+    }
+
+    // Fallback: complete without payment gateway (existing flow)
     setOrderIds(ids);
     setSuccess(true);
     if (ids.length > 0) {
       trackPurchase({
         orderId: ids.join("-"),
-        totalCop: total,
+        totalCop: totalWithIva,
         items: items.map((i) => ({ id: i.listingId, marca: i.marca, modelo: i.modelo, precioCop: i.precioCop, quantity: i.quantity, distributorName: i.distributorName })),
       });
     }
@@ -89,10 +138,27 @@ export default function CartPage() {
     return acc;
   }, {});
 
+  // Handle Wompi redirect back
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("paid") === "true") {
+      setSuccess(true);
+      setOrderIds([params.get("ref")?.slice(0, 8).toUpperCase() ?? ""]);
+      clearCart();
+      // Clean URL
+      window.history.replaceState({}, "", "/marketplace/cart");
+    }
+  }, []);
+
   const inputCls = "w-full px-3.5 py-2.5 rounded-xl text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] text-[#0A183A] placeholder-gray-400";
+
+  const wompiScriptUrl = WOMPI_ENV === "production"
+    ? "https://checkout.wompi.co/widget.js"
+    : "https://checkout.wompi.co/widget.js";
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
+      {WOMPI_PUBLIC_KEY && <Script src={wompiScriptUrl} strategy="lazyOnload" />}
       <MarketplaceNav />
 
       {/* Success */}
@@ -252,7 +318,7 @@ export default function CartPage() {
                       disabled={submitting || !form.buyerName || !form.buyerEmail}
                       className="w-full py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all hover:opacity-90"
                       style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
-                      {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Confirmar — ${fmtCOP(Math.round(total * 1.19))}`}
+                      {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : WOMPI_PUBLIC_KEY ? <><CreditCard className="w-4 h-4 inline mr-1.5" />Pagar — {fmtCOP(totalWithIva)}</> : `Confirmar — ${fmtCOP(totalWithIva)}`}
                     </button>
                     <button onClick={() => setShowCheckout(false)} className="w-full py-2 text-xs font-bold text-gray-400 hover:text-gray-600">
                       Volver
