@@ -974,6 +974,27 @@ const AjustesPage: React.FC = () => {
               </div>
             </Card>
 
+            {/* Spending summary for marketplace-only users */}
+            {!hasCompanyId && marketplaceOrders.length > 0 && (
+              <Card className="p-5 sm:p-6">
+                <SectionTitle icon={ShoppingCart} title="Tu actividad en TirePro" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl" style={{ background: "rgba(30,118,182,0.04)", border: "1px solid rgba(30,118,182,0.1)" }}>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total gastado</p>
+                    <p className="text-2xl font-black text-[#0A183A]">
+                      {new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(
+                        marketplaceOrders.reduce((sum: number, o: any) => sum + (o.totalCop ?? 0), 0)
+                      )}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl" style={{ background: "rgba(30,118,182,0.04)", border: "1px solid rgba(30,118,182,0.1)" }}>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Pedidos realizados</p>
+                    <p className="text-2xl font-black text-[#0A183A]">{marketplaceOrders.length}</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {/* Security card */}
             <Card className="p-5 sm:p-6">
               <SectionTitle icon={Shield} title="Seguridad" />
@@ -1435,15 +1456,18 @@ const AjustesPage: React.FC = () => {
               id: "marketplace",
               name: "Marketplace",
               price: "Gratis",
+              priceDetail: "Para siempre",
               desc: "Acceso al marketplace de llantas",
               features: ["Comprar llantas", "Comparar precios", "Resenas y calificaciones", "Busqueda por placa"],
               current: isMarketplaceOnly,
               canSwitch: false,
+              highlight: false,
             },
             {
               id: "pro",
               name: "Pro",
-              price: "Gratis",
+              price: "$10.000",
+              priceDetail: "/mes",
               desc: "Gestion completa de flotas + marketplace",
               features: [
                 "Todo de Marketplace",
@@ -1457,11 +1481,13 @@ const AjustesPage: React.FC = () => {
               ],
               current: currentPlan === "pro",
               canSwitch: isMarketplaceOnly || currentPlan === "enterprise",
+              highlight: true,
             },
             {
               id: "enterprise",
               name: "Enterprise",
               price: "Gratis",
+              priceDetail: "Para siempre",
               desc: "Todo de Pro con funciones avanzadas",
               features: [
                 "Todo de Pro",
@@ -1473,11 +1499,13 @@ const AjustesPage: React.FC = () => {
               ],
               current: currentPlan === "enterprise",
               canSwitch: isMarketplaceOnly || currentPlan === "pro",
+              highlight: false,
             },
             {
               id: "distribuidor",
               name: "Distribuidor",
-              price: "Gratis",
+              price: "$1.000.000",
+              priceDetail: "/mes",
               desc: "Vende llantas en el marketplace",
               features: [
                 "Catalogo de productos",
@@ -1489,6 +1517,7 @@ const AjustesPage: React.FC = () => {
               ],
               current: isDistributor,
               canSwitch: isMarketplaceOnly,
+              highlight: false,
             },
           ];
 
@@ -1572,16 +1601,24 @@ const AjustesPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {PLANS.map((plan) => (
-                    <div key={plan.id} className="rounded-2xl p-5 transition-all"
+                    <div key={plan.id} className="relative rounded-2xl p-5 transition-all"
                       style={{
-                        border: plan.current ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.15)",
+                        border: plan.current ? "2px solid #1E76B6" : plan.highlight ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.15)",
                         background: plan.current ? "rgba(30,118,182,0.03)" : "white",
                       }}>
+                      {plan.highlight && !plan.current && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[9px] font-bold text-white" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+                          RECOMENDADO
+                        </div>
+                      )}
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="text-base font-black text-[#0A183A]">{plan.name}</h3>
                         {plan.current && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#1E76B6] text-white">ACTUAL</span>}
                       </div>
-                      <p className="text-xl font-black text-[#1E76B6] mb-1">{plan.price}</p>
+                      <div className="flex items-baseline gap-1 mb-1">
+                        <p className="text-xl font-black text-[#1E76B6]">{plan.price}</p>
+                        {plan.priceDetail && <span className="text-xs text-gray-400">{plan.priceDetail}</span>}
+                      </div>
                       <p className="text-xs text-gray-500 mb-4">{plan.desc}</p>
                       <ul className="space-y-1.5 mb-5">
                         {plan.features.map((f, i) => (
