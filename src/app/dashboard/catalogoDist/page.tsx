@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, Plus, Pencil, Trash2, Package, Search, X,
   Check, DollarSign, Calendar, Tag, Percent, AlertTriangle,
+  ChevronDown, ShoppingCart, Star, BarChart3,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
@@ -189,6 +190,26 @@ export default function CatalogoDistPage() {
   const nonPromoProducts = filtered.filter((l) => l.precioPromo == null || !l.isActive);
   const totalPromoSales = promoProducts.reduce((sum, l) => sum + (l._count?.orders ?? 0), 0);
 
+  // Stats
+  const totalSales = listings.reduce((s, l) => s + (l._count?.orders ?? 0), 0);
+  const totalReviews = listings.reduce((s, l) => s + (l._count?.reviews ?? 0), 0);
+  const totalStock = listings.reduce((s, l) => s + l.cantidadDisponible, 0);
+  const topSeller = [...listings].sort((a, b) => (b._count?.orders ?? 0) - (a._count?.orders ?? 0))[0];
+
+  // Group by brand
+  const brandGroups = React.useMemo(() => {
+    const allItems = [...promoProducts, ...nonPromoProducts];
+    const groups: Record<string, Listing[]> = {};
+    for (const l of allItems) {
+      const key = l.marca.toUpperCase();
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(l);
+    }
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [promoProducts, nonPromoProducts]);
+
+  const [collapsedBrands, setCollapsedBrands] = useState<Set<string>>(new Set());
+
   return (
     <div>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 space-y-4">
@@ -201,9 +222,39 @@ export default function CatalogoDistPage() {
           </div>
         </div>
 
+        {/* Stats bar */}
+        {!loading && listings.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { icon: Package, label: "Productos activos", value: String(activeCount), color: "#1E76B6" },
+              { icon: ShoppingCart, label: "Ventas totales", value: String(totalSales), color: "#22c55e" },
+              { icon: Star, label: "Resenas", value: String(totalReviews), color: "#f59e0b" },
+              { icon: BarChart3, label: "Stock total", value: `${totalStock} uds`, color: "#8b5cf6" },
+            ].map((s, i) => (
+              <div key={i} className="p-3 rounded-xl" style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(10,24,58,0.06)" }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
+                  <span className="text-[9px] font-bold text-gray-400 uppercase">{s.label}</span>
+                </div>
+                <p className="text-lg font-black text-[#0A183A]">{s.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Top seller callout */}
+        {!loading && topSeller && (topSeller._count?.orders ?? 0) > 0 && (
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{ background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.12)" }}>
+            <span className="text-[10px]">🏆</span>
+            <p className="text-[11px] text-gray-600">
+              <span className="font-bold text-[#0A183A]">{topSeller.marca} {topSeller.modelo}</span> es tu producto mas vendido con <span className="font-bold text-green-600">{topSeller._count?.orders} venta{(topSeller._count?.orders ?? 0) !== 1 ? "s" : ""}</span>
+            </p>
+          </div>
+        )}
+
         {/* Inline header */}
         <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-400">{activeCount} producto{activeCount !== 1 ? "s" : ""} activo{activeCount !== 1 ? "s" : ""}</p>
+          <p className="text-xs text-gray-400">{brandGroups.length} marca{brandGroups.length !== 1 ? "s" : ""} · {filtered.length} producto{filtered.length !== 1 ? "s" : ""}</p>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowPromo(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-[#1E76B6] transition-all hover:bg-[#F0F7FF]"
@@ -439,24 +490,7 @@ export default function CatalogoDistPage() {
           </div>
         )}
 
-        {/* Promo group */}
-        {!loading && promoProducts.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-black text-white bg-red-500">EN PROMOCION</span>
-                <span className="text-xs text-gray-400">{promoProducts.length} producto{promoProducts.length !== 1 ? "s" : ""}</span>
-              </div>
-              {totalPromoSales > 0 && (
-                <span className="text-[10px] font-bold text-green-600 px-2 py-1 rounded-full" style={{ background: "rgba(34,197,94,0.08)" }}>
-                  {totalPromoSales} venta{totalPromoSales !== 1 ? "s" : ""} con promo
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Listings table */}
+        {/* Listings grouped by brand */}
         {loading ? (
           <div className="flex items-center justify-center py-20 text-[#1E76B6]">
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -468,9 +502,43 @@ export default function CatalogoDistPage() {
             <p className="text-xs mt-1">Agrega tus llantas para que aparezcan en el marketplace.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {/* Render promo products first, then non-promo */}
-            {[...promoProducts, ...nonPromoProducts].map((l) => {
+          <div className="space-y-4">
+            {brandGroups.map(([brand, items]) => {
+              const brandSales = items.reduce((s, l) => s + (l._count?.orders ?? 0), 0);
+              const brandStock = items.reduce((s, l) => s + l.cantidadDisponible, 0);
+              const brandPromos = items.filter((l) => l.precioPromo != null && l.isActive).length;
+              const isCollapsed = collapsedBrands.has(brand);
+
+              return (
+                <div key={brand} className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.1)" }}>
+                  {/* Brand header */}
+                  <button
+                    onClick={() => setCollapsedBrands((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(brand)) next.delete(brand); else next.add(brand);
+                      return next;
+                    })}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors"
+                    style={{ background: "rgba(10,24,58,0.015)" }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-black text-[#0A183A]">{brand}</span>
+                      <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{items.length}</span>
+                      {brandPromos > 0 && (
+                        <span className="text-[8px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">{brandPromos} promo</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {brandSales > 0 && <span className="text-[9px] font-bold text-green-600">{brandSales} vendido{brandSales !== 1 ? "s" : ""}</span>}
+                      <span className="text-[9px] text-gray-400">{brandStock} uds</span>
+                      <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+                    </div>
+                  </button>
+
+                  {/* Brand items */}
+                  {!isCollapsed && (
+                    <div className="divide-y divide-gray-50">
+                      {items.map((l) => {
               const isEditing = editingId === l.id;
               const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
               const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
@@ -486,7 +554,7 @@ export default function CatalogoDistPage() {
                   <div className="px-4 py-3 flex items-start gap-3">
                     {/* Thumbnail */}
                     <div className="w-14 h-14 rounded-xl bg-[#f5f5f7] flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-300" />}
+                      {cover ? <img src={cover} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-300" />}
                     </div>
 
                     {/* Info */}
@@ -607,6 +675,11 @@ export default function CatalogoDistPage() {
                           </button>
                         </div>
                       </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
                     </div>
                   )}
                 </div>
