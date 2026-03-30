@@ -93,7 +93,7 @@ interface Notification {
   groupKey: string | null;
   priority: number;
   createdAt: string;
-  tire: { placa: string; marca: string; posicion: number; alertLevel: string } | null;
+  tire: { placa: string; marca: string; posicion: number; alertLevel: string; currentProfundidad: number | null; inspecciones?: { profundidadInt: number; profundidadCen: number; profundidadExt: number }[] } | null;
   vehicle: { placa: string; drivers: Driver[] } | null;
 }
 
@@ -232,13 +232,26 @@ function NotificationCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
+          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
             <AgentBadge actionType={n.actionType} />
             {n.tire && (
               <span className="text-[10px] font-mono font-bold text-[#348CCB] bg-[#348CCB]/8 px-2 py-0.5 rounded-md flex-shrink-0">
                 {n.tire.placa}
               </span>
             )}
+            {n.tire && (
+              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md flex-shrink-0">
+                P{n.tire.posicion}
+              </span>
+            )}
+            {n.tire?.inspecciones?.[0] && (() => {
+              const i = n.tire.inspecciones[0];
+              return (
+                <span className="text-[9px] font-mono text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md flex-shrink-0">
+                  {i.profundidadInt}/{i.profundidadCen}/{i.profundidadExt} mm
+                </span>
+              );
+            })()}
           </div>
           <p className="text-sm font-bold text-[#0A183A]">{n.title}</p>
           <p className="text-xs text-gray-400 mt-0.5">{n.message}</p>
@@ -376,8 +389,8 @@ export default function NotificacionesTab() {
       const res = await authFetch(`${API_BASE}/notifications/actionable?companyId=${cId}`);
       if (res.ok) {
         const all: Notification[] = await res.json();
-        const sentinelTypes = new Set(["remove_from_service", "inspect", "rotate", "pressure_adjust"]);
-        setNotifications(all.filter((n) => !n.actionType || sentinelTypes.has(n.actionType)));
+        // Only show agent-generated notifications (those with an actionType)
+        setNotifications(all.filter((n) => n.actionType));
       }
     } catch { /* */ }
     setLoading(false);
