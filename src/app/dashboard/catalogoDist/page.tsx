@@ -61,6 +61,7 @@ export default function CatalogoDistPage() {
     precioCop: 0, precioPromo: 0, cantidadDisponible: 0,
     tiempoEntrega: "1-3 dias", catalogId: "", descripcion: "",
     imageUrls: [] as string[], coverIndex: 0,
+    profundidadInicial: 0,
   });
 
   // Edit
@@ -101,18 +102,20 @@ export default function CatalogoDistPage() {
     if (!form.marca || !form.modelo || !form.dimension || form.precioCop <= 0) return;
     setSaving(true);
     try {
+      const { profundidadInicial, ...formData } = form;
       const res = await authFetch(`${API_BASE}/marketplace/listings`, {
         method: "POST",
         body: JSON.stringify({
           distributorId: companyId,
-          ...form,
+          ...formData,
           catalogId: form.catalogId || undefined,
           eje: form.eje || undefined,
           precioPromo: form.precioPromo > 0 ? form.precioPromo : undefined,
+          ...(!form.catalogId && profundidadInicial > 0 ? { profundidadInicial } : {}),
         }),
       });
       if (!res.ok) throw new Error();
-      setForm({ marca: "", modelo: "", dimension: "", eje: "", tipo: "nueva", precioCop: 0, precioPromo: 0, cantidadDisponible: 0, tiempoEntrega: "1-3 dias", catalogId: "", descripcion: "", imageUrls: [], coverIndex: 0 });
+      setForm({ marca: "", modelo: "", dimension: "", eje: "", tipo: "nueva", precioCop: 0, precioPromo: 0, cantidadDisponible: 0, tiempoEntrega: "1-3 dias", catalogId: "", descripcion: "", imageUrls: [], coverIndex: 0, profundidadInicial: 0 });
       setShowAdd(false);
       setSuccess("Producto agregado al catalogo");
       setTimeout(() => setSuccess(""), 3000);
@@ -401,9 +404,27 @@ export default function CatalogoDistPage() {
                   </p>
                 )}
                 {form.marca && !form.catalogId && (
-                  <p className="text-[9px] text-orange-500 font-bold">
-                    Este producto no esta en el catalogo — se agregara automaticamente.
-                  </p>
+                  <div className="p-3 rounded-xl" style={{ background: "rgba(249,115,22,0.05)", border: "1px solid rgba(249,115,22,0.15)" }}>
+                    <p className="text-[9px] text-orange-500 font-bold mb-2">
+                      Este producto no esta en el catalogo — se agregara automaticamente.
+                    </p>
+                    <label className="text-[9px] font-bold text-orange-400 uppercase block mb-1">
+                      Profundidad inicial del diseno (mm) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="40"
+                      value={form.profundidadInicial || ""}
+                      placeholder="Ej: 18, 20, 22..."
+                      onChange={(e) => setForm((f) => ({ ...f, profundidadInicial: Number(e.target.value) }))}
+                      className={inputCls}
+                    />
+                    <p className="text-[8px] text-gray-400 mt-1">
+                      La profundidad de banda cuando la llanta esta nueva (en milimetros). Esto nos ayuda a calcular el desgaste y CPK para tus clientes.
+                    </p>
+                  </div>
                 )}
               </div>
               <div className="px-5 py-3 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
