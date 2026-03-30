@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
+import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession } from "../../lib/marketplaceAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -76,8 +77,10 @@ function PublicMarketplace() {
   const [plateDims, setPlateDims] = useState<string[]>([]);
   const cart = useCart();
 
-  // Check if logged in user has a company
+  // Check if logged in user has a company + track session
   useEffect(() => {
+    trackMarketplaceSession();
+    trackMarketplaceHome();
     try {
       const user = JSON.parse(localStorage.getItem("user") ?? "{}");
       if (user.companyId) setUserHasCompany(true);
@@ -189,7 +192,14 @@ function PublicMarketplace() {
     p.set("limit", "24");
     try {
       const res = await fetch(`${API_BASE}/marketplace/listings?${p}`);
-      if (res.ok) { const d = await res.json(); setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1); }
+      if (res.ok) {
+        const d = await res.json();
+        setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1);
+        if (search) trackSearch(search, d.total ?? 0);
+        if (dimension) trackFilter("dimension", dimension);
+        if (marca) trackFilter("marca", marca);
+        if (tipo) trackFilter("tipo", tipo);
+      }
     } catch { /* */ }
     setLoading(false);
   }, [search, dimension, marca, tipo, distributorId, ciudad, ciudadManual, sortBy, page]);

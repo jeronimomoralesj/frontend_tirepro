@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import { AGENT_LIST } from '../lib/agents'
+import { trackPlateSearch, trackPlateVehicleSelect, trackSearch } from '../lib/marketplaceAnalytics'
 import {
   Calendar,
   BarChart3,
@@ -383,12 +384,14 @@ function PlateSearch() {
         if (data.found && data.dimensions.length > 0) {
           setVehicleInfo({ marca: data.marca, linea: data.linea, modelo: data.modelo, clase: data.clase, source: data.source })
           setFoundDimensions(data.dimensions)
+          trackPlateSearch(placa, true)
           setStep("results")
           return
         }
       }
     } catch { /* fallback */ }
 
+    trackPlateSearch(placa, false)
     // Not found anywhere — manual selection
     setStep("select")
   }
@@ -399,6 +402,7 @@ function PlateSearch() {
     setVehicleType(type)
     setVehicleInfo({ clase: match.label })
     setFoundDimensions(match.dimensions)
+    trackPlateVehicleSelect(placa, type)
     setStep("results")
     // Save to community DB so the next person gets instant results
     fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placa)}/community`, {
@@ -900,7 +904,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const val = (e.target as HTMLInputElement).value.trim()
-                      if (val) window.location.href = `/marketplace?q=${encodeURIComponent(val)}`
+                      if (val) { trackSearch(val, -1); window.location.href = `/marketplace?q=${encodeURIComponent(val)}` }
                     }
                   }}
                 />
@@ -908,7 +912,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
                   onClick={() => {
                     const input = document.getElementById('hero-search') as HTMLInputElement
                     const val = input?.value?.trim()
-                    if (val) window.location.href = `/marketplace?q=${encodeURIComponent(val)}`
+                    if (val) { trackSearch(val, -1); window.location.href = `/marketplace?q=${encodeURIComponent(val)}` }
                     else window.location.href = '/marketplace'
                   }}
                   className="px-6 sm:px-8 py-4 sm:py-5 font-bold text-sm text-white transition-all flex-shrink-0"

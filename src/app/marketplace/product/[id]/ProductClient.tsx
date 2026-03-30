@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
+import { trackProductView, trackAddToCart, trackReviewSubmit, trackProductDwell } from "../../../../lib/marketplaceAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -73,6 +74,18 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Track product view + dwell time
+  useEffect(() => {
+    if (!product) return;
+    trackProductView({
+      id: product.id, marca: product.marca, modelo: product.modelo,
+      dimension: product.dimension, precioCop: product.precioCop,
+      tipo: product.tipo, distributorName: product.distributor.name,
+    });
+    const start = Date.now();
+    return () => { trackProductDwell(product.id, (Date.now() - start) / 1000); };
+  }, [product?.id]);
+
   // Fetch similar products
   useEffect(() => {
     if (!product) return;
@@ -98,6 +111,11 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
       distributorId: product.distributor.id,
       distributorName: product.distributor.name,
     }, qty);
+    trackAddToCart({
+      id: product.id, marca: product.marca, modelo: product.modelo,
+      dimension: product.dimension, precioCop: product.precioCop,
+      tipo: product.tipo, distributorName: product.distributor.name, quantity: qty,
+    });
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 3000);
   }
@@ -595,7 +613,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                           body: JSON.stringify({ userId, rating: reviewRating, comment: reviewComment || undefined }),
                         });
-                        if (res.ok) { setReviewSuccess(true); setReviewComment(""); }
+                        if (res.ok) { setReviewSuccess(true); setReviewComment(""); trackReviewSubmit(product.id, reviewRating); }
                       } catch { /* */ }
                       setReviewSubmitting(false);
                     }}

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
+import { trackViewCart, trackBeginCheckout, trackPurchase, trackRemoveFromCart } from "../../../lib/marketplaceAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -29,10 +30,12 @@ export default function CartPage() {
       const user = JSON.parse(localStorage.getItem("user") ?? "{}");
       if (user.name) setForm((f) => ({ ...f, buyerName: user.name, buyerEmail: user.email ?? "" }));
     } catch { /* guest */ }
+    if (items.length > 0) trackViewCart(total, count);
   }, []);
 
   async function handleCheckout() {
     if (!form.buyerName || !form.buyerEmail || items.length === 0) return;
+    trackBeginCheckout(total, items.map((i) => ({ id: i.listingId, marca: i.marca, modelo: i.modelo, precioCop: i.precioCop, quantity: i.quantity })));
     setSubmitting(true);
     const ids: string[] = [];
     let userId: string | undefined;
@@ -62,6 +65,13 @@ export default function CartPage() {
 
     setOrderIds(ids);
     setSuccess(true);
+    if (ids.length > 0) {
+      trackPurchase({
+        orderId: ids.join("-"),
+        totalCop: total,
+        items: items.map((i) => ({ id: i.listingId, marca: i.marca, modelo: i.modelo, precioCop: i.precioCop, quantity: i.quantity, distributorName: i.distributorName })),
+      });
+    }
     clearCart();
     setSubmitting(false);
   }

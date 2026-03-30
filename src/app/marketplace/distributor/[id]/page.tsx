@@ -9,6 +9,7 @@ import {
   Store, Star, Shield, Recycle, Building2,
 } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
+import { trackDistributorView } from "../../../../lib/marketplaceAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -53,7 +54,7 @@ export default function DistributorStorefront() {
     if (!id) return;
     fetch(`${API_BASE}/marketplace/distributor/${id}/profile`)
       .then((r) => (r.ok ? r.json() : null))
-      .then(setProfile)
+      .then((d) => { setProfile(d); if (d) trackDistributorView({ id: d.id, name: d.name }); })
       .catch(() => {})
       .finally(() => setProfileLoading(false));
   }, [id]);
