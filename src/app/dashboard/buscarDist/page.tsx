@@ -1490,10 +1490,6 @@ const BuscarDist: React.FC = () => {
                 <span className="text-sm font-black text-[#0A183A]">{tires.length} {tires.length === 1 ? "Llanta" : "Llantas"}</span>
                 <span className="text-xs text-gray-400">encontradas</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                <Zap className="w-3.5 h-3.5 text-[#1E76B6]" />
-                Ordenadas por posición
-              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
