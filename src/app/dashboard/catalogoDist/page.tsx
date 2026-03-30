@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, Plus, Pencil, Trash2, Package, Search, X,
-  Check, DollarSign, Calendar, Tag,
+  Check, DollarSign, Calendar, Tag, Percent, AlertTriangle,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
@@ -69,6 +69,14 @@ export default function CatalogoDistPage() {
     precioCop: 0, cantidadDisponible: 0, tiempoEntrega: "", isActive: true,
     descripcion: "", modelo: "", marca: "",
   });
+
+  // Promotions
+  const [showPromo, setShowPromo] = useState(false);
+  const [promoType, setPromoType] = useState<"percent" | "fixed">("percent");
+  const [promoValue, setPromoValue] = useState(0);
+  const [promoExpiry, setPromoExpiry] = useState("");
+  const [promoSelected, setPromoSelected] = useState<Set<string>>(new Set());
+  const [promoSaving, setPromoSaving] = useState(false);
 
   const fetchListings = useCallback(async (cId: string) => {
     setLoading(true);
@@ -135,6 +143,37 @@ export default function CatalogoDistPage() {
     fetchListings(companyId);
   }
 
+  async function handleApplyPromo() {
+    if (promoSelected.size === 0 || promoValue <= 0 || !promoExpiry) return;
+    setPromoSaving(true);
+    for (const id of promoSelected) {
+      const listing = listings.find((l) => l.id === id);
+      if (!listing) continue;
+      const promoPrice = promoType === "percent"
+        ? Math.round(listing.precioCop * (1 - promoValue / 100))
+        : Math.max(0, listing.precioCop - promoValue);
+      try {
+        await authFetch(`${API_BASE}/marketplace/listings/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ distributorId: companyId, precioPromo: promoPrice, promoHasta: new Date(promoExpiry).toISOString() }),
+        });
+      } catch { /* continue */ }
+    }
+    setShowPromo(false); setPromoSelected(new Set()); setPromoValue(0); setPromoExpiry("");
+    setSuccess(`Promocion aplicada a ${promoSelected.size} producto${promoSelected.size !== 1 ? "s" : ""}`);
+    setTimeout(() => setSuccess(""), 3000);
+    fetchListings(companyId);
+    setPromoSaving(false);
+  }
+
+  async function handleRemovePromo(id: string) {
+    await authFetch(`${API_BASE}/marketplace/listings/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ distributorId: companyId, precioPromo: null, promoHasta: null }),
+    });
+    fetchListings(companyId);
+  }
+
   const filtered = search.trim()
     ? listings.filter((l) =>
         l.marca.toLowerCase().includes(search.toLowerCase()) ||
@@ -147,14 +186,30 @@ export default function CatalogoDistPage() {
   return (
     <div>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 space-y-4">
+        {/* IVA Banner */}
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl" style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.15)" }}>
+          <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-bold text-orange-700">Todos los precios deben ser sin IVA</p>
+            <p className="text-[10px] text-orange-600/70 mt-0.5">El IVA se calculara automaticamente al momento de la compra.</p>
+          </div>
+        </div>
+
         {/* Inline header */}
         <div className="flex items-center justify-between">
           <p className="text-xs text-gray-400">{activeCount} producto{activeCount !== 1 ? "s" : ""} activo{activeCount !== 1 ? "s" : ""}</p>
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-            <Plus className="w-4 h-4" /> Agregar
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowPromo(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-[#1E76B6] transition-all hover:bg-[#F0F7FF]"
+              style={{ border: "1px solid rgba(30,118,182,0.2)" }}>
+              <Percent className="w-4 h-4" /> Promocion
+            </button>
+            <button onClick={() => setShowAdd(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+              <Plus className="w-4 h-4" /> Agregar
+            </button>
+          </div>
         </div>
         {success && (
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
@@ -239,12 +294,12 @@ export default function CatalogoDistPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Precio COP</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Precio sin IVA (COP)</label>
                     <input type="number" value={form.precioCop || ""} placeholder="$"
                       onChange={(e) => setForm((f) => ({ ...f, precioCop: Number(e.target.value) }))} className={inputCls} />
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Precio promo</label>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Precio promo sin IVA</label>
                     <input type="number" value={form.precioPromo || ""} placeholder="Opcional"
                       onChange={(e) => setForm((f) => ({ ...f, precioPromo: Number(e.target.value) }))} className={inputCls} />
                   </div>
@@ -406,8 +461,16 @@ export default function CatalogoDistPage() {
                       {l.descripcion && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{l.descripcion}</p>}
 
                       {/* Stats row */}
-                      <div className="flex items-center gap-3 mt-1.5">
+                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                         <span className="text-sm font-black text-[#0A183A]">{fmtCOP(l.precioCop)}</span>
+                        <span className="text-[8px] text-gray-400">sin IVA</span>
+                        {l.precioPromo != null && (
+                          <span className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-red-500">{fmtCOP(l.precioPromo)}</span>
+                            <span className="text-[8px] font-bold text-red-400">-{Math.round(((l.precioCop - l.precioPromo) / l.precioCop) * 100)}%</span>
+                            <button onClick={() => handleRemovePromo(l.id)} className="text-[8px] text-red-400 hover:text-red-600 underline ml-1">Quitar</button>
+                          </span>
+                        )}
                         <span className="text-[9px] text-gray-400">{l.cantidadDisponible} uds</span>
                         {salesCount > 0 && <span className="text-[9px] font-bold text-[#22c55e]">{salesCount} vendido{salesCount !== 1 ? "s" : ""}</span>}
                         {reviewCount > 0 && <span className="text-[9px] text-gray-400">{reviewCount} resena{reviewCount !== 1 ? "s" : ""}</span>}
@@ -454,7 +517,7 @@ export default function CatalogoDistPage() {
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Precio COP</label>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Precio sin IVA</label>
                           <input type="number" value={editForm.precioCop || ""}
                             onChange={(e) => setEditForm((f) => ({ ...f, precioCop: Number(e.target.value) }))}
                             className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF]" />
@@ -510,6 +573,99 @@ export default function CatalogoDistPage() {
           </div>
         )}
       </div>
+
+      {/* Promotion modal */}
+      {showPromo && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+            <div className="bg-[#173D68] text-white px-5 py-3.5 flex justify-between items-center flex-shrink-0">
+              <h2 className="font-bold text-sm">Crear Promocion</h2>
+              <button onClick={() => setShowPromo(false)} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1.5">Tipo de descuento</label>
+                <div className="flex rounded-lg overflow-hidden border border-[#348CCB]/30">
+                  <button type="button" onClick={() => setPromoType("percent")}
+                    className="flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1 transition-all"
+                    style={{ background: promoType === "percent" ? "#0A183A" : "#F0F7FF", color: promoType === "percent" ? "white" : "#173D68" }}>
+                    <Percent className="w-3 h-3" /> Porcentaje
+                  </button>
+                  <button type="button" onClick={() => setPromoType("fixed")}
+                    className="flex-1 px-3 py-2 text-xs font-bold flex items-center justify-center gap-1 transition-all"
+                    style={{ background: promoType === "fixed" ? "#0A183A" : "#F0F7FF", color: promoType === "fixed" ? "white" : "#173D68" }}>
+                    <DollarSign className="w-3 h-3" /> Valor fijo
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">{promoType === "percent" ? "Descuento (%)" : "Descuento (COP)"}</label>
+                  <input type="number" value={promoValue || ""} placeholder={promoType === "percent" ? "Ej: 15" : "Ej: 50000"}
+                    onChange={(e) => setPromoValue(Number(e.target.value))} className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Fecha limite</label>
+                  <input type="date" value={promoExpiry} onChange={(e) => setPromoExpiry(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]} className={inputCls} />
+                </div>
+              </div>
+              {promoValue > 0 && promoSelected.size > 0 && (
+                <div className="px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.15)" }}>
+                  <p className="text-green-700 font-bold">
+                    {promoType === "percent" ? `${promoValue}%` : fmtCOP(promoValue)} de descuento en {promoSelected.size} producto{promoSelected.size !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              )}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[9px] font-bold text-gray-400 uppercase">Seleccionar productos</label>
+                  <button onClick={() => {
+                    const active = listings.filter((l) => l.isActive);
+                    if (promoSelected.size === active.length) setPromoSelected(new Set());
+                    else setPromoSelected(new Set(active.map((l) => l.id)));
+                  }} className="text-[9px] font-bold text-[#1E76B6] hover:underline">
+                    {promoSelected.size === listings.filter((l) => l.isActive).length ? "Deseleccionar todos" : "Seleccionar todos"}
+                  </button>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {listings.filter((l) => l.isActive).map((l) => {
+                    const selected = promoSelected.has(l.id);
+                    const newPrice = promoType === "percent" ? Math.round(l.precioCop * (1 - promoValue / 100)) : Math.max(0, l.precioCop - promoValue);
+                    return (
+                      <label key={l.id} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all"
+                        style={{ background: selected ? "rgba(30,118,182,0.05)" : "transparent", border: `1px solid ${selected ? "rgba(30,118,182,0.15)" : "rgba(0,0,0,0.04)"}` }}>
+                        <input type="checkbox" checked={selected} onChange={() => {
+                          const next = new Set(promoSelected);
+                          if (selected) next.delete(l.id); else next.add(l.id);
+                          setPromoSelected(next);
+                        }} className="accent-[#1E76B6] flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-[#0A183A] truncate">{l.marca} {l.modelo}</p>
+                          <p className="text-[9px] text-gray-400">{l.dimension}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</p>
+                          {promoValue > 0 && <p className="text-xs font-bold text-red-500">{fmtCOP(newPrice)}</p>}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-3 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
+              <button onClick={() => setShowPromo(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF]">Cancelar</button>
+              <button onClick={handleApplyPromo} disabled={promoSaving || promoSelected.size === 0 || promoValue <= 0 || !promoExpiry}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+                {promoSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Percent className="w-4 h-4" />}
+                Aplicar a {promoSelected.size}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
