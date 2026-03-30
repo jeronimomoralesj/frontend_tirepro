@@ -3,12 +3,13 @@ import TireProLanding from './landing'
 
 export const revalidate = 162000 // 45 hours
 
+const API_BASES = [
+  'https://api.tirepro.com.co/api',
+  'https://api.triepro.com.co/api',
+]
+
 async function getArticles() {
-  const urls = [
-    'https://api.tirepro.com.co/api',
-    'https://api.triepro.com.co/api',
-  ]
-  for (const base of urls) {
+  for (const base of API_BASES) {
     try {
       const res = await fetch(`${base}/blog`, { next: { revalidate: 162000 } })
       if (!res.ok) continue
@@ -35,7 +36,24 @@ async function getArticles() {
   return []
 }
 
+async function getBestSellers() {
+  for (const base of API_BASES) {
+    try {
+      const res = await fetch(`${base}/marketplace/recommendations`, {
+        next: { revalidate: 86400 }, // 24 hours
+      })
+      if (!res.ok) continue
+      const data = await res.json()
+      return (data.listings || []).slice(0, 8)
+    } catch { continue }
+  }
+  return []
+}
+
 export default async function Page() {
-  const articles = await getArticles()
-  return <TireProLanding initialArticles={articles} />
+  const [articles, bestSellers] = await Promise.all([
+    getArticles(),
+    getBestSellers(),
+  ])
+  return <TireProLanding initialArticles={articles} bestSellers={bestSellers} />
 }

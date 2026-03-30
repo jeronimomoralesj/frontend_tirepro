@@ -14,26 +14,35 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://tirepro.com.co'),
 
   title: {
-    default: 'TirePro — Gestión Inteligente de Llantas para Flotas en Colombia',
+    default: 'TirePro — Compra Llantas Online y Gestión Inteligente de Flotas en Colombia',
     template: '%s | TirePro',
   },
 
   description:
-    'Plataforma de gestión de llantas con inteligencia artificial para flotas de transporte en Colombia. ' +
-    'Reduce costos hasta 35%, predice fallas, automatiza decisiones. CPK en tiempo real, reencauche inteligente, ' +
-    'inventario, alertas a conductores. Para tractomulas, buses y camiones.',
+    'TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas ' +
+    'y el marketplace #1 de llantas en Colombia. Compra llantas nuevas y reencauche para camiones, tractomulas, ' +
+    'buses, camionetas y autos de distribuidores verificados. Reduce costos de flota hasta 35% con CPK en tiempo real.',
 
   keywords: [
+    // Fleet management (preserve existing positioning)
     'gestión de llantas', 'tire management', 'flotas Colombia', 'CPK llantas',
     'costo por kilómetro', 'reencauche', 'gestión de flotas', 'llantas para tractomula',
     'mantenimiento de llantas', 'software transporte Colombia', 'fleet management',
     'tire analytics', 'gestión inteligente llantas', 'ahorro llantas flota',
-    'control de llantas', 'inspección de llantas', 'TirePro', 'llantas Bogotá',
-    'llantas Medellín', 'transporte terrestre Colombia', 'software llantas IA',
-    'plataforma gestión neumáticos', 'análisis predictivo neumáticos',
+    'control de llantas', 'inspección de llantas', 'TirePro',
+    'software llantas IA', 'plataforma gestión neumáticos', 'análisis predictivo neumáticos',
     'inspecciones digitales llantas', 'alertas desgaste llantas',
     'tracking llantas tiempo real', 'mejor software llantas Colombia',
     'tire management software Colombia', 'predictive tire maintenance',
+    // Marketplace (new positioning)
+    'comprar llantas online Colombia', 'marketplace llantas', 'venta de llantas',
+    'llantas baratas Colombia', 'llantas para camion', 'llantas 295/80R22.5',
+    'llantas 11R22.5', 'llantas 265/70R16', 'llantas 205/55R16',
+    'llantas Bogotá', 'llantas Medellín', 'llantas Cali', 'llantas Barranquilla',
+    'distribuidores de llantas Colombia', 'precio llantas camion',
+    'Michelin Colombia', 'Bridgestone Colombia', 'Continental llantas',
+    'Goodyear Colombia', 'llantas reencauche Colombia',
+    'comprar llantas para tractomula', 'tienda llantas online',
   ],
 
   authors: [{ name: 'TirePro', url: 'https://tirepro.com.co' }],
@@ -49,15 +58,15 @@ export const metadata: Metadata = {
     locale: 'es_CO',
     url: 'https://tirepro.com.co',
     siteName: 'TirePro',
-    title: 'TirePro — Gestión Inteligente de Llantas con IA',
-    description: 'Reduce costos de llantas hasta 35%. Predicción de fallas, automatización de decisiones, CPK en tiempo real para flotas en Colombia.',
-    images: [{ url: 'https://tirepro.com.co/og-image.png', width: 1200, height: 630, alt: 'TirePro Dashboard' }],
+    title: 'TirePro — Compra Llantas Online y Gestión Inteligente de Flotas con IA',
+    description: 'Marketplace de llantas en Colombia con distribuidores verificados. Software de seguimiento y control de llantas con IA para flotas. Reduce costos hasta 35%.',
+    images: [{ url: 'https://tirepro.com.co/og-image.png', width: 1200, height: 630, alt: 'TirePro — Marketplace de Llantas y Gestión de Flotas' }],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'TirePro — Gestión Inteligente de Llantas con IA',
-    description: 'Plataforma de gestión de llantas para flotas. Reduce costos 35%. Colombia.',
+    title: 'TirePro — Marketplace de Llantas y Gestión de Flotas con IA',
+    description: 'Compra llantas online de distribuidores verificados. Software de control de llantas con IA para flotas en Colombia.',
     images: ['https://tirepro.com.co/og-image.png'],
     creator: '@TireProCO',
   },
@@ -98,11 +107,39 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         "name": "TirePro",
         "url": "https://tirepro.com.co",
         "logo": { "@type": "ImageObject", "url": "https://tirepro.com.co/logo.png", "width": 600, "height": 200 },
-        "description": "Plataforma de gestión inteligente de llantas con IA para flotas de transporte en Colombia y Latinoamérica.",
+        "description": "TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas y el marketplace de llantas más grande de Colombia. Compra llantas online y gestiona tu flota con IA.",
         "address": { "@type": "PostalAddress", "addressLocality": "Bogotá", "addressRegion": "Bogotá D.C.", "addressCountry": "CO" },
         "contactPoint": { "@type": "ContactPoint", "email": "soporte@tirepro.com.co", "contactType": "customer support", "availableLanguage": ["Spanish", "English"] },
         "sameAs": ["https://linkedin.com/company/tirepro"],
         "foundingDate": "2024",
+      },
+      {
+        "@type": "OnlineStore",
+        "@id": "https://tirepro.com.co/#store",
+        "name": "TirePro Marketplace",
+        "url": "https://tirepro.com.co/marketplace",
+        "description": "Marketplace de llantas en Colombia. Compra llantas nuevas y reencauche para camiones, tractomulas, buses, camionetas y automóviles de distribuidores verificados a precios directos con envío a todo el país.",
+        "brand": { "@id": "https://tirepro.com.co/#organization" },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://tirepro.com.co/marketplace?q={search_term_string}",
+          "query-input": "required name=search_term_string",
+        },
+        "areaServed": { "@type": "Country", "name": "Colombia" },
+        "currenciesAccepted": "COP",
+        "paymentAccepted": "Credit Card, Debit Card, PSE, Nequi",
+        "priceRange": "$",
+        "hasOfferCatalog": {
+          "@type": "OfferCatalog",
+          "name": "Llantas para todo tipo de vehículo",
+          "itemListElement": [
+            { "@type": "OfferCatalog", "name": "Llantas para camión y tractomula" },
+            { "@type": "OfferCatalog", "name": "Llantas para bus" },
+            { "@type": "OfferCatalog", "name": "Llantas para camioneta" },
+            { "@type": "OfferCatalog", "name": "Llantas para automóvil" },
+            { "@type": "OfferCatalog", "name": "Llantas de reencauche" },
+          ],
+        },
       },
       {
         "@type": "SoftwareApplication",
@@ -111,7 +148,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         "applicationCategory": "BusinessApplication",
         "applicationSubCategory": "Fleet Management Software",
         "operatingSystem": "Web",
-        "description": "Plataforma de gestión inteligente de llantas con IA para flotas de transporte en Colombia",
+        "description": "TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas de transporte en Colombia",
         "url": "https://tirepro.com.co",
         "author": { "@id": "https://tirepro.com.co/#organization" },
         "offers": [
@@ -140,6 +177,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         "name": "TirePro",
         "publisher": { "@id": "https://tirepro.com.co/#organization" },
         "inLanguage": "es-CO",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://tirepro.com.co/marketplace?q={search_term_string}",
+          "query-input": "required name=search_term_string",
+        },
       },
       {
         "@type": "FAQPage",
@@ -158,6 +200,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             "@type": "Question",
             "name": "Cuánto cuesta TirePro?",
             "acceptedAnswer": { "@type": "Answer", "text": "TirePro ofrece Plan Inicio gratis (hasta 10 vehículos), Plan Crecimiento ($300,000/mes, 10-50 vehículos) y Plan Empresarial ($1,000,000/mes, vehículos ilimitados). Todos incluyen llantas ilimitadas." }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Cómo comprar llantas en el marketplace de TirePro?",
+            "acceptedAnswer": { "@type": "Answer", "text": "En el marketplace de TirePro puedes buscar llantas por dimensión, marca o placa de tu vehículo. Comparas precios de distribuidores verificados en toda Colombia, agregas al carrito y pagas con tarjeta de crédito, débito, PSE o Nequi. El distribuidor envía directamente a tu ubicación." }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Qué marcas de llantas puedo encontrar en TirePro?",
+            "acceptedAnswer": { "@type": "Answer", "text": "En TirePro encuentras llantas de las principales marcas: Michelin, Bridgestone, Continental, Goodyear, Firestone, Hankook, Yokohama, Pirelli y más. También llantas de reencauche de alta calidad. Todas vendidas por distribuidores verificados con garantía." }
+          },
+          {
+            "@type": "Question",
+            "name": "¿TirePro hace envíos a toda Colombia?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Sí, los distribuidores de TirePro hacen envíos a toda Colombia incluyendo Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Pereira, Cartagena y más. Los tiempos de entrega dependen del distribuidor y tu ubicación." }
           },
         ],
       },

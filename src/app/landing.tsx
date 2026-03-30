@@ -498,7 +498,111 @@ function PlateSearch() {
   )
 }
 
-const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) => {
+/* ── Best-Sellers strip (server-fetched, 24h ISR cache) ──────────────── */
+function BestSellers({ items }: { items: any[] }) {
+  if (!items || items.length === 0) return null
+
+  const fmtCOP = (n: number) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
+
+  return (
+    <section className="w-full py-12 sm:py-16 px-4 sm:px-6 lg:px-8" style={{ background: 'linear-gradient(180deg, #030d1f 0%, #0A183A 100%)' }}>
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: '#62b8f0' }}>
+            Los mas buscados
+          </p>
+          <h2 className="text-xl sm:text-2xl font-black text-white">
+            Llantas mas vendidas en Colombia
+          </h2>
+          <p className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Precios directos de distribuidores verificados · Envio a todo el pais
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          {items.map((l: any) => {
+            const coverImg = l.imageUrls?.[l.coverIndex ?? 0] || l.imageUrls?.[0]
+            const hasPromo = l.precioPromo && l.promoHasta && new Date(l.promoHasta) > new Date()
+            const price = hasPromo ? l.precioPromo : l.precioCop
+            const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo) / l.precioCop) * 100) : 0
+            const soldCount = l._count?.orders ?? 0
+
+            return (
+              <a
+                key={l.id}
+                href={`/marketplace/product/${l.id}`}
+                className="bg-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden border border-white/[0.08] hover:border-white/20 hover:bg-white/[0.1] transition-all group"
+              >
+                {/* Image */}
+                <div className="relative aspect-square flex items-center justify-center overflow-hidden bg-white/[0.03]">
+                  {coverImg ? (
+                    <img
+                      src={coverImg}
+                      alt={`${l.marca} ${l.modelo} ${l.dimension} — comprar llantas en Colombia`}
+                      className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <Tag className="w-8 h-8 text-white/20" />
+                      <span className="text-[9px] text-white/20">{l.marca}</span>
+                    </div>
+                  )}
+                  {hasPromo && (
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black text-white bg-red-500 shadow-sm">
+                      -{discount}%
+                    </span>
+                  )}
+                  {l.tipo === 'reencauche' && (
+                    <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-bold text-purple-300 bg-purple-500/30">
+                      Reencauche
+                    </span>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="p-3">
+                  <p className="text-[9px] uppercase tracking-wider font-medium text-white/40">{l.marca}</p>
+                  <p className="text-xs font-bold text-white mt-0.5 leading-snug line-clamp-2">{l.modelo}</p>
+                  <p className="text-[10px] text-white/40 mt-0.5">{l.dimension}{l.eje ? ` · ${l.eje}` : ''}</p>
+
+                  {soldCount > 0 && (
+                    <p className="text-[9px] text-white/30 mt-1">{soldCount} vendido{soldCount !== 1 ? 's' : ''}</p>
+                  )}
+
+                  <div className="mt-2">
+                    <span className="text-base font-black text-white">{fmtCOP(price)}</span>
+                    {hasPromo && (
+                      <span className="text-[10px] text-white/30 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>
+                    )}
+                  </div>
+
+                  {l.distributor?.name && (
+                    <p className="text-[9px] text-white/25 mt-1 truncate">por {l.distributor.name}</p>
+                  )}
+                </div>
+              </a>
+            )
+          })}
+        </div>
+
+        <div className="text-center mt-8">
+          <a
+            href="/marketplace"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white transition-all hover:scale-105"
+            style={{ background: 'linear-gradient(135deg, #1E76B6, #173D68)', boxShadow: '0 4px 20px rgba(30,118,182,0.3)' }}
+          >
+            Ver todo el marketplace
+            <ArrowRight size={16} />
+          </a>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArticles?: any[]; bestSellers?: any[] }) => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [activeQuestion, setActiveQuestion] = useState<number | null>(null)
@@ -890,7 +994,7 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
 
             {/* SEO sr-only */}
             <p className="sr-only">
-              TirePro es el marketplace de llantas y software de gestion de neumaticos con inteligencia artificial para Colombia. Compra llantas nuevas y de reencauche para camiones, buses, volquetas, tractocamiones, camionetas y automoviles a los mejores precios de distribuidores verificados en Bogota, Medellin, Cali, Barranquilla, Bucaramanga, Pereira y toda Colombia. Software de llantas, control de neumaticos, gestion de flotas pesadas, marketplace de llantas Colombia, comprar llantas online.
+              TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas y el marketplace de llantas mas grande de Colombia. Compra llantas nuevas y de reencauche para camiones, buses, volquetas, tractocamiones, camionetas y automoviles a los mejores precios de distribuidores verificados en Bogota, Medellin, Cali, Barranquilla, Bucaramanga, Pereira y toda Colombia. Software de llantas, control de neumaticos, gestion de flotas pesadas, CPK en tiempo real, prediccion de fallas con IA, marketplace de llantas Colombia, comprar llantas online, venta de llantas, tienda de llantas.
             </p>
 
             {/* Search bar */}
@@ -950,6 +1054,9 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
           </div>
         </div>
       </header>
+
+      {/* -- BEST SELLERS (cached 24h via ISR) ----------------------------------- */}
+      <BestSellers items={bestSellers} />
 
       {/* -- PLATFORM INTRO ------------------------------------------------------ */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 w-full" style={{ background: '#ffffff' }}>
