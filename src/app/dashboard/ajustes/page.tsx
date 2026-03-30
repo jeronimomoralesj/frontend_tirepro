@@ -557,7 +557,7 @@ function EmailAtencionCard({ companyId, initialEmail, onSaved, toast }: {
 // Tab nav definition
 // =============================================================================
 
-type TabId = "profile" | "orders" | "company" | "users" | "addUser" | "distributors";
+type TabId = "profile" | "orders" | "planes" | "company" | "users" | "addUser" | "distributors";
 
 // =============================================================================
 // Main Page
@@ -835,6 +835,7 @@ const AjustesPage: React.FC = () => {
   const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean; requiresCompany?: boolean }[] = [
     { id: "profile",      label: "Perfil",          icon: User                             },
     { id: "orders",       label: "Mis Pedidos",     icon: ShoppingCart                     },
+    { id: "planes",       label: "Planes",          icon: Tag                              },
     { id: "company",      label: "Empresa",         icon: Building,    requiresCompany: true },
     { id: "users",        label: "Usuarios",        icon: Users,    adminOnly: true, requiresCompany: true },
     { id: "addUser",      label: "Nuevo Usuario",   icon: UserPlus, adminOnly: true, requiresCompany: true },
@@ -937,10 +938,10 @@ const AjustesPage: React.FC = () => {
                   <p className="text-sm text-gray-500 truncate">{user.email}</p>
                   <span
                     className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                    style={{ background: user.role === "admin" ? "#0A183A" : "#1E76B6" }}
+                    style={{ background: !user.companyId ? "#6b7280" : user.role === "admin" ? "#0A183A" : "#1E76B6" }}
                   >
                     <Shield className="w-2.5 h-2.5" />
-                    {user.role === "admin" ? "Administrador" : "Usuario Regular"}
+                    {!user.companyId ? "Solo Marketplace" : user.role === "admin" ? "Administrador" : "Usuario Regular"}
                   </span>
                 </div>
               </div>
@@ -999,8 +1000,8 @@ const AjustesPage: React.FC = () => {
               )}
             </Card>
 
-            {/* Notification preferences card */}
-            <Card className="p-5 sm:p-6">
+            {/* Notification preferences card — hide for marketplace-only users */}
+            {hasCompanyId && <Card className="p-5 sm:p-6">
               <SectionTitle icon={Mail} title="Mis Notificaciones" />
               <p className="text-xs text-gray-400 mb-4">
                 Elige como quieres recibir alertas cuando el agente detecte problemas en tus llantas.
@@ -1076,7 +1077,7 @@ const AjustesPage: React.FC = () => {
                 {savingNotif ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 Guardar preferencias
               </PrimaryBtn>
-            </Card>
+            </Card>}
 
             {/* Saturn V trigger / toggle */}
             {saturnUnlocked ? (
@@ -1420,6 +1421,248 @@ const AjustesPage: React.FC = () => {
             </Card>
           </div>
         )}
+
+        {/* ================================================================ */}
+        {/* PLANES TAB                                                        */}
+        {/* ================================================================ */}
+        {activeTab === "planes" && user && (() => {
+          const currentPlan = company?.plan ?? "marketplace";
+          const isDistributor = currentPlan === "distribuidor";
+          const isMarketplaceOnly = !user.companyId;
+
+          const PLANS = [
+            {
+              id: "marketplace",
+              name: "Marketplace",
+              price: "Gratis",
+              desc: "Acceso al marketplace de llantas",
+              features: ["Comprar llantas", "Comparar precios", "Resenas y calificaciones", "Busqueda por placa"],
+              current: isMarketplaceOnly,
+              canSwitch: false,
+            },
+            {
+              id: "pro",
+              name: "Pro",
+              price: "Gratis",
+              desc: "Gestion completa de flotas + marketplace",
+              features: [
+                "Todo de Marketplace",
+                "Dashboard de flota",
+                "Analisis de desgaste con IA",
+                "Inventario de llantas",
+                "Reportes y semaforo",
+                "Agentes IA (Nikita, Sentinel, Campa, Linex)",
+                "Gestion de vehiculos",
+                "Notificaciones inteligentes",
+              ],
+              current: currentPlan === "pro",
+              canSwitch: isMarketplaceOnly || currentPlan === "enterprise",
+            },
+            {
+              id: "enterprise",
+              name: "Enterprise",
+              price: "Gratis",
+              desc: "Todo de Pro con funciones avanzadas",
+              features: [
+                "Todo de Pro",
+                "Multiples usuarios",
+                "Roles y permisos",
+                "Distribuidores conectados",
+                "Cupones y descuentos",
+                "Soporte prioritario",
+              ],
+              current: currentPlan === "enterprise",
+              canSwitch: isMarketplaceOnly || currentPlan === "pro",
+            },
+            {
+              id: "distribuidor",
+              name: "Distribuidor",
+              price: "Gratis",
+              desc: "Vende llantas en el marketplace",
+              features: [
+                "Catalogo de productos",
+                "Gestion de pedidos",
+                "Analitica de ventas",
+                "Clientes conectados",
+                "Perfil de distribuidor publico",
+                "Notificaciones por email",
+              ],
+              current: isDistributor,
+              canSwitch: isMarketplaceOnly,
+            },
+          ];
+
+          const [switchingTo, setSwitchingTo] = React.useState<string | null>(null);
+          const [companyForm, setCompanyForm] = React.useState({ name: "", nit: "" });
+          const [showCompanyForm, setShowCompanyForm] = React.useState(false);
+          const [creating, setCreating] = React.useState(false);
+
+          async function handleSwitchPlan(planId: string) {
+            // Marketplace-only users need to create a company first
+            if (isMarketplaceOnly) {
+              setSwitchingTo(planId);
+              setShowCompanyForm(true);
+              return;
+            }
+
+            // Existing company users switching between pro/enterprise
+            setSwitchingTo(planId);
+            try {
+              const res = await authFetch(`${API_BASE}/companies/${user.companyId}`, {
+                method: "PATCH",
+                body: JSON.stringify({ plan: planId }),
+              });
+              if (!res.ok) throw new Error("Error al cambiar plan");
+              toast("Plan actualizado exitosamente", "success");
+              // Refresh company data
+              fetchCompany(user.companyId);
+              setSwitchingTo(null);
+            } catch (e) {
+              toast(e instanceof Error ? e.message : "Error", "error");
+              setSwitchingTo(null);
+            }
+          }
+
+          async function handleCreateCompany() {
+            if (!companyForm.name.trim()) { toast("Ingresa el nombre de la empresa", "error"); return; }
+            setCreating(true);
+            try {
+              // Create company
+              const res = await authFetch(`${API_BASE}/companies`, {
+                method: "POST",
+                body: JSON.stringify({
+                  name: companyForm.name.trim(),
+                  nit: companyForm.nit.trim() || undefined,
+                  plan: switchingTo,
+                }),
+              });
+              if (!res.ok) throw new Error("Error al crear empresa");
+              const newCompany = await res.json();
+
+              // Assign user to company
+              await authFetch(`${API_BASE}/users/${user.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ companyId: newCompany.id, role: "admin" }),
+              });
+
+              // Update localStorage
+              const updatedUser = { ...user, companyId: newCompany.id, role: "admin" };
+              localStorage.setItem("user", JSON.stringify(updatedUser));
+              setUser(updatedUser);
+
+              toast("Empresa creada. Redirigiendo...", "success");
+              setTimeout(() => window.location.href = "/dashboard", 1500);
+            } catch (e) {
+              toast(e instanceof Error ? e.message : "Error al crear empresa", "error");
+            }
+            setCreating(false);
+          }
+
+          return (
+            <div className="space-y-4">
+              <Card className="p-5 sm:p-6">
+                <SectionTitle icon={Tag} title="Tu Plan Actual" />
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="px-3 py-1.5 rounded-full text-sm font-black text-white"
+                    style={{ background: isDistributor ? "#7c3aed" : isMarketplaceOnly ? "#6b7280" : "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+                    {isMarketplaceOnly ? "Solo Marketplace" : currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}
+                  </span>
+                  {isDistributor && <p className="text-xs text-gray-400">Los distribuidores no pueden cambiar de plan.</p>}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {PLANS.map((plan) => (
+                    <div key={plan.id} className="rounded-2xl p-5 transition-all"
+                      style={{
+                        border: plan.current ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.15)",
+                        background: plan.current ? "rgba(30,118,182,0.03)" : "white",
+                      }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-base font-black text-[#0A183A]">{plan.name}</h3>
+                        {plan.current && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#1E76B6] text-white">ACTUAL</span>}
+                      </div>
+                      <p className="text-xl font-black text-[#1E76B6] mb-1">{plan.price}</p>
+                      <p className="text-xs text-gray-500 mb-4">{plan.desc}</p>
+                      <ul className="space-y-1.5 mb-5">
+                        {plan.features.map((f, i) => (
+                          <li key={i} className="text-[11px] text-gray-600 flex items-start gap-1.5">
+                            <span className="text-[#1E76B6] font-bold mt-0.5">-</span> {f}
+                          </li>
+                        ))}
+                      </ul>
+                      {!plan.current && plan.canSwitch && !isDistributor && (
+                        <button
+                          onClick={() => handleSwitchPlan(plan.id)}
+                          disabled={switchingTo === plan.id}
+                          className="w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+                          {switchingTo === plan.id ? "Cambiando..." : isMarketplaceOnly ? `Activar ${plan.name}` : `Cambiar a ${plan.name}`}
+                        </button>
+                      )}
+                      {plan.current && (
+                        <div className="w-full py-2.5 rounded-xl text-xs font-bold text-center text-[#1E76B6]"
+                          style={{ background: "rgba(30,118,182,0.08)" }}>
+                          Plan activo
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* Company creation form for marketplace-only users */}
+              {showCompanyForm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => { setShowCompanyForm(false); setSwitchingTo(null); }}>
+                  <div className="absolute inset-0 bg-black/40" />
+                  <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-sm font-bold text-[#0A183A]">Crear empresa</p>
+                        <p className="text-[11px] text-gray-400">Para activar el plan {switchingTo} necesitas una empresa</p>
+                      </div>
+                      <button onClick={() => { setShowCompanyForm(false); setSwitchingTo(null); }}
+                        className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                        <X className="w-4 h-4 text-gray-500" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Field label="Nombre de la empresa" required>
+                        <input
+                          type="text"
+                          value={companyForm.name}
+                          onChange={(e) => setCompanyForm((f) => ({ ...f, name: e.target.value }))}
+                          placeholder="Mi Empresa S.A.S."
+                          className={inputCls}
+                          style={inputStyle}
+                        />
+                      </Field>
+                      <Field label="NIT (opcional)">
+                        <input
+                          type="text"
+                          value={companyForm.nit}
+                          onChange={(e) => setCompanyForm((f) => ({ ...f, nit: e.target.value }))}
+                          placeholder="900.123.456-7"
+                          className={inputCls}
+                          style={inputStyle}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="flex gap-2 mt-5">
+                      <GhostBtn onClick={() => { setShowCompanyForm(false); setSwitchingTo(null); }} className="flex-1">
+                        Cancelar
+                      </GhostBtn>
+                      <PrimaryBtn onClick={handleCreateCompany} disabled={creating || !companyForm.name.trim()} className="flex-1">
+                        {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Crear y activar"}
+                      </PrimaryBtn>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ================================================================ */}
         {/* COMPANY TAB                                                       */}
