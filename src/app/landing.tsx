@@ -947,6 +947,64 @@ const TireProLanding = ({ initialArticles = [] }: { initialArticles?: any[] }) =
         </div>
       </header>
 
+      {/* -- PLATFORM INTRO ------------------------------------------------------ */}
+      <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 w-full" style={{ background: '#ffffff' }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.18em' }}>
+              Mas que un marketplace
+            </p>
+            <h2 className="font-bold leading-tight mb-5" style={{ fontSize: 'clamp(1.8rem, 4vw, 3.2rem)', color: '#0A183A' }}>
+              La plataforma completa para llantas en Colombia
+            </h2>
+            <p className="text-base max-w-2xl mx-auto" style={{ color: 'rgba(10,24,58,0.5)' }}>
+              Compra llantas al mejor precio en nuestro marketplace. Y si manejas una flota, activa la gestion inteligente con IA — desgaste, CPK, reencauche, alertas y 6 agentes de inteligencia artificial que trabajan 24/7 por tus neumaticos.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-14">
+            {/* Marketplace card */}
+            <a href="/marketplace" className="group p-7 sm:p-8 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-xl" style={{ background: 'linear-gradient(135deg, #f0f7ff 0%, #e8f2fc 100%)', border: '1px solid rgba(30,118,182,0.12)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#1E76B6' }}>Marketplace</p>
+              <h3 className="text-xl sm:text-2xl font-black text-[#0A183A] mb-2 group-hover:text-[#1E76B6] transition-colors">Compra llantas online</h3>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(10,24,58,0.5)' }}>
+                Distribuidores verificados, precios directos, envio a toda Colombia. Compara marcas, dimensiones y reencauche en un solo lugar.
+              </p>
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#1E76B6] group-hover:gap-2 transition-all">
+                Explorar marketplace <ArrowRight size={14} />
+              </span>
+            </a>
+
+            {/* Platform card */}
+            <a href="/signup" className="group p-7 sm:p-8 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-xl" style={{ background: 'linear-gradient(135deg, #0A183A 0%, #132d5e 100%)', border: '1px solid rgba(30,118,182,0.2)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#62b8f0' }}>Plataforma de gestion</p>
+              <h3 className="text-xl sm:text-2xl font-black text-white mb-2">Gestiona tu flota con IA</h3>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Inspecciones digitales, analisis de CPK, prediccion de reemplazo, control de inventario y 6 agentes de IA especializados. 100% gratis.
+              </p>
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#62b8f0] group-hover:gap-2 transition-all">
+                Comenzar gratis <ArrowRight size={14} />
+              </span>
+            </a>
+          </div>
+
+          {/* What the platform does — quick grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { title: 'Inspecciones digitales', desc: 'Registra profundidad y presion en segundos desde cualquier dispositivo' },
+              { title: 'CPK en tiempo real', desc: 'Costo por kilometro calculado con datos historicos reales' },
+              { title: 'Prediccion de reemplazo', desc: 'IA predice cuando cambiar cada llanta antes de que falle' },
+              { title: 'Agentes de IA', desc: '6 agentes especializados analizan tu flota 24/7 automaticamente' },
+            ].map((item, i) => (
+              <div key={i} className="p-4 rounded-xl" style={{ background: 'rgba(10,24,58,0.02)', border: '1px solid rgba(10,24,58,0.06)' }}>
+                <h3 className="text-xs font-black text-[#0A183A] mb-1">{item.title}</h3>
+                <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(10,24,58,0.45)' }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* -- TRUST / STATS BAR --------------------------------------------------- */}
       <section
         ref={statsRef}
