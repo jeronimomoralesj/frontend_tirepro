@@ -483,37 +483,146 @@ function PublicMarketplace() {
 // Tire Assistant — guided chat to find the right tire
 // =============================================================================
 
+// Common Colombian vehicles → tire dimensions
+const VEHICLE_DB: Record<string, { dims: string[]; type: string }> = {
+  // City cars
+  "kia picanto": { dims: ["165/65R14", "175/65R14"], type: "City car" },
+  "chevrolet spark": { dims: ["155/80R13", "165/65R14"], type: "City car" },
+  "renault kwid": { dims: ["165/70R14"], type: "City car" },
+  "suzuki alto": { dims: ["155/65R14"], type: "City car" },
+  // Sedans
+  "renault logan": { dims: ["185/65R15", "195/55R16"], type: "Sedan" },
+  "chevrolet onix": { dims: ["195/65R15", "205/55R16"], type: "Sedan" },
+  "kia rio": { dims: ["185/65R15", "195/55R16"], type: "Sedan" },
+  "hyundai accent": { dims: ["185/65R15", "195/55R16"], type: "Sedan" },
+  "hyundai i25": { dims: ["185/65R15", "195/55R16"], type: "Sedan" },
+  "toyota corolla": { dims: ["205/55R16", "215/45R17"], type: "Sedan" },
+  "mazda 3": { dims: ["205/60R16", "215/45R18"], type: "Sedan" },
+  "honda civic": { dims: ["205/55R16", "215/50R17"], type: "Sedan" },
+  "kia cerato": { dims: ["205/55R16", "215/45R17"], type: "Sedan" },
+  "volkswagen jetta": { dims: ["205/55R16", "215/45R17"], type: "Sedan" },
+  "nissan versa": { dims: ["185/65R15", "195/55R16"], type: "Sedan" },
+  // Hatchbacks
+  "renault sandero": { dims: ["185/65R15", "195/55R16"], type: "Hatchback" },
+  "mazda 2": { dims: ["185/65R15", "195/55R16"], type: "Hatchback" },
+  "honda fit": { dims: ["185/55R16", "175/65R15"], type: "Hatchback" },
+  "volkswagen polo": { dims: ["185/65R15", "195/55R16"], type: "Hatchback" },
+  "suzuki swift": { dims: ["185/55R16", "195/45R17"], type: "Hatchback" },
+  // SUV / Crossover
+  "hyundai tucson": { dims: ["225/60R17", "235/55R18"], type: "SUV" },
+  "kia sportage": { dims: ["225/60R17", "235/55R18"], type: "SUV" },
+  "toyota rav4": { dims: ["225/65R17", "235/55R18"], type: "SUV" },
+  "mazda cx-5": { dims: ["225/65R17", "225/55R19"], type: "SUV" },
+  "nissan qashqai": { dims: ["215/65R16", "225/55R18"], type: "SUV" },
+  "renault duster": { dims: ["215/65R16", "215/60R17"], type: "SUV" },
+  "chevrolet tracker": { dims: ["215/55R17", "215/50R18"], type: "SUV" },
+  "ford escape": { dims: ["225/65R17", "235/55R18"], type: "SUV" },
+  "hyundai creta": { dims: ["205/65R16", "215/60R17"], type: "SUV" },
+  "kia seltos": { dims: ["215/60R17", "235/45R18"], type: "SUV" },
+  // Campero / 4x4
+  "toyota prado": { dims: ["265/65R17", "265/60R18"], type: "Campero" },
+  "toyota fortuner": { dims: ["265/65R17", "265/60R18"], type: "Campero" },
+  "toyota land cruiser": { dims: ["265/65R17", "285/60R18"], type: "Campero" },
+  "nissan patrol": { dims: ["265/70R17", "275/60R20"], type: "Campero" },
+  "chevrolet trailblazer": { dims: ["265/65R17", "265/60R18"], type: "Campero" },
+  "ford bronco": { dims: ["255/70R16", "265/70R17"], type: "Campero" },
+  // Pickup / Camioneta
+  "toyota hilux": { dims: ["265/65R17", "265/60R18"], type: "Pickup" },
+  "nissan frontier": { dims: ["255/70R16", "265/65R17"], type: "Pickup" },
+  "chevrolet d-max": { dims: ["245/70R16", "265/65R17"], type: "Pickup" },
+  "ford ranger": { dims: ["265/65R17", "265/60R18"], type: "Pickup" },
+  "mitsubishi l200": { dims: ["245/70R16", "265/65R17"], type: "Pickup" },
+  "mazda bt-50": { dims: ["255/70R16", "265/65R17"], type: "Pickup" },
+  // Vans
+  "hyundai h1": { dims: ["215/70R16", "225/70R16"], type: "Van" },
+  "mercedes vito": { dims: ["225/65R16C", "235/60R17"], type: "Van" },
+  "renault kangoo": { dims: ["185/65R15", "195/65R15"], type: "Van" },
+  // Trucks
+  "chevrolet nhr": { dims: ["7.00R16", "7.50R16"], type: "Camion liviano" },
+  "chevrolet nqr": { dims: ["215/75R17.5", "235/75R17.5"], type: "Camion mediano" },
+  "hino fc": { dims: ["215/75R17.5", "235/75R17.5"], type: "Camion mediano" },
+  "hino 500": { dims: ["295/80R22.5", "11R22.5"], type: "Camion pesado" },
+  "jac x350": { dims: ["215/75R17.5", "235/75R17.5"], type: "Camion mediano" },
+  "hyundai hd65": { dims: ["7.00R16", "7.50R16"], type: "Camion liviano" },
+  "hyundai hd45": { dims: ["7.00R16", "7.50R16"], type: "Camion liviano" },
+  // Tractomulas
+  "kenworth t680": { dims: ["295/80R22.5", "11R22.5", "315/80R22.5"], type: "Tractomula" },
+  "freightliner cascadia": { dims: ["295/80R22.5", "11R22.5", "315/80R22.5"], type: "Tractomula" },
+  "international lt": { dims: ["295/80R22.5", "11R22.5"], type: "Tractomula" },
+  // Buses
+  "mercedes of": { dims: ["275/80R22.5", "295/80R22.5"], type: "Bus" },
+  "chevrolet lv150": { dims: ["215/75R17.5", "235/75R17.5"], type: "Bus urbano" },
+};
+
+function findVehicleDims(input: string): { match: string; type: string; dims: string[] } | null {
+  const q = input.toLowerCase().trim();
+  // Exact match
+  if (VEHICLE_DB[q]) return { match: q, type: VEHICLE_DB[q].type, dims: VEHICLE_DB[q].dims };
+  // Partial match
+  for (const [key, val] of Object.entries(VEHICLE_DB)) {
+    if (key.includes(q) || q.includes(key)) return { match: key, type: val.type, dims: val.dims };
+  }
+  // Word match (e.g. "hilux" matches "toyota hilux")
+  for (const [key, val] of Object.entries(VEHICLE_DB)) {
+    const words = q.split(/\s+/);
+    if (words.some(w => w.length >= 3 && key.includes(w))) return { match: key, type: val.type, dims: val.dims };
+  }
+  return null;
+}
+
 type AssistantStep = "closed" | "vehicle" | "dimension" | "budget" | "results";
 type ChatMsg = { from: "bot" | "user"; text: string };
 
 function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
   const [step, setStep] = useState<AssistantStep>("closed");
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
-  const [selectedVehicle, setSelectedVehicle] = useState("");
+  const [vehicleInput, setVehicleInput] = useState("");
   const [selectedDim, setSelectedDim] = useState("");
   const [budget, setBudget] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [foundDims, setFoundDims] = useState<string[]>([]);
 
   function open() {
     setStep("vehicle");
-    setMsgs([{ from: "bot", text: "Hola! Te ayudo a encontrar la llanta perfecta. ¿Que tipo de vehiculo tienes?" }]);
-    setSelectedVehicle(""); setSelectedDim(""); setBudget(""); setResults([]);
+    setMsgs([{ from: "bot", text: "Hola! Te ayudo a encontrar la llanta perfecta. ¿Que vehiculo tienes? (ej: Kia Picanto, Toyota Hilux, Renault Logan...)" }]);
+    setVehicleInput(""); setSelectedDim(""); setBudget(""); setResults([]); setFoundDims([]);
   }
 
   function close() {
     setStep("closed"); setMsgs([]);
   }
 
-  function pickVehicle(key: string) {
+  function searchVehicle() {
+    if (!vehicleInput.trim()) return;
+    const result = findVehicleDims(vehicleInput);
+    if (result) {
+      setFoundDims(result.dims);
+      setMsgs(prev => [...prev,
+        { from: "user", text: vehicleInput },
+        { from: "bot", text: `${result.match.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")} (${result.type}) usa estas medidas. ¿Cual necesitas?` },
+      ]);
+      setStep("dimension");
+    } else {
+      setMsgs(prev => [...prev,
+        { from: "user", text: vehicleInput },
+        { from: "bot", text: "No encontre ese vehiculo. ¿Que tipo de vehiculo es?" },
+      ]);
+      // Fall back to vehicle type selection
+      setFoundDims([]);
+      setStep("dimension");
+    }
+    setVehicleInput("");
+  }
+
+  function pickVehicleType(key: string) {
     const v = VEHICLE_TIRE_MAP[key];
     if (!v) return;
-    setSelectedVehicle(key);
+    setFoundDims(v.dimensions);
     setMsgs(prev => [...prev,
       { from: "user", text: v.label },
       { from: "bot", text: `${v.label} — estas son las dimensiones mas comunes. ¿Cual necesitas?` },
     ]);
-    setStep("dimension");
   }
 
   function pickDimension(dim: string) {
@@ -657,32 +766,45 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
       {/* Input area */}
       <div className="px-4 py-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}>
         {step === "vehicle" && (
-          <div className="space-y-1.5">
-            <div className="grid grid-cols-3 gap-1.5">
-              {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
-                <button key={key} onClick={() => pickVehicle(key)}
-                  className="px-2 py-2 rounded-lg text-[10px] font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-[#1E76B6]/5 hover:border-[#1E76B6]/20 hover:text-[#0A183A] transition-all text-center">
-                  {val.label.split(" / ")[0]}
-                </button>
-              ))}
-            </div>
-            <p className="text-[9px] text-gray-400 text-center">O escribe tu dimension directamente arriba</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={vehicleInput}
+              onChange={(e) => setVehicleInput(e.target.value)}
+              placeholder="Ej: Kia Picanto, Toyota Hilux..."
+              autoFocus
+              className="flex-1 px-3 py-2.5 rounded-xl text-sm bg-gray-50 border border-gray-200 text-[#0A183A] placeholder-gray-400 focus:outline-none focus:border-[#1E76B6]"
+              onKeyDown={(e) => { if (e.key === "Enter") searchVehicle(); }}
+            />
+            <button onClick={searchVehicle} disabled={!vehicleInput.trim()}
+              className="p-2.5 rounded-xl text-white disabled:opacity-30 transition-all" style={{ background: "#1E76B6" }}>
+              <Send className="w-4 h-4" />
+            </button>
           </div>
         )}
 
-        {step === "dimension" && selectedVehicle && (
-          <div className="flex flex-wrap gap-2">
-            {VEHICLE_TIRE_MAP[selectedVehicle]?.dimensions.map((dim) => (
-              <button key={dim} onClick={() => pickDimension(dim)}
-                className="px-4 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90"
-                style={{ background: "#1E76B6" }}>
-                {dim}
-              </button>
-            ))}
-            <button onClick={() => { setMsgs(prev => [...prev, { from: "bot", text: "Escribe la dimension que necesitas:" }]); setStep("budget"); setSelectedDim("custom"); }}
-              className="px-3 py-2 rounded-lg text-[10px] font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors">
-              Otra
-            </button>
+        {step === "dimension" && (
+          <div className="space-y-2">
+            {foundDims.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {foundDims.map((dim) => (
+                  <button key={dim} onClick={() => pickDimension(dim)}
+                    className="px-4 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90"
+                    style={{ background: "#1E76B6" }}>
+                    {dim}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-1.5">
+                {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
+                  <button key={key} onClick={() => pickVehicleType(key)}
+                    className="px-2 py-2 rounded-lg text-[10px] font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-[#1E76B6]/5 hover:border-[#1E76B6]/20 hover:text-[#0A183A] transition-all text-center">
+                    {val.label.split(" / ")[0]}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
