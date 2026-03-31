@@ -140,33 +140,36 @@ function PublicMarketplace() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/marketplace/listings/filters`)
-      .then((r) => (r.ok ? r.json() : { dimensions: [], marcas: [], distributors: [] }))
-      .then(setFilters).catch(() => {});
-    // Fetch recent orders + recommendations
+    // Parallel fetch: filters + recommendations (+ orders if logged in)
+    const filtersP = fetch(`${API_BASE}/marketplace/listings/filters`)
+      .then((r) => (r.ok ? r.json() : { dimensions: [], marcas: [], distributors: [] }));
+
+    let ordersP: Promise<any> = Promise.resolve([]);
+    let recsP: Promise<any>;
+
     try {
       const token = localStorage.getItem("token");
       const user = JSON.parse(localStorage.getItem("user") ?? "{}");
       if (token && user.id) {
-        fetch(`${API_BASE}/marketplace/orders/user?userId=${user.id}`, {
+        ordersP = fetch(`${API_BASE}/marketplace/orders/user?userId=${user.id}`, {
           headers: { Authorization: `Bearer ${token}` },
-        }).then((r) => (r.ok ? r.json() : [])).then(setRecentOrders).catch(() => {});
-        // Personalized recommendations
-        fetch(`${API_BASE}/marketplace/recommendations?userId=${user.id}`)
-          .then((r) => (r.ok ? r.json() : { type: "", listings: [] }))
-          .then(setRecommendations).catch(() => {});
+        }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+        recsP = fetch(`${API_BASE}/marketplace/recommendations?userId=${user.id}`)
+          .then((r) => (r.ok ? r.json() : { type: "", listings: [] })).catch(() => ({ type: "", listings: [] }));
       } else {
-        // Guest — popular/newest
-        fetch(`${API_BASE}/marketplace/recommendations`)
-          .then((r) => (r.ok ? r.json() : { type: "", listings: [] }))
-          .then(setRecommendations).catch(() => {});
+        recsP = fetch(`${API_BASE}/marketplace/recommendations`)
+          .then((r) => (r.ok ? r.json() : { type: "", listings: [] })).catch(() => ({ type: "", listings: [] }));
       }
     } catch {
-      // Guest fallback
-      fetch(`${API_BASE}/marketplace/recommendations`)
-        .then((r) => (r.ok ? r.json() : { type: "", listings: [] }))
-        .then(setRecommendations).catch(() => {});
+      recsP = fetch(`${API_BASE}/marketplace/recommendations`)
+        .then((r) => (r.ok ? r.json() : { type: "", listings: [] })).catch(() => ({ type: "", listings: [] }));
     }
+
+    Promise.all([filtersP, ordersP, recsP]).then(([f, o, r]) => {
+      setFilters(f);
+      setRecentOrders(o);
+      setRecommendations(r);
+    });
   }, []);
 
   // Track whether user explicitly set the city filter (vs auto-detected)

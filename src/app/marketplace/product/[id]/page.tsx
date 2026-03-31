@@ -7,7 +7,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
 
 export async function generateStaticParams() {
   try {
-    const res = await fetch(`${API_BASE}/marketplace/listings?limit=500&sortBy=newest`);
+    const res = await fetch(`${API_BASE}/marketplace/listings?limit=1000&sortBy=newest`);
     if (!res.ok) return [];
     const data = await res.json();
     return (data.listings ?? []).map((l: any) => ({ id: l.id }));
@@ -15,6 +15,8 @@ export async function generateStaticParams() {
     return [];
   }
 }
+
+export const dynamicParams = true; // Allow on-demand ISR for pages not in generateStaticParams
 
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
