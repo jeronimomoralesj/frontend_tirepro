@@ -536,7 +536,10 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
     setLoading(true);
 
     try {
-      const p = new URLSearchParams({ search: selectedDim, limit: "10", sortBy: "price_asc" });
+      // Search both with and without space before R to match all formats
+      const dimNoSpace = selectedDim.replace(/\s+/g, "");
+      const dimWithSpace = dimNoSpace.replace(/(\d)R(\d)/g, "$1 R$2");
+      const p = new URLSearchParams({ search: dimNoSpace === "custom" ? budget : dimWithSpace, limit: "20", sortBy: "price_asc" });
       const res = await fetch(`${API_BASE}/marketplace/listings?${p}`);
       if (res.ok) {
         const data = await res.json();
@@ -575,10 +578,10 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
   if (step === "closed") {
     return (
       <button onClick={open}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3.5 rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-105"
-        style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
-        <MessageCircle className="w-5 h-5 text-white" />
-        <span className="text-sm font-bold text-white">¿Necesitas ayuda?</span>
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+        style={{ background: "#0A183A", color: "white" }}>
+        <MessageCircle className="w-4 h-4" />
+        <span className="text-xs font-bold">¿Necesitas ayuda?</span>
       </button>
     );
   }
@@ -707,7 +710,7 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
 
         {step === "results" && (
           <div className="flex gap-2">
-            <button onClick={() => { onSearch(selectedDim); close(); }}
+            <button onClick={() => { onSearch(selectedDim.replace(/\s+/g, "").replace(/(\d)R(\d)/g, "$1 R$2")); close(); }}
               className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all"
               style={{ background: "#1E76B6" }}>
               Ver todos en {selectedDim}
