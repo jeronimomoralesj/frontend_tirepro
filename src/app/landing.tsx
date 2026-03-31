@@ -931,11 +931,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-28 sm:pt-36 md:pt-44 pb-16 sm:pb-24">
           <div className="max-w-3xl mx-auto text-center">
 
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6" style={{ background: 'rgba(30,118,182,0.12)', border: '1px solid rgba(30,118,182,0.2)' }}>
-              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#62b8f0' }} />
-              <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: '#62b8f0' }}>Analisis de datos + IA</span>
-            </div>
 
             <h1 className="font-bold leading-[1.08] tracking-tight mb-5"
               style={{ fontSize: 'clamp(2.2rem, 5.5vw, 4.5rem)', color: '#ffffff' }}>

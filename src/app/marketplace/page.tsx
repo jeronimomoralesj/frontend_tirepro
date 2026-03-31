@@ -749,7 +749,7 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
   if (step === "closed") {
     return (
       <button onClick={open}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
         style={{ background: "#0A183A", color: "white" }}>
         <MessageCircle className="w-4 h-4" />
         <span className="text-xs font-bold">¿Necesitas ayuda?</span>
