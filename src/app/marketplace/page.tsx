@@ -537,6 +537,55 @@ const VEHICLE_DB: Record<string, { dims: string[]; type: string }> = {
   "hyundai h1": { dims: ["215/70R16", "225/70R16"], type: "Van" },
   "mercedes vito": { dims: ["225/65R16C", "235/60R17"], type: "Van" },
   "renault kangoo": { dims: ["185/65R15", "195/65R15"], type: "Van" },
+  // Premium / Electric / European
+  "volvo xc40": { dims: ["235/55R18", "245/45R19"], type: "SUV" },
+  "volvo xc60": { dims: ["235/55R19", "255/45R20"], type: "SUV" },
+  "volvo xc90": { dims: ["255/50R19", "275/45R20"], type: "SUV" },
+  "volvo s60": { dims: ["225/50R17", "235/45R18"], type: "Sedan" },
+  "tesla model 3": { dims: ["235/45R18", "235/40R19"], type: "Sedan electrico" },
+  "tesla model y": { dims: ["255/45R19", "255/40R20"], type: "SUV electrico" },
+  "tesla model s": { dims: ["245/45R19", "265/35R21"], type: "Sedan electrico" },
+  "tesla model x": { dims: ["255/45R20", "265/40R21"], type: "SUV electrico" },
+  "bmw x1": { dims: ["225/55R17", "225/50R18"], type: "SUV" },
+  "bmw x3": { dims: ["245/50R19", "245/45R20"], type: "SUV" },
+  "bmw x5": { dims: ["265/50R19", "275/45R20"], type: "SUV" },
+  "bmw serie 3": { dims: ["225/50R17", "225/45R18"], type: "Sedan" },
+  "audi q3": { dims: ["215/65R17", "235/55R18"], type: "SUV" },
+  "audi q5": { dims: ["235/60R18", "255/45R20"], type: "SUV" },
+  "audi a3": { dims: ["225/50R17", "225/45R18"], type: "Sedan" },
+  "audi a4": { dims: ["225/50R17", "245/40R18"], type: "Sedan" },
+  "mercedes glc": { dims: ["235/60R18", "255/45R20"], type: "SUV" },
+  "mercedes gle": { dims: ["255/55R19", "275/45R21"], type: "SUV" },
+  "mercedes clase c": { dims: ["225/50R17", "225/45R18"], type: "Sedan" },
+  "mercedes clase a": { dims: ["225/45R17", "225/40R18"], type: "Sedan" },
+  "jeep wrangler": { dims: ["245/75R17", "255/70R18"], type: "Campero" },
+  "jeep grand cherokee": { dims: ["265/60R18", "265/50R20"], type: "SUV" },
+  "jeep renegade": { dims: ["215/65R16", "225/55R18"], type: "SUV" },
+  "subaru forester": { dims: ["225/60R17", "225/55R18"], type: "SUV" },
+  "subaru outback": { dims: ["225/60R18", "225/65R17"], type: "SUV" },
+  "mini cooper": { dims: ["195/55R16", "205/45R17"], type: "Hatchback" },
+  "peugeot 208": { dims: ["195/55R16", "205/45R17"], type: "Hatchback" },
+  "peugeot 2008": { dims: ["215/60R17", "215/55R18"], type: "SUV" },
+  "peugeot 3008": { dims: ["225/55R18", "235/55R19"], type: "SUV" },
+  "citroen c3": { dims: ["195/65R15", "205/55R16"], type: "Hatchback" },
+  "fiat 500": { dims: ["185/55R15", "195/45R16"], type: "City car" },
+  "chery tiggo 4": { dims: ["215/55R18", "215/60R17"], type: "SUV" },
+  "chery tiggo 7": { dims: ["225/60R18", "235/55R19"], type: "SUV" },
+  "jac s3": { dims: ["205/55R17", "215/55R17"], type: "SUV" },
+  "great wall haval h6": { dims: ["225/60R18", "235/55R19"], type: "SUV" },
+  "mg zs": { dims: ["215/55R17", "215/50R18"], type: "SUV" },
+  "mg hs": { dims: ["225/55R19", "235/50R19"], type: "SUV" },
+  "ssangyong rexton": { dims: ["265/60R18", "255/55R19"], type: "SUV" },
+  "ssangyong tivoli": { dims: ["215/60R17", "225/45R18"], type: "SUV" },
+  "dfsk glory 580": { dims: ["225/60R18", "215/60R17"], type: "SUV" },
+  // Motorcycles
+  "honda cb190": { dims: ["120/80-17", "100/80-17"], type: "Motocicleta" },
+  "yamaha fz": { dims: ["140/60R17", "100/80-17"], type: "Motocicleta" },
+  "bajaj pulsar": { dims: ["130/70-17", "100/80-17"], type: "Motocicleta" },
+  "suzuki gixxer": { dims: ["140/60R17", "100/80-17"], type: "Motocicleta" },
+  "honda navi": { dims: ["120/80-12", "90/90-12"], type: "Motocicleta" },
+  "yamaha nmax": { dims: ["130/70-13", "110/70-13"], type: "Scooter" },
+  "akt ak125": { dims: ["90/90-18", "2.75-18"], type: "Motocicleta" },
   // Trucks
   "chevrolet nhr": { dims: ["7.00R16", "7.50R16"], type: "Camion liviano" },
   "chevrolet nqr": { dims: ["215/75R17.5", "235/75R17.5"], type: "Camion mediano" },
@@ -545,13 +594,27 @@ const VEHICLE_DB: Record<string, { dims: string[]; type: string }> = {
   "jac x350": { dims: ["215/75R17.5", "235/75R17.5"], type: "Camion mediano" },
   "hyundai hd65": { dims: ["7.00R16", "7.50R16"], type: "Camion liviano" },
   "hyundai hd45": { dims: ["7.00R16", "7.50R16"], type: "Camion liviano" },
+  "foton aumark": { dims: ["7.00R16", "7.50R16"], type: "Camion liviano" },
+  "jmc carrying": { dims: ["7.00R16", "7.50R16"], type: "Camion liviano" },
   // Tractomulas
   "kenworth t680": { dims: ["295/80R22.5", "11R22.5", "315/80R22.5"], type: "Tractomula" },
+  "kenworth t800": { dims: ["295/80R22.5", "11R22.5", "12R22.5"], type: "Tractomula" },
   "freightliner cascadia": { dims: ["295/80R22.5", "11R22.5", "315/80R22.5"], type: "Tractomula" },
   "international lt": { dims: ["295/80R22.5", "11R22.5"], type: "Tractomula" },
+  "international prostar": { dims: ["295/80R22.5", "11R22.5"], type: "Tractomula" },
+  "mack anthem": { dims: ["295/80R22.5", "11R22.5"], type: "Tractomula" },
+  "volvo fh": { dims: ["295/80R22.5", "315/80R22.5"], type: "Tractomula" },
+  "scania r": { dims: ["295/80R22.5", "315/80R22.5"], type: "Tractomula" },
+  // Volquetas
+  "kenworth t800 volqueta": { dims: ["12R24.5", "11R24.5", "315/80R22.5"], type: "Volqueta" },
+  "international 7600": { dims: ["12R24.5", "11R24.5"], type: "Volqueta" },
+  "mack granite": { dims: ["12R24.5", "11R24.5"], type: "Volqueta" },
   // Buses
   "mercedes of": { dims: ["275/80R22.5", "295/80R22.5"], type: "Bus" },
+  "mercedes o500": { dims: ["295/80R22.5", "275/80R22.5"], type: "Bus" },
+  "marcopolo": { dims: ["295/80R22.5", "275/80R22.5"], type: "Bus" },
   "chevrolet lv150": { dims: ["215/75R17.5", "235/75R17.5"], type: "Bus urbano" },
+  "hino ak": { dims: ["275/80R22.5", "295/80R22.5"], type: "Bus" },
 };
 
 function findVehicleDims(input: string): { match: string; type: string; dims: string[] } | null {
@@ -606,9 +669,8 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
     } else {
       setMsgs(prev => [...prev,
         { from: "user", text: vehicleInput },
-        { from: "bot", text: "No encontre ese vehiculo. ¿Que tipo de vehiculo es?" },
+        { from: "bot", text: `No tengo "${vehicleInput}" en mi base de datos. Puedes seleccionar el tipo de vehiculo o escribir la dimension directamente (ej: 225/55R18):` },
       ]);
-      // Fall back to vehicle type selection
       setFoundDims([]);
       setStep("dimension");
     }
@@ -796,14 +858,22 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-1.5">
-                {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
-                  <button key={key} onClick={() => pickVehicleType(key)}
-                    className="px-2 py-2 rounded-lg text-[10px] font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-[#1E76B6]/5 hover:border-[#1E76B6]/20 hover:text-[#0A183A] transition-all text-center">
-                    {val.label.split(" / ")[0]}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="flex items-center gap-2">
+                  <input type="text" placeholder="Dimension (ej: 225/55R18)"
+                    className="flex-1 px-3 py-2 rounded-xl text-xs bg-gray-50 border border-gray-200 text-[#0A183A] placeholder-gray-400 focus:outline-none focus:border-[#1E76B6]"
+                    onKeyDown={(e) => { if (e.key === "Enter") { const v = (e.target as HTMLInputElement).value.trim(); if (v) pickDimension(v); } }}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {Object.entries(VEHICLE_TIRE_MAP).map(([key, val]) => (
+                    <button key={key} onClick={() => pickVehicleType(key)}
+                      className="px-2 py-2 rounded-lg text-[10px] font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-[#1E76B6]/5 hover:border-[#1E76B6]/20 hover:text-[#0A183A] transition-all text-center">
+                      {val.label.split(" / ")[0]}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
