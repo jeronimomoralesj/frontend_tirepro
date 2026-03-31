@@ -184,22 +184,51 @@ function VehicleGroup({
         </div>
       </button>
 
-      {/* Notification cards */}
-      {open && (
-        <div className="mt-2 space-y-2 pl-2">
-          {notifications.map((n) => (
-            <NotificationCard
-              key={n.id}
-              notification={n}
-              hasDrivers={drivers.length > 0}
-              onExecute={onExecute}
-              onSendToDriver={onSendToDriver}
-              onMarkSeen={onMarkSeen}
-              sendCounts={sendCounts}
-            />
-          ))}
-        </div>
-      )}
+      {/* Group by tire within vehicle */}
+      {open && (() => {
+        // Group notifications by tire placa+position
+        const tireGroups = new Map<string, { placa: string; posicion: number; depths: { i: number; c: number; e: number } | null; notifs: Notification[] }>();
+        notifications.forEach((n) => {
+          const key = n.tire ? `${n.tire.placa}-P${n.tire.posicion}` : "sin-llanta";
+          if (!tireGroups.has(key)) {
+            const insp = n.tire?.inspecciones?.[0];
+            tireGroups.set(key, {
+              placa: n.tire?.placa ?? "",
+              posicion: n.tire?.posicion ?? 0,
+              depths: insp ? { i: insp.profundidadInt, c: insp.profundidadCen, e: insp.profundidadExt } : null,
+              notifs: [],
+            });
+          }
+          tireGroups.get(key)!.notifs.push(n);
+        });
+        return (
+          <div className="mt-2 space-y-3 pl-2">
+            {Array.from(tireGroups.values()).map((tg) => (
+              <div key={`${tg.placa}-${tg.posicion}`}>
+                {/* Tire sub-header */}
+                {tg.placa && (
+                  <div className="flex items-center gap-2 mb-1.5 px-1">
+                    <span className="text-[10px] font-mono font-bold text-[#348CCB] bg-[#348CCB]/8 px-2 py-0.5 rounded-md">{tg.placa}</span>
+                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md">P{tg.posicion}</span>
+                    {tg.depths && (
+                      <span className="text-[9px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">
+                        Int {tg.depths.i} · Cen {tg.depths.c} · Ext {tg.depths.e} mm
+                      </span>
+                    )}
+                    <span className="text-[9px] text-gray-400">{tg.notifs.length} alerta{tg.notifs.length !== 1 ? "s" : ""}</span>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  {tg.notifs.map((n) => (
+                    <NotificationCard key={n.id} notification={n} hasDrivers={drivers.length > 0}
+                      onExecute={onExecute} onSendToDriver={onSendToDriver} onMarkSeen={onMarkSeen} sendCounts={sendCounts} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -226,35 +255,15 @@ function NotificationCard({
 
   return (
     <div
-      className="bg-white rounded-xl border-l-4 p-4 shadow-sm"
-      style={{ borderLeftColor: s.border, opacity: n.executed ? 0.6 : 1 }}
+      className="bg-white rounded-xl border-l-3 px-3 py-2.5 shadow-sm"
+      style={{ borderLeftWidth: 3, borderLeftColor: s.border, opacity: n.executed ? 0.5 : 1 }}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-1">
+      <div className="flex items-start gap-2 mb-1">
+        <AgentBadge actionType={n.actionType} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-            <AgentBadge actionType={n.actionType} />
-            {n.tire && (
-              <span className="text-[10px] font-mono font-bold text-[#348CCB] bg-[#348CCB]/8 px-2 py-0.5 rounded-md flex-shrink-0">
-                {n.tire.placa}
-              </span>
-            )}
-            {n.tire && (
-              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md flex-shrink-0">
-                P{n.tire.posicion}
-              </span>
-            )}
-            {n.tire?.inspecciones?.[0] && (() => {
-              const i = n.tire.inspecciones[0];
-              return (
-                <span className="text-[9px] font-mono text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md flex-shrink-0">
-                  {i.profundidadInt}/{i.profundidadCen}/{i.profundidadExt} mm
-                </span>
-              );
-            })()}
-          </div>
-          <p className="text-sm font-bold text-[#0A183A]">{n.title}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{n.message}</p>
+          <p className="text-xs font-bold text-[#0A183A] leading-snug">{n.title}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{n.message}</p>
         </div>
       </div>
 
