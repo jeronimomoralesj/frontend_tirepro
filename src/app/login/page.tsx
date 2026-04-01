@@ -21,6 +21,7 @@ import Image from "next/image";
 import Link from "next/link";
 import logo from "../../../public/logo_text.png";
 import logoTire from "../../../public/logo_tire.png";
+import PublicNav from "../../components/PublicNav";
 
 const NAV_ITEMS = [
   { label: "Plataforma", href: "/#platform" },
@@ -108,104 +109,7 @@ export default function LoginPage() {
 
       <div className="relative z-10">
         {/* -- Navbar -- */}
-        <nav
-          className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-            isScrolled
-              ? "bg-white/90 backdrop-blur-xl border-b border-gray-200 shadow-sm"
-              : "bg-transparent"
-          }`}
-        >
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="flex items-center justify-between h-20">
-              <Link href="/" className="flex items-center space-x-2">
-                <Image
-                  src={logoTire}
-                  alt="TirePro"
-                  height={25}
-                  style={{ filter: "brightness(0) saturate(100%) invert(14%) sepia(60%) saturate(900%) hue-rotate(190deg) brightness(85%)" }}
-                />
-                <Image
-                  src={logo}
-                  alt="TirePro"
-                  height={25}
-                  style={{ filter: "brightness(0) saturate(100%) invert(14%) sepia(60%) saturate(900%) hue-rotate(190deg) brightness(85%)" }}
-                />
-              </Link>
-
-              {/* Desktop nav */}
-              <div className="hidden md:flex items-center space-x-8">
-                {NAV_ITEMS.map((item) => (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className="text-sm font-medium text-gray-600 transition-colors"
-                    style={{}}
-                    onMouseEnter={e => (e.currentTarget.style.color = "#0A183A")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "")}
-                  >
-                    {item.label}
-                  </a>
-                ))}
-                <a
-                  href="/blog"
-                  className="text-sm font-medium text-gray-600 transition-colors"
-                  onMouseEnter={e => (e.currentTarget.style.color = "#0A183A")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "")}
-                >
-                  Blog
-                </a>
-                <a href="/companyregister">
-                  <button
-                    className="text-white px-6 py-2.5 rounded-full text-sm font-semibold transition-all shadow-md hover:shadow-lg"
-                    style={{ backgroundColor: "#1E76B6" }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#173D68")}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#1E76B6")}
-                  >
-                    Comenzar
-                  </button>
-                </a>
-              </div>
-
-              {/* Mobile hamburger */}
-              <button
-                className="md:hidden p-2 rounded-lg transition-colors"
-                style={{ color: "#0A183A" }}
-                onClick={() => setMobileOpen(!mobileOpen)}
-              >
-                {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile menu */}
-          {mobileOpen && (
-            <div className="md:hidden bg-white border-t border-gray-200 shadow-lg">
-              <div className="px-6 py-4 space-y-4">
-                {NAV_ITEMS.map((item) => (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className="block text-sm font-medium text-gray-600 transition-colors"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    {item.label}
-                  </a>
-                ))}
-                <a href="/developers" className="block text-sm font-medium text-gray-600 transition-colors">
-                  Desarrolladores
-                </a>
-                <a href="/companyregister">
-                  <button
-                    className="w-full mt-2 text-white px-6 py-3 rounded-full text-sm font-semibold"
-                    style={{ backgroundColor: "#1E76B6" }}
-                  >
-                    Comenzar
-                  </button>
-                </a>
-              </div>
-            </div>
-          )}
-        </nav>
+        <PublicNav />
 
         {/* -- Main -- */}
         <div className="flex flex-col lg:flex-row min-h-screen pt-20">

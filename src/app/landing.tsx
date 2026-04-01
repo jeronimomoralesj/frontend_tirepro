@@ -31,6 +31,7 @@ import landing from '../../public/landing.png'
 import Image from 'next/image'
 import pcImage from '../../public/pc.png'
 import logo from '../../public/logo_full.png'
+import PublicNav from '../components/PublicNav'
 import phoneImage from '../../public/phoneImg.png'
 import feature1 from '../../public/feat1.png'
 import feature2 from '../../public/feat1.png'
@@ -832,82 +833,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
     <div className="bg-white text-gray-900 min-h-screen overflow-x-hidden w-full" style={{ fontFamily: "'DM Sans', 'Helvetica Neue', Arial, sans-serif" }}>
 
       {/* -- NAVBAR (unchanged) ----------------------------------------------- */}
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
-            ? 'bg-white/90 backdrop-blur-xl border-b border-gray-200 shadow-sm'
-            : 'bg-transparent'
-        }`}
-        role="navigation"
-        aria-label="Navegación principal"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20">
-            <div className="flex items-center space-x-3 min-w-0">
-              <a href="/" aria-label="TirePro - Inicio">
-                <Image
-                  src={logo}
-                  height={35}
-                  width={110}
-                  alt="TirePro - Software de Gestión de Llantas con IA"
-                  className="h-10 sm:h-12 md:h-14 w-auto transition-all duration-300"
-                  style={{
-                    filter: isScrolled
-                      ? 'brightness(0) saturate(100%) invert(14%) sepia(60%) saturate(900%) hue-rotate(190deg) brightness(85%)'
-                      : 'brightness(0) invert(1)'
-                  }}
-                />
-              </a>
-            </div>
-            <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-              <a href="/marketplace" className="text-sm text-[#1E76B6] hover:text-[#0A183A] transition-colors font-bold">Marketplace</a>
-              <a href="#producto" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Plataforma</a>
-              <a href="#beneficios" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Beneficios</a>
-              <a href="#preguntas" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Preguntas</a>
-              <a href="/blog" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Blog</a>
-              <a href="/login" className="text-sm text-gray-600 hover:text-[#0A183A] transition-colors font-medium">Ingresar</a>
-              <a href="/signup">
-                <button
-                  className="text-white px-4 xl:px-6 py-2 sm:py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap shadow-md hover:shadow-lg"
-                  style={{ backgroundColor: '#1E76B6' }}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#173D68')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#1E76B6')}
-                >
-                  Comenzar Gratis
-                </button>
-              </a>
-            </div>
-            <button
-              className="lg:hidden p-2 rounded-lg transition-colors flex-shrink-0"
-              style={{ color: '#0A183A' }}
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Abrir menú de navegación"
-              aria-expanded={isMobileMenuOpen}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
-        </div>
-        {isMobileMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg" role="menu">
-            <div className="px-4 sm:px-6 py-4 space-y-3">
-              <a href="/marketplace" className="block text-[#1E76B6] hover:text-[#0A183A] transition-colors py-2 font-bold" role="menuitem">Marketplace</a>
-              <a href="#producto" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Plataforma</a>
-              <a href="#beneficios" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Beneficios</a>
-              <a href="#preguntas" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Preguntas</a>
-              <a href="/login" className="block text-gray-600 hover:text-[#0A183A] transition-colors py-2 font-medium" role="menuitem">Ingresar</a>
-              <a href="/signup">
-                <button
-                  className="w-full text-white px-6 py-3 rounded-full text-sm font-semibold mt-2"
-                  style={{ backgroundColor: '#1E76B6' }}
-                >
-                  Comenzar Gratis
-                </button>
-              </a>
-            </div>
-          </div>
-        )}
-      </nav>
+      <PublicNav />
 
       {/* -- HERO --------------------------------------------------------------- */}
       <header

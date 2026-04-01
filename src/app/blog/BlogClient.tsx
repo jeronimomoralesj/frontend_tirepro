@@ -15,6 +15,7 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import logo from '../../../public/logo_full.png'
+import PublicNav from '../../components/PublicNav'
 
 // --- Types --------------------------------------------------------------------
 
@@ -55,116 +56,7 @@ function SkeletonCard() {
 // --- Nav ----------------------------------------------------------------------
 
 function Nav() {
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20)
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-white/90 backdrop-blur-xl border-b border-gray-200 shadow-sm'
-          : 'bg-transparent'
-      }`}
-      role="navigation"
-      aria-label="Navegación principal"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          <a href="/" aria-label="TirePro - Inicio">
-            <Image
-              src={logo}
-              height={50}
-              width={120}
-              alt="TirePro - Software de Gestión de Llantas con IA"
-              className="h-10 sm:h-12 md:h-14 w-auto"
-              style={{ filter: "brightness(0) saturate(100%) invert(14%) sepia(60%) saturate(900%) hue-rotate(190deg) brightness(85%)" }}
-              priority
-            />
-          </a>
-
-          {/* Desktop links */}
-          <div className="hidden lg:flex items-center space-x-6 xl:space-x-8">
-            {[
-              { label: 'Producto', href: '/#producto' },
-              { label: 'Beneficios', href: '/#beneficios' },
-              { label: 'Planes', href: '/#planes' },
-              { label: 'Preguntas', href: '/#preguntas' },
-            ].map(({ label, href }) => (
-              <a
-                key={href}
-                href={href}
-                className="text-sm font-medium text-gray-600 transition-colors"
-                onMouseEnter={e => (e.currentTarget.style.color = "#0A183A")}
-                onMouseLeave={e => (e.currentTarget.style.color = "")}
-              >
-                {label}
-              </a>
-            ))}
-            <a href="/blog" className="text-sm font-semibold" style={{ color: "#1E76B6" }}>
-              Blog
-            </a>
-            <a
-              href="/login"
-              className="text-sm font-medium text-gray-600 transition-colors"
-              onMouseEnter={e => (e.currentTarget.style.color = "#0A183A")}
-              onMouseLeave={e => (e.currentTarget.style.color = "")}
-            >
-              Ingresar
-            </a>
-            <a href="/companyregister">
-              <button
-                className="text-white px-4 xl:px-6 py-2 sm:py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap shadow-md hover:shadow-lg"
-                style={{ backgroundColor: "#1E76B6" }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#173D68")}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#1E76B6")}
-              >
-                Comenzar Gratis
-              </button>
-            </a>
-          </div>
-
-          {/* Hamburger */}
-          <button
-            className="lg:hidden p-2 rounded-lg transition-colors flex-shrink-0"
-            style={{ color: "#0A183A" }}
-            onClick={() => setIsMobileMenuOpen(v => !v)}
-            aria-label="Abrir menú"
-            aria-expanded={isMobileMenuOpen}
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-gray-200 shadow-lg">
-          <div className="px-4 py-4 space-y-3">
-            <a href="/#producto" className="block text-sm font-medium text-gray-600 py-2">Producto</a>
-            <a href="/#beneficios" className="block text-sm font-medium text-gray-600 py-2">Beneficios</a>
-            <a href="/#planes" className="block text-sm font-medium text-gray-600 py-2">Planes</a>
-            <a href="/#preguntas" className="block text-sm font-medium text-gray-600 py-2">Preguntas</a>
-            <a href="/blog" className="block text-sm font-semibold py-2" style={{ color: "#1E76B6" }}>Blog</a>
-            <a href="/login" className="block text-sm font-medium text-gray-600 py-2">Ingresar</a>
-            <a href="/companyregister">
-              <button
-                className="w-full text-white px-6 py-3 rounded-full text-sm font-semibold mt-2"
-                style={{ backgroundColor: "#1E76B6" }}
-              >
-                Comenzar Gratis
-              </button>
-            </a>
-          </div>
-        </div>
-      )}
-    </nav>
-  )
+  return <PublicNav />
 }
 
 // --- Main Component -----------------------------------------------------------
