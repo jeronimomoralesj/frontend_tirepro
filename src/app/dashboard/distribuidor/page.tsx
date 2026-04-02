@@ -404,8 +404,8 @@ export default function DistribuidorPage() {
       const list: Company[] = data.map((access: any) => ({
         id: access.company.id,
         name: access.company.name,
-        vehicleCount: 0,
-        tireCount: 0,
+        vehicleCount: access.company._count?.vehicles ?? 0,
+        tireCount: access.company._count?.tires ?? 0,
       }));
 
       setCompanies(list);
