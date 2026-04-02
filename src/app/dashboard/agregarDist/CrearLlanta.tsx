@@ -95,11 +95,10 @@ function Field({
 
 const inputCls =
   "w-full px-4 py-3 rounded-xl text-sm font-medium text-[#0A183A] bg-white " +
-  "focus:outline-none focus:ring-2 focus:ring-[#1E76B6] transition-all";
+  "border border-[#348CCB]/20 " +
+  "focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
 
-const inputStyle = {
-  border: "1.5px solid rgba(52,140,203,0.2)",
-};
+const inputStyle = {};
 
 // =============================================================================
 // Main component
