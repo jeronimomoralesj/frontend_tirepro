@@ -841,11 +841,19 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
     (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
   );
 
+  const [editOriginalFecha, setEditOriginalFecha] = useState<string>("");
+
   function startEdit(idx: number) {
     const insp = sorted[idx];
     setEditIdx(idx);
+    setEditOriginalFecha(insp.fecha);
+
+    const localDate = typeof insp.fecha === "string" && insp.fecha.includes("T")
+      ? insp.fecha.split("T")[0]
+      : new Date(insp.fecha).toLocaleDateString("en-CA");
+
     setEditData({
-      fecha: new Date(insp.fecha).toISOString().split("T")[0],
+      fecha: localDate,
       profundidadInt: insp.profundidadInt,
       profundidadCen: insp.profundidadCen,
       profundidadExt: insp.profundidadExt,
@@ -854,9 +862,10 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
     });
   }
 
-  function saveEdit(oldFecha: string) {
-    onEdit(oldFecha, editData);
+  function saveEdit() {
+    onEdit(editOriginalFecha, editData);
     setEditIdx(null);
+    setEditOriginalFecha("");
   }
 
   const editInputCls = "w-16 px-1.5 py-1 rounded-lg text-xs font-bold text-center border border-[#1E76B6]/30 bg-[#F0F7FF] focus:outline-none focus:ring-1 focus:ring-[#1E76B6]";
@@ -968,7 +977,7 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
                   <div className="flex items-center gap-1">
                     {isEditing ? (
                       <>
-                        <button onClick={() => saveEdit(insp.fecha)}
+                        <button onClick={() => saveEdit()}
                           className="p-1.5 rounded-lg hover:bg-green-50 transition-colors" title="Guardar">
                           <Check className="w-3.5 h-3.5 text-green-500" />
                         </button>
@@ -1427,7 +1436,8 @@ const BuscarDist: React.FC = () => {
     try {
       const body: any = {};
       const oldInsp = selectedTire.inspecciones.find(i => i.fecha === oldFecha);
-      if (data.fecha && data.fecha !== new Date(oldFecha).toISOString().split("T")[0]) body.fecha = new Date(data.fecha).toISOString();
+      const oldDateStr = typeof oldFecha === "string" && oldFecha.includes("T") ? oldFecha.split("T")[0] : oldFecha;
+      if (data.fecha && data.fecha !== oldDateStr) body.fecha = new Date(data.fecha + "T12:00:00").toISOString();
       if (oldInsp && data.profundidadInt !== oldInsp.profundidadInt) body.profundidadInt = data.profundidadInt;
       if (oldInsp && data.profundidadCen !== oldInsp.profundidadCen) body.profundidadCen = data.profundidadCen;
       if (oldInsp && data.profundidadExt !== oldInsp.profundidadExt) body.profundidadExt = data.profundidadExt;
