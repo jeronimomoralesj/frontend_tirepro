@@ -297,26 +297,47 @@ export default function ResumenPage() {
     filtered.forEach((t) => {
       if (!t.kilometrosRecorridos) return;
       (t.inspecciones ?? []).forEach((i) => {
-        if (!i.cpkProyectado || i.cpkProyectado <= 0) return;
+        // Use cpkProyectado if available, otherwise fall back to cpk
+        const cpkVal = (i.cpkProyectado && i.cpkProyectado > 0) ? i.cpkProyectado
+          : (i.cpk && i.cpk > 0) ? i.cpk : 0;
+        if (cpkVal <= 0) return;
         const k = toMonthKey(i.fecha);
         if (!byMonth[k]) byMonth[k] = { sumCpkKm: 0, sumKm: 0 };
-        byMonth[k].sumCpkKm += i.cpkProyectado * t.kilometrosRecorridos;
+        byMonth[k].sumCpkKm += cpkVal * t.kilometrosRecorridos;
         byMonth[k].sumKm += t.kilometrosRecorridos;
       });
     });
     return months.map((m) => byMonth[m.key] && byMonth[m.key].sumKm > 0
       ? +(byMonth[m.key].sumCpkKm / byMonth[m.key].sumKm).toFixed(1)
-      : 0
+      : null  // null = no data (not 0)
     );
   }, [filtered, months]);
 
-  // CPK metric: last non-null chart value so card and chart always match
+  // CPK metric: last non-null chart value so card and chart always match.
+  // If no month has data, compute a fleet-wide CPK from the latest inspection per tire.
   const cpkProyectado = useMemo(() => {
+    // First try: most recent month with data
     for (let i = cpkEvolution.length - 1; i >= 0; i--) {
-      if (cpkEvolution[i] !== null) return cpkEvolution[i]!;
+      if (cpkEvolution[i] !== null && cpkEvolution[i]! > 0) return cpkEvolution[i]!;
     }
-    return 0;
-  }, [cpkEvolution]);
+    // Fallback: compute fleet-wide from latest inspection per tire
+    let sumCpkKm = 0, sumKm = 0;
+    filtered.forEach((t) => {
+      if (!t.kilometrosRecorridos) return;
+      const sorted = [...(t.inspecciones ?? [])].sort((a, b) =>
+        new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+      );
+      const latest = sorted[0];
+      if (!latest) return;
+      const cpkVal = (latest.cpkProyectado && latest.cpkProyectado > 0) ? latest.cpkProyectado
+        : (latest.cpk && latest.cpk > 0) ? latest.cpk : 0;
+      if (cpkVal > 0) {
+        sumCpkKm += cpkVal * t.kilometrosRecorridos;
+        sumKm += t.kilometrosRecorridos;
+      }
+    });
+    return sumKm > 0 ? +(sumCpkKm / sumKm).toFixed(1) : 0;
+  }, [cpkEvolution, filtered]);
 
   // Chart data: Inversion mensual
   const inversionMensual = useMemo(() => {

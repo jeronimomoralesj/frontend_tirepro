@@ -488,8 +488,10 @@ export default function DistribuidorPage() {
         tiresArr.forEach((t) => {
           if (t.inspecciones.length) {
             const last = t.inspecciones[t.inspecciones.length - 1];
-            if (last.cpkProyectado && last.cpkProyectado > 0) { sumCpk += last.cpkProyectado; cntCpk++; }
-            if (last.cptProyectado && last.cptProyectado > 0) { sumCpt += last.cptProyectado; cntCpt++; }
+            const cpkVal = (last.cpkProyectado && last.cpkProyectado > 0) ? last.cpkProyectado : (last.cpk && last.cpk > 0) ? last.cpk : 0;
+            if (cpkVal > 0) { sumCpk += cpkVal; cntCpk++; }
+            const cptVal = (last.cptProyectado && last.cptProyectado > 0) ? last.cptProyectado : 0;
+            if (cptVal > 0) { sumCpt += cptVal; cntCpt++; }
           }
           if (t.vida.length) {
             const v = t.vida[t.vida.length - 1].valor;
