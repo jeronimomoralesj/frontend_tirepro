@@ -1,212 +1,399 @@
 "use client";
 
-import { Disc, Activity, Cpu, Sparkles } from "lucide-react";
+import {
+  Camera,
+  Cpu,
+  TrendingUp,
+  Disc,
+  ArrowRight,
+  Sparkles,
+  CheckCircle2,
+} from "lucide-react";
 
 /**
- * Animated hero visual — tire in the center with flowing data streams,
- * orbiting elements, and scanning lines. No external assets.
+ * Horizontal hero visual showing the TirePro pipeline:
+ *
+ *   [Camera] ──data──▶ [Tire / AI brain] ──insights──▶ [Charts / metrics]
+ *
+ * Pure CSS/SVG animations, no external assets.
  */
 export default function HeroVisual() {
   return (
-    <div className="relative w-full max-w-2xl mx-auto aspect-square">
-      {/* Outer glow */}
+    <div
+      className="relative w-full max-w-5xl mx-auto rounded-3xl overflow-hidden"
+      style={{
+        background:
+          "linear-gradient(135deg, rgba(10,24,58,0.6) 0%, rgba(23,61,104,0.4) 50%, rgba(30,118,182,0.3) 100%)",
+        border: "1px solid rgba(52,140,203,0.2)",
+        boxShadow:
+          "0 30px 80px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      {/* Background grid */}
       <div
-        className="absolute inset-0 rounded-full blur-3xl opacity-40 animate-pulse-glow"
+        className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(52,140,203,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(52,140,203,0.12) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+        }}
+      />
+      {/* Glow */}
+      <div
+        className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(circle at center, rgba(52,140,203,0.5) 0%, transparent 70%)",
+            "radial-gradient(ellipse at center, rgba(52,140,203,0.18) 0%, transparent 70%)",
         }}
       />
 
-      {/* Concentric grid rings */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 400" aria-hidden="true">
-        <defs>
-          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#348CCB" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#1E76B6" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <circle cx="200" cy="200" r="180" fill="none" stroke="url(#ringGrad)" strokeWidth="1" strokeDasharray="2 6" className="animate-spin-slow" style={{ transformOrigin: "center" }} />
-        <circle cx="200" cy="200" r="140" fill="none" stroke="rgba(52,140,203,0.2)" strokeWidth="1" strokeDasharray="4 4" className="animate-spin-reverse" style={{ transformOrigin: "center" }} />
-        <circle cx="200" cy="200" r="100" fill="none" stroke="rgba(52,140,203,0.15)" strokeWidth="1" />
-        <circle cx="200" cy="200" r="60" fill="none" stroke="rgba(52,140,203,0.25)" strokeWidth="1" />
-      </svg>
+      <div className="relative grid grid-cols-1 md:grid-cols-3 items-center gap-4 md:gap-2 px-6 md:px-10 py-10 md:py-14">
 
-      {/* Central tire */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative">
-          {/* Tire glow */}
-          <div
-            className="absolute inset-0 blur-2xl"
-            style={{ background: "radial-gradient(circle, rgba(52,140,203,0.6) 0%, transparent 70%)" }}
-          />
-          {/* Tire icon */}
-          <div className="relative animate-spin-tire" style={{ width: "160px", height: "160px" }}>
-            <Disc
-              size={160}
-              className="text-[#348CCB]"
-              strokeWidth={1.2}
-              style={{ filter: "drop-shadow(0 0 24px rgba(52,140,203,0.6))" }}
+        {/* ── LEFT: Camera / Input ─────────────────────────── */}
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            {/* Pulse ring */}
+            <div
+              className="absolute inset-0 rounded-2xl animate-pulse-ring"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(52,140,203,0.3), rgba(30,118,182,0.1))",
+              }}
             />
+            {/* Camera card */}
+            <div
+              className="relative w-24 h-24 md:w-28 md:h-28 rounded-2xl flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, #0A183A, #1E76B6)",
+                border: "1px solid rgba(52,140,203,0.4)",
+                boxShadow:
+                  "0 8px 24px rgba(30,118,182,0.4), inset 0 1px 0 rgba(255,255,255,0.15)",
+              }}
+            >
+              <Camera
+                size={42}
+                className="text-white"
+                strokeWidth={1.5}
+                style={{ filter: "drop-shadow(0 0 12px rgba(52,140,203,0.6))" }}
+              />
+            </div>
           </div>
-          {/* Center hub glow */}
-          <div
-            className="absolute top-1/2 left-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full animate-pulse"
-            style={{
-              background: "#348CCB",
-              boxShadow: "0 0 24px #348CCB, 0 0 48px #348CCB",
-            }}
-          />
+          <div className="mt-3 text-center">
+            <p
+              className="text-[10px] font-bold tracking-widest uppercase mb-0.5"
+              style={{ color: "#348CCB", letterSpacing: "0.16em" }}
+            >
+              Captura
+            </p>
+            <p className="text-xs text-white/60">Foto del neumático</p>
+          </div>
+        </div>
+
+        {/* ── CENTER: Tire / Processing ────────────────────── */}
+        <div className="flex flex-col items-center relative">
+          {/* Connecting line LEFT → CENTER (desktop only) */}
+          <DataLine direction="ltr" />
+
+          <div className="relative">
+            {/* Outer rings */}
+            <svg
+              className="absolute inset-0 w-full h-full"
+              viewBox="0 0 200 200"
+              style={{ overflow: "visible" }}
+            >
+              <circle
+                cx="100"
+                cy="100"
+                r="95"
+                fill="none"
+                stroke="rgba(52,140,203,0.2)"
+                strokeWidth="1"
+                strokeDasharray="2 6"
+                className="animate-spin-slow"
+                style={{ transformOrigin: "100px 100px" }}
+              />
+              <circle
+                cx="100"
+                cy="100"
+                r="78"
+                fill="none"
+                stroke="rgba(52,140,203,0.3)"
+                strokeWidth="1"
+                strokeDasharray="4 4"
+                className="animate-spin-reverse"
+                style={{ transformOrigin: "100px 100px" }}
+              />
+            </svg>
+            {/* Glow */}
+            <div
+              className="absolute inset-0 blur-2xl"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(52,140,203,0.6) 0%, transparent 60%)",
+              }}
+            />
+            {/* Tire */}
+            <div
+              className="relative w-32 h-32 md:w-40 md:h-40 flex items-center justify-center animate-spin-tire"
+            >
+              <Disc
+                className="w-full h-full text-[#348CCB]"
+                strokeWidth={1.2}
+                style={{
+                  filter: "drop-shadow(0 0 24px rgba(52,140,203,0.7))",
+                }}
+              />
+            </div>
+            {/* AI badge floating on the tire */}
+            <div
+              className="absolute -top-2 -right-2 px-2 py-1 rounded-full flex items-center gap-1 animate-bob"
+              style={{
+                background: "rgba(10,24,58,0.9)",
+                border: "1px solid rgba(52,140,203,0.5)",
+                backdropFilter: "blur(8px)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+              }}
+            >
+              <Cpu size={10} className="text-[#348CCB]" />
+              <span
+                className="text-[9px] font-bold font-mono"
+                style={{ color: "#348CCB" }}
+              >
+                IA
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 text-center">
+            <p
+              className="text-[10px] font-bold tracking-widest uppercase mb-0.5"
+              style={{ color: "#348CCB", letterSpacing: "0.16em" }}
+            >
+              Analiza
+            </p>
+            <p className="text-xs text-white/60">6 agentes de IA</p>
+          </div>
+
+          {/* Connecting line CENTER → RIGHT */}
+          <DataLine direction="ltr" position="right" />
+        </div>
+
+        {/* ── RIGHT: Output / Insights ─────────────────────── */}
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            {/* Floating mini cards */}
+            <div className="space-y-2">
+              {/* CPK card */}
+              <div
+                className="rounded-xl px-3 py-2 flex items-center gap-2 animate-slide-in-1"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(52,140,203,0.4)",
+                  minWidth: "150px",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                }}
+              >
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: "linear-gradient(135deg, #348CCB, #1E76B6)",
+                  }}
+                >
+                  <TrendingUp size={14} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[8px] font-bold tracking-widest text-[#348CCB]">
+                    CPK
+                  </div>
+                  <div className="text-sm font-extrabold text-white">
+                    $87 <span className="text-[9px] text-[#22c55e]">-23%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vida útil card */}
+              <div
+                className="rounded-xl px-3 py-2 flex items-center gap-2 animate-slide-in-2"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(34,197,94,0.4)",
+                  minWidth: "150px",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                }}
+              >
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(34,197,94,0.2)" }}
+                >
+                  <CheckCircle2 size={14} className="text-[#22c55e]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[8px] font-bold tracking-widest text-[#22c55e]">
+                    VIDA ÚTIL
+                  </div>
+                  <div className="text-sm font-extrabold text-white">42K km</div>
+                </div>
+              </div>
+
+              {/* Mini chart card */}
+              <div
+                className="rounded-xl px-3 py-2 animate-slide-in-3"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(52,140,203,0.4)",
+                  minWidth: "150px",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-[8px] font-bold tracking-widest text-[#348CCB]">
+                    DESGASTE
+                  </div>
+                  <Sparkles size={10} className="text-[#348CCB]" />
+                </div>
+                <svg className="w-full h-6" viewBox="0 0 120 24">
+                  <defs>
+                    <linearGradient
+                      id="heroChart"
+                      x1="0%"
+                      y1="0%"
+                      x2="0%"
+                      y2="100%"
+                    >
+                      <stop offset="0%" stopColor="#348CCB" stopOpacity="0.4" />
+                      <stop offset="100%" stopColor="#348CCB" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M0,20 L15,18 L30,15 L45,16 L60,12 L75,10 L90,8 L105,6 L120,4 L120,24 L0,24 Z"
+                    fill="url(#heroChart)"
+                  />
+                  <polyline
+                    points="0,20 15,18 30,15 45,16 60,12 75,10 90,8 105,6 120,4"
+                    fill="none"
+                    stroke="#348CCB"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="animate-draw-line"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 text-center">
+            <p
+              className="text-[10px] font-bold tracking-widest uppercase mb-0.5"
+              style={{ color: "#348CCB", letterSpacing: "0.16em" }}
+            >
+              Decide
+            </p>
+            <p className="text-xs text-white/60">Insights accionables</p>
+          </div>
         </div>
       </div>
 
-      {/* Flowing binary data streams (left to right) */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[
-          { top: "12%", delay: "0s", duration: "8s", text: "1010 0110 1011" },
-          { top: "22%", delay: "2s", duration: "10s", text: "0110 1101 0010" },
-          { top: "78%", delay: "1s", duration: "9s", text: "1100 0011 1010" },
-          { top: "88%", delay: "3s", duration: "11s", text: "0101 1010 1100" },
-        ].map((s, i) => (
-          <div
-            key={i}
-            className="absolute font-mono text-[10px] sm:text-xs whitespace-nowrap animate-data-stream"
-            style={{
-              top: s.top,
-              color: "rgba(52,140,203,0.5)",
-              animationDelay: s.delay,
-              animationDuration: s.duration,
-              textShadow: "0 0 8px rgba(52,140,203,0.6)",
-            }}
-          >
-            {s.text}
-          </div>
-        ))}
-
-        {/* Vertical streams */}
-        {[
-          { left: "10%", delay: "0.5s", duration: "9s", text: "100110" },
-          { left: "88%", delay: "2.5s", duration: "10s", text: "011001" },
-        ].map((s, i) => (
-          <div
-            key={i}
-            className="absolute font-mono text-[10px] sm:text-xs animate-data-stream-vertical"
-            style={{
-              left: s.left,
-              color: "rgba(52,140,203,0.5)",
-              animationDelay: s.delay,
-              animationDuration: s.duration,
-              textShadow: "0 0 8px rgba(52,140,203,0.6)",
-              writingMode: "vertical-rl",
-            }}
-          >
-            {s.text}
-          </div>
-        ))}
-      </div>
-
-      {/* Orbiting badges */}
-      <OrbitBadge angle={0}   icon={Activity} label="CPK"     />
-      <OrbitBadge angle={72}  icon={Cpu}      label="IA"      />
-      <OrbitBadge angle={144} icon={Sparkles} label="42K km"  />
-      <OrbitBadge angle={216} icon={Activity} label="OK"      />
-      <OrbitBadge angle={288} icon={Disc}     label="12.5mm"  />
-
-      {/* Scan line sweeping across */}
-      <div
-        className="absolute inset-0 pointer-events-none overflow-hidden rounded-full"
-        style={{ mask: "radial-gradient(circle at center, black 60%, transparent 80%)" }}
-      >
-        <div
-          className="absolute left-0 right-0 h-0.5 animate-scan-sweep"
-          style={{
-            background: "linear-gradient(90deg, transparent, #348CCB, transparent)",
-            boxShadow: "0 0 16px #348CCB",
-          }}
-        />
-      </div>
-
-      {/* Data corner labels */}
-      <div className="absolute top-4 left-4 px-2 py-1 rounded font-mono text-[9px] sm:text-[10px] animate-fade-loop"
-        style={{ background: "rgba(52,140,203,0.1)", border: "1px solid rgba(52,140,203,0.3)", color: "#348CCB" }}>
-        ANALYZING
-      </div>
-      <div className="absolute top-4 right-4 px-2 py-1 rounded font-mono text-[9px] sm:text-[10px] animate-fade-loop"
-        style={{ background: "rgba(52,140,203,0.1)", border: "1px solid rgba(52,140,203,0.3)", color: "#348CCB", animationDelay: "1s" }}>
-        TIRE_001
-      </div>
-      <div className="absolute bottom-4 left-4 px-2 py-1 rounded font-mono text-[9px] sm:text-[10px] animate-fade-loop"
-        style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e", animationDelay: "0.5s" }}>
-        STATUS: OK
-      </div>
-      <div className="absolute bottom-4 right-4 px-2 py-1 rounded font-mono text-[9px] sm:text-[10px] animate-fade-loop"
-        style={{ background: "rgba(52,140,203,0.1)", border: "1px solid rgba(52,140,203,0.3)", color: "#348CCB", animationDelay: "1.5s" }}>
-        v2.4
-      </div>
-
       <style jsx>{`
-        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-        @keyframes spin-tire { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes pulse-glow { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.05); } }
-        @keyframes data-stream {
-          0% { left: -30%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { left: 110%; opacity: 0; }
+        @keyframes pulse-ring {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.15); opacity: 0.9; }
         }
-        @keyframes data-stream-vertical {
-          0% { top: -20%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 110%; opacity: 0; }
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
-        @keyframes scan-sweep {
-          0% { top: 0%; }
-          50% { top: 100%; }
-          100% { top: 0%; }
+        @keyframes spin-reverse {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
         }
-        @keyframes fade-loop { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-        .animate-spin-slow { animation: spin-slow 60s linear infinite; }
-        .animate-spin-reverse { animation: spin-reverse 40s linear infinite; }
-        .animate-spin-tire { animation: spin-tire 30s linear infinite; }
-        .animate-pulse-glow { animation: pulse-glow 4s ease-in-out infinite; }
-        .animate-data-stream { animation: data-stream linear infinite; }
-        .animate-data-stream-vertical { animation: data-stream-vertical linear infinite; }
-        .animate-scan-sweep { animation: scan-sweep 4s ease-in-out infinite; }
-        .animate-fade-loop { animation: fade-loop 2.5s ease-in-out infinite; }
+        @keyframes spin-tire {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes bob {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        @keyframes slide-in-1 {
+          0% { opacity: 0; transform: translateX(20px); }
+          15% { opacity: 1; transform: translateX(0); }
+          85% { opacity: 1; transform: translateX(0); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes draw-line {
+          from { stroke-dasharray: 200; stroke-dashoffset: 200; }
+          to { stroke-dasharray: 200; stroke-dashoffset: 0; }
+        }
+        .animate-pulse-ring { animation: pulse-ring 3s ease-in-out infinite; }
+        .animate-spin-slow { animation: spin-slow 30s linear infinite; }
+        .animate-spin-reverse { animation: spin-reverse 20s linear infinite; }
+        .animate-spin-tire { animation: spin-tire 40s linear infinite; }
+        .animate-bob { animation: bob 3s ease-in-out infinite; }
+        .animate-slide-in-1 { animation: slide-in-1 0.6s ease-out 0.1s both; }
+        .animate-slide-in-2 { animation: slide-in-1 0.6s ease-out 0.3s both; }
+        .animate-slide-in-3 { animation: slide-in-1 0.6s ease-out 0.5s both; }
+        .animate-draw-line { animation: draw-line 2s ease-out 0.7s both; }
       `}</style>
     </div>
   );
 }
 
-function OrbitBadge({ angle, icon: Icon, label }: { angle: number; icon: any; label: string }) {
-  // Position around a circle of radius ~46% of the container
-  const rad = (angle * Math.PI) / 180;
-  const left = 50 + 42 * Math.cos(rad);
-  const top = 50 + 42 * Math.sin(rad);
+// ── Animated data line connecting two columns ───────────────────────────────
+function DataLine({ direction = "ltr", position = "left" }: { direction?: "ltr" | "rtl"; position?: "left" | "right" }) {
+  const isRight = position === "right";
   return (
     <div
-      className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded-full flex items-center gap-1 animate-bob font-mono text-[9px] sm:text-[10px] font-bold"
+      className="hidden md:block absolute top-1/2 -translate-y-1/2 h-px overflow-hidden"
       style={{
-        left: `${left}%`,
-        top: `${top}%`,
-        background: "rgba(10,24,58,0.8)",
-        backdropFilter: "blur(8px)",
-        border: "1px solid rgba(52,140,203,0.4)",
-        color: "#348CCB",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.4), 0 0 12px rgba(52,140,203,0.2)",
-        animationDelay: `${(angle / 360) * 2}s`,
+        [isRight ? "left" : "right"]: "100%",
+        width: "calc(50% + 20px)",
+        marginLeft: isRight ? "-10px" : 0,
+        marginRight: isRight ? 0 : "-10px",
+        transform: "translateY(-50%) translateY(-25%)",
       }}
     >
-      <Icon size={10} />
-      {label}
+      {/* Static line */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(52,140,203,0.05), rgba(52,140,203,0.4), rgba(52,140,203,0.05))",
+        }}
+      />
+      {/* Moving particles */}
+      <div
+        className="absolute top-1/2 -translate-y-1/2 h-1 w-12 rounded-full animate-flow"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, #348CCB, transparent)",
+          boxShadow: "0 0 12px #348CCB",
+          animationDirection: direction === "ltr" ? "normal" : "reverse",
+        }}
+      />
+      <div
+        className="absolute top-1/2 -translate-y-1/2 h-1 w-8 rounded-full animate-flow"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, #348CCB, transparent)",
+          boxShadow: "0 0 12px #348CCB",
+          animationDelay: "0.7s",
+          animationDirection: direction === "ltr" ? "normal" : "reverse",
+        }}
+      />
+
       <style jsx>{`
-        @keyframes bob {
-          0%, 100% { transform: translate(-50%, -50%) translateY(0); }
-          50% { transform: translate(-50%, -50%) translateY(-4px); }
+        @keyframes flow {
+          0% { left: -20%; }
+          100% { left: 120%; }
         }
-        .animate-bob { animation: bob 3s ease-in-out infinite; }
+        .animate-flow {
+          animation: flow 2s linear infinite;
+        }
       `}</style>
     </div>
   );
