@@ -299,15 +299,15 @@ export default function LoginPage() {
 
                   {/* Forgot password */}
                   <div className="flex justify-end">
-                    <a
-                      href="mailto:jeronimo.morales@merquellantas.com?subject=Olvide%20Mi%20contrase%C3%B1a&body=Querido%20equipo%20tirepro%2C%0A%0ASolicito%20un%20link%20de%20restablecer%20contrase%C3%B1a%20para%20mi%20cuenta%20con%20el%20siguiente%20correo%3A%20"
+                    <Link
+                      href="/forgot-password"
                       className="text-sm font-medium transition-colors"
                       style={{ color: "#1E76B6" }}
                       onMouseEnter={e => (e.currentTarget.style.color = "#173D68")}
                       onMouseLeave={e => (e.currentTarget.style.color = "#1E76B6")}
                     >
                       Olvidé mi contraseña
-                    </a>
+                    </Link>
                   </div>
 
                   {/* Submit */}
