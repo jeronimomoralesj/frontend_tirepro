@@ -60,28 +60,43 @@ export default function ScrollFlow() {
   const [activeStep, setActiveStep] = useState(0);
   const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // IntersectionObserver: track which step is in the middle of the viewport
+  // Continuous scroll listener: pick the step whose center is closest to
+  // the viewport center. More reliable than IntersectionObserver and feels
+  // smoother because it updates on every scroll event.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const observers: IntersectionObserver[] = [];
-    stepRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) setActiveStep(idx);
-        },
-        {
-          // Trigger when step crosses the middle horizontal band of the viewport
-          rootMargin: "-45% 0px -45% 0px",
-          threshold: 0,
-        }
-      );
-      observer.observe(el);
-      observers.push(observer);
-    });
+    let rafId: number | null = null;
 
-    return () => observers.forEach((o) => o.disconnect());
+    const updateActive = () => {
+      rafId = null;
+      const viewportCenter = window.innerHeight / 2;
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      stepRefs.current.forEach((el, idx) => {
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const elCenter = rect.top + rect.height / 2;
+        const dist = Math.abs(elCenter - viewportCenter);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = idx;
+        }
+      });
+      setActiveStep(closestIdx);
+    };
+
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(updateActive);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    updateActive(); // initial
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return (

@@ -832,7 +832,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
   ]
 
   return (
-    <div className="bg-white text-gray-900 min-h-screen overflow-x-hidden w-full" style={{ fontFamily: "'DM Sans', 'Helvetica Neue', Arial, sans-serif" }}>
+    <div className="bg-white text-gray-900 min-h-screen w-full" style={{ fontFamily: "'DM Sans', 'Helvetica Neue', Arial, sans-serif", overflowX: "clip" }}>
 
       {/* -- NAVBAR (unchanged) ----------------------------------------------- */}
       <PublicNav />
