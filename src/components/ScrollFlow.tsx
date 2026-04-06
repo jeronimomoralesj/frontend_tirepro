@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Camera,
   Cpu,
@@ -58,26 +58,41 @@ const STEPS = [
 
 export default function ScrollFlow() {
   const [activeStep, setActiveStep] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Auto-rotate every 6s unless user is hovering
+  // IntersectionObserver: track which step is in the middle of the viewport
   useEffect(() => {
-    if (isHovering) return;
-    const id = setInterval(() => {
-      setActiveStep((prev) => (prev + 1) % STEPS.length);
-    }, 6000);
-    return () => clearInterval(id);
-  }, [isHovering]);
+    if (typeof window === "undefined") return;
+
+    const observers: IntersectionObserver[] = [];
+    stepRefs.current.forEach((el, idx) => {
+      if (!el) return;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) setActiveStep(idx);
+        },
+        {
+          // Trigger when step crosses the middle horizontal band of the viewport
+          rootMargin: "-45% 0px -45% 0px",
+          threshold: 0,
+        }
+      );
+      observer.observe(el);
+      observers.push(observer);
+    });
+
+    return () => observers.forEach((o) => o.disconnect());
+  }, []);
 
   return (
     <section
       id="producto"
-      className="relative w-full py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8"
+      className="relative w-full pt-20 sm:pt-28 md:pt-36 pb-20"
       style={{ background: "linear-gradient(180deg, #ffffff 0%, #f7fafd 100%)" }}
       aria-labelledby="flow-heading"
     >
-      <div className="max-w-7xl mx-auto">
-        {/* Section heading */}
+      {/* Section heading */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-14 sm:mb-20">
           <p
             className="text-xs font-bold tracking-widest uppercase mb-4"
@@ -106,53 +121,52 @@ export default function ScrollFlow() {
             dice exactamente que hacer.
           </p>
         </div>
+      </div>
 
-        {/* Two-column layout: tabs left, visual right */}
-        <div
-          className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center"
-          onMouseEnter={() => setIsHovering(true)}
-          onMouseLeave={() => setIsHovering(false)}
-        >
-          {/* LEFT: clickable step list */}
-          <div className="order-2 lg:order-1">
-            <div className="space-y-3">
-              {STEPS.map((step, i) => {
-                const isActive = i === activeStep;
-                const Icon = step.icon;
-                return (
-                  <button
-                    key={step.id}
-                    onClick={() => setActiveStep(i)}
-                    className="w-full text-left rounded-2xl p-5 sm:p-6 transition-all duration-500"
+      {/* Scroll-driven layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+
+          {/* LEFT: scrollable step list — each step takes a viewport of scroll */}
+          <div className="lg:order-1 space-y-0">
+            {STEPS.map((step, i) => {
+              const isActive = i === activeStep;
+              const Icon = step.icon;
+              return (
+                <div
+                  key={step.id}
+                  ref={(el) => { stepRefs.current[i] = el; }}
+                  className="min-h-[70vh] flex items-center"
+                >
+                  <div
+                    className="w-full rounded-2xl p-6 sm:p-8 transition-all duration-700"
                     style={{
                       background: isActive
-                        ? "linear-gradient(135deg, rgba(30,118,182,0.06), rgba(52,140,203,0.03))"
+                        ? "linear-gradient(135deg, rgba(30,118,182,0.08), rgba(52,140,203,0.03))"
                         : "transparent",
                       border: isActive
                         ? "1px solid rgba(30,118,182,0.25)"
                         : "1px solid rgba(10,24,58,0.06)",
                       boxShadow: isActive
-                        ? "0 8px 24px rgba(30,118,182,0.08)"
+                        ? "0 12px 32px rgba(30,118,182,0.1)"
                         : "none",
+                      opacity: isActive ? 1 : 0.4,
+                      transform: isActive ? "translateX(0) scale(1)" : "translateX(-8px) scale(0.98)",
                     }}
                   >
                     <div className="flex items-start gap-4">
-                      {/* Icon badge */}
                       <div
-                        className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-500"
+                        className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-700"
                         style={{
                           background: isActive
                             ? "linear-gradient(135deg, #1E76B6, #173D68)"
                             : "rgba(30,118,182,0.08)",
                           boxShadow: isActive
-                            ? "0 4px 12px rgba(30,118,182,0.3)"
+                            ? "0 8px 20px rgba(30,118,182,0.35)"
                             : "none",
                         }}
                       >
-                        <Icon
-                          size={20}
-                          style={{ color: isActive ? "#fff" : "#1E76B6" }}
-                        />
+                        <Icon size={22} style={{ color: isActive ? "#fff" : "#1E76B6" }} />
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -168,71 +182,46 @@ export default function ScrollFlow() {
                           </span>
                         </div>
                         <h3
-                          className="font-extrabold mb-2 transition-all"
+                          className="font-extrabold mb-3 transition-all duration-700"
                           style={{
-                            fontSize: "clamp(1.05rem, 1.8vw, 1.35rem)",
+                            fontSize: isActive ? "clamp(1.4rem, 2.5vw, 1.85rem)" : "clamp(1.1rem, 1.8vw, 1.35rem)",
                             color: "#0A183A",
                             letterSpacing: "-0.01em",
+                            lineHeight: 1.2,
                           }}
                         >
                           {step.title}
                         </h3>
-
-                        {/* Description only on active step */}
-                        <div
-                          className="overflow-hidden transition-all duration-500"
+                        <p
+                          className="text-sm sm:text-base leading-relaxed transition-all duration-700"
                           style={{
+                            color: "rgba(10,24,58,0.65)",
                             maxHeight: isActive ? "200px" : "0px",
                             opacity: isActive ? 1 : 0,
+                            overflow: "hidden",
                           }}
                         >
-                          <p
-                            className="text-sm leading-relaxed pt-1"
-                            style={{ color: "rgba(10,24,58,0.6)" }}
-                          >
-                            {step.description}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Active indicator arrow */}
-                      <div
-                        className="flex-shrink-0 transition-all duration-500"
-                        style={{
-                          opacity: isActive ? 1 : 0,
-                          transform: isActive ? "translateX(0)" : "translateX(-8px)",
-                        }}
-                      >
-                        <ArrowRight size={18} style={{ color: "#1E76B6" }} />
+                          {step.description}
+                        </p>
                       </div>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Progress indicator */}
-            <div className="flex gap-2 mt-6 justify-center lg:justify-start">
-              {STEPS.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveStep(i)}
-                  aria-label={`Paso ${i + 1}`}
-                  className="h-1 rounded-full transition-all duration-500"
-                  style={{
-                    width: i === activeStep ? "32px" : "8px",
-                    background:
-                      i === activeStep ? "#1E76B6" : "rgba(30,118,182,0.2)",
-                  }}
-                />
-              ))}
-            </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* RIGHT: animated visual that swaps */}
-          <div className="order-1 lg:order-2 flex items-center justify-center">
-            <FlowVisual activeStep={activeStep} />
+          {/* RIGHT: sticky animated visual that stays pinned while user scrolls steps */}
+          <div className="hidden lg:block lg:order-2 lg:sticky lg:top-24 lg:self-start">
+            <div className="flex items-center justify-center" style={{ minHeight: "60vh" }}>
+              <FlowVisual activeStep={activeStep} />
+            </div>
           </div>
+        </div>
+
+        {/* Mobile: show one fixed visual at the top of the section */}
+        <div className="lg:hidden flex items-center justify-center mt-12">
+          <FlowVisual activeStep={activeStep} />
         </div>
       </div>
     </section>
