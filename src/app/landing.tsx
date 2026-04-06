@@ -37,6 +37,7 @@ import feature1 from '../../public/feat1.png'
 import feature2 from '../../public/feat1.png'
 import Link from 'next/link'
 import ScrollFlow from '../components/ScrollFlow'
+import HeroVisual from '../components/HeroVisual'
 
 interface Article {
   id: string | number
@@ -902,15 +903,9 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
               ))}
             </div>
 
-            {/* Landing image */}
-            <div className="max-w-4xl mx-auto">
-              <Image
-                src={landing}
-                alt="TirePro — Dashboard de gestión inteligente de llantas con IA para flotas de transporte en Colombia"
-                className="w-full h-auto rounded-2xl shadow-2xl"
-                style={{ boxShadow: '0 30px 80px rgba(0,0,0,0.4)' }}
-                priority
-              />
+            {/* Animated hero visual */}
+            <div className="max-w-2xl mx-auto">
+              <HeroVisual />
             </div>
 
             <p className="mt-8" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.75rem' }}>
@@ -1008,83 +1003,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
                 <div className="text-xs" style={{ color: 'rgba(10,24,58,0.45)' }}>{stat.sub}</div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* -- AGENTS ------------------------------------------------------------ */}
-      <section
-        className="relative py-24 sm:py-32 px-4 sm:px-6 lg:px-8 w-full overflow-hidden"
-        style={{ background: '#030d1f' }}
-        aria-labelledby="agents-heading"
-      >
-        {/* Animated grid background */}
-        <div className="absolute inset-0 opacity-[0.03]" aria-hidden="true"
-          style={{ backgroundImage: 'linear-gradient(rgba(30,118,182,1) 1px, transparent 1px), linear-gradient(90deg, rgba(30,118,182,1) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
-        {/* Glow orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: '#1E76B6' }} aria-hidden="true" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-10 blur-3xl" style={{ background: '#348CCB' }} aria-hidden="true" />
-
-        <div className="relative max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-16 sm:mb-20">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6" style={{ background: 'rgba(30,118,182,0.15)', border: '1px solid rgba(30,118,182,0.25)' }}>
-              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#348CCB' }} />
-              <span className="text-xs font-bold tracking-widest uppercase" style={{ color: '#348CCB' }}>Agentes Activos</span>
-            </div>
-            <h2 id="agents-heading" className="font-black leading-none mb-6 text-white" style={{ fontSize: 'clamp(2rem, 5vw, 3.8rem)', letterSpacing: '-0.03em' }}>
-              Agentifica tu flota
-            </h2>
-            <p className="text-base sm:text-lg max-w-2xl mx-auto" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              Seis agentes de IA especializados trabajan 24/7 analizando cada llanta de tu flota. Cada uno es experto en un dominio critico.
-            </p>
-          </div>
-
-          {/* Agent cards */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {AGENT_LIST.map((agent, i) => (
-              <article
-                key={i}
-                className="group relative rounded-2xl p-6 sm:p-7 transition-all duration-500 hover:-translate-y-1"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = agent.color + '40'; e.currentTarget.style.boxShadow = `0 0 60px ${agent.glow}`; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.boxShadow = 'none'; }}
-              >
-                {/* Status indicator */}
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: agent.color }} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: agent.color }}>{agent.status}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-lg font-black text-white leading-none">{agent.metric}</span>
-                    <p className="text-[9px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>{agent.metricLabel}</p>
-                  </div>
-                </div>
-
-                {/* Icon + Codename */}
-                <div className="flex items-center gap-2 mb-1">
-                  <span style={{ color: agent.color }}>{(() => { const Icon = agent.icon; return <Icon className="w-5 h-5" />; })()}</span>
-                  <h3 className="font-black text-xl sm:text-2xl tracking-tight" style={{ color: agent.color, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em' }}>
-                    {agent.codename}
-                  </h3>
-                </div>
-                <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>{agent.role}</p>
-
-                {/* Description */}
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{agent.description}</p>
-
-                {/* Bottom accent line */}
-                <div className="mt-5 h-px w-full transition-all duration-500 group-hover:w-full" style={{ background: `linear-gradient(90deg, ${agent.color}, transparent)`, opacity: 0.3 }} />
-              </article>
-            ))}
-          </div>
-
-          {/* Bottom tagline */}
-          <div className="mt-14 text-center">
-            <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>
-              Seis agentes. Una mision. <span className="font-bold text-white">Cero llantas desperdiciadas.</span>
-            </p>
           </div>
         </div>
       </section>
