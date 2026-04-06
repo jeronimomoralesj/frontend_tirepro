@@ -38,6 +38,7 @@ import feature2 from '../../public/feat1.png'
 import Link from 'next/link'
 import ScrollFlow from '../components/ScrollFlow'
 import HeroVisual from '../components/HeroVisual'
+import { RecomendacionesMock, BodegaMock } from '../components/FeatureMockups'
 
 interface Article {
   id: string | number
@@ -287,15 +288,10 @@ function FeatureShowcase() {
                 </div>
               </div>
 
-              {/* Screenshot — drop your file in /public/feat1.png or feat2.png */}
-              <Image
-                src={feature.image}
-                alt={feature.imageAlt}
-                className="w-full object-cover"
-                style={{ display: 'block', aspectRatio: '16/10' }}
-                loading="lazy"
-                placeholder="blur"
-              />
+              {/* Live mockup of the actual product UI */}
+              <div className="w-full" style={{ aspectRatio: '16/11' }}>
+                {activeTab === 0 ? <RecomendacionesMock /> : <BodegaMock />}
+              </div>
             </div>
 
             <figcaption className="sr-only">{feature.imageAlt}</figcaption>
@@ -904,7 +900,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
             </div>
 
             {/* Animated hero visual */}
-            <div className="max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto">
               <HeroVisual />
             </div>
 
@@ -1552,82 +1548,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
         </div>
       </section>
 
-      {/* -- FEATURES ----------------------------------------------------------- */}
-      <section
-        className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full bg-white"
-        aria-labelledby="features-heading"
-      >
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16 sm:mb-20">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.16em' }}>
-              Tecnología
-            </p>
-            <h2
-              id="features-heading"
-              className="font-bold leading-tight mb-5"
-              style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)', color: '#0A183A' }}
-            >
-              Gestión inteligente de llantas
-              <br />para flotas pesadas en Colombia
-            </h2>
-            <p className="text-lg text-gray-500 max-w-2xl mx-auto">
-              Herramientas con IA diseñadas para gerentes de flota de camiones, buses y tractocamiones que quieren reducir CPK y maximizar vidas de reencauche.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-5">
-            {features.map((feature, index) => (
-              <article
-                key={index}
-                className="group relative p-8 sm:p-10 rounded-2xl sm:rounded-3xl border transition-all duration-500 overflow-hidden"
-                style={{
-                  borderColor: 'rgba(10,24,58,0.08)',
-                  background: '#fafcff',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = 'rgba(30,118,182,0.3)'
-                  e.currentTarget.style.background = '#f0f6fb'
-                  e.currentTarget.style.transform = 'translateY(-4px)'
-                  e.currentTarget.style.boxShadow = '0 20px 60px rgba(30,118,182,0.1)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = 'rgba(10,24,58,0.08)'
-                  e.currentTarget.style.background = '#fafcff'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = 'none'
-                }}
-              >
-                {/* Subtle corner accent */}
-                <div
-                  className="absolute top-0 right-0 w-32 h-32 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                  style={{ background: 'radial-gradient(circle at top right, rgba(30,118,182,0.08), transparent 70%)' }}
-                  aria-hidden="true"
-                />
-
-                <div className="flex items-start justify-between mb-6">
-                  <div
-                    className="w-13 h-13 rounded-2xl flex items-center justify-center"
-                    style={{
-                      background: 'linear-gradient(135deg, #1E76B6, #173D68)',
-                      width: '3.25rem',
-                      height: '3.25rem',
-                      boxShadow: '0 4px 16px rgba(30,118,182,0.3)',
-                    }}
-                  >
-                    <feature.icon size={22} className="text-white" />
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-black" style={{ color: '#0A183A', letterSpacing: '-0.02em' }}>{feature.stat}</div>
-                    <div className="text-xs" style={{ color: 'rgba(10,24,58,0.4)' }}>{feature.detail}</div>
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold mb-3" style={{ color: '#0A183A' }}>{feature.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(10,24,58,0.55)' }}>{feature.description}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* -- FINAL CTA ----------------------------------------------------------- */}
       <section

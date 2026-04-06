@@ -13,7 +13,7 @@ import "./heroAnimations.css";
 export default function HeroVisual() {
   return (
     <div
-      className="relative w-full max-w-5xl mx-auto rounded-3xl overflow-hidden"
+      className="relative w-full max-w-6xl xl:max-w-7xl mx-auto rounded-3xl overflow-hidden"
       style={{
         background:
           "linear-gradient(135deg, rgba(10,24,58,0.6) 0%, rgba(23,61,104,0.4) 50%, rgba(30,118,182,0.3) 100%)",
@@ -40,7 +40,7 @@ export default function HeroVisual() {
         }}
       />
 
-      <div className="relative grid grid-cols-1 md:grid-cols-3 items-center gap-6 md:gap-2 px-6 md:px-10 py-12 md:py-16">
+      <div className="relative grid grid-cols-1 md:grid-cols-3 items-center gap-6 md:gap-6 lg:gap-10 px-6 md:px-12 lg:px-16 py-12 md:py-16 lg:py-20">
         {/* LEFT: Camera */}
         <div className="flex flex-col items-center">
           <div className="relative">
@@ -52,7 +52,7 @@ export default function HeroVisual() {
               }}
             />
             <div
-              className="relative w-24 h-24 md:w-28 md:h-28 rounded-2xl flex items-center justify-center"
+              className="relative w-24 h-24 md:w-32 md:h-32 lg:w-36 lg:h-36 rounded-2xl flex items-center justify-center"
               style={{
                 background: "linear-gradient(135deg, #0A183A, #1E76B6)",
                 border: "1px solid rgba(52,140,203,0.4)",
@@ -119,7 +119,7 @@ export default function HeroVisual() {
                   "radial-gradient(circle, rgba(52,140,203,0.6) 0%, transparent 60%)",
               }}
             />
-            <div className="relative w-32 h-32 md:w-40 md:h-40 flex items-center justify-center hv-spin-tire">
+            <div className="relative w-32 h-32 md:w-44 md:h-44 lg:w-52 lg:h-52 flex items-center justify-center hv-spin-tire">
               <Disc
                 className="w-full h-full text-[#348CCB]"
                 strokeWidth={1.2}
@@ -220,7 +220,7 @@ function MiniDashboard() {
         border: "1px solid rgba(52,140,203,0.2)",
         boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
         minWidth: "260px",
-        maxWidth: "300px",
+        maxWidth: "360px",
       }}
     >
       {/* Header */}
