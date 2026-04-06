@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import {
-  FilePlus, Upload, Download, Info, ChevronDown,
+  FilePlus, Upload, Download, Info, ChevronDown, Search, X,
   X, AlertTriangle, CheckCircle, Loader2,
 } from "lucide-react";
 
@@ -96,6 +96,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
   const [companies,         setCompanies]         = useState<Company[]>([]);
   const [selectedCompany,   setSelectedCompany]   = useState<string>("Todos");
   const [showDropdown,      setShowDropdown]      = useState(false);
+  const [clientSearch,      setClientSearch]      = useState("");
   const [showInstructions,  setShowInstructions]  = useState(false);
   const [dragging,          setDragging]          = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -219,7 +220,11 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
     }
   }
 
-  const companyOptions = ["Todos", ...companies.map(c => c.name)];
+  // Normalize for accent-insensitive search (e.g. "transpo" matches "Transportes")
+  const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const filteredCompanies = clientSearch.trim()
+    ? companies.filter(c => normalize(c.name).includes(normalize(clientSearch)))
+    : companies;
 
   // ==========================================================================
   // Render
@@ -246,27 +251,81 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
 
             {showDropdown && (
               <div
-                className="absolute right-0 mt-10 w-64 rounded-2xl overflow-hidden z-50"
+                className="absolute right-0 mt-10 w-80 max-w-[calc(100vw-2rem)] rounded-2xl overflow-hidden z-50"
                 style={{
                   background: "white",
                   border: "1px solid rgba(52,140,203,0.15)",
                   boxShadow: "0 8px 32px rgba(10,24,58,0.12)",
                 }}
               >
-                {companyOptions.map(name => (
+                {/* Search box */}
+                <div className="px-3 pt-3 pb-2 border-b border-gray-100">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                    style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(52,140,203,0.2)" }}>
+                    <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <input
+                      type="text"
+                      autoFocus
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                      placeholder="Buscar cliente..."
+                      className="flex-1 bg-transparent text-sm text-[#0A183A] placeholder-gray-400 focus:outline-none"
+                    />
+                    {clientSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setClientSearch("")}
+                        className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200/60"
+                        aria-label="Limpiar busqueda"
+                      >
+                        <X className="w-3.5 h-3.5 text-gray-400" />
+                      </button>
+                    )}
+                  </div>
+                  {filteredCompanies.length > 0 && (
+                    <p className="text-[10px] text-gray-400 px-1 mt-1.5">
+                      {filteredCompanies.length} de {companies.length} cliente{companies.length !== 1 ? "s" : ""}
+                    </p>
+                  )}
+                </div>
+
+                {/* Scrollable list */}
+                <div className="max-h-80 overflow-y-auto">
+                  {/* "Mi empresa" always at top */}
                   <button
-                    key={name}
                     type="button"
-                    onClick={() => { setSelectedCompany(name); setShowDropdown(false); }}
-                    className="w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[rgba(30,118,182,0.06)]"
+                    onClick={() => { setSelectedCompany("Todos"); setClientSearch(""); setShowDropdown(false); }}
+                    className="w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[rgba(30,118,182,0.06)] border-b border-gray-50"
                     style={{
-                      fontWeight: selectedCompany === name ? 800 : 500,
-                      color: selectedCompany === name ? "#1E76B6" : "#0A183A",
+                      fontWeight: selectedCompany === "Todos" ? 800 : 500,
+                      color: selectedCompany === "Todos" ? "#1E76B6" : "#64748B",
                     }}
                   >
-                    {name === "Todos" ? "— Mi empresa —" : name}
+                    — Mi empresa —
                   </button>
-                ))}
+
+                  {filteredCompanies.length === 0 ? (
+                    <div className="px-4 py-6 text-center">
+                      <p className="text-xs text-gray-400">No se encontraron clientes</p>
+                      <p className="text-[10px] text-gray-300 mt-0.5">Intenta otra busqueda</p>
+                    </div>
+                  ) : (
+                    filteredCompanies.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { setSelectedCompany(c.name); setClientSearch(""); setShowDropdown(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[rgba(30,118,182,0.06)]"
+                        style={{
+                          fontWeight: selectedCompany === c.name ? 800 : 500,
+                          color: selectedCompany === c.name ? "#1E76B6" : "#0A183A",
+                        }}
+                      >
+                        {c.name}
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>
