@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import {
-  FilePlus, Upload, Download, Info, ChevronDown, Search, X,
+  FilePlus, Upload, Download, Info, ChevronDown, Search,
   X, AlertTriangle, CheckCircle, Loader2,
 } from "lucide-react";
 
