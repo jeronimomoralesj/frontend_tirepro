@@ -710,16 +710,38 @@ const AjustesPage: React.FC = () => {
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !company) return;
+
+    // Validate file size & type up front
+    if (file.size > 5 * 1024 * 1024) {
+      toast("La imagen no debe superar 5MB", "error");
+      return;
+    }
+    if (!/^image\/(jpeg|png|webp|jpg)$/.test(file.type)) {
+      toast("Formato no válido. Usa JPG, PNG o WebP.", "error");
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = reader.result as string;
       setLogoPreview(base64);
-      const res = await authFetch(`${API_BASE}/companies/${company.id}/logo`, {
-        method: "PATCH", body: JSON.stringify({ imageBase64: base64 }),
-      });
-      if (!res.ok) { toast("Error al actualizar el logo", "error"); return; }
-      setCompany(await res.json());
-      toast("Logo actualizado exitosamente", "success");
+      try {
+        const res = await authFetch(`${API_BASE}/companies/${company.id}/logo`, {
+          method: "PATCH", body: JSON.stringify({ imageBase64: base64 }),
+        });
+        if (!res.ok) {
+          toast("Error al actualizar el logo", "error");
+          return;
+        }
+        const data = await res.json();
+        // Backend returns { message, profileImage } — merge instead of replace
+        // so we don't lose company.id, name, plan, etc.
+        setCompany((prev) => prev ? { ...prev, profileImage: data.profileImage ?? prev.profileImage } : prev);
+        setLogoPreview(null); // clear local preview now that the server URL is set
+        toast("Logo actualizado exitosamente", "success");
+      } catch (err) {
+        toast("Error al actualizar el logo", "error");
+      }
     };
     reader.readAsDataURL(file);
   };
