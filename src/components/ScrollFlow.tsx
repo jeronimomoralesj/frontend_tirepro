@@ -6,12 +6,8 @@ import {
   Cpu,
   TrendingUp,
   ShoppingCart,
-  ArrowRight,
   Disc,
-  Sparkles,
   Activity,
-  CheckCircle2,
-  Wifi,
 } from "lucide-react";
 import "./heroAnimations.css";
 
@@ -25,9 +21,9 @@ const STEPS = [
   {
     id: "capture",
     label: "Captura",
-    title: "Inspecciona con tu telefono",
+    title: "Inspecciona con tu teléfono",
     description:
-      "Toma una foto del neumatico desde tu cel. Sin manuales, sin Excel, sin demoras. La inspeccion queda guardada al instante.",
+      "Toma una foto del neumático desde tu celular. Sin manuales, sin Excel, sin demoras. La inspección queda guardada al instante con la profundidad, posición y estado.",
     icon: Camera,
   },
   {
@@ -35,23 +31,15 @@ const STEPS = [
     label: "Analiza",
     title: "La IA lee la llanta",
     description:
-      "Nuestros agentes de IA analizan profundidad, desgaste y patron. Detectan alineacion, presion baja y problemas mecanicos antes que tu.",
+      "Nuestros agentes de IA analizan profundidad, desgaste y patrón. Detectan alineación, presión baja y problemas mecánicos antes que tú, y te alertan en tiempo real.",
     icon: Cpu,
   },
   {
-    id: "insights",
-    label: "Decide",
-    title: "Recibes insights accionables",
+    id: "decide",
+    label: "Decide y compra",
+    title: "Insights y recomendaciones de compra",
     description:
-      "Ves CPK proyectado, vida util restante, ahorro en pesos y la recomendacion exacta: cambio, reencauche o rotacion.",
-    icon: TrendingUp,
-  },
-  {
-    id: "buy",
-    label: "Reemplaza",
-    title: "Compra en el marketplace",
-    description:
-      "Cuando llegue el momento, TirePro te muestra opciones reales del mercado colombiano con precios actualizados. Compras directo, sin intermediarios.",
+      "Ves CPK proyectado, vida útil restante y ahorro en pesos. Cuando llegue el momento, compras llantas reales del mercado colombiano directamente en nuestro marketplace.",
     icon: ShoppingCart,
   },
 ];
@@ -138,12 +126,13 @@ export default function ScrollFlow() {
         </div>
       </div>
 
-      {/* Scroll-driven layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-start">
-
-          {/* LEFT: scrollable step list — each step takes a viewport of scroll */}
-          <div className="lg:order-1 space-y-0">
+      {/* ────────────────────────────────────────────────────────────────────
+          DESKTOP: scroll-driven sticky layout (scroll to advance)
+          ──────────────────────────────────────────────────────────────────── */}
+      <div className="hidden lg:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 gap-12 items-start">
+          {/* LEFT: scrollable step list */}
+          <div className="space-y-0">
             {STEPS.map((step, i) => {
               const isActive = i === activeStep;
               const Icon = step.icon;
@@ -151,10 +140,10 @@ export default function ScrollFlow() {
                 <div
                   key={step.id}
                   ref={(el) => { stepRefs.current[i] = el; }}
-                  className="min-h-[70vh] flex items-center"
+                  className="min-h-[80vh] flex items-center"
                 >
                   <div
-                    className="w-full rounded-2xl p-6 sm:p-8 transition-all duration-700"
+                    className="w-full rounded-2xl p-8 transition-all duration-700"
                     style={{
                       background: isActive
                         ? "linear-gradient(135deg, rgba(30,118,182,0.08), rgba(52,140,203,0.03))"
@@ -165,13 +154,13 @@ export default function ScrollFlow() {
                       boxShadow: isActive
                         ? "0 12px 32px rgba(30,118,182,0.1)"
                         : "none",
-                      opacity: isActive ? 1 : 0.4,
+                      opacity: isActive ? 1 : 0.35,
                       transform: isActive ? "translateX(0) scale(1)" : "translateX(-8px) scale(0.98)",
                     }}
                   >
                     <div className="flex items-start gap-4">
                       <div
-                        className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-700"
+                        className="flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-700"
                         style={{
                           background: isActive
                             ? "linear-gradient(135deg, #1E76B6, #173D68)"
@@ -181,13 +170,13 @@ export default function ScrollFlow() {
                             : "none",
                         }}
                       >
-                        <Icon size={22} style={{ color: isActive ? "#fff" : "#1E76B6" }} />
+                        <Icon size={26} style={{ color: isActive ? "#fff" : "#1E76B6" }} />
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-2">
                           <span
-                            className="text-[10px] font-bold tracking-widest uppercase"
+                            className="text-[11px] font-bold tracking-widest uppercase"
                             style={{
                               color: isActive ? "#1E76B6" : "rgba(10,24,58,0.4)",
                               letterSpacing: "0.16em",
@@ -199,19 +188,19 @@ export default function ScrollFlow() {
                         <h3
                           className="font-extrabold mb-3 transition-all duration-700"
                           style={{
-                            fontSize: isActive ? "clamp(1.4rem, 2.5vw, 1.85rem)" : "clamp(1.1rem, 1.8vw, 1.35rem)",
+                            fontSize: isActive ? "clamp(1.6rem, 2.8vw, 2.1rem)" : "clamp(1.2rem, 1.9vw, 1.5rem)",
                             color: "#0A183A",
                             letterSpacing: "-0.01em",
-                            lineHeight: 1.2,
+                            lineHeight: 1.15,
                           }}
                         >
                           {step.title}
                         </h3>
                         <p
-                          className="text-sm sm:text-base leading-relaxed transition-all duration-700"
+                          className="text-base leading-relaxed transition-all duration-700"
                           style={{
                             color: "rgba(10,24,58,0.65)",
-                            maxHeight: isActive ? "200px" : "0px",
+                            maxHeight: isActive ? "300px" : "0px",
                             opacity: isActive ? 1 : 0,
                             overflow: "hidden",
                           }}
@@ -226,20 +215,71 @@ export default function ScrollFlow() {
             })}
           </div>
 
-          {/* RIGHT: sticky animated visual that stays pinned while user scrolls steps */}
-          <div className="hidden lg:block lg:order-2 lg:sticky lg:top-24 lg:self-start">
-            <div className="flex items-center justify-center" style={{ minHeight: "60vh" }}>
+          {/* RIGHT: sticky animated visual */}
+          <div className="sticky top-24 self-start">
+            <div className="flex items-center justify-center" style={{ minHeight: "70vh" }}>
               <FlowVisual activeStep={activeStep} />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Mobile: show one fixed visual at the top of the section */}
-        <div className="lg:hidden flex items-center justify-center mt-12">
-          <FlowVisual activeStep={activeStep} />
-        </div>
+      {/* ────────────────────────────────────────────────────────────────────
+          MOBILE / TABLET: stacked cards with inline visuals (no sticky)
+          Each step shows its text + its visual right below, in sequence.
+          ──────────────────────────────────────────────────────────────────── */}
+      <div className="lg:hidden max-w-2xl mx-auto px-4 sm:px-6 space-y-12">
+        {STEPS.map((step, i) => {
+          const Icon = step.icon;
+          return (
+            <div key={step.id} className="space-y-5">
+              {/* Step label + title */}
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-3"
+                  style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(30,118,182,0.2)" }}>
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+                  >
+                    <Icon size={14} className="text-white" />
+                  </div>
+                  <span className="text-[11px] font-bold tracking-widest uppercase text-[#1E76B6]">
+                    0{i + 1} · {step.label}
+                  </span>
+                </div>
+                <h3 className="font-extrabold mb-2"
+                  style={{
+                    fontSize: "clamp(1.35rem, 5vw, 1.8rem)",
+                    color: "#0A183A",
+                    letterSpacing: "-0.01em",
+                    lineHeight: 1.15,
+                  }}>
+                  {step.title}
+                </h3>
+                <p className="text-sm sm:text-base leading-relaxed mx-auto max-w-md"
+                  style={{ color: "rgba(10,24,58,0.65)" }}>
+                  {step.description}
+                </p>
+              </div>
+
+              {/* Inline visual */}
+              <div className="flex items-center justify-center">
+                <MobileVisual stepIndex={i} />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+// Mobile renders a scaled-down version of FlowVisual showing the right step
+function MobileVisual({ stepIndex }: { stepIndex: number }) {
+  return (
+    <div className="w-full max-w-sm">
+      <FlowVisual activeStep={stepIndex} />
+    </div>
   );
 }
 
@@ -279,8 +319,7 @@ function FlowVisual({ activeStep }: { activeStep: number }) {
         <div className="absolute inset-0 flex items-center justify-center" key={activeStep}>
           {activeStep === 0 && <CaptureStep />}
           {activeStep === 1 && <AnalyzeStep />}
-          {activeStep === 2 && <InsightsStep />}
-          {activeStep === 3 && <BuyStep />}
+          {activeStep === 2 && <DecideAndBuyStep />}
         </div>
       </div>
     </div>
@@ -334,147 +373,248 @@ function CaptureStep() {
   );
 }
 
-// ── Step 2: AI brain ────────────────────────────────────────────────────────
+// ── Step 2: AI Notifications panel (mirrors dashboard NotificacionesTab) ────
 function AnalyzeStep() {
-  return (
-    <div className="relative w-full h-full flex items-center justify-center hv-pop-in">
-      <div className="relative w-40 h-40">
-        <div className="absolute inset-0 rounded-full hv-ping-1" style={{ background: "rgba(52,140,203,0.15)" }} />
-        <div className="absolute inset-4 rounded-full hv-ping-2" style={{ background: "rgba(52,140,203,0.2)" }} />
-        <div className="absolute inset-8 rounded-full flex items-center justify-center"
-          style={{ background: "linear-gradient(135deg, #348CCB, #1E76B6)", boxShadow: "0 0 40px rgba(52,140,203,0.6), inset 0 2px 12px rgba(255,255,255,0.2)" }}>
-          <Cpu size={42} className="text-white" strokeWidth={1.5} />
-        </div>
-      </div>
-
-      <div className="absolute top-4 left-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 hv-fade-loop"
-        style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e" }}>
-        <Activity size={10} /> Profundidad OK
-      </div>
-      <div className="absolute top-4 right-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 hv-fade-loop-2"
-        style={{ background: "rgba(249,115,22,0.15)", border: "1px solid rgba(249,115,22,0.3)", color: "#f97316" }}>
-        <Activity size={10} /> Alineacion
-      </div>
-      <div className="absolute bottom-4 left-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 hv-fade-loop-3"
-        style={{ background: "rgba(52,140,203,0.15)", border: "1px solid rgba(52,140,203,0.3)", color: "#348CCB" }}>
-        <Sparkles size={10} /> CPK calc
-      </div>
-      <div className="absolute bottom-4 right-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 hv-fade-loop"
-        style={{ background: "rgba(52,140,203,0.15)", border: "1px solid rgba(52,140,203,0.3)", color: "#348CCB", animationDelay: "1.5s" }}>
-        <Cpu size={10} /> 6 agentes
-      </div>
-
-    </div>
-  );
-}
-
-// ── Step 3: Insights ────────────────────────────────────────────────────────
-function InsightsStep() {
-  return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center gap-3 px-6 hv-pop-in">
-      <div className="w-full max-w-[280px] rounded-2xl p-4"
-        style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.15)" }}>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[10px] font-bold tracking-widest text-[#348CCB]">CPK PROYECTADO</span>
-          <span className="text-[9px] font-bold text-white/40">vs flota</span>
-        </div>
-        <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-4xl font-extrabold text-white">$87</span>
-          <span className="text-xs font-bold text-[#22c55e]">-23%</span>
-        </div>
-        <svg className="w-full h-8" viewBox="0 0 200 32">
-          <defs>
-            <linearGradient id="chartFill" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#348CCB" />
-              <stop offset="100%" stopColor="#348CCB" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <polyline points="0,28 25,22 50,24 75,18 100,16 125,12 150,14 175,8 200,4" fill="none" stroke="#348CCB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="hv-draw-chart" />
-        </svg>
-      </div>
-
-      <div className="flex gap-3 w-full max-w-[280px]">
-        <div className="flex-1 rounded-xl p-3" style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)" }}>
-          <div className="flex items-center gap-1 mb-1">
-            <CheckCircle2 size={11} className="text-[#22c55e]" />
-            <span className="text-[9px] font-bold text-[#22c55e]">VIDA UTIL</span>
-          </div>
-          <div className="text-lg font-extrabold text-white">42K km</div>
-          <div className="text-[9px] text-white/50">restantes</div>
-        </div>
-        <div className="flex-1 rounded-xl p-3" style={{ background: "rgba(52,140,203,0.12)", border: "1px solid rgba(52,140,203,0.3)" }}>
-          <div className="flex items-center gap-1 mb-1">
-            <TrendingUp size={11} className="text-[#348CCB]" />
-            <span className="text-[9px] font-bold text-[#348CCB]">AHORRO</span>
-          </div>
-          <div className="text-lg font-extrabold text-white">$2.4M</div>
-          <div className="text-[9px] text-white/50">este mes</div>
-        </div>
-      </div>
-
-      <div className="rounded-full px-4 py-2 flex items-center gap-2 hv-pulse-soft"
-        style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", boxShadow: "0 4px 16px rgba(30,118,182,0.4)" }}>
-        <Sparkles size={14} className="text-white" />
-        <span className="text-xs font-bold text-white">Programar reencauche en 30 dias</span>
-      </div>
-
-    </div>
-  );
-}
-
-// ── Step 4: Marketplace ─────────────────────────────────────────────────────
-function BuyStep() {
-  const tires = [
-    { brand: "Michelin", model: "XZE2+", price: "$1.85M", best: true },
-    { brand: "Bridgestone", model: "M729", price: "$1.62M", best: false },
-    { brand: "Continental", model: "HSU", price: "$1.74M", best: false },
+  // Mirror the real dashboard notification card style
+  const notifs = [
+    {
+      severity: "critical",
+      label: "Crítica",
+      color: "#ef4444",
+      bg: "rgba(239,68,68,0.12)",
+      title: "Profundidad bajo límite",
+      message: "Pos. 3 · Int 2.1 · Cen 1.8 · Ext 2.0 mm",
+      delay: "0s",
+    },
+    {
+      severity: "warning",
+      label: "Urgente",
+      color: "#f97316",
+      bg: "rgba(249,115,22,0.12)",
+      title: "Desgaste irregular detectado",
+      message: "Posible problema de alineación",
+      delay: "0.15s",
+    },
+    {
+      severity: "info",
+      label: "Atención",
+      color: "#eab308",
+      bg: "rgba(234,179,8,0.12)",
+      title: "Programar rotación en 30 días",
+      message: "CPK proyectado: $94 / km",
+      delay: "0.3s",
+    },
   ];
+
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center gap-2 px-6 hv-pop-in">
-      <div className="flex items-center gap-2 mb-2">
-        <Wifi size={14} className="text-[#348CCB]" />
-        <span className="text-[10px] font-bold tracking-widest text-[#348CCB]">RECOMENDADAS PARA TI</span>
+    <div className="relative w-full h-full flex flex-col items-center justify-center gap-2 px-4 sm:px-6 py-4 hv-pop-in">
+      {/* Header — vehicle group like the real dashboard */}
+      <div
+        className="w-full max-w-[300px] rounded-xl px-3 py-2 flex items-center gap-2"
+        style={{
+          background: "linear-gradient(135deg, #0A183A, #173D68)",
+          border: "1px solid rgba(52,140,203,0.3)",
+        }}
+      >
+        <div
+          className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(52,140,203,0.25)" }}
+        >
+          <Cpu size={12} className="text-[#348CCB]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div
+            className="text-[10px] font-black tracking-wider text-white"
+            style={{ fontFamily: "monospace" }}
+          >
+            ABC-123
+          </div>
+          <div className="text-[8px] text-white/50">3 alertas activas</div>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+          <span className="text-[8px] font-bold text-white/70">EN VIVO</span>
+        </div>
       </div>
 
-      {tires.map((t, i) => (
+      {/* Notification cards — staggered slide-in */}
+      {notifs.map((n, i) => (
         <div
           key={i}
-          className="w-full max-w-[300px] rounded-xl p-3 flex items-center gap-3 transition-all hover:scale-[1.02] hv-slide-in-1"
+          className="w-full max-w-[300px] rounded-xl p-2.5 flex items-start gap-2 hv-slide-in-1"
           style={{
-            background: t.best ? "rgba(52,140,203,0.15)" : "rgba(255,255,255,0.06)",
-            border: t.best ? "1px solid rgba(52,140,203,0.5)" : "1px solid rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            animationDelay: `${i * 0.15}s`,
+            background: "rgba(255,255,255,0.95)",
+            borderLeft: `3px solid ${n.color}`,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            animationDelay: n.delay,
           }}
         >
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(52,140,203,0.2)" }}>
-            <Disc size={18} className="text-[#348CCB]" />
+          <div
+            className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+            style={{ background: n.bg }}
+          >
+            <Activity size={13} style={{ color: n.color }} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-white">{t.brand}</span>
-              {t.best && (
-                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: "#22c55e", color: "white" }}>
-                  MEJOR CPK
-                </span>
-              )}
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span
+                className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider"
+                style={{ background: n.bg, color: n.color }}
+              >
+                {n.label}
+              </span>
             </div>
-            <div className="text-[10px] text-white/50">{t.model} · 295/80R22.5</div>
-          </div>
-          <div className="text-right flex-shrink-0">
-            <div className="text-sm font-extrabold text-white">{t.price}</div>
-            <div className="text-[9px] text-white/40">unidad</div>
+            <div className="text-[11px] font-bold text-[#0A183A] leading-tight">
+              {n.title}
+            </div>
+            <div className="text-[9px] text-gray-500 mt-0.5 leading-tight">
+              {n.message}
+            </div>
           </div>
         </div>
       ))}
+    </div>
+  );
+}
 
-      <button className="mt-2 px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 hv-pulse-soft"
-        style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", color: "white", boxShadow: "0 4px 16px rgba(30,118,182,0.4)" }}>
-        <ShoppingCart size={12} />
-        Comprar ahora
-        <ArrowRight size={12} />
-      </button>
+// ── Step 3: Decide & Buy — marketplace-style cards ─────────────────────────
+function DecideAndBuyStep() {
+  const tires = [
+    {
+      brand: "Michelin",
+      model: "XZE2+",
+      dim: "295/80R22.5",
+      price: "$1.850.000",
+      cpk: "$87",
+      best: true,
+      delay: "0s",
+    },
+    {
+      brand: "Bridgestone",
+      model: "M729",
+      dim: "295/80R22.5",
+      price: "$1.620.000",
+      cpk: "$94",
+      best: false,
+      delay: "0.15s",
+    },
+    {
+      brand: "Continental",
+      model: "HSU",
+      dim: "295/80R22.5",
+      price: "$1.740.000",
+      cpk: "$91",
+      best: false,
+      delay: "0.3s",
+    },
+  ];
 
+  return (
+    <div className="relative w-full h-full flex flex-col items-center justify-center gap-2 px-4 sm:px-6 py-4 hv-pop-in">
+      {/* Insights header strip */}
+      <div className="w-full max-w-[300px] flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp size={12} className="text-[#348CCB]" />
+          <span className="text-[10px] font-black tracking-widest text-[#348CCB]">
+            INSIGHTS &amp; MARKETPLACE
+          </span>
+        </div>
+        <span className="text-[9px] font-bold text-white/50">3 opciones</span>
+      </div>
+
+      {/* Mini metrics row */}
+      <div className="w-full max-w-[300px] grid grid-cols-2 gap-2 mb-1">
+        <div
+          className="rounded-lg p-2"
+          style={{
+            background: "rgba(34,197,94,0.12)",
+            border: "1px solid rgba(34,197,94,0.3)",
+          }}
+        >
+          <div className="text-[8px] font-bold text-[#22c55e] tracking-wider">AHORRO</div>
+          <div className="text-sm font-extrabold text-white leading-tight">$2.4M</div>
+        </div>
+        <div
+          className="rounded-lg p-2"
+          style={{
+            background: "rgba(52,140,203,0.12)",
+            border: "1px solid rgba(52,140,203,0.3)",
+          }}
+        >
+          <div className="text-[8px] font-bold text-[#348CCB] tracking-wider">VIDA ÚTIL</div>
+          <div className="text-sm font-extrabold text-white leading-tight">42K km</div>
+        </div>
+      </div>
+
+      {/* Marketplace product cards */}
+      {tires.map((t, i) => (
+        <div
+          key={i}
+          className="w-full max-w-[300px] rounded-xl p-2.5 flex items-center gap-2.5 transition-all hover:scale-[1.02] hv-slide-in-1 relative"
+          style={{
+            background: "rgba(255,255,255,0.97)",
+            border: t.best
+              ? "1.5px solid #348CCB"
+              : "1px solid rgba(255,255,255,0.1)",
+            boxShadow: t.best
+              ? "0 8px 24px rgba(52,140,203,0.4), 0 0 0 4px rgba(52,140,203,0.1)"
+              : "0 4px 12px rgba(0,0,0,0.15)",
+            animationDelay: t.delay,
+          }}
+        >
+          {/* Best badge */}
+          {t.best && (
+            <div
+              className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full text-[8px] font-black"
+              style={{
+                background: "linear-gradient(135deg, #1E76B6, #173D68)",
+                color: "white",
+                boxShadow: "0 2px 8px rgba(30,118,182,0.5)",
+              }}
+            >
+              MEJOR CPK
+            </div>
+          )}
+
+          {/* Tire image placeholder */}
+          <div
+            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: "#fafafa", border: "1px solid #f0f0f0" }}
+          >
+            <Disc size={24} className="text-[#0A183A]" strokeWidth={1.4} />
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="text-[8px] font-bold uppercase tracking-wider text-gray-400">
+              {t.brand}
+            </div>
+            <div className="text-xs font-bold text-[#0A183A] leading-tight truncate">
+              {t.model}
+            </div>
+            <div className="text-[9px] text-gray-500">{t.dim}</div>
+            <div className="flex items-center gap-1 mt-0.5">
+              <span
+                className="px-1 py-0.5 rounded text-[7px] font-bold"
+                style={{
+                  background: "rgba(16,185,129,0.1)",
+                  color: "#10b981",
+                }}
+              >
+                CPK {t.cpk}
+              </span>
+            </div>
+          </div>
+
+          {/* Price */}
+          <div className="text-right flex-shrink-0">
+            <div className="text-sm font-black text-[#0A183A] leading-tight">
+              {t.price}
+            </div>
+            <div className="text-[8px] text-gray-400">/unidad</div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
