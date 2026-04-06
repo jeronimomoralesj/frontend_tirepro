@@ -202,29 +202,20 @@ function VehicleGroup({
           tireGroups.get(key)!.notifs.push(n);
         });
         return (
-          <div className="mt-2 space-y-3 pl-2">
+          <div className="mt-2 space-y-2 pl-2">
             {Array.from(tireGroups.values()).map((tg) => (
-              <div key={`${tg.placa}-${tg.posicion}`}>
-                {/* Tire sub-header */}
-                {tg.placa && (
-                  <div className="flex items-center gap-2 mb-1.5 px-1">
-                    <span className="text-[10px] font-mono font-bold text-[#348CCB] bg-[#348CCB]/8 px-2 py-0.5 rounded-md">{tg.placa}</span>
-                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md">P{tg.posicion}</span>
-                    {tg.depths && (
-                      <span className="text-[9px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">
-                        Int {tg.depths.i} · Cen {tg.depths.c} · Ext {tg.depths.e} mm
-                      </span>
-                    )}
-                    <span className="text-[9px] text-gray-400">{tg.notifs.length} alerta{tg.notifs.length !== 1 ? "s" : ""}</span>
-                  </div>
-                )}
-                <div className="space-y-1.5">
-                  {tg.notifs.map((n) => (
-                    <NotificationCard key={n.id} notification={n} hasDrivers={drivers.length > 0}
-                      onExecute={onExecute} onSendToDriver={onSendToDriver} onMarkSeen={onMarkSeen} sendCounts={sendCounts} />
-                  ))}
-                </div>
-              </div>
+              <TireNotifGroup
+                key={`${tg.placa}-${tg.posicion}`}
+                placa={tg.placa}
+                posicion={tg.posicion}
+                depths={tg.depths}
+                notifs={tg.notifs}
+                hasDrivers={drivers.length > 0}
+                onExecute={onExecute}
+                onSendToDriver={onSendToDriver}
+                onMarkSeen={onMarkSeen}
+                sendCounts={sendCounts}
+              />
             ))}
           </div>
         );
@@ -234,6 +225,142 @@ function VehicleGroup({
 }
 
 // -- Notification card --------------------------------------------------------
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TireNotifGroup — consolidated card showing all alerts for a single tire
+// ═══════════════════════════════════════════════════════════════════════════
+function TireNotifGroup({
+  placa,
+  posicion,
+  depths,
+  notifs,
+  hasDrivers,
+  onExecute,
+  onSendToDriver,
+  onMarkSeen,
+  sendCounts,
+}: {
+  placa: string;
+  posicion: number;
+  depths: { i: number; c: number; e: number } | null;
+  notifs: Notification[];
+  hasDrivers: boolean;
+  onExecute: (id: string) => void;
+  onSendToDriver: (id: string) => void;
+  onMarkSeen: (id: string) => void;
+  sendCounts: Record<string, number>;
+}) {
+  const [expanded, setExpanded] = useState(notifs.length <= 2);
+
+  const worst = worstType(notifs);
+  const s = sev(worst);
+  const pendingNotifs = notifs.filter(n => !n.executed);
+  const allExecuted = pendingNotifs.length === 0;
+
+  // Single notification — render the classic card directly
+  if (notifs.length === 1) {
+    const n = notifs[0];
+    return (
+      <div>
+        {placa && (
+          <div className="flex items-center gap-2 mb-1.5 px-1">
+            <span className="text-[10px] font-mono font-bold text-[#348CCB] bg-[#348CCB]/8 px-2 py-0.5 rounded-md">{placa}</span>
+            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md">P{posicion}</span>
+            {depths && (
+              <span className="text-[9px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-md">
+                {depths.i}/{depths.c}/{depths.e}mm
+              </span>
+            )}
+          </div>
+        )}
+        <NotificationCard notification={n} hasDrivers={hasDrivers}
+          onExecute={onExecute} onSendToDriver={onSendToDriver} onMarkSeen={onMarkSeen} sendCounts={sendCounts} />
+      </div>
+    );
+  }
+
+  // Multiple notifications — render consolidated card with summary
+  return (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden"
+      style={{ borderLeft: `4px solid ${s.border}`, opacity: allExecuted ? 0.55 : 1 }}
+    >
+      {/* Tire header — always visible */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2.5 px-3.5 py-3 hover:bg-gray-50/80 transition-colors text-left"
+      >
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: s.bg }}>
+          <AlertTriangle className="w-4 h-4" style={{ color: s.color }} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {placa && (
+              <span className="text-[11px] font-mono font-bold text-[#348CCB]">{placa}</span>
+            )}
+            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md">P{posicion}</span>
+            {depths && (
+              <span className="text-[10px] font-mono text-gray-400">{depths.i}/{depths.c}/{depths.e}mm</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-[11px] font-bold" style={{ color: s.color }}>
+              {notifs.length} alertas
+            </span>
+            {!allExecuted && (
+              <>
+                <span className="text-[10px] text-gray-300">•</span>
+                <span className="text-[10px] font-bold text-gray-500">{pendingNotifs.length} pendientes</span>
+              </>
+            )}
+            {allExecuted && (
+              <>
+                <span className="text-[10px] text-gray-300">•</span>
+                <span className="text-[10px] font-bold text-green-600 inline-flex items-center gap-0.5">
+                  <Check className="w-2.5 h-2.5" /> Todas ejecutadas
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Compact preview of first 2 alert titles when collapsed */}
+          {!expanded && (
+            <div className="mt-1.5 space-y-0.5">
+              {notifs.slice(0, 2).map(n => (
+                <div key={n.id} className="flex items-start gap-1.5">
+                  <span className="text-[9px] mt-0.5" style={{ color: sev(n.type).color }}>●</span>
+                  <span className="text-[10px] text-gray-600 leading-tight line-clamp-1">
+                    {n.title || n.message}
+                  </span>
+                </div>
+              ))}
+              {notifs.length > 2 && (
+                <div className="text-[9px] text-gray-400 ml-2.5">+{notifs.length - 2} mas…</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {expanded ? (
+          <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        )}
+      </button>
+
+      {/* Expanded: full list of notifications */}
+      {expanded && (
+        <div className="px-3 pb-3 pt-1 space-y-1.5 border-t border-gray-50">
+          {notifs.map(n => (
+            <NotificationCard key={n.id} notification={n} hasDrivers={hasDrivers}
+              onExecute={onExecute} onSendToDriver={onSendToDriver} onMarkSeen={onMarkSeen} sendCounts={sendCounts} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function NotificationCard({
   notification: n,
