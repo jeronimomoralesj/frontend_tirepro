@@ -3,10 +3,7 @@
 import {
   Camera,
   Cpu,
-  TrendingUp,
   Disc,
-  Sparkles,
-  CheckCircle2,
 } from "lucide-react";
 import "./heroAnimations.css";
 
@@ -161,110 +158,9 @@ export default function HeroVisual() {
           <FlowConnector position="right" />
         </div>
 
-        {/* RIGHT: Insights */}
+        {/* RIGHT: Mini dashboard — replicates the main dashboard widgets */}
         <div className="flex flex-col items-center">
-          <div className="space-y-2">
-            {/* CPK card */}
-            <div
-              className="rounded-xl px-3 py-2 flex items-center gap-2 hv-slide-in-1"
-              style={{
-                background: "rgba(255,255,255,0.08)",
-                backdropFilter: "blur(12px)",
-                border: "1px solid rgba(52,140,203,0.4)",
-                minWidth: "150px",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-              }}
-            >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: "linear-gradient(135deg, #348CCB, #1E76B6)",
-                }}
-              >
-                <TrendingUp size={14} className="text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[8px] font-bold tracking-widest text-[#348CCB]">
-                  CPK
-                </div>
-                <div className="text-sm font-extrabold text-white">
-                  $87 <span className="text-[9px] text-[#22c55e]">-23%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Vida útil card */}
-            <div
-              className="rounded-xl px-3 py-2 flex items-center gap-2 hv-slide-in-2"
-              style={{
-                background: "rgba(255,255,255,0.08)",
-                backdropFilter: "blur(12px)",
-                border: "1px solid rgba(34,197,94,0.4)",
-                minWidth: "150px",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-              }}
-            >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(34,197,94,0.2)" }}
-              >
-                <CheckCircle2 size={14} className="text-[#22c55e]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[8px] font-bold tracking-widest text-[#22c55e]">
-                  VIDA ÚTIL
-                </div>
-                <div className="text-sm font-extrabold text-white">42K km</div>
-              </div>
-            </div>
-
-            {/* Mini chart card */}
-            <div
-              className="rounded-xl px-3 py-2 hv-slide-in-3"
-              style={{
-                background: "rgba(255,255,255,0.08)",
-                backdropFilter: "blur(12px)",
-                border: "1px solid rgba(52,140,203,0.4)",
-                minWidth: "150px",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-[8px] font-bold tracking-widest text-[#348CCB]">
-                  DESGASTE
-                </div>
-                <Sparkles size={10} className="text-[#348CCB]" />
-              </div>
-              <svg className="w-full h-6" viewBox="0 0 120 24">
-                <defs>
-                  <linearGradient
-                    id="heroChart"
-                    x1="0%"
-                    y1="0%"
-                    x2="0%"
-                    y2="100%"
-                  >
-                    <stop offset="0%" stopColor="#348CCB" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#348CCB" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path
-                  d="M0,20 L15,18 L30,15 L45,16 L60,12 L75,10 L90,8 L105,6 L120,4 L120,24 L0,24 Z"
-                  fill="url(#heroChart)"
-                />
-                <polyline
-                  points="0,20 15,18 30,15 45,16 60,12 75,10 90,8 105,6 120,4"
-                  fill="none"
-                  stroke="#348CCB"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="hv-draw-line"
-                />
-              </svg>
-            </div>
-          </div>
-
+          <MiniDashboard />
           <div className="mt-3 text-center">
             <p
               className="text-[10px] font-bold tracking-widest uppercase mb-0.5"
@@ -310,6 +206,195 @@ function FlowConnector({ position }: { position: "left" | "right" }) {
           boxShadow: "0 0 12px #348CCB",
         }}
       />
+    </div>
+  );
+}
+
+// ── Mini dashboard — replicates the main resumen dashboard at small scale ──
+function MiniDashboard() {
+  return (
+    <div
+      className="rounded-2xl p-3 w-full"
+      style={{
+        background: "rgba(255,255,255,0.97)",
+        border: "1px solid rgba(52,140,203,0.2)",
+        boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
+        minWidth: "260px",
+        maxWidth: "300px",
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-gray-100">
+        <div>
+          <div className="text-[7px] font-bold tracking-widest text-gray-400 uppercase">Mi Resumen</div>
+          <div className="text-[10px] font-black text-[#0A183A]">Flota Activa</div>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+          <span className="text-[7px] font-bold text-[#22c55e]">EN VIVO</span>
+        </div>
+      </div>
+
+      {/* KPI row — 3 metrics */}
+      <div className="grid grid-cols-3 gap-1.5 mb-2.5 hv-slide-in-1">
+        <div
+          className="rounded-lg p-1.5"
+          style={{
+            background: "linear-gradient(135deg, rgba(52,140,203,0.12), rgba(30,118,182,0.06))",
+            border: "1px solid rgba(52,140,203,0.25)",
+          }}
+        >
+          <div className="text-[6px] font-bold tracking-wider text-[#1E76B6] uppercase">CPK</div>
+          <div className="text-sm font-black text-[#0A183A] leading-none mt-0.5">$12</div>
+          <div className="text-[6px] text-[#22c55e] font-bold mt-0.5">▼ 23%</div>
+        </div>
+        <div
+          className="rounded-lg p-1.5"
+          style={{
+            background: "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.04))",
+            border: "1px solid rgba(34,197,94,0.25)",
+          }}
+        >
+          <div className="text-[6px] font-bold tracking-wider text-[#22c55e] uppercase">Vida útil</div>
+          <div className="text-sm font-black text-[#0A183A] leading-none mt-0.5">112K</div>
+          <div className="text-[6px] text-gray-400 font-bold mt-0.5">km</div>
+        </div>
+        <div
+          className="rounded-lg p-1.5"
+          style={{
+            background: "linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0.04))",
+            border: "1px solid rgba(249,115,22,0.25)",
+          }}
+        >
+          <div className="text-[6px] font-bold tracking-wider text-[#f97316] uppercase">Ahorro</div>
+          <div className="text-sm font-black text-[#0A183A] leading-none mt-0.5">$2.4M</div>
+          <div className="text-[6px] text-gray-400 font-bold mt-0.5">/mes</div>
+        </div>
+      </div>
+
+      {/* Row 1: CPK Evolution bar chart */}
+      <div className="rounded-lg p-2 mb-2 hv-slide-in-2" style={{ background: "#f8fafd", border: "1px solid #f0f4f8" }}>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[7px] font-bold text-[#0A183A] uppercase tracking-wider">CPK Proyectado</div>
+          <div className="text-[6px] text-gray-400">12 meses</div>
+        </div>
+        <svg className="w-full h-10" viewBox="0 0 200 40" preserveAspectRatio="none">
+          {/* Bars */}
+          {[26, 22, 28, 24, 19, 21, 17, 16, 18, 14, 13, 12].map((v, i) => (
+            <rect
+              key={i}
+              x={i * 17 + 2}
+              y={40 - v * 1.4}
+              width="13"
+              height={v * 1.4}
+              rx="1.5"
+              fill={i === 11 ? "#1E76B6" : "rgba(52,140,203,0.4)"}
+              className="hv-slide-in-1"
+              style={{ animationDelay: `${i * 0.05}s` }}
+            />
+          ))}
+        </svg>
+      </div>
+
+      {/* Row 2: Two side-by-side mini widgets */}
+      <div className="grid grid-cols-2 gap-1.5 mb-2 hv-slide-in-3">
+        {/* Por Vida donut */}
+        <div className="rounded-lg p-2" style={{ background: "#f8fafd", border: "1px solid #f0f4f8" }}>
+          <div className="text-[7px] font-bold text-[#0A183A] uppercase tracking-wider mb-1">Por Vida</div>
+          <div className="flex items-center gap-1.5">
+            <svg width="32" height="32" viewBox="0 0 32 32">
+              {/* Donut: nueva 60%, reencauche1 25%, reencauche2 15% */}
+              <circle cx="16" cy="16" r="12" fill="none" stroke="#e5e7eb" strokeWidth="6" />
+              <circle
+                cx="16" cy="16" r="12" fill="none"
+                stroke="#1E76B6" strokeWidth="6"
+                strokeDasharray="45.2 75.4"
+                strokeDashoffset="0"
+                transform="rotate(-90 16 16)"
+              />
+              <circle
+                cx="16" cy="16" r="12" fill="none"
+                stroke="#348CCB" strokeWidth="6"
+                strokeDasharray="18.85 75.4"
+                strokeDashoffset="-45.2"
+                transform="rotate(-90 16 16)"
+              />
+              <circle
+                cx="16" cy="16" r="12" fill="none"
+                stroke="#22c55e" strokeWidth="6"
+                strokeDasharray="11.31 75.4"
+                strokeDashoffset="-64.05"
+                transform="rotate(-90 16 16)"
+              />
+            </svg>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-sm bg-[#1E76B6]" />
+                <span className="text-[6px] text-gray-600">Nueva 60%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-sm bg-[#348CCB]" />
+                <span className="text-[6px] text-gray-600">Reenc. 25%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-sm bg-[#22c55e]" />
+                <span className="text-[6px] text-gray-600">Otra 15%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Inversion mensual sparkline */}
+        <div className="rounded-lg p-2" style={{ background: "#f8fafd", border: "1px solid #f0f4f8" }}>
+          <div className="text-[7px] font-bold text-[#0A183A] uppercase tracking-wider mb-1">Inversion</div>
+          <div className="text-[10px] font-black text-[#0A183A] leading-none">$8.4M</div>
+          <div className="text-[6px] text-[#22c55e] font-bold mb-1">▼ 18% vs mes ant.</div>
+          <svg className="w-full h-5" viewBox="0 0 80 20" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="invFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#1E76B6" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#1E76B6" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d="M0,16 L10,14 L20,15 L30,11 L40,12 L50,8 L60,10 L70,6 L80,4 L80,20 L0,20 Z" fill="url(#invFill)" />
+            <polyline
+              points="0,16 10,14 20,15 30,11 40,12 50,8 60,10 70,6 80,4"
+              fill="none" stroke="#1E76B6" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"
+              className="hv-draw-line"
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* Row 3: Por marca horizontal bars */}
+      <div className="rounded-lg p-2" style={{ background: "#f8fafd", border: "1px solid #f0f4f8" }}>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[7px] font-bold text-[#0A183A] uppercase tracking-wider">Por Marca</div>
+          <div className="text-[6px] text-gray-400">Top 3</div>
+        </div>
+        <div className="space-y-1">
+          {[
+            { name: "Michelin", pct: 78, color: "#1E76B6" },
+            { name: "Bridgestone", pct: 56, color: "#348CCB" },
+            { name: "Continental", pct: 42, color: "#22c55e" },
+          ].map((b, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span className="text-[6px] font-bold text-gray-600 w-14 truncate">{b.name}</span>
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-gray-200">
+                <div
+                  className="h-full rounded-full hv-slide-in-1"
+                  style={{
+                    width: `${b.pct}%`,
+                    background: b.color,
+                    animationDelay: `${i * 0.1}s`,
+                  }}
+                />
+              </div>
+              <span className="text-[6px] font-bold text-gray-500 w-5 text-right">{b.pct}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
