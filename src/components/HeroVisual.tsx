@@ -5,17 +5,13 @@ import {
   Cpu,
   TrendingUp,
   Disc,
-  ArrowRight,
   Sparkles,
   CheckCircle2,
 } from "lucide-react";
+import "./heroAnimations.css";
 
 /**
- * Horizontal hero visual showing the TirePro pipeline:
- *
- *   [Camera] ──data──▶ [Tire / AI brain] ──insights──▶ [Charts / metrics]
- *
- * Pure CSS/SVG animations, no external assets.
+ * Horizontal hero visual: [Camera] → [Tire + AI] → [Insights]
  */
 export default function HeroVisual() {
   return (
@@ -39,7 +35,6 @@ export default function HeroVisual() {
           backgroundSize: "40px 40px",
         }}
       />
-      {/* Glow */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -48,20 +43,17 @@ export default function HeroVisual() {
         }}
       />
 
-      <div className="relative grid grid-cols-1 md:grid-cols-3 items-center gap-4 md:gap-2 px-6 md:px-10 py-10 md:py-14">
-
-        {/* ── LEFT: Camera / Input ─────────────────────────── */}
+      <div className="relative grid grid-cols-1 md:grid-cols-3 items-center gap-6 md:gap-2 px-6 md:px-10 py-12 md:py-16">
+        {/* LEFT: Camera */}
         <div className="flex flex-col items-center">
           <div className="relative">
-            {/* Pulse ring */}
             <div
-              className="absolute inset-0 rounded-2xl animate-pulse-ring"
+              className="absolute inset-0 rounded-2xl hv-pulse-ring"
               style={{
                 background:
                   "linear-gradient(135deg, rgba(52,140,203,0.3), rgba(30,118,182,0.1))",
               }}
             />
-            {/* Camera card */}
             <div
               className="relative w-24 h-24 md:w-28 md:h-28 rounded-2xl flex items-center justify-center"
               style={{
@@ -90,13 +82,11 @@ export default function HeroVisual() {
           </div>
         </div>
 
-        {/* ── CENTER: Tire / Processing ────────────────────── */}
+        {/* CENTER: Tire / AI */}
         <div className="flex flex-col items-center relative">
-          {/* Connecting line LEFT → CENTER (desktop only) */}
-          <DataLine direction="ltr" />
+          <FlowConnector position="left" />
 
           <div className="relative">
-            {/* Outer rings */}
             <svg
               className="absolute inset-0 w-full h-full"
               viewBox="0 0 200 200"
@@ -110,7 +100,7 @@ export default function HeroVisual() {
                 stroke="rgba(52,140,203,0.2)"
                 strokeWidth="1"
                 strokeDasharray="2 6"
-                className="animate-spin-slow"
+                className="hv-spin-slow"
                 style={{ transformOrigin: "100px 100px" }}
               />
               <circle
@@ -121,11 +111,10 @@ export default function HeroVisual() {
                 stroke="rgba(52,140,203,0.3)"
                 strokeWidth="1"
                 strokeDasharray="4 4"
-                className="animate-spin-reverse"
+                className="hv-spin-reverse"
                 style={{ transformOrigin: "100px 100px" }}
               />
             </svg>
-            {/* Glow */}
             <div
               className="absolute inset-0 blur-2xl"
               style={{
@@ -133,21 +122,15 @@ export default function HeroVisual() {
                   "radial-gradient(circle, rgba(52,140,203,0.6) 0%, transparent 60%)",
               }}
             />
-            {/* Tire */}
-            <div
-              className="relative w-32 h-32 md:w-40 md:h-40 flex items-center justify-center animate-spin-tire"
-            >
+            <div className="relative w-32 h-32 md:w-40 md:h-40 flex items-center justify-center hv-spin-tire">
               <Disc
                 className="w-full h-full text-[#348CCB]"
                 strokeWidth={1.2}
-                style={{
-                  filter: "drop-shadow(0 0 24px rgba(52,140,203,0.7))",
-                }}
+                style={{ filter: "drop-shadow(0 0 24px rgba(52,140,203,0.7))" }}
               />
             </div>
-            {/* AI badge floating on the tire */}
             <div
-              className="absolute -top-2 -right-2 px-2 py-1 rounded-full flex items-center gap-1 animate-bob"
+              className="absolute -top-2 -right-2 px-2 py-1 rounded-full flex items-center gap-1 hv-bob"
               style={{
                 background: "rgba(10,24,58,0.9)",
                 border: "1px solid rgba(52,140,203,0.5)",
@@ -157,8 +140,8 @@ export default function HeroVisual() {
             >
               <Cpu size={10} className="text-[#348CCB]" />
               <span
-                className="text-[9px] font-bold font-mono"
-                style={{ color: "#348CCB" }}
+                className="text-[9px] font-bold"
+                style={{ color: "#348CCB", fontFamily: "monospace" }}
               >
                 IA
               </span>
@@ -175,114 +158,110 @@ export default function HeroVisual() {
             <p className="text-xs text-white/60">6 agentes de IA</p>
           </div>
 
-          {/* Connecting line CENTER → RIGHT */}
-          <DataLine direction="ltr" position="right" />
+          <FlowConnector position="right" />
         </div>
 
-        {/* ── RIGHT: Output / Insights ─────────────────────── */}
+        {/* RIGHT: Insights */}
         <div className="flex flex-col items-center">
-          <div className="relative">
-            {/* Floating mini cards */}
-            <div className="space-y-2">
-              {/* CPK card */}
+          <div className="space-y-2">
+            {/* CPK card */}
+            <div
+              className="rounded-xl px-3 py-2 flex items-center gap-2 hv-slide-in-1"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(52,140,203,0.4)",
+                minWidth: "150px",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+              }}
+            >
               <div
-                className="rounded-xl px-3 py-2 flex items-center gap-2 animate-slide-in-1"
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{
-                  background: "rgba(255,255,255,0.08)",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(52,140,203,0.4)",
-                  minWidth: "150px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                  background: "linear-gradient(135deg, #348CCB, #1E76B6)",
                 }}
               >
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{
-                    background: "linear-gradient(135deg, #348CCB, #1E76B6)",
-                  }}
-                >
-                  <TrendingUp size={14} className="text-white" />
+                <TrendingUp size={14} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[8px] font-bold tracking-widest text-[#348CCB]">
+                  CPK
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[8px] font-bold tracking-widest text-[#348CCB]">
-                    CPK
-                  </div>
-                  <div className="text-sm font-extrabold text-white">
-                    $87 <span className="text-[9px] text-[#22c55e]">-23%</span>
-                  </div>
+                <div className="text-sm font-extrabold text-white">
+                  $87 <span className="text-[9px] text-[#22c55e]">-23%</span>
                 </div>
               </div>
+            </div>
 
-              {/* Vida útil card */}
+            {/* Vida útil card */}
+            <div
+              className="rounded-xl px-3 py-2 flex items-center gap-2 hv-slide-in-2"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(34,197,94,0.4)",
+                minWidth: "150px",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+              }}
+            >
               <div
-                className="rounded-xl px-3 py-2 flex items-center gap-2 animate-slide-in-2"
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(34,197,94,0.4)",
-                  minWidth: "150px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(34,197,94,0.2)" }}
               >
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(34,197,94,0.2)" }}
-                >
-                  <CheckCircle2 size={14} className="text-[#22c55e]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[8px] font-bold tracking-widest text-[#22c55e]">
-                    VIDA ÚTIL
-                  </div>
-                  <div className="text-sm font-extrabold text-white">42K km</div>
-                </div>
+                <CheckCircle2 size={14} className="text-[#22c55e]" />
               </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[8px] font-bold tracking-widest text-[#22c55e]">
+                  VIDA ÚTIL
+                </div>
+                <div className="text-sm font-extrabold text-white">42K km</div>
+              </div>
+            </div>
 
-              {/* Mini chart card */}
-              <div
-                className="rounded-xl px-3 py-2 animate-slide-in-3"
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(52,140,203,0.4)",
-                  minWidth: "150px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                }}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-[8px] font-bold tracking-widest text-[#348CCB]">
-                    DESGASTE
-                  </div>
-                  <Sparkles size={10} className="text-[#348CCB]" />
+            {/* Mini chart card */}
+            <div
+              className="rounded-xl px-3 py-2 hv-slide-in-3"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(52,140,203,0.4)",
+                minWidth: "150px",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[8px] font-bold tracking-widest text-[#348CCB]">
+                  DESGASTE
                 </div>
-                <svg className="w-full h-6" viewBox="0 0 120 24">
-                  <defs>
-                    <linearGradient
-                      id="heroChart"
-                      x1="0%"
-                      y1="0%"
-                      x2="0%"
-                      y2="100%"
-                    >
-                      <stop offset="0%" stopColor="#348CCB" stopOpacity="0.4" />
-                      <stop offset="100%" stopColor="#348CCB" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <path
-                    d="M0,20 L15,18 L30,15 L45,16 L60,12 L75,10 L90,8 L105,6 L120,4 L120,24 L0,24 Z"
-                    fill="url(#heroChart)"
-                  />
-                  <polyline
-                    points="0,20 15,18 30,15 45,16 60,12 75,10 90,8 105,6 120,4"
-                    fill="none"
-                    stroke="#348CCB"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="animate-draw-line"
-                  />
-                </svg>
+                <Sparkles size={10} className="text-[#348CCB]" />
               </div>
+              <svg className="w-full h-6" viewBox="0 0 120 24">
+                <defs>
+                  <linearGradient
+                    id="heroChart"
+                    x1="0%"
+                    y1="0%"
+                    x2="0%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#348CCB" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#348CCB" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M0,20 L15,18 L30,15 L45,16 L60,12 L75,10 L90,8 L105,6 L120,4 L120,24 L0,24 Z"
+                  fill="url(#heroChart)"
+                />
+                <polyline
+                  points="0,20 15,18 30,15 45,16 60,12 75,10 90,8 105,6 120,4"
+                  fill="none"
+                  stroke="#348CCB"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="hv-draw-line"
+                />
+              </svg>
             </div>
           </div>
 
@@ -297,104 +276,40 @@ export default function HeroVisual() {
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes pulse-ring {
-          0%, 100% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.15); opacity: 0.9; }
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes spin-reverse {
-          from { transform: rotate(360deg); }
-          to { transform: rotate(0deg); }
-        }
-        @keyframes spin-tire {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes bob {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-        @keyframes slide-in-1 {
-          0% { opacity: 0; transform: translateX(20px); }
-          15% { opacity: 1; transform: translateX(0); }
-          85% { opacity: 1; transform: translateX(0); }
-          100% { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes draw-line {
-          from { stroke-dasharray: 200; stroke-dashoffset: 200; }
-          to { stroke-dasharray: 200; stroke-dashoffset: 0; }
-        }
-        .animate-pulse-ring { animation: pulse-ring 3s ease-in-out infinite; }
-        .animate-spin-slow { animation: spin-slow 30s linear infinite; }
-        .animate-spin-reverse { animation: spin-reverse 20s linear infinite; }
-        .animate-spin-tire { animation: spin-tire 40s linear infinite; }
-        .animate-bob { animation: bob 3s ease-in-out infinite; }
-        .animate-slide-in-1 { animation: slide-in-1 0.6s ease-out 0.1s both; }
-        .animate-slide-in-2 { animation: slide-in-1 0.6s ease-out 0.3s both; }
-        .animate-slide-in-3 { animation: slide-in-1 0.6s ease-out 0.5s both; }
-        .animate-draw-line { animation: draw-line 2s ease-out 0.7s both; }
-      `}</style>
     </div>
   );
 }
 
-// ── Animated data line connecting two columns ───────────────────────────────
-function DataLine({ direction = "ltr", position = "left" }: { direction?: "ltr" | "rtl"; position?: "left" | "right" }) {
-  const isRight = position === "right";
+// ── Animated connector line between columns ─────────────────────────────────
+function FlowConnector({ position }: { position: "left" | "right" }) {
   return (
     <div
-      className="hidden md:block absolute top-1/2 -translate-y-1/2 h-px overflow-hidden"
+      className="hidden md:block absolute top-1/2 h-px"
       style={{
-        [isRight ? "left" : "right"]: "100%",
-        width: "calc(50% + 20px)",
-        marginLeft: isRight ? "-10px" : 0,
-        marginRight: isRight ? 0 : "-10px",
-        transform: "translateY(-50%) translateY(-25%)",
+        [position]: "100%",
+        width: "60%",
+        marginTop: "-12px",
+        background:
+          "linear-gradient(90deg, rgba(52,140,203,0.05), rgba(52,140,203,0.4), rgba(52,140,203,0.05))",
+        overflow: "visible",
       }}
     >
-      {/* Static line */}
       <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(90deg, rgba(52,140,203,0.05), rgba(52,140,203,0.4), rgba(52,140,203,0.05))",
-        }}
-      />
-      {/* Moving particles */}
-      <div
-        className="absolute top-1/2 -translate-y-1/2 h-1 w-12 rounded-full animate-flow"
+        className="absolute top-1/2 -translate-y-1/2 h-1 w-12 rounded-full hv-flow-1"
         style={{
           background:
             "linear-gradient(90deg, transparent, #348CCB, transparent)",
           boxShadow: "0 0 12px #348CCB",
-          animationDirection: direction === "ltr" ? "normal" : "reverse",
         }}
       />
       <div
-        className="absolute top-1/2 -translate-y-1/2 h-1 w-8 rounded-full animate-flow"
+        className="absolute top-1/2 -translate-y-1/2 h-1 w-8 rounded-full hv-flow-2"
         style={{
           background:
             "linear-gradient(90deg, transparent, #348CCB, transparent)",
           boxShadow: "0 0 12px #348CCB",
-          animationDelay: "0.7s",
-          animationDirection: direction === "ltr" ? "normal" : "reverse",
         }}
       />
-
-      <style jsx>{`
-        @keyframes flow {
-          0% { left: -20%; }
-          100% { left: 120%; }
-        }
-        .animate-flow {
-          animation: flow 2s linear infinite;
-        }
-      `}</style>
     </div>
   );
 }

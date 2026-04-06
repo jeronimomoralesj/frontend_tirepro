@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Wifi,
 } from "lucide-react";
+import "./heroAnimations.css";
 
 /**
  * Tab-based "How it works" section, inspired by llamaindex.ai.
@@ -285,7 +286,7 @@ function FlowVisual({ activeStep }: { activeStep: number }) {
 // ── Step 1: Phone capture ───────────────────────────────────────────────────
 function CaptureStep() {
   return (
-    <div className="relative w-full h-full flex items-center justify-center animate-pop-in">
+    <div className="relative w-full h-full flex items-center justify-center hv-pop-in">
       <div
         className="relative rounded-[28px] overflow-hidden"
         style={{
@@ -302,7 +303,7 @@ function CaptureStep() {
             <div className="absolute inset-0 flex items-center justify-center">
               <Disc size={80} className="text-[#348CCB] animate-pulse" strokeWidth={1.5} />
             </div>
-            <div className="absolute left-0 right-0 h-0.5 animate-scan" style={{ background: "linear-gradient(90deg, transparent, #348CCB, transparent)", boxShadow: "0 0 12px #348CCB" }} />
+            <div className="absolute left-0 right-0 h-0.5 hv-scan" style={{ background: "linear-gradient(90deg, transparent, #348CCB, transparent)", boxShadow: "0 0 12px #348CCB" }} />
             <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-[#348CCB]" />
             <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-[#348CCB]" />
             <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-[#348CCB]" />
@@ -316,25 +317,15 @@ function CaptureStep() {
         </div>
       </div>
 
-      <div className="absolute top-8 -right-4 px-3 py-1.5 rounded-full text-[10px] font-bold animate-float-1"
+      <div className="absolute top-8 -right-4 px-3 py-1.5 rounded-full text-[10px] font-bold hv-float-1"
         style={{ background: "rgba(52,140,203,0.15)", border: "1px solid rgba(52,140,203,0.4)", color: "#348CCB" }}>
         12.5 mm
       </div>
-      <div className="absolute bottom-16 -left-2 px-3 py-1.5 rounded-full text-[10px] font-bold animate-float-2"
+      <div className="absolute bottom-16 -left-2 px-3 py-1.5 rounded-full text-[10px] font-bold hv-float-2"
         style={{ background: "rgba(52,140,203,0.15)", border: "1px solid rgba(52,140,203,0.4)", color: "#348CCB" }}>
         Pos. 3
       </div>
 
-      <style jsx>{`
-        @keyframes scan { 0% { top: 8%; } 50% { top: 92%; } 100% { top: 8%; } }
-        @keyframes pop-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
-        @keyframes float-1 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-        @keyframes float-2 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
-        .animate-scan { animation: scan 2.5s ease-in-out infinite; }
-        .animate-pop-in { animation: pop-in 0.5s ease-out; }
-        .animate-float-1 { animation: float-1 3s ease-in-out infinite; }
-        .animate-float-2 { animation: float-2 3.5s ease-in-out infinite; }
-      `}</style>
     </div>
   );
 }
@@ -342,44 +333,33 @@ function CaptureStep() {
 // ── Step 2: AI brain ────────────────────────────────────────────────────────
 function AnalyzeStep() {
   return (
-    <div className="relative w-full h-full flex items-center justify-center animate-pop-in">
+    <div className="relative w-full h-full flex items-center justify-center hv-pop-in">
       <div className="relative w-40 h-40">
-        <div className="absolute inset-0 rounded-full animate-ping-slow" style={{ background: "rgba(52,140,203,0.15)" }} />
-        <div className="absolute inset-4 rounded-full animate-ping-slow-2" style={{ background: "rgba(52,140,203,0.2)" }} />
+        <div className="absolute inset-0 rounded-full hv-ping-1" style={{ background: "rgba(52,140,203,0.15)" }} />
+        <div className="absolute inset-4 rounded-full hv-ping-2" style={{ background: "rgba(52,140,203,0.2)" }} />
         <div className="absolute inset-8 rounded-full flex items-center justify-center"
           style={{ background: "linear-gradient(135deg, #348CCB, #1E76B6)", boxShadow: "0 0 40px rgba(52,140,203,0.6), inset 0 2px 12px rgba(255,255,255,0.2)" }}>
           <Cpu size={42} className="text-white" strokeWidth={1.5} />
         </div>
       </div>
 
-      <div className="absolute top-4 left-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 animate-fade-loop"
+      <div className="absolute top-4 left-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 hv-fade-loop"
         style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#22c55e" }}>
         <Activity size={10} /> Profundidad OK
       </div>
-      <div className="absolute top-4 right-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 animate-fade-loop-2"
+      <div className="absolute top-4 right-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 hv-fade-loop-2"
         style={{ background: "rgba(249,115,22,0.15)", border: "1px solid rgba(249,115,22,0.3)", color: "#f97316" }}>
         <Activity size={10} /> Alineacion
       </div>
-      <div className="absolute bottom-4 left-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 animate-fade-loop-3"
+      <div className="absolute bottom-4 left-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 hv-fade-loop-3"
         style={{ background: "rgba(52,140,203,0.15)", border: "1px solid rgba(52,140,203,0.3)", color: "#348CCB" }}>
         <Sparkles size={10} /> CPK calc
       </div>
-      <div className="absolute bottom-4 right-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 animate-fade-loop"
+      <div className="absolute bottom-4 right-4 px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 hv-fade-loop"
         style={{ background: "rgba(52,140,203,0.15)", border: "1px solid rgba(52,140,203,0.3)", color: "#348CCB", animationDelay: "1.5s" }}>
         <Cpu size={10} /> 6 agentes
       </div>
 
-      <style jsx>{`
-        @keyframes ping-slow { 0% { transform: scale(0.9); opacity: 0.7; } 100% { transform: scale(1.4); opacity: 0; } }
-        @keyframes pop-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
-        @keyframes fade-loop { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-        .animate-ping-slow { animation: ping-slow 2s ease-out infinite; }
-        .animate-ping-slow-2 { animation: ping-slow 2s ease-out infinite 0.6s; }
-        .animate-pop-in { animation: pop-in 0.5s ease-out; }
-        .animate-fade-loop { animation: fade-loop 2s ease-in-out infinite; }
-        .animate-fade-loop-2 { animation: fade-loop 2s ease-in-out infinite 0.5s; }
-        .animate-fade-loop-3 { animation: fade-loop 2s ease-in-out infinite 1s; }
-      `}</style>
     </div>
   );
 }
@@ -387,7 +367,7 @@ function AnalyzeStep() {
 // ── Step 3: Insights ────────────────────────────────────────────────────────
 function InsightsStep() {
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center gap-3 px-6 animate-pop-in">
+    <div className="relative w-full h-full flex flex-col items-center justify-center gap-3 px-6 hv-pop-in">
       <div className="w-full max-w-[280px] rounded-2xl p-4"
         style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.15)" }}>
         <div className="flex items-center justify-between mb-3">
@@ -405,7 +385,7 @@ function InsightsStep() {
               <stop offset="100%" stopColor="#348CCB" stopOpacity="0" />
             </linearGradient>
           </defs>
-          <polyline points="0,28 25,22 50,24 75,18 100,16 125,12 150,14 175,8 200,4" fill="none" stroke="#348CCB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-draw" />
+          <polyline points="0,28 25,22 50,24 75,18 100,16 125,12 150,14 175,8 200,4" fill="none" stroke="#348CCB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="hv-draw-chart" />
         </svg>
       </div>
 
@@ -428,20 +408,12 @@ function InsightsStep() {
         </div>
       </div>
 
-      <div className="rounded-full px-4 py-2 flex items-center gap-2 animate-pulse-soft"
+      <div className="rounded-full px-4 py-2 flex items-center gap-2 hv-pulse-soft"
         style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", boxShadow: "0 4px 16px rgba(30,118,182,0.4)" }}>
         <Sparkles size={14} className="text-white" />
         <span className="text-xs font-bold text-white">Programar reencauche en 30 dias</span>
       </div>
 
-      <style jsx>{`
-        @keyframes pop-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
-        @keyframes draw { from { stroke-dasharray: 400; stroke-dashoffset: 400; } to { stroke-dasharray: 400; stroke-dashoffset: 0; } }
-        @keyframes pulse-soft { 0%, 100% { box-shadow: 0 4px 16px rgba(30,118,182,0.4); } 50% { box-shadow: 0 4px 28px rgba(30,118,182,0.7); } }
-        .animate-pop-in { animation: pop-in 0.5s ease-out; }
-        .animate-draw { animation: draw 1.5s ease-out forwards; }
-        .animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
-      `}</style>
     </div>
   );
 }
@@ -454,7 +426,7 @@ function BuyStep() {
     { brand: "Continental", model: "HSU", price: "$1.74M", best: false },
   ];
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center gap-2 px-6 animate-pop-in">
+    <div className="relative w-full h-full flex flex-col items-center justify-center gap-2 px-6 hv-pop-in">
       <div className="flex items-center gap-2 mb-2">
         <Wifi size={14} className="text-[#348CCB]" />
         <span className="text-[10px] font-bold tracking-widest text-[#348CCB]">RECOMENDADAS PARA TI</span>
@@ -463,7 +435,7 @@ function BuyStep() {
       {tires.map((t, i) => (
         <div
           key={i}
-          className="w-full max-w-[300px] rounded-xl p-3 flex items-center gap-3 transition-all hover:scale-[1.02] animate-slide-in"
+          className="w-full max-w-[300px] rounded-xl p-3 flex items-center gap-3 transition-all hover:scale-[1.02] hv-slide-in-1"
           style={{
             background: t.best ? "rgba(52,140,203,0.15)" : "rgba(255,255,255,0.06)",
             border: t.best ? "1px solid rgba(52,140,203,0.5)" : "1px solid rgba(255,255,255,0.1)",
@@ -492,21 +464,13 @@ function BuyStep() {
         </div>
       ))}
 
-      <button className="mt-2 px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 animate-pulse-soft"
+      <button className="mt-2 px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 hv-pulse-soft"
         style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", color: "white", boxShadow: "0 4px 16px rgba(30,118,182,0.4)" }}>
         <ShoppingCart size={12} />
         Comprar ahora
         <ArrowRight size={12} />
       </button>
 
-      <style jsx>{`
-        @keyframes pop-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
-        @keyframes slide-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes pulse-soft { 0%, 100% { box-shadow: 0 4px 16px rgba(30,118,182,0.4); } 50% { box-shadow: 0 4px 28px rgba(30,118,182,0.7); } }
-        .animate-pop-in { animation: pop-in 0.5s ease-out; }
-        .animate-slide-in { animation: slide-in 0.5s ease-out forwards; opacity: 0; }
-        .animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
-      `}</style>
     </div>
   );
 }

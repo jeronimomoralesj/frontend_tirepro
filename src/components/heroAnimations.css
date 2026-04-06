@@ -1,0 +1,86 @@
+/* Animations for HeroVisual + ScrollFlow components */
+
+@keyframes hv-pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 0.9; }
+}
+@keyframes hv-spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes hv-spin-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+@keyframes hv-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes hv-slide-in {
+  0% { opacity: 0; transform: translateX(20px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes hv-draw-line {
+  from { stroke-dasharray: 200; stroke-dashoffset: 200; }
+  to { stroke-dasharray: 200; stroke-dashoffset: 0; }
+}
+@keyframes hv-flow {
+  0% { left: -20%; }
+  100% { left: 120%; }
+}
+@keyframes hv-pop-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes hv-scan {
+  0% { top: 8%; }
+  50% { top: 92%; }
+  100% { top: 8%; }
+}
+@keyframes hv-float-1 {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes hv-float-2 {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+@keyframes hv-ping-slow {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+@keyframes hv-fade-loop {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes hv-pulse-soft {
+  0%, 100% { box-shadow: 0 4px 16px rgba(30,118,182,0.4); }
+  50% { box-shadow: 0 4px 28px rgba(30,118,182,0.7); }
+}
+@keyframes hv-draw-chart {
+  from { stroke-dasharray: 400; stroke-dashoffset: 400; }
+  to { stroke-dasharray: 400; stroke-dashoffset: 0; }
+}
+
+.hv-pulse-ring  { animation: hv-pulse-ring 3s ease-in-out infinite; }
+.hv-spin-slow   { animation: hv-spin-slow 30s linear infinite; transform-origin: center; }
+.hv-spin-reverse{ animation: hv-spin-reverse 20s linear infinite; transform-origin: center; }
+.hv-spin-tire   { animation: hv-spin-slow 40s linear infinite; transform-origin: center; }
+.hv-bob         { animation: hv-bob 3s ease-in-out infinite; }
+.hv-slide-in-1  { animation: hv-slide-in 0.6s ease-out 0.1s both; }
+.hv-slide-in-2  { animation: hv-slide-in 0.6s ease-out 0.3s both; }
+.hv-slide-in-3  { animation: hv-slide-in 0.6s ease-out 0.5s both; }
+.hv-draw-line   { animation: hv-draw-line 2s ease-out 0.7s both; }
+.hv-flow-1      { animation: hv-flow 2s linear infinite; }
+.hv-flow-2      { animation: hv-flow 2s linear infinite 0.7s; }
+.hv-pop-in      { animation: hv-pop-in 0.5s ease-out; }
+.hv-scan        { animation: hv-scan 2.5s ease-in-out infinite; }
+.hv-float-1     { animation: hv-float-1 3s ease-in-out infinite; }
+.hv-float-2     { animation: hv-float-2 3.5s ease-in-out infinite; }
+.hv-ping-1      { animation: hv-ping-slow 2s ease-out infinite; }
+.hv-ping-2      { animation: hv-ping-slow 2s ease-out infinite 0.6s; }
+.hv-fade-loop   { animation: hv-fade-loop 2s ease-in-out infinite; }
+.hv-fade-loop-2 { animation: hv-fade-loop 2s ease-in-out infinite 0.5s; }
+.hv-fade-loop-3 { animation: hv-fade-loop 2s ease-in-out infinite 1s; }
+.hv-pulse-soft  { animation: hv-pulse-soft 2s ease-in-out infinite; }
+.hv-draw-chart  { animation: hv-draw-chart 1.5s ease-out forwards; }
