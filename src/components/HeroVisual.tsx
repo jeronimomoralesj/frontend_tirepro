@@ -13,7 +13,7 @@ import "./heroAnimations.css";
 export default function HeroVisual() {
   return (
     <div
-      className="relative w-full max-w-6xl xl:max-w-7xl mx-auto rounded-3xl overflow-hidden"
+      className="relative w-full mx-auto rounded-3xl overflow-hidden"
       style={{
         background:
           "linear-gradient(135deg, rgba(10,24,58,0.6) 0%, rgba(23,61,104,0.4) 50%, rgba(30,118,182,0.3) 100%)",
@@ -39,6 +39,27 @@ export default function HeroVisual() {
             "radial-gradient(ellipse at center, rgba(52,140,203,0.18) 0%, transparent 70%)",
         }}
       />
+
+      {/* Tire tread pattern decorations in the corners */}
+      <CornerTreadDecoration position="top-left" />
+      <CornerTreadDecoration position="top-right" />
+      <CornerTreadDecoration position="bottom-left" />
+      <CornerTreadDecoration position="bottom-right" />
+
+      {/* Tire track lines crossing the panel */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <svg className="absolute top-1/2 left-0 w-full h-16 -translate-y-1/2 opacity-[0.06]" preserveAspectRatio="none" viewBox="0 0 1200 60">
+          {/* Left tire track */}
+          <g>
+            {Array.from({ length: 60 }).map((_, i) => (
+              <rect key={i} x={i * 22} y="14" width="14" height="6" rx="1" fill="#348CCB" />
+            ))}
+            {Array.from({ length: 60 }).map((_, i) => (
+              <rect key={i} x={i * 22 + 4} y="40" width="14" height="6" rx="1" fill="#348CCB" />
+            ))}
+          </g>
+        </svg>
+      </div>
 
       <div className="relative grid grid-cols-1 md:grid-cols-3 items-center gap-6 md:gap-6 lg:gap-10 px-6 md:px-12 lg:px-16 py-12 md:py-16 lg:py-20">
         {/* LEFT: Camera */}
@@ -206,6 +227,99 @@ function FlowConnector({ position }: { position: "left" | "right" }) {
           boxShadow: "0 0 12px #348CCB",
         }}
       />
+    </div>
+  );
+}
+
+// ── Corner tread decoration — tire tread pattern in panel corners ──────────
+function CornerTreadDecoration({
+  position,
+}: {
+  position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+}) {
+  const isTop = position.startsWith("top");
+  const isLeft = position.endsWith("left");
+  return (
+    <div
+      className="absolute pointer-events-none hidden md:block"
+      style={{
+        [isTop ? "top" : "bottom"]: "16px",
+        [isLeft ? "left" : "right"]: "16px",
+        width: "120px",
+        height: "120px",
+      }}
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 120 120"
+        className="w-full h-full"
+        style={{
+          transform: `${isLeft ? "" : "scaleX(-1)"} ${isTop ? "" : "scaleY(-1)"}`,
+        }}
+      >
+        {/* Curved tire tread blocks fanning from the corner */}
+        <g opacity="0.18">
+          {/* Outer arc treads */}
+          {Array.from({ length: 8 }).map((_, i) => {
+            const angle = (i * 90) / 8;
+            const rad = (angle * Math.PI) / 180;
+            const r = 88;
+            const x1 = r * Math.cos(rad);
+            const y1 = r * Math.sin(rad);
+            return (
+              <rect
+                key={`outer-${i}`}
+                x={x1 - 4}
+                y={y1 - 9}
+                width="8"
+                height="18"
+                rx="1.5"
+                fill="#348CCB"
+                transform={`rotate(${angle} ${x1} ${y1})`}
+              />
+            );
+          })}
+          {/* Middle arc treads */}
+          {Array.from({ length: 6 }).map((_, i) => {
+            const angle = (i * 90) / 6 + 7;
+            const rad = (angle * Math.PI) / 180;
+            const r = 64;
+            const x1 = r * Math.cos(rad);
+            const y1 = r * Math.sin(rad);
+            return (
+              <rect
+                key={`mid-${i}`}
+                x={x1 - 3}
+                y={y1 - 7}
+                width="6"
+                height="14"
+                rx="1.2"
+                fill="#1E76B6"
+                transform={`rotate(${angle} ${x1} ${y1})`}
+              />
+            );
+          })}
+          {/* Inner arc — small dots */}
+          {Array.from({ length: 5 }).map((_, i) => {
+            const angle = (i * 90) / 5 + 9;
+            const rad = (angle * Math.PI) / 180;
+            const r = 42;
+            const x1 = r * Math.cos(rad);
+            const y1 = r * Math.sin(rad);
+            return (
+              <circle key={`inner-${i}`} cx={x1} cy={y1} r="2" fill="#348CCB" />
+            );
+          })}
+        </g>
+        {/* Subtle corner glow */}
+        <circle cx="0" cy="0" r="60" fill="url(#cornerGlow)" />
+        <defs>
+          <radialGradient id="cornerGlow">
+            <stop offset="0%" stopColor="#348CCB" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="#348CCB" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+      </svg>
     </div>
   );
 }

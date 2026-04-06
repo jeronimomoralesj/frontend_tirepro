@@ -852,7 +852,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
         <div className="absolute pointer-events-none" style={{ top: '-10%', right: '-5%', width: '55%', height: '70%', background: 'radial-gradient(ellipse at center, rgba(30,118,182,0.18) 0%, transparent 70%)' }} aria-hidden="true" />
         <div className="absolute pointer-events-none" style={{ bottom: '-5%', left: '-10%', width: '45%', height: '50%', background: 'radial-gradient(ellipse at center, rgba(23,61,104,0.25) 0%, transparent 70%)' }} aria-hidden="true" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-28 sm:pt-36 md:pt-44 pb-16 sm:pb-24">
+        <div className="relative max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 w-full pt-28 sm:pt-36 md:pt-44 pb-16 sm:pb-24">
           <div className="max-w-3xl mx-auto text-center">
 
 
@@ -899,11 +899,14 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
               ))}
             </div>
 
-            {/* Animated hero visual */}
-            <div className="w-full max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto">
-              <HeroVisual />
-            </div>
+          </div>
 
+          {/* Animated hero visual — escapes the max-w-3xl text container */}
+          <div className="w-full mt-2 sm:mt-4">
+            <HeroVisual />
+          </div>
+
+          <div className="max-w-3xl mx-auto text-center">
             <p className="mt-8" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.75rem' }}>
               100% gratis · Para flotas de 1 a 1,000+ vehiculos
             </p>
@@ -983,17 +986,17 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
           </p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
             {[
-              { value: counter1, suffix: '%', label: 'Reducción promedio de CPK', sub: 'en los primeros 6 meses' },
-              { value: counter2, suffix: ' vidas', label: 'Vidas adicionales por llanta', sub: 'con recomendaciones IA' },
-              { value: counter3, suffix: '%', label: 'Precisión en predicciones', sub: 'de desgaste y fallas' },
-              { value: counter4, suffix: '+', label: 'Vehículos activos', sub: 'en Colombia' },
+              { value: counter1, prefix: '',  suffix: '%', label: 'Reducción promedio de CPK', sub: 'en los primeros 6 meses' },
+              { value: counter2, prefix: '+', suffix: '',  label: 'Vidas adicionales por llanta', sub: 'con recomendaciones IA' },
+              { value: counter3, prefix: '',  suffix: '%', label: 'Precisión en predicciones', sub: 'de desgaste y fallas' },
+              { value: counter4, prefix: '',  suffix: '+', label: 'Vehículos activos', sub: 'en Colombia' },
             ].map((stat, i) => (
               <div key={i} className="text-center group">
                 <div
                   className="text-4xl sm:text-5xl md:text-6xl font-black mb-2 tabular-nums"
                   style={{ color: '#0A183A', letterSpacing: '-0.02em' }}
                 >
-                  {stat.value}{stat.suffix}
+                  {stat.prefix}{stat.value}{stat.suffix}
                 </div>
                 <div className="text-sm font-semibold mb-1" style={{ color: '#0A183A' }}>{stat.label}</div>
                 <div className="text-xs" style={{ color: 'rgba(10,24,58,0.45)' }}>{stat.sub}</div>
