@@ -36,6 +36,7 @@ import phoneImage from '../../public/phoneImg.png'
 import feature1 from '../../public/feat1.png'
 import feature2 from '../../public/feat1.png'
 import Link from 'next/link'
+import ScrollFlow from '../components/ScrollFlow'
 
 interface Article {
   id: string | number
@@ -1088,73 +1089,8 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
         </div>
       </section>
 
-      {/* -- HOW IT WORKS ------------------------------------------------------- */}
-      <section
-        id="producto"
-        className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
-        style={{ background: 'linear-gradient(180deg, #f7fafd 0%, #ffffff 100%)' }}
-        aria-labelledby="process-heading"
-      >
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16 sm:mb-20">
-            <p
-              className="text-xs font-semibold tracking-widest uppercase mb-4"
-              style={{ color: '#1E76B6', letterSpacing: '0.16em' }}
-            >
-              Cómo funciona
-            </p>
-            <h2
-              id="process-heading"
-              className="font-bold leading-tight mb-5"
-              style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)', color: '#0A183A' }}
-            >
-              Cómo funciona el control de llantas
-              <br />
-              <span style={{ color: '#1E76B6' }}>con TirePro</span>
-            </h2>
-            <p className="text-lg text-gray-500 max-w-2xl mx-auto">
-              Cuatro pasos que transforman datos de neumáticos en ahorro real en pesos colombianos para tu empresa de transporte.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px" style={{ background: 'rgba(10,24,58,0.08)', borderRadius: '24px', overflow: 'hidden' }}>
-            {process.map((item, index) => (
-              <article
-                key={index}
-                className="relative p-8 sm:p-10 group transition-all duration-300"
-                style={{ background: '#ffffff' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#f0f6fb')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#ffffff')}
-              >
-                <div
-                  className="text-6xl font-black mb-6 leading-none"
-                  style={{ color: 'rgba(30,118,182,0.1)', letterSpacing: '-0.04em' }}
-                  aria-hidden="true"
-                >
-                  {item.step}
-                </div>
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-5"
-                  style={{ background: 'linear-gradient(135deg, #1E76B6, #173D68)' }}
-                >
-                  <item.icon size={20} className="text-white" />
-                </div>
-                <h3 className="text-lg font-bold mb-3" style={{ color: '#0A183A' }}>{item.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(10,24,58,0.55)' }}>{item.description}</p>
-                {index < process.length - 1 && (
-                  <div
-                    className="hidden lg:flex absolute top-1/2 -right-3 w-6 h-6 rounded-full items-center justify-center z-10"
-                    style={{ background: '#1E76B6', transform: 'translateY(-50%)' }}
-                    aria-hidden="true"
-                  >
-                    <ArrowRight size={12} className="text-white" />
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* -- SCROLL FLOW (interactive process visualization) ------------------- */}
+      <ScrollFlow />
 
       {/* -- FEATURE SHOWCASE ---------------------------------------------------- */}
       <FeatureShowcase />
