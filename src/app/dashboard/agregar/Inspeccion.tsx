@@ -83,6 +83,7 @@ type Vehicle = {
   _count?: { tires: number };
   kilometrajeActual: number;
   union?: string[];
+  companyId?: string;
 };
 
 type Inspeccion = {
@@ -972,6 +973,110 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [showStructureModal, setShowStructureModal] = useState(false);
   const [savingStructure,    setSavingStructure]    = useState(false);
 
+  // -- Position rotation / free-tire pool ------------------------------------
+  // Track each tire's original position so we can persist the diff on submit.
+  const originalPositions = useRef<Record<string, number>>({});
+  const [freeTires,        setFreeTires]      = useState<Tire[]>([]);
+  const [freeActionTireId, setFreeActionTireId] = useState<string | null>(null);
+  const [bucketData,       setBucketData]     = useState<{ disponible: number; buckets: { id: string; nombre: string; color?: string; icono?: string; tireCount: number }[] }>({ disponible: 0, buckets: [] });
+
+  // Move the currently-selected tire onto a different position. The tire
+  // that previously occupied that slot becomes "free" (lands in the
+  // Llantas libres pool above the diagram).
+  function rotateSelectedToPosition(targetPos: number) {
+    if (!selectedTireId) return;
+    setTires((prev) => {
+      const moving = prev.find((t) => t.id === selectedTireId);
+      if (!moving || moving.posicion === targetPos) return prev;
+      const occupant = prev.find((t) => t.posicion === targetPos);
+      const next = prev.map((t) => {
+        if (t.id === moving.id) return { ...t, posicion: targetPos };
+        if (occupant && t.id === occupant.id) return { ...t, posicion: 0 };
+        return t;
+      });
+      if (occupant) {
+        // Remove occupant from `tires` and push to free pool — the diagram
+        // hides position-0 tires anyway, but keeping it out of `tires`
+        // makes the free-pool the single source of truth.
+        const filtered = next.filter((t) => t.id !== occupant.id);
+        setFreeTires((fp) =>
+          fp.find((t) => t.id === occupant.id) ? fp : [...fp, { ...occupant, posicion: 0 }]
+        );
+        return filtered;
+      }
+      return next;
+    });
+  }
+
+  // Place a previously-freed tire onto a vehicle position. If that slot is
+  // currently occupied the occupant becomes free in turn.
+  function assignFreeTireToPosition(freeTireId: string, targetPos: number) {
+    const free = freeTires.find((t) => t.id === freeTireId);
+    if (!free) return;
+    setTires((prev) => {
+      const occupant = prev.find((t) => t.posicion === targetPos);
+      const cleaned = occupant ? prev.filter((t) => t.id !== occupant.id) : prev;
+      if (occupant) {
+        setFreeTires((fp) =>
+          fp.find((t) => t.id === occupant.id)
+            ? fp
+            : [...fp.filter((t) => t.id !== freeTireId), { ...occupant, posicion: 0 }]
+        );
+      } else {
+        setFreeTires((fp) => fp.filter((t) => t.id !== freeTireId));
+      }
+      return [...cleaned, { ...free, posicion: targetPos }];
+    });
+    // Make sure tireUpdates has an entry for the re-introduced tire.
+    setTireUpdates((prev) =>
+      prev[freeTireId]
+        ? prev
+        : { ...prev, [freeTireId]: { profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null } }
+    );
+    setFreeActionTireId(null);
+  }
+
+  // Send a freed tire to one of the inventory buckets (or "disponible").
+  // Persists immediately via /inventory-buckets/move and removes the tire
+  // from the local pool.
+  async function assignFreeTireToBucket(freeTireId: string, bucketId: string | null) {
+    const cId = vehicle?.companyId;
+    if (!cId) {
+      setError("No se pudo determinar la empresa del vehículo");
+      return;
+    }
+    try {
+      // Detach from the vehicle first so the tire is not stuck on it.
+      await fetch(`${API_BASE}/tires/unassign-vehicle`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ tireIds: [freeTireId] }),
+      });
+      await fetch(`${API_BASE}/inventory-buckets/move`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ tireId: freeTireId, bucketId, companyId: cId }),
+      });
+      setFreeTires((fp) => fp.filter((t) => t.id !== freeTireId));
+      // Drop any pending inspection update for it — it's gone from this
+      // vehicle now and shouldn't block submit.
+      setTireUpdates((prev) => {
+        const next = { ...prev };
+        delete next[freeTireId];
+        return next;
+      });
+      // Refresh bucket counts.
+      try {
+        const bRes = await fetch(`${API_BASE}/inventory-buckets?companyId=${cId}`, { headers: authHeaders() });
+        if (bRes.ok) setBucketData(await bRes.json());
+      } catch { /* ignore */ }
+    } catch {
+      setError("No se pudo mover la llanta al grupo seleccionado");
+    } finally {
+      setFreeActionTireId(null);
+    }
+  }
+
   async function handleUpdateStructure(cfg: string) {
     if (!vehicle) return;
     setSavingStructure(true);
@@ -1027,6 +1132,21 @@ export default function InspeccionPage({ language }: { language?: string }) {
       const tData: Tire[] = await tRes.json();
       tData.sort((a, b) => a.posicion - b.posicion);
       setTires(tData);
+
+      // Snapshot original positions so we can persist any rotations on submit.
+      const orig: Record<string, number> = {};
+      tData.forEach((t) => { orig[t.id] = t.posicion; });
+      originalPositions.current = orig;
+      setFreeTires([]);
+
+      // Load inventory buckets for the vehicle's company so the free-tire
+      // pool can offer them as a destination.
+      if (vData.companyId) {
+        try {
+          const bRes = await fetch(`${API_BASE}/inventory-buckets?companyId=${vData.companyId}`, { headers: authHeaders() });
+          if (bRes.ok) setBucketData(await bRes.json());
+        } catch { /* ignore */ }
+      }
 
       const unionPlacas: string[] = Array.isArray(vData.union) ? vData.union : [];
       let uVehicle: Vehicle | null = null;
@@ -1125,6 +1245,39 @@ export default function InspeccionPage({ language }: { language?: string }) {
     setSubmitting(true);
     try {
       const kmDiff = vehicle ? Number(newKilometraje) - vehicle.kilometrajeActual : 0;
+
+      // Persist any position rotations the technician made before recording
+      // the inspections themselves. We only call the endpoint if something
+      // actually changed compared to the snapshot taken on load.
+      if (vehicle) {
+        const updates: Record<string, string> = {};
+        let changed = false;
+        for (const t of tires) {
+          if (t.posicion > 0) updates[String(t.posicion)] = t.id;
+          if (originalPositions.current[t.id] !== t.posicion) changed = true;
+        }
+        // Tires that started on the vehicle but were freed and not placed
+        // back also count as a change.
+        for (const id of Object.keys(originalPositions.current)) {
+          if (!tires.find((t) => t.id === id) && !freeTires.find((t) => t.id === id)) continue;
+          if (freeTires.find((t) => t.id === id)) changed = true;
+        }
+        if (changed) {
+          const res = await fetch(`${API_BASE}/tires/update-positions`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ placa: vehicle.placa.toLowerCase(), updates }),
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.message ?? "Error al actualizar las posiciones");
+          }
+          // Update snapshot so subsequent submits don't re-send the same diff.
+          const newOrig: Record<string, number> = {};
+          tires.forEach((t) => { newOrig[t.id] = t.posicion; });
+          originalPositions.current = newOrig;
+        }
+      }
 
       for (const tire of allTires) {
         const upd      = tireUpdates[tire.id];
@@ -1539,6 +1692,44 @@ export default function InspeccionPage({ language }: { language?: string }) {
                   subtitle={`${vehicle!.placa.toUpperCase()} · ${tires.length} llantas`}
                 />
 
+                {/* Llantas libres pool — tires displaced by rotations.
+                   Click one to choose a destination (position or bucket). */}
+                {freeTires.length > 0 && (
+                  <div
+                    className="rounded-xl p-3 mb-3"
+                    style={{ background: "rgba(247,167,52,0.08)", border: "1px dashed rgba(247,167,52,0.4)" }}
+                  >
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Circle className="w-3 h-3 text-[#f59e0b]" />
+                      <p className="text-[10px] font-bold text-[#92400e] uppercase tracking-wider">
+                        Llantas libres ({freeTires.length})
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {freeTires.map((ft) => (
+                        <button
+                          key={ft.id}
+                          type="button"
+                          onClick={() => setFreeActionTireId(ft.id)}
+                          className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 transition-all hover:scale-105"
+                          style={{
+                            background: "white",
+                            border: "1.5px solid rgba(247,167,52,0.6)",
+                            minWidth: 64,
+                          }}
+                          title="Click para asignar posición o bucket"
+                        >
+                          <span className="text-[9px] font-black text-[#0A183A]">{ft.marca}</span>
+                          <span className="text-[8px] text-[#348CCB]">Sin pos</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[9px] text-[#92400e]/70 mt-2">
+                      Haz clic en una llanta libre para asignarla a una posición o moverla a inventario.
+                    </p>
+                  </div>
+                )}
+
                 {/* Vehicle diagram — click to select */}
                 <InspectionDiagram
                   tires={tires}
@@ -1561,7 +1752,50 @@ export default function InspeccionPage({ language }: { language?: string }) {
 
                 {/* Selected tire inspection form */}
                 {selectedTireId && tires.find((t) => t.id === selectedTireId) && (
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-3">
+                    {/* Mover de posición */}
+                    {(() => {
+                      const sel = tires.find((t) => t.id === selectedTireId)!;
+                      const allPositions = Array.from(
+                        new Set([
+                          ...tires.map((t) => t.posicion).filter((p) => p > 0),
+                          ...Object.values(originalPositions.current).filter((p) => p > 0),
+                        ])
+                      ).sort((a, b) => a - b);
+                      const otherPositions = allPositions.filter((p) => p !== sel.posicion);
+                      if (otherPositions.length === 0) return null;
+                      return (
+                        <div className="rounded-xl p-3" style={{ background: "rgba(30,118,182,0.05)", border: "1px solid rgba(30,118,182,0.18)" }}>
+                          <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1">Mover de posición</p>
+                          <p className="text-[10px] text-[#173D68]/70 mb-2">
+                            Al seleccionar se rotará la llanta y la llanta en esa posición quedará libre.
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {otherPositions.map((p) => {
+                              const occupant = tires.find((t) => t.posicion === p);
+                              return (
+                                <button
+                                  key={p}
+                                  type="button"
+                                  onClick={() => rotateSelectedToPosition(p)}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
+                                  style={{
+                                    background: "white",
+                                    border: "1px solid rgba(30,118,182,0.4)",
+                                    color: "#1E76B6",
+                                  }}
+                                  title={occupant ? `Actualmente: ${occupant.marca}` : "Posición vacía"}
+                                >
+                                  P{p}
+                                  {occupant && <span className="text-[8px] text-[#348CCB] ml-1">({occupant.marca})</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <TireInspectionCard
                       tire={tires.find((t) => t.id === selectedTireId)!}
                       updates={
@@ -1675,6 +1909,96 @@ export default function InspeccionPage({ language }: { language?: string }) {
           saving={savingStructure}
         />
       )}
+
+      {/* Free-tire action picker — assign to position or to a bucket */}
+      {freeActionTireId && (() => {
+        const free = freeTires.find((t) => t.id === freeActionTireId);
+        if (!free) return null;
+        const occupiedPositions = new Set(tires.filter((t) => t.posicion > 0).map((t) => t.posicion));
+        const allKnownPositions = Array.from(
+          new Set([
+            ...tires.map((t) => t.posicion).filter((p) => p > 0),
+            ...Object.values(originalPositions.current).filter((p) => p > 0),
+          ])
+        ).sort((a, b) => a - b);
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(10,24,58,0.55)" }}
+            onClick={() => setFreeActionTireId(null)}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#348CCB]/15">
+                <div>
+                  <h3 className="text-sm font-bold text-[#0A183A]">{free.marca} — sin posición</h3>
+                  <p className="text-[11px] text-[#93b8d4] mt-0.5">Asígnale una nueva posición o muévela a inventario.</p>
+                </div>
+                <button type="button" onClick={() => setFreeActionTireId(null)} className="p-1.5 rounded-lg hover:bg-[#F0F7FF] transition-colors">
+                  <X className="w-4 h-4 text-[#1E76B6]" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">Posiciones</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {allKnownPositions.map((p) => {
+                      const occupant = tires.find((t) => t.posicion === p);
+                      const isOcc = occupiedPositions.has(p);
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => assignFreeTireToPosition(free.id, p)}
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
+                          style={{
+                            background: isOcc ? "rgba(247,167,52,0.08)" : "white",
+                            border: isOcc ? "1px solid rgba(247,167,52,0.5)" : "1px solid rgba(30,118,182,0.4)",
+                            color: "#1E76B6",
+                          }}
+                          title={occupant ? `Esta posición está ocupada por ${occupant.marca} — quedará libre` : "Posición vacía"}
+                        >
+                          P{p}
+                          {occupant && <span className="text-[8px] text-[#92400e] ml-1">({occupant.marca})</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">Inventario</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => assignFreeTireToBucket(free.id, null)}
+                      className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
+                      style={{ background: "white", border: "1px solid rgba(30,118,182,0.4)", color: "#1E76B6" }}
+                    >
+                      ✅ Disponible
+                    </button>
+                    {bucketData.buckets.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => assignFreeTireToBucket(free.id, b.id)}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
+                        style={{ background: "white", border: `1px solid ${b.color || "rgba(30,118,182,0.4)"}`, color: b.color || "#1E76B6" }}
+                      >
+                        {b.icono ?? "📦"} {b.nombre}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
         </>
         )}
