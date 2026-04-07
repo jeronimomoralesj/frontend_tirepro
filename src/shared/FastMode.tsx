@@ -86,6 +86,142 @@ function convertFileToBase64(file: File): Promise<string> {
 let tempCounter = 0;
 function makeTempId() { return `new_${++tempCounter}_${Date.now()}`; }
 
+// -- Vehicle diagram (read-only) ----------------------------------------------
+// Mirrors the layout logic used in Inspeccion / Posicion: build axles from
+// the vehicle's `configuracion` (e.g. "2-4-4"), fall back to a sensible
+// position-based heuristic, then append extra slots for any tire whose
+// position would otherwise be hidden — guaranteeing every real tire shows.
+
+function parseConfig(cfg: string): number[][] {
+  const parts = cfg.split("-").map(Number).filter((n) => n > 0);
+  const axles: number[][] = [];
+  let pos = 1;
+  for (const count of parts) {
+    const a: number[] = [];
+    for (let i = 0; i < count; i++) a.push(pos++);
+    axles.push(a);
+  }
+  return axles;
+}
+
+type DiagramTire = {
+  id: string;
+  marca: string;
+  posicion: number;
+  profundidadInt: number | "";
+  profundidadCen: number | "";
+  profundidadExt: number | "";
+};
+
+function FastVehicleDiagram({
+  tires,
+  configuracion,
+}: {
+  tires: DiagramTire[];
+  configuracion?: string | null;
+}) {
+  const { layout, tireMap } = (() => {
+    const map: Record<number, DiagramTire> = {};
+    tires.forEach((t) => { if (t.posicion > 0) map[t.posicion] = t; });
+    const maxPos = Math.max(0, ...tires.map((t) => t.posicion));
+
+    let axles: number[][] = [];
+    if (configuracion) axles = parseConfig(configuracion);
+    if (axles.length === 0) {
+      if (maxPos <= 2)       axles = [[1, 2]];
+      else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
+      else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
+      else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
+      else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
+      else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
+      else {
+        axles = [];
+        for (let i = 1; i <= maxPos; i += 2) axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
+      }
+    }
+
+    // Leftover safety net — never hide a real tire.
+    const covered = new Set<number>();
+    axles.forEach((a) => a.forEach((p) => covered.add(p)));
+    const leftover = tires
+      .map((t) => t.posicion)
+      .filter((p) => p > 0 && !covered.has(p))
+      .sort((a, b) => a - b);
+    for (let i = 0; i < leftover.length; i += 2) {
+      axles.push(leftover.slice(i, i + 2));
+    }
+
+    return { layout: axles, tireMap: map };
+  })();
+
+  function statusOf(pos: number): "done" | "partial" | "empty" | "none" {
+    const t = tireMap[pos];
+    if (!t) return "none";
+    const filled = [t.profundidadInt, t.profundidadCen, t.profundidadExt].filter((v) => v !== "").length;
+    if (filled === 3) return "done";
+    if (filled > 0)   return "partial";
+    return "empty";
+  }
+
+  const statusColor: Record<string, string> = {
+    done: "#22c55e",
+    partial: "#f97316",
+    empty: "rgba(52,140,203,0.3)",
+    none: "rgba(10,24,58,0.08)",
+  };
+
+  return (
+    <div className="rounded-2xl p-4" style={{ background: "white", border: "1px solid rgba(52,140,203,0.18)" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
+        <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider">Diagrama del vehículo</p>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        {layout.map((axle, axleIdx) => {
+          const mid = Math.ceil(axle.length / 2);
+          const left = axle.slice(0, mid);
+          const right = axle.slice(mid);
+          const tileFor = (pos: number) => {
+            const tire = tireMap[pos];
+            const status = statusOf(pos);
+            return (
+              <div
+                key={pos}
+                className="relative flex flex-col items-center justify-center rounded-lg"
+                style={{
+                  width: 50, height: 50,
+                  background: "rgba(10,24,58,0.02)",
+                  border: `2px solid ${statusColor[status]}`,
+                  opacity: tire ? 1 : 0.4,
+                }}
+              >
+                <span className="text-[9px] font-black" style={{ color: "#0A183A" }}>P{pos}</span>
+                {tire && <span className="text-[7px] font-bold truncate max-w-[40px]" style={{ color: "#348CCB" }}>{tire.marca}</span>}
+                {status === "done"    && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 border border-white" />}
+                {status === "partial" && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-orange-400 border border-white" />}
+              </div>
+            );
+          };
+          return (
+            <div key={axleIdx} className="flex items-center gap-0">
+              <div className="flex items-center gap-0.5">{left.map(tileFor)}</div>
+              <div className="h-3 mx-1 rounded-full flex items-center justify-center" style={{ background: "#0A183A", minWidth: 36, width: 44 }}>
+                <div className="h-0.5 w-7 rounded-full" style={{ background: "#1E76B6" }} />
+              </div>
+              <div className="flex items-center gap-0.5">{right.map(tileFor)}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-center gap-3 mt-3">
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /><span className="text-[9px] text-gray-400">Completa</span></div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-400" /><span className="text-[9px] text-gray-400">Parcial</span></div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ background: "rgba(52,140,203,0.3)" }} /><span className="text-[9px] text-gray-400">Pendiente</span></div>
+      </div>
+    </div>
+  );
+}
+
 // -- Component ----------------------------------------------------------------
 
 export default function FastMode({ language }: { language: string }) {
@@ -140,7 +276,7 @@ export default function FastMode({ language }: { language: string }) {
         const v = await res.json();
         setVehicleId(v.id);
         setVehicleIsNew(false);
-        setVehicleForm((f) => ({ ...f, placa: v.placa, kilometrajeActual: v.kilometrajeActual, tipovhc: v.tipovhc, carga: v.carga, pesoCarga: v.pesoCarga, cliente: v.cliente ?? "" }));
+        setVehicleForm((f) => ({ ...f, placa: v.placa, kilometrajeActual: v.kilometrajeActual, tipovhc: v.tipovhc, carga: v.carga, pesoCarga: v.pesoCarga, cliente: v.cliente ?? "", configuracion: v.configuracion ?? "" }));
         setNewKilometraje(v.kilometrajeActual);
 
         const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${v.id}`, { headers: authHeaders() });
@@ -498,6 +634,25 @@ export default function FastMode({ language }: { language: string }) {
             <input type="number" value={newKilometraje} onChange={(e) => setNewKilometraje(Number(e.target.value))}
               className={inputCls} min={0} />
           </div>
+
+          {/* Vehicle diagram — same layout logic as Inspeccion */}
+          {(existingTires.length > 0 || newTires.some((t) => t.posicion > 0)) && (
+            <FastVehicleDiagram
+              tires={[
+                ...existingTires.map((t) => ({
+                  id: t.id, marca: t.marca, posicion: t.posicion,
+                  profundidadInt: t.profundidadInt, profundidadCen: t.profundidadCen, profundidadExt: t.profundidadExt,
+                })),
+                ...newTires
+                  .filter((t) => t.posicion > 0)
+                  .map((t) => ({
+                    id: t.tempId, marca: t.marca || "Nueva", posicion: t.posicion,
+                    profundidadInt: t.profundidadInt, profundidadCen: t.profundidadCen, profundidadExt: t.profundidadExt,
+                  })),
+              ]}
+              configuracion={vehicleForm.configuracion}
+            />
+          )}
 
           {/* Existing tires */}
           {existingTires.length > 0 && (
