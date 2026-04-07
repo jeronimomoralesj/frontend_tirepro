@@ -13,7 +13,6 @@ import {
   Loader2,
   RotateCcw,
   Save,
-  Plus,
   Eye,
 } from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
@@ -533,25 +532,6 @@ function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange, 
     return map;
   }, [tires]);
 
-  const addAxle = () => {
-    if (layout.length >= 3) return;
-    const last = layoutWithPositions.flat();
-    const nextStart = last.length > 0 ? parseInt(last[last.length - 1]) + 1 : 1;
-    onLayoutChange([...layout, [nextStart.toString(), (nextStart + 1).toString()]]);
-  };
-
-  const removeAxle = (idx: number) => {
-    if (layout.length <= 1) return;
-    onLayoutChange(layout.filter((_, i) => i !== idx));
-  };
-
-  const toggleDual = (axleIdx: number) => {
-    const newLayout = layout.map((axle, i) => i !== axleIdx ? axle : axle.length === 2 ? [...axle, ...axle] : axle.slice(0, 2));
-    let counter = 1;
-    const rebuilt = newLayout.map((axle) => { const p = axle.map((_, j) => (counter + j).toString()); counter += axle.length; return p; });
-    onLayoutChange(rebuilt);
-  };
-
   return (
     <Card>
       <div className="flex items-center gap-3 mb-5">
@@ -576,37 +556,9 @@ function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange, 
         {layoutWithPositions.map((positions, idx) => (
           <div key={idx} className="w-full flex flex-col items-center gap-2">
             <VehicleAxle axleIdx={idx} positions={positions} tireMap={tireMap} onTireDrop={onTireDrop} />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => toggleDual(idx)}
-                className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:opacity-80"
-                style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
-              >
-                {positions.length === 2 ? "→ Doble" : "→ Simple"}
-              </button>
-              {layout.length > 1 && (
-                <button
-                  onClick={() => removeAxle(idx)}
-                  className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:opacity-80"
-                  style={{ background: "rgba(10,24,58,0.06)", color: "#173D68" }}
-                >
-                  Quitar eje
-                </button>
-              )}
-            </div>
           </div>
         ))}
       </div>
-
-      {layout.length < 3 && (
-        <button
-          onClick={addAxle}
-          className="mt-6 w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-80"
-          style={{ border: "2px dashed rgba(52,140,203,0.35)", color: "#1E76B6", background: "transparent" }}
-        >
-          <Plus className="w-4 h-4" /> Agregar Eje
-        </button>
-      )}
     </Card>
   );
 }

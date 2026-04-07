@@ -13,7 +13,6 @@ import {
   Loader2,
   RotateCcw,
   Save,
-  Plus,
   Eye,
 } from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
@@ -533,25 +532,6 @@ function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange, 
     return map;
   }, [tires]);
 
-  const addAxle = () => {
-    if (layout.length >= 3) return;
-    const last = layoutWithPositions.flat();
-    const nextStart = last.length > 0 ? parseInt(last[last.length - 1]) + 1 : 1;
-    onLayoutChange([...layout, [nextStart.toString(), (nextStart + 1).toString()]]);
-  };
-
-  const removeAxle = (idx: number) => {
-    if (layout.length <= 1) return;
-    onLayoutChange(layout.filter((_, i) => i !== idx));
-  };
-
-  const toggleDual = (axleIdx: number) => {
-    const newLayout = layout.map((axle, i) => i !== axleIdx ? axle : axle.length === 2 ? [...axle, ...axle] : axle.slice(0, 2));
-    let counter = 1;
-    const rebuilt = newLayout.map((axle) => { const p = axle.map((_, j) => (counter + j).toString()); counter += axle.length; return p; });
-    onLayoutChange(rebuilt);
-  };
-
   return (
     <Card>
       <div className="flex items-center gap-3 mb-5">
@@ -576,37 +556,9 @@ function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange, 
         {layoutWithPositions.map((positions, idx) => (
           <div key={idx} className="w-full flex flex-col items-center gap-2">
             <VehicleAxle axleIdx={idx} positions={positions} tireMap={tireMap} onTireDrop={onTireDrop} />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => toggleDual(idx)}
-                className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:opacity-80"
-                style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
-              >
-                {positions.length === 2 ? "→ Doble" : "→ Simple"}
-              </button>
-              {layout.length > 1 && (
-                <button
-                  onClick={() => removeAxle(idx)}
-                  className="text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:opacity-80"
-                  style={{ background: "rgba(10,24,58,0.06)", color: "#173D68" }}
-                >
-                  Quitar eje
-                </button>
-              )}
-            </div>
           </div>
         ))}
       </div>
-
-      {layout.length < 3 && (
-        <button
-          onClick={addAxle}
-          className="mt-6 w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-80"
-          style={{ border: "2px dashed rgba(52,140,203,0.35)", color: "#1E76B6", background: "transparent" }}
-        >
-          <Plus className="w-4 h-4" /> Agregar Eje
-        </button>
-      )}
     </Card>
   );
 }
@@ -963,6 +915,7 @@ export default function PosicionPage() {
   const [showStructureModal, setShowStructureModal] = useState(false);
   const [savingStructure,    setSavingStructure]    = useState(false);
   const [moveToasts,         setMoveToasts]         = useState<{ id: number; message: string }[]>([]);
+  const [clientCompanies,    setClientCompanies]    = useState<{ id: string; name: string }[]>([]);
 
   const pushMoveToast = useCallback((message: string) => {
     const id = Date.now() + Math.random();
@@ -1005,22 +958,55 @@ export default function PosicionPage() {
     Object.keys(originalState).some((id) => !allTires.find((t) => t.id === id)) ||
     allTires.some((t) => originalState[t.id] === undefined && t.position);
 
+  // Distributor flow: load the list of client companies the distributor
+  // serves, then let the user pick one. Inventory buckets and the vehicle
+  // search are scoped to the selected client company.
   useEffect(() => {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") ?? "{}");
-    if (user?.companyId) {
-      setCompanyId(user.companyId);
-      // Load flat list for drag compatibility + bucket data for the panel
-      Promise.all([
-        fetchInventoryTires(user.companyId),
-        fetchBuckets(user.companyId),
-      ]).then(([tires, buckets]) => {
-        setCompanyInventory(tires);
-        setBucketData(buckets);
-      });
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/companies/me/clients`, { headers: authHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data)
+          ? data
+              .map((a: { company?: { id: string; name: string } }) => a.company)
+              .filter((c): c is { id: string; name: string } => !!c?.id)
+          : [];
+        setClientCompanies(list);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // When the user picks a client company, load that company's inventory
+  // (flat list for drag compatibility + bucket data for the panel).
+  useEffect(() => {
+    if (!companyId) {
+      setCompanyInventory([]);
+      setBucketData({ disponible: 0, buckets: [] });
+      return;
     }
-  } catch { /* ignore */ }
-}, []);
+    Promise.all([
+      fetchInventoryTires(companyId),
+      fetchBuckets(companyId),
+    ]).then(([tires, buckets]) => {
+      setCompanyInventory(tires);
+      setBucketData(buckets);
+    });
+  }, [companyId]);
+
+  function handleSelectCompany(id: string) {
+    if (id === companyId) return;
+    setCompanyId(id);
+    // Reset any in-progress vehicle / tire selection so we don't mix data
+    // across companies.
+    setVehicle(null);
+    setAllTires([]);
+    setOriginalState({});
+    setFixedLayout(null);
+    setPlaca("");
+    setError("");
+    setSuccess("");
+  }
 
   function calculateChanges(): TireChange[] {
     return allTires
@@ -1035,11 +1021,15 @@ export default function PosicionPage() {
 
   async function handleSearch() {
     if (!placa.trim()) return;
+    if (!companyId) { setError("Seleccione un cliente primero."); return; }
     setError(""); setSuccess(""); setVehicle(null); setAllTires([]); setOriginalState({}); setFixedLayout(null);
     setLoading(true);
     try {
-      const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa.trim().toLowerCase())}`, { headers: authHeaders() });
-      if (!vRes.ok) throw new Error("Vehículo no encontrado");
+      const vRes = await fetch(
+        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa.trim().toLowerCase())}&companyId=${companyId}`,
+        { headers: authHeaders() }
+      );
+      if (!vRes.ok) throw new Error("Vehículo no encontrado en este cliente");
       const vData: Vehicle = await vRes.json();
       setVehicle(vData);
 
@@ -1180,6 +1170,33 @@ export default function PosicionPage() {
 
           {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
           {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
+
+          {/* Client company picker (distributor flow) */}
+          <Card>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl" style={{ background: "rgba(30,118,182,0.10)" }}>
+                <Package className="w-4 h-4 text-[#1E76B6]" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-[#0A183A] leading-none">Seleccionar Cliente</p>
+                <p className="text-xs text-[#348CCB] mt-0.5">Elige la empresa cliente para cargar su inventario</p>
+              </div>
+            </div>
+            {clientCompanies.length === 0 ? (
+              <p className="text-xs text-[#93b8d4] italic">No hay clientes asignados a este distribuidor.</p>
+            ) : (
+              <select
+                value={companyId}
+                onChange={(e) => handleSelectCompany(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">— Selecciona un cliente —</option>
+                {clientCompanies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            )}
+          </Card>
 
           {/* Search */}
           <Card>
