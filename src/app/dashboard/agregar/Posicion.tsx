@@ -87,6 +87,30 @@ interface Vehicle {
   id: string;
   placa: string;
   tipovhc?: string;
+  configuracion?: string | null;
+}
+
+// Vehicle axle configuration presets — kept in sync with the vehicle dashboard
+// and the inspeccion module so editing is consistent everywhere.
+const CONFIGURACIONES: Record<string, string> = {
+  "2-2":   "2-2 (Camión sencillo)",
+  "2-4":   "2-4 (Sencillo con duales)",
+  "4-4":   "4-4 (Dobletroque)",
+  "2-4-4": "2-4-4 (Tractomula 3 ejes)",
+  "6-4":   "6-4 (Tractomula 2 ejes)",
+  "2-2-2": "2-2-2 (Bus 3 ejes)",
+};
+
+function parseConfig(cfg: string): string[][] {
+  const parts = cfg.split("-").map(Number).filter((n) => n > 0);
+  const axles: string[][] = [];
+  let pos = 1;
+  for (const count of parts) {
+    const a: string[] = [];
+    for (let i = 0; i < count; i++) a.push(String(pos++));
+    axles.push(a);
+  }
+  return axles;
 }
 
 interface TireChange {
@@ -438,27 +462,59 @@ function VehicleAxle({ axleIdx, positions, tireMap, onTireDrop }: {
 // Vehicle visualization
 // =============================================================================
 
-function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange }: {
+function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange, configuracion, onEditStructure }: {
   tires: Tire[];
   onTireDrop: (tireId: string, position: string) => void;
   fixedLayout: string[][] | null;
   onLayoutChange: (layout: string[][]) => void;
+  configuracion?: string | null;
+  onEditStructure: () => void;
 }) {
   const computedLayout = React.useMemo(() => {
-    const active = tires.filter((t) => t.position && t.position !== "0");
-    if (active.length === 0) return [["1", "2"]];
-    const maxPos = Math.max(...active.map((t) => parseInt(t.position!)));
-    let axleSizes: number[];
-    if      (maxPos <= 2)  axleSizes = [2];
-    else if (maxPos <= 4)  axleSizes = [2, maxPos - 2];
-    else if (maxPos <= 6)  axleSizes = [2, 2, maxPos - 4];
-    else if (maxPos <= 8)  axleSizes = [2, Math.floor((maxPos - 2) / 2), maxPos - 2 - Math.floor((maxPos - 2) / 2)];
-    else if (maxPos <= 10) axleSizes = [2, 4, maxPos - 6];
-    else                   axleSizes = [4, 4, 4];
-    axleSizes = axleSizes.slice(0, 3);
-    let counter = 1;
-    return axleSizes.map((size) => { const a = Array.from({ length: size }, (_, j) => (counter + j).toString()); counter += size; return a; });
-  }, [tires]);
+    // Build base layout from vehicle.configuracion if defined, otherwise
+    // derive a sensible default from the active tire positions.
+    let base: string[][] = [];
+    if (configuracion) {
+      base = parseConfig(configuracion);
+    }
+    if (base.length === 0) {
+      const active = tires.filter((t) => t.position && t.position !== "0");
+      if (active.length === 0) return [["1", "2"]];
+      const maxPos = Math.max(...active.map((t) => parseInt(t.position!)));
+      let axleSizes: number[];
+      if      (maxPos <= 2)  axleSizes = [2];
+      else if (maxPos <= 4)  axleSizes = [2, maxPos - 2];
+      else if (maxPos <= 6)  axleSizes = [2, 2, maxPos - 4];
+      else if (maxPos <= 8)  axleSizes = [2, Math.floor((maxPos - 2) / 2), maxPos - 2 - Math.floor((maxPos - 2) / 2)];
+      else if (maxPos <= 10) axleSizes = [2, 4, maxPos - 6];
+      else                   axleSizes = [4, 4, 4];
+      let counter = 1;
+      base = axleSizes.map((size) => {
+        const a = Array.from({ length: size }, (_, j) => (counter + j).toString());
+        counter += size;
+        return a;
+      });
+    }
+
+    // CRITICAL: if any real tire has a position higher than the slots
+    // produced by the base layout, append additional axles so no tire is
+    // ever hidden — even when the chosen configuracion is wrong or shorter
+    // than reality. Slots are renumbered sequentially downstream by
+    // layoutWithPositions, so we just need the base to contain enough
+    // total slots to reach the highest occupied position.
+    const totalSlots = base.reduce((s, a) => s + a.length, 0);
+    const maxTirePos = tires
+      .map((t) => (t.position && t.position !== "0" ? parseInt(t.position) : 0))
+      .reduce((m, n) => (n > m ? n : m), 0);
+    let missing = Math.max(0, maxTirePos - totalSlots);
+    while (missing > 0) {
+      const take = Math.min(2, missing);
+      base.push(Array.from({ length: take }, () => ""));
+      missing -= take;
+    }
+
+    return base;
+  }, [tires, configuracion]);
 
   const layout = React.useMemo(() => fixedLayout ?? computedLayout, [fixedLayout, computedLayout]);
 
@@ -502,10 +558,18 @@ function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange }
         <div className="p-2 rounded-xl" style={{ background: "rgba(30,118,182,0.10)" }}>
           <Truck className="w-4 h-4 text-[#1E76B6]" />
         </div>
-        <div>
+        <div className="flex-1">
           <p className="text-sm font-bold text-[#0A183A] leading-none">Configuración — {layout.length} eje{layout.length > 1 ? "s" : ""}</p>
           <p className="text-xs text-[#348CCB] mt-0.5">Arrastra llantas a las posiciones para asignarlas</p>
         </div>
+        <button
+          type="button"
+          onClick={onEditStructure}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#1E76B6] border border-[#348CCB]/40 hover:bg-[#F0F7FF] transition-colors"
+        >
+          <Truck className="w-3.5 h-3.5" />
+          Editar estructura
+        </button>
       </div>
 
       <div className="flex flex-col gap-8 items-center">
@@ -544,6 +608,117 @@ function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange }
         </button>
       )}
     </Card>
+  );
+}
+
+// =============================================================================
+// Mini axle preview + Edit-structure popup
+// =============================================================================
+
+function MiniAxleDiagram({ config }: { config: string }) {
+  const layout = React.useMemo(() => parseConfig(config), [config]);
+  return (
+    <div className="flex flex-col items-center gap-1.5 py-1">
+      {layout.map((axle, i) => {
+        const mid = Math.ceil(axle.length / 2);
+        const left = axle.slice(0, mid);
+        const right = axle.slice(mid);
+        const TireDot = () => (
+          <div className="rounded-md" style={{ width: 14, height: 14, background: "#1E76B6" }} />
+        );
+        return (
+          <div key={i} className="flex items-center">
+            <div className="flex items-center gap-0.5">
+              {left.map((_, k) => <TireDot key={`l${k}`} />)}
+            </div>
+            <div className="h-1 mx-1 rounded-full" style={{ background: "#0A183A", width: 28 }} />
+            <div className="flex items-center gap-0.5">
+              {right.map((_, k) => <TireDot key={`r${k}`} />)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function EditStructureModal({
+  current,
+  onClose,
+  onSelect,
+  saving,
+}: {
+  current: string | null | undefined;
+  onClose: () => void;
+  onSelect: (cfg: string) => void;
+  saving: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#348CCB]/15">
+          <div>
+            <h3 className="text-base font-bold text-[#0A183A]">Editar estructura del vehículo</h3>
+            <p className="text-[11px] text-[#93b8d4] mt-0.5">
+              Elige la configuración de ejes que mejor represente este vehículo.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-[#F0F7FF] transition-colors"
+          >
+            <X className="w-4 h-4 text-[#1E76B6]" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-5">
+          {Object.entries(CONFIGURACIONES).map(([key, label]) => {
+            const isCurrent = current === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                disabled={saving}
+                onClick={() => onSelect(key)}
+                className="relative flex flex-col items-center justify-between rounded-xl p-3 transition-all hover:scale-[1.02] disabled:opacity-50"
+                style={{
+                  border: isCurrent ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.25)",
+                  background: isCurrent ? "rgba(30,118,182,0.08)" : "#fff",
+                  boxShadow: isCurrent ? "0 4px 16px rgba(30,118,182,0.18)" : "0 1px 4px rgba(10,24,58,0.04)",
+                  minHeight: 130,
+                }}
+              >
+                {isCurrent && (
+                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full" style={{ background: "#1E76B6" }}>
+                    Actual
+                  </span>
+                )}
+                <MiniAxleDiagram config={key} />
+                <span className="text-[10px] font-semibold text-[#0A183A] text-center mt-2 leading-tight">
+                  {label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {saving && (
+          <div className="px-5 pb-4 flex items-center gap-2 text-[11px] text-[#1E76B6]">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Guardando…
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -785,6 +960,29 @@ export default function PosicionPage() {
   const [loading,            setLoading]            = useState(false);
   const [error,              setError]              = useState("");
   const [success,            setSuccess]            = useState("");
+  const [showStructureModal, setShowStructureModal] = useState(false);
+  const [savingStructure,    setSavingStructure]    = useState(false);
+
+  async function handleUpdateStructure(cfg: string) {
+    if (!vehicle) return;
+    setSavingStructure(true);
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicle.id}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ configuracion: cfg || null }),
+      });
+      if (!res.ok) throw new Error("No se pudo actualizar la estructura");
+      const updated = await res.json();
+      setVehicle((v) => v ? { ...v, configuracion: updated.configuracion ?? cfg } : v);
+      setFixedLayout(null); // re-derive layout from new configuracion
+      setShowStructureModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al actualizar estructura");
+    } finally {
+      setSavingStructure(false);
+    }
+  }
 
   const assignedTires  = allTires.filter((t) => t.position && t.position !== "0");
   const availableTires = allTires.filter((t) => !t.position || t.position === "0");
@@ -1038,7 +1236,14 @@ export default function PosicionPage() {
 
           {/* Vehicle visualization */}
           {vehicle && (
-            <VehicleVisualization tires={allTires} onTireDrop={handleDrop} fixedLayout={fixedLayout} onLayoutChange={setFixedLayout} />
+            <VehicleVisualization
+              tires={allTires}
+              onTireDrop={handleDrop}
+              fixedLayout={fixedLayout}
+              onLayoutChange={setFixedLayout}
+              configuracion={vehicle.configuracion}
+              onEditStructure={() => setShowStructureModal(true)}
+            />
           )}
 
           {/* Return to inventory zone */}
@@ -1080,6 +1285,15 @@ export default function PosicionPage() {
         </div>
 
         <ExportModal isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} onExport={() => { pdfGenerator?.generatePDF(); setIsExportOpen(false); }} changes={tireChanges} vehicle={vehicle} />
+
+        {showStructureModal && vehicle && (
+          <EditStructureModal
+            current={vehicle.configuracion}
+            onClose={() => setShowStructureModal(false)}
+            onSelect={handleUpdateStructure}
+            saving={savingStructure}
+          />
+        )}
       </div>
     </DndProvider>
   );
