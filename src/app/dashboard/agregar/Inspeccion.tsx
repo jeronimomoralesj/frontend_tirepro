@@ -70,6 +70,43 @@ function parseConfig(cfg: string): number[][] {
   return axles;
 }
 
+// Compute every valid position the vehicle's grid currently shows. This is
+// the same logic InspectionDiagram uses: start from configuracion (or a
+// position-based fallback), then append extra slots so any tire whose
+// position would otherwise be hidden is still visible. Used by the
+// rotation pickers so empty slots are also offered as targets.
+function computeAllPositions(
+  tires: Array<{ posicion: number }>,
+  configuracion?: string | null
+): number[] {
+  const maxPos = Math.max(0, ...tires.map((t) => t.posicion));
+  let axles: number[][] = [];
+  if (configuracion) axles = parseConfig(configuracion);
+  if (axles.length === 0) {
+    if (maxPos <= 2)       axles = [[1, 2]];
+    else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
+    else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
+    else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
+    else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
+    else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
+    else {
+      axles = [];
+      for (let i = 1; i <= maxPos; i += 2) axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
+    }
+  }
+  const covered = new Set<number>();
+  axles.forEach((a) => a.forEach((p) => covered.add(p)));
+  const leftover = tires
+    .map((t) => t.posicion)
+    .filter((p) => p > 0 && !covered.has(p))
+    .sort((a, b) => a - b);
+  for (let i = 0; i < leftover.length; i += 2) {
+    const pair = leftover.slice(i, i + 2);
+    pair.forEach((p) => covered.add(p));
+  }
+  return Array.from(covered).sort((a, b) => a - b);
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -1756,12 +1793,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
                     {/* Mover de posición */}
                     {(() => {
                       const sel = tires.find((t) => t.id === selectedTireId)!;
-                      const allPositions = Array.from(
-                        new Set([
-                          ...tires.map((t) => t.posicion).filter((p) => p > 0),
-                          ...Object.values(originalPositions.current).filter((p) => p > 0),
-                        ])
-                      ).sort((a, b) => a - b);
+                      const allPositions = computeAllPositions(tires, vehicle?.configuracion);
                       const otherPositions = allPositions.filter((p) => p !== sel.posicion);
                       if (otherPositions.length === 0) return null;
                       return (
@@ -1915,12 +1947,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
         const free = freeTires.find((t) => t.id === freeActionTireId);
         if (!free) return null;
         const occupiedPositions = new Set(tires.filter((t) => t.posicion > 0).map((t) => t.posicion));
-        const allKnownPositions = Array.from(
-          new Set([
-            ...tires.map((t) => t.posicion).filter((p) => p > 0),
-            ...Object.values(originalPositions.current).filter((p) => p > 0),
-          ])
-        ).sort((a, b) => a - b);
+        const allKnownPositions = computeAllPositions(tires, vehicle?.configuracion);
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
