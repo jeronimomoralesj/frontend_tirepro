@@ -55,6 +55,7 @@ const CONFIGURACIONES: Record<string, string> = {
   "2-4-4": "2-4-4 (Tractomula 3 ejes)",
   "6-4":   "6-4 (Tractomula 2 ejes)",
   "2-2-2": "2-2-2 (Bus 3 ejes)",
+  "4-4-4": "4-4-4 (3 ejes con duales)",
 };
 
 function parseConfig(cfg: string): number[][] {

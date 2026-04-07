@@ -98,6 +98,7 @@ const CONFIGURACIONES: Record<string, string> = {
   "2-4-4": "2-4-4 (Tractomula 3 ejes)",
   "6-4":   "6-4 (Tractomula 2 ejes)",
   "2-2-2": "2-2-2 (Bus 3 ejes)",
+  "4-4-4": "4-4-4 (3 ejes con duales)",
 };
 
 function parseConfig(cfg: string): string[][] {
@@ -1086,6 +1087,26 @@ export default function PosicionPage() {
     if (vehicle && allTires.length > 0) setPdfGenerator(CroquisPdf({ vehicle, changes: calculateChanges(), allTires }));
   }, [vehicle, allTires, originalState]);
 
+  // Full reset: re-fetch the vehicle's tires AND reload the company
+  // inventory + buckets so any tire that was tentatively pulled from a
+  // bucket onto the vehicle reappears where it belongs.
+  async function handleCancel() {
+    if (!vehicle && !placa.trim()) return;
+    setError(""); setSuccess("");
+    if (companyId) {
+      try {
+        const [tires, buckets] = await Promise.all([
+          fetchInventoryTires(companyId),
+          fetchBuckets(companyId),
+        ]);
+        setCompanyInventory(tires);
+        setBucketData(buckets);
+      } catch { /* ignore */ }
+    }
+    setInventoryRefresh((r) => r + 1);
+    await handleSearch();
+  }
+
   async function handleSearch() {
     if (!placa.trim()) return;
     if (!companyId) { setError("Seleccione un cliente primero."); return; }
@@ -1446,7 +1467,7 @@ export default function PosicionPage() {
               </button>
               {hasChanges && (
                 <button
-                  onClick={handleSearch}
+                  onClick={handleCancel}
                   disabled={loading}
                   className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors"
                 >
