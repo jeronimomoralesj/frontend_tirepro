@@ -737,16 +737,34 @@ function BucketInventoryPanel({
   bucketData,
   onTiresLoaded,
   refreshKey,
+  onDropToBucket,
 }: {
   companyId:    string;
   bucketData:   BucketData;
   onTiresLoaded: (tires: Tire[]) => void;
   refreshKey:   number;
+  onDropToBucket?: (tireId: string, bucketId: string, bucketName: string) => void;
 }) {
   const [activeTab,   setActiveTab]   = useState<string>("disponible");
   const [tires,       setTires]       = useState<Tire[]>([]);
   const [loadingTab,  setLoadingTab]  = useState(false);
   const [search,      setSearch]      = useState("");
+  const dropRefEl = useRef<HTMLDivElement>(null);
+  const [{ isOver }, dropRef] = useDrop(
+    () => ({
+      accept: ItemTypes.TIRE,
+      drop: (item: { id: string }) => {
+        if (!onDropToBucket) return;
+        const name = (activeTab === "disponible"
+          ? "Disponible"
+          : (bucketData.buckets.find((b) => b.id === activeTab)?.nombre ?? "bucket"));
+        onDropToBucket(item.id, activeTab, name);
+      },
+      collect: (m) => ({ isOver: !!m.isOver() }),
+    }),
+    [activeTab, bucketData, onDropToBucket]
+  );
+  useEffect(() => { if (dropRefEl.current) dropRef(dropRefEl.current); }, [dropRef]);
 
   // Load tires when tab changes or parent forces refresh
   useEffect(() => {
@@ -773,7 +791,17 @@ function BucketInventoryPanel({
   const activeTabData = tabs.find(t => t.id === activeTab);
 
   return (
-    <Card>
+    <div
+      ref={dropRefEl}
+      className="rounded-2xl p-5 transition-all"
+      style={{
+        background: "white",
+        border: isOver ? "2px dashed #1E76B6" : "1px solid rgba(52,140,203,0.18)",
+        boxShadow: isOver
+          ? "0 4px 24px rgba(30,118,182,0.18)"
+          : "0 4px 24px rgba(10,24,58,0.05)",
+      }}
+    >
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <Package className="w-3.5 h-3.5 text-[#1E76B6]" />
@@ -853,9 +881,9 @@ function BucketInventoryPanel({
       )}
 
       <p className="text-xs text-[#348CCB] mt-3">
-        Arrastra una llanta al diagrama del vehículo para asignarla.
+        Arrastra una llanta al diagrama del vehículo para asignarla, o suelta una llanta sobre este panel para moverla al grupo seleccionado.
       </p>
-    </Card>
+    </div>
   );
 }
 
@@ -928,6 +956,49 @@ export default function PosicionPage() {
     if (!p || p === "0") return "Inventario";
     return `Pos ${p}`;
   }
+
+  // Drop a tire onto a specific bucket in the inventory panel: unassign it
+  // from the vehicle (locally) and persist the bucket move to the backend.
+  const handleDropToBucket = useCallback(async (tireId: string, bucketId: string, bucketName: string) => {
+    if (!companyId) return;
+    const fromVehicle = allTires.find((t) => t.id === tireId);
+    const fromInventory = companyInventory.find((t) => t.id === tireId);
+    const tire = fromVehicle ?? fromInventory;
+    if (!tire) return;
+
+    // Local state: pull off the vehicle (if applicable) and ensure it shows
+    // up in companyInventory.
+    if (fromVehicle) {
+      const fromLabel = describePos(fromVehicle.position);
+      setAllTires((prev) => prev.filter((t) => t.id !== tireId));
+      setCompanyInventory((prev) =>
+        prev.find((t) => t.id === tireId)
+          ? prev
+          : [...prev, { ...fromVehicle, position: null, posicion: null, vehicleId: null }]
+      );
+      pushMoveToast(`${fromVehicle.marca} movida de ${fromLabel} a ${bucketName}`);
+    } else if (fromInventory) {
+      pushMoveToast(`${fromInventory.marca} movida a ${bucketName}`);
+    }
+
+    // Persist the bucket assignment. "disponible" means the default pool
+    // (no specific bucket) — represented as bucketId: null on the backend.
+    try {
+      await fetch(`${API_BASE}/inventory-buckets/move`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          tireId,
+          bucketId: bucketId === "disponible" ? null : bucketId,
+          companyId,
+        }),
+      });
+      // Refresh the bucket panel so counts and contents reflect the move.
+      setInventoryRefresh((r) => r + 1);
+    } catch {
+      setError("No se pudo mover la llanta al grupo seleccionado");
+    }
+  }, [allTires, companyInventory, companyId, pushMoveToast]);
 
   async function handleUpdateStructure(cfg: string) {
     if (!vehicle) return;
@@ -1248,6 +1319,7 @@ export default function PosicionPage() {
                 });
               }}
               refreshKey={inventoryRefresh}
+              onDropToBucket={handleDropToBucket}
             />
           )}
 
@@ -1261,20 +1333,6 @@ export default function PosicionPage() {
               configuracion={vehicle.configuracion}
               onEditStructure={() => setShowStructureModal(true)}
             />
-          )}
-
-          {/* Return to inventory zone */}
-          {vehicle && (
-            <DropZone
-              onDrop={(tireId) => handleDrop(tireId, "none")}
-              className="rounded-2xl p-6 flex flex-col items-center justify-center gap-2 min-h-[100px]"
-              style={{ border: "2px dashed rgba(52,140,203,0.3)", background: "rgba(52,140,203,0.03)" }}
-              activeStyle={{ borderColor: "#1E76B6", background: "rgba(30,118,182,0.08)" }}
-            >
-              <RotateCcw className="w-6 h-6 text-[#348CCB]/60 pointer-events-none" />
-              <p className="font-semibold text-sm text-[#1E76B6] pointer-events-none">Devolver al Inventario</p>
-              <p className="text-xs text-[#348CCB] pointer-events-none">Arrastra aquí una llanta para quitarla del vehículo</p>
-            </DropZone>
           )}
 
           {/* Action buttons */}
