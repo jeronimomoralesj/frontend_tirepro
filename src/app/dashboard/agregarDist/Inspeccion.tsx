@@ -46,6 +46,29 @@ function authHeaders(): HeadersInit {
   };
 }
 
+// Vehicle axle configuration presets (must match the values used in the
+// vehicle dashboard so editing here is consistent with editing there).
+const CONFIGURACIONES: Record<string, string> = {
+  "2-2":   "2-2 (Camión sencillo)",
+  "2-4":   "2-4 (Sencillo con duales)",
+  "4-4":   "4-4 (Dobletroque)",
+  "2-4-4": "2-4-4 (Tractomula 3 ejes)",
+  "6-4":   "6-4 (Tractomula 2 ejes)",
+  "2-2-2": "2-2-2 (Bus 3 ejes)",
+};
+
+function parseConfig(cfg: string): number[][] {
+  const parts = cfg.split("-").map(Number).filter((n) => n > 0);
+  const axles: number[][] = [];
+  let pos = 1;
+  for (const count of parts) {
+    const a: number[] = [];
+    for (let i = 0; i < count; i++) a.push(pos++);
+    axles.push(a);
+  }
+  return axles;
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -451,6 +474,20 @@ function InspectionDiagram({
       }
     }
 
+    // CRITICAL: ensure every real tire is shown. If the chosen layout (from
+    // configuracion or fallback) doesn't cover a tire's position, append it
+    // as an extra axle so nothing is hidden.
+    const covered = new Set<number>();
+    axles.forEach((a) => a.forEach((p) => covered.add(p)));
+    const leftover = tires
+      .map((t) => t.posicion)
+      .filter((p) => p > 0 && !covered.has(p))
+      .sort((a, b) => a - b);
+    for (let i = 0; i < leftover.length; i += 2) {
+      const pair = leftover.slice(i, i + 2);
+      axles.push(pair);
+    }
+
     return { layout: axles, tireMap: map };
   }, [tires, configuracion]);
 
@@ -547,6 +584,123 @@ function InspectionDiagram({
         <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-green-500" /><span className="text-[9px] text-gray-400">Completa</span></div>
         <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-orange-400" /><span className="text-[9px] text-gray-400">Parcial</span></div>
         <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full" style={{ background: "rgba(52,140,203,0.3)" }} /><span className="text-[9px] text-gray-400">Pendiente</span></div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Mini axle preview — used inside the structure-edit popup
+// =============================================================================
+
+function MiniAxleDiagram({ config }: { config: string }) {
+  const layout = useMemo(() => parseConfig(config), [config]);
+  return (
+    <div className="flex flex-col items-center gap-1.5 py-1">
+      {layout.map((axle, i) => {
+        const mid = Math.ceil(axle.length / 2);
+        const left = axle.slice(0, mid);
+        const right = axle.slice(mid);
+        const Tire = () => (
+          <div
+            className="rounded-md"
+            style={{ width: 14, height: 14, background: "#1E76B6" }}
+          />
+        );
+        return (
+          <div key={i} className="flex items-center">
+            <div className="flex items-center gap-0.5">
+              {left.map((_, k) => <Tire key={`l${k}`} />)}
+            </div>
+            <div className="h-1 mx-1 rounded-full" style={{ background: "#0A183A", width: 28 }} />
+            <div className="flex items-center gap-0.5">
+              {right.map((_, k) => <Tire key={`r${k}`} />)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// =============================================================================
+// Edit-structure popup
+// =============================================================================
+
+function EditStructureModal({
+  current,
+  onClose,
+  onSelect,
+  saving,
+}: {
+  current: string | null | undefined;
+  onClose: () => void;
+  onSelect: (cfg: string) => void;
+  saving: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,24,58,0.55)" }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#348CCB]/15">
+          <div>
+            <h3 className="text-base font-bold text-[#0A183A]">Editar estructura del vehículo</h3>
+            <p className="text-[11px] text-[#93b8d4] mt-0.5">
+              Elige la configuración de ejes que mejor represente este vehículo.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-[#F0F7FF] transition-colors"
+          >
+            <X className="w-4 h-4 text-[#1E76B6]" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-5">
+          {Object.entries(CONFIGURACIONES).map(([key, label]) => {
+            const isCurrent = current === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                disabled={saving}
+                onClick={() => onSelect(key)}
+                className="relative flex flex-col items-center justify-between rounded-xl p-3 transition-all hover:scale-[1.02] disabled:opacity-50"
+                style={{
+                  border: isCurrent ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.25)",
+                  background: isCurrent ? "rgba(30,118,182,0.08)" : "#fff",
+                  boxShadow: isCurrent ? "0 4px 16px rgba(30,118,182,0.18)" : "0 1px 4px rgba(10,24,58,0.04)",
+                  minHeight: 130,
+                }}
+              >
+                {isCurrent && (
+                  <span className="absolute top-1.5 right-1.5 text-[9px] font-bold text-white px-1.5 py-0.5 rounded-full" style={{ background: "#1E76B6" }}>
+                    Actual
+                  </span>
+                )}
+                <MiniAxleDiagram config={key} />
+                <span className="text-[10px] font-semibold text-[#0A183A] text-center mt-2 leading-tight">
+                  {label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {saving && (
+          <div className="px-5 pb-4 flex items-center gap-2 text-[11px] text-[#1E76B6]">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Guardando…
+          </div>
+        )}
       </div>
     </div>
   );
@@ -812,6 +966,28 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [showExport,      setShowExport]      = useState(false);
   const [selectedTireId,  setSelectedTireId]  = useState<string | null>(null);
   const [inspectionData,  setInspectionData]  = useState<InspectionData | null>(null);
+  const [showStructureModal, setShowStructureModal] = useState(false);
+  const [savingStructure,    setSavingStructure]    = useState(false);
+
+  async function handleUpdateStructure(cfg: string) {
+    if (!vehicle) return;
+    setSavingStructure(true);
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicle.id}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ configuracion: cfg || null }),
+      });
+      if (!res.ok) throw new Error("No se pudo actualizar la estructura");
+      const updated = await res.json();
+      setVehicle((v) => v ? { ...v, configuracion: updated.configuracion ?? cfg } : v);
+      setShowStructureModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al actualizar estructura");
+    } finally {
+      setSavingStructure(false);
+    }
+  }
 
   // ===========================================================================
   // Search
@@ -1369,6 +1545,17 @@ export default function InspeccionPage({ language }: { language?: string }) {
                   configuracion={vehicle?.configuracion}
                 />
 
+                <div className="flex justify-center mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowStructureModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#1E76B6] border border-[#348CCB]/40 hover:bg-[#F0F7FF] transition-colors"
+                  >
+                    <Truck className="w-3.5 h-3.5" />
+                    Editar estructura del vehículo
+                  </button>
+                </div>
+
                 {/* Selected tire inspection form */}
                 {selectedTireId && tires.find((t) => t.id === selectedTireId) && (
                   <div className="mt-4">
@@ -1474,6 +1661,15 @@ export default function InspeccionPage({ language }: { language?: string }) {
           onClose={()  => setShowExport(false)}
           onExport={generatePDF}
           loading={pdfLoading}
+        />
+      )}
+
+      {showStructureModal && vehicle && (
+        <EditStructureModal
+          current={vehicle.configuracion}
+          onClose={() => setShowStructureModal(false)}
+          onSelect={handleUpdateStructure}
+          saving={savingStructure}
         />
       )}
 
