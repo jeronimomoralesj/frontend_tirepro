@@ -1019,13 +1019,41 @@ export default function PosicionPage() {
       const updated = [...prev];
       const idx = updated.findIndex((t) => t.id === tireId);
       if (idx === -1) return prev;
-      if (newPosition !== "none" && newPosition !== "0") {
-        const existIdx = updated.findIndex((t) => t.position === newPosition);
-        if (existIdx !== -1) updated[existIdx] = { ...updated[existIdx], position: null, posicion: null };
+
+      const moving = updated[idx];
+      const fromPosition = moving.position ?? null;
+
+      // Same slot — no-op (avoid clobbering when dropping on its own slot).
+      if (newPosition !== "none" && newPosition === fromPosition) return prev;
+
+      if (newPosition === "none") {
+        updated[idx] = { ...moving, position: null, posicion: null };
+        return updated;
       }
-      if (newPosition === "none")     updated[idx] = { ...updated[idx], position: null,         posicion: null };
-      else if (newPosition === "0")   updated[idx] = { ...updated[idx], position: "0",          posicion: 0 };
-      else                            updated[idx] = { ...updated[idx], position: newPosition,  posicion: parseInt(newPosition) };
+      if (newPosition === "0") {
+        updated[idx] = { ...moving, position: "0", posicion: 0 };
+        return updated;
+      }
+
+      // Vehicle slot. If it's occupied by another tire, swap (or bump).
+      const existIdx = updated.findIndex((t) => t.position === newPosition && t.id !== tireId);
+      if (existIdx !== -1) {
+        const occupant = updated[existIdx];
+        if (fromPosition && fromPosition !== "0") {
+          // True swap: occupant takes the moving tire's old slot.
+          updated[existIdx] = {
+            ...occupant,
+            position: fromPosition,
+            posicion: parseInt(fromPosition),
+          };
+        } else {
+          // Moving tire came from outside the vehicle (Llantas Disponibles
+          // or similar) — bump occupant out so the new tire can take over.
+          updated[existIdx] = { ...occupant, position: null, posicion: null };
+        }
+      }
+
+      updated[idx] = { ...moving, position: newPosition, posicion: parseInt(newPosition) };
       return updated;
     });
   }, []);
@@ -1068,16 +1096,22 @@ export default function PosicionPage() {
       }
     } else {
       const moving = allTires.find((t) => t.id === tireId);
-      const fromPos = moving?.position ?? null;
+      if (!moving) return;
+      const fromPos = moving.position ?? null;
+      // No-op drop on its own slot — don't toast.
+      if (newPosition !== "none" && newPosition === fromPos) return;
       const occupant = newPosition !== "0" && newPosition !== "none"
         ? allTires.find((t) => t.position === newPosition && t.id !== tireId)
         : undefined;
+      const isSwap = !!(occupant && fromPos && fromPos !== "0");
       moveTire(tireId, newPosition);
-      if (moving) {
-        pushMoveToast(`${moving.marca} movida de ${describePos(fromPos)} a ${describePos(newPosition)}`);
-      }
+      pushMoveToast(`${moving.marca} movida de ${describePos(fromPos)} a ${describePos(newPosition)}`);
       if (occupant) {
-        pushMoveToast(`${occupant.marca} movida de ${describePos(newPosition)} a Inventario`);
+        if (isSwap) {
+          pushMoveToast(`${occupant.marca} movida de ${describePos(newPosition)} a ${describePos(fromPos)}`);
+        } else {
+          pushMoveToast(`${occupant.marca} movida de ${describePos(newPosition)} a Inventario`);
+        }
       }
     }
   }, [allTires, companyInventory, moveTire, pushMoveToast]);

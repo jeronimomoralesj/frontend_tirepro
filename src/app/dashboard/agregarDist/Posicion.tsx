@@ -916,6 +916,7 @@ export default function PosicionPage() {
   const [savingStructure,    setSavingStructure]    = useState(false);
   const [moveToasts,         setMoveToasts]         = useState<{ id: number; message: string }[]>([]);
   const [clientCompanies,    setClientCompanies]    = useState<{ id: string; name: string }[]>([]);
+  const [clientSearch,       setClientSearch]       = useState("");
 
   const pushMoveToast = useCallback((message: string) => {
     const id = Date.now() + Math.random();
@@ -977,7 +978,7 @@ export default function PosicionPage() {
     })();
   }, []);
 
-  // When the user picks a client company, load that company's inventory
+  // When a client company is selected, load that company's inventory
   // (flat list for drag compatibility + bucket data for the panel).
   useEffect(() => {
     if (!companyId) {
@@ -1057,13 +1058,41 @@ export default function PosicionPage() {
       const updated = [...prev];
       const idx = updated.findIndex((t) => t.id === tireId);
       if (idx === -1) return prev;
-      if (newPosition !== "none" && newPosition !== "0") {
-        const existIdx = updated.findIndex((t) => t.position === newPosition);
-        if (existIdx !== -1) updated[existIdx] = { ...updated[existIdx], position: null, posicion: null };
+
+      const moving = updated[idx];
+      const fromPosition = moving.position ?? null;
+
+      // Same slot — no-op (avoid clobbering when dropping on its own slot).
+      if (newPosition !== "none" && newPosition === fromPosition) return prev;
+
+      if (newPosition === "none") {
+        updated[idx] = { ...moving, position: null, posicion: null };
+        return updated;
       }
-      if (newPosition === "none")     updated[idx] = { ...updated[idx], position: null,         posicion: null };
-      else if (newPosition === "0")   updated[idx] = { ...updated[idx], position: "0",          posicion: 0 };
-      else                            updated[idx] = { ...updated[idx], position: newPosition,  posicion: parseInt(newPosition) };
+      if (newPosition === "0") {
+        updated[idx] = { ...moving, position: "0", posicion: 0 };
+        return updated;
+      }
+
+      // Vehicle slot. If it's occupied by another tire, swap (or bump).
+      const existIdx = updated.findIndex((t) => t.position === newPosition && t.id !== tireId);
+      if (existIdx !== -1) {
+        const occupant = updated[existIdx];
+        if (fromPosition && fromPosition !== "0") {
+          // True swap: occupant takes the moving tire's old slot.
+          updated[existIdx] = {
+            ...occupant,
+            position: fromPosition,
+            posicion: parseInt(fromPosition),
+          };
+        } else {
+          // Moving tire came from outside the vehicle (Llantas Disponibles
+          // or similar) — bump occupant out so the new tire can take over.
+          updated[existIdx] = { ...occupant, position: null, posicion: null };
+        }
+      }
+
+      updated[idx] = { ...moving, position: newPosition, posicion: parseInt(newPosition) };
       return updated;
     });
   }, []);
@@ -1106,16 +1135,22 @@ export default function PosicionPage() {
       }
     } else {
       const moving = allTires.find((t) => t.id === tireId);
-      const fromPos = moving?.position ?? null;
+      if (!moving) return;
+      const fromPos = moving.position ?? null;
+      // No-op drop on its own slot — don't toast.
+      if (newPosition !== "none" && newPosition === fromPos) return;
       const occupant = newPosition !== "0" && newPosition !== "none"
         ? allTires.find((t) => t.position === newPosition && t.id !== tireId)
         : undefined;
+      const isSwap = !!(occupant && fromPos && fromPos !== "0");
       moveTire(tireId, newPosition);
-      if (moving) {
-        pushMoveToast(`${moving.marca} movida de ${describePos(fromPos)} a ${describePos(newPosition)}`);
-      }
+      pushMoveToast(`${moving.marca} movida de ${describePos(fromPos)} a ${describePos(newPosition)}`);
       if (occupant) {
-        pushMoveToast(`${occupant.marca} movida de ${describePos(newPosition)} a Inventario`);
+        if (isSwap) {
+          pushMoveToast(`${occupant.marca} movida de ${describePos(newPosition)} a ${describePos(fromPos)}`);
+        } else {
+          pushMoveToast(`${occupant.marca} movida de ${describePos(newPosition)} a Inventario`);
+        }
       }
     }
   }, [allTires, companyInventory, moveTire, pushMoveToast]);
@@ -1179,22 +1214,59 @@ export default function PosicionPage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-bold text-[#0A183A] leading-none">Seleccionar Cliente</p>
-                <p className="text-xs text-[#348CCB] mt-0.5">Elige la empresa cliente para cargar su inventario</p>
+                <p className="text-xs text-[#348CCB] mt-0.5">
+                  {companyId
+                    ? `Cliente activo: ${clientCompanies.find((c) => c.id === companyId)?.name ?? "—"}`
+                    : "Elige la empresa cliente para cargar su inventario"}
+                </p>
               </div>
             </div>
+
             {clientCompanies.length === 0 ? (
               <p className="text-xs text-[#93b8d4] italic">No hay clientes asignados a este distribuidor.</p>
             ) : (
-              <select
-                value={companyId}
-                onChange={(e) => handleSelectCompany(e.target.value)}
-                className={inputCls}
-              >
-                <option value="">— Selecciona un cliente —</option>
-                {clientCompanies.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <>
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#348CCB]" />
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    placeholder="Buscar cliente por nombre..."
+                    className={`${inputCls} pl-9`}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto">
+                  {clientCompanies
+                    .filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                    .map((c) => {
+                      const isActive = c.id === companyId;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleSelectCompany(c.id)}
+                          className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left"
+                          style={{
+                            background: isActive ? "rgba(30,118,182,0.12)" : "rgba(52,140,203,0.04)",
+                            border: isActive ? "1px solid #1E76B6" : "1px solid rgba(52,140,203,0.2)",
+                            color: isActive ? "#0A183A" : "#173D68",
+                          }}
+                        >
+                          <span className="truncate">{c.name}</span>
+                          {isActive && (
+                            <span className="text-[9px] font-black text-white px-1.5 py-0.5 rounded-full" style={{ background: "#1E76B6" }}>
+                              Activo
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  {clientCompanies.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase())).length === 0 && (
+                    <p className="text-[11px] text-[#93b8d4] italic px-1 py-2">Sin coincidencias para “{clientSearch}”.</p>
+                  )}
+                </div>
+              </>
             )}
           </Card>
 
