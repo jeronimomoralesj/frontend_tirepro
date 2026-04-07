@@ -962,6 +962,20 @@ export default function PosicionPage() {
   const [success,            setSuccess]            = useState("");
   const [showStructureModal, setShowStructureModal] = useState(false);
   const [savingStructure,    setSavingStructure]    = useState(false);
+  const [moveToasts,         setMoveToasts]         = useState<{ id: number; message: string }[]>([]);
+
+  const pushMoveToast = useCallback((message: string) => {
+    const id = Date.now() + Math.random();
+    setMoveToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setMoveToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2000);
+  }, []);
+
+  function describePos(p: string | null | undefined): string {
+    if (!p || p === "0") return "Inventario";
+    return `Pos ${p}`;
+  }
 
   async function handleUpdateStructure(cfg: string) {
     if (!vehicle) return;
@@ -1070,19 +1084,21 @@ export default function PosicionPage() {
     if (newPosition === "none") {
       const tire = allTires.find((t) => t.id === tireId) ?? invTire;
       if (tire) {
+        const from = describePos(tire.position);
         setAllTires((prev) => prev.filter((t) => t.id !== tireId));
         setCompanyInventory((prev) => {
           if (prev.find((t) => t.id === tireId)) return prev;
           return [...prev, { ...tire, position: null, posicion: null, vehicleId: null }];
         });
+        pushMoveToast(`${tire.marca} movida de ${from} a Inventario`);
       }
       return;
     }
 
     if (invTire) {
       const posicion = newPosition === "0" ? 0 : parseInt(newPosition);
+      const bumped = allTires.find((t) => t.position === newPosition && newPosition !== "0");
       setAllTires((prev) => {
-        const bumped  = prev.find((t) => t.position === newPosition && newPosition !== "0");
         const updated = prev.map((t) => t.position === newPosition && newPosition !== "0" ? { ...t, position: null, posicion: null } : t);
         if (bumped) {
           setCompanyInventory((ci) => {
@@ -1094,10 +1110,25 @@ export default function PosicionPage() {
       });
       setCompanyInventory((prev) => prev.filter((t) => t.id !== tireId));
       setOriginalState((prev) => ({ ...prev, [tireId]: null }));
+      pushMoveToast(`${invTire.marca} movida de Inventario a ${describePos(newPosition)}`);
+      if (bumped) {
+        pushMoveToast(`${bumped.marca} movida de ${describePos(bumped.position)} a Inventario`);
+      }
     } else {
+      const moving = allTires.find((t) => t.id === tireId);
+      const fromPos = moving?.position ?? null;
+      const occupant = newPosition !== "0" && newPosition !== "none"
+        ? allTires.find((t) => t.position === newPosition && t.id !== tireId)
+        : undefined;
       moveTire(tireId, newPosition);
+      if (moving) {
+        pushMoveToast(`${moving.marca} movida de ${describePos(fromPos)} a ${describePos(newPosition)}`);
+      }
+      if (occupant) {
+        pushMoveToast(`${occupant.marca} movida de ${describePos(newPosition)} a Inventario`);
+      }
     }
-  }, [allTires, companyInventory, moveTire]);
+  }, [allTires, companyInventory, moveTire, pushMoveToast]);
 
   async function handleSave() {
     if (!vehicle) return;
@@ -1294,6 +1325,25 @@ export default function PosicionPage() {
             saving={savingStructure}
           />
         )}
+
+        {/* Move toasts — bottom right */}
+        <div className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 items-end pointer-events-none">
+          {moveToasts.map((t) => (
+            <div
+              key={t.id}
+              className="pointer-events-auto px-4 py-2.5 rounded-xl text-xs font-semibold text-white shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2"
+              style={{
+                background: "linear-gradient(135deg, #1E76B6, #173D68)",
+                border: "1px solid rgba(52,140,203,0.4)",
+                boxShadow: "0 8px 24px rgba(10,24,58,0.25)",
+                maxWidth: 320,
+              }}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{t.message}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </DndProvider>
   );
