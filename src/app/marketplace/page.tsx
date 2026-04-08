@@ -907,7 +907,7 @@ const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> 
 // Hero Carousel
 // =============================================================================
 
-const HERO_BG = "https://cdn.pixabay.com/photo/2017/11/05/14/01/truck-2920533_1280.jpg";
+const HERO_BG = "https://pixabay.com/images/download/dezalb-canada-784392_1920.jpg";
 
 function MarketplaceHero({
   dimensions,
@@ -916,13 +916,20 @@ function MarketplaceHero({
   dimensions: string[];
   onSearchDimension: (d: string) => void;
 }) {
-  const [value, setValue] = useState("");
+  const [ancho, setAncho]   = useState("");
+  const [perfil, setPerfil] = useState("");
+  const [rin, setRin]       = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const v = value.trim();
-    if (!v) return;
-    onSearchDimension(v);
+    const a = ancho.trim().replace(",", ".");
+    const p = perfil.trim().replace(",", ".");
+    const r = rin.trim().replace(",", ".").replace(/^r/i, "");
+    if (!a && !p && !r) return;
+    // Build a canonical dimension string. Falls back gracefully if any field
+    // is missing — the backend search is fuzzy on dimension.
+    const built = a && p && r ? `${a}/${p}R${r}` : [a, p, r].filter(Boolean).join(" ");
+    onSearchDimension(built);
     if (typeof window !== "undefined") window.scrollTo({ top: 600, behavior: "smooth" });
   }
 
@@ -961,33 +968,54 @@ function MarketplaceHero({
             Compara llantas nuevas, reencauche e industriales de los distribuidores verificados de Colombia. Encuentra tu medida y cotiza en segundos.
           </p>
 
-          {/* Buscar por medida */}
-          <form onSubmit={handleSubmit} className="mt-6 max-w-xl">
+          {/* Buscar por medida — campo a campo */}
+          <form onSubmit={handleSubmit} className="mt-6 max-w-2xl">
             <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-1.5">
               Buscar por medida
             </label>
-            <div className="flex gap-2 p-1.5 rounded-2xl bg-white/95 backdrop-blur-sm shadow-2xl">
-              <div className="flex items-center gap-2 flex-1 px-3">
-                <Search className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
-                <input
-                  type="text"
-                  list="hero-dimensions"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  placeholder="Ej: 295/80R22.5, 215/55R17…"
-                  className="flex-1 bg-transparent outline-none text-sm text-[#0A183A] placeholder-gray-400 py-2.5"
-                />
-                <datalist id="hero-dimensions">
-                  {dimensions.map((d) => <option key={d} value={d} />)}
-                </datalist>
+            <div className="flex flex-col sm:flex-row gap-2 p-2 rounded-2xl bg-white/95 backdrop-blur-sm shadow-2xl">
+              <div className="grid grid-cols-3 gap-2 flex-1">
+                <div className="flex flex-col px-2">
+                  <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Ancho</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={ancho}
+                    onChange={(e) => setAncho(e.target.value)}
+                    placeholder="295"
+                    className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5"
+                  />
+                </div>
+                <div className="flex flex-col px-2 border-l border-gray-200">
+                  <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Perfil</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={perfil}
+                    onChange={(e) => setPerfil(e.target.value)}
+                    placeholder="80"
+                    className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5"
+                  />
+                </div>
+                <div className="flex flex-col px-2 border-l border-gray-200">
+                  <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Rin</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={rin}
+                    onChange={(e) => setRin(e.target.value)}
+                    placeholder="22.5"
+                    className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5"
+                  />
+                </div>
               </div>
               <button
                 type="submit"
-                className="px-5 sm:px-6 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 active:scale-[0.98] flex items-center gap-2"
+                className="px-5 sm:px-6 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 active:scale-[0.98] flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
               >
+                <Search className="w-4 h-4" />
                 Buscar
-                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
             {dimensions.length > 0 && (
