@@ -54,7 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/signup`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/blog`, lastModified: mostRecentPostDate, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${BASE_URL}/contact`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.6 },
-    { url: `${BASE_URL}/equipo`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.5 },
     { url: `${BASE_URL}/legal`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
   ]
 
@@ -117,8 +116,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           distEntries.push({
             url: `${BASE_URL}/marketplace/distributor/${l.distributor.id}`,
             lastModified: new Date(),
-            changeFrequency: 'weekly' as const,
-            priority: 0.85,
+            changeFrequency: 'daily' as const,
+            // Brand-name landing pages — push high so Google reindexes them
+            // quickly and treats them as authoritative for the distributor's
+            // brand queries.
+            priority: 0.95,
           })
         }
       }

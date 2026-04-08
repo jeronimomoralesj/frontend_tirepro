@@ -31,8 +31,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const d = await fetchProfile(id);
   if (!d) return { title: "Distribuidor — TirePro Marketplace" };
 
-  const title = `${d.name} — Distribuidor de Llantas${d.ciudad ? ` en ${d.ciudad}` : ""} | TirePro`;
-  const description = `Compra llantas de ${d.name}${d.ciudad ? ` en ${d.ciudad}` : ""}, distribuidor verificado en TirePro. ${d._count?.listings ?? 0} productos disponibles. ${d.descripcion?.substring(0, 120) ?? "Llantas nuevas y reencauche con envio a toda Colombia."}`;
+  // Lead the title with the brand name verbatim — search engines weight the
+  // very first words heavily for brand-name queries.
+  const cityTag = d.ciudad ? ` en ${d.ciudad}` : "";
+  const title = `${d.name} — Distribuidor Oficial de Llantas${cityTag} | TirePro`;
+  const description = `${d.name} es un distribuidor verificado de llantas${cityTag}. ${d._count?.listings ?? 0} productos disponibles en TirePro Marketplace. ${d.descripcion?.substring(0, 110) ?? "Llantas nuevas y reencauche con envío a toda Colombia."}`;
   const image = d.bannerImage || d.profileImage || "https://tirepro.com.co/og-image.png";
   const cobertura = Array.isArray(d.cobertura) ? d.cobertura : [];
   const cobCities = cobertura.map((c: any) => typeof c === "string" ? c : c.ciudad).filter(Boolean);
@@ -41,13 +44,22 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     title,
     description,
     keywords: [
-      d.name, `${d.name} llantas`, `distribuidor llantas ${d.ciudad ?? "Colombia"}`,
-      `comprar llantas ${d.ciudad ?? ""}`, "distribuidor verificado", "llantas Colombia",
+      // Brand-first: these are the highest-intent queries we want to rank for.
+      d.name,
+      `${d.name} llantas`,
+      `${d.name} ${d.ciudad ?? "Colombia"}`,
+      `${d.name} distribuidor`,
+      `${d.name} catálogo`,
+      `${d.name} precios`,
+      `comprar en ${d.name}`,
+      `distribuidor llantas ${d.ciudad ?? "Colombia"}`,
+      `comprar llantas ${d.ciudad ?? ""}`,
+      "distribuidor verificado", "llantas Colombia",
       ...cobCities.map((c: string) => `llantas ${c}`),
       ...cobCities.map((c: string) => `distribuidor llantas ${c}`),
     ].filter(Boolean),
     openGraph: {
-      title: `${d.name} — Llantas en ${d.ciudad ?? "Colombia"}`,
+      title: `${d.name} — Llantas en ${d.ciudad ?? "Colombia"} | TirePro`,
       description,
       url: `https://tirepro.com.co/marketplace/distributor/${id}`,
       siteName: "TirePro Marketplace",
@@ -62,6 +74,20 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       images: [image],
     },
     alternates: { canonical: `https://tirepro.com.co/marketplace/distributor/${id}` },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
+    other: {
+      // Helps brand-name SERPs surface these as "official" results.
+      "og:see_also": d.sitioWeb || "",
+    },
   };
 }
 
@@ -69,28 +95,53 @@ export default async function DistributorLayout({ children, params }: { children
   const { id } = await params;
   const d = await fetchProfile(id);
 
+  const sameAs = [
+    d?.sitioWeb,
+    d?.facebookUrl,
+    d?.instagramUrl,
+    d?.linkedinUrl,
+    d?.twitterUrl,
+  ].filter(Boolean);
+
   const structuredData = d ? {
     "@context": "https://schema.org",
-    "@type": "Store",
+    "@type": ["Store", "LocalBusiness", "AutoPartsStore"],
+    "@id": `https://tirepro.com.co/marketplace/distributor/${id}#org`,
     name: d.name,
-    description: d.descripcion || `Distribuidor verificado de llantas en Colombia`,
+    alternateName: [d.name, `${d.name} Llantas`, `${d.name} ${d.ciudad ?? ""}`].filter(Boolean),
+    description: d.descripcion || `${d.name} es un distribuidor verificado de llantas en ${d.ciudad ?? "Colombia"}, con catálogo completo en TirePro Marketplace.`,
     url: `https://tirepro.com.co/marketplace/distributor/${id}`,
     image: d.bannerImage || d.profileImage || undefined,
     logo: d.profileImage || undefined,
     telephone: d.telefono || undefined,
     email: d.emailAtencion || undefined,
-    ...(d.sitioWeb && { sameAs: [d.sitioWeb] }),
+    ...(sameAs.length > 0 && { sameAs }),
     address: {
       "@type": "PostalAddress",
       addressLocality: d.ciudad || "Colombia",
       addressCountry: "CO",
       ...(d.direccion && { streetAddress: d.direccion }),
     },
+    ...(d.latitude && d.longitude && {
+      geo: {
+        "@type": "GeoCoordinates",
+        latitude: d.latitude,
+        longitude: d.longitude,
+      },
+    }),
     ...(d._count?.listings > 0 && {
       hasOfferCatalog: {
         "@type": "OfferCatalog",
-        name: `Catalogo de llantas de ${d.name}`,
+        name: `Catálogo de llantas de ${d.name}`,
         numberOfItems: d._count.listings,
+      },
+      makesOffer: {
+        "@type": "Offer",
+        itemOffered: {
+          "@type": "Product",
+          name: `Llantas de ${d.name}`,
+          category: "Llantas para vehículos",
+        },
       },
     }),
     areaServed: (Array.isArray(d.cobertura) && d.cobertura.length > 0)
@@ -99,7 +150,7 @@ export default async function DistributorLayout({ children, params }: { children
           name: typeof c === "string" ? c : c.ciudad,
         }))
       : { "@type": "Country", name: "Colombia" },
-    priceRange: "$",
+    priceRange: "$$",
     currenciesAccepted: "COP",
     paymentAccepted: "Credit Card, Debit Card, PSE, Nequi",
     isPartOf: { "@type": "WebSite", name: "TirePro", url: "https://tirepro.com.co" },
@@ -114,6 +165,15 @@ export default async function DistributorLayout({ children, params }: { children
     ],
   } : null;
 
+  // Crawler-visible SEO block. The actual page is client-rendered, so
+  // without this Googlebot would only see "Distribuidor" (the loading
+  // fallback) on first crawl. We render a hidden but indexable hero with
+  // the brand name, city, listings count, description, and coverage cities
+  // from the server so bots index brand-name queries.
+  const cityList = d && Array.isArray(d.cobertura)
+    ? d.cobertura.map((c: any) => (typeof c === "string" ? c : c.ciudad)).filter(Boolean)
+    : [];
+
   return (
     <>
       {structuredData && (
@@ -124,6 +184,46 @@ export default async function DistributorLayout({ children, params }: { children
         <Script id="distributor-breadcrumb" type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
       )}
+
+      {d && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: "hidden",
+            clip: "rect(0,0,0,0)",
+            whiteSpace: "nowrap",
+            border: 0,
+          }}
+        >
+          <h1>{d.name} — Distribuidor de Llantas{d.ciudad ? ` en ${d.ciudad}` : ""}</h1>
+          <h2>Comprar llantas en {d.name}</h2>
+          <p>
+            {d.name} es un distribuidor verificado de llantas{d.ciudad ? ` ubicado en ${d.ciudad}` : ""} en TirePro Marketplace.
+            {d._count?.listings ? ` Catálogo con ${d._count.listings} productos disponibles para flotas, camiones, tractomulas, buses y vehículos particulares.` : " Catálogo de llantas nuevas y reencauche."}
+            {d.descripcion ? ` ${d.descripcion}` : ""}
+          </p>
+          {d.telefono && <p>Teléfono de contacto: {d.telefono}</p>}
+          {d.emailAtencion && <p>Correo: {d.emailAtencion}</p>}
+          {d.direccion && <p>Dirección: {d.direccion}{d.ciudad ? `, ${d.ciudad}` : ""}, Colombia</p>}
+          {cityList.length > 0 && (
+            <>
+              <h3>Cobertura de {d.name}</h3>
+              <p>{d.name} entrega llantas en: {cityList.join(", ")}.</p>
+            </>
+          )}
+          <h3>Catálogo de {d.name}</h3>
+          <p>
+            Encuentra llantas nuevas y reencauche de {d.name} en TirePro Marketplace.
+            Compra llantas para camión, tractomula, bus, camioneta y automóvil con envío en Colombia.
+          </p>
+        </div>
+      )}
+
       {children}
     </>
   );
