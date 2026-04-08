@@ -146,6 +146,12 @@ type Tire = {
   costos?: Costo[];
   inspecciones?: Inspeccion[];
   vehicleId: string;
+  // Optional metadata returned by the backend — used for hover details.
+  diseno?: string;
+  dimension?: string;
+  eje?: string;
+  diasAcumulados?: number;
+  vida?: Array<{ valor: string; fecha: string }> | string[];
 };
 
 type TireUpdate = {
@@ -1045,6 +1051,22 @@ export default function InspeccionPage({ language }: { language?: string }) {
     });
   }
 
+  // Desmount the currently-selected tire: pull it off the vehicle into the
+  // free pool and immediately open the bucket picker so the inspector can
+  // route it to an inventory bucket. Used when the physical tire on the
+  // vehicle does not match any of the registered positions.
+  function desmountSelected() {
+    if (!selectedTireId) return;
+    const sel = tires.find((t) => t.id === selectedTireId);
+    if (!sel) return;
+    setTires((prev) => prev.filter((t) => t.id !== sel.id));
+    setFreeTires((fp) =>
+      fp.find((t) => t.id === sel.id) ? fp : [...fp, { ...sel, posicion: 0 }]
+    );
+    setSelectedTireId(null);
+    setFreeActionTireId(sel.id);
+  }
+
   // Place a previously-freed tire onto a vehicle position. If that slot is
   // currently occupied the occupant becomes free in turn.
   function assignFreeTireToPosition(freeTireId: string, targetPos: number) {
@@ -1743,23 +1765,88 @@ export default function InspeccionPage({ language }: { language?: string }) {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {freeTires.map((ft) => (
-                        <button
-                          key={ft.id}
-                          type="button"
-                          onClick={() => setFreeActionTireId(ft.id)}
-                          className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 transition-all hover:scale-105"
-                          style={{
-                            background: "white",
-                            border: "1.5px solid rgba(247,167,52,0.6)",
-                            minWidth: 64,
-                          }}
-                          title="Click para asignar posición o bucket"
-                        >
-                          <span className="text-[9px] font-black text-[#0A183A]">{ft.marca}</span>
-                          <span className="text-[8px] text-[#348CCB]">Sin pos</span>
-                        </button>
-                      ))}
+                      {freeTires.map((ft) => {
+                        const vidaArr = ft.vida;
+                        const vidaActual = Array.isArray(vidaArr) && vidaArr.length > 0
+                          ? (typeof vidaArr[vidaArr.length - 1] === "string"
+                              ? (vidaArr[vidaArr.length - 1] as string)
+                              : (vidaArr[vidaArr.length - 1] as { valor: string }).valor)
+                          : null;
+                        return (
+                          <div key={ft.id} className="relative group">
+                            <button
+                              type="button"
+                              onClick={() => setFreeActionTireId(ft.id)}
+                              className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 transition-all hover:scale-105"
+                              style={{
+                                background: "white",
+                                border: "1.5px solid rgba(247,167,52,0.6)",
+                                minWidth: 64,
+                              }}
+                            >
+                              <span className="text-[9px] font-black text-[#0A183A]">{ft.marca}</span>
+                              <span className="text-[8px] text-[#348CCB]">Sin pos</span>
+                            </button>
+                            {/* Hover details popover */}
+                            <div
+                              className="pointer-events-none absolute z-30 left-1/2 -translate-x-1/2 top-full mt-1.5 w-56 rounded-xl p-2.5 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-150"
+                              style={{
+                                background: "#0A183A",
+                                color: "white",
+                                boxShadow: "0 12px 32px rgba(10,24,58,0.35)",
+                                border: "1px solid rgba(255,255,255,0.08)",
+                              }}
+                            >
+                              <p className="text-[10px] font-black uppercase tracking-wider text-[#348CCB] mb-1.5">
+                                Detalles llanta
+                              </p>
+                              <div className="space-y-0.5 text-[10px]">
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-white/50">ID</span>
+                                  <span className="font-mono truncate max-w-[140px]" title={ft.id}>{ft.id.slice(0, 10)}…</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-white/50">Marca</span>
+                                  <span className="font-bold truncate">{ft.marca || "—"}</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-white/50">Diseño</span>
+                                  <span className="font-bold truncate">{ft.diseno || "—"}</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-white/50">Dimensión</span>
+                                  <span className="font-bold truncate">{ft.dimension || "—"}</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-white/50">Eje</span>
+                                  <span className="font-bold truncate">{ft.eje || "—"}</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-white/50">Vida</span>
+                                  <span className="font-bold truncate">{vidaActual || "—"}</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-white/50">Prof. inicial</span>
+                                  <span className="font-bold">{ft.profundidadInicial ?? "—"} mm</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-white/50">Km recorridos</span>
+                                  <span className="font-bold">{ft.kilometrosRecorridos?.toLocaleString() ?? "—"}</span>
+                                </div>
+                                {typeof ft.diasAcumulados === "number" && (
+                                  <div className="flex justify-between gap-2">
+                                    <span className="text-white/50">Días</span>
+                                    <span className="font-bold">{ft.diasAcumulados}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-[9px] text-white/50 mt-1.5 pt-1.5 border-t border-white/10">
+                                Click para asignar posición o inventario
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                     <p className="text-[9px] text-[#92400e]/70 mt-2">
                       Haz clic en una llanta libre para asignarla a una posición o moverla a inventario.
@@ -1795,12 +1882,11 @@ export default function InspeccionPage({ language }: { language?: string }) {
                       const sel = tires.find((t) => t.id === selectedTireId)!;
                       const allPositions = computeAllPositions(tires, vehicle?.configuracion);
                       const otherPositions = allPositions.filter((p) => p !== sel.posicion);
-                      if (otherPositions.length === 0) return null;
                       return (
                         <div className="rounded-xl p-3" style={{ background: "rgba(30,118,182,0.05)", border: "1px solid rgba(30,118,182,0.18)" }}>
                           <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1">Mover de posición</p>
                           <p className="text-[10px] text-[#173D68]/70 mb-2">
-                            Al seleccionar se rotará la llanta y la llanta en esa posición quedará libre.
+                            Selecciona una nueva posición o desmonta la llanta para enviarla al inventario.
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {otherPositions.map((p) => {
@@ -1823,6 +1909,20 @@ export default function InspeccionPage({ language }: { language?: string }) {
                                 </button>
                               );
                             })}
+                            <button
+                              type="button"
+                              onClick={desmountSelected}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all hover:opacity-90 flex items-center gap-1"
+                              style={{
+                                background: "linear-gradient(135deg,#dc2626,#b91c1c)",
+                                color: "white",
+                                border: "1px solid #b91c1c",
+                              }}
+                              title="Desmontar la llanta y enviarla al inventario"
+                            >
+                              <X className="w-3 h-3" />
+                              Desmontar
+                            </button>
                           </div>
                         </div>
                       );
