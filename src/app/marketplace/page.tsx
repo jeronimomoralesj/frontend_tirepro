@@ -907,7 +907,9 @@ const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> 
 // Hero Carousel
 // =============================================================================
 
-const HERO_BG = "https://pixabay.com/images/download/dezalb-canada-784392_1920.jpg";
+// NOTE: must be a cdn.pixabay.com URL — the pixabay.com/images/download/* path
+// serves a self-signed cert and browsers reject it (ERR_CERT_AUTHORITY_INVALID).
+const HERO_BG = "https://cdn.pixabay.com/photo/2017/11/05/14/01/truck-2920533_1280.jpg";
 
 function MarketplaceHero({
   dimensions,
@@ -928,7 +930,8 @@ function MarketplaceHero({
     if (!a && !p && !r) return;
     // Build a canonical dimension string. Falls back gracefully if any field
     // is missing — the backend search is fuzzy on dimension.
-    const built = a && p && r ? `${a}/${p}R${r}` : [a, p, r].filter(Boolean).join(" ");
+    // Canonical TirePro format is "225/60 R18" (note the space before R).
+    const built = a && p && r ? `${a}/${p} R${r}` : [a, p, r].filter(Boolean).join(" ");
     onSearchDimension(built);
     if (typeof window !== "undefined") window.scrollTo({ top: 600, behavior: "smooth" });
   }
