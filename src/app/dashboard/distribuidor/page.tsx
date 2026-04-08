@@ -2,24 +2,25 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Users, AlertTriangle, TrendingUp, Package,
-  Bell, Calendar, Search, ChevronDown, Loader2,
-  AlertCircle, X, Building2,
-  Truck,
+  Package, Calendar, Search, ChevronDown, Loader2,
+  AlertCircle, X, Building2, BarChart3,
 } from "lucide-react";
 
+import SemaforoPie     from "../cards/SemaforoPie";
 import SemaforoTabla   from "../cards/SemaforoTabla";
 import type { Vehicle, Tire as SemaforoTire } from "../cards/SemaforoTabla";
 import PorMarca        from "../cards/PorMarca";
 import PorBanda        from "../cards/PorBanda";
+import PorVida         from "../cards/PorVida";
+import PromedioEje     from "../cards/PromedioEje";
+import TipoVehiculo    from "../cards/TipoVehiculo";
+import ProyeccionVida  from "../cards/ProyeccionVida";
 import TablaCpk        from "../cards/TablaCpk";
 import type { Tire as TablaCpkTire } from "../cards/TablaCpk";
 import DetallesLlantas from "../cards/DetallesLlantas";
 import type { Tire as DetallesLlantasTire } from "../cards/DetallesLlantas";
 import ReencaucheHistorico from "../cards/ReencaucheHistorico";
 import type { Tire as ReencaucheTire } from "../cards/ReencaucheHistorico";
-import HistoricChart   from "../cards/HistoricChart";
-import type { Tire as HistoricTire } from "../cards/HistoricChart";
 import TanqueMilimetro from "../cards/TanqueMilimetro";
 import type { Tire as TanqueTire } from "../cards/TanqueMilimetro";
 
@@ -28,14 +29,6 @@ import type { Tire as TanqueTire } from "../cards/TanqueMilimetro";
 // =============================================================================
 
 type Company = { id: string; name: string; vehicleCount: number; tireCount: number };
-
-type Notification = {
-  id: string; title: string; message: string;
-  type: "info" | "warning" | "critical"; createdAt: string;
-  tireId?: string | null;
-  company: { id: string; name: string };
-  vehicle?: { id: string; placa: string };
-};
 
 type RawCosto      = { valor: number; fecha: string | Date };
 type RawInspeccion = {
@@ -349,6 +342,76 @@ function NoClientSelected({ companies, onSelect }: { companies: Company[]; onSel
 }
 
 // =============================================================================
+// CPK bar chart — average CPK projected per marca
+// =============================================================================
+
+function CpkBarChart({ data }: { data: { marca: string; avg: number }[] }) {
+  if (data.length === 0) {
+    return (
+      <Card className="p-4 sm:p-5 flex flex-col">
+        <CardTitle icon={BarChart3} title="CPK por Marca" />
+        <div className="flex flex-col items-center justify-center py-12 text-gray-400 gap-2">
+          <BarChart3 className="w-8 h-8 opacity-30" />
+          <p className="text-sm">Sin datos de CPK</p>
+        </div>
+      </Card>
+    );
+  }
+  const max = Math.max(...data.map((d) => d.avg), 1);
+  return (
+    <Card className="p-4 sm:p-5 flex flex-col">
+      <CardTitle icon={BarChart3} title="CPK por Marca" />
+      <div className="space-y-2.5 flex-1">
+        {data.slice(0, 10).map(({ marca, avg }) => {
+          const pct = (avg / max) * 100;
+          return (
+            <div key={marca}>
+              <div className="flex justify-between items-baseline mb-1">
+                <span className="text-xs font-semibold text-[#0A183A] truncate">{marca}</span>
+                <span className="text-xs font-black text-[#1E76B6]">
+                  {fmtCOP(avg)}
+                </span>
+              </div>
+              <div className="w-full rounded-full h-2 overflow-hidden" style={{ background: "rgba(10,24,58,0.06)" }}>
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${pct}%`,
+                    background: "linear-gradient(90deg, #1E76B6, #348CCB)",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div
+        className="mt-4 pt-3 flex justify-between items-center"
+        style={{ borderTop: "1px solid rgba(52,140,203,0.12)" }}
+      >
+        <span className="text-xs font-bold text-[#0A183A]">Promedio CPK proyectado</span>
+        <span className="text-xs font-black text-[#1E76B6]">
+          {fmtCOP(Math.round(data.reduce((s, d) => s + d.avg, 0) / data.length))}
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+// =============================================================================
+// Section header — matches the detalle page look
+// =============================================================================
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-[#348CCB]">{title}</h2>
+      <div className="flex-1 h-px bg-gray-200" />
+    </div>
+  );
+}
+
+// =============================================================================
 // Main Page
 // =============================================================================
 
@@ -364,7 +427,6 @@ export default function DistribuidorPage() {
   const [clientSearch,     setClientSearch]      = useState("");
 
   // -- Per-client data --------------------------------------------------------
-  const [notifications,    setNotifications]    = useState<Notification[]>([]);
   const [avgCpkProyectado, setAvgCpkProyectado] = useState(0);
   const [avgCptProyectado, setAvgCptProyectado] = useState(0);
 
@@ -379,9 +441,9 @@ export default function DistribuidorPage() {
   const [cpkTires,         setCpkTires]         = useState<TablaCpkTire[]>([]);
   const [detailTires,      setDetailTires]      = useState<DetallesLlantasTire[]>([]);
   const [reencaucheTires,  setReencaucheTires]  = useState<ReencaucheTire[]>([]);
-  const [historicTires,    setHistoricTires]    = useState<HistoricTire[]>([]);
   const [tanqueTires,      setTanqueTires]      = useState<TanqueTire[]>([]);
   const [vidaStats,        setVidaStats]        = useState({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
+  const [selectedEje,      setSelectedEje]      = useState<string>("");
 
   // -- Auth user --------------------------------------------------------------
   useEffect(() => {
@@ -425,32 +487,15 @@ export default function DistribuidorPage() {
 
   // -- Clear charts when client changes --------------------------------------
   const clearClientData = useCallback(() => {
-  setNotifications([]);
   setAvgCpkProyectado(0); setAvgCptProyectado(0);
   setSavingPerMonth(0); setSavingPerYear(0); setSavingPct(0);
   setAllVehicles([]); setAllTires([]);
   setMarcaData({}); setBandaData({});
   setCpkTires([]); setDetailTires([]);
-  setReencaucheTires([]); setHistoricTires([]); setTanqueTires([]);
+  setReencaucheTires([]); setTanqueTires([]);
   setVidaStats({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
+  setSelectedEje("");
 }, []);
-
-  // -- Fetch notifications for selected client --------------------------------
-  useEffect(() => {
-    if (!selectedClient) return;
-    const run = async () => {
-      try {
-        const res = await authFetch(`${API_BASE}/notifications/by-companies`, {
-          method: "POST",
-          body: JSON.stringify({ companyIds: [selectedClient.id] }),
-        });
-        if (!res.ok) return;
-        const data: Notification[] = await res.json();
-        setNotifications(data);
-      } catch { /* silent */ }
-    };
-    run();
-  }, [selectedClient]);
 
   // -- Fetch full tire data — ONLY for the single selected client -------------
   useEffect(() => {
@@ -572,7 +617,6 @@ export default function DistribuidorPage() {
         })));
 
         setReencaucheTires(tiresArr.map((t) => ({ id: t.id, vida: t.vida })));
-        setHistoricTires(tiresArr.map((t) => ({ id: t.id, inspecciones: t.inspecciones })));
         setTanqueTires(tiresArr.map((t) => ({ id: t.id, profundidadInicial: t.profundidadInicial, inspecciones: t.inspecciones })));
 
       } catch (e) {
@@ -603,17 +647,39 @@ export default function DistribuidorPage() {
     { label: "Reencauche 3", value: vidaStats.reencauche3, grad: "linear-gradient(90deg, #0A183A, #173D68)" },
   ];
 
-  const tireInfoMap = useMemo(() => {
-  const map = new Map<string, { posicion: number; marca: string; diseno: string }>();
-  allTires.forEach((t) => {
-    map.set((t as unknown as NormTire).id, {
-      posicion: (t as unknown as NormTire).posicion,
-      marca:    (t as unknown as NormTire).marca,
-      diseno:   (t as unknown as NormTire).diseno,
+  // Vehicles enriched with the actual count of (visible) tires per vehicle —
+  // expected by TipoVehiculo.
+  const vehiclesWithCount = useMemo(() => {
+    const countByVehicle: Record<string, number> = {};
+    allTires.forEach((t) => {
+      const vId = (t as unknown as NormTire).vehicleId ?? null;
+      if (vId) countByVehicle[vId] = (countByVehicle[vId] ?? 0) + 1;
     });
-  });
-  return map;
-}, [allTires]);
+    return allVehicles
+      .map((v) => ({ ...v, tireCount: countByVehicle[v.id] ?? 0 }))
+      .filter((v) => v.tireCount > 0);
+  }, [allVehicles, allTires]);
+
+  // Average projected CPK per marca — fed into the CPK bar chart.
+  const cpkByMarca = useMemo(() => {
+    const sums: Record<string, { sum: number; count: number }> = {};
+    cpkTires.forEach((t) => {
+      const insps = (t as unknown as { inspecciones?: Array<{ cpk?: number; cpkProyectado?: number }> }).inspecciones ?? [];
+      if (insps.length === 0) return;
+      const last = insps[insps.length - 1];
+      const cpk = (last.cpkProyectado && last.cpkProyectado > 0)
+        ? last.cpkProyectado
+        : (last.cpk && last.cpk > 0) ? last.cpk : 0;
+      if (cpk <= 0) return;
+      const marca = (t.marca || "Sin marca").trim();
+      if (!sums[marca]) sums[marca] = { sum: 0, count: 0 };
+      sums[marca].sum += cpk;
+      sums[marca].count += 1;
+    });
+    return Object.entries(sums)
+      .map(([marca, { sum, count }]) => ({ marca, avg: Math.round(sum / count) }))
+      .sort((a, b) => b.avg - a.avg);
+  }, [cpkTires]);
 
   // ==========================================================================
   // Render
@@ -712,177 +778,105 @@ export default function DistribuidorPage() {
             />
           </div>
 
-            {/* -- Row 1: Semáforo + Alerts ------------------------------------ */}
-            <PairRow>
-              {loadingCards ? <SkeletonCard label="Cargando semáforo…" /> : (
-                <ScrollCard><SemaforoTabla vehicles={allVehicles} tires={allTires} /></ScrollCard>
-              )}
-              <Card className="p-4 sm:p-5 flex flex-col">
-  <CardTitle icon={Bell} title="Alertas Activas" />
-
-  {notifications.length > 0 && (
-  <div className="flex gap-2 flex-wrap mb-3">
-    {(() => {
-      const critical = notifications.filter((n) => n.type === "critical").length;
-      const warning = notifications.filter((n) => n.type === "warning").length;
-
-      return (
-        <>
-          {critical > 0 && (
-            <span
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: "rgba(220,38,38,0.1)", color: "#DC2626" }}
-            >
-              {critical} crítica{critical > 1 ? "s" : ""}
-            </span>
-          )}
-
-          {warning > 0 && (
-            <span
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: "rgba(217,119,6,0.1)", color: "#D97706" }}
-            >
-              {warning} advertencia{warning > 1 ? "s" : ""}
-            </span>
-          )}
-        </>
-      );
-    })()}
-  </div>
-)}
-
-  <div className="overflow-y-auto max-h-72 space-y-2 flex-1">
-    {notifications.length === 0 ? (
-      <div className="flex flex-col items-center justify-center py-8 text-gray-400 gap-2">
-        <Bell className="w-8 h-8 opacity-30" />
-        <p className="text-sm">Sin alertas activas</p>
-      </div>
-    ) : (
-      // Group by vehicle
-      (() => {
-        const grouped = notifications.reduce((acc, n) => {
-          const key = n.vehicle?.id ?? "__no_vehicle__";
-          if (!acc[key]) acc[key] = { vehicle: n.vehicle, items: [] };
-          acc[key].items.push(n);
-          return acc;
-        }, {} as Record<string, { vehicle: Notification["vehicle"]; items: Notification[] }>);
-
-        return Object.entries(grouped).map(([key, group]) => {
-          const hasCritical = group.items.some(n => n.type === "critical");
-          const accentColor = hasCritical ? "#DC2626" : "#D97706";
-          const accentBg    = hasCritical ? "rgba(220,38,38,0.04)" : "rgba(217,119,6,0.04)";
-
-          return (
-            <details key={key} className="rounded-xl overflow-hidden"
-              style={{ border: `1px solid ${hasCritical ? "rgba(220,38,38,0.2)" : "rgba(217,119,6,0.2)"}` }}>
-
-              {/* Vehicle header — always visible */}
-              <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer list-none select-none"
-                style={{ background: accentBg }}>
-                <Truck className="w-3.5 h-3.5 flex-shrink-0" style={{ color: accentColor }} />
-                <span className="text-xs font-bold text-[#0A183A] flex-1 truncate">
-                  {group.vehicle?.placa?.toUpperCase() ?? "Sin vehículo asignado"}
-                </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                  style={{ background: `${accentColor}20`, color: accentColor }}>
-                  {group.items.length} llanta{group.items.length > 1 ? "s" : ""}
-                </span>
-                <ChevronDown className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
-              </summary>
-
-              {/* Tire rows */}
-              <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-                {group.items.map(n => {
-  const tireInfo = n.tireId ? tireInfoMap.get(n.tireId) : undefined;
-  return (
-    <div key={n.id} className="flex items-start gap-2 px-3 py-2 pl-8">
-      {/* Position badge */}
-      {tireInfo && (
-        <div
-          className="flex-shrink-0 w-6 h-6 p-2 rounded-full flex items-center justify-center text-[10px] font-black"
-          style={{ background: "rgba(10,24,58,0.07)", color: "#0A183A" }}
-        >
-          Pos. {tireInfo.posicion}
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-[11px] font-bold text-[#0A183A] truncate">{n.title}</p>
-        {tireInfo && (
-          <p className="text-[10px] text-[#1E76B6] font-medium">
-            {tireInfo.marca} · {tireInfo.diseno}
-          </p>
-        )}
-        <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
-      </div>
-      <time className="text-[9px] text-gray-400 flex-shrink-0 whitespace-nowrap mt-0.5">
-        {new Date(n.createdAt).toLocaleDateString("es-CO")}
-      </time>
-    </div>
-  );
-})}
+            {loadingCards ? (
+              <div className="flex items-center justify-center gap-2 py-20 text-[#1E76B6]">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm font-medium">Cargando datos del cliente…</span>
               </div>
-            </details>
-          );
-        });
-      })()
-    )}
-  </div>
-</Card>
-            </PairRow>
+            ) : (
+              <div className="space-y-10">
+                {/* -- 1. Semáforo --------------------------------------------- */}
+                <section>
+                  <SectionHeader title="Semáforo" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <SemaforoPie tires={allTires as any} language="es" />
+                    <ScrollCard><SemaforoTabla vehicles={allVehicles} tires={allTires} /></ScrollCard>
+                  </div>
+                </section>
 
-            {/* -- Row 2: Vida distribution + PorMarca ------------------------ */}
-            <PairRow>
-              <Card className="p-4 sm:p-5 flex flex-col">
-                <CardTitle icon={Package} title="Distribución de Neumáticos" />
-                <div className="flex-1 space-y-3">
-                  {vidaBars.map(({ label, value, grad }) => (
-                    <div key={label}>
-                      <div className="flex justify-between items-baseline mb-1.5">
-                        <span className="text-xs font-semibold text-[#0A183A]">{label}</span>
-                        <span className="text-xs font-black text-[#0A183A]">
-                          {value}
-                          <span className="font-normal text-gray-400 ml-1">({pct(value)}%)</span>
-                        </span>
+                {/* -- 2. Análisis CPK ----------------------------------------- */}
+                <section>
+                  <SectionHeader title="Análisis CPK" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <CpkBarChart data={cpkByMarca} />
+                    <ScrollCard><TablaCpk tires={cpkTires} /></ScrollCard>
+                  </div>
+                </section>
+
+                {/* -- 3. Distribución ----------------------------------------- */}
+                <section>
+                  <SectionHeader title="Distribución" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {Object.keys(marcaData).length > 0
+                      ? <PorMarca groupData={marcaData} />
+                      : <SkeletonCard label="Sin datos de marcas" />}
+                    {Object.keys(bandaData).length > 0
+                      ? <PorBanda groupData={bandaData} />
+                      : <SkeletonCard label="Sin datos de bandas" />}
+                    <PorVida tires={allTires as any} />
+                  </div>
+                </section>
+
+                {/* -- 4. Análisis por Eje y Vehículo -------------------------- */}
+                <section>
+                  <SectionHeader title="Análisis por Eje y Vehículo" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <PromedioEje
+                      tires={allTires as any}
+                      onSelectEje={(eje: string | null) => setSelectedEje(eje ?? "")}
+                      selectedEje={selectedEje}
+                    />
+                    <TipoVehiculo vehicles={vehiclesWithCount as any} />
+                  </div>
+                </section>
+
+                {/* -- 5. Tendencias ------------------------------------------- */}
+                <section>
+                  <SectionHeader title="Tendencias" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <ReencaucheHistorico tires={reencaucheTires} language="es" />
+                    <Card className="p-4 sm:p-5 flex flex-col">
+                      <CardTitle icon={Package} title="Distribución de Vida" />
+                      <div className="flex-1 space-y-3">
+                        {vidaBars.map(({ label, value, grad }) => (
+                          <div key={label}>
+                            <div className="flex justify-between items-baseline mb-1.5">
+                              <span className="text-xs font-semibold text-[#0A183A]">{label}</span>
+                              <span className="text-xs font-black text-[#0A183A]">
+                                {value}
+                                <span className="font-normal text-gray-400 ml-1">({pct(value)}%)</span>
+                              </span>
+                            </div>
+                            <div className="w-full rounded-full h-2 overflow-hidden" style={{ background: "rgba(10,24,58,0.06)" }}>
+                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct(value)}%`, background: grad }} />
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="w-full rounded-full h-2 overflow-hidden" style={{ background: "rgba(10,24,58,0.06)" }}>
-                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct(value)}%`, background: grad }} />
+                      <div className="mt-4 pt-3 flex justify-between items-center" style={{ borderTop: "1px solid rgba(52,140,203,0.12)" }}>
+                        <span className="text-xs font-bold text-[#0A183A]">Total</span>
+                        <span className="text-xs font-black text-[#1E76B6]">{vidaStats.total} neumáticos</span>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 pt-3 flex justify-between items-center" style={{ borderTop: "1px solid rgba(52,140,203,0.12)" }}>
-                  <span className="text-xs font-bold text-[#0A183A]">Total</span>
-                  <span className="text-xs font-black text-[#1E76B6]">{vidaStats.total} neumáticos</span>
-                </div>
-              </Card>
+                    </Card>
+                  </div>
+                </section>
 
-              {loadingCards ? <SkeletonCard label="Cargando marcas…" /> :
-                Object.keys(marcaData).length > 0 ? <PorMarca groupData={marcaData} /> : <SkeletonCard label="Sin datos de marcas" />}
-            </PairRow>
+                {/* -- 6. Profundidad y Proyección ----------------------------- */}
+                <section>
+                  <SectionHeader title="Profundidad y Proyección" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <TanqueMilimetro tires={tanqueTires} language="es" />
+                    <ProyeccionVida tires={allTires as any} />
+                  </div>
+                </section>
 
-            {/* -- Row 3: PorBanda + TablaCpk --------------------------------- */}
-            <PairRow>
-              {loadingCards ? <SkeletonCard label="Cargando bandas…" /> :
-                Object.keys(bandaData).length > 0 ? <PorBanda groupData={bandaData} /> : <SkeletonCard label="Sin datos de bandas" />}
-
-              {loadingCards ? <SkeletonCard label="Cargando CPK…" /> : (
-                <ScrollCard><TablaCpk tires={cpkTires} /></ScrollCard>
-              )}
-            </PairRow>
-
-            {/* -- Row 4: TanqueMilimetro + ReencaucheHistorico --------------- */}
-            <PairRow>
-              {loadingCards ? <SkeletonCard label="Cargando datos…" /> : <TanqueMilimetro tires={tanqueTires} language="es" />}
-              {loadingCards ? <SkeletonCard label="Cargando histórico…" /> : <ReencaucheHistorico tires={reencaucheTires} language="es" />}
-            </PairRow>
-
-            {/* -- Row 5: HistoricChart + DetallesLlantas ---------------------- */}
-            <PairRow>
-              {loadingCards ? <SkeletonCard label="Cargando gráfico…" /> : <HistoricChart tires={historicTires} language="es" />}
-              {loadingCards ? <SkeletonCard label="Cargando detalles…" /> : (
-                <ScrollCard><DetallesLlantas tires={detailTires} vehicles={allVehicles} /></ScrollCard>
-              )}
-            </PairRow>
+                {/* -- 7. Detalles de Llantas ---------------------------------- */}
+                <section>
+                  <SectionHeader title="Detalles de Llantas" />
+                  <ScrollCard><DetallesLlantas tires={detailTires} vehicles={allVehicles} /></ScrollCard>
+                </section>
+              </div>
+            )}
           </>
         )}
       </div>
