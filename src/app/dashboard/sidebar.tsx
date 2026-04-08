@@ -109,7 +109,7 @@ function NavItem({
     <Link
       href={link.path}
       onClick={onClick}
-      className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 active:scale-[0.98]"
+      className="group flex items-center gap-3 px-2.5 py-2 rounded-xl text-[13px] font-bold transition-all duration-200 active:scale-[0.98]"
       style={
         active
           ? {
@@ -201,16 +201,13 @@ export default function Sidebar({
 
   function closeMobile() { setIsMobileOpen(false); }
 
-  // Lock body scroll while the mobile drawer is open
+  // Lock body scroll only while the mobile drawer is open
   useEffect(() => {
-    if (typeof document === "undefined") return;
+    if (typeof document === "undefined" || !isMobileOpen) return;
     const prev = document.body.style.overflow;
-    document.body.style.overflow = isMobileOpen ? "hidden" : prev || "";
+    document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, [isMobileOpen]);
-
-  // Close drawer automatically when navigating to a new route
-  useEffect(() => { setIsMobileOpen(false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [pathname]);
 
   // ==========================================================================
   // Render
@@ -232,19 +229,26 @@ export default function Sidebar({
         style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
       >
         <div
-          className="flex items-center gap-3 pl-2 pr-2 rounded-2xl"
+          className="flex items-center gap-2.5 pl-2 pr-1.5 rounded-2xl"
           style={{
             background: "white",
             border: "1px solid rgba(52,140,203,0.18)",
-            boxShadow: "0 6px 24px rgba(10,24,58,0.10)",
-            height: 56,
+            boxShadow: "0 4px 18px rgba(10,24,58,0.08)",
+            height: 50,
           }}
         >
-          <CompanyAvatar company={company} size="sm" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center"
+               style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
+            {company.profileImage ? (
+              <img src={company.profileImage} alt={company.name} className="w-full h-full object-contain p-0.5" />
+            ) : (
+              <span className="text-xs font-black text-white">{company.name.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-black text-[#0A183A] leading-tight truncate">{company.name}</p>
-            <p className="text-[11px] text-gray-500 leading-tight truncate">{user.name}</p>
+            <p className="text-[13px] font-black text-[#0A183A] leading-tight truncate">{company.name}</p>
+            <p className="text-[10px] text-gray-500 leading-tight truncate">{user.name}</p>
           </div>
 
           <button
@@ -252,15 +256,15 @@ export default function Sidebar({
             aria-label={isMobileOpen ? "Cerrar menú" : "Abrir menú"}
             className="flex-shrink-0 flex items-center justify-center rounded-xl transition-all active:scale-95"
             style={{
-              width: 42,
-              height: 42,
+              width: 36,
+              height: 36,
               background: "rgba(30,118,182,0.08)",
               border: "1px solid rgba(52,140,203,0.15)",
             }}
           >
             {isMobileOpen
-              ? <X className="w-5 h-5 text-[#1E76B6]" />
-              : <Menu className="w-5 h-5 text-[#1E76B6]" />
+              ? <X className="w-4 h-4 text-[#1E76B6]" />
+              : <Menu className="w-4 h-4 text-[#1E76B6]" />
             }
           </button>
         </div>
@@ -280,44 +284,45 @@ export default function Sidebar({
       >
         {/* Mobile panel header */}
         <div
-          className="px-5 py-5"
+          className="px-4 py-4"
           style={{
             background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)",
           }}
         >
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-bold text-white/60 uppercase tracking-widest">Menú</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Menú</p>
             <button
               onClick={closeMobile}
-              className="p-1.5 rounded-lg"
+              aria-label="Cerrar menú"
+              className="p-1.5 rounded-lg active:scale-95"
               style={{ background: "rgba(255,255,255,0.12)" }}
             >
               <X className="w-4 h-4 text-white" />
             </button>
           </div>
-          {/* Big logo box */}
-          <div
-            className="w-full rounded-2xl overflow-hidden flex items-center justify-center mb-3"
-            style={{
-              height: 88,
-              background: "rgba(255,255,255,0.12)",
-              border: "1.5px solid rgba(255,255,255,0.2)",
-            }}
-          >
-            {company.profileImage ? (
-              <img
-                src={company.profileImage}
-                alt={company.name}
-                className="w-full h-full object-contain p-2"
-              />
-            ) : (
-              <span className="text-4xl font-black text-white">
-                {company.name.charAt(0).toUpperCase()}
-              </span>
-            )}
+          <div className="flex items-center gap-3">
+            <div
+              className="rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0"
+              style={{
+                width: 44,
+                height: 44,
+                background: "rgba(255,255,255,0.14)",
+                border: "1px solid rgba(255,255,255,0.22)",
+              }}
+            >
+              {company.profileImage ? (
+                <img src={company.profileImage} alt={company.name} className="w-full h-full object-contain p-1" />
+              ) : (
+                <span className="text-lg font-black text-white">
+                  {company.name.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-black text-white text-sm truncate">{company.name}</p>
+              <p className="text-[11px] text-white/60 truncate">{user.name}</p>
+            </div>
           </div>
-          <p className="font-black text-white text-sm truncate text-center">{company.name}</p>
-          <p className="text-[11px] text-white/60 mt-0.5 truncate text-center">{user.name}</p>
         </div>
 
         {/* Mobile nav links */}
