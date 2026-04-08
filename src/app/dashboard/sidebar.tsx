@@ -109,7 +109,7 @@ function NavItem({
     <Link
       href={link.path}
       onClick={onClick}
-      className="group flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold transition-all duration-200"
+      className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 active:scale-[0.98]"
       style={
         active
           ? {
@@ -201,6 +201,17 @@ export default function Sidebar({
 
   function closeMobile() { setIsMobileOpen(false); }
 
+  // Lock body scroll while the mobile drawer is open
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = isMobileOpen ? "hidden" : prev || "";
+    return () => { document.body.style.overflow = prev; };
+  }, [isMobileOpen]);
+
+  // Close drawer automatically when navigating to a new route
+  useEffect(() => { setIsMobileOpen(false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [pathname]);
+
   // ==========================================================================
   // Render
   // ==========================================================================
@@ -217,33 +228,39 @@ export default function Sidebar({
 
       {/* -- Mobile top bar ------------------------------------------------- */}
       <nav
-        className="fixed top-3 left-1/2 -translate-x-1/2 z-50 lg:hidden"
-        style={{ width: "calc(100% - 1.5rem)" }}
+        className="fixed left-0 right-0 z-50 lg:hidden px-3"
+        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
       >
         <div
-          className="flex items-center justify-between px-4 h-13 rounded-2xl"
+          className="flex items-center gap-3 pl-2 pr-2 rounded-2xl"
           style={{
             background: "white",
             border: "1px solid rgba(52,140,203,0.18)",
-            boxShadow: "0 4px 24px rgba(10,24,58,0.1)",
-            height: 52,
+            boxShadow: "0 6px 24px rgba(10,24,58,0.10)",
+            height: 56,
           }}
         >
           <CompanyAvatar company={company} size="sm" />
 
-          <div className="text-center">
-            <p className="text-xs font-black text-[#0A183A] leading-none">{company.name}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">{user.name}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black text-[#0A183A] leading-tight truncate">{company.name}</p>
+            <p className="text-[11px] text-gray-500 leading-tight truncate">{user.name}</p>
           </div>
 
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="p-2 rounded-xl transition-all"
-            style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(52,140,203,0.15)" }}
+            aria-label={isMobileOpen ? "Cerrar menú" : "Abrir menú"}
+            className="flex-shrink-0 flex items-center justify-center rounded-xl transition-all active:scale-95"
+            style={{
+              width: 42,
+              height: 42,
+              background: "rgba(30,118,182,0.08)",
+              border: "1px solid rgba(52,140,203,0.15)",
+            }}
           >
             {isMobileOpen
-              ? <X className="w-4 h-4 text-[#1E76B6]" />
-              : <Menu className="w-4 h-4 text-[#1E76B6]" />
+              ? <X className="w-5 h-5 text-[#1E76B6]" />
+              : <Menu className="w-5 h-5 text-[#1E76B6]" />
             }
           </button>
         </div>
@@ -251,12 +268,14 @@ export default function Sidebar({
 
       {/* -- Mobile slide-in panel ------------------------------------------ */}
       <div
-        className="fixed inset-y-0 right-0 z-50 w-72 flex flex-col lg:hidden transition-transform duration-300"
+        className="fixed inset-y-0 right-0 z-50 flex flex-col lg:hidden transition-transform duration-300 ease-out w-[88%] max-w-sm"
         style={{
-          transform: isMobileOpen ? "translateX(0)" : "translateX(100%)",
+          transform: isMobileOpen ? "translateX(0)" : "translateX(105%)",
           background: "white",
           borderLeft: "1px solid rgba(52,140,203,0.15)",
-          boxShadow: "-8px 0 32px rgba(10,24,58,0.1)",
+          boxShadow: "-12px 0 40px rgba(10,24,58,0.18)",
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         {/* Mobile panel header */}
@@ -302,7 +321,7 @@ export default function Sidebar({
         </div>
 
         {/* Mobile nav links */}
-        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
           {links.map(link => (
             <NavItem
               key={link.path}
