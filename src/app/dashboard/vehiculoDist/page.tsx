@@ -420,7 +420,7 @@ export default function VehiculoPage() {
   const [loadingVehicles, setLoadingVehicles] = useState(false);
   const [error,           setError]           = useState("");
   const [companies,       setCompanies]       = useState<Company[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState("Todos");
+  const [selectedCompany, setSelectedCompany] = useState("");
   const [showDropdown,    setShowDropdown]    = useState(false);
   const [clientSearch,    setClientSearch]    = useState("");
 
@@ -436,7 +436,9 @@ export default function VehiculoPage() {
       const res = await authFetch(`${API_BASE}/companies/me/clients`);
       if (!res.ok) return;
       const data = await res.json();
-      setCompanies(data.map((a: any) => ({ id: a.company.id, name: a.company.name })));
+      const list: Company[] = data.map((a: any) => ({ id: a.company.id, name: a.company.name }));
+      setCompanies(list);
+      if (list.length > 0) setSelectedCompany((cur) => cur || list[0].name);
     } catch {/* silent */}
   }, []);
 
@@ -459,19 +461,11 @@ export default function VehiculoPage() {
   }, []);
 
   useEffect(() => {
-    if (!companies.length) return;
+    if (!companies.length || !selectedCompany) { setVehicles([]); return; }
     const run = async () => {
-      if (selectedCompany === "Todos") {
-        const all: Vehicle[] = [];
-        await Promise.all(companies.map(async (c) => {
-          const vs = await fetchVehicles(c.id);
-          all.push(...vs);
-        }));
-        setVehicles(all);
-      } else {
-        const co = companies.find((c) => c.name === selectedCompany);
-        if (co) setVehicles(await fetchVehicles(co.id));
-      }
+      const co = companies.find((c) => c.name === selectedCompany);
+      if (co) setVehicles(await fetchVehicles(co.id));
+      else setVehicles([]);
     };
     run();
   }, [selectedCompany, companies, fetchVehicles]);
@@ -583,7 +577,7 @@ export default function VehiculoPage() {
 
   // -- Dropdown options -------------------------------------------------------
   const filteredOptions = useMemo(() => {
-    const all = ["Todos", ...companies.map((c) => c.name)];
+    const all = companies.map((c) => c.name);
     return clientSearch.trim()
       ? all.filter((o) => o.toLowerCase().includes(clientSearch.toLowerCase()))
       : all;
@@ -618,13 +612,13 @@ export default function VehiculoPage() {
                 onClick={() => setShowDropdown(!showDropdown)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: selectedCompany !== "Todos" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.12)",
+                  background: selectedCompany ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.12)",
                   border: "1px solid rgba(255,255,255,0.2)",
                   color: "white",
                 }}
               >
                 <Building2 className="w-3.5 h-3.5" />
-                <span className="max-w-[120px] truncate">{selectedCompany === "Todos" ? "Todos" : selectedCompany}</span>
+                <span className="max-w-[120px] truncate">{selectedCompany || "Seleccionar cliente"}</span>
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
               </button>
 
@@ -655,7 +649,7 @@ export default function VehiculoPage() {
                           className="block w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#F0F7FF]"
                           style={{ color: selectedCompany === opt ? "#1E76B6" : "#0A183A", fontWeight: selectedCompany === opt ? 700 : 400 }}
                         >
-                          {opt === "Todos" ? "Todos los clientes" : opt}
+                          {opt}
                         </button>
                       ))}
                     </div>
