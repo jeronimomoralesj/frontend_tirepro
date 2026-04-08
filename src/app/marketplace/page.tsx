@@ -974,10 +974,10 @@ function MarketplaceHero({
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+    <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4">
       <section
-        className="relative rounded-3xl overflow-hidden"
-        style={{ height: "clamp(380px, 52vw, 520px)" }}
+        className="relative rounded-2xl sm:rounded-3xl overflow-hidden min-h-[440px] sm:min-h-0"
+        style={{ height: "clamp(440px, 52vw, 520px)" }}
       >
         <img
           src={HERO_BG_SM}
@@ -993,20 +993,21 @@ function MarketplaceHero({
           }}
         />
 
-        <div className="relative h-full flex flex-col justify-center px-6 sm:px-12 lg:px-16 max-w-3xl">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-4">
+        <div className="relative h-full flex flex-col justify-center px-5 py-5 sm:px-12 sm:py-0 lg:px-16 max-w-3xl">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-[9px] sm:text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-3 sm:mb-4">
             <Star className="w-3 h-3 text-yellow-300" />
-            Marketplace #1 de llantas en Colombia
+            <span className="hidden xs:inline">Marketplace #1 de llantas en Colombia</span>
+            <span className="xs:hidden">#1 en Colombia</span>
           </span>
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.05] tracking-tight">
+          <h1 className="text-[26px] leading-[1.05] sm:text-5xl lg:text-6xl font-black text-white tracking-tight">
             Las mejores llantas
             <br />
             <span style={{ background: "linear-gradient(90deg,#f59e0b,#fbbf24)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               al mejor precio
             </span>
           </h1>
-          <p className="text-sm sm:text-base text-white/80 mt-3 max-w-xl">
-            Compara llantas nuevas, reencauche e industriales de los distribuidores verificados de Colombia. Encuentra tu medida y cotiza en segundos.
+          <p className="text-[12px] sm:text-base text-white/80 mt-2 sm:mt-3 max-w-xl leading-snug">
+            Compara llantas nuevas, reencauche e industriales de los distribuidores verificados de Colombia.
           </p>
 
           {/* Buscar por medida — campo a campo */}
@@ -1142,12 +1143,12 @@ function CategoriesSection({
   availableDimensions: string[];
 }) {
   return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+    <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-7 sm:pt-8">
       <div className="flex items-end justify-between mb-3">
-        <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Categorías</h2>
+        <h2 className="text-base sm:text-xl font-black text-[#0A183A]">Categorías</h2>
         <p className="text-xs text-gray-500 hidden sm:block">Encuentra llantas según tu tipo de vehículo</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
         {CATEGORIES.map((c) => {
           const Icon = c.icon;
           // Only show categories that have at least one matching dimension
@@ -1161,8 +1162,8 @@ function CategoriesSection({
             <button
               key={c.key}
               onClick={() => onPick(c.rims, c.label)}
-              className="group relative rounded-2xl overflow-hidden text-left transition-all hover:-translate-y-1 hover:shadow-2xl"
-              style={{ height: 160, background: c.gradient }}
+              className="group relative rounded-2xl overflow-hidden text-left transition-all hover:-translate-y-1 hover:shadow-2xl h-32 sm:h-40"
+              style={{ background: c.gradient }}
             >
               {c.bg && (
                 <img
@@ -1187,14 +1188,14 @@ function CategoriesSection({
                   <Icon className="w-44 h-44 text-white" />
                 </div>
               )}
-              <div className="relative h-full flex flex-col justify-between p-5">
-                <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm border border-white/25 flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-white" />
+              <div className="relative h-full flex flex-col justify-between p-3 sm:p-5">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-sm border border-white/25 flex items-center justify-center">
+                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Categoría</p>
-                  <h3 className="text-xl font-black text-white leading-tight drop-shadow">{c.label}</h3>
-                  <p className="text-[11px] text-white/80 mt-0.5">{c.sub}</p>
+                  <p className="text-[9px] sm:text-[10px] font-bold text-white/70 uppercase tracking-widest hidden sm:block">Categoría</p>
+                  <h3 className="text-sm sm:text-xl font-black text-white leading-tight drop-shadow">{c.label}</h3>
+                  <p className="text-[10px] sm:text-[11px] text-white/80 mt-0.5 hidden xs:block">{c.sub}</p>
                 </div>
               </div>
             </button>
@@ -1217,11 +1218,11 @@ function BestSellersScroller({ listings }: { listings: Listing[] }) {
     el.scrollBy({ left: dir * Math.max(280, el.clientWidth * 0.7), behavior: "smooth" });
   }
   return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+    <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-10">
       <div className="flex items-end justify-between mb-3">
         <div>
-          <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Llantas más vendidas</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Las favoritas de las flotas en Colombia</p>
+          <h2 className="text-base sm:text-xl font-black text-[#0A183A]">Llantas más vendidas</h2>
+          <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Las favoritas de las flotas en Colombia</p>
         </div>
         <div className="hidden sm:flex gap-1.5">
           <button onClick={() => scroll(-1)} aria-label="Anterior"
@@ -1236,10 +1237,10 @@ function BestSellersScroller({ listings }: { listings: Listing[] }) {
       </div>
       <div
         ref={ref}
-        className="flex gap-3 sm:gap-4 overflow-x-auto pb-3 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+        className="flex gap-3 sm:gap-4 overflow-x-auto pb-3 scrollbar-hide scroll-smooth snap-x snap-mandatory -mx-3 px-3 sm:mx-0 sm:px-0"
       >
         {listings.map((l) => (
-          <div key={l.id} className="flex-shrink-0 snap-start" style={{ width: "min(72vw, 240px)" }}>
+          <div key={l.id} className="flex-shrink-0 snap-start" style={{ width: "min(60vw, 220px)" }}>
             <ProductCard l={l} />
           </div>
         ))}
@@ -1363,17 +1364,41 @@ function DistributorsMap() {
   const totalPoints = data.reduce((acc, d) => acc + (d.cobertura?.length || 0), 0);
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+    <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-10">
       <div className="flex items-end justify-between mb-3">
         <div>
-          <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Distribuidores en Colombia</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <h2 className="text-base sm:text-xl font-black text-[#0A183A]">Distribuidores en Colombia</h2>
+          <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
             {loading ? "Cargando…" : `${data.length} distribuidores · ${totalPoints} puntos de cobertura`}
           </p>
         </div>
       </div>
+
+      {/* Small distributor strip — horizontal scroll above the map */}
+      {data.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-3 -mx-3 px-3 sm:mx-0 sm:px-0">
+          {data.map((d) => (
+            <Link
+              key={d.id}
+              href={`/marketplace/distributor/${d.id}`}
+              className="flex-shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white border border-gray-100 hover:border-[#1E76B6]/40 hover:shadow-md transition-all"
+              style={{ maxWidth: 200 }}
+            >
+              <div className="w-7 h-7 rounded-full bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {d.profileImage && d.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+                  <img src={d.profileImage} alt={d.name} className="w-full h-full object-contain p-0.5" />
+                ) : (
+                  <Store className="w-3.5 h-3.5 text-gray-400" />
+                )}
+              </div>
+              <span className="text-[11px] font-bold text-[#0A183A] truncate">{d.name}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
-        <div ref={containerRef} className="w-full" style={{ height: 460 }} />
+        <div ref={containerRef} className="w-full h-[320px] sm:h-[460px]" />
       </div>
     </div>
   );
