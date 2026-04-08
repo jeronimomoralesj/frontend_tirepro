@@ -1094,6 +1094,7 @@ const CATEGORIES: Array<{
   sub: string;
   icon: React.ComponentType<{ className?: string }>;
   gradient: string;
+  bg?: { src1x: string; src2x: string };
   rims: string[];
 }> = [
   {
@@ -1102,6 +1103,10 @@ const CATEGORIES: Array<{
     sub: "Vehículos livianos y SUV",
     icon: Car,
     gradient: "linear-gradient(135deg,#1E76B6 0%,#348CCB 100%)",
+    bg: {
+      src1x: "https://cdn.pixabay.com/photo/2018/03/31/12/11/car-3278002_960_720.jpg",
+      src2x: "https://cdn.pixabay.com/photo/2018/03/31/12/11/car-3278002_1280.jpg",
+    },
     // Rim sizes typical for sedans, SUV and pickups.
     rims: ["13", "14", "15", "16", "17", "18", "19", "20", "21"],
   },
@@ -1111,6 +1116,10 @@ const CATEGORIES: Array<{
     sub: "Carga pesada y flota",
     icon: Truck,
     gradient: "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)",
+    bg: {
+      src1x: "https://cdn.pixabay.com/photo/2019/10/30/06/19/truck-4588791_960_720.jpg",
+      src2x: "https://cdn.pixabay.com/photo/2019/10/30/06/19/truck-4588791_1280.jpg",
+    },
     // Standard truck/bus rim sizes.
     rims: ["17.5", "19.5", "22.5", "24.5"],
   },
@@ -1155,17 +1164,37 @@ function CategoriesSection({
               className="group relative rounded-2xl overflow-hidden text-left transition-all hover:-translate-y-1 hover:shadow-2xl"
               style={{ height: 160, background: c.gradient }}
             >
-              <div className="absolute -right-6 -bottom-6 opacity-15 group-hover:opacity-25 transition-opacity">
-                <Icon className="w-44 h-44 text-white" />
-              </div>
+              {c.bg && (
+                <img
+                  src={c.bg.src1x}
+                  srcSet={`${c.bg.src1x} 1x, ${c.bg.src2x} 2x`}
+                  alt=""
+                  aria-hidden
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              )}
+              {c.bg && (
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(10,24,58,0.75) 0%, rgba(23,61,104,0.55) 55%, rgba(30,118,182,0.35) 100%)",
+                  }}
+                />
+              )}
+              {!c.bg && (
+                <div className="absolute -right-6 -bottom-6 opacity-15 group-hover:opacity-25 transition-opacity">
+                  <Icon className="w-44 h-44 text-white" />
+                </div>
+              )}
               <div className="relative h-full flex flex-col justify-between p-5">
                 <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm border border-white/25 flex items-center justify-center">
                   <Icon className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Categoría</p>
-                  <h3 className="text-xl font-black text-white leading-tight">{c.label}</h3>
-                  <p className="text-[11px] text-white/70 mt-0.5">{c.sub}</p>
+                  <h3 className="text-xl font-black text-white leading-tight drop-shadow">{c.label}</h3>
+                  <p className="text-[11px] text-white/80 mt-0.5">{c.sub}</p>
                 </div>
               </div>
             </button>
