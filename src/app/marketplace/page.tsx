@@ -64,6 +64,8 @@ function PublicMarketplace() {
   const [marca, setMarca] = useState("");
   const [tipo, setTipo] = useState(searchParams.get("tipo") ?? "");
   const [distributorId, setDistributorId] = useState("");
+  const [rimSizes, setRimSizes] = useState<string[]>([]);
+  const [categoryLabel, setCategoryLabel] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [sortBy, setSortBy] = useState("relevance");
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
@@ -184,16 +186,35 @@ function PublicMarketplace() {
     if (marca) p.set("marca", marca);
     if (tipo) p.set("tipo", tipo);
     if (distributorId) p.set("distributorId", distributorId);
+    if (rimSizes.length > 0) p.set("rimSizes", rimSizes.join(","));
     // Only send ciudad as hard filter if user set it manually
     if (ciudad && ciudadManual) p.set("ciudad", ciudad);
     p.set("sortBy", sortBy);
     p.set("page", String(page));
-    p.set("limit", "24");
+    // When a category is active we fetch a larger page so the client-side
+    // rim filter has enough data to work with even if the backend hasn't
+    // been updated to honor `rimSizes`.
+    p.set("limit", rimSizes.length > 0 ? "50" : "24");
     try {
       const res = await fetch(`${API_BASE}/marketplace/listings?${p}`);
       if (res.ok) {
         const d = await res.json();
-        setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1);
+        let nextListings: Listing[] = d.listings ?? [];
+        let nextTotal: number = d.total ?? 0;
+        let nextPages: number = d.pages ?? 1;
+        // Defensive client-side rim filter — works even if the backend
+        // ignores the rimSizes param.
+        if (rimSizes.length > 0) {
+          const rimRegexes = rimSizes.map(
+            (r) => new RegExp(`R\\s*${r.replace(".", "\\.")}\\b`, "i")
+          );
+          nextListings = nextListings.filter((l) =>
+            rimRegexes.some((rx) => rx.test(l.dimension ?? ""))
+          );
+          nextTotal = nextListings.length;
+          nextPages = 1;
+        }
+        setListings(nextListings); setTotal(nextTotal); setPages(nextPages);
         if (search) trackSearch(search, d.total ?? 0);
         if (dimension) trackFilter("dimension", dimension);
         if (marca) trackFilter("marca", marca);
@@ -201,14 +222,14 @@ function PublicMarketplace() {
       }
     } catch { /* */ }
     setLoading(false);
-  }, [search, dimension, marca, tipo, distributorId, ciudad, ciudadManual, sortBy, page]);
+  }, [search, dimension, marca, tipo, distributorId, rimSizes, ciudad, ciudadManual, sortBy, page]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
-  useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, ciudad, sortBy]);
+  useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, rimSizes, ciudad, sortBy]);
 
-  const activeFilters = [dimension, marca, tipo, distributorId, ciudadManual ? ciudad : ""].filter(Boolean).length;
+  const activeFilters = [dimension, marca, tipo, distributorId, rimSizes.length > 0 ? "rim" : "", ciudadManual ? ciudad : ""].filter(Boolean).length;
 
-  function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setCiudad(""); setCiudadManual(false); }
+  function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setRimSizes([]); setCategoryLabel(""); setCiudad(""); setCiudadManual(false); }
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
@@ -305,7 +326,16 @@ function PublicMarketplace() {
 
       {/* ═══ CATEGORÍAS ═══ */}
       {!search && !activeFilters && (
-        <CategoriesSection onPick={(q) => setSearch(q)} />
+        <CategoriesSection
+          availableDimensions={filters.dimensions}
+          onPick={(rims, label) => {
+            setRimSizes(rims);
+            setCategoryLabel(label);
+            if (typeof window !== "undefined") {
+              setTimeout(() => window.scrollTo({ top: 600, behavior: "smooth" }), 50);
+            }
+          }}
+        />
       )}
 
       {/* ═══ LLANTAS MÁS VENDIDAS — horizontal scroll ═══ */}
@@ -351,6 +381,19 @@ function PublicMarketplace() {
 
       {/* ═══ RESULTS ═══ */}
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {rimSizes.length > 0 && categoryLabel && (
+          <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold text-white"
+            style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
+            <span>Categoría: {categoryLabel}</span>
+            <button
+              onClick={() => { setRimSizes([]); setCategoryLabel(""); }}
+              className="ml-1 w-5 h-5 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center"
+              aria-label="Quitar categoría"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32">
             <Loader2 className="w-8 h-8 animate-spin text-[#1E76B6] mb-3" />
@@ -909,7 +952,8 @@ const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> 
 
 // NOTE: must be a cdn.pixabay.com URL — the pixabay.com/images/download/* path
 // serves a self-signed cert and browsers reject it (ERR_CERT_AUTHORITY_INVALID).
-const HERO_BG = "https://cdn.pixabay.com/photo/2017/11/05/14/01/truck-2920533_1280.jpg";
+const HERO_BG    = "https://cdn.pixabay.com/photo/2015/05/26/09/33/canada-784392_1280.jpg";
+const HERO_BG_SM = "https://cdn.pixabay.com/photo/2015/05/26/09/33/canada-784392_960_720.jpg";
 
 function MarketplaceHero({
   dimensions,
@@ -943,7 +987,8 @@ function MarketplaceHero({
         style={{ height: "clamp(380px, 52vw, 520px)" }}
       >
         <img
-          src={HERO_BG}
+          src={HERO_BG_SM}
+          srcSet={`${HERO_BG_SM} 1x, ${HERO_BG} 2x`}
           alt="Llantas para flotas y vehículos en Colombia — Marketplace TirePro"
           className="absolute inset-0 w-full h-full object-cover"
         />
@@ -1047,29 +1092,34 @@ function MarketplaceHero({
 // Categorías
 // =============================================================================
 
+// Categories are matched by rim size (the most reliable signal in the
+// dimension string). Each category lists the rim sizes that belong to it
+// — clicking the category sends the user to the filtered results page.
 const CATEGORIES: Array<{
   key: string;
   label: string;
   sub: string;
   icon: React.ComponentType<{ className?: string }>;
   gradient: string;
-  query: string;
+  rims: string[];
 }> = [
-  {
-    key: "camion",
-    label: "Camión",
-    sub: "Carga pesada y flota",
-    icon: Truck,
-    gradient: "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)",
-    query: "camion",
-  },
   {
     key: "auto",
     label: "Auto y Camioneta",
     sub: "Vehículos livianos y SUV",
     icon: Car,
     gradient: "linear-gradient(135deg,#1E76B6 0%,#348CCB 100%)",
-    query: "auto",
+    // Rim sizes typical for sedans, SUV and pickups.
+    rims: ["13", "14", "15", "16", "17", "18", "19", "20", "21"],
+  },
+  {
+    key: "camion",
+    label: "Camión",
+    sub: "Carga pesada y flota",
+    icon: Truck,
+    gradient: "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)",
+    // Standard truck/bus rim sizes.
+    rims: ["17.5", "19.5", "22.5", "24.5"],
   },
   {
     key: "industrial",
@@ -1077,11 +1127,18 @@ const CATEGORIES: Array<{
     sub: "Maquinaria y agrícola",
     icon: Factory,
     gradient: "linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)",
-    query: "industrial",
+    // OTR / industrial rims.
+    rims: ["24", "25", "26", "27", "29", "33", "35", "49", "51", "57", "63"],
   },
 ];
 
-function CategoriesSection({ onPick }: { onPick: (q: string) => void }) {
+function CategoriesSection({
+  onPick,
+  availableDimensions,
+}: {
+  onPick: (rims: string[], label: string) => void;
+  availableDimensions: string[];
+}) {
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
       <div className="flex items-end justify-between mb-3">
@@ -1091,10 +1148,17 @@ function CategoriesSection({ onPick }: { onPick: (q: string) => void }) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {CATEGORIES.map((c) => {
           const Icon = c.icon;
+          // Only show categories that have at least one matching dimension
+          // in the available catalog — otherwise the click leads to "Sin
+          // resultados".
+          const hasMatch = availableDimensions.some((d) =>
+            c.rims.some((r) => new RegExp(`\\bR${r.replace(".", "\\.")}\\b`, "i").test(d))
+          );
+          if (!hasMatch && availableDimensions.length > 0) return null;
           return (
             <button
               key={c.key}
-              onClick={() => onPick(c.query)}
+              onClick={() => onPick(c.rims, c.label)}
               className="group relative rounded-2xl overflow-hidden text-left transition-all hover:-translate-y-1 hover:shadow-2xl"
               style={{ height: 160, background: c.gradient }}
             >
