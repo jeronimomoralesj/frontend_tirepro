@@ -941,12 +941,12 @@ const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> 
 
 const HERO_SLIDES = [
   {
-    img: "https://mqplatform.blob.core.windows.net/attributeimageresized/caf4efd9-b23a-5f43-eb34-648c9d77bb36.png?sv=2025-05-05&ss=bfqt&srt=sco&st=2026-03-28T05%3A18%3A16Z&se=2026-03-30T05%3A18%3A16Z&sp=rwdxylacuptfi&sig=iGId38CRD3HDcQ4ie4CS3%2FJVt%2FgSSswt5VukinTAt%2F0%3D",
+    img: "https://cdn.pixabay.com/photo/2017/11/05/14/01/truck-2920533_1280.jpg",
     title: "Las mejores llantas para tu flota",
     sub: "Encuentra ofertas de distribuidores verificados en toda Colombia",
   },
   {
-    img: "https://mqplatform.blob.core.windows.net/attributeimageresized/3c4ab77f-0ba0-44b1-0eb9-d3a1224693ce.png?sv=2025-05-05&ss=bfqt&srt=sco&st=2026-03-28T05%3A18%3A16Z&se=2026-03-30T05%3A18%3A16Z&sp=rwdxylacuptfi&sig=iGId38CRD3HDcQ4ie4CS3%2FJVt%2FgSSswt5VukinTAt%2F0%3D",
+    img: "https://pixabay.com/images/download/dezalb-canada-784392_1920.jpg",
     title: "Compara precios en segundos",
     sub: "Cotiza con multiples distribuidores y elige la mejor opcion",
   },
