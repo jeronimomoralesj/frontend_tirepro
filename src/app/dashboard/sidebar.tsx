@@ -188,6 +188,15 @@ export default function Sidebar({
       .catch(err => console.error("Error fetching company:", err));
   }, [user?.companyId]);
 
+  // Lock body scroll only while the mobile drawer is open.
+  // IMPORTANT: must be declared before any early return to keep hook order stable.
+  useEffect(() => {
+    if (typeof document === "undefined" || !isMobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [isMobileOpen]);
+
   // Still loading
   if (!user || !company) return null;
 
@@ -200,14 +209,6 @@ export default function Sidebar({
   }
 
   function closeMobile() { setIsMobileOpen(false); }
-
-  // Lock body scroll only while the mobile drawer is open
-  useEffect(() => {
-    if (typeof document === "undefined" || !isMobileOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, [isMobileOpen]);
 
   // ==========================================================================
   // Render
