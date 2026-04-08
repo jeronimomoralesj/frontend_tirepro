@@ -63,16 +63,19 @@ async function login(email: string, password: string) {
 
     const data = await res.json();
 
-    if (!data.user.companyId) {
-      throw new Error("User has no assigned companyId");
-    }
-
+    // Marketplace-only users don't have a companyId — that's fine, they
+    // simply don't have access to the dashboard. Login still succeeds and
+    // the post-login redirect (in /login) sends them to /marketplace.
     setUser(data.user);
     setToken(data.access_token);
 
     localStorage.setItem("token", data.access_token);
     localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.setItem("companyId", data.user.companyId);
+    if (data.user.companyId) {
+      localStorage.setItem("companyId", data.user.companyId);
+    } else {
+      localStorage.removeItem("companyId");
+    }
   } catch (error) {
     console.error("Login error:", error);
     throw error;
