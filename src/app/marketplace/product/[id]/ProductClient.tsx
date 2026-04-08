@@ -172,24 +172,73 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
         </div>
       )}
 
-      {/* Breadcrumb */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-2">
-        <div className="flex items-center gap-1.5 text-[12px] text-gray-400">
-          <Link href="/marketplace" className="hover:text-[#1E76B6] transition-colors">Marketplace</Link>
-          <span className="text-gray-300">/</span>
-          <Link href={`/marketplace/distributor/${product.distributor.id}`} className="hover:text-[#1E76B6] transition-colors">{product.distributor.name}</Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-[#0A183A]">{product.modelo}</span>
+      {/* Hero band */}
+      <div
+        className="relative overflow-hidden"
+        style={{
+          background:
+            "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)",
+        }}
+      >
+        <div className="absolute inset-0 opacity-10" aria-hidden style={{
+          backgroundImage: "radial-gradient(circle at 20% 0%, rgba(52,140,203,0.6), transparent 40%), radial-gradient(circle at 80% 100%, rgba(245,158,11,0.4), transparent 40%)",
+        }} />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-8">
+          <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/70 hover:text-white transition-colors mb-3">
+            <ArrowLeft className="w-3 h-3" />
+            Volver al marketplace
+          </Link>
+          <div className="flex items-center gap-1.5 text-[11px] text-white/60">
+            <Link href="/marketplace" className="hover:text-white transition-colors">Marketplace</Link>
+            <span className="text-white/30">/</span>
+            <Link href={`/marketplace/distributor/${product.distributor.id}`} className="hover:text-white transition-colors truncate max-w-[160px]">{product.distributor.name}</Link>
+            <span className="text-white/30">/</span>
+            <span className="text-white truncate max-w-[200px]">{product.modelo}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-[10px] font-black text-white uppercase tracking-widest">
+              {product.tipo === "reencauche" ? <Recycle className="w-3 h-3" /> : <Shield className="w-3 h-3 text-[#fbbf24]" />}
+              {product.tipo === "reencauche" ? "Reencauche" : "Llanta nueva"}
+            </span>
+            {hasPromo && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black text-white" style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)" }}>
+                -{discount}% OFF
+              </span>
+            )}
+            {cpk != null && cpk > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/10 text-white border border-white/20">
+                CPK {fmtCOP(Math.round(cpk))}/km
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-10">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-10 -mt-6 relative">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* LEFT — Images */}
           <div className="lg:sticky lg:top-20 lg:self-start">
-            <div className="aspect-square rounded-3xl overflow-hidden bg-[#f5f5f7] flex items-center justify-center mb-4">
+            <div
+              className="relative aspect-square rounded-3xl overflow-hidden flex items-center justify-center mb-4 group"
+              style={{
+                background: "radial-gradient(circle at 30% 20%, #ffffff 0%, #f0f7ff 60%, #dbeafe 100%)",
+                boxShadow: "0 20px 60px -20px rgba(10,24,58,0.25), 0 0 0 1px rgba(30,118,182,0.08)",
+              }}
+            >
+              {hasPromo && (
+                <span
+                  className="absolute top-4 left-4 z-10 px-3 py-1 rounded-full text-[10px] font-black text-white"
+                  style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)", boxShadow: "0 6px 18px rgba(239,68,68,0.35)" }}
+                >
+                  -{discount}% OFF
+                </span>
+              )}
               {imgs.length > 0 ? (
-                <img src={imgs[selectedImg] ?? imgs[0]} alt={product.modelo} className="w-full h-full object-contain p-10 sm:p-12" />
+                <img
+                  src={imgs[selectedImg] ?? imgs[0]}
+                  alt={product.modelo}
+                  className="w-full h-full object-contain p-10 sm:p-14 transition-transform duration-500 group-hover:scale-[1.04]"
+                />
               ) : (
                 <Package className="w-24 h-24 text-gray-200" />
               )}
@@ -209,9 +258,12 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
 
           {/* RIGHT — Details */}
           <div className="pt-2">
-            <p className="text-[13px] font-semibold text-[#1E76B6] tracking-wide">{product.marca}</p>
-            <h1 className="text-2xl sm:text-[32px] font-black text-[#0A183A] mt-1 leading-[1.15] tracking-tight">{product.modelo}</h1>
-            <p className="text-[15px] text-gray-500 mt-2">{product.dimension}{product.eje ? ` · Eje ${product.eje}` : ""}</p>
+            <span className="inline-block text-[10px] font-black text-[#1E76B6] tracking-widest uppercase px-2.5 py-1 rounded-full bg-[#1E76B6]/10">{product.marca}</span>
+            <h1 className="text-3xl sm:text-[36px] font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight">{product.modelo}</h1>
+            <p className="text-sm text-gray-500 mt-2 font-medium">
+              <span className="font-bold text-[#0A183A]">{product.dimension}</span>
+              {product.eje ? <> · Eje {product.eje}</> : null}
+            </p>
 
             {/* Stars */}
             {product._count.reviews > 0 && (
@@ -233,20 +285,41 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
 
             {/* Promo banner */}
             {hasPromo && (
-              <div className="px-4 py-2.5 rounded-xl mb-3 flex items-center gap-3" style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.12)" }}>
-                <span className="text-xs font-black text-red-500 px-2 py-0.5 rounded-full bg-red-500/10">-{discount}%</span>
-                <p className="text-xs text-red-600 font-medium">Promocion hasta {new Date(product.promoHasta!).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}</p>
+              <div
+                className="px-4 py-3 rounded-2xl mb-3 flex items-center gap-3 text-white"
+                style={{ background: "linear-gradient(135deg,#dc2626 0%,#ef4444 50%,#f97316 100%)", boxShadow: "0 8px 24px rgba(239,68,68,0.25)" }}
+              >
+                <span className="text-sm font-black px-2.5 py-0.5 rounded-full bg-white/25 backdrop-blur-sm">-{discount}%</span>
+                <p className="text-xs font-bold">Promoción hasta {new Date(product.promoHasta!).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}</p>
               </div>
             )}
 
             {/* Price */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-[34px] font-black text-[#0A183A] tracking-tight">{fmtCOP(price)}</span>
-              {hasPromo && (
-                <span className="text-lg text-gray-300 line-through">{fmtCOP(product.precioCop)}</span>
-              )}
+            <div
+              className="rounded-2xl p-5"
+              style={{
+                background: "linear-gradient(135deg,rgba(30,118,182,0.06) 0%,rgba(52,140,203,0.04) 100%)",
+                border: "1px solid rgba(30,118,182,0.12)",
+              }}
+            >
+              <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-1">Precio</p>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span
+                  className="text-[40px] font-black tracking-tight leading-none"
+                  style={{
+                    background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  {fmtCOP(price)}
+                </span>
+                {hasPromo && (
+                  <span className="text-lg text-gray-400 line-through">{fmtCOP(product.precioCop)}</span>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1">+ IVA · {product.cantidadDisponible} disponibles</p>
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">+ IVA</p>
 
             {/* Tags */}
             <div className="flex flex-wrap gap-2 mt-4">
@@ -290,8 +363,9 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
               </div>
 
               <button onClick={handleAddToCart}
-                className="w-full py-4 rounded-2xl text-[15px] font-semibold text-white transition-all hover:shadow-lg hover:shadow-[#1E76B6]/25 active:scale-[0.98]"
-                style={{ background: "#1E76B6" }}>
+                className="w-full py-4 rounded-2xl text-[15px] font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
+                style={{ background: "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)" }}>
+                <ShoppingCart className="w-4 h-4" />
                 Agregar al carrito
               </button>
               {cart.count > 0 && (
@@ -755,26 +829,43 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
         </div>
         {/* Promo listings from same distributor */}
         {promoListings.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-lg font-black text-[#0A183A] mb-4">Mas llantas en promocion de {product.distributor.name}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <section className="mt-14">
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Ofertas relámpago</p>
+                <h2 className="text-xl sm:text-2xl font-black text-[#0A183A]">Más promociones de {product.distributor.name}</h2>
+              </div>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
               {promoListings.map((l: any) => {
                 const pImgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
                 const pCover = pImgs.length > 0 ? pImgs[l.coverIndex ?? 0] ?? pImgs[0] : null;
                 const pDiscount = Math.round(((l.precioCop - l.precioPromo) / l.precioCop) * 100);
                 return (
-                  <Link key={l.id} href={`/marketplace/product/${l.id}`}
-                    className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-all group border border-gray-100 relative">
-                    <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full text-[9px] font-black text-white bg-red-500">-{pDiscount}%</div>
-                    <div className="aspect-square flex items-center justify-center bg-[#fafafa] overflow-hidden">
-                      {pCover ? <img src={pCover} alt={`${l.marca} ${l.modelo} ${l.dimension}`} className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" /> : <Package className="w-8 h-8 text-gray-200" />}
+                  <Link
+                    key={l.id}
+                    href={`/marketplace/product/${l.id}`}
+                    className="flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group border border-gray-100 relative"
+                    style={{ width: "min(70vw, 240px)" }}
+                  >
+                    <span
+                      className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded-full text-[10px] font-black text-white"
+                      style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)", boxShadow: "0 6px 14px rgba(239,68,68,0.3)" }}
+                    >
+                      -{pDiscount}%
+                    </span>
+                    <div
+                      className="aspect-square flex items-center justify-center overflow-hidden"
+                      style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
+                    >
+                      {pCover ? <img src={pCover} alt={`${l.marca} ${l.modelo} ${l.dimension}`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform" /> : <Package className="w-10 h-10 text-gray-200" />}
                     </div>
-                    <div className="p-3">
-                      <p className="text-[10px] text-gray-400 uppercase">{l.marca}</p>
-                      <p className="text-xs font-bold text-[#0A183A] leading-snug truncate">{l.modelo}</p>
-                      <p className="text-[10px] text-gray-400">{l.dimension}</p>
-                      <div className="flex items-baseline gap-1.5 mt-1">
-                        <p className="text-sm font-black text-red-500">{fmtCOP(l.precioPromo)}</p>
+                    <div className="p-4">
+                      <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>
+                      <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
+                      <p className="text-[11px] text-gray-400">{l.dimension}</p>
+                      <div className="flex items-baseline gap-1.5 mt-2">
+                        <p className="text-base font-black text-red-500">{fmtCOP(l.precioPromo)}</p>
                         <p className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</p>
                       </div>
                     </div>
@@ -782,41 +873,53 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
                 );
               })}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Similar products */}
         {similar.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-lg font-black text-[#0A183A] mb-4">Productos similares</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <section className="mt-14">
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">También te puede interesar</p>
+                <h2 className="text-xl sm:text-2xl font-black text-[#0A183A]">Productos similares</h2>
+              </div>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
               {similar.map((l: any) => {
                 const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
                 const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
                 const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
                 const p = hasPromo ? l.precioPromo : l.precioCop;
                 return (
-                  <Link key={l.id} href={`/marketplace/product/${l.id}`}
-                    className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-all group border border-gray-100">
-                    <div className="aspect-square flex items-center justify-center bg-[#fafafa] overflow-hidden">
+                  <Link
+                    key={l.id}
+                    href={`/marketplace/product/${l.id}`}
+                    className="flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group border border-gray-100"
+                    style={{ width: "min(70vw, 240px)" }}
+                  >
+                    <div
+                      className="aspect-square flex items-center justify-center overflow-hidden"
+                      style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
+                    >
                       {cover ? (
-                        <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension} — llanta en Colombia`} className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" />
+                        <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension} — llanta en Colombia`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform" />
                       ) : (
-                        <Package className="w-8 h-8 text-gray-200" />
+                        <Package className="w-10 h-10 text-gray-200" />
                       )}
                     </div>
-                    <div className="p-3">
-                      <p className="text-[10px] text-gray-400 uppercase">{l.marca}</p>
-                      <p className="text-xs font-bold text-[#0A183A] leading-snug truncate">{l.modelo}</p>
-                      <p className="text-[10px] text-gray-400">{l.dimension}</p>
-                      <p className="text-sm font-black text-[#0A183A] mt-1">{fmtCOP(p)}</p>
-                      {l.distributor && <p className="text-[9px] text-gray-400 mt-1">{l.distributor.name}</p>}
+                    <div className="p-4">
+                      <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>
+                      <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
+                      <p className="text-[11px] text-gray-400">{l.dimension}</p>
+                      <p className="text-base font-black text-[#0A183A] mt-2">{fmtCOP(p)}</p>
+                      {l.distributor && <p className="text-[9px] text-gray-400 mt-1 truncate">{l.distributor.name}</p>}
                     </div>
                   </Link>
                 );
               })}
             </div>
-          </div>
+          </section>
         )}
       </main>
 
