@@ -673,18 +673,6 @@ export default function DistribuidorPage() {
     { label: "Reencauche 3", value: vidaStats.reencauche3, grad: "linear-gradient(90deg, #0A183A, #173D68)" },
   ];
 
-  // Vehicles enriched with the actual count of (visible) tires per vehicle —
-  // expected by TipoVehiculo.
-  const vehiclesWithCount = useMemo(() => {
-    const countByVehicle: Record<string, number> = {};
-    filteredTires.forEach((t) => {
-      if (t.vehicleId) countByVehicle[t.vehicleId] = (countByVehicle[t.vehicleId] ?? 0) + 1;
-    });
-    return allVehicles
-      .map((v) => ({ ...v, tireCount: countByVehicle[v.id] ?? 0 }))
-      .filter((v) => v.tireCount > 0);
-  }, [allVehicles, filteredTires]);
-
   // -- Filter the in-memory tires --------------------------------------------
   const vehicleMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -785,6 +773,19 @@ export default function DistribuidorPage() {
     () => filteredTires.map((t) => ({ id: t.id, profundidadInicial: t.profundidadInicial, inspecciones: t.inspecciones })),
     [filteredTires],
   );
+
+  // Vehicles enriched with the actual count of (visible) tires per vehicle —
+  // expected by TipoVehiculo. Declared *after* filteredTires so the TDZ
+  // reference works.
+  const vehiclesWithCount = useMemo(() => {
+    const countByVehicle: Record<string, number> = {};
+    filteredTires.forEach((t) => {
+      if (t.vehicleId) countByVehicle[t.vehicleId] = (countByVehicle[t.vehicleId] ?? 0) + 1;
+    });
+    return allVehicles
+      .map((v) => ({ ...v, tireCount: countByVehicle[v.id] ?? 0 }))
+      .filter((v) => v.tireCount > 0);
+  }, [allVehicles, filteredTires]);
 
   // Average projected CPK per marca — fed into the CPK bar chart.
   const cpkByMarca = useMemo(() => {
