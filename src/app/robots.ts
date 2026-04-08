@@ -28,7 +28,12 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: 'DotBot', disallow: ['/'] },
       { userAgent: 'BLEXBot', disallow: ['/'] },
     ],
-    sitemap: 'https://tirepro.com.co/sitemap.xml',
+    sitemap: [
+      'https://tirepro.com.co/sitemap.xml',
+      // Google Merchant Center / Bing Merchant Center product feed.
+      // Listed here so other crawlers and AI engines can also discover it.
+      'https://tirepro.com.co/feed.xml',
+    ],
     host: 'https://tirepro.com.co',
   }
 }

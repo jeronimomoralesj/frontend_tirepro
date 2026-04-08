@@ -49,17 +49,24 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     ? (product.reviews.reduce((s: number, r: any) => s + r.rating, 0) / product.reviews.length).toFixed(1)
     : null;
 
-  // JSON-LD structured data
+  // JSON-LD structured data — formatted for Google Merchant Center / free
+  // product listings (Surfaces across Google) so the product can show in
+  // Search, Shopping tab, Images and Lens.
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: `${product.marca} ${product.modelo}`,
-    description: product.descripcion || `Llanta ${product.marca} ${product.modelo} ${product.dimension} para flotas en Colombia.`,
+    name: `${product.marca} ${product.modelo} ${product.dimension}`,
+    description: product.descripcion || `Llanta ${product.marca} ${product.modelo} ${product.dimension} para flotas en Colombia. Disponible en TirePro Marketplace con envío nacional.`,
     image: imgs.length > 0 ? imgs : undefined,
     brand: { "@type": "Brand", name: product.marca },
     sku: product.id,
-    mpn: product.dimension,
-    category: product.tipo === "reencauche" ? "Llantas Reencauchadas" : "Llantas Nuevas",
+    mpn: product.id,
+    productID: product.id,
+    category: "Vehicles & Parts > Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Tires",
+    itemCondition: product.tipo === "reencauche"
+      ? "https://schema.org/RefurbishedCondition"
+      : "https://schema.org/NewCondition",
+    size: product.dimension,
     offers: {
       "@type": "Offer",
       url: `https://tirepro.com.co/marketplace/product/${id}`,
@@ -67,12 +74,20 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       price: price,
       priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       availability: product.cantidadDisponible > 0 ? "https://schema.org/InStock" : "https://schema.org/PreOrder",
+      itemCondition: product.tipo === "reencauche"
+        ? "https://schema.org/RefurbishedCondition"
+        : "https://schema.org/NewCondition",
       seller: {
         "@type": "Organization",
         name: product.distributor?.name,
       },
       shippingDetails: {
         "@type": "OfferShippingDetails",
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: 0,
+          currency: "COP",
+        },
         shippingDestination: {
           "@type": "DefinedRegion",
           addressCountry: "CO",
@@ -82,6 +97,14 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           handlingTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 5, unitCode: "d" },
           transitTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 7, unitCode: "d" },
         },
+      },
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "CO",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 15,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/FreeReturn",
       },
     },
     ...(product.reviews?.length > 0 && {
