@@ -5,6 +5,8 @@ import {
   Package, Calendar, Search, ChevronDown, Loader2,
   AlertCircle, X, Building2, BarChart3,
 } from "lucide-react";
+import FilterFab from "../components/FilterFab";
+import type { FilterOption } from "../components/FilterFab";
 
 import SemaforoPie     from "../cards/SemaforoPie";
 import SemaforoTabla   from "../cards/SemaforoTabla";
@@ -117,6 +119,22 @@ function normaliseTire(raw: RawTire): NormTire {
 const fmtCOP = (n: number) =>
   n === 0 ? "N/A"
   : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(n);
+
+// Alert classification — must mirror SemaforoPie thresholds.
+type AlertKey = "ok" | "watch" | "warning" | "critical" | "none";
+function classifyAlert(t: NormTire): AlertKey {
+  if (!t.inspecciones.length) return "none";
+  const last = t.inspecciones[t.inspecciones.length - 1];
+  const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+  if (minDepth > 7) return "ok";
+  if (minDepth > 6) return "watch";
+  if (minDepth > 3) return "warning";
+  return "critical";
+}
+const ALERT_META: Record<string, { label: string }> = {
+  ok: { label: "Optimo" }, watch: { label: "60 Dias" },
+  warning: { label: "30 Dias" }, critical: { label: "Urgente" }, none: { label: "Sin Inspeccion" },
+};
 
 // =============================================================================
 // Micro-components
@@ -445,6 +463,12 @@ export default function DistribuidorPage() {
   const [vidaStats,        setVidaStats]        = useState({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
   const [selectedEje,      setSelectedEje]      = useState<string>("");
 
+  // -- Per-client filters (mirrors detalle's FilterFab) ---------------------
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({
+    alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos",
+  });
+  const [filterSearch, setFilterSearch] = useState("");
+
   // -- Auth user --------------------------------------------------------------
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -495,6 +519,8 @@ export default function DistribuidorPage() {
   setReencaucheTires([]); setTanqueTires([]);
   setVidaStats({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
   setSelectedEje("");
+  setFilterValues({ alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos" });
+  setFilterSearch("");
 }, []);
 
   // -- Fetch full tire data — ONLY for the single selected client -------------
@@ -651,19 +677,119 @@ export default function DistribuidorPage() {
   // expected by TipoVehiculo.
   const vehiclesWithCount = useMemo(() => {
     const countByVehicle: Record<string, number> = {};
-    allTires.forEach((t) => {
-      const vId = (t as unknown as NormTire).vehicleId ?? null;
-      if (vId) countByVehicle[vId] = (countByVehicle[vId] ?? 0) + 1;
+    filteredTires.forEach((t) => {
+      if (t.vehicleId) countByVehicle[t.vehicleId] = (countByVehicle[t.vehicleId] ?? 0) + 1;
     });
     return allVehicles
       .map((v) => ({ ...v, tireCount: countByVehicle[v.id] ?? 0 }))
       .filter((v) => v.tireCount > 0);
-  }, [allVehicles, allTires]);
+  }, [allVehicles, filteredTires]);
+
+  // -- Filter the in-memory tires --------------------------------------------
+  const vehicleMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    allVehicles.forEach((v) => { m[v.id] = v.placa; });
+    return m;
+  }, [allVehicles]);
+
+  const filteredTires: NormTire[] = useMemo(() => {
+    const raw = allTires as unknown as NormTire[];
+    let result = [...raw];
+
+    // Vida filter (also hides "fin" by default like detalle)
+    if (!filterValues.vida || filterValues.vida === "Todos") {
+      result = result.filter((t) => {
+        const last = t.vida[t.vida.length - 1]?.valor ?? "nueva";
+        return last !== "fin";
+      });
+    } else {
+      result = result.filter((t) => {
+        const last = t.vida[t.vida.length - 1]?.valor ?? "nueva";
+        return last === filterValues.vida;
+      });
+    }
+
+    if (filterValues.alert && filterValues.alert !== "Todos") {
+      const key = Object.entries(ALERT_META).find(([, v]) => v.label === filterValues.alert)?.[0];
+      if (key) result = result.filter((t) => classifyAlert(t) === key);
+    }
+
+    if (filterValues.marca && filterValues.marca !== "Todos") {
+      result = result.filter((t) => t.marca === filterValues.marca);
+    }
+    if (filterValues.eje && filterValues.eje !== "Todos") {
+      result = result.filter((t) => t.eje === filterValues.eje);
+    }
+
+    if (filterSearch.trim()) {
+      const q = filterSearch.trim().toLowerCase();
+      result = result.filter((t) => {
+        const tirePlaca = (t.placa ?? "").toLowerCase();
+        const vPlaca = t.vehicleId ? (vehicleMap[t.vehicleId] ?? "").toLowerCase() : "";
+        return tirePlaca.includes(q) || vPlaca.includes(q);
+      });
+    }
+    return result;
+  }, [allTires, filterValues, filterSearch, vehicleMap]);
+
+  // Filter dropdown options derived from the unfiltered tire pool.
+  const filterOptions: FilterOption[] = useMemo(() => {
+    const raw = allTires as unknown as NormTire[];
+    const ALERT_OPTIONS = ["Todos", ...Object.values(ALERT_META).map((m) => m.label)];
+    return [
+      { key: "alert", label: "Estado", options: ALERT_OPTIONS },
+      { key: "marca", label: "Marca",  options: ["Todos", ...Array.from(new Set(raw.map((t) => t.marca).filter(Boolean))).sort()] },
+      { key: "eje",   label: "Eje",    options: ["Todos", ...Array.from(new Set(raw.map((t) => t.eje).filter(Boolean))).sort()] },
+      { key: "vida",  label: "Vida",   options: ["Todos", "nueva", "reencauche1", "reencauche2", "reencauche3", "fin"] },
+    ];
+  }, [allTires]);
+
+  // -- Card-specific shapes derived from the filtered tires -----------------
+  const filteredMarcaData = useMemo(() => {
+    const m: Record<string, number> = {};
+    filteredTires.forEach((t) => { if (t.marca?.trim()) m[t.marca.trim()] = (m[t.marca.trim()] || 0) + 1; });
+    return m;
+  }, [filteredTires]);
+
+  const filteredBandaData = useMemo(() => {
+    const m: Record<string, number> = {};
+    filteredTires.forEach((t) => { if (t.diseno?.trim()) m[t.diseno.trim()] = (m[t.diseno.trim()] || 0) + 1; });
+    return m;
+  }, [filteredTires]);
+
+  const filteredCpkTires: TablaCpkTire[] = useMemo(() => filteredTires.map((t) => ({
+    id: t.id,
+    placa: t.vehicleId ? (vehicleMap[t.vehicleId] ?? "N/A") : "N/A",
+    marca: t.marca || "N/A",
+    posicion: t.posicion || 0,
+    vida: t.vida,
+    inspecciones: t.inspecciones,
+  })), [filteredTires, vehicleMap]);
+
+  const filteredDetailTires: DetallesLlantasTire[] = useMemo(() => filteredTires.map((t) => ({
+    id: t.id, placa: t.placa, marca: t.marca, diseno: t.diseno,
+    profundidadInicial: t.profundidadInicial, dimension: t.dimension,
+    eje: t.eje, posicion: t.posicion, kilometrosRecorridos: t.kilometrosRecorridos,
+    costo: t.costo, vida: t.vida, inspecciones: t.inspecciones,
+    primeraVida: t.primeraVida || [], vehicleId: t.vehicleId,
+    eventos: (t.vida ?? []).map((v) => ({
+      tipo: "vida", fecha: v.fecha, notas: v.valor, metadata: null,
+    })),
+  })), [filteredTires]);
+
+  const filteredReencaucheTires: ReencaucheTire[] = useMemo(
+    () => filteredTires.map((t) => ({ id: t.id, vida: t.vida })),
+    [filteredTires],
+  );
+  const filteredTanqueTires: TanqueTire[] = useMemo(
+    () => filteredTires.map((t) => ({ id: t.id, profundidadInicial: t.profundidadInicial, inspecciones: t.inspecciones })),
+    [filteredTires],
+  );
 
   // Average projected CPK per marca — fed into the CPK bar chart.
   const cpkByMarca = useMemo(() => {
     const sums: Record<string, { sum: number; count: number }> = {};
-    cpkTires.forEach((t) => {
+    filteredCpkTires.forEach((t) => {
       const insps = (t as unknown as { inspecciones?: Array<{ cpk?: number; cpkProyectado?: number }> }).inspecciones ?? [];
       if (insps.length === 0) return;
       const last = insps[insps.length - 1];
@@ -679,7 +805,7 @@ export default function DistribuidorPage() {
     return Object.entries(sums)
       .map(([marca, { sum, count }]) => ({ marca, avg: Math.round(sum / count) }))
       .sort((a, b) => b.avg - a.avg);
-  }, [cpkTires]);
+  }, [filteredCpkTires]);
 
   // ==========================================================================
   // Render
@@ -789,8 +915,8 @@ export default function DistribuidorPage() {
                 <section>
                   <SectionHeader title="Semáforo" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <SemaforoPie tires={allTires as any} language="es" />
-                    <ScrollCard><SemaforoTabla vehicles={allVehicles} tires={allTires} /></ScrollCard>
+                    <SemaforoPie tires={filteredTires as any} language="es" />
+                    <ScrollCard><SemaforoTabla vehicles={allVehicles} tires={filteredTires as any} /></ScrollCard>
                   </div>
                 </section>
 
@@ -799,7 +925,7 @@ export default function DistribuidorPage() {
                   <SectionHeader title="Análisis CPK" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <CpkBarChart data={cpkByMarca} />
-                    <ScrollCard><TablaCpk tires={cpkTires} /></ScrollCard>
+                    <ScrollCard><TablaCpk tires={filteredCpkTires} /></ScrollCard>
                   </div>
                 </section>
 
@@ -807,13 +933,13 @@ export default function DistribuidorPage() {
                 <section>
                   <SectionHeader title="Distribución" />
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {Object.keys(marcaData).length > 0
-                      ? <PorMarca groupData={marcaData} />
+                    {Object.keys(filteredMarcaData).length > 0
+                      ? <PorMarca groupData={filteredMarcaData} />
                       : <SkeletonCard label="Sin datos de marcas" />}
-                    {Object.keys(bandaData).length > 0
-                      ? <PorBanda groupData={bandaData} />
+                    {Object.keys(filteredBandaData).length > 0
+                      ? <PorBanda groupData={filteredBandaData} />
                       : <SkeletonCard label="Sin datos de bandas" />}
-                    <PorVida tires={allTires as any} />
+                    <PorVida tires={filteredTires as any} />
                   </div>
                 </section>
 
@@ -822,7 +948,7 @@ export default function DistribuidorPage() {
                   <SectionHeader title="Análisis por Eje y Vehículo" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <PromedioEje
-                      tires={allTires as any}
+                      tires={filteredTires as any}
                       onSelectEje={(eje: string | null) => setSelectedEje(eje ?? "")}
                       selectedEje={selectedEje}
                     />
@@ -834,7 +960,7 @@ export default function DistribuidorPage() {
                 <section>
                   <SectionHeader title="Tendencias" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <ReencaucheHistorico tires={reencaucheTires} language="es" />
+                    <ReencaucheHistorico tires={filteredReencaucheTires} language="es" />
                     <Card className="p-4 sm:p-5 flex flex-col">
                       <CardTitle icon={Package} title="Distribución de Vida" />
                       <div className="flex-1 space-y-3">
@@ -865,21 +991,32 @@ export default function DistribuidorPage() {
                 <section>
                   <SectionHeader title="Profundidad y Proyección" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <TanqueMilimetro tires={tanqueTires} language="es" />
-                    <ProyeccionVida tires={allTires as any} />
+                    <TanqueMilimetro tires={filteredTanqueTires} language="es" />
+                    <ProyeccionVida tires={filteredTires as any} />
                   </div>
                 </section>
 
                 {/* -- 7. Detalles de Llantas ---------------------------------- */}
                 <section>
                   <SectionHeader title="Detalles de Llantas" />
-                  <ScrollCard><DetallesLlantas tires={detailTires} vehicles={allVehicles} /></ScrollCard>
+                  <ScrollCard><DetallesLlantas tires={filteredDetailTires} vehicles={allVehicles} /></ScrollCard>
                 </section>
               </div>
             )}
           </>
         )}
       </div>
+
+      {selectedClient && !loadingCards && allTires.length > 0 && (
+        <FilterFab
+          filters={filterOptions}
+          values={filterValues}
+          onChange={(key, value) => setFilterValues((prev) => ({ ...prev, [key]: value }))}
+          search={filterSearch}
+          onSearchChange={setFilterSearch}
+          searchPlaceholder="Buscar por placa..."
+        />
+      )}
     </div>
   );
 }
