@@ -189,7 +189,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {
             "@type": "Question",
             "name": "Qué es TirePro?",
-            "acceptedAnswer": { "@type": "Answer", "text": "TirePro es una plataforma de gestión inteligente de llantas con IA para flotas de transporte en Colombia. Ayuda a reducir costos hasta 35% mediante análisis de CPK, predicción de fallas, y automatización de decisiones de reencauche y reemplazo." }
+            "acceptedAnswer": { "@type": "Answer", "text": "TirePro es una plataforma de gestión inteligente de llantas con IA para flotas de transporte en Colombia. Ayuda a reducir costos hasta 25% mediante análisis de CPK, predicción de fallas, y automatización de decisiones de reencauche y reemplazo." }
           },
           {
             "@type": "Question",

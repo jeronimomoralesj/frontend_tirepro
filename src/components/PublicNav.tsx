@@ -11,7 +11,6 @@ const NAV_LINKS = [
   { label: "Marketplace", href: "/marketplace" },
   { label: "Plataforma",  href: "/#producto" },
   { label: "Blog",        href: "/blog" },
-  { label: "Equipo",      href: "/equipo" },
 ];
 
 export default function PublicNav() {

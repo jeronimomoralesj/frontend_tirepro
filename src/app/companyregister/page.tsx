@@ -404,7 +404,7 @@ function CompanyRegisterPage() {
               {isDistributor ? "Registrar distribuidor" : "Registrar empresa"}
             </h1>
             <p className="text-sm text-gray-400 text-center mb-6">
-              {isDistributor ? "Vende llantas y llega a flotas en Colombia" : "Controla tus llantas y reduce costos hasta 35%"}
+              {isDistributor ? "Vende llantas y llega a flotas en Colombia" : "Controla tus llantas y reduce costos hasta 25%"}
             </p>
 
             <div className="mb-5 flex items-center justify-center gap-2">

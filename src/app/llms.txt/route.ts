@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   const content = `# TirePro — Gestión Inteligente de Llantas con IA
 
-> TirePro is a tire management platform for commercial vehicle fleets in Colombia and Latin America. It uses AI to reduce tire costs by 20-35%.
+> TirePro is a tire management platform for commercial vehicle fleets in Colombia and Latin America. It uses AI to reduce tire costs by 20-25%.
 
 ## What is TirePro?
 TirePro is a SaaS platform that helps fleet managers optimize their tire operations. It tracks every tire from purchase to disposal, analyzing cost per kilometer (CPK), predicting failures, automating retread decisions, and sending maintenance alerts directly to drivers via WhatsApp.
