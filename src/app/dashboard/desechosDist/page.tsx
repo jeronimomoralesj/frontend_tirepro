@@ -543,6 +543,11 @@ const DesechosDistribuidor: React.FC = () => {
   const setFilter = (key: string, value: string) => setFv((p) => ({ ...p, [key]: value }));
   const selectedCompany = fv.company ?? "Todos";
 
+  // Single-client picker (mirrors distribuidor resumen)
+  const [selectedClient, setSelectedClient] = useState<Company | null>(null);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -557,7 +562,13 @@ const DesechosDistribuidor: React.FC = () => {
         const res = await authFetch(`${API_BASE}/companies/me/clients`);
         if (!res.ok) throw new Error("Error al obtener clientes");
         const data = await res.json();
-        setCompanies(data.map((a: any) => ({ id: a.company.id, name: a.company.name })));
+        const list: Company[] = data.map((a: any) => ({ id: a.company.id, name: a.company.name }));
+        setCompanies(list);
+        // Auto-select the first client so the dashboard isn't empty.
+        if (list.length > 0) {
+          setSelectedClient(list[0]);
+          setFv((p) => ({ ...p, company: list[0].name }));
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Error cargando clientes");
       } finally {
@@ -635,7 +646,6 @@ const DesechosDistribuidor: React.FC = () => {
     const years = [...new Set(allDesechos.map((d) => new Date(d.fecha).getFullYear().toString()))].sort().reverse();
     const causales = [...new Set(allDesechos.map((d) => d.causales.trim()))].sort();
     return [
-      { key: "company", label: "Cliente", options: ["Todos", ...companies.map((c) => c.name)] },
       { key: "year", label: "Año", options: ["Todos", ...years] },
       { key: "month", label: "Mes", options: ["Todos", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"] },
       { key: "causal", label: "Causal", options: ["Todos", ...causales] },
@@ -946,7 +956,76 @@ const DesechosDistribuidor: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            {/* Client selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowClientDropdown((s) => !s)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all"
+                style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)", color: "white" }}
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span className="max-w-[140px] sm:max-w-[200px] truncate">
+                  {selectedClient ? selectedClient.name : "Seleccionar cliente"}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showClientDropdown ? "rotate-180" : ""}`} />
+              </button>
+              {showClientDropdown && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowClientDropdown(false)} />
+                  <div
+                    className="absolute right-0 mt-1 w-64 rounded-xl overflow-hidden z-20"
+                    style={{ background: "white", border: "1px solid rgba(52,140,203,0.2)", boxShadow: "0 8px 32px rgba(10,24,58,0.18)" }}
+                  >
+                    <div className="p-2 border-b border-gray-100">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                        <input
+                          autoFocus
+                          type="text"
+                          placeholder="Buscar cliente…"
+                          value={clientSearch}
+                          onChange={(e) => setClientSearch(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-full pl-8 pr-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                          style={{ border: "1px solid rgba(52,140,203,0.2)", color: "#0A183A" }}
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {(clientSearch.trim()
+                        ? companies.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                        : companies
+                      ).map((co) => (
+                        <button
+                          key={co.id}
+                          onClick={() => {
+                            setSelectedClient(co);
+                            setFv((p) => ({ ...p, company: co.name }));
+                            setShowClientDropdown(false);
+                            setClientSearch("");
+                          }}
+                          className="flex items-center gap-3 w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#F0F7FF]"
+                          style={{ color: selectedClient?.id === co.id ? "#1E76B6" : "#0A183A", fontWeight: selectedClient?.id === co.id ? 700 : 400 }}
+                        >
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-black text-xs flex-shrink-0"
+                            style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+                          >
+                            {co.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="truncate font-medium">{co.name}</span>
+                        </button>
+                      ))}
+                      {companies.length === 0 && (
+                        <p className="text-center text-sm text-gray-400 py-4">Sin clientes</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               onClick={downloadCSV}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-90"
