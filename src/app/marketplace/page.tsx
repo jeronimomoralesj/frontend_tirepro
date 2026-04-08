@@ -343,15 +343,8 @@ function PublicMarketplace() {
         <BestSellersScroller listings={recommendations.listings} />
       )}
 
-      {/* ═══ DISTRIBUIDORES DESTACADOS (max 3) ═══ */}
-      {filters.distributors.length > 0 && !distributorId && !search && !activeFilters && (
-        <FeaturedDistributors distributors={filters.distributors.slice(0, 3)} />
-      )}
-
       {/* ═══ MAPA DE DISTRIBUIDORES ═══ */}
-      {filters.distributors.length > 0 && !search && !activeFilters && (
-        <DistributorsMap distributors={filters.distributors} />
-      )}
+      {!search && !activeFilters && <DistributorsMap />}
 
       {/* ═══ RECENT PURCHASES (personalized) ═══ */}
       {recentOrders.length > 0 && !search && !activeFilters && (
@@ -380,7 +373,7 @@ function PublicMarketplace() {
       )}
 
       {/* ═══ RESULTS ═══ */}
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6" style={{ display: !search && !activeFilters ? "none" : undefined }}>
         {rimSizes.length > 0 && categoryLabel && (
           <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold text-white"
             style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
@@ -1227,113 +1220,140 @@ function BestSellersScroller({ listings }: { listings: Listing[] }) {
 }
 
 // =============================================================================
-// Distribuidores destacados (max 3)
+// Mapa de distribuidores — Leaflet with one pin per cobertura point
 // =============================================================================
 
-function FeaturedDistributors({ distributors }: { distributors: DistributorOption[] }) {
-  return (
-    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
-      <div className="flex items-end justify-between mb-3">
-        <div>
-          <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Distribuidores destacados</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Verificados por TirePro</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        {distributors.map((d) => (
-          <Link
-            key={d.id}
-            href={`/marketplace/distributor/${d.id}`}
-            className="group relative rounded-2xl bg-white border border-gray-100 overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all"
-          >
-            <div
-              className="h-20"
-              style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
-            />
-            <div className="px-5 pb-5 -mt-10">
-              <div className="w-20 h-20 rounded-2xl bg-white border-4 border-white shadow-lg flex items-center justify-center overflow-hidden">
-                {d.profileImage && d.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
-                  <img src={d.profileImage} alt={d.name} className="w-full h-full object-contain p-1.5" />
-                ) : (
-                  <Store className="w-7 h-7 text-gray-300" />
-                )}
-              </div>
-              <h3 className="mt-3 text-base font-black text-[#0A183A] truncate">{d.name}</h3>
-              <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
-                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                Distribuidor verificado
-              </p>
-              <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#1E76B6] group-hover:gap-2 transition-all">
-                Ver catálogo <ArrowRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
+interface MapDistributor {
+  id: string;
+  name: string;
+  profileImage: string | null;
+  ciudad: string | null;
+  telefono: string | null;
+  cobertura: Array<{ lat: number; lng: number; ciudad?: string; nombre?: string }>;
+  _count?: { listings: number };
 }
 
-// =============================================================================
-// Mapa de distribuidores — OpenStreetMap embed centered on Colombia
-// =============================================================================
+function DistributorsMap() {
+  const [data, setData] = useState<MapDistributor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const mapRef = React.useRef<any>(null);
 
-function DistributorsMap({ distributors }: { distributors: DistributorOption[] }) {
-  // Bounding box covering mainland Colombia (lon_min,lat_min,lon_max,lat_max)
-  const bbox = "-79.5,-4.5,-66.5,13.5";
-  const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik`;
+  // Fetch distributor map data
+  useEffect(() => {
+    fetch(`${API_BASE}/marketplace/distributors/map`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: MapDistributor[]) => setData(Array.isArray(d) ? d : []))
+      .catch(() => setData([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Lazy-load Leaflet from CDN once and render the map
+  useEffect(() => {
+    if (typeof window === "undefined" || data.length === 0 || !containerRef.current) return;
+
+    const ensureLeaflet = (): Promise<any> =>
+      new Promise((resolve) => {
+        const w = window as any;
+        if (w.L) return resolve(w.L);
+        // CSS
+        if (!document.getElementById("leaflet-css")) {
+          const link = document.createElement("link");
+          link.id = "leaflet-css";
+          link.rel = "stylesheet";
+          link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+          document.head.appendChild(link);
+        }
+        // JS
+        const existing = document.getElementById("leaflet-js") as HTMLScriptElement | null;
+        if (existing) {
+          existing.addEventListener("load", () => resolve((window as any).L));
+          return;
+        }
+        const script = document.createElement("script");
+        script.id = "leaflet-js";
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+        script.async = true;
+        script.onload = () => resolve((window as any).L);
+        document.body.appendChild(script);
+      });
+
+    let cancelled = false;
+    ensureLeaflet().then((L) => {
+      if (cancelled || !containerRef.current) return;
+
+      // Reset any previous map instance (HMR or re-render)
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+
+      const map = L.map(containerRef.current, {
+        scrollWheelZoom: false,
+        zoomControl: true,
+      }).setView([4.5709, -74.2973], 6); // Colombia center
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap",
+        maxZoom: 18,
+      }).addTo(map);
+
+      const allPoints: [number, number][] = [];
+      data.forEach((d) => {
+        (d.cobertura || []).forEach((p) => {
+          if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
+          allPoints.push([p.lat, p.lng]);
+          const marker = L.marker([p.lat, p.lng]).addTo(map);
+          const cityLine = p.ciudad || p.nombre || d.ciudad || "";
+          marker.bindPopup(
+            `<div style="min-width:160px">
+              <div style="font-weight:800;color:#0A183A;font-size:13px">${escapeHtml(d.name)}</div>
+              ${cityLine ? `<div style="color:#666;font-size:11px;margin-top:2px">${escapeHtml(cityLine)}</div>` : ""}
+              <a href="/marketplace/distributor/${d.id}" style="display:inline-block;margin-top:6px;color:#1E76B6;font-size:11px;font-weight:700">Ver catálogo →</a>
+            </div>`
+          );
+        });
+      });
+
+      if (allPoints.length > 0) {
+        map.fitBounds(allPoints, { padding: [40, 40], maxZoom: 11 });
+      }
+
+      mapRef.current = map;
+    });
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [data]);
+
+  const totalPoints = data.reduce((acc, d) => acc + (d.cobertura?.length || 0), 0);
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
       <div className="flex items-end justify-between mb-3">
         <div>
           <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Distribuidores en Colombia</h2>
-          <p className="text-xs text-gray-500 mt-0.5">{distributors.length} distribuidores en nuestra red</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {loading ? "Cargando…" : `${data.length} distribuidores · ${totalPoints} puntos de cobertura`}
+          </p>
         </div>
       </div>
-      <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm grid grid-cols-1 lg:grid-cols-3">
-        <div className="lg:col-span-2 relative" style={{ minHeight: 380 }}>
-          <iframe
-            title="Mapa de distribuidores TirePro en Colombia"
-            src={mapSrc}
-            className="absolute inset-0 w-full h-full border-0"
-            loading="lazy"
-          />
-          <div className="absolute top-3 left-3 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-sm shadow text-[11px] font-bold text-[#0A183A] flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-[#1E76B6]" />
-            Colombia
-          </div>
-        </div>
-        <div className="p-4 sm:p-5 max-h-[420px] overflow-y-auto">
-          <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-2">Red TirePro</p>
-          <div className="space-y-2">
-            {distributors.map((d) => (
-              <Link
-                key={d.id}
-                href={`/marketplace/distributor/${d.id}`}
-                className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {d.profileImage && d.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
-                    <img src={d.profileImage} alt={d.name} className="w-full h-full object-contain p-1" />
-                  ) : (
-                    <Store className="w-4 h-4 text-gray-400" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-[#0A183A] truncate">{d.name}</p>
-                  <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                    <MapPin className="w-2.5 h-2.5" /> Colombia
-                  </p>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-300" />
-              </Link>
-            ))}
-          </div>
-        </div>
+      <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
+        <div ref={containerRef} className="w-full" style={{ height: 460 }} />
       </div>
     </div>
   );
+}
+
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // =============================================================================
