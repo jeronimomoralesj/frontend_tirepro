@@ -7,6 +7,7 @@ import {
   Loader2, Package, Truck, X, Store, MapPin,
   ChevronLeft, ChevronRight, Star,
   Recycle, Clock, Search, MessageCircle, Send, ArrowRight,
+  Car, Factory,
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
@@ -294,56 +295,37 @@ function PublicMarketplace() {
         </div>
       )}
 
-      {/* ═══ HERO CAROUSEL + PLATE SEARCH ═══ */}
+      {/* ═══ NEW HERO — full-bleed background + SEO + buscar por medida ═══ */}
       {!search && !activeFilters && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <HeroCarousel />
-
-          {/* Category pills */}
-          <div className="flex gap-2 mt-3">
-            <button onClick={() => setTipo("nueva")}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all hover:shadow-md"
-              style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)", color: "white" }}>
-              Llantas Nuevas
-            </button>
-            <button onClick={() => setTipo("reencauche")}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all hover:shadow-md"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", color: "white" }}>
-              Reencauche
-            </button>
-          </div>
-        </div>
+        <MarketplaceHero
+          dimensions={filters.dimensions}
+          onSearchDimension={(d) => setDimension(d)}
+        />
       )}
 
-      {/* ═══ DISTRIBUTORS CAROUSEL ═══ */}
-      {filters.distributors.length > 0 && !distributorId && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <h2 className="text-sm font-black text-[#0A183A] mb-3">Distribuidores verificados</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {filters.distributors.map((d) => (
-              <Link key={d.id} href={`/marketplace/distributor/${d.id}`}
-                className="flex-shrink-0 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-white border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all"
-                style={{ minWidth: 180 }}>
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {d.profileImage && d.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
-                    <img src={d.profileImage} alt={d.name} className="w-full h-full object-contain p-1" />
-                  ) : (
-                    <Store className="w-4 h-4 text-gray-400" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#0A183A] truncate">{d.name}</p>
-                  <p className="text-[9px] text-gray-400">Ver catalogo</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+      {/* ═══ CATEGORÍAS ═══ */}
+      {!search && !activeFilters && (
+        <CategoriesSection onPick={(q) => setSearch(q)} />
       )}
 
-      {/* ═══ RECENT PURCHASES ═══ */}
+      {/* ═══ LLANTAS MÁS VENDIDAS — horizontal scroll ═══ */}
+      {recommendations.listings.length > 0 && !search && !activeFilters && (
+        <BestSellersScroller listings={recommendations.listings} />
+      )}
+
+      {/* ═══ DISTRIBUIDORES DESTACADOS (max 3) ═══ */}
+      {filters.distributors.length > 0 && !distributorId && !search && !activeFilters && (
+        <FeaturedDistributors distributors={filters.distributors.slice(0, 3)} />
+      )}
+
+      {/* ═══ MAPA DE DISTRIBUIDORES ═══ */}
+      {filters.distributors.length > 0 && !search && !activeFilters && (
+        <DistributorsMap distributors={filters.distributors} />
+      )}
+
+      {/* ═══ RECENT PURCHASES (personalized) ═══ */}
       {recentOrders.length > 0 && !search && !activeFilters && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
           <h2 className="text-sm font-black text-[#0A183A] mb-2">Tus compras recientes</h2>
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {recentOrders.map((o: any) => {
@@ -363,20 +345,6 @@ function PublicMarketplace() {
                 </Link>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* ═══ RECOMMENDATIONS ═══ */}
-      {recommendations.listings.length > 0 && !search && !activeFilters && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-5">
-          <h2 className="text-sm font-black text-[#0A183A] mb-3">
-            {recommendations.type === "personalized" ? "Recomendado para ti" : recommendations.type === "popular" ? "Mas vendidos" : "Productos destacados"}
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {recommendations.listings.slice(0, 4).map((l) => (
-              <ProductCard key={l.id} l={l} />
-            ))}
           </div>
         </div>
       )}
@@ -939,61 +907,336 @@ const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> 
 // Hero Carousel
 // =============================================================================
 
-const HERO_SLIDES = [
+const HERO_BG = "https://cdn.pixabay.com/photo/2017/11/05/14/01/truck-2920533_1280.jpg";
+
+function MarketplaceHero({
+  dimensions,
+  onSearchDimension,
+}: {
+  dimensions: string[];
+  onSearchDimension: (d: string) => void;
+}) {
+  const [value, setValue] = useState("");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const v = value.trim();
+    if (!v) return;
+    onSearchDimension(v);
+    if (typeof window !== "undefined") window.scrollTo({ top: 600, behavior: "smooth" });
+  }
+
+  return (
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+      <section
+        className="relative rounded-3xl overflow-hidden"
+        style={{ height: "clamp(380px, 52vw, 520px)" }}
+      >
+        <img
+          src={HERO_BG}
+          alt="Llantas para flotas y vehículos en Colombia — Marketplace TirePro"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(10,24,58,0.92) 0%, rgba(23,61,104,0.78) 45%, rgba(30,118,182,0.45) 100%)",
+          }}
+        />
+
+        <div className="relative h-full flex flex-col justify-center px-6 sm:px-12 lg:px-16 max-w-3xl">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-4">
+            <Star className="w-3 h-3 text-yellow-300" />
+            Marketplace #1 de llantas en Colombia
+          </span>
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.05] tracking-tight">
+            Las mejores llantas
+            <br />
+            <span style={{ background: "linear-gradient(90deg,#f59e0b,#fbbf24)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              al mejor precio
+            </span>
+          </h1>
+          <p className="text-sm sm:text-base text-white/80 mt-3 max-w-xl">
+            Compara llantas nuevas, reencauche e industriales de los distribuidores verificados de Colombia. Encuentra tu medida y cotiza en segundos.
+          </p>
+
+          {/* Buscar por medida */}
+          <form onSubmit={handleSubmit} className="mt-6 max-w-xl">
+            <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-1.5">
+              Buscar por medida
+            </label>
+            <div className="flex gap-2 p-1.5 rounded-2xl bg-white/95 backdrop-blur-sm shadow-2xl">
+              <div className="flex items-center gap-2 flex-1 px-3">
+                <Search className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+                <input
+                  type="text"
+                  list="hero-dimensions"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder="Ej: 295/80R22.5, 215/55R17…"
+                  className="flex-1 bg-transparent outline-none text-sm text-[#0A183A] placeholder-gray-400 py-2.5"
+                />
+                <datalist id="hero-dimensions">
+                  {dimensions.map((d) => <option key={d} value={d} />)}
+                </datalist>
+              </div>
+              <button
+                type="submit"
+                className="px-5 sm:px-6 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 active:scale-[0.98] flex items-center gap-2"
+                style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+              >
+                Buscar
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+            {dimensions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                <span className="text-[10px] text-white/60 self-center mr-1">Populares:</span>
+                {dimensions.slice(0, 5).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => onSearchDimension(d)}
+                    className="px-2.5 py-1 rounded-full text-[10px] font-bold text-white bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            )}
+          </form>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// =============================================================================
+// Categorías
+// =============================================================================
+
+const CATEGORIES: Array<{
+  key: string;
+  label: string;
+  sub: string;
+  icon: React.ComponentType<{ className?: string }>;
+  gradient: string;
+  query: string;
+}> = [
   {
-    img: "https://cdn.pixabay.com/photo/2017/11/05/14/01/truck-2920533_1280.jpg",
-    title: "Las mejores llantas para tu flota",
-    sub: "Encuentra ofertas de distribuidores verificados en toda Colombia",
+    key: "camion",
+    label: "Camión",
+    sub: "Carga pesada y flota",
+    icon: Truck,
+    gradient: "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)",
+    query: "camion",
   },
   {
-    img: "https://pixabay.com/images/download/dezalb-canada-784392_1920.jpg",
-    title: "Compara precios en segundos",
-    sub: "Cotiza con multiples distribuidores y elige la mejor opcion",
+    key: "auto",
+    label: "Auto y Camioneta",
+    sub: "Vehículos livianos y SUV",
+    icon: Car,
+    gradient: "linear-gradient(135deg,#1E76B6 0%,#348CCB 100%)",
+    query: "auto",
+  },
+  {
+    key: "industrial",
+    label: "Industrial",
+    sub: "Maquinaria y agrícola",
+    icon: Factory,
+    gradient: "linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)",
+    query: "industrial",
   },
 ];
 
-function HeroCarousel() {
-  const [idx, setIdx] = useState(0);
-
-  useEffect(() => {
-    const t = setInterval(() => setIdx((i) => (i + 1) % HERO_SLIDES.length), 5000);
-    return () => clearInterval(t);
-  }, []);
-
-  const slide = HERO_SLIDES[idx];
-
+function CategoriesSection({ onPick }: { onPick: (q: string) => void }) {
   return (
-    <div className="relative rounded-2xl overflow-hidden" style={{ height: "clamp(180px, 30vw, 320px)" }}>
-      {/* Image */}
-      <div className="absolute inset-0 transition-opacity duration-700" key={idx}>
-        <img src={slide.img} alt={`${slide.title} — Marketplace de llantas TirePro Colombia`} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <div className="flex items-end justify-between mb-3">
+        <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Categorías</h2>
+        <p className="text-xs text-gray-500 hidden sm:block">Encuentra llantas según tu tipo de vehículo</p>
       </div>
-
-      {/* Text */}
-      <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8">
-        <h2 className="text-xl sm:text-2xl font-black text-white leading-tight max-w-sm">{slide.title}</h2>
-        <p className="text-sm text-white/70 mt-1 max-w-xs">{slide.sub}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        {CATEGORIES.map((c) => {
+          const Icon = c.icon;
+          return (
+            <button
+              key={c.key}
+              onClick={() => onPick(c.query)}
+              className="group relative rounded-2xl overflow-hidden text-left transition-all hover:-translate-y-1 hover:shadow-2xl"
+              style={{ height: 160, background: c.gradient }}
+            >
+              <div className="absolute -right-6 -bottom-6 opacity-15 group-hover:opacity-25 transition-opacity">
+                <Icon className="w-44 h-44 text-white" />
+              </div>
+              <div className="relative h-full flex flex-col justify-between p-5">
+                <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm border border-white/25 flex items-center justify-center">
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">Categoría</p>
+                  <h3 className="text-xl font-black text-white leading-tight">{c.label}</h3>
+                  <p className="text-[11px] text-white/70 mt-0.5">{c.sub}</p>
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
+    </div>
+  );
+}
 
-      {/* Dots */}
-      <div className="absolute bottom-3 right-4 flex gap-1.5">
-        {HERO_SLIDES.map((_, i) => (
-          <button key={i} onClick={() => setIdx(i)}
-            className="w-2 h-2 rounded-full transition-all"
-            style={{ background: i === idx ? "white" : "rgba(255,255,255,0.4)" }} />
+// =============================================================================
+// Llantas más vendidas — horizontal scroller
+// =============================================================================
+
+function BestSellersScroller({ listings }: { listings: Listing[] }) {
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  function scroll(dir: 1 | -1) {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * Math.max(280, el.clientWidth * 0.7), behavior: "smooth" });
+  }
+  return (
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Llantas más vendidas</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Las favoritas de las flotas en Colombia</p>
+        </div>
+        <div className="hidden sm:flex gap-1.5">
+          <button onClick={() => scroll(-1)} aria-label="Anterior"
+            className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 hover:shadow-md transition-all">
+            <ChevronLeft className="w-4 h-4 text-[#0A183A]" />
+          </button>
+          <button onClick={() => scroll(1)} aria-label="Siguiente"
+            className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 hover:shadow-md transition-all">
+            <ChevronRight className="w-4 h-4 text-[#0A183A]" />
+          </button>
+        </div>
+      </div>
+      <div
+        ref={ref}
+        className="flex gap-3 sm:gap-4 overflow-x-auto pb-3 scrollbar-hide scroll-smooth snap-x snap-mandatory"
+      >
+        {listings.map((l) => (
+          <div key={l.id} className="flex-shrink-0 snap-start" style={{ width: "min(72vw, 240px)" }}>
+            <ProductCard l={l} />
+          </div>
         ))}
       </div>
+    </div>
+  );
+}
 
-      {/* Arrows */}
-      <button onClick={() => setIdx((i) => (i - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
-        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition-colors">
-        <ChevronLeft className="w-4 h-4 text-white" />
-      </button>
-      <button onClick={() => setIdx((i) => (i + 1) % HERO_SLIDES.length)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition-colors">
-        <ChevronRight className="w-4 h-4 text-white" />
-      </button>
+// =============================================================================
+// Distribuidores destacados (max 3)
+// =============================================================================
+
+function FeaturedDistributors({ distributors }: { distributors: DistributorOption[] }) {
+  return (
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Distribuidores destacados</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Verificados por TirePro</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        {distributors.map((d) => (
+          <Link
+            key={d.id}
+            href={`/marketplace/distributor/${d.id}`}
+            className="group relative rounded-2xl bg-white border border-gray-100 overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all"
+          >
+            <div
+              className="h-20"
+              style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+            />
+            <div className="px-5 pb-5 -mt-10">
+              <div className="w-20 h-20 rounded-2xl bg-white border-4 border-white shadow-lg flex items-center justify-center overflow-hidden">
+                {d.profileImage && d.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+                  <img src={d.profileImage} alt={d.name} className="w-full h-full object-contain p-1.5" />
+                ) : (
+                  <Store className="w-7 h-7 text-gray-300" />
+                )}
+              </div>
+              <h3 className="mt-3 text-base font-black text-[#0A183A] truncate">{d.name}</h3>
+              <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                Distribuidor verificado
+              </p>
+              <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#1E76B6] group-hover:gap-2 transition-all">
+                Ver catálogo <ArrowRight className="w-3.5 h-3.5" />
+              </span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Mapa de distribuidores — OpenStreetMap embed centered on Colombia
+// =============================================================================
+
+function DistributorsMap({ distributors }: { distributors: DistributorOption[] }) {
+  // Bounding box covering mainland Colombia (lon_min,lat_min,lon_max,lat_max)
+  const bbox = "-79.5,-4.5,-66.5,13.5";
+  const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik`;
+
+  return (
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Distribuidores en Colombia</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{distributors.length} distribuidores en nuestra red</p>
+        </div>
+      </div>
+      <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm grid grid-cols-1 lg:grid-cols-3">
+        <div className="lg:col-span-2 relative" style={{ minHeight: 380 }}>
+          <iframe
+            title="Mapa de distribuidores TirePro en Colombia"
+            src={mapSrc}
+            className="absolute inset-0 w-full h-full border-0"
+            loading="lazy"
+          />
+          <div className="absolute top-3 left-3 px-3 py-1.5 rounded-full bg-white/95 backdrop-blur-sm shadow text-[11px] font-bold text-[#0A183A] flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-[#1E76B6]" />
+            Colombia
+          </div>
+        </div>
+        <div className="p-4 sm:p-5 max-h-[420px] overflow-y-auto">
+          <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-2">Red TirePro</p>
+          <div className="space-y-2">
+            {distributors.map((d) => (
+              <Link
+                key={d.id}
+                href={`/marketplace/distributor/${d.id}`}
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {d.profileImage && d.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+                    <img src={d.profileImage} alt={d.name} className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <Store className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-[#0A183A] truncate">{d.name}</p>
+                  <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                    <MapPin className="w-2.5 h-2.5" /> Colombia
+                  </p>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-gray-300" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
