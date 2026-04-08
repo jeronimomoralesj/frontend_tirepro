@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, Package, DollarSign, TrendingUp, ShoppingCart,
-  Calendar, Check, Truck, Clock, X, ChevronDown,
+  Calendar, Check, Truck, Clock, X, ChevronDown, RotateCcw,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -59,6 +59,13 @@ export default function VentasDistPage() {
   async function updateStatus(orderId: string, status: string, cancelReasonText?: string) {
     await authFetch(`${API_BASE}/marketplace/orders/${orderId}/status`, {
       method: "PATCH", body: JSON.stringify({ distributorId: companyId, status, cancelReason: cancelReasonText }),
+    });
+    fetchData(companyId);
+  }
+
+  async function updateReturn(orderId: string, returnStatus: "aprobada" | "rechazada") {
+    await authFetch(`${API_BASE}/marketplace/orders/${orderId}/return-status`, {
+      method: "PATCH", body: JSON.stringify({ distributorId: companyId, returnStatus }),
     });
     fetchData(companyId);
   }
@@ -144,6 +151,30 @@ export default function VentasDistPage() {
                   const st = STATUS_META[order.status] ?? STATUS_META.pendiente;
                   return (
                     <div key={order.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                      {order.returnStatus && (
+                        <div
+                          className="px-4 py-2.5 flex items-center gap-2 flex-wrap border-b border-amber-200"
+                          style={{ background: order.returnStatus === "pendiente" ? "rgba(245,158,11,0.08)" : order.returnStatus === "aprobada" ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)" }}
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" style={{ color: order.returnStatus === "pendiente" ? "#f59e0b" : order.returnStatus === "aprobada" ? "#22c55e" : "#ef4444" }} />
+                          <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: order.returnStatus === "pendiente" ? "#92400e" : order.returnStatus === "aprobada" ? "#166534" : "#991b1b" }}>
+                            Devolución solicitada · {order.returnStatus}
+                          </span>
+                          {order.returnReason && <span className="text-[10px] text-gray-600 italic flex-1 min-w-0 truncate">"{order.returnReason}"</span>}
+                          {order.returnStatus === "pendiente" && (
+                            <div className="flex gap-1 ml-auto">
+                              <button onClick={() => updateReturn(order.id, "aprobada")}
+                                className="px-2 py-1 rounded-lg text-[9px] font-bold text-white bg-[#22c55e] hover:opacity-90">
+                                Aprobar
+                              </button>
+                              <button onClick={() => updateReturn(order.id, "rechazada")}
+                                className="px-2 py-1 rounded-lg text-[9px] font-bold text-red-500 border border-red-200 hover:bg-red-50">
+                                Rechazar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="px-4 py-3 flex items-center gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
