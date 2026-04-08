@@ -183,7 +183,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
         <div className="absolute inset-0 opacity-10" aria-hidden style={{
           backgroundImage: "radial-gradient(circle at 20% 0%, rgba(52,140,203,0.6), transparent 40%), radial-gradient(circle at 80% 100%, rgba(245,158,11,0.4), transparent 40%)",
         }} />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-8">
+        <div className="relative max-w-6xl mx-auto px-3 sm:px-6 pt-5 pb-7">
           <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/70 hover:text-white transition-colors mb-3">
             <ArrowLeft className="w-3 h-3" />
             Volver al marketplace
@@ -214,8 +214,8 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-10 -mt-6 relative">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 pb-10 -mt-6 relative">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16">
           {/* LEFT — Images */}
           <div className="lg:sticky lg:top-20 lg:self-start">
             <div
@@ -259,7 +259,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
           {/* RIGHT — Details */}
           <div className="pt-2">
             <span className="inline-block text-[10px] font-black text-[#1E76B6] tracking-widest uppercase px-2.5 py-1 rounded-full bg-[#1E76B6]/10">{product.marca}</span>
-            <h1 className="text-3xl sm:text-[36px] font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight">{product.modelo}</h1>
+            <h1 className="text-[26px] sm:text-[36px] font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight">{product.modelo}</h1>
             <p className="text-sm text-gray-500 mt-2 font-medium">
               <span className="font-bold text-[#0A183A]">{product.dimension}</span>
               {product.eje ? <> · Eje {product.eje}</> : null}
@@ -305,7 +305,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
               <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-1">Precio</p>
               <div className="flex items-baseline gap-3 flex-wrap">
                 <span
-                  className="text-[40px] font-black tracking-tight leading-none"
+                  className="text-[32px] sm:text-[40px] font-black tracking-tight leading-none"
                   style={{
                     background: "linear-gradient(135deg,#0A183A,#1E76B6)",
                     WebkitBackgroundClip: "text",
