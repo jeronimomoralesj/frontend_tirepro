@@ -251,16 +251,18 @@ function PublicMarketplace() {
 
             <div className="w-px h-4 bg-gray-200 mx-1 flex-shrink-0" />
 
-            <select value={marca} onChange={(e) => setMarca(e.target.value)}
-              className="px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] flex-shrink-0">
-              <option value="">Marca</option>
-              {filters.marcas.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}
-              className="px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] flex-shrink-0">
-              <option value="">Distribuidor</option>
-              {filters.distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            <SearchablePicker
+              label="Marca"
+              value={marca}
+              options={filters.marcas.map((m) => ({ value: m, label: m }))}
+              onChange={setMarca}
+            />
+            <SearchablePicker
+              label="Distribuidor"
+              value={distributorId}
+              options={filters.distributors.map((d) => ({ value: d.id, label: d.name }))}
+              onChange={setDistributorId}
+            />
             <input type="text" value={ciudad} onChange={(e) => { setCiudad(e.target.value); setCiudadManual(true); }} placeholder="Ciudad"
               className="px-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-white text-[#555] w-24 placeholder-gray-400 flex-shrink-0" />
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
@@ -947,6 +949,107 @@ const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> 
 // serves a self-signed cert and browsers reject it (ERR_CERT_AUTHORITY_INVALID).
 const HERO_BG    = "https://cdn.pixabay.com/photo/2015/05/26/09/33/canada-784392_1280.jpg";
 const HERO_BG_SM = "https://cdn.pixabay.com/photo/2015/05/26/09/33/canada-784392_960_720.jpg";
+
+// =============================================================================
+// SearchablePicker — typeahead replacement for plain <select> when there are
+// many options (e.g. marca, distribuidor).
+// =============================================================================
+
+function SearchablePicker({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = React.useRef<HTMLDivElement | null>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const selected = options.find((o) => o.value === value);
+  const filtered = query.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  return (
+    <div className="relative flex-shrink-0" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((s) => !s)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] whitespace-nowrap hover:border-[#1E76B6]/40 transition-colors"
+      >
+        <span className="truncate max-w-[120px]">{selected ? selected.label : label}</span>
+        <ChevronRight className={`w-3 h-3 text-gray-400 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 mt-1.5 z-30 w-60 rounded-2xl bg-white overflow-hidden"
+          style={{ boxShadow: "0 12px 32px -10px rgba(10,24,58,0.22), 0 0 0 1px rgba(30,118,182,0.08)" }}
+        >
+          <div className="p-2 border-b border-gray-100">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Buscar ${label.toLowerCase()}…`}
+                className="w-full pl-8 pr-2 py-1.5 text-[11px] rounded-lg border border-gray-200 bg-white text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]"
+              />
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto py-1">
+            {value && (
+              <button
+                type="button"
+                onClick={() => { onChange(""); setOpen(false); setQuery(""); }}
+                className="w-full text-left px-3 py-1.5 text-[11px] font-bold text-red-500 hover:bg-red-50"
+              >
+                Limpiar selección
+              </button>
+            )}
+            {filtered.length === 0 ? (
+              <p className="text-[11px] text-gray-400 text-center py-3">Sin resultados</p>
+            ) : (
+              filtered.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { onChange(o.value); setOpen(false); setQuery(""); }}
+                  className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#F0F7FF] transition-colors truncate"
+                  style={{
+                    color: o.value === value ? "#1E76B6" : "#0A183A",
+                    fontWeight: o.value === value ? 700 : 400,
+                  }}
+                >
+                  {o.label}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MarketplaceHero({
   dimensions,
