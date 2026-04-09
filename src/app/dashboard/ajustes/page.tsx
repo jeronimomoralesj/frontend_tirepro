@@ -30,8 +30,6 @@ import {
   Package,
   Clock,
   RotateCcw,
-  X,
-  AlertCircle,
 } from "lucide-react";
 import CambiarContrasena from "./CambiarContraseña";
 
