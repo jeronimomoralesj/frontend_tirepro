@@ -622,11 +622,14 @@ export default function VehiculoPage() {
         continue;
       }
       try {
+        // Defaults for fields the backend requires non-empty. The user can
+        // come back later and edit any of these — we just need the bulk
+        // upload to succeed when only placa (and optionally km) is set.
         const body = {
           placa: placa.toLowerCase(),
           kilometrajeActual: Number(row.kilometrajeActual) || 0,
           tipovhc: String(row.tipovhc || "").trim() || "2_ejes_trailer",
-          carga: String(row.carga || "").trim(),
+          carga: String(row.carga || "").trim() || "n/a",
           pesoCarga: Number(row.pesoCarga) || 0,
           cliente: String(row.cliente || "").trim() || null,
           configuracion: String(row.configuracion || "").trim() || null,
