@@ -96,11 +96,12 @@ export async function GET(req: NextRequest) {
   }
 
   const items = listings
-    // Skip items with no stock — they shouldn't appear in Shopping anyway
-    // and emitting `preorder` requires an `availability_date` which we
-    // don't have, causing the "Missing attribute [availability_date]"
-    // disapproval.
-    .filter((l) => l && l.id && l.precioCop && l.precioCop > 0 && l.cantidadDisponible > 0)
+    // Treat missing / zero stock as "available" — most distributors leave
+    // cantidadDisponible blank but the listing is still meant to be sold.
+    // Only listings explicitly marked as out of stock (negative) are
+    // skipped, so we still avoid emitting `preorder` (which would require
+    // `availability_date` and disapprove the feed).
+    .filter((l) => l && l.id && l.precioCop && l.precioCop > 0 && (l.cantidadDisponible == null || l.cantidadDisponible >= 0))
     .map((l) => {
       const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
       const cover = imgs[l.coverIndex ?? 0] ?? imgs[0] ?? `${SITE}/og-image.png`;
