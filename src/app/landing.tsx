@@ -1893,6 +1893,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
               <ul className="space-y-2 text-xs sm:text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 <li><a href="/legal#terms-section" className="hover:text-white transition-colors">Términos de servicio</a></li>
                 <li><a href="/legal#privacy-section" className="hover:text-white transition-colors">Política de privacidad</a></li>
+                <li><a href="/marketplace/return-policy" className="hover:text-white transition-colors">Política de devoluciones</a></li>
                 <li><a href="/delete" className="hover:text-white transition-colors">Eliminar datos</a></li>
                 <li><a href="/contact" className="hover:text-white transition-colors">Contacto</a></li>
               </ul>

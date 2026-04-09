@@ -340,6 +340,7 @@ export function MarketplaceFooter() {
               <Link href="/" className="block text-xs text-white/40 hover:text-white transition-colors">Inicio</Link>
               <Link href="/marketplace" className="block text-xs text-white/40 hover:text-white transition-colors">Marketplace</Link>
               <Link href="/blog" className="block text-xs text-white/40 hover:text-white transition-colors">Blog</Link>
+              <Link href="/marketplace/return-policy" className="block text-xs text-white/40 hover:text-white transition-colors">Política de devoluciones</Link>
               <Link href="/login" className="block text-xs text-white/40 hover:text-white transition-colors">Ingresar</Link>
             </div>
           </div>

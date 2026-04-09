@@ -29,6 +29,9 @@ import {
   ShoppingCart,
   Package,
   Clock,
+  RotateCcw,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import CambiarContrasena from "./CambiarContraseña";
 
@@ -583,6 +586,39 @@ const AjustesPage: React.FC = () => {
   const [plateInputs, setPlateInputs] = useState<Record<string, string>>({});
   const [savingUser,  setSavingUser]  = useState(false);
   const [marketplaceOrders, setMarketplaceOrders] = useState<any[]>([]);
+  const [returnModal, setReturnModal] = useState<any | null>(null);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [returnError, setReturnError] = useState("");
+
+  async function submitReturnRequest() {
+    if (!returnModal || !returnReason.trim()) return;
+    setReturnSubmitting(true);
+    setReturnError("");
+    try {
+      const stored = localStorage.getItem("user");
+      const u = stored ? JSON.parse(stored) : {};
+      const res = await authFetch(`${API_BASE}/marketplace/orders/${returnModal.id}/return-request`, {
+        method: "POST",
+        body: JSON.stringify({ userId: u.id, reason: returnReason.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "No se pudo enviar la solicitud");
+      }
+      // Refresh orders
+      if (u.id) {
+        const r = await authFetch(`${API_BASE}/marketplace/orders/user?userId=${u.id}`);
+        if (r.ok) setMarketplaceOrders(await r.json());
+      }
+      setReturnModal(null);
+      setReturnReason("");
+    } catch (e) {
+      setReturnError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setReturnSubmitting(false);
+    }
+  }
 
   // Plan switching
   const [planSwitchingTo, setPlanSwitchingTo] = useState<string | null>(null);
@@ -1441,33 +1477,139 @@ const AjustesPage: React.FC = () => {
                       cancelado:  { label: "Cancelado",  color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
                     };
                     const st = statusMeta[o.status] ?? statusMeta.pendiente;
+                    const returnMeta: Record<string, { label: string; color: string; bg: string }> = {
+                      pendiente: { label: "Devolución pendiente", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+                      aprobada:  { label: "Devolución aprobada",  color: "#22c55e", bg: "rgba(34,197,94,0.12)" },
+                      rechazada: { label: "Devolución rechazada", color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
+                    };
+                    const ret = o.returnStatus ? returnMeta[o.returnStatus] : null;
+                    const canRequestReturn = !o.returnStatus && (o.status === "entregado" || o.status === "enviado");
                     return (
-                      <div key={o.id} className="flex items-center gap-3 p-3 rounded-xl bg-white" style={{ border: "1px solid rgba(52,140,203,0.1)" }}>
-                        <div className="w-14 h-14 rounded-xl bg-[#f5f5f7] flex items-center justify-center overflow-hidden flex-shrink-0">
-                          {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1.5" /> : <Package className="w-5 h-5 text-gray-300" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <a href={`/marketplace/product/${o.listingId}`} className="text-sm font-bold text-[#0A183A] hover:text-[#1E76B6] truncate">
-                              {o.listing?.marca} {o.listing?.modelo}
-                            </a>
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                      <div key={o.id} className="rounded-xl bg-white overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.1)" }}>
+                        <div className="flex items-center gap-3 p-3">
+                          <div className="w-14 h-14 rounded-xl bg-[#f5f5f7] flex items-center justify-center overflow-hidden flex-shrink-0">
+                            {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1.5" /> : <Package className="w-5 h-5 text-gray-300" />}
                           </div>
-                          <p className="text-[10px] text-gray-400 mt-0.5">
-                            {o.listing?.dimension} · {o.quantity} uds · #{o.id.slice(0, 8).toUpperCase()}
-                          </p>
-                          <p className="text-[10px] text-gray-400 flex items-center gap-1">
-                            <Clock className="w-2.5 h-2.5" />
-                            {new Date(o.createdAt).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <a href={`/marketplace/product/${o.listingId}`} className="text-sm font-bold text-[#0A183A] hover:text-[#1E76B6] truncate">
+                                {o.listing?.marca} {o.listing?.modelo}
+                              </a>
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                              {ret && (
+                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: ret.bg, color: ret.color }}>{ret.label}</span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              {o.listing?.dimension} · {o.quantity} uds · #{o.id.slice(0, 8).toUpperCase()}
+                            </p>
+                            <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5" />
+                              {new Date(o.createdAt).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
+                            </p>
+                            {o.returnReason && (
+                              <p className="text-[10px] text-gray-500 mt-1 italic">Motivo: {o.returnReason}</p>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                            <p className="text-sm font-black text-[#0A183A]">{fmtCOP(o.totalCop)}</p>
+                            {canRequestReturn && (
+                              <button
+                                onClick={() => { setReturnModal(o); setReturnReason(""); setReturnError(""); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black text-[#1E76B6] border border-[#1E76B6]/25 hover:bg-[#1E76B6]/5 transition-colors whitespace-nowrap"
+                              >
+                                <RotateCcw className="w-2.5 h-2.5" />
+                                Solicitar devolución
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm font-black text-[#0A183A] flex-shrink-0">{fmtCOP(o.totalCop)}</p>
                       </div>
                     );
                   })}
+                  <p className="text-[10px] text-gray-400 pt-1 text-center">
+                    Consulta nuestra{" "}
+                    <a href="/marketplace/return-policy" className="font-bold text-[#1E76B6] hover:underline">política de devoluciones</a>.
+                  </p>
                 </div>
               )}
             </Card>
+          </div>
+        )}
+
+        {/* Return-request modal */}
+        {returnModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }}>
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="px-5 py-4" style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center">
+                    <RotateCcw className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-white text-sm">Solicitar devolución</h3>
+                    <p className="text-[10px] text-white/70 mt-0.5">El distribuidor recibirá tu solicitud</p>
+                  </div>
+                  <button onClick={() => setReturnModal(null)} className="ml-auto text-white/70 hover:text-white">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-5 space-y-3">
+                <div className="px-3 py-2 rounded-xl bg-gray-50">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Pedido</p>
+                  <p className="text-sm font-black text-[#0A183A]">{returnModal.listing?.marca} {returnModal.listing?.modelo}</p>
+                  <p className="text-[10px] text-gray-500">#{returnModal.id.slice(0, 8).toUpperCase()} · {returnModal.quantity} uds</p>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest block mb-1.5">Motivo *</label>
+                  <select
+                    value={returnReason.startsWith("Otro:") ? "Otro" : returnReason}
+                    onChange={(e) => setReturnReason(e.target.value === "Otro" ? "Otro: " : e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl text-sm border border-gray-200 bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]"
+                  >
+                    <option value="">Seleccionar motivo…</option>
+                    <option value="Producto incorrecto">Producto incorrecto</option>
+                    <option value="Defecto de fábrica">Defecto de fábrica</option>
+                    <option value="Daños en el transporte">Daños en el transporte</option>
+                    <option value="Cambio de opinión">Cambio de opinión</option>
+                    <option value="Otro">Otro motivo</option>
+                  </select>
+                </div>
+                {(returnReason.startsWith("Otro:") || returnReason === "Otro") && (
+                  <textarea
+                    value={returnReason.startsWith("Otro:") ? returnReason.slice(5).trimStart() : ""}
+                    onChange={(e) => setReturnReason(`Otro: ${e.target.value}`)}
+                    rows={3}
+                    placeholder="Describe el motivo en detalle…"
+                    className="w-full px-3 py-2.5 rounded-xl text-sm border border-gray-200 bg-white text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] resize-none"
+                  />
+                )}
+                {returnError && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-xl text-[11px]" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-red-700">{returnError}</span>
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 leading-relaxed">
+                  El distribuidor tiene hasta 5 días hábiles para responder. Recibirás un correo con la actualización.
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setReturnModal(null)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold text-gray-500 border border-gray-200 hover:bg-gray-50">
+                    Cancelar
+                  </button>
+                  <button
+                    disabled={returnSubmitting || !returnReason.trim() || returnReason === "Otro" || returnReason === "Otro: "}
+                    onClick={submitReturnRequest}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-black text-white disabled:opacity-40 transition-all"
+                    style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                  >
+                    {returnSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Enviar solicitud"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
