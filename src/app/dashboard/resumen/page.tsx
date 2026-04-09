@@ -36,7 +36,7 @@ import PorVida from "../cards/PorVida";
 import PorMarca from "../cards/PorMarca";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
-import { OtisBadge } from "../../../components/Otis";
+import { OtisBadge, OtisWrapper } from "../../../components/Otis";
 
 // -- Chart.js registration ----------------------------------------------------
 
@@ -139,27 +139,31 @@ function CardWrap({
   otisCapability?: import("../../../components/Otis").OtisCapability;
 }) {
   return (
-    <div className="group bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible w-full relative">
+    <div className="group relative w-full" style={{ overflow: "visible" }}>
       {otisCardKey && (
         <OtisBadge cardKey={otisCardKey} capability={otisCapability} insight={otisInsight} title={title} />
       )}
-      <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between rounded-t-xl">
-        <h2 className="text-base sm:text-lg font-bold">{title}</h2>
-        <div className="flex items-center gap-2 shrink-0">
-          {description && (
-            <div className="relative cursor-pointer" title={description}>
-              <svg className="peer w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
-              </svg>
-              <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 peer-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
-                <p>{description}</p>
+      <div
+        className="relative z-10 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full"
+      >
+        <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between">
+          <h2 className="text-base sm:text-lg font-bold">{title}</h2>
+          <div className="flex items-center gap-2 shrink-0">
+            {description && (
+              <div className="relative cursor-pointer" title={description}>
+                <svg className="peer w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
+                </svg>
+                <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 peer-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
+                  <p>{description}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-      <div className="p-4 sm:p-6">
-        <div className="h-64 sm:h-72">{children}</div>
+        <div className="p-4 sm:p-6">
+          <div className="h-64 sm:h-72">{children}</div>
+        </div>
       </div>
     </div>
   );
@@ -624,7 +628,33 @@ export default function ResumenPage() {
                   options={makeBarOpts(cpkEvolution, (v) => fmtCOP(v), (v) => `CPK Proy: ${fmtCOP(v)}`)}
                 />
               </CardWrap>
-              <PorVida tires={filtered.map((t) => ({ id: t.id, vida: [{ valor: t.vidaActual ?? "nueva", fecha: new Date().toISOString() }] }))} />
+              <OtisWrapper
+                cardKey="resumen.por-vida"
+                capability="prediction"
+                title="Por Vida"
+                insight={(() => {
+                  const counts: Record<string, number> = {};
+                  filtered.forEach((t) => {
+                    const v = t.vidaActual ?? "nueva";
+                    counts[v] = (counts[v] ?? 0) + 1;
+                  });
+                  const total = filtered.length;
+                  if (total === 0) return "Aún no tienes llantas registradas para que Otis analice la distribución.";
+                  const reencauche = (counts.reencauche1 ?? 0) + (counts.reencauche2 ?? 0) + (counts.reencauche3 ?? 0);
+                  const nuevas = counts.nueva ?? 0;
+                  const fin = counts.fin ?? 0;
+                  const pctReenc = ((reencauche / total) * 100).toFixed(0);
+                  const pctNuevas = ((nuevas / total) * 100).toFixed(0);
+                  const verdict = reencauche / total < 0.3
+                    ? "Estás reencauchando muy pocas llantas. Subir el reencauche al 50%+ puede recortar tu CPK significativamente."
+                    : reencauche / total > 0.6
+                    ? "Excelente nivel de reencauche. Estás aprovechando muy bien los cascos."
+                    : "Buen balance entre llantas nuevas y reencauchadas.";
+                  return `De ${total} llantas activas:\n• ${nuevas} nuevas (${pctNuevas}%)\n• ${reencauche} reencauchadas (${pctReenc}%)\n${fin > 0 ? `• ${fin} en fin de vida\n` : ""}\n${verdict}`;
+                })()}
+              >
+                <PorVida tires={filtered.map((t) => ({ id: t.id, vida: [{ valor: t.vidaActual ?? "nueva", fecha: new Date().toISOString() }] }))} />
+              </OtisWrapper>
             </div>
 
             {/* Row 2: Inversion Mensual + Por Marca */}
@@ -655,7 +685,28 @@ export default function ResumenPage() {
                   options={makeBarOpts(inversionMensual, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => fmtCOP(v))}
                 />
               </CardWrap>
-              <PorMarca groupData={marcaData} />
+              <OtisWrapper
+                cardKey="resumen.por-marca"
+                capability="orders"
+                title="Por Marca"
+                insight={(() => {
+                  const entries = Object.entries(marcaData);
+                  if (entries.length === 0) return "Aún no hay marcas para que Otis analice. Registra tus llantas con marca y vuelvo.";
+                  entries.sort((a, b) => b[1] - a[1]);
+                  const total = entries.reduce((s, [, v]) => s + v, 0);
+                  const top = entries.slice(0, 3);
+                  const lines = top.map(([m, c]) => `• ${m} — ${c} (${((c / total) * 100).toFixed(0)}%)`).join("\n");
+                  const concentration = top.reduce((s, [, v]) => s + v, 0) / total;
+                  const verdict = concentration > 0.8
+                    ? "Tu flota está muy concentrada en pocas marcas — bueno para negociación, riesgoso si una marca falla."
+                    : concentration < 0.4
+                    ? "Tu flota está muy dispersa entre marcas. Consolidar puede ayudarte a negociar mejor con menos distribuidores."
+                    : "Tienes una mezcla razonable de marcas. Sigue comparando CPK por marca para decidir qué consolidar.";
+                  return `Top 3 marcas en tu flota:\n${lines}\n\n${verdict}`;
+                })()}
+              >
+                <PorMarca groupData={marcaData} />
+              </OtisWrapper>
             </div>
 
             {/* Row 3: Dinero Perdido + Inversion por Categoria */}
@@ -681,6 +732,26 @@ export default function ResumenPage() {
               </CardWrap>
 
               {/* Inversion por Categoria este mes */}
+              <OtisWrapper
+                cardKey="resumen.inversion-por-vida"
+                capability="orders"
+                title="Inversión por Categoría"
+                insight={(() => {
+                  const entries = inversionByVida.entries;
+                  if (entries.length === 0) return "Sin costos registrados este mes. Cuando registres compras Otis te dirá si estás invirtiendo más en nuevas o en reencauche.";
+                  const total = inversionByVida.grandTotal;
+                  const lines = entries.slice(0, 4).map((e) => `• ${e.label}: ${fmtCOP(e.total)} (${((e.total / total) * 100).toFixed(0)}%)`).join("\n");
+                  const reencaucheEntries = entries.filter((e) => /reencauche/i.test(e.label));
+                  const reencaucheTotal = reencaucheEntries.reduce((s, e) => s + e.total, 0);
+                  const pctReenc = total > 0 ? (reencaucheTotal / total) * 100 : 0;
+                  const verdict = pctReenc < 25
+                    ? "Estás invirtiendo casi todo en llantas nuevas. Subir tu participación de reencauche puede recortar costos sin sacrificar rendimiento."
+                    : pctReenc > 60
+                    ? "Buen balance hacia reencauche — esto típicamente reduce el CPK."
+                    : "Distribución razonable entre nuevas y reencauche.";
+                  return `Total del mes: ${fmtCOP(total)}\n${lines}\n\n${verdict}`;
+                })()}
+              >
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
                 <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between">
                   <h2 className="text-base sm:text-lg font-bold">Inversión del Mes por Categoría</h2>
@@ -741,6 +812,7 @@ export default function ResumenPage() {
                   )}
                 </div>
               </div>
+              </OtisWrapper>
             </div>
 
             {/* Mejores Combinaciones CPK */}
