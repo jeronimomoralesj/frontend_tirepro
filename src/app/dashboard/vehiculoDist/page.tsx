@@ -3,7 +3,7 @@
 import React, { useState, useEffect, FormEvent, useMemo, useCallback } from "react";
 import {
   Plus, Trash2, X, Truck, ChevronDown, Edit, Loader2,
-  AlertCircle, Building2, Link2, Search,
+  AlertCircle, Building2, Link2, Search, CheckCircle,
 } from "lucide-react";
 
 // =============================================================================
@@ -426,6 +426,10 @@ export default function VehiculoPage() {
 
   // Modal state
   const [showCreate,    setShowCreate]    = useState(false);
+  const [showBulk,      setShowBulk]      = useState(false);
+  const [bulkText,      setBulkText]      = useState("");
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkResult,    setBulkResult]    = useState<{ ok: number; failed: { row: number; placa: string; error: string }[] } | null>(null);
   const [vehicleToEdit, setVehicleToEdit] = useState<Vehicle | null>(null);
   const [vehicleToDel,  setVehicleToDel]  = useState<Vehicle | null>(null);
   const [unionToDel,    setUnionToDel]    = useState<{ sourceId: string; targetPlaca: string } | null>(null);
@@ -444,14 +448,32 @@ export default function VehiculoPage() {
 
   useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
-  // -- Fetch vehicles ---------------------------------------------------------
+  // -- Fetch vehicles + per-vehicle tire counts -------------------------------
+  // The /vehicles endpoint doesn't include tire counts, so we fetch the
+  // company's tires in parallel and group them by vehicleId, then merge the
+  // counts onto each vehicle. Without this every card showed 0 llantas.
   const fetchVehicles = useCallback(async (companyId: string) => {
     setLoadingVehicles(true); setError("");
     try {
-      const res = await authFetch(`${API_BASE}/vehicles?companyId=${companyId}`);
-      if (!res.ok) throw new Error("Error al obtener vehículos.");
-      const data = await res.json();
-      return (data as any[]).map(safeVehicle);
+      const [vRes, tRes] = await Promise.all([
+        authFetch(`${API_BASE}/vehicles?companyId=${companyId}`),
+        authFetch(`${API_BASE}/tires?companyId=${companyId}`),
+      ]);
+      if (!vRes.ok) throw new Error("Error al obtener vehículos.");
+      const vData = await vRes.json();
+      const tData: any[] = tRes.ok ? await tRes.json() : [];
+
+      const countByVehicle: Record<string, number> = {};
+      tData.forEach((t) => {
+        if (t?.vehicleId) {
+          countByVehicle[t.vehicleId] = (countByVehicle[t.vehicleId] ?? 0) + 1;
+        }
+      });
+
+      return (vData as any[]).map((v) => {
+        const safe = safeVehicle(v);
+        return { ...safe, tireCount: countByVehicle[safe.id] ?? safe.tireCount ?? 0 };
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado");
       return [];
@@ -510,6 +532,104 @@ export default function VehiculoPage() {
     const nv = safeVehicle(body.vehicle ?? body);
     setVehicles((vs) => [...vs, nv]);
     setShowCreate(false);
+  }
+
+  // Bulk vehicle upload — paste rows separated by newlines, fields by commas
+  // or tabs. Supported columns (in any order if header present):
+  //   placa, kilometrajeActual, tipovhc, carga, pesoCarga, cliente, configuracion
+  // Minimum required: placa.
+  async function handleBulkUpload() {
+    const co = companies.find((c) => c.name === selectedCompany);
+    if (!co) { setError("Seleccione un cliente antes de hacer carga masiva"); return; }
+
+    const text = bulkText.trim();
+    if (!text) { setError("Pega al menos una placa"); return; }
+
+    setBulkSubmitting(true);
+    setError("");
+
+    // Parse: split lines, split each line by tab or comma. First line is a
+    // header if it contains "placa" anywhere; otherwise treat as data.
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    let header: string[] | null = null;
+    let dataLines = lines;
+    if (lines[0] && /placa/i.test(lines[0])) {
+      header = lines[0].split(/[,\t]/).map((s) => s.trim().toLowerCase());
+      dataLines = lines.slice(1);
+    }
+
+    const fieldKey = (raw: string) => {
+      const k = raw.toLowerCase().replace(/\s+/g, "").replace(/[áàä]/g, "a").replace(/[éè]/g, "e").replace(/[íì]/g, "i").replace(/[óò]/g, "o").replace(/[úù]/g, "u");
+      if (k.includes("placa")) return "placa";
+      if (k.includes("km") || k.includes("kilometr")) return "kilometrajeActual";
+      if (k.includes("tipo")) return "tipovhc";
+      if (k.includes("pesocarga") || k === "peso") return "pesoCarga";
+      if (k.includes("carga")) return "carga";
+      if (k.includes("cliente")) return "cliente";
+      if (k.includes("config") || k.includes("ejes")) return "configuracion";
+      return null;
+    };
+
+    const headerMap = header?.map(fieldKey) ?? null;
+
+    const created: Vehicle[] = [];
+    const failed: { row: number; placa: string; error: string }[] = [];
+
+    for (let i = 0; i < dataLines.length; i++) {
+      const cells = dataLines[i].split(/[,\t]/).map((c) => c.trim());
+      const row: Record<string, string> = {};
+
+      if (headerMap) {
+        headerMap.forEach((k, idx) => {
+          if (k && cells[idx] != null) row[k] = cells[idx];
+        });
+      } else {
+        // Positional fallback: placa, km, tipovhc, carga, peso, cliente, config
+        ["placa", "kilometrajeActual", "tipovhc", "carga", "pesoCarga", "cliente", "configuracion"].forEach((k, idx) => {
+          if (cells[idx]) row[k] = cells[idx];
+        });
+      }
+
+      const placa = (row.placa || "").trim();
+      if (!placa) {
+        failed.push({ row: i + 1, placa: "(vacío)", error: "Sin placa" });
+        continue;
+      }
+
+      try {
+        const body = {
+          placa: placa.toLowerCase(),
+          kilometrajeActual: Number(row.kilometrajeActual) || 0,
+          tipovhc: row.tipovhc || "2_ejes_trailer",
+          carga: row.carga || "",
+          pesoCarga: Number(row.pesoCarga) || 0,
+          cliente: row.cliente?.trim() || null,
+          configuracion: row.configuracion?.trim() || null,
+          companyId: co.id,
+          tipoOperacion: "90-10",
+        };
+        const res = await authFetch(`${API_BASE}/vehicles/create`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          throw new Error(e.message || `HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        created.push(safeVehicle(json.vehicle ?? json));
+      } catch (err) {
+        failed.push({ row: i + 1, placa, error: err instanceof Error ? err.message : "Error" });
+      }
+    }
+
+    // Merge new vehicles into the list (skip dupes by id)
+    setVehicles((prev) => {
+      const known = new Set(prev.map((v) => v.id));
+      return [...prev, ...created.filter((v) => !known.has(v.id))];
+    });
+    setBulkResult({ ok: created.length, failed });
+    setBulkSubmitting(false);
   }
 
   async function handleEdit(data: any) {
@@ -658,6 +778,17 @@ export default function VehiculoPage() {
               )}
             </div>
 
+            {/* Bulk upload button */}
+            <button
+              onClick={() => { setShowBulk(true); setBulkResult(null); setBulkText(""); }}
+              className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+              style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.2)" }}
+              title="Pega múltiples placas para crear varios vehículos"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Carga masiva
+            </button>
+
             {/* Add button */}
             <button
               onClick={() => setShowCreate(true)}
@@ -785,6 +916,92 @@ export default function VehiculoPage() {
       </div>
 
       {/* -- Modals ------------------------------------------------------- */}
+
+      {/* Bulk upload */}
+      {showBulk && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(6px)" }}>
+          <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden" style={{ boxShadow: "0 32px 80px -16px rgba(10,24,58,0.4)" }}>
+            <div className="px-6 py-5 flex items-center justify-between" style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+              <div>
+                <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">Vehículos · Carga masiva</p>
+                <h3 className="text-lg font-black text-white mt-0.5">Crear varios vehículos a la vez</h3>
+              </div>
+              <button onClick={() => { setShowBulk(false); setBulkResult(null); }} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="rounded-2xl p-3 text-[11px] text-[#0A183A]" style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.18)" }}>
+                <p className="font-bold mb-1">Cómo funciona</p>
+                <p className="text-gray-600 leading-relaxed">
+                  Pega una placa por línea. Puedes incluir más columnas separadas por <strong>coma</strong> o <strong>tabulador</strong>:
+                </p>
+                <code className="block mt-2 px-2 py-1.5 rounded-lg bg-white text-[10px] text-[#1E76B6] font-mono border border-[#1E76B6]/15 leading-relaxed">
+                  placa, km, tipovhc, carga, pesoCarga, cliente, configuracion
+                </code>
+                <p className="text-gray-500 text-[10px] mt-2">
+                  Solo la placa es obligatoria. Si la primera línea contiene la palabra <code>placa</code>, se usa como encabezado y el orden no importa.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest block mb-1.5">Vehículos a crear</label>
+                <textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  rows={10}
+                  placeholder={`placa,km,tipovhc,configuracion\nABC123,150000,2_ejes_trailer,2-4\nXYZ789,80000,3_ejes_trailer,2-4-4\nDEF456`}
+                  className="w-full px-3 py-2.5 rounded-xl text-xs font-mono border border-gray-200 bg-gray-50 text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] resize-y"
+                  spellCheck={false}
+                  disabled={bulkSubmitting}
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {bulkText.split(/\r?\n/).filter((l) => l.trim()).length} líneas
+                </p>
+              </div>
+
+              {bulkResult && (
+                <div className="space-y-2">
+                  <div className="rounded-xl px-3 py-2.5 text-xs flex items-center gap-2"
+                    style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", color: "#166534" }}>
+                    <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    <span className="font-black">{bulkResult.ok}</span> vehículos creados correctamente
+                  </div>
+                  {bulkResult.failed.length > 0 && (
+                    <div className="rounded-xl px-3 py-2.5 text-[11px]"
+                      style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.22)", color: "#991b1b" }}>
+                      <p className="font-black mb-1">{bulkResult.failed.length} fila{bulkResult.failed.length !== 1 ? "s" : ""} con error:</p>
+                      <ul className="space-y-0.5 max-h-32 overflow-y-auto">
+                        {bulkResult.failed.map((f, i) => (
+                          <li key={i} className="font-mono text-[10px]">
+                            #{f.row} <strong>{f.placa}</strong> — {f.error}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => { setShowBulk(false); setBulkResult(null); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-gray-500 border border-gray-200 hover:bg-gray-50">
+                  Cerrar
+                </button>
+                <button
+                  onClick={handleBulkUpload}
+                  disabled={bulkSubmitting || !bulkText.trim() || !selectedCompany}
+                  className="flex-[1.5] py-2.5 rounded-xl text-sm font-black text-white disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                >
+                  {bulkSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" />Crear vehículos</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create */}
       {showCreate && (
