@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, BarChart3, Calendar } from "lucide-react";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
-import { OtisFloatingButton } from "../../../components/Otis";
+import { OtisWrapper } from "../../../components/Otis";
 
 import SemaforoPie from "../cards/SemaforoPie";
 import SemaforoTabla from "../cards/SemaforoTabla";
@@ -288,49 +288,141 @@ export default function DetallePage() {
       .filter((v) => v.tireCount > 0);
   }, [vehicles, filtered]);
 
-  /* -- Otis: data-aware fleet summary ------------------------------------- */
+  /* -- Otis insights (per card) ------------------------------------------- */
 
-  const otisInsight = useMemo(() => {
-    if (loading) return null;
-    if (filtered.length === 0) {
-      return "No hay llantas en el filtro actual. Ajusta los filtros para ver tu flota.";
-    }
-    const lines: string[] = [];
+  const insights = useMemo(() => {
     const total = filtered.length;
     const veh = vehiclesWithCount.length;
-    lines.push(`Analizando ${total} llantas en ${veh} vehículos.`);
 
-    if (counts.critical > 0) lines.push(`• ${counts.critical} URGENTES (≤3mm) — riesgo de falla, retirar HOY.`);
-    if (counts.warning > 0)  lines.push(`• ${counts.warning} a 30 días (3-6mm) — programar reemplazo.`);
-    if (counts.watch > 0)    lines.push(`• ${counts.watch} a 60 días (6-7mm) — vigilar.`);
-    if (counts.ok > 0)       lines.push(`• ${counts.ok} óptimas (>7mm).`);
-    if (counts.none > 0)     lines.push(`• ${counts.none} sin inspección — necesitan medición.`);
-
-    const brands = Object.entries(marcaData).sort((a,b) => b[1] - a[1]);
-    if (brands.length) {
-      const [topB, topN] = brands[0];
-      const pct = Math.round((topN / total) * 100);
-      lines.push(`Marca dominante: ${topB} (${pct}%).`);
-    }
-
-    let cpkSum = 0, cpkN = 0;
+    // Average CPK from latest inspections
+    let cpkSum = 0, cpkN = 0, cpkProySum = 0, cpkProyN = 0;
     for (const t of filtered) {
       const last = t.inspecciones[t.inspecciones.length - 1];
-      if (last && last.cpk > 0) { cpkSum += last.cpk; cpkN++; }
+      if (last) {
+        if (last.cpk > 0)          { cpkSum += last.cpk; cpkN++; }
+        if (last.cpkProyectado > 0){ cpkProySum += last.cpkProyectado; cpkProyN++; }
+      }
     }
-    if (cpkN > 0) {
-      const avg = Math.round(cpkSum / cpkN);
-      lines.push(`CPK promedio actual: $${avg.toLocaleString("es-CO")} por km.`);
-    }
+    const avgCpk = cpkN ? Math.round(cpkSum / cpkN) : 0;
+    const avgCpkProy = cpkProyN ? Math.round(cpkProySum / cpkProyN) : 0;
 
-    const critPct = Math.round(((counts.critical + counts.warning) / total) * 100);
-    if (critPct >= 25) {
-      lines.push(`⚠ ${critPct}% de la flota necesita acción en los próximos 30 días — prioriza pedidos.`);
-    } else if (counts.critical === 0 && counts.warning === 0) {
-      lines.push(`Flota en buen estado. Mantén el ritmo de inspecciones para sostenerlo.`);
+    // Vida distribution
+    const vidaCounts: Record<string, number> = {};
+    filtered.forEach((t) => {
+      const v = (t as any).vidaActual ?? "nueva";
+      vidaCounts[v] = (vidaCounts[v] ?? 0) + 1;
+    });
+    const reenc = (vidaCounts.reencauche1 ?? 0) + (vidaCounts.reencauche2 ?? 0) + (vidaCounts.reencauche3 ?? 0);
+    const nuevas = vidaCounts.nueva ?? 0;
+    const fin = vidaCounts.fin ?? 0;
+    const pctReenc = total ? Math.round((reenc / total) * 100) : 0;
+
+    // Top brand
+    const brands = Object.entries(marcaData).sort((a,b) => b[1] - a[1]);
+    const topBrand = brands[0];
+
+    // Top banda
+    const bands = Object.entries(bandaData).sort((a,b) => b[1] - a[1]);
+    const topBanda = bands[0];
+
+    // Promedio profundidad por eje
+    const ejeMap: Record<string, { sum: number; n: number }> = {};
+    for (const t of filtered) {
+      const last = t.inspecciones[t.inspecciones.length - 1];
+      if (!last) continue;
+      const minD = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+      if (!ejeMap[t.eje]) ejeMap[t.eje] = { sum: 0, n: 0 };
+      ejeMap[t.eje].sum += minD;
+      ejeMap[t.eje].n += 1;
     }
-    return lines.join("\n");
-  }, [loading, filtered, counts, vehiclesWithCount, marcaData]);
+    const ejeAvgs = Object.entries(ejeMap)
+      .map(([k, v]) => ({ eje: k, avg: v.sum / Math.max(1, v.n) }))
+      .sort((a, b) => a.avg - b.avg);
+    const peorEje = ejeAvgs[0];
+
+    // Mejor / peor vehiculo por #llantas
+    const sortedVeh = [...vehiclesWithCount].sort((a, b) => (b as any).tireCount - (a as any).tireCount);
+
+    // Profundidad promedio global
+    let depthSum = 0, depthN = 0;
+    for (const t of filtered) {
+      const last = t.inspecciones[t.inspecciones.length - 1];
+      if (!last) continue;
+      depthSum += Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
+      depthN++;
+    }
+    const avgDepth = depthN ? (depthSum / depthN) : 0;
+
+    return {
+      semaforoPie: total === 0
+        ? "Sin llantas en el filtro actual. Ajusta los filtros para que Otis pueda analizar."
+        : `De ${total} llantas: ${counts.critical} urgentes, ${counts.warning} a 30 días, ${counts.watch} a 60 días, ${counts.ok} óptimas.\n` +
+          (counts.critical > 0
+            ? `Las ${counts.critical} urgentes son tu prioridad #1 — actúa hoy para evitar paradas no planificadas.`
+            : counts.warning > 0
+            ? `Sin urgencias inmediatas, pero tienes ${counts.warning} llantas que entran a la zona crítica este mes — planifica reemplazo.`
+            : `Toda la flota está fuera de la zona crítica. Mantén el ritmo de inspecciones.`),
+      semaforoTabla: total === 0
+        ? "Sin datos."
+        : `${veh} vehículos en la flota filtrada. ` +
+          (counts.critical > 0
+            ? `Los vehículos con llantas urgentes deben ir primero al taller. Usa esta tabla para crear órdenes de trabajo agrupadas por placa.`
+            : `No hay vehículos en zona crítica. Aprovecha para programar mantenimientos preventivos por placa.`),
+      cpk: cpkN === 0
+        ? "Aún no hay datos suficientes de CPK. Registra inspecciones con kilometraje para que Otis calcule rendimiento."
+        : `CPK actual promedio: $${avgCpk.toLocaleString("es-CO")} por km.\n` +
+          (avgCpkProy > 0 ? `CPK proyectado: $${avgCpkProy.toLocaleString("es-CO")} — ` +
+            (avgCpkProy < avgCpk
+              ? `tu costo por km va a la baja, buena señal.`
+              : avgCpkProy > avgCpk * 1.1
+              ? `el proyectado sube ${Math.round(((avgCpkProy - avgCpk) / avgCpk) * 100)}%, revisa qué llantas están bajando rendimiento.`
+              : `estable.`)
+            : ""),
+      porMarca: !topBrand
+        ? "Sin datos de marcas."
+        : `${brands.length} marcas activas. ${topBrand[0]} domina con ${topBrand[1]} llantas (${Math.round((topBrand[1] / total) * 100)}%). ` +
+          (brands.length === 1
+            ? `Considera diversificar para comparar rendimiento real entre marcas.`
+            : `Cruza este dato con CPK por marca para ver cuál te rinde más por peso invertido.`),
+      porBanda: !topBanda
+        ? "Sin datos de bandas/diseños."
+        : `${bands.length} diseños activos. El más usado es "${topBanda[0]}" (${topBanda[1]} llantas). Si una banda concentra >40% de tu flota y tiene CPK alto, vale la pena probar alternativas.`,
+      porVida: total === 0
+        ? "Sin llantas registradas."
+        : `${nuevas} nuevas (${Math.round((nuevas / total) * 100)}%), ${reenc} reencauchadas (${pctReenc}%)${fin > 0 ? `, ${fin} en fin de vida` : ""}. ` +
+          (pctReenc < 30
+            ? `Estás reencauchando muy poco. Subir al 50%+ recorta CPK significativamente.`
+            : pctReenc > 60
+            ? `Excelente nivel de reencauche — aprovechas muy bien los cascos.`
+            : `Buen balance nuevas/reencauche.`),
+      promedioEje: !peorEje
+        ? "Sin datos por eje."
+        : `Eje con menor profundidad promedio: ${peorEje.eje} (${peorEje.avg.toFixed(1)}mm). ` +
+          (peorEje.avg <= 4
+            ? `Está cerca del retiro óptimo (3mm) — empieza a planear reemplazos para ese eje.`
+            : `Margen sano. Sigue rotando para igualar el desgaste entre posiciones.`),
+      tipoVehiculo: sortedVeh.length === 0
+        ? "Sin vehículos asignados."
+        : `${veh} vehículos con llantas activas. Vehículo con más llantas: ${(sortedVeh[0] as any).placa} (${(sortedVeh[0] as any).tireCount}). Los vehículos con más llantas concentran tu inversión — vigílalos primero.`,
+      historico: total === 0
+        ? "Sin histórico para analizar."
+        : `Histórico de profundidad de la flota filtrada. Si la curva baja más rápido de lo esperado, hay sobrecarga, sobreinflado o desalineación. Compara periodos similares para detectar desviaciones.`,
+      reencaucheHistorico: reenc === 0
+        ? "Aún no tienes llantas reencauchadas. Considera reencauchar marcas premium para reducir CPK."
+        : `Has acumulado ${reenc} llantas reencauchadas (${pctReenc}% del total). Cada reencauche bien hecho cuesta ~30% de una nueva — vigila que las marcas premium lleguen al menos a un reencauche.`,
+      tanqueMilimetro: depthN === 0
+        ? "Sin inspecciones recientes."
+        : `Profundidad promedio actual: ${avgDepth.toFixed(1)}mm. ` +
+          (avgDepth <= 4
+            ? `La flota está cerca del límite de retiro. Prioriza inspecciones y prepara pedidos.`
+            : avgDepth >= 8
+            ? `Flota con buen casco. Aprovecha para sostener inspecciones preventivas.`
+            : `Profundidad media saludable, pero vigila las llantas en cola del rango.`),
+      proyeccion: total === 0
+        ? "Sin datos para proyectar."
+        : `Otis proyecta vida útil restante con base en el ritmo actual de desgaste. Las llantas con proyección <60 días ya deberían estar en tu próximo pedido.`,
+    };
+  }, [filtered, counts, vehiclesWithCount, marcaData, bandaData]);
 
   /* -- Render -------------------------------------------------------------- */
 
@@ -402,24 +494,36 @@ export default function DetallePage() {
             <section>
               <SectionHeader title="Semaforo" />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <SemaforoPie tires={filtered} language="es" />
-                <SemaforoTabla vehicles={vehicles} tires={filtered} />
+                <OtisWrapper cardKey="detalle.semaforo-pie" capability="wear" title="Semáforo de la flota" insight={insights.semaforoPie}>
+                  <SemaforoPie tires={filtered} language="es" />
+                </OtisWrapper>
+                <OtisWrapper cardKey="detalle.semaforo-tabla" capability="wear" title="Semáforo por vehículo" insight={insights.semaforoTabla}>
+                  <SemaforoTabla vehicles={vehicles} tires={filtered} />
+                </OtisWrapper>
               </div>
             </section>
 
             {/* -- 2. Analisis CPK ------------------------------------------- */}
             <section>
               <SectionHeader title="Analisis CPK" />
-              <TablaCpk tires={filtered as any} />
+              <OtisWrapper cardKey="detalle.cpk" capability="prediction" title="Análisis de CPK" insight={insights.cpk}>
+                <TablaCpk tires={filtered as any} />
+              </OtisWrapper>
             </section>
 
             {/* -- 3. Distribucion ------------------------------------------- */}
             <section>
               <SectionHeader title="Distribucion" />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                <PorMarca groupData={marcaData} />
-                <PorBanda groupData={bandaData} />
-                <PorVida tires={filtered} />
+                <OtisWrapper cardKey="detalle.por-marca" capability="orders" title="Por marca" insight={insights.porMarca}>
+                  <PorMarca groupData={marcaData} />
+                </OtisWrapper>
+                <OtisWrapper cardKey="detalle.por-banda" capability="orders" title="Por banda" insight={insights.porBanda}>
+                  <PorBanda groupData={bandaData} />
+                </OtisWrapper>
+                <OtisWrapper cardKey="detalle.por-vida" capability="prediction" title="Por vida" insight={insights.porVida}>
+                  <PorVida tires={filtered} />
+                </OtisWrapper>
               </div>
             </section>
 
@@ -427,12 +531,16 @@ export default function DetallePage() {
             <section>
               <SectionHeader title="Analisis por Eje y Vehiculo" />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <PromedioEje
-                  tires={filtered}
-                  onSelectEje={(eje: string | null) => setSelectedEje(eje ?? "")}
-                  selectedEje={selectedEje}
-                />
-                <TipoVehiculo vehicles={vehiclesWithCount as any} />
+                <OtisWrapper cardKey="detalle.promedio-eje" capability="wear" title="Promedio por eje" insight={insights.promedioEje}>
+                  <PromedioEje
+                    tires={filtered}
+                    onSelectEje={(eje: string | null) => setSelectedEje(eje ?? "")}
+                    selectedEje={selectedEje}
+                  />
+                </OtisWrapper>
+                <OtisWrapper cardKey="detalle.tipo-vehiculo" capability="wear" title="Por vehículo" insight={insights.tipoVehiculo}>
+                  <TipoVehiculo vehicles={vehiclesWithCount as any} />
+                </OtisWrapper>
               </div>
             </section>
 
@@ -440,8 +548,12 @@ export default function DetallePage() {
             <section>
               <SectionHeader title="Tendencias" />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <HistoricChart tires={filtered} language="es" />
-                <ReencaucheHistorico tires={filtered} language="es" />
+                <OtisWrapper cardKey="detalle.historico" capability="prediction" title="Histórico" insight={insights.historico}>
+                  <HistoricChart tires={filtered} language="es" />
+                </OtisWrapper>
+                <OtisWrapper cardKey="detalle.reencauche-hist" capability="prediction" title="Reencauche histórico" insight={insights.reencaucheHistorico}>
+                  <ReencaucheHistorico tires={filtered} language="es" />
+                </OtisWrapper>
               </div>
             </section>
 
@@ -449,23 +561,17 @@ export default function DetallePage() {
             <section>
               <SectionHeader title="Profundidad y Proyeccion" />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <TanqueMilimetro tires={filtered} language="es" />
-                <ProyeccionVida tires={filtered} />
+                <OtisWrapper cardKey="detalle.tanque-mm" capability="wear" title="Tanque por milímetro" insight={insights.tanqueMilimetro}>
+                  <TanqueMilimetro tires={filtered} language="es" />
+                </OtisWrapper>
+                <OtisWrapper cardKey="detalle.proyeccion" capability="prediction" title="Proyección de vida" insight={insights.proyeccion}>
+                  <ProyeccionVida tires={filtered} />
+                </OtisWrapper>
               </div>
             </section>
           </div>
         )}
       </div>
-
-      {!loading && (
-        <OtisFloatingButton
-          pageKey="dashboard.detalle"
-          capability="wear"
-          title="Resumen de la flota"
-          insight={otisInsight}
-          offset={{ bottom: 24, left: 24 }}
-        />
-      )}
 
       {!loading && (
         <FilterFab
