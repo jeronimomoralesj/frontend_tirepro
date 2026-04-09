@@ -653,17 +653,19 @@ export default function VehiculoPage() {
       });
     } catch (err) {
       // Fall back to per-row sequential create if the bulk endpoint isn't
-      // deployed yet — keeps existing deploys working.
+      // deployed yet — keeps existing deploys working. IMPORTANT: strip
+      // _row before sending or the strict DTO will reject the request.
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       for (const p of payload) {
-        if (!p.placa) {
-          failed.push({ row: p._row, placa: "(vacío)", error: "Sin placa" });
+        const { _row, ...rowBody } = p;
+        if (!rowBody.placa) {
+          failed.push({ row: _row, placa: "(vacío)", error: "Sin placa" });
           continue;
         }
         try {
           const r = await authFetch(`${API_BASE}/vehicles/create`, {
             method: "POST",
-            body: JSON.stringify(p),
+            body: JSON.stringify(rowBody),
           });
           if (!r.ok) {
             const e = await r.json().catch(() => ({}));
@@ -672,7 +674,7 @@ export default function VehiculoPage() {
           const json = await r.json();
           created.push(safeVehicle(json.vehicle ?? json));
         } catch (e) {
-          failed.push({ row: p._row, placa: p.placa, error: e instanceof Error ? e.message : "Error" });
+          failed.push({ row: _row, placa: rowBody.placa, error: e instanceof Error ? e.message : "Error" });
         }
         await sleep(1500); // very conservative fallback pacing
       }
