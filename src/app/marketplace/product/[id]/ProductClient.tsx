@@ -97,7 +97,13 @@ export default function ProductClient({
   // Vehicle recommendation
   const [vrPlaca, setVrPlaca] = useState("");
   const [vrLoading, setVrLoading] = useState(false);
-  const [vrResult, setVrResult] = useState<{ positions: string[]; reason: string } | null>(null);
+  const [vrResult, setVrResult] = useState<{
+    verdict: "perfect" | "compatible" | "incompatible" | "empty";
+    headline: string;
+    matches: Array<{ posicion: number; eje: string; reason: string; severity: "urgent" | "soon" | "ok" | "empty" }>;
+    incompatible: Array<{ posicion: number; reason: string }>;
+    summary: string;
+  } | null>(null);
   const [vrError, setVrError] = useState("");
   const [isProUser, setIsProUser] = useState(false);
   const cart = useCart();
@@ -428,30 +434,57 @@ export default function ProductClient({
               </div>
             )}
 
-            {/* Quantity + Order */}
-            <div className="mt-6">
-              <div className="flex items-center gap-4 mb-5">
-                <span className="text-[13px] font-medium text-gray-500">Cantidad</span>
+            {/* Buy box — Amazon-style sticky card */}
+            <div
+              className="mt-6 rounded-3xl p-5 bg-white"
+              style={{ boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18), 0 0 0 1px rgba(30,118,182,0.08)" }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <p className="text-xs font-black text-emerald-600">
+                  Disponible
+                  {product.cantidadDisponible > 0 && product.cantidadDisponible <= 10 && (
+                    <span className="text-amber-600 font-bold"> · solo {product.cantidadDisponible} unidades</span>
+                  )}
+                </p>
+              </div>
+              {product.tiempoEntrega && (
+                <p className="text-[11px] text-gray-500 flex items-center gap-1.5 mb-4">
+                  <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
+                  Entrega estimada: <span className="font-bold text-[#0A183A]">{product.tiempoEntrega}</span>
+                </p>
+              )}
+
+              <div className="flex items-center gap-4 mb-4">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Cantidad</span>
                 <div className="flex items-center rounded-full overflow-hidden" style={{ border: "1.5px solid #e5e5e5" }}>
                   <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="px-3.5 py-2 hover:bg-[#f0f7ff] transition-colors"><Minus className="w-3.5 h-3.5 text-gray-500" /></button>
-                  <span className="px-5 py-2 text-[14px] font-semibold text-[#0A183A]" style={{ borderLeft: "1.5px solid #e5e5e5", borderRight: "1.5px solid #e5e5e5" }}>{qty}</span>
+                  <span className="px-5 py-2 text-[14px] font-black text-[#0A183A]" style={{ borderLeft: "1.5px solid #e5e5e5", borderRight: "1.5px solid #e5e5e5" }}>{qty}</span>
                   <button onClick={() => setQty((q) => q + 1)} className="px-3.5 py-2 hover:bg-[#f0f7ff] transition-colors"><Plus className="w-3.5 h-3.5 text-gray-500" /></button>
                 </div>
-                {qty > 1 && <span className="text-[15px] font-semibold text-[#0A183A] ml-auto">{fmtCOP(price * qty)}</span>}
+                {qty > 1 && (
+                  <span className="text-sm font-black text-[#0A183A] ml-auto">
+                    {fmtCOP(price * qty)}
+                  </span>
+                )}
               </div>
 
               <button onClick={handleAddToCart}
-                className="w-full py-4 rounded-2xl text-[15px] font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-2xl text-[15px] font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)" }}>
                 <ShoppingCart className="w-4 h-4" />
                 Agregar al carrito
               </button>
               {cart.count > 0 && (
                 <Link href="/marketplace/cart"
-                  className="w-full mt-2.5 py-3.5 rounded-2xl text-[14px] font-semibold text-[#1E76B6] border-2 border-[#1E76B6]/15 hover:bg-[#f0f7ff] flex items-center justify-center gap-2 transition-colors">
+                  className="w-full mt-2 py-3 rounded-2xl text-[13px] font-black text-[#1E76B6] border-2 border-[#1E76B6]/15 hover:bg-[#f0f7ff] flex items-center justify-center gap-2 transition-colors">
                   Ver carrito ({cart.count})
                 </Link>
               )}
+
+              <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
+                El distribuidor confirma tu pedido en hasta 5 días hábiles. El pago se solicita después de la confirmación.
+              </p>
             </div>
 
             {/* Distributor info */}
@@ -481,8 +514,9 @@ export default function ProductClient({
             </div>
 
             {/* ═══ RETREADABILITY INDEX ═══ */}
-            <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
-              <p className="text-sm font-bold text-[#0A183A] mb-3">Indice de Reencauchabilidad</p>
+            <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
+              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Reencauchabilidad</p>
+              <p className="text-sm font-black text-[#0A183A] mb-3">Índice de reencauchabilidad</p>
               {(() => {
                 const reencauchable = product.catalog?.reencauchable ?? false;
                 const kmEst = product.catalog?.kmEstimadosReales ?? 0;
@@ -520,8 +554,9 @@ export default function ProductClient({
             </div>
 
             {/* ═══ VEHICLE COMPATIBILITY ═══ */}
-            <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
-              <p className="text-sm font-bold text-[#0A183A] mb-3">Vehiculos compatibles</p>
+            <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
+              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Compatibilidad</p>
+              <p className="text-sm font-black text-[#0A183A] mb-3">Vehículos compatibles</p>
               {(() => {
                 const dim = product.dimension;
                 const eje = product.eje;
@@ -666,12 +701,13 @@ export default function ProductClient({
 
             {/* ═══ VEHICLE RECOMMENDATION AGENT (pro users only) ═══ */}
             {isProUser && (
-            <div className="mt-6 p-4 rounded-2xl border border-gray-200" style={{ background: "linear-gradient(135deg, rgba(10,24,58,0.03), rgba(30,118,182,0.03))" }}>
+            <div className="mt-6 p-5 rounded-2xl border border-gray-100" style={{ background: "linear-gradient(135deg, rgba(10,24,58,0.03), rgba(30,118,182,0.03))", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
+              <p className="text-[10px] font-black text-[#ef4444] uppercase tracking-widest mb-1">Agente IA · Pro</p>
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm font-bold text-[#0A183A]">Agente SENTINEL</p>
-                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#ef4444]/10 text-[#ef4444]">IA</span>
+                <p className="text-sm font-black text-[#0A183A]">SENTINEL — análisis por placa</p>
+                <Zap className="w-3.5 h-3.5 text-[#ef4444]" />
               </div>
-              <p className="text-[10px] text-gray-400 mb-3">Ingresa la placa de tu vehiculo y te recomendamos donde instalar esta llanta.</p>
+              <p className="text-[10px] text-gray-500 mb-3">Ingresa la placa y analizamos cuáles posiciones de tu vehículo aceptan esta llanta y cuáles no, considerando eje y dimensiones.</p>
 
               <div className="flex gap-2">
                 <input
@@ -690,62 +726,128 @@ export default function ProductClient({
                     try {
                       const token = localStorage.getItem("token") ?? "";
                       if (!token) { setVrError("Inicia sesion para usar el agente"); setVrLoading(false); return; }
-                      // Fetch vehicle tires
                       const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(vrPlaca)}`, {
                         headers: { Authorization: `Bearer ${token}` },
                       });
-                      if (!vRes.ok) { setVrError("Vehiculo no encontrado"); setVrLoading(false); return; }
+                      if (!vRes.ok) { setVrError("Vehículo no encontrado"); setVrLoading(false); return; }
                       const vehicle = await vRes.json();
                       const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicle.id}`, {
                         headers: { Authorization: `Bearer ${token}` },
                       });
                       const tires: any[] = tRes.ok ? await tRes.json() : [];
 
-                      // Analyze — which positions would this tire work for?
-                      const tireEje = product.eje;
-                      const tireDimension = product.dimension;
-                      const positions: string[] = [];
-                      const reasons: string[] = [];
+                      // ----- AXIS-AWARE COMPATIBILITY ANALYSIS -----
+                      // Convention: P1 / P2 = front axle = 'direccion'.
+                      // Everything else = rear / 'traccion'. Steer-only and
+                      // drive-only tires can't be swapped because of casing
+                      // construction and tread compound differences.
+                      const tireEje = (product.eje ?? "libre").toLowerCase();
+                      const tireDimension = (product.dimension ?? "").trim();
 
-                      // Check empty positions
-                      const occupiedPos = new Set(tires.map((t: any) => t.posicion));
-                      const maxPos = Math.max(0, ...tires.map((t: any) => t.posicion), 6);
+                      const positionEje = (pos: number): "direccion" | "traccion" => (pos <= 2 ? "direccion" : "traccion");
+                      const ejeFits = (productEje: string, posEje: string) => {
+                        if (!productEje || productEje === "libre") return true;
+                        return productEje === posEje;
+                      };
 
-                      for (let p = 1; p <= maxPos; p++) {
-                        if (!occupiedPos.has(p)) {
-                          positions.push(`P${p} (vacia)`);
-                        }
-                      }
-
-                      // Check positions where current tire is worn
+                      // Group existing tires by eje so we can read the
+                      // dominant dimension per axle group.
+                      const dimByEje: Record<string, Map<string, number>> = { direccion: new Map(), traccion: new Map() };
                       tires.forEach((t: any) => {
-                        const depth = t.currentProfundidad ?? 99;
-                        const matchesDim = t.dimension === tireDimension;
-                        const matchesEje = !tireEje || t.eje === tireEje || tireEje === "libre";
+                        const e = t.eje?.toLowerCase() === "direccion" || t.eje?.toLowerCase() === "traccion"
+                          ? t.eje.toLowerCase()
+                          : positionEje(t.posicion ?? 0);
+                        const d = (t.dimension ?? "").trim();
+                        if (!d) return;
+                        const m = dimByEje[e];
+                        m.set(d, (m.get(d) ?? 0) + 1);
+                      });
+                      const dominantDim = (e: "direccion" | "traccion"): string | null => {
+                        const m = dimByEje[e];
+                        if (m.size === 0) return null;
+                        return [...m.entries()].sort((a, b) => b[1] - a[1])[0][0];
+                      };
 
-                        if (depth <= 4 && matchesDim && matchesEje) {
-                          positions.push(`P${t.posicion} (reemplazar ${t.marca} — ${depth.toFixed(1)}mm)`);
-                          reasons.push(`La llanta en P${t.posicion} tiene solo ${depth.toFixed(1)}mm y necesita reemplazo.`);
-                        } else if (depth <= 6 && matchesDim && matchesEje) {
-                          reasons.push(`P${t.posicion}: ${t.marca} a ${depth.toFixed(1)}mm — considerar reemplazo pronto.`);
+                      const matches: Array<{ posicion: number; eje: string; reason: string; severity: "urgent" | "soon" | "ok" | "empty" }> = [];
+                      const incompatible: Array<{ posicion: number; reason: string }> = [];
+
+                      const occupied = new Set(tires.map((t: any) => t.posicion));
+                      const maxPos = Math.max(6, ...tires.map((t: any) => t.posicion ?? 0));
+
+                      // Empty slots first
+                      for (let p = 1; p <= maxPos; p++) {
+                        if (occupied.has(p)) continue;
+                        const e = positionEje(p);
+                        if (!ejeFits(tireEje, e)) {
+                          incompatible.push({ posicion: p, reason: `Posición vacía pero es de ${e}; esta llanta es de ${tireEje}` });
+                          continue;
+                        }
+                        const dom = dominantDim(e);
+                        const dimNote = dom && dom !== tireDimension
+                          ? `el resto del ${e === "direccion" ? "eje delantero" : "eje trasero"} usa ${dom}, esta es ${tireDimension}`
+                          : `coincide con ${tireDimension} en ${e === "direccion" ? "el eje delantero" : "el eje trasero"}`;
+                        matches.push({ posicion: p, eje: e, reason: `Posición vacía — ${dimNote}`, severity: "empty" });
+                      }
+
+                      // Occupied slots
+                      tires.forEach((t: any) => {
+                        const pos = t.posicion;
+                        const tEje = t.eje?.toLowerCase() || positionEje(pos);
+                        const tDim = (t.dimension ?? "").trim();
+                        const depth = typeof t.currentProfundidad === "number" ? t.currentProfundidad : 99;
+                        if (!ejeFits(tireEje, tEje)) {
+                          incompatible.push({ posicion: pos, reason: `Posición de ${tEje}; esta llanta es de ${tireEje}` });
+                          return;
+                        }
+                        if (tDim && tDim !== tireDimension) {
+                          incompatible.push({ posicion: pos, reason: `Medida instalada ${tDim} ≠ ${tireDimension}` });
+                          return;
+                        }
+                        if (depth <= 3) {
+                          matches.push({ posicion: pos, eje: tEje, reason: `Reemplazo urgente — ${t.marca ?? "llanta"} a ${depth.toFixed(1)} mm`, severity: "urgent" });
+                        } else if (depth <= 6) {
+                          matches.push({ posicion: pos, eje: tEje, reason: `Considerar reemplazo pronto — ${t.marca ?? "llanta"} a ${depth.toFixed(1)} mm`, severity: "soon" });
+                        } else {
+                          matches.push({ posicion: pos, eje: tEje, reason: `Compatible (la actual aún tiene ${depth.toFixed(1)} mm)`, severity: "ok" });
                         }
                       });
 
-                      if (!tireEje || tireEje === "libre") {
-                        reasons.push(`Esta llanta es para eje ${tireEje ?? "no especificado"} — compatible con multiples posiciones.`);
-                      } else {
-                        reasons.push(`Llanta de eje ${tireEje} — instalar solo en posiciones de ${tireEje}.`);
-                      }
+                      // Sort: urgent → soon → empty → ok, then by position
+                      const order: Record<string, number> = { urgent: 0, soon: 1, empty: 2, ok: 3 };
+                      matches.sort((a, b) => order[a.severity] - order[b.severity] || a.posicion - b.posicion);
 
-                      if (positions.length === 0) {
-                        reasons.unshift("No hay posiciones criticas que necesiten esta llanta en este momento.");
-                      }
+                      const verdict: "perfect" | "compatible" | "incompatible" | "empty" =
+                        matches.some((m) => m.severity === "urgent") ? "perfect"
+                          : matches.length > 0 ? "compatible"
+                          : incompatible.length > 0 ? "incompatible"
+                          : "empty";
 
-                      setVrResult({
-                        positions,
-                        reason: reasons.join(" "),
-                      });
-                    } catch { setVrError("Error al analizar el vehiculo"); }
+                      const headline =
+                        verdict === "perfect"     ? "Esta llanta encaja perfecto en una posición que necesita reemplazo"
+                        : verdict === "compatible" ? `Compatible con ${matches.length} posición${matches.length !== 1 ? "es" : ""} de tu vehículo`
+                        : verdict === "incompatible" ? "Esta llanta no es compatible con tu vehículo"
+                        : "Sin posiciones donde encaje en este momento";
+
+                      const summary = (() => {
+                        const parts: string[] = [];
+                        if (tireEje === "libre" || !tireEje) {
+                          parts.push("Llanta multi-posición — puede ir tanto en eje direccional como en ejes de tracción.");
+                        } else {
+                          parts.push(`Llanta de ${tireEje}: en este vehículo solo puede instalarse en ${tireEje === "direccion" ? "P1 y P2 (eje delantero)" : "P3 en adelante (ejes traseros)"}.`);
+                        }
+                        const dirDim = dominantDim("direccion");
+                        const tracDim = dominantDim("traccion");
+                        if (dirDim || tracDim) {
+                          const bits = [];
+                          if (dirDim)  bits.push(`eje delantero: ${dirDim}`);
+                          if (tracDim) bits.push(`ejes traseros: ${tracDim}`);
+                          parts.push(`Tu vehículo actualmente usa ${bits.join(" · ")}.`);
+                        }
+                        return parts.join(" ");
+                      })();
+
+                      setVrResult({ verdict, headline, matches, incompatible, summary });
+                    } catch { setVrError("Error al analizar el vehículo"); }
                     setVrLoading(false);
                   }}
                   className="px-4 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-40 transition-all hover:opacity-90 flex-shrink-0"
@@ -756,21 +858,62 @@ export default function ProductClient({
 
               {vrError && <p className="text-xs text-red-500 font-bold mt-2">{vrError}</p>}
 
-              {vrResult && (
-                <div className="mt-3 p-3 rounded-xl bg-white border border-gray-100">
-                  {vrResult.positions.length > 0 && (
-                    <div className="mb-2">
-                      <p className="text-[10px] font-bold text-[#0A183A] uppercase tracking-wider mb-1.5">Posiciones recomendadas</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {vrResult.positions.map((p, i) => (
-                          <span key={i} className="text-[10px] font-bold px-2 py-1 rounded-lg bg-[#ef4444]/10 text-[#ef4444]">{p}</span>
-                        ))}
-                      </div>
+              {vrResult && (() => {
+                const verdictColor: Record<string, string> = {
+                  perfect:      "#22c55e",
+                  compatible:   "#1E76B6",
+                  incompatible: "#ef4444",
+                  empty:        "#64748b",
+                };
+                const sevMeta: Record<string, { label: string; bg: string; color: string }> = {
+                  urgent: { label: "Urgente", bg: "rgba(239,68,68,0.1)",  color: "#ef4444" },
+                  soon:   { label: "Pronto",  bg: "rgba(245,158,11,0.1)", color: "#d97706" },
+                  empty:  { label: "Vacía",   bg: "rgba(30,118,182,0.1)", color: "#1E76B6" },
+                  ok:     { label: "Compat.", bg: "rgba(34,197,94,0.1)",  color: "#16a34a" },
+                };
+                return (
+                  <div className="mt-3 p-4 rounded-2xl bg-white border border-gray-100">
+                    <div className="flex items-start gap-2 pb-3 mb-3 border-b border-gray-100">
+                      <span className="w-2 h-2 mt-1.5 rounded-full flex-shrink-0" style={{ background: verdictColor[vrResult.verdict] }} />
+                      <p className="text-xs font-black text-[#0A183A] leading-snug">{vrResult.headline}</p>
                     </div>
-                  )}
-                  <p className="text-[11px] text-gray-600 leading-relaxed">{vrResult.reason}</p>
-                </div>
-              )}
+
+                    {vrResult.matches.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">Posiciones donde encaja</p>
+                        <div className="space-y-1.5">
+                          {vrResult.matches.map((m, i) => {
+                            const sm = sevMeta[m.severity];
+                            return (
+                              <div key={i} className="flex items-start gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: sm.bg, border: `1px solid ${sm.color}25` }}>
+                                <span className="flex-shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-md" style={{ background: "white", color: sm.color, border: `1px solid ${sm.color}40` }}>P{m.posicion}</span>
+                                <span className="text-[10px] text-[#0A183A] leading-snug flex-1">{m.reason}</span>
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: sm.color, color: "white" }}>{sm.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {vrResult.incompatible.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-2">No compatible</p>
+                        <div className="space-y-1.5">
+                          {vrResult.incompatible.map((m, i) => (
+                            <div key={i} className="flex items-start gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)" }}>
+                              <span className="flex-shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-white text-red-500 border border-red-300">P{m.posicion}</span>
+                              <span className="text-[10px] text-red-700 leading-snug">{m.reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-gray-500 leading-relaxed pt-2 border-t border-gray-100">{vrResult.summary}</p>
+                  </div>
+                );
+              })()}
             </div>
             )}
           </div>
