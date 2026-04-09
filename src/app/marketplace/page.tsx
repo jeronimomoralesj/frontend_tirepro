@@ -410,48 +410,70 @@ function PublicMarketplace() {
             )}
           </div>
         ) : (
-          <>
-            {/* Results header */}
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-500"><span className="font-bold text-[#0A183A]">{total}</span> producto{total !== 1 ? "s" : ""}</p>
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-xs border border-gray-200 bg-white text-[#333] hidden sm:block">
-                <option value="price_asc">Menor precio</option>
-                <option value="price_desc">Mayor precio</option>
-                <option value="newest">Mas recientes</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
+            {/* Sidebar filters — desktop only */}
+            <aside className="hidden lg:block">
+              <ResultsSidebar
+                filters={filters}
+                marca={marca}
+                setMarca={setMarca}
+                dimension={dimension}
+                setDimension={setDimension}
+                tipo={tipo}
+                setTipo={setTipo}
+                distributorId={distributorId}
+                setDistributorId={setDistributorId}
+                clearFilters={clearFilters}
+              />
+            </aside>
 
-            {/* Product grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-              {listings.map((l) => <ProductCard key={l.id} l={l} />)}
-            </div>
-
-            {/* Pagination */}
-            {pages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-10">
-                <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
-                  const p = page <= 4 ? i + 1 : Math.min(page + i - 3, pages - 6 + i + 1);
-                  if (p < 1 || p > pages) return null;
-                  return (
-                    <button key={p} onClick={() => setPage(p)}
-                      className="w-9 h-9 rounded-full text-xs font-bold transition-all"
-                      style={{ background: p === page ? "#0A183A" : "transparent", color: p === page ? "white" : "#555" }}>
-                      {p}
-                    </button>
-                  );
-                })}
-                <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+            <div>
+              {/* Results header */}
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <p className="text-sm text-gray-500">
+                  <span className="font-bold text-[#0A183A]">{total}</span> resultado{total !== 1 ? "s" : ""}
+                  {search && <> para <span className="font-bold text-[#0A183A]">"{search}"</span></>}
+                </p>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+                  className="px-3 py-2 rounded-xl text-xs font-bold border border-gray-200 bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]">
+                  <option value="relevance">Relevancia</option>
+                  <option value="price_asc">Menor precio</option>
+                  <option value="price_desc">Mayor precio</option>
+                  <option value="newest">Más recientes</option>
+                </select>
               </div>
-            )}
-          </>
+
+              {/* Product list — full-width rows */}
+              <div className="space-y-3">
+                {listings.map((l) => <ProductRow key={l.id} l={l} />)}
+              </div>
+
+              {/* Pagination */}
+              {pages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-10">
+                  <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
+                    const p = page <= 4 ? i + 1 : Math.min(page + i - 3, pages - 6 + i + 1);
+                    if (p < 1 || p > pages) return null;
+                    return (
+                      <button key={p} onClick={() => setPage(p)}
+                        className="w-9 h-9 rounded-full text-xs font-bold transition-all"
+                        style={{ background: p === page ? "#0A183A" : "transparent", color: p === page ? "white" : "#555" }}>
+                        {p}
+                      </button>
+                    );
+                  })}
+                  <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </main>
 
@@ -949,6 +971,258 @@ const VEHICLE_TIRE_MAP: Record<string, { label: string; dimensions: string[] }> 
 // serves a self-signed cert and browsers reject it (ERR_CERT_AUTHORITY_INVALID).
 const HERO_BG    = "https://cdn.pixabay.com/photo/2015/05/26/09/33/canada-784392_1280.jpg";
 const HERO_BG_SM = "https://cdn.pixabay.com/photo/2015/05/26/09/33/canada-784392_960_720.jpg";
+
+// =============================================================================
+// ResultsSidebar — desktop filters column for the results page
+// =============================================================================
+
+function ResultsSidebar({
+  filters,
+  marca, setMarca,
+  dimension, setDimension,
+  tipo, setTipo,
+  distributorId, setDistributorId,
+  clearFilters,
+}: {
+  filters: Filters;
+  marca: string; setMarca: (v: string) => void;
+  dimension: string; setDimension: (v: string) => void;
+  tipo: string; setTipo: (v: string) => void;
+  distributorId: string; setDistributorId: (v: string) => void;
+  clearFilters: () => void;
+}) {
+  const activeCount = [marca, dimension, tipo, distributorId].filter(Boolean).length;
+  const sectionTitle = "text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2";
+
+  return (
+    <div
+      className="bg-white rounded-2xl p-4 sticky top-20"
+      style={{ boxShadow: "0 12px 32px -16px rgba(10,24,58,0.12), 0 0 0 1px rgba(30,118,182,0.06)" }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-black text-[#0A183A]">Filtros</p>
+        {activeCount > 0 && (
+          <button onClick={clearFilters} className="text-[10px] font-black text-red-500 hover:underline">
+            Limpiar ({activeCount})
+          </button>
+        )}
+      </div>
+
+      {/* Tipo */}
+      <div className="mb-5">
+        <p className={sectionTitle}>Tipo</p>
+        <div className="space-y-1">
+          {[{ v: "", l: "Todas" }, { v: "nueva", l: "Nuevas" }, { v: "reencauche", l: "Reencauche" }].map((t) => (
+            <button
+              key={t.v || "all"}
+              onClick={() => setTipo(t.v)}
+              className="w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+              style={{
+                background: tipo === t.v ? "rgba(30,118,182,0.08)" : "transparent",
+                color: tipo === t.v ? "#1E76B6" : "#555",
+                fontWeight: tipo === t.v ? 800 : 500,
+              }}
+            >
+              <span
+                className="w-3 h-3 rounded-full border flex items-center justify-center"
+                style={{ borderColor: tipo === t.v ? "#1E76B6" : "#cbd5e1" }}
+              >
+                {tipo === t.v && <span className="w-1.5 h-1.5 rounded-full bg-[#1E76B6]" />}
+              </span>
+              {t.l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Dimensión */}
+      {filters.dimensions.length > 0 && (
+        <div className="mb-5">
+          <p className={sectionTitle}>Dimensión</p>
+          <div className="max-h-48 overflow-y-auto pr-1 space-y-1">
+            {filters.dimensions.slice(0, 30).map((d) => (
+              <button
+                key={d}
+                onClick={() => setDimension(dimension === d ? "" : d)}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors truncate"
+                style={{
+                  background: dimension === d ? "rgba(30,118,182,0.08)" : "transparent",
+                  color: dimension === d ? "#1E76B6" : "#555",
+                  fontWeight: dimension === d ? 800 : 500,
+                }}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Marca */}
+      {filters.marcas.length > 0 && (
+        <div className="mb-5">
+          <p className={sectionTitle}>Marca</p>
+          <div className="max-h-48 overflow-y-auto pr-1 space-y-1">
+            {filters.marcas.slice(0, 30).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMarca(marca === m ? "" : m)}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors truncate"
+                style={{
+                  background: marca === m ? "rgba(30,118,182,0.08)" : "transparent",
+                  color: marca === m ? "#1E76B6" : "#555",
+                  fontWeight: marca === m ? 800 : 500,
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Distribuidor */}
+      {filters.distributors.length > 0 && (
+        <div>
+          <p className={sectionTitle}>Distribuidor</p>
+          <div className="max-h-48 overflow-y-auto pr-1 space-y-1">
+            {filters.distributors.slice(0, 30).map((d) => (
+              <button
+                key={d.id}
+                onClick={() => setDistributorId(distributorId === d.id ? "" : d.id)}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors truncate"
+                style={{
+                  background: distributorId === d.id ? "rgba(30,118,182,0.08)" : "transparent",
+                  color: distributorId === d.id ? "#1E76B6" : "#555",
+                  fontWeight: distributorId === d.id ? 800 : 500,
+                }}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// ProductRow — Amazon-style full-width result row
+// =============================================================================
+
+function ProductRow({ l }: { l: Listing }) {
+  const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+  const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+  const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+  const price = hasPromo ? l.precioPromo! : l.precioCop;
+  const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
+  const cpk = l.catalog?.crowdAvgCpk ?? l.catalog?.cpkEstimado;
+  const reviewCount = l._count?.reviews ?? 0;
+  const avgRating = (l.reviews && l.reviews.length > 0)
+    ? (l.reviews.reduce((s, r) => s + r.rating, 0) / l.reviews.length)
+    : 0;
+
+  return (
+    <Link
+      href={`/marketplace/product/${l.id}`}
+      className="group flex flex-col sm:flex-row gap-4 bg-white rounded-2xl p-4 hover:-translate-y-0.5 hover:shadow-2xl transition-all border border-gray-100"
+    >
+      {/* Image */}
+      <div
+        className="relative w-full sm:w-44 h-44 sm:h-40 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
+        style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)", border: "1px solid rgba(30,118,182,0.06)" }}
+      >
+        {cover ? (
+          <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension}`} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500" />
+        ) : (
+          <Package className="w-10 h-10 text-gray-200" />
+        )}
+        {hasPromo && (
+          <span
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black text-white"
+            style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)", boxShadow: "0 4px 12px rgba(239,68,68,0.3)" }}
+          >
+            -{discount}%
+          </span>
+        )}
+        {l.tipo === "reencauche" && (
+          <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-black text-purple-700 bg-purple-100/90 backdrop-blur-sm flex items-center gap-0.5">
+            <Recycle className="w-2.5 h-2.5" /> Reenc.
+          </span>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1">
+          <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">{l.marca}</p>
+          <h3 className="text-base sm:text-lg font-black text-[#0A183A] leading-snug group-hover:text-[#1E76B6] transition-colors line-clamp-2">
+            {l.modelo}
+          </h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            <span className="font-bold text-[#0A183A]">{l.dimension}</span>
+            {l.eje && <> · Eje {l.eje}</>}
+            {l.tipo === "reencauche" ? " · Reencauche" : " · Nueva"}
+          </p>
+
+          {/* Reviews + meta chips */}
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+            {reviewCount > 0 && (
+              <span className="flex items-center gap-1 text-[11px] text-gray-500">
+                <div className="flex">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className="w-3 h-3" fill={s <= Math.round(avgRating) ? "#f59e0b" : "none"} style={{ color: s <= Math.round(avgRating) ? "#f59e0b" : "#d1d5db" }} />
+                  ))}
+                </div>
+                ({reviewCount})
+              </span>
+            )}
+            {cpk != null && cpk > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                CPK {fmtCOP(Math.round(cpk))}/km
+              </span>
+            )}
+            {l.tiempoEntrega && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 flex items-center gap-1">
+                <Clock className="w-2.5 h-2.5" />
+                {l.tiempoEntrega}
+              </span>
+            )}
+            {l.distributor?.name && (
+              <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                <Truck className="w-2.5 h-2.5" />
+                {l.distributor.name}
+              </span>
+            )}
+          </div>
+
+          {l.descripcion && (
+            <p className="text-xs text-gray-500 mt-2 line-clamp-2 hidden sm:block">{l.descripcion}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Price column */}
+      <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-start gap-2 flex-shrink-0 sm:min-w-[140px] sm:text-right">
+        <div>
+          {hasPromo && (
+            <p className="text-xs text-gray-400 line-through">{fmtCOP(l.precioCop)}</p>
+          )}
+          <p className="text-2xl sm:text-3xl font-black text-[#0A183A] tracking-tight leading-none">{fmtCOP(price)}</p>
+          <p className="text-[10px] text-gray-400 mt-1">+ IVA</p>
+        </div>
+        <span
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black text-white sm:mt-2"
+          style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+        >
+          Ver llanta
+          <ArrowRight className="w-3 h-3" />
+        </span>
+      </div>
+    </Link>
+  );
+}
 
 // =============================================================================
 // SearchablePicker — typeahead replacement for plain <select> when there are
