@@ -4,12 +4,34 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
 
+// Cache product metadata for 30 min — long enough to deduplicate within a
+// build, short enough that a failed fetch doesn't haunt the page for hours.
+async function fetchProductMeta(id: string) {
+  const tryFetch = async (init?: RequestInit) => {
+    try {
+      const r = await fetch(`${API_BASE}/marketplace/product/${id}`, init);
+      return r.ok ? await r.json() : null;
+    } catch {
+      return null;
+    }
+  };
+  // First attempt: ISR cache. If that misses (or returned a stale 404),
+  // retry with no-store so a transient API blip doesn't poison the title.
+  const cached = await tryFetch({ next: { revalidate: 1800 } });
+  if (cached) return cached;
+  return tryFetch({ cache: "no-store" });
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   try {
-    const res = await fetch(`${API_BASE}/marketplace/product/${id}`, { next: { revalidate: 3600 } });
-    if (!res.ok) return { title: "Llanta no encontrada · TirePro Marketplace" };
-    const p = await res.json();
+    const p = await fetchProductMeta(id);
+    if (!p) {
+      return {
+        title: "Llantas en Colombia · TirePro Marketplace",
+        description: "Compra llantas nuevas y reencauche de distribuidores verificados en Colombia. Marketplace TirePro.",
+      };
+    }
 
     const imgs = Array.isArray(p.imageUrls) ? p.imageUrls : [];
     const cover = imgs.length > 0 ? imgs[p.coverIndex ?? 0] ?? imgs[0] : "https://tirepro.com.co/og-image.png";

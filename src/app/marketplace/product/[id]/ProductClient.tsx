@@ -314,7 +314,7 @@ export default function ProductClient({
             <div className="flex items-center gap-2 flex-wrap">
               <Link
                 href={`/marketplace/brand/${brandInfo?.slug ?? product.marca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-")}`}
-                className="inline-flex items-center gap-2 text-[10px] font-black text-[#1E76B6] tracking-widest uppercase px-2.5 py-1 rounded-full bg-[#1E76B6]/10 hover:bg-[#1E76B6]/15 transition-colors"
+                className="inline-flex items-center gap-2 text-[11px] font-black text-[#1E76B6] tracking-widest uppercase px-3 py-1.5 rounded-full bg-white border border-[#1E76B6]/30 hover:bg-[#F0F7FF] hover:border-[#1E76B6]/50 transition-colors shadow-sm"
               >
                 {brandInfo?.logoUrl && (
                   <span className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white" style={{ border: "1px solid rgba(30,118,182,0.18)" }}>
