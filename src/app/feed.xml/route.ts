@@ -148,7 +148,7 @@ ${salePrice ? `      <g:sale_price>${asPriceCop(salePrice)}</g:sale_price>` : ""
 ${salePrice && l.promoHasta ? `      <g:sale_price_effective_date>${new Date().toISOString()}/${new Date(l.promoHasta).toISOString()}</g:sale_price_effective_date>` : ""}
       <g:brand>${escapeXml(l.marca ?? "Sin marca")}</g:brand>
       <g:condition>${condition}</g:condition>
-      <g:google_product_category>${GOOGLE_PRODUCT_CATEGORY}</g:google_product_category>
+      <g:google_product_category>${escapeXml(GOOGLE_PRODUCT_CATEGORY)}</g:google_product_category>
       <g:product_type>Tires &gt; ${escapeXml(l.tipo === "reencauche" ? "Retread" : "New")} &gt; ${escapeXml(l.dimension ?? "Sin dimensión")}</g:product_type>
       <g:identifier_exists>no</g:identifier_exists>
       <g:mpn>${escapeXml(l.id)}</g:mpn>
