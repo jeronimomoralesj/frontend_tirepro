@@ -36,6 +36,7 @@ import PorVida from "../cards/PorVida";
 import PorMarca from "../cards/PorMarca";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
+import { OtisBadge } from "../../../components/Otis";
 
 // -- Chart.js registration ----------------------------------------------------
 
@@ -122,22 +123,43 @@ function toMonthKey(fecha: string | Date): string {
 
 // -- Card wrapper (matches existing card components: blue header + body) -------
 
-function CardWrap({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function CardWrap({
+  title,
+  description,
+  children,
+  otisCardKey,
+  otisInsight,
+  otisCapability,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  otisCardKey?: string;
+  otisInsight?: string | null;
+  otisCapability?: import("../../../components/Otis").OtisCapability;
+}) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full relative">
       <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between">
         <h2 className="text-base sm:text-lg font-bold">{title}</h2>
-        {description && (
-          <div className="group relative cursor-pointer shrink-0 ml-2" title={description}>
-            <svg className="w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
-            </svg>
-            <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
-              <p>{description}</p>
+        <div className="flex items-center gap-2 shrink-0">
+          {description && (
+            <div className="group relative cursor-pointer" title={description}>
+              <svg className="w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
+              </svg>
+              <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
+                <p>{description}</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+      {otisCardKey && (
+        <div className="absolute top-2 right-2 z-10">
+          <OtisBadge cardKey={otisCardKey} capability={otisCapability} insight={otisInsight} title={title} />
+        </div>
+      )}
       <div className="p-4 sm:p-6">
         <div className="h-64 sm:h-72">{children}</div>
       </div>
@@ -577,7 +599,27 @@ export default function ResumenPage() {
 
             {/* Row 1: CPK Evolution + Por Vida */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <CardWrap title="CPK Proyectado" description="Promedio ponderado por km del CPK proyectado de la flota en los ultimos 12 meses. Un valor menor indica mejor rendimiento por kilometro.">
+              <CardWrap
+                title="CPK Proyectado"
+                description="Promedio ponderado por km del CPK proyectado de la flota en los ultimos 12 meses. Un valor menor indica mejor rendimiento por kilometro."
+                otisCardKey="resumen.cpk-proyectado"
+                otisCapability="prediction"
+                otisInsight={(() => {
+                  const valid = cpkEvolution.filter((v) => v != null && v > 0) as number[];
+                  if (valid.length < 2) return "Aún no hay suficientes meses de inspección para que Otis pueda analizar la tendencia. Vuelve después de un par de inspecciones más.";
+                  const first = valid[0];
+                  const last  = valid[valid.length - 1];
+                  const diff  = last - first;
+                  const pct   = first > 0 ? (diff / first) * 100 : 0;
+                  const trend = diff < 0 ? "bajado" : diff > 0 ? "subido" : "se mantiene";
+                  const verdict = diff < 0
+                    ? `Tu CPK proyectado ha bajado ${Math.abs(pct).toFixed(1)}% en los últimos meses — la flota está mejorando. Sigue así.`
+                    : diff > 0
+                    ? `Tu CPK proyectado ha subido ${pct.toFixed(1)}%. Revisa los vehículos con peor desempeño y considera reencauche en cascos en buen estado.`
+                    : "Tu CPK proyectado se mantiene estable. Para mejorarlo, optimiza presiones e inspecciones programadas.";
+                  return `Promedio ponderado actual: ${fmtCOP(Math.round(last))}/km.\nHace 12 meses estaba en ${fmtCOP(Math.round(first))}/km.\nLa tendencia ha ${trend} ${Math.abs(pct).toFixed(1)}%.\n\n${verdict}`;
+                })()}
+              >
                 <Bar
                   key={`cpk-${chartKey}`}
                   data={makeBarData(cpkEvolution, COLORS.accent)}
@@ -589,7 +631,26 @@ export default function ResumenPage() {
 
             {/* Row 2: Inversion Mensual + Por Marca */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-              <CardWrap title="Inversion Mensual" description="Total invertido en llantas por mes incluyendo compras nuevas, reencauches y reparaciones.">
+              <CardWrap
+                title="Inversion Mensual"
+                description="Total invertido en llantas por mes incluyendo compras nuevas, reencauches y reparaciones."
+                otisCardKey="resumen.inversion-mensual"
+                otisCapability="orders"
+                otisInsight={(() => {
+                  const valid = inversionMensual.filter((v) => v != null && v > 0) as number[];
+                  if (valid.length === 0) return "No hay registros de inversión todavía. Cuando empieces a registrar costos, Otis te dirá si estás gastando dentro de lo esperado.";
+                  const total = valid.reduce((s, v) => s + v, 0);
+                  const avg = total / valid.length;
+                  const last = valid[valid.length - 1];
+                  const pct = avg > 0 ? ((last - avg) / avg) * 100 : 0;
+                  const verdict = pct > 20
+                    ? `Este mes invertiste ${pct.toFixed(0)}% por encima de tu promedio. Revisa qué generó el pico — pueden ser compras de emergencia evitables con mejor planeación.`
+                    : pct < -20
+                    ? `Este mes invertiste ${Math.abs(pct).toFixed(0)}% menos que tu promedio. Asegúrate de que no sea por inspecciones atrasadas.`
+                    : "Tu inversión está dentro del rango esperado.";
+                  return `Promedio mensual: ${fmtCOP(Math.round(avg))}.\nÚltimo mes: ${fmtCOP(Math.round(last))}.\nTotal 12 meses: ${fmtCOP(Math.round(total))}.\n\n${verdict}`;
+                })()}
+              >
                 <Bar
                   key={`inv-${chartKey}`}
                   data={makeBarData(inversionMensual, COLORS.accent)}
@@ -601,7 +662,19 @@ export default function ResumenPage() {
 
             {/* Row 3: Dinero Perdido + Inversion por Categoria */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <CardWrap title="Dinero Perdido por Desecho" description="Dinero estimado perdido cuando llantas se desechan con profundidad remanente. Calculado como la proporcion de profundidad restante sobre el costo total.">
+              <CardWrap
+                title="Dinero Perdido por Desecho"
+                description="Dinero estimado perdido cuando llantas se desechan con profundidad remanente. Calculado como la proporcion de profundidad restante sobre el costo total."
+                otisCardKey="resumen.dinero-perdido"
+                otisCapability="waste"
+                otisInsight={(() => {
+                  const valid = dineroPerdido.filter((v) => v != null && v > 0) as number[];
+                  if (valid.length === 0) return "Excelente — Otis no detecta dinero perdido por desechos en los últimos 12 meses. Mantén el ritmo de inspecciones para no llegar tarde a un retiro.";
+                  const total = valid.reduce((s, v) => s + v, 0);
+                  const avg = total / valid.length;
+                  return `Has perdido aproximadamente ${fmtCOP(Math.round(total))} en los últimos meses por llantas que se desecharon con profundidad remanente.\nPromedio mensual: ${fmtCOP(Math.round(avg))}.\n\nPara reducir esta pérdida: programa inspecciones cuando una llanta llegue a 4-5 mm para retirarla a tiempo y mandarla a reencauche en lugar de descartarla con casco aún útil.`;
+                })()}
+              >
                 <Line
                   key={`perdido-${chartKey}`}
                   data={makeLineData(dineroPerdido, "#f97316")}
