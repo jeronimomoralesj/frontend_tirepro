@@ -19,7 +19,22 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Bot, X, Sparkles } from "lucide-react";
+import { X, Sparkles } from "lucide-react";
+
+// Otis avatar — drop a square ottis.png into /public to use a custom face.
+const OTIS_AVATAR = "/ottis.png";
+
+function OtisFace({ className = "", size = 28 }: { className?: string; size?: number }) {
+  return (
+    <img
+      src={OTIS_AVATAR}
+      alt="Otis"
+      className={`object-cover ${className}`}
+      style={{ width: size, height: size, borderRadius: "9999px" }}
+      draggable={false}
+    />
+  );
+}
 
 export type OtisCapability =
   | "wear"
@@ -123,8 +138,16 @@ export function OtisWrapper({
   className = "",
   children,
 }: OtisBadgeProps & { children: React.ReactNode }) {
+  // Named group `group/otis` so nested cards (PorVida, PorMarca, etc.)
+  // can keep their own `group/group-hover` description tooltips without
+  // colliding with the Otis peek animation.
+  // `isolation: isolate` creates a fresh stacking context so Otis (z-0)
+  // is reliably layered behind the card body (z-10) inside it.
   return (
-    <div className={`group relative ${className}`} style={{ overflow: "visible" }}>
+    <div
+      className={`group/otis relative ${className}`}
+      style={{ overflow: "visible", isolation: "isolate" }}
+    >
       <OtisBadge cardKey={cardKey} capability={capability} insight={insight} title={title} />
       <div className="relative z-10">{children}</div>
     </div>
@@ -213,21 +236,23 @@ export function OtisBadge({
 
   if (!enabled) return null;
 
-  // Otis sits BEHIND the card body (z-0). When the parent isn't hovered
-  // he's mostly hidden behind the top of the card. On group-hover (or
-  // when the popover is open) he translates up and his head pops out
-  // above the card edge so he becomes clickable.
+  // Default: Otis sits BEHIND the card body (z-0) and is translated DOWN
+  // so almost his whole avatar is hidden under the card. On named group
+  // hover (group-hover/otis) he lifts fully above the card top with a
+  // bouncy spring. When the popover is open we keep him fully visible.
   const peekClasses = open
-    ? "-translate-y-1/2 opacity-100"
-    : "translate-y-[15%] opacity-95 group-hover:-translate-y-1/2 group-hover:opacity-100";
+    ? "-translate-y-full opacity-100"
+    : "translate-y-[55%] opacity-90 group-hover/otis:-translate-y-full group-hover/otis:opacity-100";
 
   return (
     <>
       {/* Outer container is absolute, z-0 → BEHIND the card body which is
-          z-10. pointer-events-none so the hidden portion never blocks
-          card content; the button itself re-enables pointer events. */}
+          z-10 inside the OtisWrapper's stacking context.
+          pointer-events-none so the hidden portion never blocks card
+          content; the button itself re-enables pointer events. */}
       <div
-        className={`pointer-events-none absolute top-0 right-5 sm:right-6 z-0 ${className}`}
+        className={`pointer-events-none absolute top-0 right-5 sm:right-6 ${className}`}
+        style={{ zIndex: 0 }}
         aria-hidden={!open}
       >
         <button
@@ -236,23 +261,25 @@ export function OtisBadge({
           onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
           title="Pregúntale a Otis sobre esta tarjeta"
           data-otis-card={cardKey}
-          className={`pointer-events-auto relative inline-flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-110 active:scale-95 ${peekClasses}`}
+          className={`pointer-events-auto relative inline-flex items-center justify-center w-14 h-14 rounded-full transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-110 active:scale-95 ${peekClasses}`}
           style={{
             background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`,
             boxShadow: open
               ? `0 0 0 4px ${OTIS.glow}, 0 14px 32px rgba(10,24,58,0.35)`
               : "0 10px 22px rgba(10,24,58,0.28)",
             border: "3px solid white",
+            padding: 0,
+            overflow: "hidden",
           }}
         >
-          <Bot className="w-5 h-5 text-white" strokeWidth={2.6} />
+          <OtisFace size={48} />
           <span
             className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full animate-pulse"
             style={{ background: "#fbbf24", boxShadow: "0 0 8px rgba(251,191,36,0.9)" }}
           />
           {!open && (
             <span
-              className="pointer-events-none absolute right-full mr-2 px-2.5 py-1 rounded-full text-[10px] font-black text-white whitespace-nowrap opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
+              className="pointer-events-none absolute right-full mr-2 px-2.5 py-1 rounded-full text-[10px] font-black text-white whitespace-nowrap opacity-0 -translate-x-1 group-hover/otis:opacity-100 group-hover/otis:translate-x-0 transition-all duration-200"
               style={{ background: OTIS.color, boxShadow: "0 6px 14px rgba(10,24,58,0.25)" }}
             >
               ¿Preguntas?
@@ -295,14 +322,14 @@ export function OtisBadge({
             {/* Otis avatar — overlaps the gradient and the bubble */}
             <div className="absolute left-1/2 -translate-x-1/2 -bottom-7">
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center"
                 style={{
                   background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`,
                   border: "3px solid white",
                   boxShadow: "0 12px 28px rgba(10,24,58,0.35)",
                 }}
               >
-                <Bot className="w-7 h-7 text-white" strokeWidth={2.4} />
+                <OtisFace size={50} />
               </div>
               <span
                 className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full animate-pulse"

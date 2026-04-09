@@ -139,7 +139,10 @@ function CardWrap({
   otisCapability?: import("../../../components/Otis").OtisCapability;
 }) {
   return (
-    <div className="group relative w-full" style={{ overflow: "visible" }}>
+    <div
+      className="group/otis relative w-full"
+      style={{ overflow: "visible", isolation: "isolate" }}
+    >
       {otisCardKey && (
         <OtisBadge cardKey={otisCardKey} capability={otisCapability} insight={otisInsight} title={title} />
       )}
