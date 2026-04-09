@@ -51,7 +51,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineEleme
 interface DesechoData {
   fecha: string;
   causales: string;
-  remanente: number;
+  remanente: number; // mm of tread that was still left when the tire was discarded
   milimetrosDesechados: number;
   imageUrls?: string[];
 }
@@ -63,6 +63,8 @@ interface TireWithDesecho {
   placa?: string;
   eje?: string;
   dimension?: string;
+  profundidadInicial?: number;
+  costos?: Array<{ valor: number }> | null;
 }
 
 type EnrichedDesecho = DesechoData & {
@@ -71,6 +73,10 @@ type EnrichedDesecho = DesechoData & {
   eje: string;
   dimension: string;
   vehiclePlaca: string;
+  /** Money lost because of the remaining mm: (remanente / profundidadInicial) * tireCost */
+  remanenteCop: number;
+  tireCost: number;
+  profundidadInicial: number;
 };
 
 // =============================================================================
@@ -649,6 +655,15 @@ const DesechosPage: React.FC = () => {
       const desechos: EnrichedDesecho[] = [];
       tires.forEach((tire) => {
         if (tire.desechos) {
+          // Money lost because of the leftover mm =
+          //   (remanente_mm / profundidad_inicial_mm) * latest_tire_cost
+          const profundidadInicial = Number(tire.profundidadInicial) || 0;
+          const lastCosto = Array.isArray(tire.costos) && tire.costos.length > 0
+            ? Number(tire.costos[tire.costos.length - 1]?.valor) || 0
+            : 0;
+          const remanenteCop = profundidadInicial > 0 && lastCosto > 0
+            ? (Number(tire.desechos.remanente) / profundidadInicial) * lastCosto
+            : 0;
           desechos.push({
             ...tire.desechos,
             tireId: tire.id,
@@ -656,6 +671,9 @@ const DesechosPage: React.FC = () => {
             vehiclePlaca: tire.placa ?? "—",
             eje: tire.eje ?? "—",
             dimension: tire.dimension ?? "—",
+            remanenteCop,
+            tireCost: lastCosto,
+            profundidadInicial,
           });
         }
       });
@@ -732,12 +750,12 @@ const DesechosPage: React.FC = () => {
   }, [filtered]);
 
   const avgRemanenteByMonth = useMemo(
-    () => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanente, "average"),
+    () => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanenteCop, "average"),
     [groupBy]
   );
 
   const totalRemanenteByMonth = useMemo(
-    () => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanente, "sum"),
+    () => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanenteCop, "sum"),
     [groupBy]
   );
 
@@ -747,7 +765,7 @@ const DesechosPage: React.FC = () => {
   );
 
   const avgGeneral = useMemo(
-    () => filtered.length === 0 ? "0" : (filtered.reduce((a, d) => a + d.remanente, 0) / filtered.length).toFixed(1),
+    () => filtered.length === 0 ? "0" : (filtered.reduce((a, d) => a + d.remanenteCop, 0) / filtered.length).toFixed(0),
     [filtered]
   );
 
@@ -793,7 +811,7 @@ const DesechosPage: React.FC = () => {
     filtered.forEach((d) => {
       if (!byBrand[d.marca]) byBrand[d.marca] = { count: 0, totalRem: 0, totalMm: 0 };
       byBrand[d.marca].count++;
-      byBrand[d.marca].totalRem += d.remanente;
+      byBrand[d.marca].totalRem += d.remanenteCop;
       byBrand[d.marca].totalMm += d.milimetrosDesechados;
     });
     const brandEntries = Object.entries(byBrand).filter(([, v]) => v.count >= 2).sort((a, b) => (b[1].totalRem / b[1].count) - (a[1].totalRem / a[1].count));
@@ -813,7 +831,7 @@ const DesechosPage: React.FC = () => {
     filtered.forEach((d) => {
       if (!byEje[d.eje]) byEje[d.eje] = { count: 0, totalRem: 0 };
       byEje[d.eje].count++;
-      byEje[d.eje].totalRem += d.remanente;
+      byEje[d.eje].totalRem += d.remanenteCop;
     });
     const ejeEntries = Object.entries(byEje).sort((a, b) => b[1].count - a[1].count);
     if (ejeEntries.length > 0) {
@@ -905,11 +923,11 @@ const DesechosPage: React.FC = () => {
 
   // -- Download CSV ----------------------------------------------------------
   const downloadCSV = () => {
-    const headers = ["ID Neumático", "Placa Vehículo", "Marca", "Fecha", "Causal", "Remanente (mm)", "Milímetros Desechados", "Fotos"];
+    const headers = ["ID Neumático", "Placa Vehículo", "Marca", "Fecha", "Causal", "Remanente (mm)", "Dinero perdido (COP)", "Milímetros Desechados", "Fotos"];
     const rows = filtered.map((d) => [
       d.tireId, d.vehiclePlaca, d.marca,
       new Date(d.fecha).toLocaleDateString("es-CO"),
-      d.causales, d.remanente, d.milimetrosDesechados,
+      d.causales, d.remanente, Math.round(d.remanenteCop), d.milimetrosDesechados,
       (d.imageUrls ?? []).join(" | "),
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
@@ -953,7 +971,7 @@ const DesechosPage: React.FC = () => {
   <div class="header"><h1>📊 Reporte de Desechos</h1><p>Generado el ${now} · TirePro</p></div>
   <div class="kpis">
     <div class="kpi"><div class="label">Total Desechos</div><div class="value">${filtered.length}</div></div>
-    <div class="kpi"><div class="label">Prom. Remanente</div><div class="value">${avgGeneral} mm</div></div>
+    <div class="kpi"><div class="label">Prom. Dinero Perdido</div><div class="value">${fmtCompact(parseFloat(avgGeneral) || 0)}</div></div>
     <div class="kpi"><div class="label">mm Desechados</div><div class="value">${totalMilimetros}</div></div>
     <div class="kpi"><div class="label">Causales únicas</div><div class="value">${Object.keys(dataCausales).length}</div></div>
   </div>
@@ -969,7 +987,7 @@ const DesechosPage: React.FC = () => {
   <div class="section">
     <h2>Detalle de Registros</h2>
     <table>
-      <thead><tr><th>Fecha</th><th>Placa Vehículo</th><th>ID Neumático</th><th>Marca</th><th>Causal</th><th>Remanente</th><th>mm Desechados</th><th>Fotos</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Placa Vehículo</th><th>ID Neumático</th><th>Marca</th><th>Causal</th><th>Dinero Perdido</th><th>mm Desechados</th><th>Fotos</th></tr></thead>
       <tbody>${filtered.slice(0, 200).map((d) =>
         `<tr>
           <td>${new Date(d.fecha).toLocaleDateString("es-CO")}</td>
@@ -977,7 +995,7 @@ const DesechosPage: React.FC = () => {
           <td style="font-family:monospace;font-size:11px">${d.tireId.slice(0, 8)}…</td>
           <td>${d.marca}</td>
           <td>${d.causales}</td>
-          <td>${d.remanente} mm</td>
+          <td>${fmtCompact(d.remanenteCop)}</td>
           <td>${d.milimetrosDesechados} mm</td>
           <td>${(d.imageUrls ?? []).map((url) => `<img src="${url}" class="thumb" />`).join("")}</td>
         </tr>`
@@ -1113,7 +1131,7 @@ const DesechosPage: React.FC = () => {
         {/* -- KPI Cards ----------------------------------------------------- */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length.toLocaleString("es-CO")} sub={`de ${allDesechos.length} totales`} variant="primary"   />
-          <MetricCard icon={Target}     title="Prom. Remanente" value={fmtCompact(parseFloat(avgGeneral) || 0)} sub="valor promedio perdido"         variant="secondary" />
+          <MetricCard icon={Target}     title="Prom. Dinero Perdido" value={fmtCompact(parseFloat(avgGeneral) || 0)} sub="por desecho con remanente" variant="secondary" />
           <MetricCard icon={TrendingUp} title="mm Desechados"   value={`${parseFloat(totalMilimetros).toLocaleString("es-CO")} mm`} sub="profundidad total descartada" variant="mid"       />
           <MetricCard icon={BarChart3}  title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos en ${filtered.length} registros`} variant="accent"    />
         </div>
@@ -1139,8 +1157,8 @@ const DesechosPage: React.FC = () => {
         {/* -- Charts -------------------------------------------------------- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <DoughnutCard title="Desechos por Causal" icon={BarChart3} data={dataCausales} />
-          <LineChartCard title="Total Remanente por Mes"         icon={TrendingUp} data={totalRemanenteByMonth} formatValue={fmtCompact} />
-          <ChartCard title="Promedio Remanente por Mes"          icon={Target}     data={avgRemanenteByMonth} formatValue={fmtCompact} />
+          <LineChartCard title="Dinero Perdido Total por Mes"   icon={TrendingUp} data={totalRemanenteByMonth} formatValue={fmtCompact} />
+          <ChartCard title="Dinero Perdido Promedio por Mes"     icon={Target}     data={avgRemanenteByMonth} formatValue={fmtCompact} />
           <ChartCard title="Prom. Milímetros Desechados por Mes" icon={Target}     data={avgMilimetrosByMonth} formatValue={(n) => `${n.toFixed(1)} mm`} />
         </div>
 
@@ -1183,7 +1201,7 @@ const DesechosPage: React.FC = () => {
                   <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">ID Neumático</th>
                   <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">Marca</th>
                   <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">Causal</th>
-                  <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">Rem.</th>
+                  <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">Dinero perdido</th>
                   <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">mm Des.</th>
                   <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">Fotos</th>
                 </tr>
@@ -1245,8 +1263,8 @@ const DesechosPage: React.FC = () => {
                       </span>
                     </td>
 
-                    {/* Remanente */}
-                    <td className="px-3 py-2.5 font-bold text-[#0A183A] whitespace-nowrap text-[11px]">{d.remanente} mm</td>
+                    {/* Remanente — money lost */}
+                    <td className="px-3 py-2.5 font-bold text-[#0A183A] whitespace-nowrap text-[11px]" title={`${d.remanente} mm restantes`}>{fmtCompact(d.remanenteCop)}</td>
 
                     {/* mm desechados */}
                     <td className="px-3 py-2.5 font-bold text-[#0A183A] whitespace-nowrap text-[11px]">{d.milimetrosDesechados} mm</td>

@@ -63,6 +63,8 @@ interface TireWithDesecho {
   marca?: string;
   placa?: string;
   companyId?: string;
+  profundidadInicial?: number;
+  costos?: Array<{ valor: number }> | null;
 }
 
 interface Company {
@@ -76,6 +78,10 @@ type EnrichedDesecho = DesechoData & {
   tireId: string;
   marca: string;
   vehiclePlaca: string;
+  /** Money lost because of leftover mm: (remanente / profundidadInicial) * tireCost */
+  remanenteCop: number;
+  tireCost: number;
+  profundidadInicial: number;
 };
 
 // =============================================================================
@@ -603,6 +609,13 @@ const DesechosDistribuidor: React.FC = () => {
             const tires: TireWithDesecho[] = await res.json();
             tires.forEach((tire) => {
               if (tire.desechos) {
+                const profundidadInicial = Number(tire.profundidadInicial) || 0;
+                const lastCosto = Array.isArray(tire.costos) && tire.costos.length > 0
+                  ? Number(tire.costos[tire.costos.length - 1]?.valor) || 0
+                  : 0;
+                const remanenteCop = profundidadInicial > 0 && lastCosto > 0
+                  ? (Number(tire.desechos.remanente) / profundidadInicial) * lastCosto
+                  : 0;
                 results.push({
                   ...tire.desechos,
                   companyId: company.id,
@@ -610,6 +623,9 @@ const DesechosDistribuidor: React.FC = () => {
                   tireId: tire.id,
                   marca: tire.marca ?? "—",
                   vehiclePlaca: tire.placa ?? "—",
+                  remanenteCop,
+                  tireCost: lastCosto,
+                  profundidadInicial,
                 });
               }
             });
@@ -688,11 +704,11 @@ const DesechosDistribuidor: React.FC = () => {
 
   const dataCausales         = useMemo(() => { const c: Record<string, number> = {}; filtered.forEach((d) => { const k = d.causales.trim(); c[k] = (c[k] || 0) + 1; }); return c; }, [filtered]);
   const dataByCompany        = useMemo(() => { const c: Record<string, number> = {}; filtered.forEach((d) => { c[d.companyName] = (c[d.companyName] || 0) + 1; }); return c; }, [filtered]);
-  const avgRemanenteByMonth  = useMemo(() => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanente, "average"), [groupBy]);
-  const totalRemanenteByMonth= useMemo(() => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanente, "sum"), [groupBy]);
+  const avgRemanenteByMonth  = useMemo(() => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanenteCop, "average"), [groupBy]);
+  const totalRemanenteByMonth= useMemo(() => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.remanenteCop, "sum"), [groupBy]);
   const avgMilimetrosByMonth = useMemo(() => groupBy((d) => new Date(d.fecha).toISOString().slice(0, 7), (d) => d.milimetrosDesechados, "average"), [groupBy]);
 
-  const avgGeneral      = useMemo(() => filtered.length === 0 ? 0 : (filtered.reduce((a, d) => a + d.remanente, 0) / filtered.length).toFixed(1), [filtered]);
+  const avgGeneral      = useMemo(() => filtered.length === 0 ? 0 : (filtered.reduce((a, d) => a + d.remanenteCop, 0) / filtered.length).toFixed(0), [filtered]);
   const totalMilimetros = useMemo(() => filtered.reduce((a, d) => a + d.milimetrosDesechados, 0).toFixed(1), [filtered]);
 
   // -- LINEX deep analysis -----------------------------------------------------
@@ -728,7 +744,7 @@ const DesechosDistribuidor: React.FC = () => {
     filtered.forEach((d) => {
       if (!byBrand[d.marca]) byBrand[d.marca] = { count: 0, totalRem: 0 };
       byBrand[d.marca].count++;
-      byBrand[d.marca].totalRem += d.remanente;
+      byBrand[d.marca].totalRem += d.remanenteCop;
     });
     const brandEntries = Object.entries(byBrand).filter(([, v]) => v.count >= 2).sort((a, b) => (b[1].totalRem / b[1].count) - (a[1].totalRem / a[1].count));
     if (brandEntries.length >= 2) {
@@ -743,7 +759,7 @@ const DesechosDistribuidor: React.FC = () => {
     filtered.forEach((d) => {
       if (!byCompany[d.companyId]) byCompany[d.companyId] = { count: 0, totalRem: 0, name: d.companyName };
       byCompany[d.companyId].count++;
-      byCompany[d.companyId].totalRem += d.remanente;
+      byCompany[d.companyId].totalRem += d.remanenteCop;
     });
     const companyEntries = Object.entries(byCompany).sort((a, b) => b[1].count - a[1].count);
     if (companyEntries.length >= 2) {
@@ -800,11 +816,11 @@ const DesechosDistribuidor: React.FC = () => {
 
   // -- Download CSV -----------------------------------------------------------
   const downloadCSV = () => {
-    const headers = ["Cliente", "ID Llanta", "ID Neumático", "Marca", "Fecha", "Causal", "Remanente (mm)", "Milímetros Desechados", "Fotos"];
+    const headers = ["Cliente", "ID Llanta", "ID Neumático", "Marca", "Fecha", "Causal", "Remanente (mm)", "Dinero perdido (COP)", "Milímetros Desechados", "Fotos"];
     const rows = filtered.map((d) => [
       d.companyName, d.vehiclePlaca, d.tireId, d.marca,
       new Date(d.fecha).toLocaleDateString("es-CO"),
-      d.causales, d.remanente, d.milimetrosDesechados,
+      d.causales, d.remanente, Math.round(d.remanenteCop), d.milimetrosDesechados,
       (d.imageUrls ?? []).join(" | "),
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
@@ -848,7 +864,7 @@ const DesechosDistribuidor: React.FC = () => {
   <div class="header"><h1>📊 Reporte de Desechos</h1><p>Generado el ${now} · TirePro Distribuidores</p></div>
   <div class="kpis">
     <div class="kpi"><div class="label">Total Desechos</div><div class="value">${filtered.length}</div></div>
-    <div class="kpi"><div class="label">Prom. Remanente</div><div class="value">${avgGeneral} mm</div></div>
+    <div class="kpi"><div class="label">Prom. Dinero Perdido</div><div class="value">${fmtCompact(parseFloat(avgGeneral as any) || 0)}</div></div>
     <div class="kpi"><div class="label">mm Desechados</div><div class="value">${totalMilimetros}</div></div>
     <div class="kpi"><div class="label">Causales únicas</div><div class="value">${Object.keys(dataCausales).length}</div></div>
   </div>
@@ -874,14 +890,14 @@ const DesechosDistribuidor: React.FC = () => {
   <div class="section">
     <h2>Detalle de Registros</h2>
     <table>
-      <thead><tr><th>Fecha</th><th>Cliente</th><th>ID Llanta</th><th>Causal</th><th>Remanente</th><th>mm Desechados</th><th>Fotos</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Cliente</th><th>ID Llanta</th><th>Causal</th><th>Dinero Perdido</th><th>mm Desechados</th><th>Fotos</th></tr></thead>
       <tbody>${filtered.slice(0, 200).map((d) =>
         `<tr>
           <td>${new Date(d.fecha).toLocaleDateString("es-CO")}</td>
           <td>${d.companyName}</td>
           <td><strong style="font-family:monospace">${d.vehiclePlaca.toUpperCase()}</strong></td>
           <td>${d.causales}</td>
-          <td>${d.remanente} mm</td>
+          <td>${fmtCompact(d.remanenteCop)}</td>
           <td>${d.milimetrosDesechados} mm</td>
           <td>${(d.imageUrls ?? []).map((url) => `<img src="${url}" class="thumb" />`).join("")}</td>
         </tr>`
@@ -1071,7 +1087,7 @@ const DesechosDistribuidor: React.FC = () => {
         {/* -- KPI Cards --------------------------------------------------- */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length.toLocaleString("es-CO")} sub={`de ${allDesechos.length} totales`} variant="primary"   loading={loadingDesechos} />
-          <MetricCard icon={Target}     title="Prom. Remanente" value={fmtCompact(parseFloat(avgGeneral) || 0)} sub="valor promedio perdido"         variant="secondary" loading={loadingDesechos} />
+          <MetricCard icon={Target}     title="Prom. Dinero Perdido" value={fmtCompact(parseFloat(avgGeneral as any) || 0)} sub="por desecho con remanente" variant="secondary" loading={loadingDesechos} />
           <MetricCard icon={TrendingUp} title="mm Desechados"   value={`${parseFloat(totalMilimetros).toLocaleString("es-CO")} mm`} sub="profundidad total descartada" variant="mid" loading={loadingDesechos} />
           <MetricCard icon={Users}      title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos · ${companies.length} clientes`} variant="accent" loading={loadingDesechos} />
         </div>
@@ -1114,8 +1130,8 @@ const DesechosDistribuidor: React.FC = () => {
             {(!selectedCompany || selectedCompany === "Todos") && (
               <ChartCard title="Desechos por Cliente"              icon={Building2}  data={dataByCompany} />
             )}
-            <ChartCard title="Promedio Remanente por Mes"          icon={TrendingUp} data={avgRemanenteByMonth} formatValue={fmtCompact} />
-            <LineChartCard title="Total Remanente por Mes"         icon={Calendar}   data={totalRemanenteByMonth} formatValue={fmtCompact} />
+            <ChartCard title="Dinero Perdido Promedio por Mes"     icon={TrendingUp} data={avgRemanenteByMonth} formatValue={fmtCompact} />
+            <LineChartCard title="Dinero Perdido Total por Mes"   icon={Calendar}   data={totalRemanenteByMonth} formatValue={fmtCompact} />
             <ChartCard title="Prom. Milímetros Desechados por Mes" icon={Target}     data={avgMilimetrosByMonth} formatValue={(n) => `${n.toFixed(1)} mm`} />
           </div>
         )}
@@ -1139,7 +1155,7 @@ const DesechosDistribuidor: React.FC = () => {
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr style={{ background: "rgba(10,24,58,0.03)", borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
-                  {["Fecha", "Cliente", "ID Llanta", "Causal", "Remanente", "mm Desechados", "Fotos"].map((h) => (
+                  {["Fecha", "Cliente", "ID Llanta", "Causal", "Dinero perdido", "mm Desechados", "Fotos"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -1182,7 +1198,7 @@ const DesechosDistribuidor: React.FC = () => {
                         {d.causales}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-bold text-[#0A183A]">{d.remanente} mm</td>
+                    <td className="px-4 py-3 font-bold text-[#0A183A]" title={`${d.remanente} mm restantes`}>{fmtCompact(d.remanenteCop)}</td>
                     <td className="px-4 py-3 font-bold text-[#0A183A]">{d.milimetrosDesechados} mm</td>
                     <td className="px-4 py-3">
                       {d.imageUrls && d.imageUrls.length > 0 ? (
