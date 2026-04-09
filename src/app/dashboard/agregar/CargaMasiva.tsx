@@ -92,6 +92,108 @@ function removeRecentUpload(id: string) {
 // Helpers
 // =============================================================================
 
+// =============================================================================
+// Header normalisation — mirrors HEADER_MAP_A / HEADER_MAP_B in tire.service.ts
+// so the preview shows OUR canonical column names instead of whatever the user
+// typed in their spreadsheet (e.g. "Pro Cent" → "profundidad_cen").
+// =============================================================================
+
+const HEADER_MAP_A: Record<string, string> = {
+  "llanta": "llanta",
+  "numero de llanta": "llanta",
+  "id": "llanta",
+  "placa vehiculo": "placa_vehiculo",
+  "placa": "placa_vehiculo",
+  "marca": "marca",
+  "diseno": "diseno_original",
+  "diseño": "diseno_original",
+  "dimension": "dimension",
+  "dimensión": "dimension",
+  "eje": "eje",
+  "posicion": "posicion",
+  "vida": "vida",
+  "kilometros llanta": "kilometros_llanta",
+  "kilometraje vehiculo": "kilometros_vehiculo",
+  "profundidad int": "profundidad_int",
+  "profundidad cen": "profundidad_cen",
+  "profundidad ext": "profundidad_ext",
+  "profundidad inicial": "profundidad_inicial",
+  "costo": "costo",
+  "cost": "costo",
+  "precio": "costo",
+  "costo furgon": "costo",
+  "fecha instalacion": "fecha_instalacion",
+  "fecha montaje": "fecha_instalacion",
+  "fecha de montaje": "fecha_instalacion",
+  "fecha inspeccion": "fecha_inspeccion",
+  "fecha ult ins": "fecha_inspeccion",
+  "fecha ult. ins": "fecha_inspeccion",
+  "fecha ultima inspeccion": "fecha_inspeccion",
+  "imageurl": "imageurl",
+  "tipovhc": "tipovhc",
+  "tipo de vehiculo": "tipovhc",
+  "tipo vhc": "tipovhc",
+  "presion psi": "presion_psi",
+  "presión psi": "presion_psi",
+  "presion": "presion_psi",
+};
+
+const HEADER_MAP_B: Record<string, string> = {
+  "tipo de equipo": "tipovhc",
+  "placa": "placa_vehiculo",
+  "km actual": "kilometros_vehiculo",
+  "pos": "posicion",
+  "posicion": "posicion",
+  "# numero de llanta": "llanta",
+  "numero de llanta": "llanta",
+  "diseño": "diseno_original",
+  "diseno": "diseno_original",
+  "marca": "marca",
+  "marca band": "marca_banda",
+  "banda": "banda_name",
+  "dimensión": "dimension",
+  "dimension": "dimension",
+  "prf int": "profundidad_int",
+  "pro cent": "profundidad_cen",
+  "pro ext": "profundidad_ext",
+  "profundidad inicial": "profundidad_inicial",
+  "tipo llanta": "tipollanta",
+  "tipo de llanta": "tipollanta",
+  "eje": "tipollanta",
+  "vida": "vida_override",
+  "fecha ult ins": "fecha_inspeccion",
+  "fecha ult. ins": "fecha_inspeccion",
+  "fecha ultima inspeccion": "fecha_inspeccion",
+  "presion psi": "presion_psi",
+  "presión psi": "presion_psi",
+  "novedad": "novedad",
+  "serie": "serie",
+};
+
+function normaliseKey(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isFormatB(headers: string[]): boolean {
+  return headers.some((k) => {
+    const n = k.toLowerCase();
+    return n.includes("numero de llanta") || n.includes("tipo de equipo");
+  });
+}
+
+/** Map a raw spreadsheet header to TirePro's canonical field name. */
+function canonicalHeader(raw: string, headers: string[]): string {
+  const map = isFormatB(headers) ? HEADER_MAP_B : HEADER_MAP_A;
+  const key = normaliseKey(raw);
+  return map[key] ?? key.replace(/\s+/g, "_");
+}
+
+
 function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") ?? "" : "";
   return fetch(url, {
@@ -508,20 +610,30 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
                 title={`Vista previa (${previewRows.length} fila${previewRows.length !== 1 ? "s" : ""})`}
                 sub="Revisa que las columnas y los valores se vean correctos antes de cargar"
               />
-              <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+              <div
+                className="overflow-auto rounded-xl"
+                style={{ border: "1px solid rgba(52,140,203,0.15)", maxHeight: "24rem" }}
+              >
                 <table className="min-w-full text-[11px]">
-                  <thead style={{ background: "rgba(30,118,182,0.06)" }}>
+                  <thead className="sticky top-0 z-10" style={{ background: "rgba(30,118,182,0.1)", backdropFilter: "blur(4px)" }}>
                     <tr>
                       <th className="px-2 py-2 text-left font-black text-[#0A183A] uppercase tracking-wide">#</th>
-                      {previewHeaders.map((h) => (
-                        <th key={h} className="px-2 py-2 text-left font-black text-[#0A183A] whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
+                      {previewHeaders.map((h) => {
+                        const canon = canonicalHeader(h, previewHeaders);
+                        return (
+                          <th
+                            key={h}
+                            className="px-2 py-2 text-left font-black text-[#1E76B6] whitespace-nowrap"
+                            title={`Columna original: "${h}"`}
+                          >
+                            {canon}
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
-                    {previewRows.slice(0, 5).map((r, i) => (
+                    {previewRows.map((r, i) => (
                       <tr key={i} style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
                         <td className="px-2 py-1.5 text-gray-400">{i + 1}</td>
                         {previewHeaders.map((h) => (
@@ -534,11 +646,9 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
                   </tbody>
                 </table>
               </div>
-              {previewRows.length > 5 && (
-                <p className="text-[11px] text-gray-400 mt-2 text-center">
-                  + {previewRows.length - 5} fila{previewRows.length - 5 !== 1 ? "s" : ""} más se cargarán al confirmar
-                </p>
-              )}
+              <p className="text-[11px] text-gray-400 mt-2 text-center">
+                Mostrando las {previewRows.length} fila{previewRows.length !== 1 ? "s" : ""} del archivo · pasa el cursor sobre una columna para ver el nombre original
+              </p>
             </Card>
           )}
 
