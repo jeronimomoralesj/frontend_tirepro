@@ -1198,7 +1198,7 @@ function ProductRow({ l }: { l: Listing }) {
           </div>
 
           {l.descripcion && (
-            <p className="text-xs text-gray-500 mt-2 line-clamp-2 hidden sm:block">{l.descripcion}</p>
+            <p className="text-xs text-gray-500 mt-2 line-clamp-2 hidden sm:block whitespace-pre-line">{l.descripcion}</p>
           )}
         </div>
       </div>

@@ -337,7 +337,7 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
 
             {/* Description */}
             {product.descripcion && (
-              <p className="text-sm text-gray-600 mt-4 leading-relaxed">{product.descripcion}</p>
+              <p className="text-sm text-gray-600 mt-4 leading-relaxed whitespace-pre-line">{product.descripcion}</p>
             )}
 
             {/* Specs */}

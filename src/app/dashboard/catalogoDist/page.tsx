@@ -412,9 +412,18 @@ export default function CatalogoDistPage() {
                 </div>
                 {/* Description */}
                 <div>
-                  <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Descripcion del producto</label>
-                  <textarea value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
-                    rows={2} placeholder="Detalles, especificaciones, garantia..." className={`${inputCls} resize-none`} />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[9px] font-bold text-gray-400 uppercase">Descripción del producto</label>
+                    <span className="text-[9px] text-gray-400">{(form.descripcion ?? "").length}/600</span>
+                  </div>
+                  <textarea
+                    value={form.descripcion}
+                    onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value.slice(0, 600) }))}
+                    rows={5}
+                    maxLength={600}
+                    placeholder="Detalles, especificaciones, garantía…&#10;&#10;Puedes usar varias líneas para organizar la información."
+                    className={`${inputCls} resize-y whitespace-pre-wrap`}
+                  />
                 </div>
 
                 {/* Photos — up to 5 URLs */}
@@ -686,11 +695,18 @@ export default function CatalogoDistPage() {
                         </div>
                       </div>
                       <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase">Descripcion</label>
-                        <textarea value={editForm.descripcion}
-                          onChange={(e) => setEditForm((f) => ({ ...f, descripcion: e.target.value }))}
-                          rows={2} placeholder="Descripcion del producto..."
-                          className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF] resize-none" />
+                        <div className="flex items-center justify-between">
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Descripción</label>
+                          <span className="text-[9px] text-gray-400">{(editForm.descripcion ?? "").length}/600</span>
+                        </div>
+                        <textarea
+                          value={editForm.descripcion}
+                          onChange={(e) => setEditForm((f) => ({ ...f, descripcion: e.target.value.slice(0, 600) }))}
+                          rows={4}
+                          maxLength={600}
+                          placeholder="Descripción del producto…"
+                          className="w-full px-2.5 py-1.5 rounded-lg text-xs border border-[#348CCB]/20 bg-[#F0F7FF] resize-y whitespace-pre-wrap"
+                        />
                       </div>
                       <div className="flex items-center justify-between pt-1">
                         <label className="flex items-center gap-2 cursor-pointer">
