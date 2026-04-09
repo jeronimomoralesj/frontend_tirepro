@@ -613,6 +613,7 @@ export default function VehiculoPage() {
 
     const created: Vehicle[] = [];
     const failed: { row: number; placa: string; error: string }[] = [];
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
     for (let i = 0; i < bulkRows.length; i++) {
       const row = bulkRows[i];
@@ -621,34 +622,60 @@ export default function VehiculoPage() {
         failed.push({ row: i + 2, placa: "(vacío)", error: "Sin placa" });
         continue;
       }
-      try {
-        // Defaults for fields the backend requires non-empty. The user can
-        // come back later and edit any of these — we just need the bulk
-        // upload to succeed when only placa (and optionally km) is set.
-        const body = {
-          placa: placa.toLowerCase(),
-          kilometrajeActual: Number(row.kilometrajeActual) || 0,
-          tipovhc: String(row.tipovhc || "").trim() || "2_ejes_trailer",
-          carga: String(row.carga || "").trim() || "n/a",
-          pesoCarga: Number(row.pesoCarga) || 0,
-          cliente: String(row.cliente || "").trim() || null,
-          configuracion: String(row.configuracion || "").trim() || null,
-          companyId: co.id,
-          tipoOperacion: "90-10",
-        };
-        const res = await authFetch(`${API_BASE}/vehicles/create`, {
-          method: "POST",
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-          const e = await res.json().catch(() => ({}));
-          throw new Error(e.message || `HTTP ${res.status}`);
+      // Defaults for fields the backend requires non-empty. The user can
+      // come back later and edit any of these — we just need the bulk
+      // upload to succeed when only placa (and optionally km) is set.
+      const body = {
+        placa: placa.toLowerCase(),
+        kilometrajeActual: Number(row.kilometrajeActual) || 0,
+        tipovhc: String(row.tipovhc || "").trim() || "2_ejes_trailer",
+        carga: String(row.carga || "").trim() || "n/a",
+        pesoCarga: Number(row.pesoCarga) || 0,
+        cliente: String(row.cliente || "").trim() || null,
+        configuracion: String(row.configuracion || "").trim() || null,
+        companyId: co.id,
+        tipoOperacion: "90-10",
+      };
+
+      // Retry with exponential backoff when the backend throttler kicks in.
+      // Bulk uploads of 40+ rows would otherwise blow past Nest's
+      // ThrottlerGuard limit and fail half the file.
+      let attempt = 0;
+      let saved: any = null;
+      let lastError = "";
+      while (attempt < 5 && !saved) {
+        try {
+          const res = await authFetch(`${API_BASE}/vehicles/create`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          if (res.status === 429) {
+            attempt++;
+            await sleep(800 * Math.pow(2, attempt)); // 1.6s, 3.2s, 6.4s, 12.8s, 25.6s
+            lastError = "Too many requests";
+            continue;
+          }
+          if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            lastError = e.message || `HTTP ${res.status}`;
+            break;
+          }
+          saved = await res.json();
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : "Error";
+          break;
         }
-        const json = await res.json();
-        created.push(safeVehicle(json.vehicle ?? json));
-      } catch (err) {
-        failed.push({ row: i + 2, placa, error: err instanceof Error ? err.message : "Error" });
       }
+
+      if (saved) {
+        created.push(safeVehicle(saved.vehicle ?? saved));
+      } else {
+        failed.push({ row: i + 2, placa, error: lastError || "Error" });
+      }
+
+      // Pace ourselves so we never trip the throttler in the first place.
+      // 250 ms gap = ~4 req/s, well under the typical NestJS rate limit.
+      await sleep(250);
     }
 
     setVehicles((prev) => {
