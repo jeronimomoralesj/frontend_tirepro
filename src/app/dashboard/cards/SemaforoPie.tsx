@@ -4,8 +4,6 @@ import React, { useEffect, useState } from "react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { AlertOctagon, Timer, CheckCircle2, RotateCcw, HelpCircle, Activity } from "lucide-react";
-import AgentCardHeader from "../../../components/AgentCardHeader";
-
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export type Inspection = {
@@ -80,31 +78,6 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
     setTireCounts(counts);
   }, [tires]);
 
-  // Generate dynamic insight from real data
-  const sentinelInsight = (() => {
-    const total = tireCounts.buenEstado + tireCounts.dias60 + tireCounts.dias30 + tireCounts.cambioInmediato;
-    if (total === 0) return "";
-    const urgent = tireCounts.cambioInmediato;
-    const warning = tireCounts.dias30;
-    const pctRisk = total > 0 ? Math.round(((urgent + warning) / total) * 100) : 0;
-    const lines: string[] = [];
-
-    if (urgent > 0) {
-      lines.push(`Tienes ${urgent} llanta${urgent > 1 ? "s" : ""} en estado critico (menos de 3mm). ${urgent > 2 ? "Esto es una emergencia operativa — " : ""}retirar${urgent > 1 ? "las" : "la"} del servicio para evitar multas y riesgo de accidente.`);
-    }
-    if (warning > 0) {
-      lines.push(`${warning} llanta${warning > 1 ? "s" : ""} en zona de 30 dias. ${warning >= 3 ? "Planifica reencauches o compras esta semana para no quedarte sin inventario." : "Programa inspeccion de seguimiento."}`);
-    }
-    if (pctRisk > 40) {
-      lines.push(`El ${pctRisk}% de tu flota inspeccionada esta en riesgo. Esto es mas alto de lo normal — revisa si hay un problema de presion o sobrecarga generalizado.`);
-    } else if (pctRisk === 0 && total > 0) {
-      lines.push("Toda tu flota inspeccionada esta en buen estado. Mantene la frecuencia de inspeccion actual.");
-    }
-    if (tireCounts.dias60 > total * 0.3) {
-      lines.push(`${tireCounts.dias60} llantas entraran en zona de riesgo en los proximos 60 dias. Buen momento para cotizar reencauches con tu distribuidor.`);
-    }
-    return lines.join("\n\n");
-  })();
 
   const conditions = ["buenEstado", "dias60", "dias30", "cambioInmediato"] as const;
   const conditionLabels = conditions.map((key) => t.labels[key]);
@@ -181,7 +154,6 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
       <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AgentCardHeader agent="sentinel" insight={sentinelInsight} />
             <div>
               <h2 className="text-base sm:text-lg font-semibold leading-tight">{t.title}</h2>
             </div>

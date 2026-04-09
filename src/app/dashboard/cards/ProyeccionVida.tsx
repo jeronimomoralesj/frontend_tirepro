@@ -2,8 +2,6 @@
 
 import React, { useMemo } from "react";
 import { HelpCircle, Clock, AlertTriangle, TrendingDown } from "lucide-react";
-import AgentCardHeader from "../../../components/AgentCardHeader";
-
 export type Tire = {
   id: string;
   profundidadInicial: number;
@@ -83,26 +81,6 @@ const ProyeccionVida: React.FC<ProyeccionVidaProps> = ({ tires }) => {
     return { buckets, avgDays, total: daysArr.length };
   }, [tires]);
 
-  // Dynamic insight for Nikita
-  const nikitaInsight = useMemo(() => {
-    if (data.total === 0) return "";
-    const lines: string[] = [];
-    const { buckets, avgDays } = data;
-
-    if (buckets.critical > 0) {
-      lines.push(`${buckets.critical} llanta${buckets.critical > 1 ? "s" : ""} en estado critico: llegaran a 3mm en menos de 30 dias. Programa reemplazos o reencauches de inmediato.`);
-    }
-    if (buckets.soon > 0) {
-      lines.push(`${buckets.soon} llanta${buckets.soon > 1 ? "s" : ""} necesitaran atencion en los proximos 60 dias. Buen momento para cotizar.`);
-    }
-    if (avgDays > 0) {
-      lines.push(`Vida promedio proyectada: ${avgDays} dias (~${Math.round(avgDays / 30)} meses) antes de alcanzar retiro optimo.`);
-    }
-    if (buckets.stable > 0) {
-      lines.push(`${buckets.stable} llantas estan en buen estado con mas de 90 dias de vida proyectada.`);
-    }
-    return lines.join("\n\n");
-  }, [data]);
 
   const bars = [
     { key: "critical", label: "< 30d", count: data.buckets.critical, color: "#ef4444" },
@@ -117,7 +95,6 @@ const ProyeccionVida: React.FC<ProyeccionVidaProps> = ({ tires }) => {
       {/* Header */}
       <div className="bg-[#173D68] text-white px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <AgentCardHeader agent="nikita" insight={nikitaInsight} />
           <h2 className="text-base sm:text-xl font-bold leading-tight truncate">
             Proyeccion de Vida
           </h2>
@@ -125,7 +102,7 @@ const ProyeccionVida: React.FC<ProyeccionVidaProps> = ({ tires }) => {
         <div className="group relative cursor-pointer flex-shrink-0">
           <HelpCircle className="text-white hover:text-gray-200 transition-colors" size={20} />
           <div className="absolute z-10 top-full mt-2 right-0 sm:-top-2 sm:right-full sm:top-auto sm:mt-0 sm:mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 sm:w-60 pointer-events-none shadow-xl">
-            <p>Dias estimados hasta alcanzar el punto de retiro optimo (3mm). NIKITA calcula esto usando la tasa de desgaste por inspeccion.</p>
+            <p>Dias estimados hasta alcanzar el punto de retiro optimo (3mm). Otis calcula esto usando la tasa de desgaste por inspeccion.</p>
           </div>
         </div>
       </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { HelpCircle } from "lucide-react";
-import AgentCardHeader from "../../../components/AgentCardHeader";
 import React, { useMemo, useState, useEffect } from "react";
 
 export interface Vehicle {
@@ -89,46 +88,12 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
     tableData.some((row) => row.depths[pos] !== null)
   );
 
-  // Dynamic SENTINEL insight from actual vehicle depth data
-  const sentinelInsight = useMemo(() => {
-    if (!tableData.length) return "";
-    const lines: string[] = [];
-
-    // Find vehicles with critical positions
-    const criticalVehicles: string[] = [];
-    const unevenVehicles: string[] = [];
-
-    tableData.forEach((row) => {
-      const depths = Object.values(row.depths).filter((d): d is number => d !== null);
-      if (!depths.length) return;
-      const min = Math.min(...depths);
-      const max = Math.max(...depths);
-
-      if (min <= 3) criticalVehicles.push(row.placa.toUpperCase());
-      if (max - min > 4 && depths.length >= 4) unevenVehicles.push(row.placa.toUpperCase());
-    });
-
-    if (criticalVehicles.length > 0) {
-      lines.push(`Vehiculo${criticalVehicles.length > 1 ? "s" : ""} ${criticalVehicles.slice(0, 3).join(", ")}${criticalVehicles.length > 3 ? ` y ${criticalVehicles.length - 3} mas` : ""} tiene${criticalVehicles.length > 1 ? "n" : ""} posiciones en rojo (menos de 3mm). Requiere${criticalVehicles.length > 1 ? "n" : ""} atencion inmediata.`);
-    }
-
-    if (unevenVehicles.length > 0) {
-      lines.push(`Detecto desgaste desigual en ${unevenVehicles.slice(0, 2).join(" y ")} — hay mas de 4mm de diferencia entre posiciones del mismo vehiculo. Esto sugiere falta de rotacion, desalineacion o diferencia de presion entre ejes.`);
-    }
-
-    if (criticalVehicles.length === 0 && unevenVehicles.length === 0 && tableData.length > 0) {
-      lines.push("Todos los vehiculos muestran desgaste uniforme y dentro de limites seguros. La flota esta bien balanceada.");
-    }
-
-    return lines.join("\n\n");
-  }, [tableData]);
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden flex flex-col w-full min-w-0">
       {/* Header */}
       <div className="bg-[#173D68] text-white px-4 py-3 flex items-center justify-between shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <AgentCardHeader agent="sentinel" insight={sentinelInsight} />
           <h2 className="text-base font-bold truncate leading-tight">{t.title}</h2>
         </div>
         <div className="group relative cursor-pointer shrink-0">
