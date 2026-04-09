@@ -38,9 +38,13 @@ function asPriceCop(n: unknown): string {
   return `${num.toFixed(2)} COP`;
 }
 
-// Google Merchant taxonomy: 916 = Vehicles & Parts > Vehicle Parts &
-// Accessories > Motor Vehicle Parts > Motor Vehicle Tires.
-const GOOGLE_PRODUCT_CATEGORY = "916";
+// Google Merchant taxonomy. Use the full text path instead of the numeric ID
+// (916) — Google's auto-classifier sometimes overrides the numeric ID and
+// lumps tire feeds under the top-level "Vehicles" content policy, which
+// requires special licensing in Colombia and disapproves the whole feed.
+// Sending the full path avoids the misclassification.
+const GOOGLE_PRODUCT_CATEGORY =
+  "Vehicles & Parts > Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Tires";
 
 export async function GET() {
   let listings: any[] = [];
@@ -57,7 +61,11 @@ export async function GET() {
   }
 
   const items = listings
-    .filter((l) => l && l.id && l.precioCop && l.precioCop > 0)
+    // Skip items with no stock — they shouldn't appear in Shopping anyway
+    // and emitting `preorder` requires an `availability_date` which we
+    // don't have, causing the "Missing attribute [availability_date]"
+    // disapproval.
+    .filter((l) => l && l.id && l.precioCop && l.precioCop > 0 && l.cantidadDisponible > 0)
     .map((l) => {
       const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
       const cover = imgs[l.coverIndex ?? 0] ?? imgs[0] ?? `${SITE}/og-image.png`;
@@ -85,7 +93,9 @@ export async function GET() {
         .join(" ")
         .substring(0, 5000);
 
-      const availability = l.cantidadDisponible > 0 ? "in_stock" : "preorder";
+      // After the filter above, every item is in stock — emit a constant
+      // value so we never need an availability_date.
+      const availability = "in_stock";
       const condition = l.tipo === "reencauche" ? "refurbished" : "new";
 
       return `
@@ -103,7 +113,7 @@ ${salePrice && l.promoHasta ? `      <g:sale_price_effective_date>${new Date().t
       <g:brand>${escapeXml(l.marca ?? "Sin marca")}</g:brand>
       <g:condition>${condition}</g:condition>
       <g:google_product_category>${GOOGLE_PRODUCT_CATEGORY}</g:google_product_category>
-      <g:product_type>Llantas &gt; ${escapeXml(l.tipo === "reencauche" ? "Reencauche" : "Nuevas")} &gt; ${escapeXml(l.dimension ?? "Sin dimensión")}</g:product_type>
+      <g:product_type>Tires &gt; ${escapeXml(l.tipo === "reencauche" ? "Retread" : "New")} &gt; ${escapeXml(l.dimension ?? "Sin dimensión")}</g:product_type>
       <g:identifier_exists>no</g:identifier_exists>
       <g:mpn>${escapeXml(l.id)}</g:mpn>
       <g:item_group_id>${escapeXml(l.modelo ?? l.marca ?? l.id)}</g:item_group_id>
