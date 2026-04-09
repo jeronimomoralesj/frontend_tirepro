@@ -8,14 +8,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   try {
     const res = await fetch(`${API_BASE}/marketplace/product/${id}`, { next: { revalidate: 3600 } });
-    if (!res.ok) return { title: "Producto — TirePro Marketplace" };
+    if (!res.ok) return { title: "Llanta no encontrada · TirePro Marketplace" };
     const p = await res.json();
 
     const imgs = Array.isArray(p.imageUrls) ? p.imageUrls : [];
     const cover = imgs.length > 0 ? imgs[p.coverIndex ?? 0] ?? imgs[0] : "https://tirepro.com.co/og-image.png";
     const price = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(p.precioCop);
 
-    const title = `${p.marca} ${p.modelo} ${p.dimension} — ${price} | TirePro`;
+    // Tab title — brand, model, dimension first, then site name. Buyers
+    // who keep multiple tabs open see what they're looking at without
+    // hovering. Includes the type so a reencauche listing is obvious.
+    const tipo = p.tipo === "reencauche" ? " (Reencauche)" : "";
+    const title = `${p.marca} ${p.modelo} ${p.dimension}${tipo} | TirePro Marketplace`;
     const description = `Comprar ${p.marca} ${p.modelo} ${p.dimension} ${p.tipo === "reencauche" ? "(reencauche)" : ""} por ${price}. ${p.distributor?.name ?? "Distribuidor verificado"} en Colombia. ${p.catalog?.terreno ? `Para ${p.catalog.terreno.toLowerCase()}.` : ""} ${p.catalog?.kmEstimadosReales ? `${(p.catalog.kmEstimadosReales / 1000).toFixed(0)}K km estimados.` : ""} Envio disponible.`;
 
     return {
