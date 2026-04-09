@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, FormEvent, useMemo, useCallback } from "react";
+import React, { useState, useEffect, FormEvent, useMemo, useCallback, useRef } from "react";
+import * as XLSX from "xlsx";
 import {
   Plus, Trash2, X, Truck, ChevronDown, Edit, Loader2,
-  AlertCircle, Building2, Link2, Search, CheckCircle,
+  AlertCircle, Building2, Link2, Search, CheckCircle, Upload, Download, FileSpreadsheet,
 } from "lucide-react";
 
 // =============================================================================
@@ -427,9 +428,11 @@ export default function VehiculoPage() {
   // Modal state
   const [showCreate,    setShowCreate]    = useState(false);
   const [showBulk,      setShowBulk]      = useState(false);
-  const [bulkText,      setBulkText]      = useState("");
+  const [bulkRows,      setBulkRows]      = useState<Record<string, any>[]>([]);
+  const [bulkFileName,  setBulkFileName]  = useState("");
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [bulkResult,    setBulkResult]    = useState<{ ok: number; failed: { row: number; placa: string; error: string }[] } | null>(null);
+  const bulkFileRef = useRef<HTMLInputElement>(null);
   const [vehicleToEdit, setVehicleToEdit] = useState<Vehicle | null>(null);
   const [vehicleToDel,  setVehicleToDel]  = useState<Vehicle | null>(null);
   const [unionToDel,    setUnionToDel]    = useState<{ sourceId: string; targetPlaca: string } | null>(null);
@@ -534,77 +537,99 @@ export default function VehiculoPage() {
     setShowCreate(false);
   }
 
-  // Bulk vehicle upload — paste rows separated by newlines, fields by commas
-  // or tabs. Supported columns (in any order if header present):
-  //   placa, kilometrajeActual, tipovhc, carga, pesoCarga, cliente, configuracion
+  // Bulk vehicle upload — read an .xlsx file with one row per vehicle.
+  // Supported columns (case + accent insensitive, any order):
+  //   placa, km, tipovhc, carga, pesoCarga, cliente, configuracion
   // Minimum required: placa.
+  function fieldKey(raw: string): string | null {
+    const k = String(raw ?? "").toLowerCase().replace(/\s+/g, "")
+      .replace(/[áàä]/g, "a").replace(/[éè]/g, "e").replace(/[íì]/g, "i")
+      .replace(/[óò]/g, "o").replace(/[úù]/g, "u");
+    if (k.includes("placa")) return "placa";
+    if (k.includes("km") || k.includes("kilometr")) return "kilometrajeActual";
+    if (k.includes("tipo")) return "tipovhc";
+    if (k.includes("pesocarga") || k === "peso") return "pesoCarga";
+    if (k.includes("carga")) return "carga";
+    if (k.includes("cliente")) return "cliente";
+    if (k.includes("config") || k.includes("ejes")) return "configuracion";
+    return null;
+  }
+
+  function downloadBulkTemplate() {
+    const sample = [
+      { placa: "ABC123", km: 150000, tipovhc: "2_ejes_trailer", configuracion: "2-4", carga: "seco", pesoCarga: 30000, cliente: "" },
+      { placa: "XYZ789", km: 80000,  tipovhc: "3_ejes_trailer", configuracion: "2-4-4", carga: "liquido", pesoCarga: 25000, cliente: "" },
+      { placa: "DEF456", km: "",     tipovhc: "", configuracion: "2-2", carga: "", pesoCarga: "", cliente: "" },
+    ];
+    const ws = XLSX.utils.json_to_sheet(sample, { header: ["placa", "km", "tipovhc", "configuracion", "carga", "pesoCarga", "cliente"] });
+    ws["!cols"] = [{ wch: 12 }, { wch: 10 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Vehiculos");
+    XLSX.writeFile(wb, "tirepro-vehiculos-plantilla.xlsx");
+  }
+
+  function handleBulkFile(e: React.ChangeEvent<HTMLInputElement>) {
+    setBulkResult(null);
+    setError("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+        // Normalise header keys to canonical fields
+        const normalised = raw.map((row) => {
+          const out: Record<string, any> = {};
+          Object.entries(row).forEach(([k, v]) => {
+            const fk = fieldKey(k);
+            if (fk) out[fk] = v;
+          });
+          return out;
+        }).filter((r) => String(r.placa ?? "").trim() !== "");
+        setBulkRows(normalised);
+        if (normalised.length === 0) {
+          setError("El archivo no contiene filas con placa válida");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "No se pudo leer el archivo");
+        setBulkRows([]);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
   async function handleBulkUpload() {
     const co = companies.find((c) => c.name === selectedCompany);
     if (!co) { setError("Seleccione un cliente antes de hacer carga masiva"); return; }
-
-    const text = bulkText.trim();
-    if (!text) { setError("Pega al menos una placa"); return; }
+    if (bulkRows.length === 0) { setError("Sube un archivo con al menos una placa"); return; }
 
     setBulkSubmitting(true);
     setError("");
 
-    // Parse: split lines, split each line by tab or comma. First line is a
-    // header if it contains "placa" anywhere; otherwise treat as data.
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    let header: string[] | null = null;
-    let dataLines = lines;
-    if (lines[0] && /placa/i.test(lines[0])) {
-      header = lines[0].split(/[,\t]/).map((s) => s.trim().toLowerCase());
-      dataLines = lines.slice(1);
-    }
-
-    const fieldKey = (raw: string) => {
-      const k = raw.toLowerCase().replace(/\s+/g, "").replace(/[áàä]/g, "a").replace(/[éè]/g, "e").replace(/[íì]/g, "i").replace(/[óò]/g, "o").replace(/[úù]/g, "u");
-      if (k.includes("placa")) return "placa";
-      if (k.includes("km") || k.includes("kilometr")) return "kilometrajeActual";
-      if (k.includes("tipo")) return "tipovhc";
-      if (k.includes("pesocarga") || k === "peso") return "pesoCarga";
-      if (k.includes("carga")) return "carga";
-      if (k.includes("cliente")) return "cliente";
-      if (k.includes("config") || k.includes("ejes")) return "configuracion";
-      return null;
-    };
-
-    const headerMap = header?.map(fieldKey) ?? null;
-
     const created: Vehicle[] = [];
     const failed: { row: number; placa: string; error: string }[] = [];
 
-    for (let i = 0; i < dataLines.length; i++) {
-      const cells = dataLines[i].split(/[,\t]/).map((c) => c.trim());
-      const row: Record<string, string> = {};
-
-      if (headerMap) {
-        headerMap.forEach((k, idx) => {
-          if (k && cells[idx] != null) row[k] = cells[idx];
-        });
-      } else {
-        // Positional fallback: placa, km, tipovhc, carga, peso, cliente, config
-        ["placa", "kilometrajeActual", "tipovhc", "carga", "pesoCarga", "cliente", "configuracion"].forEach((k, idx) => {
-          if (cells[idx]) row[k] = cells[idx];
-        });
-      }
-
-      const placa = (row.placa || "").trim();
+    for (let i = 0; i < bulkRows.length; i++) {
+      const row = bulkRows[i];
+      const placa = String(row.placa || "").trim();
       if (!placa) {
-        failed.push({ row: i + 1, placa: "(vacío)", error: "Sin placa" });
+        failed.push({ row: i + 2, placa: "(vacío)", error: "Sin placa" });
         continue;
       }
-
       try {
         const body = {
           placa: placa.toLowerCase(),
           kilometrajeActual: Number(row.kilometrajeActual) || 0,
-          tipovhc: row.tipovhc || "2_ejes_trailer",
-          carga: row.carga || "",
+          tipovhc: String(row.tipovhc || "").trim() || "2_ejes_trailer",
+          carga: String(row.carga || "").trim(),
           pesoCarga: Number(row.pesoCarga) || 0,
-          cliente: row.cliente?.trim() || null,
-          configuracion: row.configuracion?.trim() || null,
+          cliente: String(row.cliente || "").trim() || null,
+          configuracion: String(row.configuracion || "").trim() || null,
           companyId: co.id,
           tipoOperacion: "90-10",
         };
@@ -619,11 +644,10 @@ export default function VehiculoPage() {
         const json = await res.json();
         created.push(safeVehicle(json.vehicle ?? json));
       } catch (err) {
-        failed.push({ row: i + 1, placa, error: err instanceof Error ? err.message : "Error" });
+        failed.push({ row: i + 2, placa, error: err instanceof Error ? err.message : "Error" });
       }
     }
 
-    // Merge new vehicles into the list (skip dupes by id)
     setVehicles((prev) => {
       const known = new Set(prev.map((v) => v.id));
       return [...prev, ...created.filter((v) => !known.has(v.id))];
@@ -917,49 +941,103 @@ export default function VehiculoPage() {
 
       {/* -- Modals ------------------------------------------------------- */}
 
-      {/* Bulk upload */}
+      {/* Bulk upload — XLSX file */}
       {showBulk && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(6px)" }}>
           <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden" style={{ boxShadow: "0 32px 80px -16px rgba(10,24,58,0.4)" }}>
             <div className="px-6 py-5 flex items-center justify-between" style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
               <div>
                 <p className="text-[10px] font-black text-white/70 uppercase tracking-widest">Vehículos · Carga masiva</p>
-                <h3 className="text-lg font-black text-white mt-0.5">Crear varios vehículos a la vez</h3>
+                <h3 className="text-lg font-black text-white mt-0.5">Subir un archivo Excel</h3>
               </div>
-              <button onClick={() => { setShowBulk(false); setBulkResult(null); }} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15">
+              <button onClick={() => { setShowBulk(false); setBulkResult(null); setBulkRows([]); setBulkFileName(""); }} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="rounded-2xl p-3 text-[11px] text-[#0A183A]" style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.18)" }}>
-                <p className="font-bold mb-1">Cómo funciona</p>
-                <p className="text-gray-600 leading-relaxed">
-                  Pega una placa por línea. Puedes incluir más columnas separadas por <strong>coma</strong> o <strong>tabulador</strong>:
-                </p>
-                <code className="block mt-2 px-2 py-1.5 rounded-lg bg-white text-[10px] text-[#1E76B6] font-mono border border-[#1E76B6]/15 leading-relaxed">
-                  placa, km, tipovhc, carga, pesoCarga, cliente, configuracion
-                </code>
-                <p className="text-gray-500 text-[10px] mt-2">
-                  Solo la placa es obligatoria. Si la primera línea contiene la palabra <code>placa</code>, se usa como encabezado y el orden no importa.
-                </p>
+              <div className="rounded-2xl p-3.5 text-[11px] text-[#0A183A]" style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.18)" }}>
+                <p className="font-black mb-1.5 text-[12px]">Cómo funciona</p>
+                <ol className="text-gray-600 leading-relaxed list-decimal pl-4 space-y-1">
+                  <li>Descarga la plantilla Excel.</li>
+                  <li>Llena una fila por vehículo. Solo la <strong>placa</strong> es obligatoria.</li>
+                  <li>Sube el archivo y dale clic a &ldquo;Crear vehículos&rdquo;.</li>
+                </ol>
+                <button
+                  onClick={downloadBulkTemplate}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black text-[#1E76B6] bg-white border border-[#1E76B6]/30 hover:bg-[#F0F7FF] transition-colors"
+                >
+                  <Download className="w-3 h-3" />
+                  Descargar plantilla .xlsx
+                </button>
               </div>
 
+              {/* Drop / pick area */}
               <div>
-                <label className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest block mb-1.5">Vehículos a crear</label>
-                <textarea
-                  value={bulkText}
-                  onChange={(e) => setBulkText(e.target.value)}
-                  rows={10}
-                  placeholder={`placa,km,tipovhc,configuracion\nABC123,150000,2_ejes_trailer,2-4\nXYZ789,80000,3_ejes_trailer,2-4-4\nDEF456`}
-                  className="w-full px-3 py-2.5 rounded-xl text-xs font-mono border border-gray-200 bg-gray-50 text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] resize-y"
-                  spellCheck={false}
-                  disabled={bulkSubmitting}
+                <label className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest block mb-1.5">Archivo Excel</label>
+                <input
+                  ref={bulkFileRef}
+                  type="file"
+                  accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  onChange={handleBulkFile}
+                  className="hidden"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
-                  {bulkText.split(/\r?\n/).filter((l) => l.trim()).length} líneas
-                </p>
+                <button
+                  type="button"
+                  onClick={() => bulkFileRef.current?.click()}
+                  className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-dashed transition-colors hover:bg-[#F0F7FF]"
+                  style={{ borderColor: bulkFileName ? "#1E76B6" : "rgba(30,118,182,0.3)", background: bulkFileName ? "rgba(30,118,182,0.04)" : "white" }}
+                >
+                  {bulkFileName ? (
+                    <>
+                      <FileSpreadsheet className="w-8 h-8 text-[#1E76B6]" />
+                      <p className="text-sm font-black text-[#0A183A]">{bulkFileName}</p>
+                      <p className="text-[11px] text-gray-500">{bulkRows.length} vehículo{bulkRows.length !== 1 ? "s" : ""} listo{bulkRows.length !== 1 ? "s" : ""} para crear</p>
+                      <p className="text-[10px] text-[#1E76B6] font-bold mt-1">Click para cambiar el archivo</p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-[#1E76B6]" />
+                      <p className="text-sm font-black text-[#0A183A]">Click para seleccionar un .xlsx</p>
+                      <p className="text-[11px] text-gray-500">o arrastra el archivo aquí</p>
+                    </>
+                  )}
+                </button>
               </div>
+
+              {/* Preview of first 5 rows */}
+              {bulkRows.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1.5">Vista previa</p>
+                  <div className="rounded-xl overflow-hidden border border-gray-200">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left px-2 py-1.5 font-black text-gray-500">Placa</th>
+                          <th className="text-left px-2 py-1.5 font-black text-gray-500">Km</th>
+                          <th className="text-left px-2 py-1.5 font-black text-gray-500">Configuración</th>
+                          <th className="text-left px-2 py-1.5 font-black text-gray-500">Cliente</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkRows.slice(0, 5).map((r, i) => (
+                          <tr key={i} className="border-t border-gray-100">
+                            <td className="px-2 py-1.5 font-mono font-bold text-[#0A183A]">{String(r.placa ?? "").toUpperCase()}</td>
+                            <td className="px-2 py-1.5 text-gray-600">{r.kilometrajeActual ?? ""}</td>
+                            <td className="px-2 py-1.5 text-gray-600">{r.configuracion ?? ""}</td>
+                            <td className="px-2 py-1.5 text-gray-600 truncate max-w-[120px]">{r.cliente ?? ""}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {bulkRows.length > 5 && (
+                      <p className="text-[10px] text-gray-400 px-2 py-1.5 bg-gray-50 border-t border-gray-100">
+                        + {bulkRows.length - 5} fila{bulkRows.length - 5 !== 1 ? "s" : ""} más
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {bulkResult && (
                 <div className="space-y-2">
@@ -975,7 +1053,7 @@ export default function VehiculoPage() {
                       <ul className="space-y-0.5 max-h-32 overflow-y-auto">
                         {bulkResult.failed.map((f, i) => (
                           <li key={i} className="font-mono text-[10px]">
-                            #{f.row} <strong>{f.placa}</strong> — {f.error}
+                            fila {f.row} · <strong>{f.placa}</strong> — {f.error}
                           </li>
                         ))}
                       </ul>
@@ -985,17 +1063,17 @@ export default function VehiculoPage() {
               )}
 
               <div className="flex gap-2 pt-2">
-                <button onClick={() => { setShowBulk(false); setBulkResult(null); }}
+                <button onClick={() => { setShowBulk(false); setBulkResult(null); setBulkRows([]); setBulkFileName(""); }}
                   className="flex-1 py-2.5 rounded-xl text-sm font-bold text-gray-500 border border-gray-200 hover:bg-gray-50">
                   Cerrar
                 </button>
                 <button
                   onClick={handleBulkUpload}
-                  disabled={bulkSubmitting || !bulkText.trim() || !selectedCompany}
+                  disabled={bulkSubmitting || bulkRows.length === 0 || !selectedCompany}
                   className="flex-[1.5] py-2.5 rounded-xl text-sm font-black text-white disabled:opacity-40 transition-all flex items-center justify-center gap-2"
                   style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
                 >
-                  {bulkSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" />Crear vehículos</>}
+                  {bulkSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" />Crear {bulkRows.length} vehículo{bulkRows.length !== 1 ? "s" : ""}</>}
                 </button>
               </div>
             </div>
