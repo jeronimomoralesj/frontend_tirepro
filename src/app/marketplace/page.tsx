@@ -40,6 +40,50 @@ interface Listing {
 interface DistributorOption { id: string; name: string; profileImage: string }
 interface Filters { dimensions: string[]; marcas: string[]; distributors: DistributorOption[] }
 
+export interface BrandMeta { name: string; slug: string; logoUrl: string | null }
+export type BrandsMap = Map<string, BrandMeta>;
+
+// Slugify helper used as a fallback when a brand has no BrandInfo row but
+// the user still wants the link to point at the brand page (which will 404
+// gracefully if the brand isn't seeded — better than a /marketplace?q=
+// search that mixes models from other brands).
+export function brandSlug(name: string): string {
+  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+}
+
+export function BrandLink({
+  marca,
+  brandsMap,
+  className = "",
+  showLogo = true,
+}: {
+  marca: string;
+  brandsMap?: BrandsMap;
+  className?: string;
+  showLogo?: boolean;
+}) {
+  const meta = brandsMap?.get(marca.toLowerCase().trim());
+  const slug = meta?.slug ?? brandSlug(marca);
+  return (
+    <Link
+      href={`/marketplace/brand/${slug}`}
+      onClick={(e) => e.stopPropagation()}
+      className={`inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity ${className}`}
+    >
+      {showLogo && meta?.logoUrl && (
+        <span
+          className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center bg-white"
+          style={{ border: "1px solid rgba(30,118,182,0.18)" }}
+        >
+          <img src={meta.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+        </span>
+      )}
+      <span className="truncate">{marca}</span>
+    </Link>
+  );
+}
+
 // =============================================================================
 
 export default function PublicMarketplaceWrapper() {
@@ -58,6 +102,7 @@ function PublicMarketplace() {
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>({ dimensions: [], marcas: [], distributors: [] });
+  const [brandsMap, setBrandsMap] = useState<BrandsMap>(new Map());
 
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [dimension, setDimension] = useState("");
@@ -173,6 +218,24 @@ function PublicMarketplace() {
       setRecentOrders(o);
       setRecommendations(r);
     });
+
+    // Fetch brand metadata once for clickable brand pills + logos
+    fetch(`${API_BASE}/marketplace/brands`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: any[]) => {
+        const m: BrandsMap = new Map();
+        if (Array.isArray(rows)) {
+          rows.forEach((row) => {
+            if (row?.name && row?.slug) {
+              m.set(String(row.name).toLowerCase().trim(), {
+                name: row.name, slug: row.slug, logoUrl: row.logoUrl ?? null,
+              });
+            }
+          });
+        }
+        setBrandsMap(m);
+      })
+      .catch(() => { /* ignore — falls back to slugified link, no logo */ });
   }, []);
 
   // Track whether user explicitly set the city filter (vs auto-detected)
@@ -342,7 +405,7 @@ function PublicMarketplace() {
 
       {/* ═══ LLANTAS MÁS VENDIDAS — horizontal scroll ═══ */}
       {recommendations.listings.length > 0 && !search && !activeFilters && (
-        <BestSellersScroller listings={recommendations.listings} />
+        <BestSellersScroller listings={recommendations.listings} brandsMap={brandsMap} />
       )}
 
       {/* ═══ MAPA DE DISTRIBUIDORES ═══ */}
@@ -445,7 +508,7 @@ function PublicMarketplace() {
 
               {/* Product list — full-width rows */}
               <div className="space-y-3">
-                {listings.map((l) => <ProductRow key={l.id} l={l} />)}
+                {listings.map((l) => <ProductRow key={l.id} l={l} brandsMap={brandsMap} />)}
               </div>
 
               {/* Pagination */}
@@ -1111,7 +1174,7 @@ function ResultsSidebar({
 // ProductRow — Amazon-style full-width result row
 // =============================================================================
 
-function ProductRow({ l }: { l: Listing }) {
+function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
   const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
   const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
   const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
@@ -1156,8 +1219,9 @@ function ProductRow({ l }: { l: Listing }) {
       {/* Body */}
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="flex-1">
-          <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">{l.marca}</p>
-          <h3 className="text-base sm:text-lg font-black text-[#0A183A] leading-snug group-hover:text-[#1E76B6] transition-colors line-clamp-2">
+          <BrandLink marca={l.marca} brandsMap={brandsMap}
+            className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest" />
+          <h3 className="text-base sm:text-lg font-black text-[#0A183A] leading-snug group-hover:text-[#1E76B6] transition-colors line-clamp-2 mt-0.5">
             {l.modelo}
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -1587,7 +1651,7 @@ function CategoriesSection({
 // Llantas más vendidas — horizontal scroller
 // =============================================================================
 
-function BestSellersScroller({ listings }: { listings: Listing[] }) {
+function BestSellersScroller({ listings, brandsMap }: { listings: Listing[]; brandsMap?: BrandsMap }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
   function scroll(dir: 1 | -1) {
     const el = ref.current;
@@ -1618,7 +1682,7 @@ function BestSellersScroller({ listings }: { listings: Listing[] }) {
       >
         {listings.map((l) => (
           <div key={l.id} className="flex-shrink-0 snap-start" style={{ width: "min(60vw, 220px)" }}>
-            <ProductCard l={l} />
+            <ProductCard l={l} brandsMap={brandsMap} />
           </div>
         ))}
       </div>
@@ -1791,7 +1855,7 @@ function escapeHtml(s: string) {
 // Product Card
 // =============================================================================
 
-function ProductCard({ l }: { l: Listing }) {
+function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
   const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
   const coverImg = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
   const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
@@ -1840,7 +1904,8 @@ function ProductCard({ l }: { l: Listing }) {
 
       {/* Info */}
       <div className="p-3 sm:p-4">
-        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{l.marca}</p>
+        <BrandLink marca={l.marca} brandsMap={brandsMap}
+          className="text-[10px] text-[#1E76B6] uppercase tracking-wider font-black" />
         <p className="text-sm font-bold text-[#111] mt-0.5 leading-snug line-clamp-2">{l.modelo}</p>
         <p className="text-[11px] text-gray-400 mt-0.5">{l.dimension}{l.eje ? ` · ${l.eje}` : ""}</p>
 

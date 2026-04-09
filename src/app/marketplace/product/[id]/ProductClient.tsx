@@ -33,7 +33,15 @@ interface Product {
   totalSold?: number;
 }
 
-export default function ProductClient({ initialProduct }: { initialProduct?: Product | null }) {
+interface BrandInfo { name: string; slug: string; logoUrl: string | null }
+
+export default function ProductClient({
+  initialProduct,
+  brandInfo,
+}: {
+  initialProduct?: Product | null;
+  brandInfo?: BrandInfo | null;
+}) {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
   const [loading, setLoading] = useState(!initialProduct);
@@ -258,7 +266,17 @@ export default function ProductClient({ initialProduct }: { initialProduct?: Pro
 
           {/* RIGHT — Details */}
           <div className="pt-2">
-            <span className="inline-block text-[10px] font-black text-[#1E76B6] tracking-widest uppercase px-2.5 py-1 rounded-full bg-[#1E76B6]/10">{product.marca}</span>
+            <Link
+              href={`/marketplace/brand/${brandInfo?.slug ?? product.marca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-")}`}
+              className="inline-flex items-center gap-2 text-[10px] font-black text-[#1E76B6] tracking-widest uppercase px-2.5 py-1 rounded-full bg-[#1E76B6]/10 hover:bg-[#1E76B6]/15 transition-colors"
+            >
+              {brandInfo?.logoUrl && (
+                <span className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white" style={{ border: "1px solid rgba(30,118,182,0.18)" }}>
+                  <img src={brandInfo.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+                </span>
+              )}
+              {product.marca}
+            </Link>
             <h1 className="text-[26px] sm:text-[36px] font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight">{product.modelo}</h1>
             <p className="text-sm text-gray-500 mt-2 font-medium">
               <span className="font-bold text-[#0A183A]">{product.dimension}</span>

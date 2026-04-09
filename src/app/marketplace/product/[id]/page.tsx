@@ -33,6 +33,25 @@ async function fetchProduct(id: string) {
   }
 }
 
+function brandSlugify(name: string): string {
+  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+}
+
+async function fetchBrandInfo(marca: string | null | undefined) {
+  if (!marca) return null;
+  try {
+    const res = await fetch(`${API_BASE}/marketplace/brands/${brandSlugify(marca)}`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { name: data.name as string, slug: data.slug as string, logoUrl: (data.logoUrl ?? null) as string | null };
+  } catch {
+    return null;
+  }
+}
+
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const product = await fetchProduct(id);
@@ -40,6 +59,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   if (!product) {
     return <ProductClient initialProduct={null} />;
   }
+
+  // Brand info — fetched in parallel-friendly way for the clickable brand pill
+  const brandInfo = await fetchBrandInfo(product.marca);
 
   const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
   const cover = imgs.length > 0 ? imgs[product.coverIndex ?? 0] ?? imgs[0] : null;
@@ -165,7 +187,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Interactive client component */}
-      <ProductClient initialProduct={product} />
+      <ProductClient initialProduct={product} brandInfo={brandInfo} />
     </>
   );
 }
