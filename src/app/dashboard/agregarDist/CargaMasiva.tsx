@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   FilePlus, Upload, Download, Info, ChevronDown, Search,
-  X, AlertTriangle, CheckCircle, Loader2,
+  X, AlertTriangle, CheckCircle, Loader2, Layers,
+  RotateCcw, Clock,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 
 // =============================================================================
 // Types
@@ -33,6 +35,60 @@ const FIELDS = [
   "eje", "profundidad_int", "profundidad_cen", "profundidad_ext", "profundidad_inicial",
   "costo", "kilometros_llanta", "dimension",
 ];
+
+// =============================================================================
+// Recent uploads (localStorage) — keeps the last 3 bulk uploads PER company
+// so the distributor can mass-undo a recent run if they uploaded the wrong
+// file or made a typo.
+// =============================================================================
+
+const RECENT_KEY = "tirepro:recent-bulk-uploads:tires";
+const MAX_RECENT = 3;
+
+interface RecentUpload {
+  id: string;
+  timestamp: number;
+  fileName: string;
+  count: number;
+  tireIds: string[];
+  companyId: string;
+  companyName: string;
+}
+
+function loadRecentUploads(): RecentUpload[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as RecentUpload[];
+  } catch { return []; }
+}
+
+function saveRecentUpload(upload: RecentUpload) {
+  if (typeof window === "undefined") return;
+  let all: RecentUpload[] = [];
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (raw) all = JSON.parse(raw);
+  } catch { /* */ }
+  all.unshift(upload);
+  // keep max 3 PER company
+  const byCompany: Record<string, RecentUpload[]> = {};
+  for (const u of all) (byCompany[u.companyId] ??= []).push(u);
+  const trimmed: RecentUpload[] = [];
+  for (const cid in byCompany) trimmed.push(...byCompany[cid].slice(0, MAX_RECENT));
+  localStorage.setItem(RECENT_KEY, JSON.stringify(trimmed));
+}
+
+function removeRecentUpload(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return;
+    const all: RecentUpload[] = JSON.parse(raw);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(all.filter((u) => u.id !== id)));
+  } catch { /* */ }
+}
 
 // =============================================================================
 // Helpers
@@ -99,8 +155,14 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
   const [clientSearch,      setClientSearch]      = useState("");
   const [showInstructions,  setShowInstructions]  = useState(false);
   const [dragging,          setDragging]          = useState(false);
+  const [previewRows,       setPreviewRows]       = useState<Record<string, any>[]>([]);
+  const [previewHeaders,    setPreviewHeaders]    = useState<string[]>([]);
+  const [recents,           setRecents]           = useState<RecentUpload[]>([]);
+  const [undoingId,         setUndoingId]         = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setRecents(loadRecentUploads()); }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -137,7 +199,61 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
     }
     setFile(f);
     setMessage(undefined);
+    // Parse client-side for preview
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        if (!ws) { setPreviewRows([]); setPreviewHeaders([]); return; }
+        const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+        const headers = rows.length ? Object.keys(rows[0]) : [];
+        setPreviewRows(rows);
+        setPreviewHeaders(headers);
+      } catch (err) {
+        console.error("Error parsing xlsx", err);
+        setPreviewRows([]); setPreviewHeaders([]);
+        setMessage("No se pudo leer el archivo. Revisa que sea un .xlsx válido.");
+        setMessageType("error");
+      }
+    };
+    reader.readAsArrayBuffer(f);
   }
+
+  function clearFile() {
+    setFile(null);
+    setPreviewRows([]);
+    setPreviewHeaders([]);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  // -- Undo a recent bulk upload --------------------------------------------
+  const undoUpload = useCallback(async (upload: RecentUpload) => {
+    const ok = window.confirm(
+      `¿Eliminar las ${upload.count} llantas creadas en "${upload.fileName}" para ${upload.companyName}? Esta acción no se puede deshacer.`,
+    );
+    if (!ok) return;
+    setUndoingId(upload.id);
+    try {
+      const res = await authFetch(`${API_BASE}/tires/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tireIds: upload.tireIds, companyId: upload.companyId }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json().catch(() => ({ deleted: upload.count }));
+      removeRecentUpload(upload.id);
+      setRecents(loadRecentUploads());
+      setMessage(`${data.deleted ?? upload.count} llantas eliminadas correctamente.`);
+      setMessageType("success");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "No se pudo deshacer la carga.");
+      setMessageType("error");
+    } finally {
+      setUndoingId(null);
+    }
+  }, []);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -210,8 +326,26 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
 
       setMessage((data.message ?? "Carga masiva completada con éxito.") + renamedNote);
       setMessageType("success");
-      setFile(null);
-      if (inputRef.current) inputRef.current.value = "";
+
+      // Track this run so it can be undone from "Cargas recientes".
+      const createdIds: string[] = Array.isArray(data.createdTireIds) ? data.createdTireIds : [];
+      if (createdIds.length > 0 && file) {
+        const companyName = selectedCompany !== "Todos"
+          ? selectedCompany
+          : "Mi empresa";
+        saveRecentUpload({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: Date.now(),
+          fileName: file.name,
+          count: data.success ?? createdIds.length,
+          tireIds: createdIds,
+          companyId,
+          companyName,
+        });
+        setRecents(loadRecentUploads());
+      }
+
+      clearFile();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Error inesperado en la carga masiva.");
       setMessageType("error");
@@ -482,7 +616,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
             {file && (
               <button
                 type="button"
-                onClick={() => { setFile(null); if (inputRef.current) inputRef.current.value = ""; }}
+                onClick={clearFile}
                 className="mt-3 flex items-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-600 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -490,6 +624,48 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
               </button>
             )}
           </Card>
+
+          {/* -- Preview of parsed rows ------------------------------------ */}
+          {previewRows.length > 0 && (
+            <Card className="p-4 sm:p-5">
+              <CardTitle
+                icon={Layers}
+                title={`Vista previa (${previewRows.length} fila${previewRows.length !== 1 ? "s" : ""})`}
+                sub="Revisa que las columnas y los valores se vean correctos antes de cargar"
+              />
+              <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                <table className="min-w-full text-[11px]">
+                  <thead style={{ background: "rgba(30,118,182,0.06)" }}>
+                    <tr>
+                      <th className="px-2 py-2 text-left font-black text-[#0A183A] uppercase tracking-wide">#</th>
+                      {previewHeaders.map((h) => (
+                        <th key={h} className="px-2 py-2 text-left font-black text-[#0A183A] whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.slice(0, 5).map((r, i) => (
+                      <tr key={i} style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
+                        <td className="px-2 py-1.5 text-gray-400">{i + 1}</td>
+                        {previewHeaders.map((h) => (
+                          <td key={h} className="px-2 py-1.5 text-[#0A183A] whitespace-nowrap">
+                            {String(r[h] ?? "")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {previewRows.length > 5 && (
+                <p className="text-[11px] text-gray-400 mt-2 text-center">
+                  + {previewRows.length - 5} fila{previewRows.length - 5 !== 1 ? "s" : ""} más se cargarán al confirmar
+                </p>
+              )}
+            </Card>
+          )}
 
           {/* Submit */}
           <button
@@ -500,10 +676,61 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
           >
             {loading
               ? <><Loader2 className="w-4 h-4 animate-spin" />Procesando…</>
-              : <><FilePlus className="w-4 h-4" />Cargar Masivamente</>
+              : <><FilePlus className="w-4 h-4" />
+                  {previewRows.length > 0
+                    ? `Confirmar y cargar ${previewRows.length} llanta${previewRows.length !== 1 ? "s" : ""}`
+                    : "Cargar Masivamente"}
+                </>
             }
           </button>
         </form>
+
+        {/* -- Cargas recientes ---------------------------------------------- */}
+        {recents.length > 0 && (
+          <Card className="p-4 sm:p-5">
+            <CardTitle
+              icon={Clock}
+              title="Cargas recientes"
+              sub="Si te equivocaste, puedes deshacer las últimas 3 cargas por cliente"
+            />
+            <div className="space-y-2">
+              {recents.map((u) => {
+                const isUndoing = undoingId === u.id;
+                const date = new Date(u.timestamp);
+                const ago = date.toLocaleString("es-CO", {
+                  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                });
+                return (
+                  <div
+                    key={u.id}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                    style={{ background: "rgba(30,118,182,0.04)", border: "1px solid rgba(30,118,182,0.12)" }}
+                  >
+                    <div className="p-2 rounded-lg flex-shrink-0" style={{ background: "rgba(30,118,182,0.12)" }}>
+                      <FilePlus className="w-3.5 h-3.5 text-[#1E76B6]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-[#0A183A] truncate">{u.fileName}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {u.count} llanta{u.count !== 1 ? "s" : ""} · {u.companyName} · {ago}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => undoUpload(u)}
+                      disabled={isUndoing}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-black text-red-600 transition-colors hover:bg-red-50 disabled:opacity-40"
+                      title="Deshacer esta carga (eliminar las llantas creadas)"
+                    >
+                      {isUndoing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                      Deshacer
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );
