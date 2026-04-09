@@ -76,9 +76,14 @@ const TIER_META: Record<string, { label: string; sublabel: string; stars: number
   value:   { label: "Económica",  sublabel: "Marca de gama de valor", stars: 3, bg: "linear-gradient(135deg,#64748b,#94a3b8)", color: "#1e293b" },
 };
 
+// Brand info changes rarely (and the backend caches it for 15 min),
+// but we keep the frontend ISR window short — 5 min — so freshly scraped
+// data lands quickly without forcing a full Vercel deploy.
+export const revalidate = 300;
+
 async function fetchBrand(slug: string): Promise<BrandPageData | null> {
   try {
-    const res = await fetch(`${API_BASE}/marketplace/brands/${slug}`, { next: { revalidate: 1800 } });
+    const res = await fetch(`${API_BASE}/marketplace/brands/${slug}`, { next: { revalidate: 300 } });
     if (!res.ok) return null;
     return await res.json();
   } catch {
