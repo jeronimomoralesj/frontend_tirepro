@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, BarChart3, Calendar } from "lucide-react";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
+import { OtisFloatingButton } from "../../../components/Otis";
 
 import SemaforoPie from "../cards/SemaforoPie";
 import SemaforoTabla from "../cards/SemaforoTabla";
@@ -287,6 +288,50 @@ export default function DetallePage() {
       .filter((v) => v.tireCount > 0);
   }, [vehicles, filtered]);
 
+  /* -- Otis: data-aware fleet summary ------------------------------------- */
+
+  const otisInsight = useMemo(() => {
+    if (loading) return null;
+    if (filtered.length === 0) {
+      return "No hay llantas en el filtro actual. Ajusta los filtros para ver tu flota.";
+    }
+    const lines: string[] = [];
+    const total = filtered.length;
+    const veh = vehiclesWithCount.length;
+    lines.push(`Analizando ${total} llantas en ${veh} vehículos.`);
+
+    if (counts.critical > 0) lines.push(`• ${counts.critical} URGENTES (≤3mm) — riesgo de falla, retirar HOY.`);
+    if (counts.warning > 0)  lines.push(`• ${counts.warning} a 30 días (3-6mm) — programar reemplazo.`);
+    if (counts.watch > 0)    lines.push(`• ${counts.watch} a 60 días (6-7mm) — vigilar.`);
+    if (counts.ok > 0)       lines.push(`• ${counts.ok} óptimas (>7mm).`);
+    if (counts.none > 0)     lines.push(`• ${counts.none} sin inspección — necesitan medición.`);
+
+    const brands = Object.entries(marcaData).sort((a,b) => b[1] - a[1]);
+    if (brands.length) {
+      const [topB, topN] = brands[0];
+      const pct = Math.round((topN / total) * 100);
+      lines.push(`Marca dominante: ${topB} (${pct}%).`);
+    }
+
+    let cpkSum = 0, cpkN = 0;
+    for (const t of filtered) {
+      const last = t.inspecciones[t.inspecciones.length - 1];
+      if (last && last.cpk > 0) { cpkSum += last.cpk; cpkN++; }
+    }
+    if (cpkN > 0) {
+      const avg = Math.round(cpkSum / cpkN);
+      lines.push(`CPK promedio actual: $${avg.toLocaleString("es-CO")} por km.`);
+    }
+
+    const critPct = Math.round(((counts.critical + counts.warning) / total) * 100);
+    if (critPct >= 25) {
+      lines.push(`⚠ ${critPct}% de la flota necesita acción en los próximos 30 días — prioriza pedidos.`);
+    } else if (counts.critical === 0 && counts.warning === 0) {
+      lines.push(`Flota en buen estado. Mantén el ritmo de inspecciones para sostenerlo.`);
+    }
+    return lines.join("\n");
+  }, [loading, filtered, counts, vehiclesWithCount, marcaData]);
+
   /* -- Render -------------------------------------------------------------- */
 
   return (
@@ -411,6 +456,16 @@ export default function DetallePage() {
           </div>
         )}
       </div>
+
+      {!loading && (
+        <OtisFloatingButton
+          pageKey="dashboard.detalle"
+          capability="wear"
+          title="Resumen de la flota"
+          insight={otisInsight}
+          offset={{ bottom: 24, left: 24 }}
+        />
+      )}
 
       {!loading && (
         <FilterFab

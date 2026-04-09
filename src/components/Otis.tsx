@@ -22,7 +22,7 @@ import { createPortal } from "react-dom";
 import { X, Sparkles } from "lucide-react";
 
 // Otis avatar — drop a square ottis.png into /public to use a custom face.
-const OTIS_AVATAR = "/otis-avatar.webp";
+const OTIS_AVATAR = "/ottis-mini.webp";
 
 export function OtisFace({ className = "", size = 28 }: { className?: string; size?: number }) {
   return (
@@ -61,8 +61,9 @@ interface OtisFloatingButtonProps {
   insight?: string | null;
   title?: string;
   actions?: OtisAction[];
-  /** Override default `bottom-6 right-6`. Values are pixels. */
-  offset?: { bottom?: number; right?: number };
+  /** Override default `bottom-6 right-6`. Values are pixels. Pass `left`
+      instead of `right` to anchor to the left edge. */
+  offset?: { bottom?: number; right?: number; left?: number };
 }
 
 export function OtisFloatingButton({ pageKey, capability, insight, title, actions, offset }: OtisFloatingButtonProps) {
@@ -100,7 +101,9 @@ export function OtisFloatingButton({ pageKey, capability, insight, title, action
   if (!enabled) return null;
 
   const btnBottom = offset?.bottom ?? 24;
-  const btnRight  = offset?.right  ?? 24;
+  const useLeft = offset?.left !== undefined;
+  const btnRight  = useLeft ? undefined : (offset?.right ?? 24);
+  const btnLeft   = useLeft ? offset!.left : undefined;
 
   return (
     <>
@@ -113,6 +116,7 @@ export function OtisFloatingButton({ pageKey, capability, insight, title, action
         style={{
           bottom: btnBottom,
           right: btnRight,
+          left: btnLeft,
           background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`,
           boxShadow: open
             ? `0 0 0 5px ${OTIS.glow}, 0 18px 40px rgba(10,24,58,0.4)`
@@ -136,6 +140,7 @@ export function OtisFloatingButton({ pageKey, capability, insight, title, action
           style={{
             bottom: btnBottom + 80,
             right: btnRight,
+            left: btnLeft,
             width: 340,
             background: "white",
             boxShadow: "0 32px 80px -16px rgba(10,24,58,0.5), 0 0 0 1px rgba(30,118,182,0.14)",
