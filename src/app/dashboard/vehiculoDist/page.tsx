@@ -300,6 +300,7 @@ function VehicleForm({
   initialData?: {
     placa: string; kilometrajeActual: number; carga: string;
     pesoCarga: number; tipovhc: string; cliente: string;
+    configuracion?: string | null;
   };
   submitLabel: string;
   onSubmit: (data: any) => Promise<void>;
@@ -312,6 +313,7 @@ function VehicleForm({
     pesoCarga:         initialData?.pesoCarga         ?? 0,
     tipovhc:           initialData?.tipovhc           ?? "2_ejes_trailer",
     cliente:           initialData?.cliente           ?? "",
+    configuracion:     initialData?.configuracion     ?? "",
     companyName:       defaultCompanyName             ?? "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -387,6 +389,48 @@ function VehicleForm({
             className={inputCls} style={inputStyle}>
             {Object.entries(VEHICLE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
+        </Field>
+
+        <Field label="Estructura (configuración de ejes)">
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { v: "",         l: "Sin especificar", d: "" },
+              { v: "2-2",      l: "2-2",      d: "Auto · 4 llantas" },
+              { v: "2-4",      l: "2-4",      d: "Camión 2 ejes · 6 llantas" },
+              { v: "2-2-2",    l: "2-2-2",    d: "Camión 3 ejes · 6 llantas" },
+              { v: "2-2-4",    l: "2-2-4",    d: "Camión 3 ejes · 8 llantas" },
+              { v: "2-4-4",    l: "2-4-4",    d: "Tractomula · 10 llantas" },
+              { v: "2-4-4-4",  l: "2-4-4-4",  d: "Tractomula + trailer · 14 llantas" },
+              { v: "2-4-4-4-4",l: "2-4-4-4-4",d: "Doble trailer · 18 llantas" },
+            ].map((opt) => (
+              <button
+                key={opt.v || "none"}
+                type="button"
+                onClick={() => set("configuracion", opt.v)}
+                className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all"
+                style={{
+                  background: form.configuracion === opt.v ? "linear-gradient(135deg,#1E76B6,#173D68)" : "white",
+                  color: form.configuracion === opt.v ? "white" : "#173D68",
+                  border: form.configuracion === opt.v ? "1px solid #1E76B6" : "1px solid rgba(30,118,182,0.25)",
+                }}
+              >
+                {opt.l}
+              </button>
+            ))}
+          </div>
+          {form.configuracion && (
+            <p className="text-[10px] text-gray-500 mt-1">
+              {[
+                { v: "2-2",      d: "Auto · 4 llantas" },
+                { v: "2-4",      d: "Camión 2 ejes · 6 llantas" },
+                { v: "2-2-2",    d: "Camión 3 ejes · 6 llantas" },
+                { v: "2-2-4",    d: "Camión 3 ejes · 8 llantas" },
+                { v: "2-4-4",    d: "Tractomula · 10 llantas" },
+                { v: "2-4-4-4",  d: "Tractomula + trailer · 14 llantas" },
+                { v: "2-4-4-4-4",d: "Doble trailer · 18 llantas" },
+              ].find((o) => o.v === form.configuracion)?.d}
+            </p>
+          )}
         </Field>
 
         <Field label="Dueño (opcional)">
@@ -522,11 +566,12 @@ export default function VehiculoPage() {
       body: JSON.stringify({
         placa:             data.placa.toLowerCase(),
         kilometrajeActual: data.kilometrajeActual,
-        carga:             data.carga,
+        carga:             data.carga || "n/a",
         pesoCarga:         data.pesoCarga,
         tipovhc:           data.tipovhc,
         companyId:         data.companyId,
         cliente:           data.cliente.trim() || null,
+        configuracion:     data.configuracion?.trim() || null,
       }),
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.message || "Error al crear vehículo"); }
@@ -699,10 +744,11 @@ export default function VehiculoPage() {
       body: JSON.stringify({
         placa:             data.placa.toLowerCase(),
         kilometrajeActual: data.kilometrajeActual,
-        carga:             data.carga,
+        carga:             data.carga || "n/a",
         pesoCarga:         data.pesoCarga,
         tipovhc:           data.tipovhc,
         cliente:           data.cliente.trim() || null,
+        configuracion:     data.configuracion?.trim() || null,
       }),
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.message || "Error al actualizar vehículo"); }
@@ -1143,6 +1189,7 @@ export default function VehiculoPage() {
             pesoCarga:         vehicleToEdit.pesoCarga,
             tipovhc:           vehicleToEdit.tipovhc,
             cliente:           vehicleToEdit.cliente ?? "",
+            configuracion:     (vehicleToEdit as any).configuracion ?? "",
           }}
           submitLabel="Guardar Cambios"
           onSubmit={handleEdit}
