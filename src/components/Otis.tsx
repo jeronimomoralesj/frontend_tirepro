@@ -98,14 +98,22 @@ interface OtisBadgeProps {
   cardKey: string;
   /** Capability this card relates to. Otis only appears if the capability is enabled. */
   capability?: OtisCapability;
-  /** Pre-computed insight text to show when Otis is clicked */
+  /** Pre-computed insight text Otis "speaks" when clicked */
   insight?: string | null;
-  /** Optional title shown above the insight */
+  /** Optional title shown in the popover header */
   title?: string;
-  /** Floating offset from the parent's top-right corner. Defaults are sensible. */
   className?: string;
 }
 
+/**
+ * OtisBadge — sits at the top edge of a card (above the header bar).
+ * Hidden behind the card by default; on parent group-hover his head pops
+ * out with a small bounce. Click to open the popover where he "talks"
+ * the analysis with a typewriter effect.
+ *
+ * IMPORTANT: place this inside a parent that has the `group` class so the
+ * peek animation triggers on hover.
+ */
 export function OtisBadge({
   cardKey,
   capability,
@@ -115,12 +123,28 @@ export function OtisBadge({
 }: OtisBadgeProps) {
   const { settings } = useOtisSettings();
   const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   // Hide Otis entirely if the capability is disabled in settings.
   const enabled = !capability || settings[capability];
+
+  // Typewriter effect — reveal Otis's analysis one character at a time
+  // when the popover opens. Makes him feel like he's actually talking.
+  useEffect(() => {
+    if (!open) { setTyped(""); return; }
+    const text = insight ?? "Otis aún no tiene suficientes datos para analizar esta tarjeta. Vuelve a intentarlo cuando tengas más inspecciones.";
+    setTyped("");
+    let i = 0;
+    const id = setInterval(() => {
+      i += 2; // 2 chars per tick → ~30 ms feel
+      setTyped(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, 14);
+    return () => clearInterval(id);
+  }, [open, insight]);
 
   const reposition = useCallback(() => {
     if (!btnRef.current) return;
@@ -157,38 +181,58 @@ export function OtisBadge({
 
   if (!enabled) return null;
 
+  // The button sits at the top of its parent card. By default it's
+  // translated down so only the top of his head sticks out. On parent
+  // hover (group-hover, set on the CardWrap) it slides up and bounces.
+  // When the popover is open, he stays fully visible regardless of hover.
+  const peekClasses = open
+    ? "translate-y-0 opacity-100"
+    : "translate-y-[55%] opacity-90 group-hover:translate-y-0 group-hover:opacity-100";
+
   return (
     <>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        title="Pregúntale a Otis sobre esta tarjeta"
-        data-otis-card={cardKey}
-        className={`group relative inline-flex items-center justify-center w-9 h-9 rounded-full transition-all hover:scale-110 active:scale-95 ${className}`}
-        style={{
-          background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`,
-          boxShadow: open
-            ? `0 0 0 4px ${OTIS.glow}, 0 8px 24px rgba(10,24,58,0.25)`
-            : "0 6px 16px rgba(10,24,58,0.18)",
-        }}
-      >
-        <Bot className="w-4 h-4 text-white" strokeWidth={2.4} />
-        <span
-          className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full animate-pulse"
-          style={{ background: "#fbbf24", boxShadow: "0 0 6px rgba(251,191,36,0.7)" }}
-        />
-      </button>
+      <div className={`pointer-events-none absolute -top-3 right-4 z-20 ${className}`}>
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+          title="Pregúntale a Otis sobre esta tarjeta"
+          data-otis-card={cardKey}
+          className={`pointer-events-auto relative inline-flex items-center justify-center w-11 h-11 rounded-full transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-110 active:scale-95 ${peekClasses}`}
+          style={{
+            background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`,
+            boxShadow: open
+              ? `0 0 0 4px ${OTIS.glow}, 0 12px 28px rgba(10,24,58,0.3)`
+              : "0 8px 18px rgba(10,24,58,0.22)",
+            border: "2px solid white",
+          }}
+        >
+          <Bot className="w-5 h-5 text-white" strokeWidth={2.4} />
+          <span
+            className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full animate-pulse"
+            style={{ background: "#fbbf24", boxShadow: "0 0 6px rgba(251,191,36,0.8)" }}
+          />
+          {/* Subtle "hi" speech indicator on hover, hidden when open */}
+          {!open && (
+            <span
+              className="pointer-events-none absolute left-full ml-2 px-2 py-0.5 rounded-full text-[9px] font-black text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              style={{ background: OTIS.color, boxShadow: "0 4px 10px rgba(10,24,58,0.2)" }}
+            >
+              Pregúntame
+            </span>
+          )}
+        </button>
+      </div>
 
       {open && pos && typeof document !== "undefined" && createPortal(
         <div
           ref={popRef}
-          className="fixed z-[9999] w-80 rounded-2xl overflow-hidden"
+          className="fixed z-[9999] w-80 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
           style={{
             top: pos.top,
             left: pos.left,
             background: "white",
-            boxShadow: "0 24px 64px -16px rgba(10,24,58,0.35), 0 0 0 1px rgba(30,118,182,0.1)",
+            boxShadow: "0 24px 64px -16px rgba(10,24,58,0.4), 0 0 0 1px rgba(30,118,182,0.12)",
           }}
         >
           {/* Header */}
@@ -210,21 +254,31 @@ export function OtisBadge({
             </button>
           </div>
 
-          {/* Body */}
+          {/* Body — typewriter speech bubble */}
           <div className="px-4 py-3 max-h-80 overflow-y-auto">
             <div className="flex items-center gap-1.5 mb-2">
               <Sparkles className="w-3 h-3" style={{ color: OTIS.color }} />
               <span className="text-[9px] font-black text-[#1E76B6] uppercase tracking-widest">
-                Análisis Otis
+                Otis está hablando…
               </span>
             </div>
-            {insight ? (
-              <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{insight}</p>
-            ) : (
-              <p className="text-xs text-gray-400 italic">
-                Otis aún no tiene suficientes datos para analizar esta tarjeta. Vuelve a intentarlo cuando tengas más inspecciones.
+            <div
+              className="rounded-2xl p-3 relative"
+              style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.12)" }}
+            >
+              {/* Speech bubble pointer */}
+              <span
+                className="absolute -top-1.5 left-4 w-3 h-3 rotate-45"
+                style={{ background: "rgba(30,118,182,0.06)", borderTop: "1px solid rgba(30,118,182,0.12)", borderLeft: "1px solid rgba(30,118,182,0.12)" }}
+              />
+              <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line min-h-[3rem]">
+                {typed}
+                <span
+                  className="inline-block w-1.5 h-3 ml-0.5 align-middle animate-pulse"
+                  style={{ background: OTIS.color, opacity: typed.length === (insight?.length ?? 0) && insight ? 0 : 1 }}
+                />
               </p>
-            )}
+            </div>
           </div>
 
           {/* Footer */}

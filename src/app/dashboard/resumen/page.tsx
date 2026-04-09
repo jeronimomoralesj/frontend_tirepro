@@ -139,27 +139,25 @@ function CardWrap({
   otisCapability?: import("../../../components/Otis").OtisCapability;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full relative">
-      <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between">
+    <div className="group bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible w-full relative">
+      {otisCardKey && (
+        <OtisBadge cardKey={otisCardKey} capability={otisCapability} insight={otisInsight} title={title} />
+      )}
+      <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between rounded-t-xl">
         <h2 className="text-base sm:text-lg font-bold">{title}</h2>
         <div className="flex items-center gap-2 shrink-0">
           {description && (
-            <div className="group relative cursor-pointer" title={description}>
-              <svg className="w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="relative cursor-pointer" title={description}>
+              <svg className="peer w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
               </svg>
-              <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
+              <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 peer-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
                 <p>{description}</p>
               </div>
             </div>
           )}
         </div>
       </div>
-      {otisCardKey && (
-        <div className="absolute top-2 right-2 z-10">
-          <OtisBadge cardKey={otisCardKey} capability={otisCapability} insight={otisInsight} title={title} />
-        </div>
-      )}
       <div className="p-4 sm:p-6">
         <div className="h-64 sm:h-72">{children}</div>
       </div>
