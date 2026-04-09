@@ -1276,18 +1276,45 @@ export default function InspeccionPage({ language }: { language?: string }) {
     setSuccess("");
 
     const allTires = [...tires, ...unionTires];
+    const emptyUpdate = { profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null };
+    const safeUpdate = (id: string) => tireUpdates[id] ?? emptyUpdate;
+    // A tire is "inspeccionable" only when ALL three depth fields are filled.
+    // Tires with partial fills are treated as not-inspecting-this-one and
+    // are simply skipped on submit. Tires with no fills are also skipped.
+    const isFull = (u: TireUpdate) =>
+      u.profundidadInt !== "" && u.profundidadCen !== "" && u.profundidadExt !== "";
+    const isPartial = (u: TireUpdate) =>
+      !isFull(u) && (u.profundidadInt !== "" || u.profundidadCen !== "" || u.profundidadExt !== "");
 
-    const missing = allTires.filter((t) => {
-      const u = tireUpdates[t.id];
-      return u.profundidadInt === "" || u.profundidadCen === "" || u.profundidadExt === "";
-    });
-    if (missing.length > 0) {
-      setError("Por favor ingrese valores de profundidad para todos los neumáticos");
+    const partial = allTires.filter((t) => isPartial(safeUpdate(t.id)));
+    if (partial.length > 0) {
+      setError(`Completa las 3 profundidades en P${partial[0].posicion} o déjalas todas vacías para no inspeccionarla`);
       return;
     }
 
-    const zeroCount = allTires.reduce((n, t) => {
-      const u = tireUpdates[t.id];
+    const inspectionTires = allTires.filter((t) => isFull(safeUpdate(t.id)));
+
+    // Detect whether the technician made a position change. Used together
+    // with the inspection count to decide if there's anything to save.
+    let positionsChanged = false;
+    if (vehicle) {
+      for (const t of tires) {
+        if (originalPositions.current[t.id] !== t.posicion) { positionsChanged = true; break; }
+      }
+      if (!positionsChanged) {
+        for (const id of Object.keys(originalPositions.current)) {
+          if (freeTires.find((t) => t.id === id)) { positionsChanged = true; break; }
+        }
+      }
+    }
+
+    if (inspectionTires.length === 0 && !positionsChanged) {
+      setError("Ingresa al menos una inspección o haz un cambio de posición");
+      return;
+    }
+
+    const zeroCount = inspectionTires.reduce((n, t) => {
+      const u = safeUpdate(t.id);
       return (
         n +
         (Number(u.profundidadInt) === 0 ? 1 : 0) +
@@ -1338,8 +1365,9 @@ export default function InspeccionPage({ language }: { language?: string }) {
         }
       }
 
-      for (const tire of allTires) {
-        const upd      = tireUpdates[tire.id];
+      // Only POST inspections for tires the technician actually filled.
+      for (const tire of inspectionTires) {
+        const upd      = safeUpdate(tire.id);
         const imageUrl = upd.image ? await convertFileToBase64(upd.image) : "";
 
         const payload: Record<string, unknown> = {
@@ -1377,8 +1405,9 @@ export default function InspeccionPage({ language }: { language?: string }) {
         vehicle:       vehicle!,
         unionVehicle:  unionVehicle ?? undefined,
         inspectorName: inspectorName.trim() || undefined,
-        tires: allTires.map((tire) => {
-          const upd      = tireUpdates[tire.id];
+        // PDF only includes the tires that were actually inspected.
+        tires: inspectionTires.map((tire) => {
+          const upd      = safeUpdate(tire.id);
           const pInt     = Number(upd.profundidadInt);
           const pCen     = Number(upd.profundidadCen);
           const pExt     = Number(upd.profundidadExt);
