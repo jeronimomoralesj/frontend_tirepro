@@ -14,13 +14,25 @@
  *
  * Spec: https://support.google.com/merchants/answer/7052112
  */
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
 
 const SITE = "https://tirepro.com.co";
+
+// Secret token gating the feed. Set FEED_TOKEN in the environment (Vercel
+// → Settings → Environment Variables → FEED_TOKEN). Then configure Google
+// Merchant Center → Feed → URL with `?token=<value>` appended. If the env
+// var is empty the route stays open (so dev environments don't break) —
+// always set it in production.
+const FEED_TOKEN = process.env.FEED_TOKEN ?? "";
+
+// Allow well-known shopping bots through even if the token is missing —
+// useful when sharing the URL with Google Search Console / Bing Webmaster
+// Tools that may not preserve query params on follow-up fetches.
+const ALLOWED_BOT_UA = /googlebot|google-merchant|bingbot|yandexbot|adsbot/i;
 
 function escapeXml(s: unknown): string {
   if (s == null) return "";
@@ -30,6 +42,15 @@ function escapeXml(s: unknown): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+// Constant-time string comparison so a token leak through timing analysis
+// is not possible (overkill for this use case but free to add).
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
 }
 
 function asPriceCop(n: unknown): string {
@@ -46,7 +67,21 @@ function asPriceCop(n: unknown): string {
 const GOOGLE_PRODUCT_CATEGORY =
   "Vehicles & Parts > Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Tires";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // -- Access control -------------------------------------------------------
+  // The feed is gated unless the caller either supplies the secret token in
+  // the query string or identifies as a known shopping bot. Anything else
+  // gets a generic 404 — we don't acknowledge that the route exists.
+  if (FEED_TOKEN) {
+    const supplied = req.nextUrl.searchParams.get("token") ?? "";
+    const userAgent = req.headers.get("user-agent") ?? "";
+    const isBot = ALLOWED_BOT_UA.test(userAgent);
+    const tokenOk = supplied.length > 0 && timingSafeEqual(supplied, FEED_TOKEN);
+    if (!tokenOk && !isBot) {
+      return new NextResponse("Not found", { status: 404 });
+    }
+  }
+
   let listings: any[] = [];
   try {
     const res = await fetch(`${API_BASE}/marketplace/listings?limit=2000&sortBy=newest`, {
