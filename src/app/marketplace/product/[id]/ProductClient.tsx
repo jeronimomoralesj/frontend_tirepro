@@ -33,7 +33,46 @@ interface Product {
   totalSold?: number;
 }
 
-interface BrandInfo { name: string; slug: string; logoUrl: string | null }
+interface BrandInfo {
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  country: string | null;
+  tier: "premium" | "mid" | "value" | null;
+  foundedYear: number | null;
+}
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  "francia": "🇫🇷", "france": "🇫🇷",
+  "italia": "🇮🇹", "italy": "🇮🇹",
+  "alemania": "🇩🇪", "germany": "🇩🇪",
+  "estados unidos": "🇺🇸", "united states": "🇺🇸", "usa": "🇺🇸",
+  "japón": "🇯🇵", "japon": "🇯🇵", "japan": "🇯🇵",
+  "corea del sur": "🇰🇷", "south korea": "🇰🇷", "korea": "🇰🇷",
+  "china": "🇨🇳", "taiwán": "🇹🇼", "taiwan": "🇹🇼",
+  "españa": "🇪🇸", "spain": "🇪🇸",
+  "reino unido": "🇬🇧", "united kingdom": "🇬🇧", "uk": "🇬🇧",
+  "india": "🇮🇳", "brasil": "🇧🇷", "brazil": "🇧🇷",
+  "argentina": "🇦🇷", "colombia": "🇨🇴", "méxico": "🇲🇽", "mexico": "🇲🇽",
+  "canadá": "🇨🇦", "canada": "🇨🇦", "rusia": "🇷🇺", "russia": "🇷🇺",
+  "tailandia": "🇹🇭", "thailand": "🇹🇭",
+  "vietnam": "🇻🇳", "indonesia": "🇮🇩",
+};
+
+function brandFlag(country: string | null | undefined): string {
+  if (!country) return "";
+  const k = country.toLowerCase().replace(/\([^)]*\)/g, "").trim();
+  for (const [name, flag] of Object.entries(COUNTRY_FLAGS)) {
+    if (k.includes(name)) return flag;
+  }
+  return "";
+}
+
+const BRAND_TIER_META: Record<string, { label: string; bg: string }> = {
+  premium: { label: "Premium",    bg: "linear-gradient(135deg,#f59e0b,#fbbf24)" },
+  mid:     { label: "Intermedia", bg: "linear-gradient(135deg,#1E76B6,#348CCB)" },
+  value:   { label: "Económica",  bg: "linear-gradient(135deg,#64748b,#94a3b8)" },
+};
 
 export default function ProductClient({
   initialProduct,
@@ -266,17 +305,38 @@ export default function ProductClient({
 
           {/* RIGHT — Details */}
           <div className="pt-2">
-            <Link
-              href={`/marketplace/brand/${brandInfo?.slug ?? product.marca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-")}`}
-              className="inline-flex items-center gap-2 text-[10px] font-black text-[#1E76B6] tracking-widest uppercase px-2.5 py-1 rounded-full bg-[#1E76B6]/10 hover:bg-[#1E76B6]/15 transition-colors"
-            >
-              {brandInfo?.logoUrl && (
-                <span className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white" style={{ border: "1px solid rgba(30,118,182,0.18)" }}>
-                  <img src={brandInfo.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href={`/marketplace/brand/${brandInfo?.slug ?? product.marca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-")}`}
+                className="inline-flex items-center gap-2 text-[10px] font-black text-[#1E76B6] tracking-widest uppercase px-2.5 py-1 rounded-full bg-[#1E76B6]/10 hover:bg-[#1E76B6]/15 transition-colors"
+              >
+                {brandInfo?.logoUrl && (
+                  <span className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white" style={{ border: "1px solid rgba(30,118,182,0.18)" }}>
+                    <img src={brandInfo.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+                  </span>
+                )}
+                {product.marca}
+              </Link>
+              {brandInfo?.tier && BRAND_TIER_META[brandInfo.tier] && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full text-white"
+                  style={{ background: BRAND_TIER_META[brandInfo.tier].bg, boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}
+                >
+                  <Shield className="w-3 h-3" />
+                  {BRAND_TIER_META[brandInfo.tier].label}
                 </span>
               )}
-              {product.marca}
-            </Link>
+              {brandInfo?.country && brandFlag(brandInfo.country) && (
+                <Link
+                  href={`/marketplace/brand/${brandInfo.slug}`}
+                  className="inline-flex items-center gap-1.5 text-[10px] font-bold text-[#0A183A] px-2.5 py-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                  title={brandInfo.country}
+                >
+                  <span className="text-sm leading-none">{brandFlag(brandInfo.country)}</span>
+                  {brandInfo.country}
+                </Link>
+              )}
+            </div>
             <h1 className="text-[26px] sm:text-[36px] font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight">{product.modelo}</h1>
             <p className="text-sm text-gray-500 mt-2 font-medium">
               <span className="font-bold text-[#0A183A]">{product.dimension}</span>

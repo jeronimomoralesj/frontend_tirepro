@@ -46,7 +46,14 @@ async function fetchBrandInfo(marca: string | null | undefined) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return { name: data.name as string, slug: data.slug as string, logoUrl: (data.logoUrl ?? null) as string | null };
+    return {
+      name: data.name as string,
+      slug: data.slug as string,
+      logoUrl: (data.logoUrl ?? null) as string | null,
+      country: (data.country ?? null) as string | null,
+      tier: (data.tier ?? null) as "premium" | "mid" | "value" | null,
+      foundedYear: (data.foundedYear ?? null) as number | null,
+    };
   } catch {
     return null;
   }
