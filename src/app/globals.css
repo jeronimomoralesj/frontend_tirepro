@@ -1,6 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Tailwind v4 ignores tailwind.config.js — declare content sources here so
+   the JIT scanner always sees every file in src/ regardless of auto-detect
+   heuristics. Without these, classes added in newly-created routes
+   (e.g. /marketplace/brand/[slug]) can silently fail to compile on Vercel
+   even when the local dev build is fine. */
+@source "../**/*.{js,ts,jsx,tsx,mdx}";
+
 @media print {
   /* force exact color reproduction */
   * {
