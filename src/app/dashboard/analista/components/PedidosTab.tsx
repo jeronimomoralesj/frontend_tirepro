@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-// Otis took over the role of the per-card agents — see <OtisFloatingButton>
-// in /dashboard/analista/page.tsx for the page-level analysis.
+// Otis took over the role of the per-card agents — Otis floating button
+// is rendered inside this tab so it can read the live recommendations.
 import {
   Loader2, Check, X, Send, Package, ChevronDown,
   ChevronRight, AlertTriangle, Truck, RotateCcw,
   Printer, Archive, CheckSquare, Square,
 } from "lucide-react";
+import { OtisFloatingButton } from "../../../../components/Otis";
 
 // ===============================================================================
 // API
@@ -1355,24 +1356,133 @@ export default function PedidosTab() {
     });
   }, [rawRecs, catalogCache]);
 
+  // ----- Otis: data-aware summary + actions ---------------------------------
+  const otisInsight = useMemo(() => {
+    if (!recommendations.length) {
+      return "Sin recomendaciones activas. Toda la flota está dentro de los rangos óptimos. Sigue inspeccionando para mantener el casco y el CPK bajo control.";
+    }
+    const byUrg: Record<string, number> = { critical: 0, immediate: 0, next_month: 0, plan: 0 };
+    let totalCost = 0;
+    const vehicles = new Set<string>();
+    for (const r of recommendations) {
+      byUrg[r.urgency] = (byUrg[r.urgency] ?? 0) + 1;
+      totalCost += r.estimatedPrice;
+      vehicles.add(r.vehiclePlaca);
+    }
+    const lines: string[] = [];
+    lines.push(`${recommendations.length} llantas recomendadas en ${vehicles.size} vehículos · ${fmtCOP(totalCost)} estimado.`);
+    if (byUrg.critical)   lines.push(`• ${byUrg.critical} crítica${byUrg.critical > 1 ? "s" : ""} — riesgo de falla, actuar HOY.`);
+    if (byUrg.immediate)  lines.push(`• ${byUrg.immediate} inmediata${byUrg.immediate > 1 ? "s" : ""} — retiro óptimo (3mm).`);
+    if (byUrg.next_month) lines.push(`• ${byUrg.next_month} próximo mes.`);
+    if (byUrg.plan)       lines.push(`• ${byUrg.plan} planificables.`);
+    const newCount  = recommendations.filter(r => r.type === "nueva").length;
+    const reCount   = recommendations.filter(r => r.type === "reencauche").length;
+    if (newCount && reCount) lines.push(`Mix: ${newCount} nuevas, ${reCount} reencauches.`);
+    lines.push(`¿Quieres que prepare la propuesta y la envíe a un proveedor o que abra una licitación pública?`);
+    return lines.join("\n");
+  }, [recommendations]);
+
+  const sendableRecs = useMemo(
+    () => recommendations.filter((r) => r.urgency === "critical" || r.urgency === "immediate"),
+    [recommendations],
+  );
+
+  async function sendProposalToDistributor() {
+    if (sendableRecs.length === 0) { window.alert("No hay recomendaciones críticas o inmediatas para enviar."); return; }
+    if (allDistributors.length === 0) { window.alert("No tienes distribuidores vinculados. Abre una licitación pública en su lugar."); return; }
+    const list = allDistributors.map((d, i) => `${i + 1}. ${d.name}`).join("\n");
+    const pick = window.prompt(`¿A qué proveedor envío la propuesta?\n\n${list}\n\nEscribe el número:`);
+    if (!pick) return;
+    const idx = parseInt(pick, 10) - 1;
+    const dist = allDistributors[idx];
+    if (!dist) { window.alert("Selección inválida."); return; }
+    const items = sendableRecs.map((r) => ({
+      tireId: r.tire.id,
+      tipo: r.type,
+      placa: r.vehiclePlaca,
+      marca: r.tire.marca,
+      dimension: r.tire.dimension,
+      eje: r.tire.eje,
+      profundidad: r.minDepth,
+      precioEstimado: r.estimatedPrice,
+      banda: r.bandaRecomendada ?? null,
+    }));
+    const total = sendableRecs.reduce((s, r) => s + r.estimatedPrice, 0);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders`, {
+        method: "POST",
+        body: JSON.stringify({ companyId, distributorId: dist.id, items, totalEstimado: total, notas: `Propuesta generada por Otis (${sendableRecs.length} ítems)` }),
+      });
+      if (!res.ok) throw new Error();
+      window.alert(`Propuesta enviada a ${dist.name}.`);
+      fetchAll(companyId);
+    } catch { window.alert("No se pudo enviar la propuesta."); }
+  }
+
+  async function openLicitacion() {
+    if (sendableRecs.length === 0) { window.alert("No hay recomendaciones críticas o inmediatas para licitar."); return; }
+    const ok = window.confirm(`Otis abrirá una licitación pública con ${sendableRecs.length} ítems. Todos los distribuidores en TirePro podrán cotizar. ¿Continuar?`);
+    if (!ok) return;
+    const items = sendableRecs.map((r) => ({
+      tireId: r.tire.id,
+      tipo: r.type,
+      placa: r.vehiclePlaca,
+      marca: r.tire.marca,
+      dimension: r.tire.dimension,
+      eje: r.tire.eje,
+      profundidad: r.minDepth,
+      precioEstimado: r.estimatedPrice,
+      banda: r.bandaRecomendada ?? null,
+    }));
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/bid-requests`, {
+        method: "POST",
+        body: JSON.stringify({ companyId, items, notas: `Licitación abierta por Otis (${sendableRecs.length} ítems)` }),
+      });
+      if (!res.ok) throw new Error();
+      window.alert("Licitación abierta. Recibirás cotizaciones en Pedidos.");
+      fetchAll(companyId);
+    } catch { window.alert("No se pudo abrir la licitación."); }
+  }
+  // --------------------------------------------------------------------------
+
   if (loading) {
     return <div className="flex items-center justify-center py-20 text-[#1E76B6]"><Loader2 className="w-5 h-5 animate-spin" /></div>;
   }
 
   const isAgentAuto = settings?.agentEnabled && settings?.purchaseMode === "agent_auto";
-  if (isAgentAuto) return <AgentView orders={orders} budget={settings?.monthlyBudgetCap ?? 0} tires={tires} />;
+
+  const otisActions = sendableRecs.length > 0
+    ? [
+        { label: `Enviar propuesta a un proveedor (${sendableRecs.length})`, onClick: sendProposalToDistributor, icon: Send, variant: "primary" as const },
+        { label: "Abrir licitación pública",                                  onClick: openLicitacion,            icon: Package, variant: "ghost"   as const },
+      ]
+    : undefined;
 
   return (
-    <ManualView
-      recs={recommendations}
-      orders={orders}
-      distributors={distributors}
-      allDistributors={allDistributors}
-      buckets={buckets}
-      companyId={companyId}
-      onRefresh={() => fetchAll(companyId)}
-      budget={settings?.monthlyBudgetCap ?? 0}
-      tires={tires}
-    />
+    <>
+      {isAgentAuto ? (
+        <AgentView orders={orders} budget={settings?.monthlyBudgetCap ?? 0} tires={tires} />
+      ) : (
+        <ManualView
+          recs={recommendations}
+          orders={orders}
+          distributors={distributors}
+          allDistributors={allDistributors}
+          buckets={buckets}
+          companyId={companyId}
+          onRefresh={() => fetchAll(companyId)}
+          budget={settings?.monthlyBudgetCap ?? 0}
+          tires={tires}
+        />
+      )}
+      <OtisFloatingButton
+        pageKey="analista.pedidos"
+        capability="orders"
+        title="Resumen de pedidos"
+        insight={otisInsight}
+        actions={otisActions}
+      />
+    </>
   );
 }

@@ -12,7 +12,7 @@ import {
   Truck,
   User,
 } from "lucide-react";
-import { OtisFace } from "../../../../components/Otis";
+import { OtisFace, OtisFloatingButton } from "../../../../components/Otis";
 
 // Replaces the previous per-agent badges. All notifications are now
 // branded as Otis recommendations regardless of which capability triggered
@@ -629,6 +629,41 @@ export default function NotificacionesTab() {
   const confirmedCount = notifications.filter((n) => n.driverConfirmed).length;
   const pendingDriverCount = sentCount - confirmedCount;
 
+  // ----- Otis: data-aware summary + actions ---------------------------------
+  const otisInsight = (() => {
+    if (pending.length === 0) {
+      return `Sin pendientes activos. Hoy completaste ${counts.executedToday} acciones — buen ritmo, sigue confirmando los cierres para mantener la trazabilidad.`;
+    }
+    const lines: string[] = [];
+    lines.push(`Tienes ${pending.length} alertas activas en ${groups.length} vehículos.`);
+    if (counts.critical > 0) lines.push(`• ${counts.critical} crítica${counts.critical > 1 ? "s" : ""} (rojas) — actuar HOY.`);
+    if (counts.warning > 0)  lines.push(`• ${counts.warning} urgente${counts.warning > 1 ? "s" : ""} (naranjas) — esta semana.`);
+    if (counts.info > 0)     lines.push(`• ${counts.info} de atención (amarillas) — próximo mantenimiento.`);
+    const top = groups.slice(0, 3).map((g) => `${g.placa.toUpperCase()} (${g.notifs.filter(n => !n.executed).length})`);
+    if (top.length) lines.push(`Vehículos prioritarios: ${top.join(", ")}.`);
+    if (sentCount === 0) lines.push(`Aún no has notificado a ningún conductor — puedo enviárselas a todos de una vez.`);
+    else lines.push(`Ya enviaste ${sentCount} a conductores (${confirmedCount} confirmadas).`);
+    return lines.join("\n");
+  })();
+
+  const notReadyToSend = pending.filter((n) => !n.sentToDriver && n.vehicle?.drivers && n.vehicle.drivers.length > 0);
+
+  async function notifyAllDrivers() {
+    if (notReadyToSend.length === 0) {
+      window.alert("No hay alertas pendientes con conductores asignados.");
+      return;
+    }
+    const ok = window.confirm(
+      `Otis enviará ${notReadyToSend.length} alertas por WhatsApp a los conductores asignados. ¿Continuar?`,
+    );
+    if (!ok) return;
+    for (const n of notReadyToSend) {
+      // sequential to avoid throttling
+      try { await handleSendToDriver(n.id); } catch { /* */ }
+    }
+  }
+  // --------------------------------------------------------------------------
+
   return (
     <div className="space-y-5">
       {/* GUARDIAN header */}
@@ -675,6 +710,18 @@ export default function NotificacionesTab() {
           sendCounts={sendCounts}
         />
       ))}
+
+      <OtisFloatingButton
+        pageKey="analista.notificaciones"
+        capability="drivers"
+        title="Resumen de alertas"
+        insight={otisInsight}
+        actions={
+          notReadyToSend.length > 0
+            ? [{ label: `Notificar a ${notReadyToSend.length} conductores`, onClick: notifyAllDrivers, icon: Send }]
+            : undefined
+        }
+      />
     </div>
   );
 }

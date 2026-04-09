@@ -48,14 +48,24 @@ export function OtisFace({ className = "", size = 28 }: { className?: string; si
 // OtisFloatingButton — fixed bottom-right Otis that analyzes the whole page
 // =============================================================================
 
+export interface OtisAction {
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "ghost";
+  icon?: React.ComponentType<{ className?: string }>;
+}
+
 interface OtisFloatingButtonProps {
   pageKey: string;
   capability?: OtisCapability;
   insight?: string | null;
   title?: string;
+  actions?: OtisAction[];
+  /** Override default `bottom-6 right-6`. Values are pixels. */
+  offset?: { bottom?: number; right?: number };
 }
 
-export function OtisFloatingButton({ pageKey, capability, insight, title }: OtisFloatingButtonProps) {
+export function OtisFloatingButton({ pageKey, capability, insight, title, actions, offset }: OtisFloatingButtonProps) {
   const { settings } = useOtisSettings();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
@@ -89,6 +99,9 @@ export function OtisFloatingButton({ pageKey, capability, insight, title }: Otis
 
   if (!enabled) return null;
 
+  const btnBottom = offset?.bottom ?? 24;
+  const btnRight  = offset?.right  ?? 24;
+
   return (
     <>
       <button
@@ -96,8 +109,10 @@ export function OtisFloatingButton({ pageKey, capability, insight, title }: Otis
         onClick={() => setOpen((s) => !s)}
         title="Pregúntale a Otis sobre esta página"
         data-otis-page={pageKey}
-        className="fixed bottom-6 right-6 z-[9990] flex items-center justify-center w-16 h-16 rounded-full transition-all hover:scale-110 active:scale-95"
+        className="fixed z-[9990] flex items-center justify-center w-16 h-16 rounded-full transition-all hover:scale-110 active:scale-95"
         style={{
+          bottom: btnBottom,
+          right: btnRight,
           background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`,
           boxShadow: open
             ? `0 0 0 5px ${OTIS.glow}, 0 18px 40px rgba(10,24,58,0.4)`
@@ -117,8 +132,10 @@ export function OtisFloatingButton({ pageKey, capability, insight, title }: Otis
       {open && typeof document !== "undefined" && createPortal(
         <div
           ref={popRef}
-          className="fixed bottom-28 right-6 z-[9999] rounded-3xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="fixed z-[9999] rounded-3xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
           style={{
+            bottom: btnBottom + 80,
+            right: btnRight,
             width: 340,
             background: "white",
             boxShadow: "0 32px 80px -16px rgba(10,24,58,0.5), 0 0 0 1px rgba(30,118,182,0.14)",
@@ -186,6 +203,31 @@ export function OtisFloatingButton({ pageKey, capability, insight, title }: Otis
                 )}
               </p>
             </div>
+
+            {actions && actions.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                {actions.map((a, i) => {
+                  const isPrimary = (a.variant ?? "primary") === "primary";
+                  const Icon = a.icon;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => { a.onClick(); setOpen(false); }}
+                      className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-[12px] font-black transition-all hover:opacity-90 active:scale-[0.98]"
+                      style={
+                        isPrimary
+                          ? { background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`, color: "white", boxShadow: "0 8px 18px rgba(10,24,58,0.25)" }
+                          : { background: "white", color: OTIS.color, border: "1.5px solid rgba(30,118,182,0.25)" }
+                      }
+                    >
+                      {Icon && <Icon className="w-3.5 h-3.5" />}
+                      {a.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Footer */}

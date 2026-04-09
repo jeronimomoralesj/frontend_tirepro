@@ -111,13 +111,19 @@ export default function AnalistaPage() {
         {active === "ajustes" && <AjustesTab />}
       </div>
 
-      {/* Floating Otis — analyzes whichever tab is active */}
-      <OtisFloatingButton
-        pageKey={`analista.${active}`}
-        capability={OTIS_INSIGHT_BY_TAB[active].capability}
-        title={OTIS_INSIGHT_BY_TAB[active].title}
-        insight={OTIS_INSIGHT_BY_TAB[active].insight}
-      />
+      {/* Floating Otis — pedidos & notificaciones tabs render their own
+          (data-aware) Otis. For desechos & ajustes we render the generic
+          page-level Otis here. Desechos has bottom filters so we lift
+          Otis above them. */}
+      {(active === "desechos" || active === "ajustes") && (
+        <OtisFloatingButton
+          pageKey={`analista.${active}`}
+          capability={OTIS_INSIGHT_BY_TAB[active].capability}
+          title={OTIS_INSIGHT_BY_TAB[active].title}
+          insight={OTIS_INSIGHT_BY_TAB[active].insight}
+          offset={active === "desechos" ? { bottom: 110, right: 16 } : undefined}
+        />
+      )}
     </div>
   );
 }
