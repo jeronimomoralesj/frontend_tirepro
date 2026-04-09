@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, Check, Zap, User, ClipboardList, Bot, Hand } from "lucide-react";
-import { AGENT_LIST, DEFAULT_AGENT_TOGGLES } from "../../../../lib/agents";
-import type { AgentId } from "../../../../lib/agents";
+import { OTIS_CAPABILITIES, useOtisSettings, OtisFace } from "../../../../components/Otis";
+import type { OtisCapability } from "../../../../components/Otis";
 
 // -- API ----------------------------------------------------------------------
 
@@ -28,7 +28,6 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
 
 interface AgentSettings {
   agentEnabled: boolean;
-  agents: Record<AgentId, boolean>;
   alertMode: "agent_auto" | "notify_person" | "display_only";
   alertRecipientName?: string;
   alertRecipientPhone?: string;
@@ -38,7 +37,6 @@ interface AgentSettings {
 
 const DEFAULT_SETTINGS: AgentSettings = {
   agentEnabled: false,
-  agents: { ...DEFAULT_AGENT_TOGGLES },
   alertMode: "display_only",
   purchaseMode: "manual",
 };
@@ -115,6 +113,7 @@ export default function AjustesTab() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [companyId, setCompanyId] = useState("");
+  const { settings: otisSettings, setSettings: setOtisSettings } = useOtisSettings();
 
   // -- Load -----------------------------------------------------------------
 
@@ -199,9 +198,9 @@ export default function AjustesTab() {
               />
             </div>
             <div>
-              <p className="text-sm font-black text-[#0A183A]">Agente TirePro</p>
+              <p className="text-sm font-black text-[#0A183A]">Otis</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Activa el agente inteligente para automatizar alertas y decisiones
+                Activa a Otis para automatizar alertas y decisiones de tu flota
               </p>
             </div>
           </div>
@@ -225,64 +224,56 @@ export default function AjustesTab() {
         </div>
       </div>
 
-      {/* -- 1b. Per-agent toggles ---------------------------------------- */}
+      {/* -- 1b. Otis capabilities --------------------------------------- */}
       {settings.agentEnabled && (
         <div className="py-6 border-b border-gray-100">
           <p className="text-xs font-bold uppercase tracking-wider text-[#348CCB] mb-1">
-            Agentes activos
+            Capacidades de Otis
           </p>
           <p className="text-xs text-gray-400 mb-4">
-            Activa o desactiva cada agente individualmente
+            Decide qué análisis automáticos hace Otis en tu cuenta
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {AGENT_LIST.map((agent) => {
-              const isOn = settings.agents?.[agent.id] ?? true;
-              const Icon = agent.icon;
+            {(Object.keys(OTIS_CAPABILITIES) as OtisCapability[]).map((cap) => {
+              const meta = OTIS_CAPABILITIES[cap];
+              const isOn = otisSettings[cap];
               return (
                 <button
-                  key={agent.id}
+                  key={cap}
                   type="button"
-                  onClick={() =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      agents: { ...DEFAULT_AGENT_TOGGLES, ...prev.agents, [agent.id]: !isOn },
-                    }))
-                  }
+                  onClick={() => setOtisSettings({ ...otisSettings, [cap]: !isOn })}
                   className="flex items-center gap-3 p-3 rounded-xl transition-all text-left"
                   style={{
                     border: isOn
-                      ? `2px solid ${agent.color}30`
+                      ? "2px solid rgba(30,118,182,0.25)"
                       : "1px solid rgba(100,116,139,0.12)",
-                    background: isOn ? agent.bg : "rgba(100,116,139,0.03)",
+                    background: isOn ? "rgba(30,118,182,0.05)" : "rgba(100,116,139,0.03)",
                   }}
                 >
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
-                    style={{
-                      background: isOn ? agent.color : "#cbd5e1",
-                    }}
+                    style={{ background: isOn ? "#1E76B6" : "#cbd5e1" }}
                   >
-                    <Icon className="w-4 h-4 text-white" />
+                    <OtisFace size={22} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span
                         className="text-xs font-black tracking-wide"
-                        style={{ color: isOn ? agent.color : "#94a3b8", fontFamily: "'DM Mono', monospace" }}
+                        style={{ color: isOn ? "#1E76B6" : "#94a3b8" }}
                       >
-                        {agent.codename}
+                        {meta.label}
                       </span>
                       {isOn && (
-                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: agent.color }} />
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#1E76B6" }} />
                       )}
                     </div>
-                    <p className="text-[10px] text-gray-400 truncate">{agent.role}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{meta.description}</p>
                   </div>
-                  {/* Mini toggle */}
                   <div
                     className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
-                    style={{ background: isOn ? agent.color : "#cbd5e1" }}
+                    style={{ background: isOn ? "#1E76B6" : "#cbd5e1" }}
                   >
                     <span
                       className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
@@ -400,7 +391,7 @@ export default function AjustesTab() {
             Presupuesto mensual
           </p>
           <p className="text-xs text-gray-400 mb-4">
-            Limite mensual de gasto en llantas y reencauches. NEXUS te avisara cuando te acerques al limite. Si no lo defines, se usara el del mes anterior.
+            Limite mensual de gasto en llantas y reencauches. Otis te avisara cuando te acerques al limite. Si no lo defines, se usara el del mes anterior.
           </p>
           <input
             type="number"

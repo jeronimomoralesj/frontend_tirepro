@@ -15,8 +15,6 @@ import {
   Truck,
   Target,
 } from "lucide-react";
-import { AGENTS } from "../../../../lib/agents";
-import AgentCardHeader from "../../../../components/AgentCardHeader";
 
 // =============================================================================
 // API
@@ -343,13 +341,11 @@ export default function NikitaTab() {
   // Render
   // =========================================================================
 
-  const agent = AGENTS.nikita;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-32 text-[#8b5cf6]">
         <Loader2 className="w-6 h-6 animate-spin" />
-        <span className="text-sm font-medium">NIKITA analizando predicciones...</span>
+        <span className="text-sm font-medium">Otis analizando predicciones...</span>
       </div>
     );
   }
@@ -359,7 +355,7 @@ export default function NikitaTab() {
       <div className="text-center py-20 text-gray-400">
         <Dog className="w-10 h-10 mx-auto mb-3 opacity-40" />
         <p className="text-sm font-medium">Sin datos de inspeccion para generar predicciones.</p>
-        <p className="text-xs mt-1">Registra inspecciones para activar a NIKITA.</p>
+        <p className="text-xs mt-1">Registra inspecciones para activar el análisis predictivo de Otis.</p>
       </div>
     );
   }
@@ -375,26 +371,25 @@ export default function NikitaTab() {
         }}
       >
         <div className="flex items-center gap-3">
-          <AgentCardHeader agent="nikita" insight={nikitaInsight} />
           <div>
             <h2 className="text-white font-black text-base tracking-tight">
               Predicciones de Flota
             </h2>
             <p className="text-white/50 text-[10px] uppercase tracking-wider font-bold">
-              {agent.status} &middot; {tires.length} llantas activas
+              Análisis predictivo &middot; {tires.length} llantas activas
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span
             className="w-2 h-2 rounded-full animate-pulse"
-            style={{ background: agent.color }}
+            style={{ background: "#1E76B6" }}
           />
           <span
             className="text-[9px] font-black uppercase tracking-widest"
-            style={{ color: agent.color }}
+            style={{ color: "#1E76B6" }}
           >
-            {agent.codename}
+            Otis
           </span>
         </div>
       </div>
@@ -683,7 +678,7 @@ export default function NikitaTab() {
         style={{ background: "rgba(139,92,246,0.04)", border: "1px solid rgba(139,92,246,0.1)" }}
       >
         <p className="text-[10px] text-gray-400">
-          <span className="font-bold" style={{ color: agent.color }}>NIKITA</span>
+          <span className="font-bold" style={{ color: "#1E76B6" }}>Otis</span>
           {" "}analizo {tires.length} llantas en {Object.keys(grouped).length} vehiculos &middot;
           Retiro optimo: {OPTIMAL_RETIREMENT_MM}mm para preservar cascos
         </p>

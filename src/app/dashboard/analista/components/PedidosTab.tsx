@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { AGENTS } from "../../../../lib/agents";
-import AgentCardHeader from "../../../../components/AgentCardHeader";
+// Otis took over the role of the per-card agents — see <OtisFloatingButton>
+// in /dashboard/analista/page.tsx for the page-level analysis.
 import {
   Loader2, Check, X, Send, Package, ChevronDown,
   ChevronRight, AlertTriangle, Truck, RotateCcw,
@@ -289,24 +289,9 @@ function AgentView({ orders, budget, tires }: { orders: PurchaseOrder[]; budget:
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="bg-[#173D68] text-white p-5">
           <div className="flex items-center gap-2.5 mb-1">
-            <AgentCardHeader agent="nexus" insight={(() => {
-              const lines: string[] = [];
-              if (thisMonth.length > 0) {
-                lines.push(`He procesado ${thisMonth.length} solicitud${thisMonth.length > 1 ? "es" : ""} este mes por un total de ${fmtCOP(spent)}.`);
-                if (budget > 0) {
-                  const pctUsed = Math.round((spent / budget) * 100);
-                  lines.push(pctUsed > 80
-                    ? `Ya usaste el ${pctUsed}% de tu presupuesto mensual. Considera pausar pedidos no urgentes o aumentar el limite.`
-                    : `Llevas ${pctUsed}% del presupuesto. Tienes margen para cubrir pedidos urgentes.`);
-                }
-              } else {
-                lines.push("No hay solicitudes este mes. Cuando una llanta necesite cambio, generare automaticamente la propuesta y la enviare a tu distribuidor.");
-              }
-              return lines.join("\n\n");
-            })()} />
             <div>
-              <h2 className="text-lg font-bold">{AGENTS.nexus.codename}</h2>
-              <p className="text-[10px] uppercase tracking-wider text-white/40">{AGENTS.nexus.role}</p>
+              <h2 className="text-lg font-bold">Pedidos del mes</h2>
+              <p className="text-[10px] uppercase tracking-wider text-white/40">Ordenes generadas y enviadas a tus distribuidores</p>
             </div>
           </div>
           <p className="text-sm text-white/60 mt-1">Ha procesado {thisMonth.length} solicitudes este mes</p>
@@ -634,29 +619,13 @@ function ManualView({
   }, [tires]);
   const budgetPct = budget > 0 ? Math.min((monthSpent / budget) * 100, 100) : 0;
 
-  const nexusInsight = (() => {
-    const totalRecs = recs.length;
-    const critical = recs.filter((r) => r.urgency === "critical").length;
-    const reenc = recs.filter((r) => r.type === "reencauche").length;
-    const nueva = recs.filter((r) => r.type === "nueva").length;
-    const totalEst = recs.reduce((s, r) => s + (r.catalogMatch?.precioCop ?? r.estimatedPrice), 0);
-    const lines: string[] = [];
-    if (totalRecs === 0) { lines.push("Tu flota no tiene llantas que necesiten reemplazo o reencauche. Todo en orden."); return lines.join("\n\n"); }
-    lines.push(`Analice ${totalRecs} llantas que requieren atencion: ${reenc} para reencauche y ${nueva} para compra nueva.`);
-    if (critical > 0) lines.push(`${critical} son criticas — cada dia adicional en servicio deteriora el casco y puede hacerlo irreencauchable.`);
-    if (reenc > nueva && reenc > 0) lines.push(`El ${Math.round((reenc / totalRecs) * 100)}% son reencauches. Buen signo — estas aprovechando la vida util de tus cascos.`);
-    if (totalEst > 0) lines.push(`Inversion total estimada: ${fmtCOP(totalEst)}.${budget > 0 ? ` ${budgetPct > 80 ? " Cuidado: ya estas cerca del limite presupuestario." : " Dentro del presupuesto."}` : ""}`);
-    return lines.join("\n\n");
-  })();
-
   return (
     <div className="space-y-5">
-      {/* NEXUS header + budget */}
+      {/* Recommendations header + budget */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
         <div className="bg-[#173D68] text-white p-4 rounded-t-xl flex items-center gap-3">
-          <AgentCardHeader agent="nexus" insight={nexusInsight} />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold leading-tight">Recomendaciones de {AGENTS.nexus.codename}</p>
+            <p className="text-sm font-bold leading-tight">Recomendaciones de compra</p>
             <p className="text-[10px] text-white/50">{recs.length} llantas analizadas · {orders.length} ordenes este mes</p>
           </div>
         </div>

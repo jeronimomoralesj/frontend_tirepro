@@ -12,37 +12,19 @@ import {
   Truck,
   User,
 } from "lucide-react";
-import { AGENTS } from "../../../../lib/agents";
-import type { AgentId } from "../../../../lib/agents";
-import AgentCardHeader from "../../../../components/AgentCardHeader";
+import { OtisFace } from "../../../../components/Otis";
 
-// Map notification actionType to the agent that generated it
-function resolveAgent(actionType: string | null): AgentId | null {
-  if (!actionType) return null;
-  const map: Record<string, AgentId> = {
-    remove_from_service: "sentinel",
-    retread: "nikita",
-    inspect: "sentinel",
-    rotate: "sentinel",
-    replace: "nikita",
-    buy_brand: "nexus",
-    pressure_adjust: "sentinel",
-  };
-  return map[actionType] ?? "sentinel";
-}
-
-function AgentBadge({ actionType }: { actionType: string | null }) {
-  const agentId = resolveAgent(actionType);
-  if (!agentId) return null;
-  const agent = AGENTS[agentId];
-  const Icon = agent.icon;
+// Replaces the previous per-agent badges. All notifications are now
+// branded as Otis recommendations regardless of which capability triggered
+// them — keeps the UI consistent with the floating Otis on the page.
+function AgentBadge(_: { actionType: string | null }) {
   return (
     <span
       className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md flex-shrink-0"
-      style={{ background: agent.bg, color: agent.color, border: `1px solid ${agent.color}20` }}
+      style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.18)" }}
     >
-      <Icon className="w-2.5 h-2.5" />
-      {agent.codename}
+      <OtisFace size={10} />
+      Otis
     </span>
   );
 }
@@ -427,13 +409,13 @@ function NotificationCard({
         <div className="mt-2 flex flex-wrap gap-1.5">
           {n.driverConfirmed && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(6,182,212,0.08)", color: "#06b6d4" }}>
-              <AGENTS.guardian.icon className="w-3 h-3" />
+              <span className="inline-block w-2 h-2 rounded-full" style={{background:"#1E76B6"}} />
               GUARDIAN: Confirmado por conductor {n.driverConfirmedAt && `- ${fmtDate(n.driverConfirmedAt)}`}
             </span>
           )}
           {n.sentToDriver && !n.driverConfirmed && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(6,182,212,0.08)", color: "#06b6d4" }}>
-              <AGENTS.guardian.icon className="w-3 h-3" />
+              <span className="inline-block w-2 h-2 rounded-full" style={{background:"#1E76B6"}} />
               GUARDIAN: Enviado via WhatsApp {n.sentToDriverAt && `- ${fmtDate(n.sentToDriverAt)}`}
             </span>
           )}
@@ -647,34 +629,14 @@ export default function NotificacionesTab() {
   const confirmedCount = notifications.filter((n) => n.driverConfirmed).length;
   const pendingDriverCount = sentCount - confirmedCount;
 
-  const guardianInsight = (() => {
-    const lines: string[] = [];
-    if (sentCount === 0 && pending.length > 0) {
-      const withDrivers = groups.filter((g) => g.drivers.length > 0).length;
-      if (withDrivers > 0) {
-        lines.push(`Hay ${pending.length} alerta${pending.length > 1 ? "s" : ""} pendiente${pending.length > 1 ? "s" : ""} y ${withDrivers} vehiculo${withDrivers > 1 ? "s" : ""} con conductores asignados. Puedes enviar las alertas directamente por WhatsApp al conductor de cada vehiculo.`);
-      } else {
-        lines.push("No hay conductores asignados a los vehiculos con alertas. Asigna conductores en la seccion de Vehiculos para que pueda enviar alertas por WhatsApp.");
-      }
-    } else if (sentCount > 0) {
-      lines.push(`He enviado ${sentCount} alerta${sentCount > 1 ? "s" : ""} a conductores por WhatsApp.`);
-      if (confirmedCount > 0) lines.push(`${confirmedCount} conductor${confirmedCount > 1 ? "es" : ""} ya confirmo la accion.`);
-      if (pendingDriverCount > 0) lines.push(`${pendingDriverCount} alerta${pendingDriverCount > 1 ? "s" : ""} enviada${pendingDriverCount > 1 ? "s" : ""} sin confirmar — puedo reenviar hasta 3 veces por alerta.`);
-    }
-    if (counts.critical > 0) {
-      lines.push(`${counts.critical} alerta${counts.critical > 1 ? "s" : ""} critica${counts.critical > 1 ? "s" : ""} requiere${counts.critical > 1 ? "n" : ""} accion inmediata.`);
-    }
-    return lines.join("\n\n");
-  })();
-
   return (
     <div className="space-y-5">
       {/* GUARDIAN header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
         <div className="bg-[#173D68] text-white p-4 rounded-t-xl flex items-center gap-3">
-          <AgentCardHeader agent="guardian" insight={guardianInsight} />
+          
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold leading-tight">Alertas de {AGENTS.guardian.codename}</p>
+            <p className="text-sm font-bold leading-tight">Alertas de Otis</p>
             <p className="text-[10px] text-white/50">{pending.length} pendientes · {sentCount} enviadas a conductores · {confirmedCount} confirmadas</p>
           </div>
         </div>

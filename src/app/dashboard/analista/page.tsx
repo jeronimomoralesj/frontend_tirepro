@@ -5,8 +5,32 @@ import { ShoppingCart, Bell, Settings, BarChart3, Calendar, Trash2, Loader2 } fr
 import PedidosTab from "./components/PedidosTab";
 import NotificacionesTab from "./components/NotificacionesTab";
 import AjustesTab from "./components/AjustesTab";
+import { OtisFloatingButton } from "../../../components/Otis";
 
 const DesechosPage = lazy(() => import("../desechos/page"));
+
+const OTIS_INSIGHT_BY_TAB: Record<string, { capability: any; title: string; insight: string }> = {
+  pedidos: {
+    capability: "orders",
+    title: "Pedidos y compras",
+    insight: "Esta vista cruza tus necesidades de reemplazo con el catálogo de distribuidores. Si ves muchas alertas, prioriza primero las posiciones críticas (≤3 mm de profundidad mínima), luego agrupa los reemplazos por marca/dimensión para negociar mejores precios. Las propuestas con CPK proyectado más bajo suelen ser la mejor inversión.",
+  },
+  notificaciones: {
+    capability: "drivers",
+    title: "Alertas y notificaciones",
+    insight: "Aquí ves las alertas que requieren acción inmediata. Las críticas (rojas) son posiciones con riesgo de falla — actúa hoy. Las amarillas son advertencias que puedes resolver en tu próximo mantenimiento programado. Confirma cada acción para mantener la trazabilidad.",
+  },
+  desechos: {
+    capability: "waste",
+    title: "Desechos y dinero perdido",
+    insight: "El dinero perdido por mes te dice cuánto valor estás dejando en llantas que podrían haber rendido más. Si el promedio sube, revisa si los inspectores están retirando llantas demasiado pronto. Apunta a un retiro cerca de los 3 mm para maximizar el aprovechamiento del casco.",
+  },
+  ajustes: {
+    capability: undefined,
+    title: "Configuración de Otis",
+    insight: "Desde aquí decides qué capacidades de Otis están activas para tu cuenta. Cada capacidad agrega análisis automáticos en distintas pantallas — desactiva las que no quieras ver.",
+  },
+};
 
 const TABS = [
   { key: "pedidos",         label: "Pedidos",         icon: ShoppingCart },
@@ -86,6 +110,14 @@ export default function AnalistaPage() {
         )}
         {active === "ajustes" && <AjustesTab />}
       </div>
+
+      {/* Floating Otis — analyzes whichever tab is active */}
+      <OtisFloatingButton
+        pageKey={`analista.${active}`}
+        capability={OTIS_INSIGHT_BY_TAB[active].capability}
+        title={OTIS_INSIGHT_BY_TAB[active].title}
+        insight={OTIS_INSIGHT_BY_TAB[active].insight}
+      />
     </div>
   );
 }

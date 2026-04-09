@@ -24,15 +24,187 @@ import { X, Sparkles } from "lucide-react";
 // Otis avatar — drop a square ottis.png into /public to use a custom face.
 const OTIS_AVATAR = "/ottis.png";
 
-function OtisFace({ className = "", size = 28 }: { className?: string; size?: number }) {
+export function OtisFace({ className = "", size = 28 }: { className?: string; size?: number }) {
   return (
-    <img
-      src={OTIS_AVATAR}
-      alt="Otis"
-      className={`object-cover ${className}`}
-      style={{ width: size, height: size, borderRadius: "9999px" }}
-      draggable={false}
+    <span
+      role="img"
+      aria-label="Otis"
+      className={`inline-block ${className}`}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "9999px",
+        backgroundImage: `url(${OTIS_AVATAR})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        flexShrink: 0,
+      }}
     />
+  );
+}
+
+// =============================================================================
+// OtisFloatingButton — fixed bottom-right Otis that analyzes the whole page
+// =============================================================================
+
+interface OtisFloatingButtonProps {
+  pageKey: string;
+  capability?: OtisCapability;
+  insight?: string | null;
+  title?: string;
+}
+
+export function OtisFloatingButton({ pageKey, capability, insight, title }: OtisFloatingButtonProps) {
+  const { settings } = useOtisSettings();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const popRef = useRef<HTMLDivElement | null>(null);
+
+  const enabled = !capability || settings[capability];
+
+  // Typewriter
+  useEffect(() => {
+    if (!open) { setTyped(""); return; }
+    const text = insight ?? "Otis aún no tiene un análisis para esta vista. Vuelve cuando haya más datos.";
+    setTyped("");
+    let i = 0;
+    const id = setInterval(() => {
+      i += 2;
+      setTyped(text.slice(0, i));
+      if (i >= text.length) clearInterval(id);
+    }, 14);
+    return () => clearInterval(id);
+  }, [open, insight]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onClick(e: MouseEvent) {
+      if (popRef.current && !popRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  if (!enabled) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((s) => !s)}
+        title="Pregúntale a Otis sobre esta página"
+        data-otis-page={pageKey}
+        className="fixed bottom-6 right-6 z-[9990] flex items-center justify-center w-16 h-16 rounded-full transition-all hover:scale-110 active:scale-95"
+        style={{
+          background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`,
+          boxShadow: open
+            ? `0 0 0 5px ${OTIS.glow}, 0 18px 40px rgba(10,24,58,0.4)`
+            : "0 14px 32px rgba(10,24,58,0.35)",
+          border: "3px solid white",
+          padding: 0,
+          overflow: "hidden",
+        }}
+      >
+        <OtisFace size={56} />
+        <span
+          className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full animate-pulse"
+          style={{ background: "#fbbf24", boxShadow: "0 0 10px rgba(251,191,36,0.9)" }}
+        />
+      </button>
+
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          ref={popRef}
+          className="fixed bottom-28 right-6 z-[9999] rounded-3xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
+          style={{
+            width: 340,
+            background: "white",
+            boxShadow: "0 32px 80px -16px rgba(10,24,58,0.5), 0 0 0 1px rgba(30,118,182,0.14)",
+          }}
+        >
+          {/* Header */}
+          <div className="relative" style={{ background: `linear-gradient(135deg, ${OTIS.color} 0%, #173D68 50%, #0A183A 100%)` }}>
+            <div
+              className="absolute inset-0 opacity-25"
+              aria-hidden
+              style={{ backgroundImage: "radial-gradient(circle at 20% 0%, rgba(255,255,255,0.4), transparent 50%)" }}
+            />
+            <div className="relative px-5 pt-5 pb-12">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-0.5">Hola, soy</p>
+                  <p className="text-xl font-black text-white tracking-tight leading-none">{OTIS.name}</p>
+                  <p className="text-[11px] text-white/70 mt-1">{title ?? OTIS.tagline}</p>
+                </div>
+                <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/15 transition-colors flex-shrink-0">
+                  <X className="w-4 h-4 text-white/80" />
+                </button>
+              </div>
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 -bottom-7">
+              <div
+                className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center"
+                style={{
+                  background: `linear-gradient(135deg, ${OTIS.color}, #0A183A)`,
+                  border: "3px solid white",
+                  boxShadow: "0 12px 28px rgba(10,24,58,0.35)",
+                }}
+              >
+                <OtisFace size={50} />
+              </div>
+              <span
+                className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full animate-pulse"
+                style={{ background: "#fbbf24", boxShadow: "0 0 8px rgba(251,191,36,0.9)" }}
+              />
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="px-5 pt-10 pb-4 max-h-[26rem] overflow-y-auto">
+            <div className="flex items-center justify-center gap-1.5 mb-3">
+              <Sparkles className="w-3 h-3" style={{ color: OTIS.color }} />
+              <span className="text-[9px] font-black text-[#1E76B6] uppercase tracking-widest">
+                Análisis de la página
+              </span>
+            </div>
+            <div
+              className="rounded-2xl px-4 py-3.5 relative"
+              style={{
+                background: "linear-gradient(135deg, rgba(30,118,182,0.06), rgba(52,140,203,0.04))",
+                border: "1px solid rgba(30,118,182,0.14)",
+              }}
+            >
+              <p className="text-[13px] text-[#0A183A] leading-relaxed whitespace-pre-line min-h-[4rem]">
+                {typed || (insight === null || insight === undefined ? "Otis aún no tiene un análisis para esta vista." : "")}
+                {insight && typed.length < insight.length && (
+                  <span
+                    className="inline-block w-[3px] h-3.5 ml-0.5 align-middle animate-pulse"
+                    style={{ background: OTIS.color }}
+                  />
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div
+            className="px-5 py-2.5 flex items-center justify-between gap-2"
+            style={{ background: "rgba(30,118,182,0.04)", borderTop: "1px solid rgba(30,118,182,0.1)" }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: OTIS.color }} />
+              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: OTIS.color }}>
+                Otis · TirePro AI
+              </span>
+            </div>
+            <span className="text-[9px] text-gray-400">Powered by TirePro</span>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
 
@@ -206,11 +378,12 @@ export function OtisBadge({
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const goUp = (inBottomHalf && spaceAbove >= 200) || (spaceBelow < popH && spaceAbove > spaceBelow);
+    // position: fixed → use VIEWPORT coords, do NOT add scrollY/scrollX.
     setPos({
       top: goUp
-        ? Math.max(window.scrollY + 8, rect.top + window.scrollY - popH - 12)
-        : rect.bottom + window.scrollY + 12,
-      left: Math.max(8, Math.min(rect.right + window.scrollX - popW + 22, window.innerWidth - popW - 8)),
+        ? Math.max(8, rect.top - popH - 12)
+        : Math.min(window.innerHeight - popH - 8, rect.bottom + 12),
+      left: Math.max(8, Math.min(rect.right - popW + 22, window.innerWidth - popW - 8)),
     });
   }, []);
 
