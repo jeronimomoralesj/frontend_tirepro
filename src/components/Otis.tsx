@@ -22,7 +22,7 @@ import { createPortal } from "react-dom";
 import { X, Sparkles } from "lucide-react";
 
 // Otis avatar — drop a square ottis.png into /public to use a custom face.
-const OTIS_AVATAR = "/ottis.png";
+const OTIS_AVATAR = "/otis-avatar.webp";
 
 export function OtisFace({ className = "", size = 28 }: { className?: string; size?: number }) {
   return (
