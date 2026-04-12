@@ -8,7 +8,9 @@ import React, {
   FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Truck, Edit, Trash2, Link2, X, ChevronDown, Unlink, User, Phone, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Link2, X, ChevronDown, Unlink, User, Phone, Loader2, Calendar, Truck } from "lucide-react";
+import FilterFab from "../components/FilterFab";
+import type { FilterOption } from "../components/FilterFab";
 
 // =============================================================================
 // Constants
@@ -350,20 +352,7 @@ function VehicleForm({
 }
 
 // =============================================================================
-// Stat pill
-// =============================================================================
-
-function StatPill({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="flex flex-col">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-[#348CCB]/70">{label}</span>
-      <span className="text-sm font-semibold text-[#0A183A] mt-0.5 truncate">{value}</span>
-    </div>
-  );
-}
-
-// =============================================================================
-// Vehicle card
+// Vehicle card — simplified
 // =============================================================================
 
 type CardProps = {
@@ -397,9 +386,7 @@ function VehicleCard({
   const drivers = vehicle.drivers ?? [];
 
   return (
-    <div
-      className="relative flex-shrink-0 flex flex-col w-full sm:w-[300px]"
-    >
+    <div className="relative flex-shrink-0 flex flex-col w-full">
       {/* Connector bar */}
       {connectionIndex > 0 && (
         <button
@@ -416,124 +403,71 @@ function VehicleCard({
         </button>
       )}
 
-      <div
-        className="rounded-2xl overflow-hidden flex flex-col h-full"
-        style={{
-          background: "white",
-          border: "1px solid rgba(52,140,203,0.18)",
-          boxShadow: "0 4px 24px rgba(10,24,58,0.06), 0 1px 4px rgba(30,118,182,0.08)",
-        }}
-      >
-        {/* Card header */}
-        <div
-          className="px-5 py-4 flex items-start justify-between"
-          style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}
-        >
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+        {/* Header */}
+        <div className="bg-[#173D68] px-4 py-3 flex items-center justify-between">
           <div>
-            <p
-              className="font-black tracking-widest text-white"
-              style={{ fontSize: "22px", letterSpacing: "0.12em", fontFamily: "'DM Mono', monospace" }}
-            >
+            <p className="font-black tracking-widest text-white text-lg">
               {vehicle.placa.toUpperCase()}
             </p>
-            <p className="text-[#348CCB] text-xs font-medium mt-0.5">{labelFor(vehicle.tipovhc)}</p>
-            {/* Driver avatars */}
+            <p className="text-[#348CCB] text-xs font-medium">{labelFor(vehicle.tipovhc)}</p>
+          </div>
+          <div className="flex items-center gap-2">
             {drivers.length > 0 && (
-              <div className="flex items-center gap-1 mt-1.5">
-                {drivers.map((d, i) => (
+              <div className="flex -space-x-1.5">
+                {drivers.slice(0, 3).map((d, i) => (
                   <div
                     key={i}
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black text-white flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
-                    title={`${d.nombre}${d.isPrimary ? " (principal)" : ""}`}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black text-white border-2 border-[#173D68]"
+                    style={{ background: d.isPrimary ? "#1E76B6" : "#64748b" }}
+                    title={d.nombre}
                   >
                     {d.nombre.charAt(0).toUpperCase()}
                   </div>
                 ))}
               </div>
             )}
-          </div>
-          {/* Tire count badge */}
-          <div
-            className="flex flex-col items-center justify-center rounded-xl px-3 py-2"
-            style={{ background: "rgba(52,140,203,0.2)", minWidth: "52px" }}
-          >
-            <span className="text-2xl font-black text-white leading-none">{tc}</span>
-            <span className="text-[9px] text-[#348CCB] uppercase tracking-wider mt-0.5">llantas</span>
+            <div className="bg-white/10 rounded-lg px-2.5 py-1 text-center">
+              <span className="text-lg font-black text-white leading-none">{tc}</span>
+              <span className="text-[8px] text-[#348CCB] block">llantas</span>
+            </div>
           </div>
         </div>
 
-        {/* Stats grid */}
-        <div className="px-5 py-4 grid grid-cols-2 gap-x-4 gap-y-2.5" style={{ background: "#F8FBFF" }}>
-          <StatPill label="Kilometraje" value={`${(vehicle.kilometrajeActual ?? 0).toLocaleString()} km`} />
-          <StatPill label="Peso carga" value={`${vehicle.pesoCarga ?? 0} kg`} />
-          <StatPill label="Tipo carga" value={vehicle.carga || "N/A"} />
-          <StatPill label="Cliente" value={vehicle.cliente ?? "Propio"} />
-          {vehicle.configuracion && (
-            <StatPill label="Config." value={vehicle.configuracion} />
-          )}
-          {vehicle.union.length > 0 && (
-            <div className="col-span-2">
-              <StatPill label="Conectado con" value={vehicle.union.map(p => p.toUpperCase()).join(", ")} />
+        {/* Info rows */}
+        <div className="px-4 py-3 space-y-2 flex-1">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            <div>
+              <span className="text-gray-400 text-[10px]">Km</span>
+              <p className="font-semibold text-[#0A183A]">{(vehicle.kilometrajeActual ?? 0).toLocaleString()}</p>
             </div>
-          )}
-        </div>
-
-        {/* Terreno bar */}
-        {vehicle.tipoOperacion && (() => {
-          const parts = vehicle.tipoOperacion!.split("-");
-          const pav = Number(parts[0]) || 0;
-          const dest = 100 - pav;
-          return (
-            <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(52,140,203,0.08)", background: "#F8FBFF" }}>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#348CCB]/70">Terreno</span>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[10px] font-bold text-[#1E76B6] w-8 text-right">{pav}%</span>
-                <div className="flex-1 h-3 rounded-full overflow-hidden bg-[#e8d5b0]/40">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${pav}%`,
-                      background: "linear-gradient(90deg, #1E76B6, #348CCB)",
-                    }}
-                  />
-                </div>
-                <span className="text-[10px] font-bold text-[#a0845e] w-8">{dest}%</span>
+            <div>
+              <span className="text-gray-400 text-[10px]">Carga</span>
+              <p className="font-semibold text-[#0A183A] truncate">{vehicle.carga || "N/A"}</p>
+            </div>
+            <div>
+              <span className="text-gray-400 text-[10px]">Peso</span>
+              <p className="font-semibold text-[#0A183A]">{vehicle.pesoCarga ?? 0} kg</p>
+            </div>
+            <div>
+              <span className="text-gray-400 text-[10px]">Cliente</span>
+              <p className="font-semibold text-[#0A183A] truncate">{vehicle.cliente ?? "Propio"}</p>
+            </div>
+            {vehicle.configuracion && (
+              <div className="col-span-2">
+                <span className="text-gray-400 text-[10px]">Config. ejes</span>
+                <p className="font-semibold text-[#0A183A]">{vehicle.configuracion}</p>
               </div>
-              <div className="flex justify-between mt-1">
-                <span className="text-[9px] text-[#1E76B6] font-medium">Pavimento</span>
-                <span className="text-[9px] text-[#a0845e] font-medium">Destapado</span>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Drivers section */}
-        <div className="px-5 py-3" style={{ borderTop: "1px solid rgba(52,140,203,0.08)", background: "white" }}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5">
-              <User className="w-3 h-3 text-[#348CCB]/70" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#348CCB]/70">
-                Conductores
-              </span>
-            </div>
+            )}
           </div>
-          {drivers.length > 0 ? (
-            <div className="space-y-1.5 mb-2">
+
+          {/* Drivers */}
+          {drivers.length > 0 && (
+            <div className="pt-2 border-t border-gray-50 space-y-1">
               {drivers.map((d, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs">
-                  <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black text-white flex-shrink-0"
-                    style={{ background: d.isPrimary ? "linear-gradient(135deg, #1E76B6, #348CCB)" : "linear-gradient(135deg, #64748b, #94a3b8)" }}
-                  >
-                    {d.nombre.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-semibold text-[#0A183A] truncate text-xs leading-tight">{d.nombre}</span>
-                    <span className="text-[#348CCB]/60 text-[10px] leading-tight flex items-center gap-0.5">
-                      <Phone className="w-2.5 h-2.5" />{d.telefono}
-                    </span>
-                  </div>
+                  <User className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                  <span className="text-[#0A183A] truncate">{d.nombre}</span>
                   {d.isPrimary && (
                     <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6] flex-shrink-0">
                       Principal
@@ -542,79 +476,59 @@ function VehicleCard({
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-[10px] text-[#348CCB]/40 italic mb-2">Sin conductores asignados</p>
           )}
-          <button
-            onClick={onEditDrivers}
-            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
-            style={{
-              background: drivers.length > 0 ? "rgba(30,118,182,0.06)" : "rgba(30,118,182,0.1)",
-              color: "#1E76B6",
-              border: "1px dashed rgba(30,118,182,0.3)",
-            }}
-          >
-            {drivers.length > 0 ? (
-              <><Edit className="w-3 h-3" /> Editar conductores</>
-            ) : (
-              <><Plus className="w-3 h-3" /> Agregar conductores</>
-            )}
-          </button>
+
+          {vehicle.union.length > 0 && (
+            <div className="pt-2 border-t border-gray-50">
+              <span className="text-gray-400 text-[10px]">Conectado con</span>
+              <p className="text-xs font-semibold text-[#1E76B6]">{vehicle.union.map(p => p.toUpperCase()).join(", ")}</p>
+            </div>
+          )}
         </div>
 
-        {/* Action buttons */}
-        <div
-          className="px-4 pb-4 pt-3 flex gap-2 mt-auto"
-          style={{ borderTop: "1px solid rgba(52,140,203,0.12)", background: "white" }}
-        >
+        {/* Actions */}
+        <div className="px-3 pb-3 pt-1 flex gap-1.5 mt-auto border-t border-gray-50">
           <button
             onClick={onEdit}
-            className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl transition-all hover:opacity-80"
-            style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
+            className="flex-1 flex items-center justify-center gap-1 text-[11px] font-medium py-1.5 rounded-lg text-[#1E76B6] hover:bg-[#1E76B6]/5 transition-colors"
           >
             <Edit className="w-3 h-3" /> Editar
           </button>
           <button
-            onClick={onToggleUnion}
-            className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-xl transition-all hover:opacity-80"
-            style={{
-              background: showUnion
-                ? "rgba(30,118,182,0.18)"
-                : "rgba(52,140,203,0.08)",
-              color: "#1E76B6",
-              border: showUnion ? "1px solid rgba(30,118,182,0.3)" : "1px solid transparent",
-            }}
+            onClick={onEditDrivers}
+            className="flex-1 flex items-center justify-center gap-1 text-[11px] font-medium py-1.5 rounded-lg text-[#1E76B6] hover:bg-[#1E76B6]/5 transition-colors"
           >
-            <Link2 className="w-3 h-3" /> Unir
+            <User className="w-3 h-3" /> Conductores
+          </button>
+          <button
+            onClick={onToggleUnion}
+            className={`flex items-center justify-center gap-1 text-[11px] font-medium py-1.5 px-2 rounded-lg transition-colors ${showUnion ? "bg-[#1E76B6]/10 text-[#1E76B6]" : "text-[#1E76B6] hover:bg-[#1E76B6]/5"}`}
+          >
+            <Link2 className="w-3 h-3" />
           </button>
           <button
             onClick={onDelete}
-            className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
-            style={{ background: "rgba(10,24,58,0.06)", color: "#173D68" }}
+            className="flex items-center justify-center py-1.5 px-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-3 h-3" />
           </button>
         </div>
 
         {/* Union input */}
         {showUnion && (
-          <div
-            className="px-4 pb-4 flex gap-2"
-            style={{ background: "white", borderTop: "1px solid rgba(52,140,203,0.1)" }}
-          >
+          <div className="px-3 pb-3 flex gap-2 border-t border-gray-50 pt-2">
             <input
               type="text"
-              placeholder="Placa a unir (ej: XYZ789)"
+              placeholder="Placa a unir"
               value={plateInput}
               onChange={(e) => onPlateChange(e.target.value.toUpperCase())}
               onKeyDown={(e) => e.key === "Enter" && onAddUnion()}
-              className={`${inputCls} flex-1 text-xs`}
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs text-[#0A183A] bg-gray-50 focus:outline-none focus:border-[#1E76B6] transition-colors"
               style={{ textTransform: "uppercase" }}
             />
             <button
               onClick={onAddUnion}
-              className="px-3 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+              className="px-3 rounded-lg text-white text-sm font-bold bg-[#1E76B6] hover:opacity-90 transition-opacity"
             >
               +
             </button>
@@ -902,6 +816,12 @@ export default function VehiculoPage() {
   const [showUnionInput, setShowUnionInput] = useState<Record<string, boolean>>({});
   const [plateInputs, setPlateInputs]       = useState<Record<string, string>>({});
 
+  // Filters
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({
+    tipo: "Todos", config: "Todos",
+  });
+  const [filterSearch, setFilterSearch] = useState("");
+
   // ===========================================================================
   // Data
   // ===========================================================================
@@ -935,24 +855,66 @@ export default function VehiculoPage() {
   }, [router, fetchVehicles]);
 
   // ===========================================================================
-  // Grouping
+  // Filter options
+  // ===========================================================================
+
+  const filterOptions: FilterOption[] = useMemo(() => [
+    {
+      key: "tipo",
+      label: "Tipo",
+      options: ["Todos", ...Array.from(new Set(vehicles.map((v) => labelFor(v.tipovhc)))).sort()],
+    },
+    {
+      key: "config",
+      label: "Configuración",
+      options: ["Todos", ...Array.from(new Set(vehicles.filter(v => v.configuracion).map((v) => v.configuracion!))).sort()],
+    },
+  ], [vehicles]);
+
+  // ===========================================================================
+  // Filtered vehicles
+  // ===========================================================================
+
+  const filtered = useMemo(() => {
+    let result = [...vehicles];
+
+    if (filterValues.tipo && filterValues.tipo !== "Todos") {
+      result = result.filter((v) => labelFor(v.tipovhc) === filterValues.tipo);
+    }
+    if (filterValues.config && filterValues.config !== "Todos") {
+      result = result.filter((v) => v.configuracion === filterValues.config);
+    }
+    if (filterSearch.trim()) {
+      const q = filterSearch.trim().toLowerCase();
+      result = result.filter((v) =>
+        v.placa.toLowerCase().includes(q) ||
+        (v.cliente ?? "").toLowerCase().includes(q) ||
+        (v.carga ?? "").toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [vehicles, filterValues, filterSearch]);
+
+  // ===========================================================================
+  // Grouping (on filtered)
   // ===========================================================================
 
   const groups = useMemo(() => {
     const seen = new Set<string>();
     const result: Vehicle[][] = [];
-    vehicles.forEach((v) => {
+    filtered.forEach((v) => {
       if (seen.has(v.id)) return;
       const group: Vehicle[] = [v];
       seen.add(v.id);
       v.union.forEach((placa) => {
-        const peer = vehicles.find((x) => x.placa.toUpperCase() === placa.toUpperCase());
+        const peer = filtered.find((x) => x.placa.toUpperCase() === placa.toUpperCase());
         if (peer && !seen.has(peer.id)) { group.push(peer); seen.add(peer.id); }
       });
       result.push(group);
     });
     return result;
-  }, [vehicles]);
+  }, [filtered]);
 
   const connectedGroups = groups.filter((g) => g.length > 1);
   const singleVehicles  = groups.filter((g) => g.length === 1).map((g) => g[0]);
@@ -993,7 +955,6 @@ export default function VehiculoPage() {
 
   function openEdit(vehicle: Vehicle) {
     setVehicleToEdit(vehicle);
-    // Parse tipoOperacion "90-10" → pctPavimento = 90
     let pctPav = 90;
     if (vehicle.tipoOperacion) {
       const parts = vehicle.tipoOperacion.split("-");
@@ -1117,49 +1078,41 @@ export default function VehiculoPage() {
   // ===========================================================================
 
   return (
-    <div className="min-h-screen antialiased" style={{ background: "#f8fafc", color: "#0A183A" }}>
-
-      {/* Hero header */}
-      <div className="relative overflow-hidden px-4 sm:px-6 py-6 sm:py-8" style={{ background: "linear-gradient(135deg, #030d1f 0%, #0A183A 40%, #173D68 100%)" }}>
-        <div className="absolute inset-0 opacity-[0.04]" aria-hidden="true" style={{ backgroundImage: "linear-gradient(rgba(30,118,182,1) 1px, transparent 1px), linear-gradient(90deg, rgba(30,118,182,1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: "#1E76B6" }} aria-hidden="true" />
-        <div className="relative max-w-screen-2xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#22c55e" }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#348CCB" }}>Flota activa</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Mis Vehiculos</h1>
-            <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
-              {vehicles.length} vehiculo{vehicles.length !== 1 ? "s" : ""} registrado{vehicles.length !== 1 ? "s" : ""}
-              {vehicles.reduce((s, v) => s + tireCount(v), 0) > 0 && ` · ${vehicles.reduce((s, v) => s + tireCount(v), 0)} llantas`}
-            </p>
-          </div>
-          <button
-            onClick={() => { setCreateForm(BLANK_FORM); setCreateDrivers([]); setShowCreate(true); }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95"
-            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo Vehiculo
-          </button>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div
+        className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center justify-between gap-3"
+        style={{
+          background: "rgba(255,255,255,0.92)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(52,140,203,0.15)",
+        }}
+      >
+        <div>
+          <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
+            Mis Vehiculos
+          </h1>
+          <p className="text-xs text-[#348CCB] mt-0.5 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {vehicles.length} vehiculo{vehicles.length !== 1 ? "s" : ""}
+            {vehicles.reduce((s, v) => s + tireCount(v), 0) > 0 && ` · ${vehicles.reduce((s, v) => s + tireCount(v), 0)} llantas`}
+          </p>
         </div>
+        <button
+          onClick={() => { setCreateForm(BLANK_FORM); setCreateDrivers([]); setShowCreate(true); }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+        >
+          <Plus className="w-4 h-4" /> Nuevo
+        </button>
       </div>
 
-      <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-screen-2xl mx-auto">
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Error */}
         {error && (
-          <div
-            className="mb-6 px-4 py-3 rounded-xl flex items-center justify-between text-sm font-medium"
-            style={{
-              background: "rgba(10,24,58,0.06)",
-              border: "1px solid rgba(30,118,182,0.3)",
-              color: "#173D68",
-            }}
-          >
+          <div className="mb-6 px-4 py-3 rounded-xl flex items-center justify-between text-sm font-medium bg-red-50 border border-red-200 text-red-700">
             <span>{error}</span>
-            <button onClick={() => setError("")} className="hover:opacity-70 transition-opacity ml-4">
+            <button onClick={() => setError("")} className="hover:opacity-70 ml-4">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -1167,30 +1120,27 @@ export default function VehiculoPage() {
 
         {/* Loading */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <div
-              className="w-12 h-12 rounded-full border-4 border-[#348CCB]/20 border-t-[#1E76B6] animate-spin"
-            />
-            <p className="text-[#348CCB] text-sm font-medium">Cargando vehículos…</p>
+          <div className="flex items-center justify-center gap-2 py-32 text-[#1E76B6]">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span className="text-sm font-medium">Cargando vehiculos...</span>
           </div>
         ) : vehicles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <div
-              className="p-6 rounded-3xl"
-              style={{ background: "rgba(30,118,182,0.08)" }}
-            >
-              <Truck className="w-16 h-16 text-[#348CCB]/40" />
-            </div>
-            <p className="text-[#173D68] text-lg font-bold">Sin vehículos registrados</p>
-            <p className="text-[#348CCB] text-sm">Usa el botón de arriba para añadir tu primer vehículo</p>
+          <div className="flex flex-col items-center justify-center py-32 gap-3">
+            <Truck className="w-12 h-12 text-gray-300" />
+            <p className="text-gray-500 text-sm font-medium">Sin vehiculos registrados</p>
+            <p className="text-gray-400 text-xs">Usa el boton de arriba para añadir tu primer vehiculo</p>
           </div>
         ) : (
-          <div className="space-y-12">
-
+          <div className="space-y-8">
             {/* Connected groups */}
             {connectedGroups.length > 0 && (
               <section>
-                <SectionLabel icon="🔗">Vehículos Conectados</SectionLabel>
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#348CCB]">
+                    Vehiculos Conectados
+                  </h2>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
                 <div className="space-y-6">
                   {connectedGroups.map((group, gi) => (
                     <div
@@ -1221,27 +1171,49 @@ export default function VehiculoPage() {
             {/* Individual */}
             {singleVehicles.length > 0 && (
               <section>
-                <SectionLabel>Vehículos Individuales</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#348CCB]">
+                    Vehiculos{connectedGroups.length > 0 ? " Individuales" : ""}
+                  </h2>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {singleVehicles.map((v) => renderCard(v, 0, null))}
                 </div>
               </section>
             )}
 
+            {filtered.length === 0 && vehicles.length > 0 && (
+              <div className="text-center py-16 text-gray-400">
+                <p className="text-sm">Sin resultados para los filtros seleccionados</p>
+              </div>
+            )}
           </div>
         )}
       </div>
 
+      {/* Filter FAB */}
+      {!loading && vehicles.length > 0 && (
+        <FilterFab
+          filters={filterOptions}
+          values={filterValues}
+          onChange={(key, value) => setFilterValues((prev) => ({ ...prev, [key]: value }))}
+          search={filterSearch}
+          onSearchChange={setFilterSearch}
+          searchPlaceholder="Buscar por placa, cliente..."
+        />
+      )}
+
       {/* -- Modals -- */}
 
       {showCreate && (
-        <Modal title="Nuevo Vehículo" onClose={() => { setShowCreate(false); setCreateDrivers([]); }}>
+        <Modal title="Nuevo Vehiculo" onClose={() => { setShowCreate(false); setCreateDrivers([]); }}>
           <VehicleForm
             data={createForm}
             onChange={setCreateForm}
             onSubmit={handleCreate}
             onCancel={() => { setShowCreate(false); setCreateDrivers([]); }}
-            label="Crear Vehículo"
+            label="Crear Vehiculo"
           >
             <CreateDriversSection drivers={createDrivers} onChange={setCreateDrivers} />
           </VehicleForm>
@@ -1249,7 +1221,7 @@ export default function VehiculoPage() {
       )}
 
       {vehicleToEdit && (
-        <Modal title="Editar Vehículo" onClose={() => setVehicleToEdit(null)}>
+        <Modal title="Editar Vehiculo" onClose={() => setVehicleToEdit(null)}>
           <VehicleForm
             data={editForm}
             onChange={setEditForm}
@@ -1262,32 +1234,28 @@ export default function VehiculoPage() {
       )}
 
       {vehicleToDelete && (
-        <Modal title="Confirmar Eliminación" onClose={() => setVehicleToDelete(null)} danger>
+        <Modal title="Confirmar Eliminacion" onClose={() => setVehicleToDelete(null)} danger>
           <div className="p-6 space-y-5">
-            <div
-              className="rounded-xl p-4 text-sm"
-              style={{ background: "rgba(10,24,58,0.04)", border: "1px solid rgba(30,118,182,0.15)" }}
-            >
+            <div className="rounded-xl p-4 text-sm bg-gray-50 border border-gray-200">
               <p className="text-[#173D68]">
-                ¿Eliminar el vehículo{" "}
+                ¿Eliminar el vehiculo{" "}
                 <span className="font-black text-[#0A183A] tracking-widest">
                   {vehicleToDelete.placa.toUpperCase()}
                 </span>
                 ?
               </p>
-              <p className="text-[#348CCB] text-xs mt-1">Sus llantas quedarán sin asignar.</p>
+              <p className="text-gray-500 text-xs mt-1">Sus llantas quedarán sin asignar.</p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setVehicleToDelete(null)}
-                className="flex-1 border border-[#348CCB]/30 px-4 py-2.5 rounded-xl text-sm text-[#1E76B6] font-medium hover:bg-[#F0F7FF] transition-colors"
+                className="flex-1 border border-gray-300 px-4 py-2.5 rounded-xl text-sm text-gray-600 font-medium hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => handleDelete(vehicleToDelete.id)}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white font-semibold transition-all hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #173D68, #0A183A)" }}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white font-semibold transition-all hover:opacity-90 bg-red-500"
               >
                 Eliminar
               </button>
@@ -1314,14 +1282,11 @@ export default function VehiculoPage() {
       )}
 
       {unionToDelete && (
-        <Modal title="Eliminar Conexión" onClose={() => setUnionToDelete(null)}>
+        <Modal title="Eliminar Conexion" onClose={() => setUnionToDelete(null)}>
           <div className="p-6 space-y-5">
-            <div
-              className="rounded-xl p-4 text-sm"
-              style={{ background: "rgba(10,24,58,0.04)", border: "1px solid rgba(30,118,182,0.15)" }}
-            >
+            <div className="rounded-xl p-4 text-sm bg-gray-50 border border-gray-200">
               <p className="text-[#173D68]">
-                ¿Eliminar la conexión con{" "}
+                ¿Eliminar la conexion con{" "}
                 <span className="font-black text-[#0A183A] tracking-widest">
                   {unionToDelete.targetPlaca.toUpperCase()}
                 </span>
@@ -1331,7 +1296,7 @@ export default function VehiculoPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setUnionToDelete(null)}
-                className="flex-1 border border-[#348CCB]/30 px-4 py-2.5 rounded-xl text-sm text-[#1E76B6] font-medium hover:bg-[#F0F7FF] transition-colors"
+                className="flex-1 border border-gray-300 px-4 py-2.5 rounded-xl text-sm text-gray-600 font-medium hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
@@ -1340,22 +1305,12 @@ export default function VehiculoPage() {
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white font-semibold transition-all hover:opacity-90"
                 style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
               >
-                Eliminar Conexión
+                Eliminar Conexion
               </button>
             </div>
           </div>
         </Modal>
       )}
-    </div>
-  );
-}
-
-function SectionLabel({ children, icon }: { children: React.ReactNode; icon?: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-5">
-      {icon && <span className="text-base">{icon}</span>}
-      <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-[0.15em]">{children}</p>
-      <div className="flex-1 h-px" style={{ background: "rgba(52,140,203,0.2)" }} />
     </div>
   );
 }
