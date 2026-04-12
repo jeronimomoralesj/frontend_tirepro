@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Download,
   Loader2,
-  BarChart3,
   Award,
   Calendar,
   AlertCircle,
@@ -543,11 +542,8 @@ export default function ResumenPage() {
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-            <BarChart3 className="w-5 h-5 text-white" />
-          </div>
           <div>
-            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Mi Resumenr</h1>
+            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Mi Resumen</h1>
             <p className="text-xs text-[#348CCB] mt-0.5 flex items-center gap-1">
               <Calendar className="w-3 h-3" />
               Actualizado: {new Date().toLocaleDateString("es-CO")}
