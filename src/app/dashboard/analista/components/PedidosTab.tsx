@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-// Otis took over the role of the per-card agents — Otis floating button
+// Purchase recommendations and order management
 // is rendered inside this tab so it can read the live recommendations.
 import {
   Loader2, Check, X, Send, Package, ChevronDown,
   ChevronRight, AlertTriangle, Truck, RotateCcw,
   Printer, Archive, CheckSquare, Square,
 } from "lucide-react";
-import { OtisFloatingButton } from "../../../../components/Otis";
 
 // ===============================================================================
 // API
@@ -1356,32 +1355,6 @@ export default function PedidosTab() {
     });
   }, [rawRecs, catalogCache]);
 
-  // ----- Otis: data-aware summary + actions ---------------------------------
-  const otisInsight = useMemo(() => {
-    if (!recommendations.length) {
-      return "Sin recomendaciones activas. Toda la flota está dentro de los rangos óptimos. Sigue inspeccionando para mantener el casco y el CPK bajo control.";
-    }
-    const byUrg: Record<string, number> = { critical: 0, immediate: 0, next_month: 0, plan: 0 };
-    let totalCost = 0;
-    const vehicles = new Set<string>();
-    for (const r of recommendations) {
-      byUrg[r.urgency] = (byUrg[r.urgency] ?? 0) + 1;
-      totalCost += r.estimatedPrice;
-      vehicles.add(r.vehiclePlaca);
-    }
-    const lines: string[] = [];
-    lines.push(`${recommendations.length} llantas recomendadas en ${vehicles.size} vehículos · ${fmtCOP(totalCost)} estimado.`);
-    if (byUrg.critical)   lines.push(`• ${byUrg.critical} crítica${byUrg.critical > 1 ? "s" : ""} — riesgo de falla, actuar HOY.`);
-    if (byUrg.immediate)  lines.push(`• ${byUrg.immediate} inmediata${byUrg.immediate > 1 ? "s" : ""} — retiro óptimo (3mm).`);
-    if (byUrg.next_month) lines.push(`• ${byUrg.next_month} próximo mes.`);
-    if (byUrg.plan)       lines.push(`• ${byUrg.plan} planificables.`);
-    const newCount  = recommendations.filter(r => r.type === "nueva").length;
-    const reCount   = recommendations.filter(r => r.type === "reencauche").length;
-    if (newCount && reCount) lines.push(`Mix: ${newCount} nuevas, ${reCount} reencauches.`);
-    lines.push(`¿Quieres que prepare la propuesta y la envíe a un proveedor o que abra una licitación pública?`);
-    return lines.join("\n");
-  }, [recommendations]);
-
   const sendableRecs = useMemo(
     () => recommendations.filter((r) => r.urgency === "critical" || r.urgency === "immediate"),
     [recommendations],
@@ -1411,7 +1384,7 @@ export default function PedidosTab() {
     try {
       const res = await authFetch(`${API_BASE}/purchase-orders`, {
         method: "POST",
-        body: JSON.stringify({ companyId, distributorId: dist.id, items, totalEstimado: total, notas: `Propuesta generada por Otis (${sendableRecs.length} ítems)` }),
+        body: JSON.stringify({ companyId, distributorId: dist.id, items, totalEstimado: total, notas: `Propuesta generada (${sendableRecs.length} ítems)` }),
       });
       if (!res.ok) throw new Error();
       window.alert(`Propuesta enviada a ${dist.name}.`);
@@ -1421,7 +1394,7 @@ export default function PedidosTab() {
 
   async function openLicitacion() {
     if (sendableRecs.length === 0) { window.alert("No hay recomendaciones críticas o inmediatas para licitar."); return; }
-    const ok = window.confirm(`Otis abrirá una licitación pública con ${sendableRecs.length} ítems. Todos los distribuidores en TirePro podrán cotizar. ¿Continuar?`);
+    const ok = window.confirm(`Se abrirá una licitación pública con ${sendableRecs.length} ítems. Todos los distribuidores en TirePro podrán cotizar. ¿Continuar?`);
     if (!ok) return;
     const items = sendableRecs.map((r) => ({
       tireId: r.tire.id,
@@ -1437,7 +1410,7 @@ export default function PedidosTab() {
     try {
       const res = await authFetch(`${API_BASE}/marketplace/bid-requests`, {
         method: "POST",
-        body: JSON.stringify({ companyId, items, notas: `Licitación abierta por Otis (${sendableRecs.length} ítems)` }),
+        body: JSON.stringify({ companyId, items, notas: `Licitación abierta (${sendableRecs.length} ítems)` }),
       });
       if (!res.ok) throw new Error();
       window.alert("Licitación abierta. Recibirás cotizaciones en Pedidos.");
@@ -1451,13 +1424,6 @@ export default function PedidosTab() {
   }
 
   const isAgentAuto = settings?.agentEnabled && settings?.purchaseMode === "agent_auto";
-
-  const otisActions = sendableRecs.length > 0
-    ? [
-        { label: `Enviar propuesta a un proveedor (${sendableRecs.length})`, onClick: sendProposalToDistributor, icon: Send, variant: "primary" as const },
-        { label: "Abrir licitación pública",                                  onClick: openLicitacion,            icon: Package, variant: "ghost"   as const },
-      ]
-    : undefined;
 
   return (
     <>
@@ -1476,13 +1442,6 @@ export default function PedidosTab() {
           tires={tires}
         />
       )}
-      <OtisFloatingButton
-        pageKey="analista.pedidos"
-        capability="orders"
-        title="Resumen de pedidos"
-        insight={otisInsight}
-        actions={otisActions}
-      />
     </>
   );
 }

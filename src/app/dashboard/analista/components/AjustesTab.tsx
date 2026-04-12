@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Check, Zap, User, ClipboardList, Bot, Hand } from "lucide-react";
-import { OTIS_CAPABILITIES, useOtisSettings, OtisFace } from "../../../../components/Otis";
-import type { OtisCapability } from "../../../../components/Otis";
+import { Loader2, Check, User, ClipboardList, Bot, Hand } from "lucide-react";
 
 // -- API ----------------------------------------------------------------------
 
@@ -113,7 +111,6 @@ export default function AjustesTab() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [companyId, setCompanyId] = useState("");
-  const { settings: otisSettings, setSettings: setOtisSettings } = useOtisSettings();
 
   // -- Load -----------------------------------------------------------------
 
@@ -180,112 +177,6 @@ export default function AjustesTab() {
 
   return (
     <div className="max-w-2xl space-y-0">
-      {/* -- 1. Master switch -------------------------------------------- */}
-      <div className="py-6 border-b border-gray-100">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="p-2 rounded-xl"
-              style={{
-                background: settings.agentEnabled
-                  ? "linear-gradient(135deg, #1E76B6, #173D68)"
-                  : "rgba(100,116,139,0.1)",
-              }}
-            >
-              <Zap
-                className="w-5 h-5"
-                style={{ color: settings.agentEnabled ? "white" : "#94a3b8" }}
-              />
-            </div>
-            <div>
-              <p className="text-sm font-black text-[#0A183A]">Otis</p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Activa a Otis para automatizar alertas y decisiones de tu flota
-              </p>
-            </div>
-          </div>
-
-          {/* Toggle */}
-          <button
-            type="button"
-            onClick={() => set("agentEnabled", !settings.agentEnabled)}
-            className="relative flex-shrink-0 w-12 h-7 rounded-full transition-colors"
-            style={{
-              background: settings.agentEnabled ? "#1E76B6" : "#cbd5e1",
-            }}
-          >
-            <span
-              className="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform"
-              style={{
-                transform: settings.agentEnabled ? "translateX(20px)" : "translateX(0)",
-              }}
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* -- 1b. Otis capabilities --------------------------------------- */}
-      {settings.agentEnabled && (
-        <div className="py-6 border-b border-gray-100">
-          <p className="text-xs font-bold uppercase tracking-wider text-[#348CCB] mb-1">
-            Capacidades de Otis
-          </p>
-          <p className="text-xs text-gray-400 mb-4">
-            Decide qué análisis automáticos hace Otis en tu cuenta
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {(Object.keys(OTIS_CAPABILITIES) as OtisCapability[]).map((cap) => {
-              const meta = OTIS_CAPABILITIES[cap];
-              const isOn = otisSettings[cap];
-              return (
-                <button
-                  key={cap}
-                  type="button"
-                  onClick={() => setOtisSettings({ ...otisSettings, [cap]: !isOn })}
-                  className="flex items-center gap-3 p-3 rounded-xl transition-all text-left"
-                  style={{
-                    border: isOn
-                      ? "2px solid rgba(30,118,182,0.25)"
-                      : "1px solid rgba(100,116,139,0.12)",
-                    background: isOn ? "rgba(30,118,182,0.05)" : "rgba(100,116,139,0.03)",
-                  }}
-                >
-                  <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
-                    style={{ background: isOn ? "#1E76B6" : "#cbd5e1" }}
-                  >
-                    <OtisFace size={22} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="text-xs font-black tracking-wide"
-                        style={{ color: isOn ? "#1E76B6" : "#94a3b8" }}
-                      >
-                        {meta.label}
-                      </span>
-                      {isOn && (
-                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#1E76B6" }} />
-                      )}
-                    </div>
-                    <p className="text-[10px] text-gray-400 truncate">{meta.description}</p>
-                  </div>
-                  <div
-                    className="relative flex-shrink-0 w-9 h-5 rounded-full transition-colors"
-                    style={{ background: isOn ? "#1E76B6" : "#cbd5e1" }}
-                  >
-                    <span
-                      className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
-                      style={{ transform: isOn ? "translateX(16px)" : "translateX(0)" }}
-                    />
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* -- 2. Alert mode ----------------------------------------------- */}
       <div className="py-6 border-b border-gray-100">
@@ -391,7 +282,7 @@ export default function AjustesTab() {
             Presupuesto mensual
           </p>
           <p className="text-xs text-gray-400 mb-4">
-            Limite mensual de gasto en llantas y reencauches. Otis te avisara cuando te acerques al limite. Si no lo defines, se usara el del mes anterior.
+            Limite mensual de gasto en llantas y reencauches. Recibiras una alerta cuando te acerques al limite. Si no lo defines, se usara el del mes anterior.
           </p>
           <input
             type="number"

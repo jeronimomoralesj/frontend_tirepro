@@ -345,7 +345,7 @@ export default function NikitaTab() {
     return (
       <div className="flex items-center justify-center gap-2 py-32 text-[#8b5cf6]">
         <Loader2 className="w-6 h-6 animate-spin" />
-        <span className="text-sm font-medium">Otis analizando predicciones...</span>
+        <span className="text-sm font-medium">Analizando predicciones...</span>
       </div>
     );
   }
@@ -355,7 +355,7 @@ export default function NikitaTab() {
       <div className="text-center py-20 text-gray-400">
         <Dog className="w-10 h-10 mx-auto mb-3 opacity-40" />
         <p className="text-sm font-medium">Sin datos de inspeccion para generar predicciones.</p>
-        <p className="text-xs mt-1">Registra inspecciones para activar el análisis predictivo de Otis.</p>
+        <p className="text-xs mt-1">Registra inspecciones para activar el análisis predictivo.</p>
       </div>
     );
   }
@@ -389,7 +389,7 @@ export default function NikitaTab() {
             className="text-[9px] font-black uppercase tracking-widest"
             style={{ color: "#1E76B6" }}
           >
-            Otis
+            Predicciones
           </span>
         </div>
       </div>
@@ -678,8 +678,7 @@ export default function NikitaTab() {
         style={{ background: "rgba(139,92,246,0.04)", border: "1px solid rgba(139,92,246,0.1)" }}
       >
         <p className="text-[10px] text-gray-400">
-          <span className="font-bold" style={{ color: "#1E76B6" }}>Otis</span>
-          {" "}analizo {tires.length} llantas en {Object.keys(grouped).length} vehiculos &middot;
+          Se analizaron {tires.length} llantas en {Object.keys(grouped).length} vehiculos &middot;
           Retiro optimo: {OPTIMAL_RETIREMENT_MM}mm para preservar cascos
         </p>
       </div>
