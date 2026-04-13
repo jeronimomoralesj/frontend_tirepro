@@ -347,6 +347,7 @@ function ManualView({
   tires: RawTire[];
 }) {
   const [tab, setTab] = useState<"reencauche" | "nueva">("reencauche");
+  const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionModal, setActionModal] = useState<"send" | "bucket" | "acceptConfirm" | null>(null);
   const [sendDistId, setSendDistId] = useState("");
@@ -362,7 +363,20 @@ function ManualView({
   const [showSolicitudes, setShowSolicitudes] = useState(false);
   const [showHistorial, setShowHistorial] = useState(false);
 
-  const filtered = useMemo(() => recs.filter((r) => r.type === tab), [recs, tab]);
+  const byType = useMemo(() => recs.filter((r) => r.type === tab), [recs, tab]);
+  const filtered = useMemo(() => {
+    if (urgencyFilter === "all") return byType;
+    if (urgencyFilter === "urgent") return byType.filter((r) => r.urgency === "critical" || r.urgency === "immediate");
+    return byType.filter((r) => r.urgency === urgencyFilter);
+  }, [byType, urgencyFilter]);
+
+  // Urgency counts for filter pills
+  const urgencyCounts = useMemo(() => {
+    const c = { critical: 0, immediate: 0, next_month: 0, plan: 0 };
+    byType.forEach((r) => { c[r.urgency]++; });
+    return c;
+  }, [byType]);
+
   const groups = useMemo(() => {
     const map = new Map<string, Recommendation[]>();
     filtered.forEach((r) => { const k = r.vehiclePlaca; if (!map.has(k)) map.set(k, []); map.get(k)!.push(r); });
@@ -642,12 +656,12 @@ function ManualView({
         )}
       </div>
 
-      {/* Sub-tabs + Select All */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Type tabs */}
+      <div className="flex items-center gap-2">
         {(["reencauche", "nueva"] as const).map((t) => {
           const count = recs.filter((r) => r.type === t).length;
           return (
-            <button key={t} onClick={() => { setTab(t); setSelected(new Set()); }}
+            <button key={t} onClick={() => { setTab(t); setSelected(new Set()); setUrgencyFilter("all"); }}
               className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
               style={{ background: tab === t ? "#0A183A" : "transparent", color: tab === t ? "#fff" : "#173D68", border: tab === t ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}
             >
@@ -657,13 +671,37 @@ function ManualView({
             </button>
           );
         })}
+      </div>
+
+      {/* Urgency filter + Select All */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button onClick={() => setUrgencyFilter("all")}
+          className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
+          style={{ background: urgencyFilter === "all" ? "rgba(10,24,58,0.08)" : "transparent", color: "#0A183A", border: "1px solid rgba(0,0,0,0.08)" }}>
+          Todos ({byType.length})
+        </button>
+        <button onClick={() => setUrgencyFilter("urgent")}
+          className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
+          style={{ background: urgencyFilter === "urgent" ? "rgba(239,68,68,0.1)" : "transparent", color: urgencyFilter === "urgent" ? "#ef4444" : "#64748b", border: `1px solid ${urgencyFilter === "urgent" ? "rgba(239,68,68,0.3)" : "rgba(0,0,0,0.08)"}` }}>
+          Urgentes ({urgencyCounts.critical + urgencyCounts.immediate})
+        </button>
+        <button onClick={() => setUrgencyFilter("next_month")}
+          className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
+          style={{ background: urgencyFilter === "next_month" ? "rgba(234,179,8,0.1)" : "transparent", color: urgencyFilter === "next_month" ? "#eab308" : "#64748b", border: `1px solid ${urgencyFilter === "next_month" ? "rgba(234,179,8,0.3)" : "rgba(0,0,0,0.08)"}` }}>
+          Proximo mes ({urgencyCounts.next_month})
+        </button>
+        <button onClick={() => setUrgencyFilter("plan")}
+          className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
+          style={{ background: urgencyFilter === "plan" ? "rgba(52,140,203,0.1)" : "transparent", color: urgencyFilter === "plan" ? "#348CCB" : "#64748b", border: `1px solid ${urgencyFilter === "plan" ? "rgba(52,140,203,0.3)" : "rgba(0,0,0,0.08)"}` }}>
+          Planificar ({urgencyCounts.plan})
+        </button>
         {filtered.length > 0 && (
           <button onClick={toggleSelectAll}
-            className="ml-auto flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all"
-            style={{ color: allTabSelected ? "#1E76B6" : "#173D68", background: allTabSelected ? "rgba(30,118,182,0.08)" : "transparent", border: "1px solid rgba(52,140,203,0.2)" }}
+            className="ml-auto flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
+            style={{ color: allTabSelected ? "#1E76B6" : "#64748b", background: allTabSelected ? "rgba(30,118,182,0.08)" : "transparent", border: "1px solid rgba(0,0,0,0.08)" }}
           >
             {allTabSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-            {allTabSelected ? "Deseleccionar" : "Seleccionar todo"}
+            {allTabSelected ? "Quitar" : "Selec. todo"}
           </button>
         )}
       </div>
@@ -1160,108 +1198,60 @@ function VehicleRecGroup({
   onToggle: (id: string) => void;
   tab: "reencauche" | "nueva";
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div>
-      <button onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-all text-left"
-        style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
-        <Truck className="w-4 h-4 text-[#348CCB]" />
-        <span className="font-mono font-black text-white text-sm tracking-wider">{placa.toUpperCase()}</span>
-        <span className="text-[10px] text-white/50 ml-auto">{recs.length} llanta{recs.length !== 1 ? "s" : ""}</span>
-        {open ? <ChevronDown className="w-4 h-4 text-white/40" /> : <ChevronRight className="w-4 h-4 text-white/40" />}
-      </button>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Vehicle header */}
+      <div className="bg-[#173D68] px-4 py-2.5 flex items-center gap-2">
+        <Truck className="w-3.5 h-3.5 text-[#348CCB]" />
+        <span className="font-mono font-bold text-white text-xs tracking-wider">{placa.toUpperCase()}</span>
+        <span className="text-[10px] text-white/40 ml-auto">{recs.length} llanta{recs.length !== 1 ? "s" : ""}</span>
+      </div>
 
-      {open && (
-        <div className="space-y-2 pl-2 mb-4">
-          {recs.map((r) => {
-            const sel = selected.has(r.tire.id);
-            const u = URGENCY_META[r.urgency];
-            const depthPct = r.tire.profundidadInicial > 0 ? Math.min(r.minDepth / r.tire.profundidadInicial, 1) : 0;
-            const depthColor = depthPct > 0.5 ? "#22c55e" : depthPct > 0.25 ? "#f97316" : "#ef4444";
-            const cat = r.catalogMatch;
+      {/* Tire rows */}
+      <div className="divide-y divide-gray-50">
+        {recs.map((r) => {
+          const sel = selected.has(r.tire.id);
+          const u = URGENCY_META[r.urgency];
+          const price = tab === "reencauche" ? 650000 : (r.catalogMatch?.precioCop ?? r.estimatedPrice);
 
-            return (
-              <div key={r.tire.id} onClick={() => onToggle(r.tire.id)}
-                className="bg-white rounded-xl cursor-pointer transition-all"
-                style={{ border: sel ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.12)", background: sel ? "rgba(30,118,182,0.03)" : "white" }}>
+          return (
+            <div key={r.tire.id} onClick={() => onToggle(r.tire.id)}
+              className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-gray-50"
+              style={{ background: sel ? "rgba(30,118,182,0.04)" : undefined }}>
 
-                {/* Row 1: checkbox + tire info + depth */}
-                <div className="flex items-center gap-3 p-3 pb-1">
-                  <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-all"
-                    style={{ background: sel ? "#1E76B6" : "rgba(52,140,203,0.08)", border: sel ? "none" : "1.5px solid rgba(52,140,203,0.3)" }}>
-                    {sel && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-mono font-bold text-[#0A183A] text-xs">{r.tire.placa}</span>
-                      <span className="text-[10px] text-gray-400">P{r.tire.posicion} · {r.tire.eje}</span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: u.bg, color: u.color }}>{u.label}</span>
-                    </div>
-                    <p className="text-[10px] text-gray-400 truncate">{r.tire.marca} {r.tire.diseno} — {r.tire.dimension}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 w-24">
-                    <span className="text-xs font-black w-10 text-right" style={{ color: depthColor }}>{r.minDepth.toFixed(1)}</span>
-                    <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${depthPct * 100}%`, background: depthColor }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Row 2: reason */}
-                <div className="px-3 pb-2 pl-11">
-                  <p className="text-[10px] text-[#173D68]/60 leading-tight">{r.reason}</p>
-                </div>
-
-                {/* Row 3: Recommendation — what we suggest */}
-                <div className="mx-3 mb-3 px-3 py-2 rounded-lg flex items-center gap-3"
-                  style={{ background: tab === "reencauche" ? "rgba(249,115,22,0.05)" : "linear-gradient(135deg, #EBF5FF, #DDEEFF)", border: tab === "reencauche" ? "1px solid rgba(249,115,22,0.15)" : "1px solid rgba(30,118,182,0.15)" }}>
-
-                  {tab === "reencauche" ? (
-                    <>
-                      <RotateCcw className="w-4 h-4 text-[#f97316] flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-[#0A183A]">Reencauche recomendado</p>
-                        <p className="text-[10px] text-[#f97316]">{r.bandaRecomendada ?? "Banda compatible con el eje"}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-[11px] font-black text-[#0A183A]">{fmtCOP(650000)}</p>
-                        <p className="text-[9px] text-gray-400">est. banda</p>
-                      </div>
-                    </>
-                  ) : cat ? (
-                    <>
-                      <Package className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-[#0A183A] truncate">{cat.marca} {cat.modelo}</p>
-                        <p className="text-[10px] text-[#348CCB]">
-                          {cat.terreno ?? "Carretera"}
-                          {cat.kmEstimadosReales ? ` · ${Math.round(cat.kmEstimadosReales / 1000)}K km` : ""}
-                          {cat.vidasReencauche > 0 ? ` · ${cat.vidasReencauche} reenc.` : ""}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        {cat.precioCop && <p className="text-[11px] font-black text-[#0A183A]">{fmtCOP(cat.precioCop)}</p>}
-                        {cat.cpkEstimado && <p className="text-[9px] font-bold text-[#1E76B6]">CPK ${cat.cpkEstimado.toFixed(1)}</p>}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Package className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-[#0A183A]">Llanta nueva requerida</p>
-                        <p className="text-[10px] text-[#348CCB]">{r.tire.dimension} · {r.tire.eje}</p>
-                      </div>
-                      <p className="text-[11px] font-black text-[#0A183A] flex-shrink-0">{fmtCOP(r.estimatedPrice)}</p>
-                    </>
-                  )}
-                </div>
+              {/* Checkbox */}
+              <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                style={{ background: sel ? "#1E76B6" : "transparent", border: sel ? "none" : "1.5px solid #cbd5e1" }}>
+                {sel && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              {/* Urgency dot */}
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: u.color }} title={u.label} />
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#0A183A]">{r.tire.marca} {r.tire.dimension}</span>
+                  <span className="text-[10px] text-gray-400">P{r.tire.posicion} · {r.tire.eje}</span>
+                </div>
+                <p className="text-[10px] text-gray-400 truncate">{r.reason}</p>
+              </div>
+
+              {/* Depth */}
+              <div className="flex-shrink-0 text-right">
+                <span className="text-xs font-black" style={{ color: r.minDepth <= 3 ? "#ef4444" : r.minDepth <= 6 ? "#f97316" : "#348CCB" }}>
+                  {r.minDepth.toFixed(1)}mm
+                </span>
+              </div>
+
+              {/* Price */}
+              <span className="text-[11px] font-bold text-[#0A183A] flex-shrink-0 w-20 text-right">
+                {fmtCOP(price)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
