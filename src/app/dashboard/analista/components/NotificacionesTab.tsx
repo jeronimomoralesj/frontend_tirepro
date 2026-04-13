@@ -410,20 +410,18 @@ export default function NotificacionesTab() {
   }
 
   const pending = notifications.filter((n) => !n.executed);
-
-  if (pending.length === 0 && counts.executedToday === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-        <Check className="w-10 h-10 mb-3 text-green-400" />
-        <p className="text-sm font-bold text-[#0A183A]">Todo en orden</p>
-        <p className="text-xs text-gray-400 mt-1">No hay acciones pendientes</p>
-      </div>
-    );
-  }
-
   const sentCount = notifications.filter((n) => n.sentToDriver).length;
   const confirmedCount = notifications.filter((n) => n.driverConfirmed).length;
-  const pendingDriverCount = sentCount - confirmedCount;
+
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+
+  const filteredGroups = useMemo(() => {
+    if (severityFilter === "all") return groups;
+    if (severityFilter === "executed") {
+      return groups.map((g) => ({ ...g, notifs: g.notifs.filter((n) => n.executed) })).filter((g) => g.notifs.length > 0);
+    }
+    return groups.map((g) => ({ ...g, notifs: g.notifs.filter((n) => !n.executed && n.type === severityFilter) })).filter((g) => g.notifs.length > 0);
+  }, [groups, severityFilter]);
 
   const notReadyToSend = pending.filter((n) => !n.sentToDriver && n.vehicle?.drivers && n.vehicle.drivers.length > 0);
 
@@ -437,21 +435,19 @@ export default function NotificacionesTab() {
     );
     if (!ok) return;
     for (const n of notReadyToSend) {
-      // sequential to avoid throttling
       try { await handleSendToDriver(n.id); } catch { /* */ }
     }
   }
-  // --------------------------------------------------------------------------
 
-  const [severityFilter, setSeverityFilter] = useState<string>("all");
-
-  const filteredGroups = useMemo(() => {
-    if (severityFilter === "all") return groups;
-    if (severityFilter === "executed") {
-      return groups.map((g) => ({ ...g, notifs: g.notifs.filter((n) => n.executed) })).filter((g) => g.notifs.length > 0);
-    }
-    return groups.map((g) => ({ ...g, notifs: g.notifs.filter((n) => !n.executed && n.type === severityFilter) })).filter((g) => g.notifs.length > 0);
-  }, [groups, severityFilter]);
+  if (pending.length === 0 && counts.executedToday === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+        <Check className="w-10 h-10 mb-3 text-green-400" />
+        <p className="text-sm font-bold text-[#0A183A]">Todo en orden</p>
+        <p className="text-xs text-gray-400 mt-1">No hay acciones pendientes</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
