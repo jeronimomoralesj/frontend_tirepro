@@ -401,14 +401,6 @@ export default function NotificacionesTab() {
 
   // -- Render ---------------------------------------------------------------
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-[#1E76B6]">
-        <Loader2 className="w-5 h-5 animate-spin" />
-      </div>
-    );
-  }
-
   const pending = notifications.filter((n) => !n.executed);
   const sentCount = notifications.filter((n) => n.sentToDriver).length;
   const confirmedCount = notifications.filter((n) => n.driverConfirmed).length;
@@ -437,6 +429,14 @@ export default function NotificacionesTab() {
     for (const n of notReadyToSend) {
       try { await handleSendToDriver(n.id); } catch { /* */ }
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-[#1E76B6]">
+        <Loader2 className="w-5 h-5 animate-spin" />
+      </div>
+    );
   }
 
   if (pending.length === 0 && counts.executedToday === 0) {
