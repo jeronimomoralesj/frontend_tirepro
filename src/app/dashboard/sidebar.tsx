@@ -37,7 +37,6 @@ function buildLinks(plan: string, isAdmin: boolean): NavLink[] {
   if (plan === "distribuidor") {
     return [
       { name: "Resumen",   path: "/dashboard/distribuidor", icon: LayoutDashboard },
-      { name: "Analista",  path: "/dashboard/analistaDist", icon: Glasses         },
       { name: "Pedidos",   path: "/dashboard/pedidosDist",  icon: ShoppingCart    },
       { name: "Desechos",  path: "/dashboard/desechosDist", icon: Trash2          },
       { name: "Clientes",  path: "/dashboard/clientes",     icon: User2           },
