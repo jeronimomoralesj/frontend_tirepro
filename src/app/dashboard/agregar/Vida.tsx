@@ -334,6 +334,7 @@ function UpdateModal({
 
   const [selectedVida,    setSelectedVida]    = useState<string>(nextOptions[0] ?? "");
   const [bandaValue,      setBandaValue]      = useState(tire.diseno ?? "");
+  const [bandaMarcaValue, setBandaMarcaValue] = useState("");
   const [costValue,       setCostValue]       = useState("");
   const [profValue,       setProfValue]       = useState(
     tire.profundidadInicial && tire.profundidadInicial > 0 ? String(tire.profundidadInicial) : ""
@@ -411,6 +412,7 @@ function UpdateModal({
       banda: bandaValue.trim(),
     };
 
+    if (isReencauche && bandaMarcaValue.trim()) body.bandaMarca = bandaMarcaValue.trim();
     if (isReencauche)         body.costo             = parseFloat(costValue);
     if (isReencauche && selectedProveedor)   body.proveedor          = selectedProveedor.name;
     if (!isFin)               body.profundidadInicial = parseFloat(profValue);
@@ -510,6 +512,23 @@ function UpdateModal({
               className={inputCls}
             />
           </div>
+
+          {/* Marca de la banda — only visible on retread transitions.
+              Optional: if the user leaves it blank, the backend copies the
+              banda value into marca (so banda and brand end up identical,
+              which matches how many retreaders label product lines). */}
+          {isReencauche && (
+            <div>
+              <FieldLabel icon={Layers} label="Marca de la Banda" />
+              <input
+                type="text"
+                value={bandaMarcaValue}
+                onChange={(e) => setBandaMarcaValue(e.target.value)}
+                placeholder={bandaValue ? `ej: Continental (si se deja vacío, se usará "${bandaValue}")` : "ej: Continental"}
+                className={inputCls}
+              />
+            </div>
+          )}
 
           {/* Nueva vida */}
           <div>

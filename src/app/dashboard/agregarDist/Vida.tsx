@@ -143,6 +143,7 @@ const VidaPage: React.FC = () => {
   const [selectedTire, setSelectedTire] = useState<Tire | null>(null);
   const [selectedVida, setSelectedVida] = useState("");
   const [bandaValue,   setBandaValue]   = useState("");
+  const [bandaMarcaValue, setBandaMarcaValue] = useState("");
   const [costValue,    setCostValue]    = useState("");
   const [profValue,    setProfValue]    = useState("");
   const [causalValue,  setCausalValue]  = useState("");
@@ -209,7 +210,7 @@ const VidaPage: React.FC = () => {
 
   function closeModal() {
     setShowModal(false); setSelectedTire(null);
-    setSelectedVida(""); setBandaValue(""); setCostValue("");
+    setSelectedVida(""); setBandaValue(""); setBandaMarcaValue(""); setCostValue("");
     setProfValue(""); setCausalValue(""); setMmValue("");
     setModalError("");
     setDesechoImages([]);
@@ -252,6 +253,7 @@ const VidaPage: React.FC = () => {
       if (isNaN(n) || n <= 0) return setModalError("Ingrese un costo válido (mayor a 0).");
       body.costo = n;
       if (selectedProveedor) body.proveedor = selectedProveedor.name;
+      if (bandaMarcaValue.trim()) body.bandaMarca = bandaMarcaValue.trim();
     }
 
     if (selectedVida !== "fin") {
@@ -513,6 +515,20 @@ const VidaPage: React.FC = () => {
                   className={inputCls} style={inputStyle}
                 />
               </div>
+
+              {/* Marca de la banda — only on retread transitions.
+                  Optional: empty means backend copies banda into marca. */}
+              {selectedVida.startsWith("reencauche") && (
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Marca de la Banda</label>
+                  <input
+                    type="text" value={bandaMarcaValue}
+                    onChange={(e) => setBandaMarcaValue(e.target.value)}
+                    placeholder={bandaValue ? `Ej. Continental (vacío = "${bandaValue}")` : "Ej. Continental"}
+                    className={inputCls} style={inputStyle}
+                  />
+                </div>
+              )}
 
               {/* Nuevo valor de vida */}
               <div className="space-y-1.5">
