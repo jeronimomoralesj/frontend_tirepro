@@ -8,6 +8,7 @@ import {
 import CatalogAutocomplete from "../components/CatalogAutocomplete";
 import AgentCardHeader from "../components/AgentCardHeader";
 import { AGENTS } from "../lib/agents";
+import { DESECHO_CAUSALES } from "../lib/desechoCausales";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -100,7 +101,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
       placa: tire.placa, marca: tire.marca, diseno: tire.diseno, dimension: tire.dimension,
       eje: tire.eje, posicion: tire.posicion, vehiclePlaca: tire.vehicle?.placa ?? "",
       profundidadInicial: 0, costo: 0,
-      causales: "", milimetros: String(tire.currentProfundidad ?? ""), images: [],
+      causales: "", causalOtro: "", milimetros: String(tire.currentProfundidad ?? ""), images: [],
     }]);
   }
 
@@ -127,7 +128,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
       placa: nf.placa.toUpperCase(), marca: nf.marca, diseno: nf.diseno || "Estándar", dimension: nf.dimension,
       eje: nf.eje, posicion: 0, vehiclePlaca: "",
       profundidadInicial: nf.profundidadInicial, costo: nf.costo,
-      causales: "", milimetros: "", images: [],
+      causales: "", causalOtro: "", milimetros: "", images: [],
     }]);
     setNf({ placa: "", marca: "", diseno: "", dimension: "", eje: "traccion", profundidadInicial: 16, costo: 0 });
     setShowNew(false); setError("");
@@ -151,10 +152,18 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
 
   // -- Submit -----------------------------------------------------------------
 
+  function resolvedCausal(d: { causales: string; causalOtro?: string }): string {
+    if (d.causales === "otro") return (d.causalOtro ?? "").trim();
+    return d.causales;
+  }
+
   async function handleSubmit() {
     // Validate
     for (const d of list) {
-      if (!d.causales.trim()) { setError(`Llanta ${d.placa}: causal del descarte es obligatoria`); return; }
+      if (!d.causales) { setError(`Llanta ${d.placa}: seleccione la causa del descarte`); return; }
+      if (d.causales === "otro" && !(d.causalOtro ?? "").trim()) {
+        setError(`Llanta ${d.placa}: describa la causa del descarte`); return;
+      }
       if (!d.milimetros.trim()) { setError(`Llanta ${d.placa}: milímetros finales es obligatorio`); return; }
     }
 
@@ -180,14 +189,15 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
 
         if (!tireId) continue;
 
+        const causal = resolvedCausal(d);
         await authFetch(`${API_BASE}/tires/${tireId}/vida`, {
           method: "PATCH",
           body: JSON.stringify({
             valor: "fin",
             motivoFin: "desgaste",
-            notasRetiro: d.causales,
+            notasRetiro: causal,
             desechoData: {
-              causales: d.causales,
+              causales: causal,
               milimetrosDesechados: parseFloat(d.milimetros) || 0,
               imageUrls: d.images,
             },
@@ -384,8 +394,25 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1">Causal del descarte <span className="text-red-400">*</span></label>
-                    <input type="text" value={d.causales} onChange={(e) => update(d.key, "causales", e.target.value)}
-                      placeholder="ej: Pinchazo irreparable" className={inputCls} />
+                    <select
+                      value={d.causales}
+                      onChange={(e) => update(d.key, "causales", e.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">Seleccione…</option>
+                      {DESECHO_CAUSALES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                    {d.causales === "otro" && (
+                      <input
+                        type="text"
+                        value={d.causalOtro ?? ""}
+                        onChange={(e) => update(d.key, "causalOtro", e.target.value)}
+                        placeholder="Describa la causa"
+                        className={`${inputCls} mt-2`}
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1">Milímetros finales <span className="text-red-400">*</span></label>

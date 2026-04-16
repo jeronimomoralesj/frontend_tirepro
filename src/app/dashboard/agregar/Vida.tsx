@@ -19,6 +19,7 @@ import {
   Trash2,
   Camera,
 } from "lucide-react";
+import { DESECHO_CAUSALES, labelForCausal } from "@/lib/desechoCausales";
 
 // =============================================================================
 // Constants
@@ -287,7 +288,7 @@ function TireCard({ tire, onUpdate }: { tire: Tire; onUpdate: (t: Tire) => void 
             <p className="font-bold text-[#0A183A] mb-1 flex items-center gap-1">
               <Trash2 className="w-3 h-3" /> Desechado
             </p>
-            <p className="text-[#348CCB]">Causal: {tire.desechos.causales}</p>
+            <p className="text-[#348CCB]">Causal: {labelForCausal(tire.desechos.causales)}</p>
             <p className="text-[#348CCB]">Remanente: {tire.desechos.remanente} mm</p>
           </div>
         )}
@@ -340,6 +341,7 @@ function UpdateModal({
     tire.profundidadInicial && tire.profundidadInicial > 0 ? String(tire.profundidadInicial) : ""
   );
   const [causalValue,     setCausalValue]     = useState("");
+  const [causalOtroValue, setCausalOtroValue] = useState("");
   const [milimetrosValue, setMilimetrosValue] = useState("");
   const [modalError,      setModalError]      = useState("");
   const [saving,          setSaving]          = useState(false);
@@ -402,7 +404,9 @@ function UpdateModal({
     }
 
     if (isFin) {
-      if (!causalValue.trim())  return setModalError("Ingrese la causa del descarte");
+      if (!causalValue)         return setModalError("Seleccione la causa del descarte");
+      if (causalValue === "otro" && !causalOtroValue.trim())
+        return setModalError("Describa la causa del descarte");
       const mm = parseFloat(milimetrosValue);
       if (isNaN(mm) || mm < 0)  return setModalError("Ingrese los milímetros finales válidos");
     }
@@ -418,8 +422,9 @@ function UpdateModal({
     if (!isFin)               body.profundidadInicial = parseFloat(profValue);
     if (isFin) {
       const mm      = parseFloat(milimetrosValue);
+      const causales = causalValue === "otro" ? causalOtroValue.trim() : causalValue;
       body.desechos = {
-        causales:             causalValue.trim(),
+        causales,
         milimetrosDesechados: mm,
       };
       body.imageUrls = desechoImages;
@@ -665,13 +670,32 @@ function UpdateModal({
               <SectionDivider label="Datos de Descarte" />
               <div>
                 <FieldLabel icon={Tag} label="Causal del descarte" required />
-                <input
-                  type="text"
-                  value={causalValue}
-                  onChange={(e) => setCausalValue(e.target.value)}
-                  placeholder="ej: Pinchazo irreparable"
-                  className={inputCls}
-                />
+                <SelectWrapper>
+                  <select
+                    value={causalValue}
+                    onChange={(e) => setCausalValue(e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="">Seleccione una causa…</option>
+                    {DESECHO_CAUSALES.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </SelectWrapper>
+                {causalValue === "otro" && (
+                  <input
+                    type="text"
+                    value={causalOtroValue}
+                    onChange={(e) => setCausalOtroValue(e.target.value)}
+                    placeholder="Describa la causa"
+                    className={`${inputCls} mt-2`}
+                  />
+                )}
+                {causalValue && causalValue !== "otro" && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    {DESECHO_CAUSALES.find((c) => c.value === causalValue)?.description}
+                  </p>
+                )}
               </div>
               <div>
                 <FieldLabel icon={Gauge} label="Milímetros finales" required />

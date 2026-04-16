@@ -8,6 +8,7 @@ import {
   Camera,
   MapPin,
 } from "lucide-react";
+import { DESECHO_CAUSALES } from "@/lib/desechoCausales";
 
 // =============================================================================
 // Types
@@ -147,6 +148,7 @@ const VidaPage: React.FC = () => {
   const [costValue,    setCostValue]    = useState("");
   const [profValue,    setProfValue]    = useState("");
   const [causalValue,  setCausalValue]  = useState("");
+  const [causalOtroValue, setCausalOtroValue] = useState("");
   const [mmValue,      setMmValue]      = useState("");
   const [modalError,   setModalError]   = useState("");
   const [showModal,    setShowModal]    = useState(false);
@@ -200,7 +202,7 @@ const VidaPage: React.FC = () => {
     const opts = nextOptions(currentVida(tire));
     setSelectedTire(tire);
     setModalError("");
-    setCostValue(""); setCausalValue(""); setMmValue("");
+    setCostValue(""); setCausalValue(""); setCausalOtroValue(""); setMmValue("");
     setBandaValue(tire.diseno ?? "");
     setProfValue(tire.profundidadInicial && tire.profundidadInicial > 0 ? String(tire.profundidadInicial) : "");
     setSelectedVida(opts[0] ?? "");
@@ -211,7 +213,7 @@ const VidaPage: React.FC = () => {
   function closeModal() {
     setShowModal(false); setSelectedTire(null);
     setSelectedVida(""); setBandaValue(""); setBandaMarcaValue(""); setCostValue("");
-    setProfValue(""); setCausalValue(""); setMmValue("");
+    setProfValue(""); setCausalValue(""); setCausalOtroValue(""); setMmValue("");
     setModalError("");
     setDesechoImages([]);
     setProveedorQuery(""); setSelectedProveedor(null); setShowProvDropdown(false);
@@ -264,10 +266,12 @@ const VidaPage: React.FC = () => {
 
     if (selectedVida === "fin") {
       const mm = parseFloat(mmValue);
-      if (!causalValue.trim()) return setModalError("Ingrese la causa de descarte.");
+      if (!causalValue) return setModalError("Seleccione la causa de descarte.");
+      if (causalValue === "otro" && !causalOtroValue.trim())
+        return setModalError("Describa la causa de descarte.");
       if (isNaN(mm) || mm < 0) return setModalError("Ingrese los milímetros finales válidos.");
       body.desechos = {
-        causales: causalValue.trim(),
+        causales: causalValue === "otro" ? causalOtroValue.trim() : causalValue,
         milimetrosDesechados: mm,
       };
       body.imageUrls = desechoImages;
@@ -650,12 +654,24 @@ const VidaPage: React.FC = () => {
                 <>
                   <div className="space-y-1.5">
                     <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Causal del Descarte</label>
-                    <input
-                      type="text" value={causalValue}
+                    <select
+                      value={causalValue}
                       onChange={(e) => setCausalValue(e.target.value)}
-                      placeholder="Ej. Pinchazo irreparable"
                       className={inputCls} style={inputStyle}
-                    />
+                    >
+                      <option value="">Seleccione una causa…</option>
+                      {DESECHO_CAUSALES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                    {causalValue === "otro" && (
+                      <input
+                        type="text" value={causalOtroValue}
+                        onChange={(e) => setCausalOtroValue(e.target.value)}
+                        placeholder="Describa la causa"
+                        className={inputCls} style={inputStyle}
+                      />
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="block text-[11px] font-black text-[#0A183A] uppercase tracking-wide">Milímetros Finales</label>
