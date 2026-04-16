@@ -50,6 +50,9 @@ export type RawTire = {
   currentProfundidad?: number | null; projectedDateEOL?: string | Date | null;
   primeraVida?: Array<{ cpk?: number; diseno?: string; costo?: number; kilometros?: number }>;
   desechos?: unknown; costos: RawCosto[]; inspecciones: RawInspeccion[]; eventos: RawEvento[];
+  vidaSnapshots?: Array<Partial<VidaSnapshot> & {
+    fechaInicio?: string | Date; fechaFin?: string | Date;
+  }>;
 };
 export type CostEntry = { id: string; valor: number; fecha: string };
 export type Inspection = {
@@ -63,6 +66,32 @@ export type Inspection = {
   inspeccionadoPorNombre: string | null;
 };
 export type VidaEntry = { valor: string; fecha: string };
+export type VidaSnapshot = {
+  vida: string;
+  marca: string;
+  diseno: string;
+  bandaNombre: string | null;
+  bandaMarca: string | null;
+  proveedor: string | null;
+  fechaInicio: string;
+  fechaFin: string;
+  diasTotales: number;
+  mesesTotales: number | null;
+  kmTotales: number;
+  costoInicial: number;
+  costoTotal: number;
+  profundidadInicial: number;
+  profundidadFinal: number;
+  mmDesgastados: number;
+  mmDesgastadosPorMes: number | null;
+  mmDesgastadosPor1000km: number | null;
+  cpkFinal: number | null;
+  cpkAvg: number | null;
+  cptFinal: number | null;
+  desgasteIrregular: boolean;
+  totalInspecciones: number;
+  motivoFin: string | null;
+};
 export type Tire = {
   id: string; placa: string; marca: string; diseno: string;
   profundidadInicial: number; dimension: string; eje: string;
@@ -72,6 +101,7 @@ export type Tire = {
   healthScore?: number | null; currentCpk?: number | null;
   currentProfundidad?: number | null;
   primeraVida?: Array<{ cpk?: number; diseno?: string; costo?: number; kilometros?: number }>;
+  vidaSnapshots: VidaSnapshot[];
   costo: CostEntry[]; inspecciones: Inspection[]; vida: VidaEntry[];
 };
 export type Vehicle = { id: string; placa: string; tipovhc?: string; carga?: string };
@@ -126,8 +156,36 @@ function normalise(raw: RawTire): Tire {
   const vida: VidaEntry[] = raw.eventos
     .filter((e) => e.notas && VIDA_SET.has(e.notas.toLowerCase()))
     .map((e) => ({ valor: e.notas!.toLowerCase(), fecha: toISO(e.fecha) }));
+  const vidaSnapshots: VidaSnapshot[] = (raw.vidaSnapshots ?? [])
+    .map((s) => ({
+      vida:                   String(s.vida ?? ""),
+      marca:                  String(s.marca ?? ""),
+      diseno:                 String(s.diseno ?? ""),
+      bandaNombre:            s.bandaNombre ?? null,
+      bandaMarca:             s.bandaMarca ?? null,
+      proveedor:              s.proveedor ?? null,
+      fechaInicio:            s.fechaInicio ? toISO(s.fechaInicio) : "",
+      fechaFin:               s.fechaFin    ? toISO(s.fechaFin)    : "",
+      diasTotales:            s.diasTotales ?? 0,
+      mesesTotales:           s.mesesTotales ?? null,
+      kmTotales:              s.kmTotales ?? 0,
+      costoInicial:           s.costoInicial ?? 0,
+      costoTotal:             s.costoTotal ?? 0,
+      profundidadInicial:     s.profundidadInicial ?? 0,
+      profundidadFinal:       s.profundidadFinal ?? 0,
+      mmDesgastados:          s.mmDesgastados ?? 0,
+      mmDesgastadosPorMes:    s.mmDesgastadosPorMes ?? null,
+      mmDesgastadosPor1000km: s.mmDesgastadosPor1000km ?? null,
+      cpkFinal:               s.cpkFinal ?? null,
+      cpkAvg:                 s.cpkAvg ?? null,
+      cptFinal:               s.cptFinal ?? null,
+      desgasteIrregular:      Boolean(s.desgasteIrregular),
+      totalInspecciones:      s.totalInspecciones ?? 0,
+      motivoFin:              s.motivoFin ?? null,
+    }))
+    .sort((a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime());
   return {
-    ...raw, costo, inspecciones, vida,
+    ...raw, costo, inspecciones, vida, vidaSnapshots,
     fechaInstalacion: raw.fechaInstalacion ? toISO(raw.fechaInstalacion) : null,
   };
 }
@@ -801,47 +859,137 @@ function TireCard({ tire, onView }: { tire: Tire; onView: () => void }) {
 }
 
 // =============================================================================
-// Vida History
+// Vida History — per-life stats panel
+// Each vida entry shows the closed-life snapshot if available (brand/banda,
+// duration, km, cost, CPK, wear), and the open (current) life renders with
+// live inspection data. Lets the user see "first life only" or "second life
+// only" performance without mixing phases.
 // =============================================================================
+function VidaStat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">{label}</span>
+      <span className={`text-xs font-black text-[#0A183A]${mono ? " font-mono" : ""}`}>{value}</span>
+    </div>
+  );
+}
+
+const fmtInt = (n: number | null | undefined, suffix = "") =>
+  n == null ? "—" : Math.round(n).toLocaleString("es-CO") + suffix;
+const fmtCop = (n: number | null | undefined) =>
+  n == null ? "—" : "$" + Math.round(n).toLocaleString("es-CO");
+const fmtCpk = (n: number | null | undefined) =>
+  n == null ? "—" : "$" + n.toFixed(2);
+const fmtMm = (n: number | null | undefined) =>
+  n == null ? "—" : n.toFixed(1) + " mm";
+
 function VidaHistory({ tire }: { tire: Tire }) {
   if (tire.vida.length === 0)
     return <p className="text-sm text-gray-400 py-6 text-center">No hay registros de vida</p>;
+
+  // Order snapshots so we can match vida entries to their snapshot. A snapshot
+  // is written when a vida CLOSES, so the most recent (open) vida has no
+  // snapshot — we render live stats for it instead.
+  const snapshotsByVida = new Map<string, VidaSnapshot>();
+  tire.vidaSnapshots.forEach((s) => snapshotsByVida.set(s.vida, s));
+
+  const currentLast = tire.inspecciones.length ? tire.inspecciones[tire.inspecciones.length - 1] : null;
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {tire.vida.map((entry, i) => {
         const m = vidaMeta(entry.valor);
         const isLast = i === tire.vida.length - 1;
-        const cpk = entry.valor === "nueva" && tire.primeraVida?.[0]?.cpk
-          ? tire.primeraVida[0].cpk : null;
+        const snap = snapshotsByVida.get(entry.valor);
+        const isOpenLife = isLast && entry.valor !== "fin";
+
+        // For the open (current) life we approximate from live inspection data.
+        const liveCpk    = isOpenLife ? currentLast?.cpk ?? null : null;
+        const liveKm     = isOpenLife ? tire.kilometrosRecorridos : null;
+        const liveMmWorn = isOpenLife && currentLast
+          ? Math.max(tire.profundidadInicial - ((currentLast.profundidadInt + currentLast.profundidadCen + currentLast.profundidadExt) / 3), 0)
+          : null;
+        const liveCost   = isOpenLife ? tire.costo.reduce((s, c) => s + c.valor, 0) : null;
+
+        const brand  = snap?.marca ?? (entry.valor === "nueva" ? tire.marca : tire.marca);
+        const band   = snap?.diseno ?? snap?.bandaNombre ?? tire.diseno;
+        const isReencauche = entry.valor.startsWith("reencauche");
+
         return (
-          <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
-            style={{ background: isLast ? m.bg : "rgba(10,24,58,0.02)", border: `1px solid ${isLast ? m.accent + "40" : "rgba(10,24,58,0.06)"}` }}>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: m.bg, border: `1px solid ${m.accent}40` }}>
-              <Layers className="w-4 h-4" style={{ color: m.accent }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-black" style={{ color: m.text }}>{m.label}</span>
-                {isLast && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
-                    style={{ background: m.accent }}>Actual</span>
-                )}
+          <div key={i} className="rounded-2xl overflow-hidden"
+            style={{ background: "white", border: `1px solid ${isLast ? m.accent + "60" : "rgba(10,24,58,0.08)"}` }}>
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: m.bg }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "white", border: `1px solid ${m.accent}40` }}>
+                <Layers className="w-4 h-4" style={{ color: m.accent }} />
               </div>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <Calendar className="w-3 h-3 text-gray-400" />
-                <span className="text-[11px] text-gray-500">
-                  {new Date(entry.fecha).toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}
-                </span>
-                {cpk && (
-                  <>
-                    <span className="text-gray-300">·</span>
-                    <span className="text-[11px] font-bold text-[#1E76B6]">CPK final: ${cpk.toFixed(2)}</span>
-                  </>
-                )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-black" style={{ color: m.text }}>{m.label}</span>
+                  {isOpenLife && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
+                      style={{ background: m.accent }}>En curso</span>
+                  )}
+                  {snap?.motivoFin && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider"
+                      style={{ background: "rgba(10,24,58,0.08)", color: "#0A183A" }}>
+                      {snap.motivoFin}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-gray-600">
+                  <Calendar className="w-3 h-3" />
+                  <span>
+                    {new Date(entry.fecha).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" })}
+                    {snap?.fechaFin && (
+                      <> → {new Date(snap.fechaFin).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "numeric" })}</>
+                    )}
+                  </span>
+                </div>
               </div>
+              <span className="text-[10px] font-bold text-gray-400 flex-shrink-0">#{i + 1}</span>
             </div>
-            <span className="text-[10px] text-gray-400 flex-shrink-0">#{i + 1}</span>
+
+            {/* Identity strip */}
+            <div className="px-4 py-2 flex items-center gap-3 flex-wrap text-[11px]"
+              style={{ borderTop: "1px solid rgba(10,24,58,0.05)" }}>
+              <span className="text-gray-500">{isReencauche ? "Banda" : "Marca"}:</span>
+              <span className="font-black text-[#0A183A]">{brand || "—"}</span>
+              <span className="text-gray-300">·</span>
+              <span className="text-gray-500">{isReencauche ? "Diseño" : "Modelo"}:</span>
+              <span className="font-bold text-[#1E76B6]">{band || "—"}</span>
+              {isReencauche && snap?.bandaMarca && snap.bandaMarca.toLowerCase() !== brand.toLowerCase() && (
+                <>
+                  <span className="text-gray-300">·</span>
+                  <span className="text-gray-500">Marca banda:</span>
+                  <span className="font-bold text-[#0A183A]">{snap.bandaMarca}</span>
+                </>
+              )}
+              {snap?.proveedor && (
+                <>
+                  <span className="text-gray-300">·</span>
+                  <span className="text-gray-500">Proveedor:</span>
+                  <span className="font-bold text-[#0A183A]">{snap.proveedor}</span>
+                </>
+              )}
+            </div>
+
+            {/* Stats grid */}
+            <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3"
+              style={{ borderTop: "1px solid rgba(10,24,58,0.05)" }}>
+              <VidaStat label="Km rodados" value={fmtInt(snap?.kmTotales ?? liveKm, " km")} />
+              <VidaStat label="Días"        value={fmtInt(snap?.diasTotales ?? null, " d")} />
+              <VidaStat label="CPK"         value={fmtCpk(snap?.cpkFinal ?? liveCpk)} />
+              <VidaStat label="Costo total" value={fmtCop(snap?.costoTotal ?? liveCost)} />
+              <VidaStat label="RTD inicial" value={fmtMm(snap?.profundidadInicial ?? (entry.valor === "nueva" ? tire.profundidadInicial : null))} />
+              <VidaStat label={isOpenLife ? "RTD actual" : "RTD final"}
+                        value={fmtMm(snap?.profundidadFinal ?? (currentLast && isOpenLife
+                          ? (currentLast.profundidadInt + currentLast.profundidadCen + currentLast.profundidadExt) / 3
+                          : null))} />
+              <VidaStat label="Mm gastados" value={fmtMm(snap?.mmDesgastados ?? liveMmWorn)} />
+              <VidaStat label="Inspecciones" value={fmtInt(snap?.totalInspecciones ?? (isOpenLife ? tire.inspecciones.length : null))} />
+            </div>
           </div>
         );
       })}
@@ -1412,6 +1560,13 @@ function TireDetailModal({
   const currentVida = tire.vida.length ? tire.vida[tire.vida.length - 1].valor : "nueva";
   const cond = getSemaforoCondition(tire);
   const condMeta = cond ? SEMAFORO_META[cond] : null;
+  // Original (nueva) brand — the first snapshot captures the tire state at
+  // the moment it left the nueva phase, so snapshots[0].marca is the carcass
+  // brand. Only surface it when it differs from the current marca.
+  const originalBrand = tire.vidaSnapshots[0]?.marca ?? null;
+  const showOriginalBrand = Boolean(
+    originalBrand && originalBrand.trim().toLowerCase() !== tire.marca.trim().toLowerCase()
+  );
 
   async function handleEditSubmit() {
     setEditLoading(true); setEditSuccess("");
@@ -1470,6 +1625,11 @@ function TireDetailModal({
                     )}
                   </div>
                   <p className="text-white/60 text-sm mt-0.5">{tire.marca} {tire.diseno} · {tire.dimension}</p>
+                  {showOriginalBrand && (
+                    <p className="text-[11px] text-white/50 mt-0.5">
+                      Casco original: <span className="font-bold text-white/80">{originalBrand}</span>
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <VidaBadge valor={currentVida} />
                     <span className="text-white/40 text-[11px]">Posición {tire.posicion} · Eje {tire.eje}</span>

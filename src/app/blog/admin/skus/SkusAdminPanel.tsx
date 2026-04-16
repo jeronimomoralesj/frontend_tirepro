@@ -28,6 +28,7 @@ interface SkuRow {
   vidasReencauche: number
   precioCop: number | null
   cpkEstimado: number | null
+  categoria: string | null
   segmento: string | null
   tipo: string | null
   construccion: string | null
@@ -75,6 +76,7 @@ const EMPTY_SKU: Partial<SkuRow> = {
   modelo: '',
   dimension: '',
   skuRef: '',
+  categoria: 'nueva',
   pctPavimento: 100,
   pctDestapado: 0,
   reencauchable: false,
@@ -87,6 +89,7 @@ export default function SkusAdminPanel({ password }: Props) {
   const [page, setPage] = useState(1)
   const [pageSize] = useState(25)
   const [query, setQuery] = useState('')
+  const [categoriaFilter, setCategoriaFilter] = useState<'' | 'nueva' | 'reencauche'>('')
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState<Partial<SkuRow> | null>(null)
   const [isNew, setIsNew] = useState(false)
@@ -94,7 +97,7 @@ export default function SkusAdminPanel({ password }: Props) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   const fetchPage = useCallback(
-    async (p: number, q: string) => {
+    async (p: number, q: string, cat: string) => {
       setLoading(true)
       try {
         const params = new URLSearchParams({
@@ -102,6 +105,7 @@ export default function SkusAdminPanel({ password }: Props) {
           pageSize: String(pageSize),
         })
         if (q.trim()) params.set('q', q.trim())
+        if (cat) params.set('categoria', cat)
         const res = await adminFetch(password, `/catalog/admin/skus?${params.toString()}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
@@ -118,12 +122,12 @@ export default function SkusAdminPanel({ password }: Props) {
   )
 
   useEffect(() => {
-    fetchPage(page, query)
-  }, [page, fetchPage])
+    fetchPage(page, query, categoriaFilter)
+  }, [page, categoriaFilter, fetchPage])
 
   const onSearch = () => {
     setPage(1)
-    fetchPage(1, query)
+    fetchPage(1, query, categoriaFilter)
   }
 
   const openCreate = () => {
@@ -150,7 +154,7 @@ export default function SkusAdminPanel({ password }: Props) {
         throw new Error(text || `HTTP ${res.status}`)
       }
       setEditing(null)
-      fetchPage(page, query)
+      fetchPage(page, query, categoriaFilter)
     } catch (err: any) {
       console.error(err)
       alert(`Error al guardar: ${err.message ?? err}`)
@@ -162,7 +166,7 @@ export default function SkusAdminPanel({ password }: Props) {
     try {
       const res = await adminFetch(password, `/catalog/admin/skus/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      fetchPage(page, query)
+      fetchPage(page, query, categoriaFilter)
     } catch (err) {
       console.error(err)
       alert('Error al eliminar')
@@ -187,8 +191,8 @@ export default function SkusAdminPanel({ password }: Props) {
         </button>
       </div>
 
-      <div className="mb-6 flex items-center gap-2">
-        <div className="flex-1 relative">
+      <div className="mb-6 flex items-center gap-2 flex-wrap">
+        <div className="flex-1 min-w-[280px] relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={query}
@@ -198,6 +202,18 @@ export default function SkusAdminPanel({ password }: Props) {
             className="w-full pl-10 pr-4 py-3 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-[#348CCB] transition-colors"
           />
         </div>
+        <select
+          value={categoriaFilter}
+          onChange={(e) => {
+            setPage(1)
+            setCategoriaFilter(e.target.value as '' | 'nueva' | 'reencauche')
+          }}
+          className="px-3 py-3 bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg text-white focus:outline-none focus:border-[#348CCB] transition-colors text-sm"
+        >
+          <option value="" className="bg-[#030712]">Todas las categorías</option>
+          <option value="nueva" className="bg-[#030712]">Nueva</option>
+          <option value="reencauche" className="bg-[#030712]">Reencauche</option>
+        </select>
         <button
           onClick={onSearch}
           className="px-4 py-3 bg-[#348CCB] text-white rounded-lg hover:bg-[#1E76B6] transition-colors"
@@ -215,6 +231,7 @@ export default function SkusAdminPanel({ password }: Props) {
                 <th className="px-4 py-3 text-left">Modelo</th>
                 <th className="px-4 py-3 text-left">Dimensión</th>
                 <th className="px-4 py-3 text-left">SKU Ref</th>
+                <th className="px-4 py-3 text-left">Categoría</th>
                 <th className="px-4 py-3 text-left">Eje</th>
                 <th className="px-4 py-3 text-right">Precio COP</th>
                 <th className="px-4 py-3 text-right">Km est.</th>
@@ -225,14 +242,14 @@ export default function SkusAdminPanel({ password }: Props) {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-400">
                     Cargando...
                   </td>
                 </tr>
               )}
               {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-400">
                     Sin resultados
                   </td>
                 </tr>
@@ -244,6 +261,19 @@ export default function SkusAdminPanel({ password }: Props) {
                     <td className="px-4 py-3 capitalize">{row.modelo}</td>
                     <td className="px-4 py-3 font-mono text-xs">{row.dimension}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-400">{row.skuRef}</td>
+                    <td className="px-4 py-3">
+                      {row.categoria ? (
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider ${
+                          row.categoria.toLowerCase() === 'reencauche'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-emerald-500/20 text-emerald-300'
+                        }`}>
+                          {row.categoria}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs">{row.ejeTirePro ?? '—'}</td>
                     <td className="px-4 py-3 text-right">
                       {row.precioCop != null ? `$${row.precioCop.toLocaleString('es-CO')}` : '—'}
@@ -519,6 +549,17 @@ function SkuEditModal({
 
           <Section title="Clasificación & notas">
             <Grid>
+              <Field label="Categoría">
+                <Select
+                  value={sku.categoria ?? ''}
+                  onChange={(v) => set('categoria', (v || null) as any)}
+                  options={[
+                    { value: '', label: '—' },
+                    { value: 'nueva', label: 'Nueva' },
+                    { value: 'reencauche', label: 'Reencauche' },
+                  ]}
+                />
+              </Field>
               <Field label="Segmento">
                 <Input value={sku.segmento ?? ''} onChange={(v) => set('segmento', v)} />
               </Field>
