@@ -53,6 +53,10 @@ interface DesechoData {
   causales: string;
   remanente: number; // mm of tread that was still left when the tire was discarded
   milimetrosDesechados: number;
+  /** COP value of the wasted tread (server-calculated, present on rows
+   *  written after the dinero-perdido fix). Older rows fall back to a
+   *  client-side estimate below. */
+  dineroPerdido?: number;
   imageUrls?: string[];
 }
 
@@ -655,13 +659,18 @@ const DesechosPage: React.FC = () => {
       const desechos: EnrichedDesecho[] = [];
       tires.forEach((tire) => {
         if (tire.desechos) {
-          // Money lost because of the leftover mm =
-          //   (remanente_mm / profundidad_inicial_mm) * latest_tire_cost
+          // Prefer the server-persisted dineroPerdido
+          //   = mm_remaining × (costo_vida / profundidad_inicial_vida).
+          // Fall back to a client-side estimate for legacy rows written
+          // before the fix landed.
           const profundidadInicial = Number(tire.profundidadInicial) || 0;
           const lastCosto = Array.isArray(tire.costos) && tire.costos.length > 0
             ? Number(tire.costos[tire.costos.length - 1]?.valor) || 0
             : 0;
-          const remanenteCop = profundidadInicial > 0 && lastCosto > 0
+          const serverDineroPerdido = Number(tire.desechos.dineroPerdido);
+          const remanenteCop = Number.isFinite(serverDineroPerdido) && serverDineroPerdido > 0
+            ? serverDineroPerdido
+            : profundidadInicial > 0 && lastCosto > 0
             ? (Number(tire.desechos.remanente) / profundidadInicial) * lastCosto
             : 0;
           desechos.push({
