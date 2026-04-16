@@ -26,6 +26,12 @@ interface BrandPageData {
   tier: "premium" | "mid" | "value" | null;
   plants?: Array<{ city?: string; country?: string }> | null;
   sourceUrl?: string | null;
+  // Admin-editable customization (see backend BrandInfo)
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  heroImageUrl?: string | null;
+  tagline?: string | null;
+  published?: boolean;
   total: number;
   listings: Array<{
     id: string; marca: string; modelo: string; dimension: string;
@@ -116,10 +122,19 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const brand = await fetchBrand(slug);
   if (!brand) notFound();
+  if (brand.published === false) notFound();
 
   const tier = brand.tier && TIER_META[brand.tier] ? TIER_META[brand.tier] : null;
   const flag = flagFor(brand.country);
   const yearsActive = brand.foundedYear ? new Date().getFullYear() - brand.foundedYear : null;
+
+  // Admin-configurable hero styling. Falls back to the default TirePro gradient
+  // when primaryColor isn't set so legacy brands look identical.
+  const heroBackground = brand.heroImageUrl
+    ? `linear-gradient(135deg, rgba(10,24,58,0.75) 0%, rgba(23,61,104,0.6) 100%), url(${brand.heroImageUrl}) center/cover`
+    : brand.primaryColor
+    ? `linear-gradient(135deg, ${brand.primaryColor} 0%, ${brand.accentColor ?? brand.primaryColor} 55%, ${brand.accentColor ?? brand.primaryColor} 100%)`
+    : "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)";
 
   const facts: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; value: string; sub?: string }> = [];
   if (brand.country)       facts.push({ icon: MapPin,    label: "País de origen", value: `${flag} ${brand.country}` });
@@ -145,7 +160,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
 
       {/* Hero */}
-      <div className="relative overflow-hidden" style={{ background: "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)" }}>
+      <div className="relative overflow-hidden" style={{ background: heroBackground }}>
         <div className="absolute inset-0 opacity-10" aria-hidden style={{
           backgroundImage: "radial-gradient(circle at 20% 0%, rgba(52,140,203,0.6), transparent 40%), radial-gradient(circle at 80% 100%, rgba(245,158,11,0.4), transparent 40%)",
         }} />
@@ -188,6 +203,9 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 )}
               </div>
               <h1 className="text-3xl sm:text-5xl font-black text-white leading-[1.05] tracking-tight">{brand.name}</h1>
+              {brand.tagline && (
+                <p className="text-sm sm:text-base text-white/90 mt-2 font-bold">{brand.tagline}</p>
+              )}
               <p className="text-xs sm:text-sm text-white/70 mt-2">
                 {brand.total} producto{brand.total !== 1 ? "s" : ""} en el marketplace
                 {brand.foundedYear && <> · desde {brand.foundedYear}</>}

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import Image from 'next/image'
-import { 
+import {
   X,
   Plus,
   Edit3,
@@ -10,11 +10,15 @@ import {
   Mail,
   Shield,
   BarChart3,
-  FileText
+  FileText,
+  Package,
+  Palette
 } from 'lucide-react'
 import logo from "../../../../public/logo_text.png"
 import logoTire from "../../../../public/logo_tire.png"
 import StatsPage from './stats/page'
+import SkusAdminPanel from './skus/SkusAdminPanel'
+import BrandsAdminPanel from './brands/BrandsAdminPanel'
 
 interface Article {
   id: number
@@ -37,7 +41,7 @@ interface NewArticle {
   hashtags: string[]
 }
 
-type ViewMode = 'blog' | 'stats'
+type ViewMode = 'blog' | 'stats' | 'skus' | 'brands'
 
 const BlogAdminPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -328,7 +332,7 @@ const BlogAdminPage = () => {
 
             <div className="flex items-center space-x-4">
               {/* View Toggle */}
-              <div className="flex items-center bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg p-1">
+              <div className="flex items-center bg-[#0A183A]/40 border border-[#173D68]/30 rounded-lg p-1 flex-wrap">
                 <button
                   onClick={() => setCurrentView('blog')}
                   className={`inline-flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
@@ -351,6 +355,28 @@ const BlogAdminPage = () => {
                   <BarChart3 size={16} />
                   <span>Estadísticas</span>
                 </button>
+                <button
+                  onClick={() => setCurrentView('skus')}
+                  className={`inline-flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    currentView === 'skus'
+                      ? 'bg-[#348CCB] text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white hover:bg-[#173D68]/30'
+                  }`}
+                >
+                  <Package size={16} />
+                  <span>SKUs</span>
+                </button>
+                <button
+                  onClick={() => setCurrentView('brands')}
+                  className={`inline-flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    currentView === 'brands'
+                      ? 'bg-[#348CCB] text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white hover:bg-[#173D68]/30'
+                  }`}
+                >
+                  <Palette size={16} />
+                  <span>Marcas</span>
+                </button>
               </div>
 
               {/* Create Article Button - Only show in blog view */}
@@ -369,7 +395,9 @@ const BlogAdminPage = () => {
       </div>
 
       {/* Main Content */}
-      {currentView === 'blog' ? (
+      {currentView === 'skus' && <SkusAdminPanel password={password} />}
+      {currentView === 'brands' && <BrandsAdminPanel password={password} />}
+      {currentView === 'blog' && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Gestión de Artículos</h1>
@@ -447,9 +475,8 @@ const BlogAdminPage = () => {
             </div>
           )}
         </div>
-      ) : (
-        <StatsPage />
       )}
+      {currentView === 'stats' && <StatsPage />}
 
       {/* Create Article Modal */}
       {showCreateForm && (
