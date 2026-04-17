@@ -806,15 +806,15 @@ function NewTireCard({
 
         {/* Row 2: Dimension + Diseño/Banda + Eje */}
         <div className="grid grid-cols-3 gap-2">
-          <div>{L(<>Dimensión {req}</>)}
-            <CatalogAutocomplete value={tire.dimension} field="dimension" filterMarca={tire.marca} placeholder="295/80 R22.5" required className={inputCls}
-              onChange={(v) => onUpdate("dimension", v)}
-              onSelect={(item) => { onUpdate("dimension", item.dimension); onUpdate("marca", item.marca); onUpdate("diseno", item.modelo); if (item.rtdMm) onUpdate("profundidadInicial", item.rtdMm); if (item.precioCop) onUpdate("costo", item.precioCop); }} />
-          </div>
           <div>{L(<>Diseño / Banda {req}</>)}
-            <CatalogAutocomplete value={tire.diseno} field="modelo" filterMarca={tire.marca} filterDimension={tire.dimension} placeholder="XZE2+" required className={inputCls}
+            <CatalogAutocomplete value={tire.diseno} field="modelo" filterMarca={tire.marca} placeholder="XZE2+" required className={inputCls}
               onChange={(v) => onUpdate("diseno", v)}
-              onSelect={(item) => { onUpdate("diseno", item.modelo); if (item.rtdMm) onUpdate("profundidadInicial", item.rtdMm); if (item.precioCop) onUpdate("costo", item.precioCop); }} />
+              onSelect={(item) => { onUpdate("diseno", item.modelo); if (item.dimension && !tire.dimension) onUpdate("dimension", item.dimension); if (item.rtdMm) onUpdate("profundidadInicial", item.rtdMm); if (item.precioCop) onUpdate("costo", item.precioCop); }} />
+          </div>
+          <div>{L(<>Dimensión {req}</>)}
+            <CatalogAutocomplete value={tire.dimension} field="dimension" filterMarca={tire.marca} filterModelo={tire.diseno} placeholder="295/80 R22.5" required className={inputCls}
+              onChange={(v) => onUpdate("dimension", v)}
+              onSelect={(item) => { onUpdate("dimension", item.dimension); if (item.rtdMm) onUpdate("profundidadInicial", item.rtdMm); if (item.precioCop) onUpdate("costo", item.precioCop); }} />
           </div>
           <div>{L(<>Eje {req}</>)}
             <select value={tire.eje} onChange={(e) => onUpdate("eje", e.target.value)} className={`${inputCls} appearance-none`}>

@@ -605,7 +605,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
               </Field>
 
               <Field label="Dimensión" required>
-                <CatalogAutocomplete value={form.dimension} field="dimension" filterMarca={form.marca} placeholder="295/80R22.5" required
+                <CatalogAutocomplete value={form.dimension} field="dimension" filterMarca={form.marca} filterModelo={form.diseno} placeholder="295/80R22.5" required
                   className={inputCls}
                   onChange={(v) => setForm((f: any) => ({ ...f, dimension: v }))}
                   onSelect={(item) => setForm((f: any) => ({ ...f, dimension: item.dimension, marca: item.marca, diseno: item.modelo, profundidadInicial: item.rtdMm ?? f.profundidadInicial }))} />

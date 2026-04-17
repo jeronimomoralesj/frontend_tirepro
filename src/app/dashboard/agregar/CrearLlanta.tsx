@@ -927,6 +927,7 @@ export default function TirePage() {
                   }}
                   field="dimension"
                   filterMarca={form.marca}
+                  filterModelo={form.diseno}
                   placeholder="ej: 295/80R22.5"
                   required
                   className={inputCls}

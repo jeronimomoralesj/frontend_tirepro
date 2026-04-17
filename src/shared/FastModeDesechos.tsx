@@ -339,16 +339,16 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1">Dimensión <span className="text-red-400">*</span></label>
-                <CatalogAutocomplete value={nf.dimension} field="dimension" filterMarca={nf.marca} placeholder="295/80 R22.5" className={inputCls}
-                  onChange={(v) => setNf((f) => ({ ...f, dimension: v }))}
-                  onSelect={(item) => setNf((f) => ({ ...f, dimension: item.dimension, marca: item.marca, diseno: item.modelo }))} />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1">Diseño</label>
+                <label className="block text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1">Diseño <span className="text-red-400">*</span></label>
                 <CatalogAutocomplete value={nf.diseno} field="modelo" filterMarca={nf.marca} placeholder="XZE2+" className={inputCls}
                   onChange={(v) => setNf((f) => ({ ...f, diseno: v }))}
-                  onSelect={(item) => setNf((f) => ({ ...f, diseno: item.modelo }))} />
+                  onSelect={(item) => setNf((f) => ({ ...f, diseno: item.modelo, dimension: f.dimension || item.dimension }))} />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1">Dimensión <span className="text-red-400">*</span></label>
+                <CatalogAutocomplete value={nf.dimension} field="dimension" filterMarca={nf.marca} filterModelo={nf.diseno} placeholder="295/80 R22.5" className={inputCls}
+                  onChange={(v) => setNf((f) => ({ ...f, dimension: v }))}
+                  onSelect={(item) => setNf((f) => ({ ...f, dimension: item.dimension }))} />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-[#173D68] uppercase tracking-wider mb-1">Eje</label>

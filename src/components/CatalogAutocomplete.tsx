@@ -7,7 +7,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
 
-type CatalogItem = {
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
+
+// A row returned by /catalog/search — used by the crowd-data fallback.
+export type CatalogItem = {
   marca: string;
   modelo: string;
   dimension: string;
@@ -17,7 +22,7 @@ type CatalogItem = {
   kmEstimadosReales: number | null;
   terreno: string | null;
   skuRef: string;
-  // Crowdsource fields
+  categoria?: string | null;
   fuente?: string | null;
   crowdSampleSize?: number;
   crowdCompanyCount?: number;
@@ -28,6 +33,27 @@ type CatalogItem = {
   crowdMedianInitialDepth?: number | null;
   crowdAvgCpk?: number | null;
   crowdAvgWearRate?: number | null;
+};
+
+// A row returned by /catalog/autocomplete/{brands|models|dimensions}.
+// Carries a "sample" SKU so selecting a row can still autofill price/RTD.
+type AutocompleteRow = {
+  marca?: string;
+  modelo?: string;
+  dimension?: string;
+  count: number;
+  sample: {
+    marca: string;
+    modelo: string;
+    dimension: string;
+    skuRef: string;
+    rtdMm: number | null;
+    psiRecomendado: number | null;
+    precioCop: number | null;
+    kmEstimadosReales: number | null;
+    terreno: string | null;
+    categoria: string | null;
+  };
 };
 
 type CrowdStats = {
@@ -47,7 +73,10 @@ type Props = {
   onSelect?: (item: CatalogItem) => void;
   onCrowdCreate?: (value: string, stats: CrowdStats | null) => void;
   field: "marca" | "dimension" | "modelo";
+  // Chained filters — each field narrows the list using the ones above it
+  // in the picking order (marca → modelo → dimension).
   filterMarca?: string;
+  filterModelo?: string;
   filterDimension?: string;
   placeholder?: string;
   required?: boolean;
@@ -73,26 +102,37 @@ function ConfidenceBadge({ confidence, samples }: { confidence: number; samples:
   );
 }
 
-function CrowdStatsBadges({ item }: { item: CatalogItem }) {
-  if (!item.crowdSampleSize || item.crowdSampleSize < 1) return null;
-  return (
-    <div className="flex flex-wrap gap-1 mt-0.5">
-      <ConfidenceBadge confidence={item.crowdConfidence ?? 0} samples={item.crowdSampleSize} />
-      {item.crowdAvgCpk != null && (
-        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[8px] font-bold text-[#1E76B6] bg-blue-50 border border-blue-200">
-          <TrendingUp className="w-2.5 h-2.5" />
-          CPK ${Math.round(item.crowdAvgCpk)}
-        </span>
-      )}
-    </div>
-  );
+// -----------------------------------------------------------------------------
+// Row-to-CatalogItem bridge — autocomplete rows become CatalogItems so the
+// existing onSelect contract (used by tire creation forms to autofill
+// rtdMm/precioCop) stays intact.
+// -----------------------------------------------------------------------------
+
+function toCatalogItem(row: AutocompleteRow, field: Props["field"]): CatalogItem {
+  const s = row.sample;
+  return {
+    marca:     field === "marca"     ? (row.marca     ?? s.marca)     : s.marca,
+    modelo:    field === "modelo"    ? (row.modelo    ?? s.modelo)    : s.modelo,
+    dimension: field === "dimension" ? (row.dimension ?? s.dimension) : s.dimension,
+    skuRef:    s.skuRef,
+    rtdMm:     s.rtdMm,
+    psiRecomendado:    s.psiRecomendado,
+    precioCop:         s.precioCop,
+    kmEstimadosReales: s.kmEstimadosReales,
+    terreno:           s.terreno,
+    categoria:         s.categoria,
+  };
 }
 
+// -----------------------------------------------------------------------------
+// Component
+// -----------------------------------------------------------------------------
+
 export default function CatalogAutocomplete({
-  value, onChange, onSelect, onCrowdCreate, field, filterMarca, filterDimension,
+  value, onChange, onSelect, onCrowdCreate, field, filterMarca, filterModelo, filterDimension,
   placeholder, required, className,
 }: Props) {
-  const [suggestions, setSuggestions] = useState<CatalogItem[]>([]);
+  const [rows, setRows] = useState<AutocompleteRow[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [noResults, setNoResults] = useState(false);
@@ -100,6 +140,7 @@ export default function CatalogAutocomplete({
   const [loadingCrowd, setLoadingCrowd] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const reqIdRef = useRef(0);
 
   // Close on outside click
   useEffect(() => {
@@ -120,10 +161,9 @@ export default function CatalogAutocomplete({
       else if (field === "modelo") {
         if (filterMarca) params.set("marca", filterMarca);
         if (filterDimension) params.set("dimension", filterDimension);
-        else params.set("marca", query); // fallback
+        else params.set("marca", query);
         params.set("modelo", query);
       }
-      // Need at least marca and dimension for crowd stats
       if (!params.has("marca") && filterMarca) params.set("marca", filterMarca);
       if (!params.has("dimension") && filterDimension) params.set("dimension", filterDimension);
 
@@ -138,72 +178,88 @@ export default function CatalogAutocomplete({
     setLoadingCrowd(false);
   }, [field, filterMarca, filterDimension]);
 
+  // Decide whether we can fetch for this field. Modelo needs a marca and
+  // dimension (when chained after modelo) benefits from it too. Without a
+  // parent filter AND without a typed query there's nothing useful to show.
+  const canFetch = useCallback((query: string) => {
+    if (field === "modelo" && !filterMarca) {
+      return query.trim().length > 0;
+    }
+    if (field === "dimension" && !filterMarca && query.trim().length === 0) {
+      return false;
+    }
+    return true;
+  }, [field, filterMarca]);
+
   const fetchSuggestions = useCallback(async (query: string) => {
-    if (query.length < 1) { setSuggestions([]); setNoResults(false); return; }
+    if (!canFetch(query)) {
+      setRows([]); setNoResults(false); return;
+    }
+    const myReqId = ++reqIdRef.current;
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (field === "marca") params.set("q", query);
-      else if (field === "dimension") params.set("dimension", query);
-      else if (field === "modelo") params.set("q", query);
-
-      // For dimension, don't filter by marca — dimensions are universal across brands
-      if (field !== "dimension" && filterMarca) params.set("marca", filterMarca);
-      if (filterDimension) params.set("dimension", filterDimension);
-
-      const res = await fetch(`${API_BASE}/catalog/search?${params.toString()}`);
-      let data: CatalogItem[] = [];
-      if (res.ok) data = await res.json();
-
-      // Fallback: also search marketplace listings for recently added tires
-      if (data.length === 0 && query.length >= 2) {
-        try {
-          const mlParams = new URLSearchParams({ search: query, limit: "20" });
-          const mlRes = await fetch(`${API_BASE}/marketplace/listings?${mlParams.toString()}`);
-          if (mlRes.ok) {
-            const mlData = await mlRes.json();
-            const listings = mlData.listings ?? [];
-            // Convert listings to CatalogItem-like format, deduplicated
-            const seen = new Set<string>();
-            for (const l of listings) {
-              const key = `${l.marca}|${l.modelo}|${l.dimension}`.toLowerCase();
-              if (seen.has(key)) continue;
-              seen.add(key);
-              data.push({
-                marca: l.marca, modelo: l.modelo, dimension: l.dimension,
-                rtdMm: null, psiRecomendado: null, precioCop: l.precioCop,
-                kmEstimadosReales: null, terreno: l.catalog?.terreno ?? null,
-                skuRef: l.catalogId ?? "", fuente: "marketplace",
-              });
-            }
-          }
-        } catch { /* */ }
+      let url = "";
+      if (field === "marca") {
+        const p = new URLSearchParams();
+        if (query.trim()) p.set("q", query.trim());
+        url = `${API_BASE}/catalog/autocomplete/brands?${p.toString()}`;
+      } else if (field === "modelo") {
+        const p = new URLSearchParams();
+        p.set("marca", filterMarca ?? "");
+        if (filterDimension) p.set("dimension", filterDimension);
+        if (query.trim())    p.set("q", query.trim());
+        url = `${API_BASE}/catalog/autocomplete/models?${p.toString()}`;
+      } else {
+        // dimension
+        const p = new URLSearchParams();
+        if (filterMarca)  p.set("marca",  filterMarca);
+        if (filterModelo) p.set("modelo", filterModelo);
+        if (query.trim()) p.set("q", query.trim());
+        url = `${API_BASE}/catalog/autocomplete/dimensions?${p.toString()}`;
       }
 
-      setSuggestions(data);
-      setNoResults(data.length === 0 && query.length >= 2);
-      if (data.length === 0 && query.length >= 2) {
+      const res = await fetch(url);
+      let data: AutocompleteRow[] = [];
+      if (res.ok) data = await res.json();
+
+      // Only apply if this is still the latest request — avoids a slow
+      // response overwriting the user's newer input.
+      if (reqIdRef.current !== myReqId) return;
+
+      setRows(data);
+      const emptyAndTyped = data.length === 0 && query.trim().length >= 2;
+      setNoResults(emptyAndTyped);
+      if (emptyAndTyped) {
         fetchCrowdStats(query);
       } else {
         setCrowdStats(null);
       }
     } catch { /* */ }
     setLoading(false);
-  }, [field, filterMarca, filterDimension, fetchCrowdStats]);
+  }, [field, filterMarca, filterModelo, filterDimension, canFetch, fetchCrowdStats]);
 
   function handleChange(val: string) {
     onChange(val);
     setOpen(true);
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(val), 250);
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 200);
   }
 
-  function handleSelect(item: CatalogItem) {
-    if (field === "marca") onChange(item.marca);
-    else if (field === "dimension") onChange(item.dimension);
-    else if (field === "modelo") onChange(item.modelo);
+  function handleFocus() {
+    // Open the dropdown and populate immediately. Modelo and dimension
+    // show "all options for the parent context" even when empty.
+    setOpen(true);
+    fetchSuggestions(value);
+  }
+
+  function handleSelect(row: AutocompleteRow) {
+    const label =
+      field === "marca"     ? (row.marca     ?? row.sample.marca) :
+      field === "dimension" ? (row.dimension ?? row.sample.dimension) :
+                              (row.modelo    ?? row.sample.modelo);
+    onChange(label);
     setOpen(false);
-    onSelect?.(item);
+    onSelect?.(toCatalogItem(row, field));
   }
 
   function handleCrowdCreate() {
@@ -211,27 +267,17 @@ export default function CatalogAutocomplete({
     onCrowdCreate?.(value, crowdStats);
   }
 
-  // Deduplicate suggestions based on field
-  const unique = (() => {
-    if (field === "marca") {
-      const seen = new Set<string>();
-      return suggestions.filter((s) => {
-        const k = s.marca.toLowerCase();
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
+  const displayRows = rows.slice(0, 20);
+
+  // Hint text shown when the dropdown is empty but a parent filter is set
+  // (e.g. modelo without a brand yet).
+  const hint = (() => {
+    if (field === "modelo" && !filterMarca) return "Seleccione una marca primero";
+    if (field === "dimension" && displayRows.length === 0) {
+      if (!filterMarca) return "Seleccione marca y banda para ver dimensiones";
+      if (!filterModelo) return "Seleccione banda para ver dimensiones de esta marca";
     }
-    if (field === "dimension") {
-      const seen = new Set<string>();
-      return suggestions.filter((s) => {
-        const k = s.dimension.toLowerCase();
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
-    }
-    return suggestions; // modelo — show all (includes dimension context)
+    return null;
   })();
 
   return (
@@ -240,63 +286,77 @@ export default function CatalogAutocomplete({
         type="text"
         value={value}
         onChange={(e) => handleChange(e.target.value)}
-        onFocus={() => { if (value.length >= 1) { setOpen(true); fetchSuggestions(value); } }}
+        onFocus={handleFocus}
         placeholder={placeholder}
         required={required}
         className={className || inputCls}
+        autoComplete="off"
       />
 
-      {open && (unique.length > 0 || noResults) && (
+      {open && (displayRows.length > 0 || noResults || hint) && (
         <div
-          className="absolute z-50 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl bg-white"
+          className="absolute z-50 left-0 right-0 mt-1 max-h-72 overflow-y-auto rounded-xl bg-white"
           style={{ border: "1px solid rgba(52,140,203,0.25)", boxShadow: "0 8px 24px rgba(10,24,58,0.12)" }}
         >
-          {/* Regular catalog results */}
-          {unique.slice(0, 15).map((item, i) => (
-            <button
-              key={`${item.skuRef}-${i}`}
-              type="button"
-              onClick={() => handleSelect(item)}
-              className="w-full text-left px-3 py-2 hover:bg-[#F0F7FF] transition-colors"
-              style={{ borderBottom: "1px solid rgba(52,140,203,0.08)" }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  {field === "marca" && (
-                    <p className="text-sm font-semibold text-[#0A183A] truncate">{item.marca}</p>
-                  )}
-                  {field === "dimension" && (
-                    <>
-                      <p className="text-sm font-semibold text-[#0A183A]">{item.dimension}</p>
-                      <p className="text-[10px] text-[#348CCB] truncate">{item.marca} {item.modelo}</p>
-                    </>
-                  )}
-                  {field === "modelo" && (
-                    <>
-                      <p className="text-sm font-semibold text-[#0A183A] truncate">{item.modelo}</p>
-                      <p className="text-[10px] text-[#348CCB]">{item.marca} — {item.dimension}{item.terreno ? ` — ${item.terreno}` : ""}</p>
-                    </>
-                  )}
-                  {/* Show crowd intelligence badges on catalog items that have them */}
-                  {item.fuente === "crowdsource" && <CrowdStatsBadges item={item} />}
+          {hint && displayRows.length === 0 && !noResults && (
+            <p className="px-3 py-2 text-[11px] text-[#93b8d4]">{hint}</p>
+          )}
+
+          {displayRows.map((row, i) => {
+            const label =
+              field === "marca"     ? (row.marca     ?? row.sample.marca) :
+              field === "dimension" ? (row.dimension ?? row.sample.dimension) :
+                                      (row.modelo    ?? row.sample.modelo);
+            const s = row.sample;
+            const categoria = s.categoria?.toLowerCase();
+            return (
+              <button
+                key={`${label}-${i}`}
+                type="button"
+                onClick={() => handleSelect(row)}
+                className="w-full text-left px-3 py-2 hover:bg-[#F0F7FF] transition-colors"
+                style={{ borderBottom: "1px solid rgba(52,140,203,0.08)" }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-[#0A183A] truncate">{label}</p>
+                    <p className="text-[10px] text-[#348CCB] truncate">
+                      {field !== "marca"     && <span>{s.marca}</span>}
+                      {field !== "marca" && field !== "modelo" && <span> · </span>}
+                      {field !== "modelo"    && field !== "dimension" && null}
+                      {field !== "modelo" && (field === "marca" || field === "dimension") && null}
+                      {field === "marca"     && row.count > 1 && <span>{row.count} SKUs</span>}
+                      {field === "modelo"    && <span>{s.marca}{s.dimension ? ` · ${s.dimension}` : ""}</span>}
+                      {field === "dimension" && <span>{s.marca}{s.modelo ? ` · ${s.modelo}` : ""}</span>}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 text-right flex flex-col items-end gap-0.5">
+                    {categoria && (
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                          categoria === "reencauche"
+                            ? "text-amber-700 bg-amber-50 border border-amber-200"
+                            : "text-emerald-700 bg-emerald-50 border border-emerald-200"
+                        }`}
+                      >
+                        {categoria}
+                      </span>
+                    )}
+                    {s.rtdMm && (
+                      <p className="text-[10px] font-bold text-[#1E76B6]">{s.rtdMm}mm</p>
+                    )}
+                    {s.precioCop && (
+                      <p className="text-[9px] text-[#348CCB]">${Math.round(s.precioCop / 1000)}K</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-shrink-0 text-right">
-                  {item.rtdMm && <p className="text-[10px] font-bold text-[#1E76B6]">{item.rtdMm}mm</p>}
-                  {item.precioCop && <p className="text-[9px] text-[#348CCB]">${Math.round(item.precioCop / 1000)}K</p>}
-                  {item.fuente === "crowdsource" && (
-                    <span className="inline-block px-1.5 py-0.5 rounded text-[7px] font-bold uppercase tracking-wider text-violet-600 bg-violet-50 border border-violet-200 mt-0.5">
-                      crowd
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
 
           {/* "Not found — add new" section */}
           {noResults && (
             <div className="border-t border-[#348CCB]/15">
-              {/* Crowd data summary if available */}
               {crowdStats && crowdStats.sampleSize > 0 && (
                 <div className="px-3 py-2 bg-gradient-to-r from-violet-50 to-blue-50">
                   <div className="flex items-center gap-1.5 mb-1.5">
@@ -363,7 +423,6 @@ export default function CatalogAutocomplete({
                 </div>
               )}
 
-              {/* Add new button */}
               <button
                 type="button"
                 onClick={handleCrowdCreate}
