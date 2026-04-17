@@ -1027,7 +1027,6 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [selectedTireId,  setSelectedTireId]  = useState<string | null>(null);
   const [modalTireId,     setModalTireId]     = useState<string | null>(null);
   const [inspectedIds,    setInspectedIds]    = useState<Set<string>>(new Set());
-  const [savingTireId,    setSavingTireId]    = useState<string | null>(null);
   const [inspectionData,  setInspectionData]  = useState<InspectionData | null>(null);
   const [showStructureModal, setShowStructureModal] = useState(false);
   const [savingStructure,    setSavingStructure]    = useState(false);
@@ -1305,38 +1304,33 @@ export default function InspeccionPage({ language }: { language?: string }) {
         payload.inspeccionadoPorId = user.id;
       }
     }
-    setSavingTireId(tireId);
-    try {
-      const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
-        method: "PATCH",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message ?? "Error al guardar inspección");
-      }
-      // Sync local state so "Guardar todas" doesn't double-submit.
-      setTireUpdates((prev) => ({
-        ...prev,
-        [tireId]: {
-          ...(prev[tireId] ?? {}),
-          profundidadInt: Number(draft.profundidadInt),
-          profundidadCen: Number(draft.profundidadCen),
-          profundidadExt: Number(draft.profundidadExt),
-          presionPsi:     draft.presionPsi === "" ? 0 : Number(draft.presionPsi),
-          imageUrls:      draft.imageUrls.slice(0, 2),
-          image:          null,
-        } as TireUpdate,
-      }));
-      setInspectedIds((prev) => {
-        const next = new Set(prev);
-        next.add(tireId);
-        return next;
-      });
-    } finally {
-      setSavingTireId(null);
+    const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.message ?? "Error al guardar inspección");
     }
+    // Sync local state so "Guardar todas" doesn't double-submit.
+    setTireUpdates((prev) => ({
+      ...prev,
+      [tireId]: {
+        ...(prev[tireId] ?? {}),
+        profundidadInt: Number(draft.profundidadInt),
+        profundidadCen: Number(draft.profundidadCen),
+        profundidadExt: Number(draft.profundidadExt),
+        presionPsi:     draft.presionPsi === "" ? 0 : Number(draft.presionPsi),
+        imageUrls:      draft.imageUrls.slice(0, 2),
+        image:          null,
+      } as TireUpdate,
+    }));
+    setInspectedIds((prev) => {
+      const next = new Set(prev);
+      next.add(tireId);
+      return next;
+    });
   }
 
   // ===========================================================================
@@ -1965,12 +1959,15 @@ export default function InspeccionPage({ language }: { language?: string }) {
                   </div>
                 )}
 
-                {/* Vehicle diagram — click to select */}
+                {/* Vehicle diagram — click a tire and its inspection modal
+                    opens immediately. selectedTireId is kept alongside so
+                    the rotation panel below stays available after the
+                    modal closes. */}
                 <InspectionDiagram
                   tires={tires}
                   tireUpdates={tireUpdates}
                   selectedTireId={selectedTireId}
-                  onSelect={setSelectedTireId}
+                  onSelect={(id) => { setSelectedTireId(id); if (id) setModalTireId(id); }}
                   configuracion={vehicle?.configuracion}
                 />
 
@@ -2039,22 +2036,10 @@ export default function InspeccionPage({ language }: { language?: string }) {
                       );
                     })()}
 
-                    {/* Open the inspection modal (primary path — replaces
-                        the inline per-tire form) */}
-                    <button
-                      type="button"
-                      onClick={() => setModalTireId(selectedTireId)}
-                      disabled={savingTireId === selectedTireId}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-60"
-                      style={{ background: "linear-gradient(135deg,#1E76B6,#173D68)" }}
-                    >
-                      {inspectedIds.has(selectedTireId)
-                        ? "Editar inspección"
-                        : "Abrir inspección"}
-                    </button>
                     {inspectedIds.has(selectedTireId) && (
                       <p className="text-[11px] text-emerald-600 flex items-center gap-1.5 justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Inspección guardada
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Inspección guardada — toca la llanta para editar
                       </p>
                     )}
                   </div>
