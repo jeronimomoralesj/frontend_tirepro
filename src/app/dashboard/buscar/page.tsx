@@ -1930,7 +1930,7 @@ const BuscarPage: React.FC = () => {
         setTires(raw.filter(t => t.companyId === companyId).map(normalise).sort((a, b) => a.posicion - b.posicion));
       } else {
         const tRes = await authFetch(
-          `${API_BASE}/tires?companyId=${companyId}`
+          `${API_BASE}/tires?companyId=${companyId}&slim=true`
         );
         if (!tRes.ok) throw new Error("Llanta no encontrada");
         const raw: RawTire[] = await tRes.json();

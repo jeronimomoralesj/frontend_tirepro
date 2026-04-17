@@ -532,7 +532,7 @@ function ManualView({
           // Determine next vida value — fetch current tire's vida
           let currentVida = "nueva";
           try {
-            const tireRes = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
+            const tireRes = await authFetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`);
             if (tireRes.ok) {
               const allTires = await tireRes.json();
               const tire = allTires.find((t: any) => t.id === item.tireId);
@@ -1276,7 +1276,7 @@ export default function PedidosTab() {
     try {
       const [settingsRes, tiresRes, ordersRes, distRes, bucketsRes, companyRes, allDistRes] = await Promise.all([
         authFetch(`${API_BASE}/companies/${cId}/agent-settings`),
-        authFetch(`${API_BASE}/tires?companyId=${cId}`),
+        authFetch(`${API_BASE}/tires?companyId=${cId}&slim=true`),
         authFetch(`${API_BASE}/purchase-orders/company?companyId=${cId}`),
         authFetch(`${API_BASE}/companies/${cId}/distributors`),
         authFetch(`${API_BASE}/inventory-buckets?companyId=${cId}`),

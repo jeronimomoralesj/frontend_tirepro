@@ -83,7 +83,7 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
         const tires: any[] = await tRes.json();
         setFoundTires(tires.filter((t: any) => t.vidaActual !== "fin").map((t: any) => ({ ...t, vehicle: { placa: v.placa } })));
       } else {
-        const tRes = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
+        const tRes = await authFetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`);
         if (!tRes.ok) throw new Error("Error al buscar");
         const all: any[] = await tRes.json();
         const term = searchTerm.trim().toLowerCase();

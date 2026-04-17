@@ -604,7 +604,7 @@ const DesechosDistribuidor: React.FC = () => {
       await Promise.all(
         targets.map(async (company) => {
           try {
-            const res = await authFetch(`${API_BASE}/tires?companyId=${company.id}`);
+            const res = await authFetch(`${API_BASE}/tires?companyId=${company.id}&slim=true`);
             if (!res.ok) return;
             const tires: TireWithDesecho[] = await res.json();
             tires.forEach((tire) => {

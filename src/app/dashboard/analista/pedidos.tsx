@@ -1549,7 +1549,7 @@ const PedidosPage: React.FC = () => {
   const loadInventory = useCallback(async (cid: string) => {
     try {
       const [tiresRes, bucketsRes, vehiclesRes] = await Promise.all([
-        authFetch(`${API_BASE}/tires?companyId=${cid}`),
+        authFetch(`${API_BASE}/tires?companyId=${cid}&slim=true`),
         authFetch(`${API_BASE}/inventory-buckets?companyId=${cid}`),
         authFetch(`${API_BASE}/vehicles?companyId=${cid}`),
       ]);
@@ -1578,7 +1578,7 @@ const PedidosPage: React.FC = () => {
       await Promise.all([loadCompany(cid), loadInventory(cid)]);
 
       const [tiresRes, benchRes] = await Promise.allSettled([
-        authFetch(`${API_BASE}/tires?companyId=${encodeURIComponent(cid)}`),
+        authFetch(`${API_BASE}/tires?companyId=${encodeURIComponent(cid)}&slim=true`),
         authFetch(`${API_BASE}/tire-benchmarks`),
       ]);
 

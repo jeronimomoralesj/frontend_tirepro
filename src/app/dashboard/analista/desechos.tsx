@@ -210,7 +210,7 @@ const DesechosStats: React.FC = () => {
       const companyId = localStorage.getItem("companyId");
       if (!companyId) { setError("No se encontró el companyId"); setLoading(false); return; }
       try {
-        const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
+        const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`);
         if (!res.ok) throw new Error("Error al cargar los datos");
         const tires: Tire[] = await res.json();
         setDesechos(tires.map((t) => t.desechos).filter(Boolean) as DesechoData[]);

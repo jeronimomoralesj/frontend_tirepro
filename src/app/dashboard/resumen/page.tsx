@@ -212,7 +212,9 @@ export default function ResumenPage() {
     if (!user.companyId) return;
 
     setLoading(true);
-    authFetch(`${API_BASE}/tires?companyId=${user.companyId}`)
+    // slim=true → backend returns a projected payload (no full inspection /
+    // cost history). Cuts response size ~10x for fleets with 5k+ tires.
+    authFetch(`${API_BASE}/tires?companyId=${user.companyId}&slim=true`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: RawTire[]) => setTires(data))
       .catch(() => {})

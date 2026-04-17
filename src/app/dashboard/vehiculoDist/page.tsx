@@ -475,7 +475,7 @@ export default function VehiculoPage() {
     try {
       const [vRes, tRes] = await Promise.all([
         authFetch(`${API_BASE}/vehicles?companyId=${companyId}`),
-        authFetch(`${API_BASE}/tires?companyId=${companyId}`),
+        authFetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`),
       ]);
       if (!vRes.ok) throw new Error("Error al obtener vehículos.");
       const vData = await vRes.json();

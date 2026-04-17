@@ -217,7 +217,7 @@ export default function NikitaTab() {
     if (!user.companyId) return;
 
     setLoading(true);
-    authFetch(`${API_BASE}/tires?companyId=${user.companyId}`)
+    authFetch(`${API_BASE}/tires?companyId=${user.companyId}&slim=true`)
       .then((r) => (r.ok ? r.json() : []))
       .then((raw: RawTire[]) => {
         const processed = raw

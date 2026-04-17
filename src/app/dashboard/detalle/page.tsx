@@ -185,7 +185,7 @@ export default function DetallePage() {
 
     setLoading(true);
     Promise.all([
-      authFetch(`${API_BASE}/tires?companyId=${user.companyId}`).then((r) =>
+      authFetch(`${API_BASE}/tires?companyId=${user.companyId}&slim=true`).then((r) =>
         r.ok ? r.json() : [],
       ),
       authFetch(`${API_BASE}/vehicles?companyId=${user.companyId}`).then((r) =>

@@ -68,8 +68,8 @@ const InspeccionVencidaPage: React.FC = () => {
       try {
         const res = await fetch(
           process.env.NEXT_PUBLIC_API_URL
-            ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}`
-            : `https://api.tirepro.com.co/api/tires?companyId=${companyId}`
+            ? `${process.env.NEXT_PUBLIC_API_URL}/api/tires?companyId=${companyId}&slim=true`
+            : `https://api.tirepro.com.co/api/tires?companyId=${companyId}&slim=true`
         );
         if (!res.ok) throw new Error(translations[language].fetchError);
         const data: Tire[] = await res.json();

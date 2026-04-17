@@ -186,7 +186,7 @@ function groupByDate(tires: InventoryTire[]): Array<{ label: string; tires: Inve
 
 async function fetchInventoryData(companyId: string) {
   const [tiresRes, bucketsRes] = await Promise.all([
-    fetch(`${API_BASE}/tires?companyId=${companyId}`, { headers: authHeaders(), cache: 'no-store' }),
+    fetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`, { headers: authHeaders(), cache: 'no-store' }),
     fetch(`${API_BASE}/inventory-buckets?companyId=${companyId}`, { headers: authHeaders(), cache: 'no-store' }),
   ]);
   const allTires: any[] = tiresRes.ok ? await tiresRes.json() : [];

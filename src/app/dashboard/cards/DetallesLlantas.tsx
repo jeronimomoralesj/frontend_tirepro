@@ -79,11 +79,22 @@ function fmtCPK(v: number | undefined | null) {
 const DetallesLlantas: React.FC<DetallesLlantasProps> = ({ tires, vehicles }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 100;
+
+  // Index vehicles by id once — a 10k-tire search would do 10k × vehicles.length
+  // `.find()` calls every keystroke. Map lookup drops it to O(n).
+  const vehicleById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const v of vehicles) m.set(v.id, v.placa);
+    return m;
+  }, [vehicles]);
 
   const searchFilteredTires = useMemo(() => {
     const q = searchTerm.toLowerCase();
+    if (!q) return tires;
     return tires.filter((tire) => {
-      const vehPlaca = vehicles.find((v) => v.id === tire.vehicleId)?.placa?.toLowerCase() || "";
+      const vehPlaca = (tire.vehicleId ? vehicleById.get(tire.vehicleId) : "")?.toLowerCase() || "";
       return (
         tire.placa.toLowerCase().includes(q) ||
         tire.marca.toLowerCase().includes(q) ||
@@ -93,13 +104,23 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({ tires, vehicles }) =>
         vehPlaca.includes(q)
       );
     });
-  }, [tires, vehicles, searchTerm]);
+  }, [tires, vehicleById, searchTerm]);
+
+  // Reset to page 0 whenever the filtered set changes (new search term, new
+  // company, etc.) so the user sees the first page of the new results.
+  useMemo(() => { setPage(0); }, [searchTerm, tires.length]);
+
+  const totalPages = Math.max(1, Math.ceil(searchFilteredTires.length / PAGE_SIZE));
+  const pagedTires = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    return searchFilteredTires.slice(start, start + PAGE_SIZE);
+  }, [searchFilteredTires, page]);
 
   const exportToExcel = () => {
     setExporting(true);
     try {
       const exportData = searchFilteredTires.map((tire) => {
-        const vehPlaca = vehicles.find((v) => v.id === tire.vehicleId)?.placa || "-";
+        const vehPlaca = (tire.vehicleId ? vehicleById.get(tire.vehicleId) : "") || "-";
         const vida = tire.vida.at(-1)?.valor || "-";
         const insp = tire.inspecciones.at(-1);
         const costoRaw = tire.costo.at(-1)?.valor;
@@ -241,8 +262,8 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({ tires, vehicles }) =>
                   </tr>
                 </thead>
                 <tbody>
-                  {searchFilteredTires.map((tire, idx) => {
-                    const vehPlaca = vehicles.find((v) => v.id === tire.vehicleId)?.placa || "-";
+                  {pagedTires.map((tire, idx) => {
+                    const vehPlaca = (tire.vehicleId ? vehicleById.get(tire.vehicleId) : "") || "-";
                     const vida = tire.vida.at(-1)?.valor || "-";
                     const insp = tire.inspecciones.at(-1);
                     const costoRaw = tire.costo.at(-1)?.valor;
@@ -302,14 +323,42 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({ tires, vehicles }) =>
               </table>
             </div>
 
-            {/* Footer */}
-            <div className="flex flex-wrap justify-between items-center gap-2 pt-3">
+            {/* Footer + pagination */}
+            <div className="flex flex-wrap justify-between items-center gap-2 pt-3 px-3 sm:px-4 pb-3">
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <FileSpreadsheet size={13} className="flex-shrink-0 text-[#1E76B6]" />
                 {searchTerm
                   ? `${T.results}: ${searchFilteredTires.length} ${T.of} ${tires.length} ${T.tires}`
                   : `${T.totalTires}: ${tires.length}`}
+                {totalPages > 1 && (
+                  <span className="ml-1 text-gray-400">
+                    · {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, searchFilteredTires.length)}
+                  </span>
+                )}
               </div>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="px-2 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
+                    style={{ background: "#F1F5F9", color: "#173D68" }}
+                  >
+                    ← Anterior
+                  </button>
+                  <span className="text-xs text-gray-500 px-2 tabular-nums">
+                    {page + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="px-2 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
+                    style={{ background: "#1E76B6", color: "white" }}
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              )}
               <div className="text-xs text-gray-400">
                 {T.updated}: {new Date().toLocaleDateString("es-CO")}
               </div>

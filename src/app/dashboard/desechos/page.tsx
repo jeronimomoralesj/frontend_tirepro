@@ -653,7 +653,7 @@ const DesechosPage: React.FC = () => {
     try {
       const companyId = getCompanyIdFromToken();
       if (!companyId) throw new Error("No se pudo obtener la empresa del token");
-      const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}`);
+      const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`);
       if (!res.ok) throw new Error("Error al obtener neumáticos");
       const tires: TireWithDesecho[] = await res.json();
       const desechos: EnrichedDesecho[] = [];

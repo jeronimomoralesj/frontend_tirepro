@@ -155,7 +155,7 @@ function getLastCosto(tire: Tire): number | null {
 
 async function fetchInventoryTires(companyId: string): Promise<Tire[]> {
   try {
-    const res = await fetch(`${API_BASE}/tires?companyId=${companyId}`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`, { headers: authHeaders() });
     if (!res.ok) return [];
     const data = await res.json();
     if (!Array.isArray(data)) return [];
