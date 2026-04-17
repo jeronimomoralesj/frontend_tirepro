@@ -27,6 +27,7 @@ import jsPDF from "jspdf";
 import FastMode from "./FastMode";
 import { AGENTS } from "../../../lib/agents";
 import { useAuth } from "../../context/AuthProvider";
+import TireInspectionModal, { type InspectionDraft } from "../../../components/TireInspectionModal";
 
 // =============================================================================
 // Constants
@@ -161,6 +162,7 @@ type TireUpdate = {
   profundidadExt:  number | "";
   presionPsi:      number | "";   // optional
   image:           File | null;
+  imageUrls?:      string[];      // modal-captured photos (0–2)
 };
 
 type InspectionData = {
@@ -1023,6 +1025,9 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [success,         setSuccess]         = useState("");
   const [showExport,      setShowExport]      = useState(false);
   const [selectedTireId,  setSelectedTireId]  = useState<string | null>(null);
+  const [modalTireId,     setModalTireId]     = useState<string | null>(null);
+  const [inspectedIds,    setInspectedIds]    = useState<Set<string>>(new Set());
+  const [savingTireId,    setSavingTireId]    = useState<string | null>(null);
   const [inspectionData,  setInspectionData]  = useState<InspectionData | null>(null);
   const [showStructureModal, setShowStructureModal] = useState(false);
   const [savingStructure,    setSavingStructure]    = useState(false);
@@ -1277,6 +1282,63 @@ export default function InspeccionPage({ language }: { language?: string }) {
     setTireUpdates((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
   }
 
+  // Optimistic per-tire save — fires as soon as the modal's "Guardar
+  // inspección" button is clicked so the user isn't stuck at the end
+  // waiting for a batch submit. Subsequent re-saves for the same tire
+  // use the edit endpoint, which diffs old vs new photos on S3.
+  async function submitSingleInspection(tireId: string, draft: InspectionDraft) {
+    const tire = [...tires, ...unionTires].find((t) => t.id === tireId);
+    if (!tire) throw new Error("Tire not found");
+    const kmDelta = Math.max(Number(newKilometraje) - (vehicle?.kilometrajeActual ?? 0), 0);
+    const payload: Record<string, unknown> = {
+      profundidadInt: Number(draft.profundidadInt),
+      profundidadCen: Number(draft.profundidadCen),
+      profundidadExt: Number(draft.profundidadExt),
+      newKilometraje: Number(newKilometraje) || undefined,
+      kmDelta: kmDelta > 0 ? kmDelta : undefined,
+      imageUrls: draft.imageUrls.slice(0, 2),
+    };
+    if (draft.presionPsi !== "") payload.presionPsi = Number(draft.presionPsi);
+    if (inspectorName.trim()) {
+      payload.inspeccionadoPorNombre = inspectorName.trim();
+      if (user?.id && inspectorName.trim() === (user.name ?? "").trim()) {
+        payload.inspeccionadoPorId = user.id;
+      }
+    }
+    setSavingTireId(tireId);
+    try {
+      const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message ?? "Error al guardar inspección");
+      }
+      // Sync local state so "Guardar todas" doesn't double-submit.
+      setTireUpdates((prev) => ({
+        ...prev,
+        [tireId]: {
+          ...(prev[tireId] ?? {}),
+          profundidadInt: Number(draft.profundidadInt),
+          profundidadCen: Number(draft.profundidadCen),
+          profundidadExt: Number(draft.profundidadExt),
+          presionPsi:     draft.presionPsi === "" ? 0 : Number(draft.presionPsi),
+          imageUrls:      draft.imageUrls.slice(0, 2),
+          image:          null,
+        } as TireUpdate,
+      }));
+      setInspectedIds((prev) => {
+        const next = new Set(prev);
+        next.add(tireId);
+        return next;
+      });
+    } finally {
+      setSavingTireId(null);
+    }
+  }
+
   // ===========================================================================
   // Submit inspections
   // ===========================================================================
@@ -1303,7 +1365,11 @@ export default function InspeccionPage({ language }: { language?: string }) {
       return;
     }
 
-    const inspectionTires = allTires.filter((t) => isFull(safeUpdate(t.id)));
+    // Skip tires already persisted via the modal's optimistic PATCH —
+    // otherwise the batch path would create a duplicate inspection row.
+    const inspectionTires = allTires.filter(
+      (t) => isFull(safeUpdate(t.id)) && !inspectedIds.has(t.id),
+    );
 
     // Detect whether the technician made a position change. Used together
     // with the inspection count to decide if there's anything to save.
@@ -1973,36 +2039,34 @@ export default function InspeccionPage({ language }: { language?: string }) {
                       );
                     })()}
 
-                    <TireInspectionCard
-                      tire={tires.find((t) => t.id === selectedTireId)!}
-                      updates={
-                        tireUpdates[selectedTireId] ?? {
-                          profundidadInt: "",
-                          profundidadCen: "",
-                          profundidadExt: "",
-                          presionPsi:     "",
-                          image:          null,
-                        }
-                      }
-                      onChange={handleInputChange}
-                      isUnion={false}
-                    />
+                    {/* Open the inspection modal (primary path — replaces
+                        the inline per-tire form) */}
+                    <button
+                      type="button"
+                      onClick={() => setModalTireId(selectedTireId)}
+                      disabled={savingTireId === selectedTireId}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-60"
+                      style={{ background: "linear-gradient(135deg,#1E76B6,#173D68)" }}
+                    >
+                      {inspectedIds.has(selectedTireId)
+                        ? "Editar inspección"
+                        : "Abrir inspección"}
+                    </button>
+                    {inspectedIds.has(selectedTireId) && (
+                      <p className="text-[11px] text-emerald-600 flex items-center gap-1.5 justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Inspección guardada
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* Fallback: show all if no tire selected */}
+                {/* Idle state: prompt the user to pick a tire so the
+                    modal can open. The old inline per-tire form grid
+                    was removed in favor of the click → modal UX. */}
                 {!selectedTireId && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    {tires.map((t) => (
-                      <TireInspectionCard
-                        key={t.id}
-                        tire={t}
-                        updates={tireUpdates[t.id] ?? { profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null }}
-                        onChange={handleInputChange}
-                        isUnion={false}
-                      />
-                    ))}
-                  </div>
+                  <p className="text-[11px] text-[#93b8d4] text-center mt-3">
+                    Haz clic en una llanta del croquis para abrir la inspección.
+                  </p>
                 )}
               </Card>
             )}
@@ -2015,24 +2079,34 @@ export default function InspeccionPage({ language }: { language?: string }) {
                   subtitle={`${unionVehicle.placa.toUpperCase()} · ${unionTires.length} llantas`}
                   accent
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {unionTires.map((t) => (
-                    <TireInspectionCard
-                      key={t.id}
-                      tire={t}
-                      updates={
-                        tireUpdates[t.id] ?? {
-                          profundidadInt: "",
-                          profundidadCen: "",
-                          profundidadExt: "",
-                          presionPsi:     "",
-                          image:          null,
-                        }
-                      }
-                      onChange={handleInputChange}
-                      isUnion
-                    />
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {unionTires.map((t) => {
+                    const done = inspectedIds.has(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setModalTireId(t.id)}
+                        className="rounded-xl px-3 py-3 text-left transition-all hover:shadow-md"
+                        style={{
+                          border: done ? "1px solid #10b981" : "1px solid rgba(52,140,203,0.25)",
+                          background: done ? "rgba(16,185,129,0.05)" : "white",
+                        }}
+                      >
+                        <p className="font-black tracking-widest text-[11px] text-[#0A183A] truncate">
+                          {t.placa?.toUpperCase() ?? "—"}
+                        </p>
+                        <p className="text-[10px] text-[#348CCB] mt-0.5 truncate">
+                          Pos. {t.posicion} · {t.marca ?? "—"}
+                        </p>
+                        {done && (
+                          <p className="text-[10px] font-bold text-emerald-600 mt-1 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Inspeccionada
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </Card>
             )}
@@ -2086,6 +2160,36 @@ export default function InspeccionPage({ language }: { language?: string }) {
           saving={savingStructure}
         />
       )}
+
+      {/* Per-tire inspection modal — primary capture path */}
+      {modalTireId && (() => {
+        const t = [...tires, ...unionTires].find((x) => x.id === modalTireId);
+        if (!t) return null;
+        const u = tireUpdates[modalTireId];
+        return (
+          <TireInspectionModal
+            tire={{
+              id:       t.id,
+              placa:    t.placa,
+              marca:    t.marca,
+              diseno:   t.diseno,
+              dimension: t.dimension,
+              posicion:  t.posicion,
+              eje:       t.eje,
+              profundidadInicial: t.profundidadInicial,
+            }}
+            initial={{
+              profundidadInt: u?.profundidadInt !== undefined && u.profundidadInt !== "" ? String(u.profundidadInt) : "",
+              profundidadCen: u?.profundidadCen !== undefined && u.profundidadCen !== "" ? String(u.profundidadCen) : "",
+              profundidadExt: u?.profundidadExt !== undefined && u.profundidadExt !== "" ? String(u.profundidadExt) : "",
+              presionPsi:     u?.presionPsi     !== undefined && u.presionPsi !== "" ? String(u.presionPsi) : "",
+              imageUrls:      u?.imageUrls ?? [],
+            }}
+            onClose={() => setModalTireId(null)}
+            onSave={async (draft) => { await submitSingleInspection(modalTireId, draft); }}
+          />
+        );
+      })()}
 
       {/* Free-tire action picker — assign to position or to a bucket */}
       {freeActionTireId && (() => {
