@@ -4,9 +4,9 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   FilePlus, Upload, Download, Info, ChevronDown, Search,
   X, AlertTriangle, CheckCircle, Loader2, Layers,
-  RotateCcw, Clock,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import RecentBulkUploads from "@/components/RecentBulkUploads";
 
 // =============================================================================
 // Types
@@ -42,53 +42,9 @@ const FIELDS = [
 // file or made a typo.
 // =============================================================================
 
-const RECENT_KEY = "tirepro:recent-bulk-uploads:tires";
-const MAX_RECENT = 3;
-
-interface RecentUpload {
-  id: string;
-  timestamp: number;
-  fileName: string;
-  count: number;
-  tireIds: string[];
-  companyId: string;
-  companyName: string;
-}
-
-function loadRecentUploads(): RecentUpload[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(RECENT_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as RecentUpload[];
-  } catch { return []; }
-}
-
-function saveRecentUpload(upload: RecentUpload) {
-  if (typeof window === "undefined") return;
-  let all: RecentUpload[] = [];
-  try {
-    const raw = localStorage.getItem(RECENT_KEY);
-    if (raw) all = JSON.parse(raw);
-  } catch { /* */ }
-  all.unshift(upload);
-  // keep max 3 PER company
-  const byCompany: Record<string, RecentUpload[]> = {};
-  for (const u of all) (byCompany[u.companyId] ??= []).push(u);
-  const trimmed: RecentUpload[] = [];
-  for (const cid in byCompany) trimmed.push(...byCompany[cid].slice(0, MAX_RECENT));
-  localStorage.setItem(RECENT_KEY, JSON.stringify(trimmed));
-}
-
-function removeRecentUpload(id: string) {
-  if (typeof window === "undefined") return;
-  try {
-    const raw = localStorage.getItem(RECENT_KEY);
-    if (!raw) return;
-    const all: RecentUpload[] = JSON.parse(raw);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(all.filter((u) => u.id !== id)));
-  } catch { /* */ }
-}
+// Recent uploads now live server-side (BulkUploadSnapshot). The
+// RecentBulkUploads component handles list / revert / edit+reapply
+// scoped to the selected client's companyId.
 
 // =============================================================================
 // Helpers
@@ -259,12 +215,9 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
   const [dragging,          setDragging]          = useState(false);
   const [previewRows,       setPreviewRows]       = useState<Record<string, any>[]>([]);
   const [previewHeaders,    setPreviewHeaders]    = useState<string[]>([]);
-  const [recents,           setRecents]           = useState<RecentUpload[]>([]);
-  const [undoingId,         setUndoingId]         = useState<string | null>(null);
+  const [recentsVersion,    setRecentsVersion]    = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setRecents(loadRecentUploads()); }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -330,32 +283,8 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  // -- Undo a recent bulk upload --------------------------------------------
-  const undoUpload = useCallback(async (upload: RecentUpload) => {
-    const ok = window.confirm(
-      `¿Eliminar las ${upload.count} llantas creadas en "${upload.fileName}" para ${upload.companyName}? Esta acción no se puede deshacer.`,
-    );
-    if (!ok) return;
-    setUndoingId(upload.id);
-    try {
-      const res = await authFetch(`${API_BASE}/tires/bulk-delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tireIds: upload.tireIds, companyId: upload.companyId }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json().catch(() => ({ deleted: upload.count }));
-      removeRecentUpload(upload.id);
-      setRecents(loadRecentUploads());
-      setMessage(`${data.deleted ?? upload.count} llantas eliminadas correctamente.`);
-      setMessageType("success");
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "No se pudo deshacer la carga.");
-      setMessageType("error");
-    } finally {
-      setUndoingId(null);
-    }
-  }, []);
+  // Recent uploads are managed by the RecentBulkUploads component scoped
+  // to the selected client. Bumping recentsVersion refreshes it.
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -429,23 +358,9 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
       setMessage((data.message ?? "Carga masiva completada con éxito.") + renamedNote);
       setMessageType("success");
 
-      // Track this run so it can be undone from "Cargas recientes".
-      const createdIds: string[] = Array.isArray(data.createdTireIds) ? data.createdTireIds : [];
-      if (createdIds.length > 0 && file) {
-        const companyName = selectedCompany !== "Todos"
-          ? selectedCompany
-          : "Mi empresa";
-        saveRecentUpload({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          timestamp: Date.now(),
-          fileName: file.name,
-          count: data.success ?? createdIds.length,
-          tireIds: createdIds,
-          companyId,
-          companyName,
-        });
-        setRecents(loadRecentUploads());
-      }
+      // Server already persisted a BulkUploadSnapshot for this run;
+      // nudge RecentBulkUploads to re-fetch.
+      setRecentsVersion((v) => v + 1);
 
       clearFile();
     } catch (err) {
@@ -795,51 +710,13 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
           </button>
         </form>
 
-        {/* -- Cargas recientes ---------------------------------------------- */}
-        {recents.length > 0 && (
-          <Card className="p-4 sm:p-5">
-            <CardTitle
-              icon={Clock}
-              title="Cargas recientes"
-              sub="Si te equivocaste, puedes deshacer las últimas 3 cargas por cliente"
-            />
-            <div className="space-y-2">
-              {recents.map((u) => {
-                const isUndoing = undoingId === u.id;
-                const date = new Date(u.timestamp);
-                const ago = date.toLocaleString("es-CO", {
-                  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                });
-                return (
-                  <div
-                    key={u.id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                    style={{ background: "rgba(30,118,182,0.04)", border: "1px solid rgba(30,118,182,0.12)" }}
-                  >
-                    <div className="p-2 rounded-lg flex-shrink-0" style={{ background: "rgba(30,118,182,0.12)" }}>
-                      <FilePlus className="w-3.5 h-3.5 text-[#1E76B6]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-[#0A183A] truncate">{u.fileName}</p>
-                      <p className="text-[10px] text-gray-400">
-                        {u.count} llanta{u.count !== 1 ? "s" : ""} · {u.companyName} · {ago}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => undoUpload(u)}
-                      disabled={isUndoing}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-black text-red-600 transition-colors hover:bg-red-50 disabled:opacity-40"
-                      title="Deshacer esta carga (eliminar las llantas creadas)"
-                    >
-                      {isUndoing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
-                      Deshacer
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+        {/* -- Cargas recientes (server-backed, scoped to selected client) -- */}
+        {companyId && (
+          <RecentBulkUploads
+            companyId={companyId}
+            refreshKey={recentsVersion}
+            onChanged={() => setRecentsVersion((v) => v + 1)}
+          />
         )}
       </div>
     </div>
