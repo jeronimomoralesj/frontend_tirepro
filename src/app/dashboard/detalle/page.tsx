@@ -94,27 +94,32 @@ function extractVida(eventos: RawEvento[]): { valor: string; fecha: string }[] {
 }
 
 function normaliseTire(raw: any): Tire {
-  const costo = [...(raw.costos ?? [])]
-    .sort((a: any, b: any) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
-    .map((c: any) => ({ valor: c.valor ?? 0, fecha: toISO(c.fecha) }));
+  // slim API delivers costos/inspecciones in fecha-desc order already; the UI
+  // wants fecha-asc. .reverse() is O(n) vs .sort() O(n log n) — saves real
+  // time across 10k tires.
+  const srcCostos = (raw.costos ?? []) as any[];
+  const costo = srcCostos.length
+    ? srcCostos.map((c) => ({ valor: c.valor ?? 0, fecha: toISO(c.fecha) })).reverse()
+    : [];
 
-  const inspecciones = [...(raw.inspecciones ?? [])]
-    .sort((a: any, b: any) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
-    .map((i: any) => ({
-      fecha: toISO(i.fecha),
-      profundidadInt: i.profundidadInt ?? 0,
-      profundidadCen: i.profundidadCen ?? 0,
-      profundidadExt: i.profundidadExt ?? 0,
-      cpk: i.cpk ?? 0,
-      cpkProyectado: i.cpkProyectado ?? 0,
-      cpt: i.cpt ?? 0,
-      cptProyectado: i.cptProyectado ?? 0,
-      imageUrl: i.imageUrl ?? "",
-      kilometrosEstimados: i.kilometrosEstimados,
-      kmActualVehiculo: i.kmActualVehiculo,
-      kmEfectivos: i.kmEfectivos,
-      kmProyectado: i.kmProyectado,
-    }));
+  const srcInsps = (raw.inspecciones ?? []) as any[];
+  const inspecciones = srcInsps.length
+    ? srcInsps.map((i) => ({
+        fecha: toISO(i.fecha),
+        profundidadInt: i.profundidadInt ?? 0,
+        profundidadCen: i.profundidadCen ?? 0,
+        profundidadExt: i.profundidadExt ?? 0,
+        cpk: i.cpk ?? 0,
+        cpkProyectado: i.cpkProyectado ?? 0,
+        cpt: i.cpt ?? 0,
+        cptProyectado: i.cptProyectado ?? 0,
+        imageUrl: i.imageUrl ?? "",
+        kilometrosEstimados: i.kilometrosEstimados,
+        kmActualVehiculo: i.kmActualVehiculo,
+        kmEfectivos: i.kmEfectivos,
+        kmProyectado: i.kmProyectado,
+      })).reverse()
+    : [];
 
   const vida = extractVida(raw.eventos ?? []);
   return { ...raw, costo, inspecciones, vida } as unknown as Tire;
