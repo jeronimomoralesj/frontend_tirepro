@@ -46,7 +46,7 @@ export type RawTire = {
   posicion: number; companyId: string; vehicleId?: string | null;
   fechaInstalacion?: string | Date | null; diasAcumulados?: number;
   kilometrosRecorridos: number; alertLevel?: string;
-  healthScore?: number | null; currentCpk?: number | null;
+  healthScore?: number | null; currentCpk?: number | null; lifetimeCpk?: number | null;
   currentProfundidad?: number | null; projectedDateEOL?: string | Date | null;
   primeraVida?: Array<{ cpk?: number; diseno?: string; costo?: number; kilometros?: number }>;
   desechos?: unknown; costos: RawCosto[]; inspecciones: RawInspeccion[]; eventos: RawEvento[];
@@ -98,7 +98,7 @@ export type Tire = {
   posicion: number; companyId: string; vehicleId?: string | null;
   fechaInstalacion?: string | null; diasAcumulados?: number;
   kilometrosRecorridos: number; alertLevel?: string;
-  healthScore?: number | null; currentCpk?: number | null;
+  healthScore?: number | null; currentCpk?: number | null; lifetimeCpk?: number | null;
   currentProfundidad?: number | null;
   primeraVida?: Array<{ cpk?: number; diseno?: string; costo?: number; kilometros?: number }>;
   vidaSnapshots: VidaSnapshot[];
@@ -265,8 +265,11 @@ function depthBg(d: number): string {
 // Fleet stats
 function calcFleetStats(tires: Tire[]) {
   const withInsp = tires.filter(t => t.inspecciones.length > 0);
+  // Company-wide average uses the lifetime CPK (all costs ÷ all km across
+  // every vida). Falls back to the per-vida CPK for tires backfilled
+  // before the lifetime column existed.
   const cpkValues = withInsp
-    .map(t => getLatestInsp(t)?.cpk)
+    .map(t => t.lifetimeCpk ?? getLatestInsp(t)?.cpk)
     .filter((v): v is number => v != null && v > 0);
   const depthValues = withInsp.map(t => {
     const l = getLatestInsp(t);

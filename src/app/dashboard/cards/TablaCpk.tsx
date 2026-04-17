@@ -33,16 +33,18 @@ export type Tire = {
 };
 
 // =============================================================================
-// Vida tabs
+// Vida tabs — reencauche1/2/3 collapse into a single "reencauche" tab because
+// the ranking compares products (nueva casings vs retread bands), not which
+// retread attempt number the tire is on.
 // =============================================================================
-type VidaKey = "nueva" | "reencauche1" | "reencauche2" | "reencauche3";
+type VidaKey = "nueva" | "reencauche";
 
 const VIDA_TABS: { key: VidaKey; label: string; color: string; border: string }[] = [
-  { key: "nueva",       label: "Nueva",      color: "#10b981", border: "rgba(16,185,129,0.3)" },
-  { key: "reencauche1", label: "Reencauche 1", color: "#3b82f6", border: "rgba(59,130,246,0.3)" },
-  { key: "reencauche2", label: "Reencauche 2", color: "#8b5cf6", border: "rgba(139,92,246,0.3)" },
-  { key: "reencauche3", label: "Reencauche 3", color: "#f97316", border: "rgba(249,115,22,0.3)" },
+  { key: "nueva",      label: "Nueva",       color: "#10b981", border: "rgba(16,185,129,0.3)" },
+  { key: "reencauche", label: "Reencauche",  color: "#3b82f6", border: "rgba(59,130,246,0.3)" },
 ];
+
+const REENCAUCHE_RAW_VIDAS = new Set(["reencauche1", "reencauche2", "reencauche3"]);
 
 // =============================================================================
 // Fuzzy normalisation — collapses typos like "Continental" vs "Continetal"
@@ -85,62 +87,6 @@ function groupKey(marca: string, dimension: string, diseno: string): string {
 // =============================================================================
 // Per-vida inspection helpers
 // =============================================================================
-function tireHasVida(tire: Tire, vida: VidaKey): boolean {
-  return tire.vida.some(v => normalizeVidaValue(v.valor) === vida);
-}
-
-function isReencaucheVida(vida: VidaKey): boolean {
-  return vida === "reencauche1" || vida === "reencauche2" || vida === "reencauche3";
-}
-
-function getGroupingDesign(tire: Tire, vida: VidaKey): string {
-  if (isReencaucheVida(vida)) {
-    return tire.banda?.trim() || tire.diseno?.trim() || "Sin banda";
-  }
-  return tire.diseno?.trim() || tire.banda?.trim() || "Sin diseño";
-}
-
-function getVidaStart(tire: Tire, vida: VidaKey): Date | null {
-  const evt = tire.vida
-    .filter(v => normalizeVidaValue(v.valor) === vida)
-    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
-
-  return evt ? new Date(evt.fecha) : null;
-}
-
-function getVidaEnd(tire: Tire, vida: VidaKey): Date | null {
-  const SEQ: VidaKey[] = ["nueva", "reencauche1", "reencauche2", "reencauche3"];
-  const idx = SEQ.indexOf(vida);
-  if (idx < 0 || idx === SEQ.length - 1) return null;
-  return getVidaStart(tire, SEQ[idx + 1]);
-}
-
-function getInspeccionesForVida(tire: Tire, vida: VidaKey): Inspection[] {
-  const sortedAll = [...tire.inspecciones].sort(
-    (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-  );
-
-  const tagged = sortedAll.filter(
-    (i) => normalizeVidaValue(i.vidaAlMomento) === vida
-  );
-  if (tagged.length > 0) return tagged;
-
-  const start = getVidaStart(tire, vida);
-  const end = getVidaEnd(tire, vida);
-
-  if (start) {
-    const ranged = sortedAll.filter((i) => {
-      const d = new Date(i.fecha);
-      return d >= start && (!end || d < end);
-    });
-    if (ranged.length > 0) return ranged;
-  }
-
-  // Fallback: if the tire belongs to this vida but tagging/dates are incomplete,
-  // still use all inspections so it does not disappear from the table.
-  return sortedAll;
-}
-
 function normalizeVidaValue(value?: string | null): VidaKey | null {
   const v = (value || "")
     .toLowerCase()
@@ -150,11 +96,67 @@ function normalizeVidaValue(value?: string | null): VidaKey | null {
     .trim();
 
   if (v === "nueva") return "nueva";
-  if (v === "reencauche1") return "reencauche1";
-  if (v === "reencauche2") return "reencauche2";
-  if (v === "reencauche3") return "reencauche3";
-
+  if (REENCAUCHE_RAW_VIDAS.has(v)) return "reencauche";
   return null;
+}
+
+function tireHasVida(tire: Tire, vida: VidaKey): boolean {
+  return tire.vida.some(v => normalizeVidaValue(v.valor) === vida);
+}
+
+function isReencaucheVida(vida: VidaKey): boolean {
+  return vida === "reencauche";
+}
+
+function getGroupingDesign(tire: Tire, vida: VidaKey): string {
+  if (isReencaucheVida(vida)) {
+    // After the retread brand fix, tire.diseno reflects the current banda.
+    return tire.diseno?.trim() || tire.banda?.trim() || "Sin banda";
+  }
+  return tire.diseno?.trim() || tire.banda?.trim() || "Sin diseño";
+}
+
+// Earliest event matching the vida (for nueva: the nueva event; for
+// reencauche: the first retread event the tire ever went through).
+function getVidaStart(tire: Tire, vida: VidaKey): Date | null {
+  const evt = tire.vida
+    .filter(v => normalizeVidaValue(v.valor) === vida)
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
+
+  return evt ? new Date(evt.fecha) : null;
+}
+
+function getInspeccionesForVida(tire: Tire, vida: VidaKey): Inspection[] {
+  const sortedAll = [...tire.inspecciones].sort(
+    (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+  );
+
+  // Prefer the inspection-level tag — every inspection records the vida
+  // it belongs to. For reencauche this aggregates across retread #1/2/3.
+  const tagged = sortedAll.filter(
+    (i) => normalizeVidaValue(i.vidaAlMomento) === vida
+  );
+  if (tagged.length > 0) return tagged;
+
+  // Fallback: use the date window between the earliest matching event and
+  // (for nueva) the first reencauche event that ended this phase.
+  const start = getVidaStart(tire, vida);
+  if (vida === "nueva") {
+    const firstReenc = getVidaStart(tire, "reencauche");
+    if (start) {
+      const ranged = sortedAll.filter((i) => {
+        const d = new Date(i.fecha);
+        return d >= start && (!firstReenc || d < firstReenc);
+      });
+      if (ranged.length > 0) return ranged;
+    }
+  } else if (start) {
+    const ranged = sortedAll.filter((i) => new Date(i.fecha) >= start);
+    if (ranged.length > 0) return ranged;
+  }
+
+  // Last-resort: return all inspections so the tire doesn't vanish.
+  return sortedAll;
 }
 // =============================================================================
 // Group rows

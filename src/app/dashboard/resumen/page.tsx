@@ -52,7 +52,7 @@ ChartJS.register(
 // -- Types --------------------------------------------------------------------
 
 type RawCosto = { valor: number; fecha: string | Date };
-type RawInspeccion = { fecha: string | Date; cpkProyectado: number | null };
+type RawInspeccion = { fecha: string | Date; cpkProyectado: number | null; cpk?: number | null; lifetimeCpk?: number | null };
 
 type RawTire = {
   id: string;
@@ -65,6 +65,7 @@ type RawTire = {
   profundidadInicial: number;
   kilometrosRecorridos: number;
   currentCpk: number | null;
+  lifetimeCpk?: number | null;
   currentProfundidad: number | null;
   projectedProfundidad?: number | null;
   projectedAlertLevel?: string | null;
@@ -304,14 +305,18 @@ export default function ResumenPage() {
     return { entries, grandTotal };
   }, [tires, currentMonth]);
 
-  // Chart data: CPK evolution (km-weighted per month)
+  // Chart data: CPK evolution (km-weighted per month).
+  // Prefers lifetimeCpk (sum-of-costs-across-all-vidas / total km) so the
+  // line reflects true cost-per-km for the fleet, not just the current
+  // vida. Falls back to cpkProyectado / cpk on inspections that predate
+  // the lifetime column.
   const cpkEvolution = useMemo(() => {
     const byMonth: Record<string, { sumCpkKm: number; sumKm: number }> = {};
     filtered.forEach((t) => {
       if (!t.kilometrosRecorridos) return;
       (t.inspecciones ?? []).forEach((i) => {
-        // Use cpkProyectado if available, otherwise fall back to cpk
-        const cpkVal = (i.cpkProyectado && i.cpkProyectado > 0) ? i.cpkProyectado
+        const cpkVal = (i.lifetimeCpk && i.lifetimeCpk > 0) ? i.lifetimeCpk
+          : (i.cpkProyectado && i.cpkProyectado > 0) ? i.cpkProyectado
           : (i.cpk && i.cpk > 0) ? i.cpk : 0;
         if (cpkVal <= 0) return;
         const k = toMonthKey(i.fecha);
@@ -326,26 +331,21 @@ export default function ResumenPage() {
     );
   }, [filtered, months]);
 
-  // CPK metric: last non-null chart value so card and chart always match.
-  // If no month has data, compute a fleet-wide CPK from the latest inspection per tire.
+  // Headline CPK: prefer the tire-level cached lifetimeCpk (already
+  // sum_costs / sum_km for the tire), km-weighted across the fleet.
   const cpkProyectado = useMemo(() => {
     // First try: most recent month with data
     for (let i = cpkEvolution.length - 1; i >= 0; i--) {
       if (cpkEvolution[i] !== null && cpkEvolution[i]! > 0) return cpkEvolution[i]!;
     }
-    // Fallback: compute fleet-wide from latest inspection per tire
+    // Fallback: use persisted lifetimeCpk on each tire, km-weighted.
     let sumCpkKm = 0, sumKm = 0;
     filtered.forEach((t) => {
       if (!t.kilometrosRecorridos) return;
-      const sorted = [...(t.inspecciones ?? [])].sort((a, b) =>
-        new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-      );
-      const latest = sorted[0];
-      if (!latest) return;
-      const cpkVal = (latest.cpkProyectado && latest.cpkProyectado > 0) ? latest.cpkProyectado
-        : (latest.cpk && latest.cpk > 0) ? latest.cpk : 0;
-      if (cpkVal > 0) {
-        sumCpkKm += cpkVal * t.kilometrosRecorridos;
+      const tireCpk = (t.lifetimeCpk && t.lifetimeCpk > 0) ? t.lifetimeCpk
+        : (t.currentCpk && t.currentCpk > 0) ? t.currentCpk : 0;
+      if (tireCpk > 0) {
+        sumCpkKm += tireCpk * t.kilometrosRecorridos;
         sumKm += t.kilometrosRecorridos;
       }
     });
