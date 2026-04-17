@@ -6,6 +6,7 @@ import {
   Plus, Trash2, X, Truck, ChevronDown, Edit, Loader2,
   AlertCircle, Building2, Link2, Search, CheckCircle, Upload, Download, FileSpreadsheet,
 } from "lucide-react";
+import { AxleConfigPicker, describeAxleConfig } from "@/components/AxleConfigPicker";
 
 // =============================================================================
 // Types
@@ -392,43 +393,13 @@ function VehicleForm({
         </Field>
 
         <Field label="Estructura (configuración de ejes)">
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { v: "",         l: "Sin especificar", d: "" },
-              { v: "2-2",      l: "2-2",      d: "Auto · 4 llantas" },
-              { v: "2-4",      l: "2-4",      d: "Camión 2 ejes · 6 llantas" },
-              { v: "2-2-2",    l: "2-2-2",    d: "Camión 3 ejes · 6 llantas" },
-              { v: "2-2-4",    l: "2-2-4",    d: "Camión 3 ejes · 8 llantas" },
-              { v: "2-4-4",    l: "2-4-4",    d: "Tractomula · 10 llantas" },
-              { v: "2-4-4-4",  l: "2-4-4-4",  d: "Tractomula + trailer · 14 llantas" },
-              { v: "2-4-4-4-4",l: "2-4-4-4-4",d: "Doble trailer · 18 llantas" },
-            ].map((opt) => (
-              <button
-                key={opt.v || "none"}
-                type="button"
-                onClick={() => set("configuracion", opt.v)}
-                className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all"
-                style={{
-                  background: form.configuracion === opt.v ? "linear-gradient(135deg,#1E76B6,#173D68)" : "white",
-                  color: form.configuracion === opt.v ? "white" : "#173D68",
-                  border: form.configuracion === opt.v ? "1px solid #1E76B6" : "1px solid rgba(30,118,182,0.25)",
-                }}
-              >
-                {opt.l}
-              </button>
-            ))}
-          </div>
+          <AxleConfigPicker
+            value={form.configuracion ?? ""}
+            onChange={(next) => set("configuracion", next)}
+          />
           {form.configuracion && (
-            <p className="text-[10px] text-gray-500 mt-1">
-              {[
-                { v: "2-2",      d: "Auto · 4 llantas" },
-                { v: "2-4",      d: "Camión 2 ejes · 6 llantas" },
-                { v: "2-2-2",    d: "Camión 3 ejes · 6 llantas" },
-                { v: "2-2-4",    d: "Camión 3 ejes · 8 llantas" },
-                { v: "2-4-4",    d: "Tractomula · 10 llantas" },
-                { v: "2-4-4-4",  d: "Tractomula + trailer · 14 llantas" },
-                { v: "2-4-4-4-4",d: "Doble trailer · 18 llantas" },
-              ].find((o) => o.v === form.configuracion)?.d}
+            <p className="text-[10px] text-gray-500 mt-2">
+              {describeAxleConfig(form.configuracion)}
             </p>
           )}
         </Field>

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Edit, Trash2, Link2, X, ChevronDown, Unlink, User, Phone, Loader2, Calendar, Truck } from "lucide-react";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
+import { AxleConfigPicker } from "@/components/AxleConfigPicker";
 
 // =============================================================================
 // Constants
@@ -85,16 +86,7 @@ const BLANK_FORM: VehicleFormData = {
   configuracion: "",
 };
 
-const CONFIGURACIONES: Record<string, string> = {
-  "":       "Sin definir",
-  "2-2":    "2-2 (Camión sencillo)",
-  "2-4":    "2-4 (Sencillo con duales)",
-  "4-4":    "4-4 (Dobletroque)",
-  "2-4-4":  "2-4-4 (Tractomula 3 ejes)",
-  "6-4":    "6-4 (Tractomula 2 ejes)",
-  "2-2-2":  "2-2-2 (Bus 3 ejes)",
-  "4-4-4":  "4-4-4 (3 ejes con duales)",
-};
+// Axle configs now live in AxleConfigPicker (canonical + shared).
 
 // =============================================================================
 // Helpers
@@ -305,18 +297,10 @@ function VehicleForm({
       </FieldRow>
 
       <FieldRow label="Configuración de ejes">
-        <div className="relative">
-          <select
-            value={data.configuracion}
-            onChange={set("configuracion")}
-            className={`${inputCls} appearance-none pr-8`}
-          >
-            {Object.entries(CONFIGURACIONES).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-[#1E76B6]" />
-        </div>
+        <AxleConfigPicker
+          value={data.configuracion}
+          onChange={(next) => onChange({ ...data, configuracion: next })}
+        />
       </FieldRow>
 
       {existingTireCount !== undefined && (
