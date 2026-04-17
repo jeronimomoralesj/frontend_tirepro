@@ -960,6 +960,11 @@ export default function PosicionPage() {
     return `Pos ${p}`;
   }
 
+  // Tracks each tire's bucket at the moment it was first touched during
+  // this editing session so Cancel can revert the server-side writes
+  // that happen on drop.
+  const originalBucketRef = useRef<Map<string, string | null>>(new Map());
+
   // Drop a tire onto a specific bucket in the inventory panel: unassign it
   // from the vehicle (locally) and persist the bucket move to the backend.
   const handleDropToBucket = useCallback(async (tireId: string, bucketId: string, bucketName: string) => {
@@ -968,6 +973,11 @@ export default function PosicionPage() {
     const fromInventory = companyInventory.find((t) => t.id === tireId);
     const tire = fromVehicle ?? fromInventory;
     if (!tire) return;
+
+    if (!originalBucketRef.current.has(tireId)) {
+      const currentBucket = (tire as Tire & { inventoryBucketId?: string | null }).inventoryBucketId ?? null;
+      originalBucketRef.current.set(tireId, fromVehicle ? null : currentBucket);
+    }
 
     if (fromVehicle) {
       const fromLabel = describePos(fromVehicle.position);
@@ -1089,11 +1099,25 @@ export default function PosicionPage() {
 
   // Full reset: re-fetch the vehicle's tires AND reload the company
   // inventory + buckets so any tire that was tentatively pulled from a
-  // bucket onto the vehicle reappears where it belongs.
+  // bucket onto the vehicle reappears where it belongs. Also reverses
+  // every persisted bucket drop that happened during this session.
   async function handleCancel() {
     if (!vehicle && !placa.trim()) return;
     setError(""); setSuccess("");
     if (companyId) {
+      const reverts = Array.from(originalBucketRef.current.entries());
+      if (reverts.length > 0) {
+        await Promise.allSettled(
+          reverts.map(([tireId, originalBucketId]) =>
+            fetch(`${API_BASE}/inventory-buckets/move`, {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ tireId, bucketId: originalBucketId, companyId }),
+            }),
+          ),
+        );
+        originalBucketRef.current.clear();
+      }
       try {
         const [tires, buckets] = await Promise.all([
           fetchInventoryTires(companyId),
@@ -1272,6 +1296,8 @@ export default function PosicionPage() {
       const newOriginal: Record<string, string | null> = {};
       allTires.forEach((t) => { newOriginal[t.id] = t.position ?? null; });
       setOriginalState(newOriginal);
+      // Commit bucket moves — Cancel no longer needs to revert them.
+      originalBucketRef.current.clear();
 
       const changes = calculateChanges();
       setTireChanges(changes);
