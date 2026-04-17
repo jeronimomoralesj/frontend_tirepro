@@ -51,7 +51,7 @@ ChartJS.register(
 
 // -- Types --------------------------------------------------------------------
 
-type RawCosto = { valor: number; fecha: string | Date };
+type RawCosto = { valor: number; fecha: string | Date; concepto?: string | null };
 type RawInspeccion = { fecha: string | Date; cpkProyectado: number | null; cpk?: number | null; lifetimeCpk?: number | null };
 
 type RawTire = {
@@ -175,6 +175,18 @@ function keyPointLabels(data: (number | null)[]) {
 // Page
 // =============================================================================
 
+// "Inversion" = money actively put INTO the fleet (new tire purchases +
+// retreads). Fin-de-vida "dinero perdido" is wasted tread value, NOT
+// fresh investment, and must never land in the inversion KPIs. The
+// backend only writes compra_nueva / reencauche concepts, but we also
+// allowlist here so any future rogue row labelled "desecho" or similar
+// gets silently excluded from the investment charts.
+const INVERSION_CONCEPTS = new Set(["compra_nueva", "reencauche", ""]);
+function isInversionCost(c: { concepto?: string | null }): boolean {
+  const k = (c.concepto ?? "").toLowerCase().trim();
+  return INVERSION_CONCEPTS.has(k);
+}
+
 export default function ResumenPage() {
   const router = useRouter();
   const [tires, setTires] = useState<RawTire[]>([]);
@@ -251,10 +263,10 @@ export default function ResumenPage() {
     return result;
   }, [tires, filterValues, filterSearch]);
 
-  // KPIs — inversionMes uses ALL tires (including fin) so it matches the breakdown card
   const inversionMes = useMemo(() => {
     let total = 0;
     tires.forEach((t) => (t.costos ?? []).forEach((c) => {
+      if (!isInversionCost(c)) return;
       if (toMonthKey(c.fecha) === currentMonth) total += c.valor;
     }));
     return total;
@@ -265,38 +277,37 @@ export default function ResumenPage() {
     [filtered],
   );
 
-  // Inversion by vida category (current month) — uses ALL tires including fin
+  // Inversion breakdown by the TYPE of cost (compra_nueva vs reencauche),
+  // not the tire's current vida. Grouping by vidaActual used to label a
+  // new-tire purchase as "Fin de Vida" once the tire was scrapped — which
+  // made users think scrap losses were being counted as investment.
   const inversionByVida = useMemo(() => {
-    const VIDA_LABELS: Record<string, string> = {
-      nueva: "Llanta Nueva",
-      reencauche1: "Reencauche 1",
-      reencauche2: "Reencauche 2",
-      reencauche3: "Reencauche 3",
-      fin: "Fin de Vida",
+    const CONCEPT_LABELS: Record<string, string> = {
+      compra_nueva: "Llanta Nueva",
+      reencauche:   "Reencauche",
+      "":           "Llanta Nueva", // legacy rows without explicit concepto
     };
-    const VIDA_COLORS: Record<string, string> = {
-      nueva: "#1E76B6",
-      reencauche1: "#22c55e",
-      reencauche2: "#eab308",
-      reencauche3: "#f97316",
-      fin: "#ef4444",
+    const CONCEPT_COLORS: Record<string, string> = {
+      compra_nueva: "#1E76B6",
+      reencauche:   "#22c55e",
+      "":           "#1E76B6",
     };
-    const byVida: Record<string, { total: number; count: number }> = {};
+    const byConcept: Record<string, { total: number; count: number }> = {};
     tires.forEach((t) => {
-      const vida = t.vidaActual ?? "nueva";
       (t.costos ?? []).forEach((c) => {
-        if (toMonthKey(c.fecha) === currentMonth) {
-          if (!byVida[vida]) byVida[vida] = { total: 0, count: 0 };
-          byVida[vida].total += c.valor;
-          byVida[vida].count++;
-        }
+        if (!isInversionCost(c)) return;
+        if (toMonthKey(c.fecha) !== currentMonth) return;
+        const key = (c.concepto ?? "").toLowerCase().trim() || "compra_nueva";
+        if (!byConcept[key]) byConcept[key] = { total: 0, count: 0 };
+        byConcept[key].total += c.valor;
+        byConcept[key].count++;
       });
     });
-    const entries = Object.entries(byVida)
-      .map(([vida, { total, count }]) => ({
-        vida,
-        label: VIDA_LABELS[vida] ?? vida,
-        color: VIDA_COLORS[vida] ?? "#64748b",
+    const entries = Object.entries(byConcept)
+      .map(([concept, { total, count }]) => ({
+        vida: concept,
+        label: CONCEPT_LABELS[concept] ?? concept,
+        color: CONCEPT_COLORS[concept] ?? "#64748b",
         total,
         count,
       }))
@@ -352,10 +363,12 @@ export default function ResumenPage() {
     return sumKm > 0 ? +(sumCpkKm / sumKm).toFixed(1) : 0;
   }, [cpkEvolution, filtered]);
 
-  // Chart data: Inversion mensual
+  // Chart data: Inversion mensual — same allowlist as the headline KPI
+  // so scrap "dinero perdido" can never sneak into the monthly bars.
   const inversionMensual = useMemo(() => {
     const byMonth: Record<string, number> = {};
     filtered.forEach((t) => (t.costos ?? []).forEach((c) => {
+      if (!isInversionCost(c)) return;
       const k = toMonthKey(c.fecha);
       byMonth[k] = (byMonth[k] || 0) + c.valor;
     }));
