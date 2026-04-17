@@ -26,6 +26,7 @@ import {
 import jsPDF from "jspdf";
 import FastMode from "./FastMode";
 import { AGENTS } from "../../../lib/agents";
+import { useAuth } from "../../context/AuthProvider";
 
 // =============================================================================
 // Constants
@@ -994,10 +995,20 @@ function ExportModal({
 // =============================================================================
 
 export default function InspeccionPage({ language }: { language?: string }) {
+  const { user } = useAuth();
   const [mode, setMode] = useState<"normal" | "fast">("normal");
   const [placaInput,      setPlacaInput]      = useState("");
   const [newKilometraje,  setNewKilometraje]  = useState(0);
   const [inspectorName,   setInspectorName]   = useState("");   // NEW
+
+  // Pre-fill the inspector name with the logged-in user's name the first
+  // time it becomes available. Only fills when still empty so we never
+  // overwrite a manual edit.
+  useEffect(() => {
+    if (user?.name) {
+      setInspectorName((prev) => (prev === "" ? user.name : prev));
+    }
+  }, [user?.name]);
 
   const [vehicle,       setVehicle]       = useState<Vehicle | null>(null);
   const [unionVehicle,  setUnionVehicle]  = useState<Vehicle | null>(null);
@@ -1356,9 +1367,12 @@ export default function InspeccionPage({ language }: { language?: string }) {
           payload.presionPsi = Number(upd.presionPsi);
         }
 
-        // Inspector name — one value for the whole session
+        // Inspector — name + id so KPIs can aggregate per user account.
         if (inspectorName.trim()) {
           payload.inspeccionadoPorNombre = inspectorName.trim();
+        }
+        if (user?.id && inspectorName.trim() === (user.name ?? "").trim()) {
+          payload.inspeccionadoPorId = user.id;
         }
 
         const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
