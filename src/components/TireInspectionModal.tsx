@@ -71,8 +71,8 @@ export default function TireInspectionModal({
   async function handlePickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (images.length >= 2) {
-      setError("Máximo 2 fotos por llanta");
+    if (images.length >= 3) {
+      setError("Máximo 3 fotos por llanta");
       return;
     }
     try {
@@ -208,7 +208,7 @@ export default function TireInspectionModal({
           {/* Photos */}
           <div>
             <p className="text-[10px] font-black text-[#173D68] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Camera className="w-3 h-3" /> Fotos ({images.length}/2)
+              <Camera className="w-3 h-3" /> Fotos ({images.length}/3)
             </p>
             <div className="flex gap-2 flex-wrap">
               {images.map((img, i) => (
@@ -229,7 +229,7 @@ export default function TireInspectionModal({
                   </button>
                 </div>
               ))}
-              {images.length < 2 && (
+              {images.length < 3 && (
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}

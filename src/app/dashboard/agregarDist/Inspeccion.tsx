@@ -1293,7 +1293,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
       profundidadExt: Number(draft.profundidadExt),
       newKilometraje: Number(newKilometraje) || undefined,
       kmDelta: kmDelta > 0 ? kmDelta : undefined,
-      imageUrls: draft.imageUrls.slice(0, 2),
+      imageUrls: draft.imageUrls.slice(0, 3),
     };
     if (draft.presionPsi !== "") payload.presionPsi = Number(draft.presionPsi);
     if (inspectorName.trim()) {
@@ -1319,7 +1319,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
         profundidadCen: Number(draft.profundidadCen),
         profundidadExt: Number(draft.profundidadExt),
         presionPsi:     draft.presionPsi === "" ? 0 : Number(draft.presionPsi),
-        imageUrls:      draft.imageUrls.slice(0, 2),
+        imageUrls:      draft.imageUrls.slice(0, 3),
         image:          null,
       } as TireUpdate,
     }));
