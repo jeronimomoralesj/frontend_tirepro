@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import ChartDataLabels from "chartjs-plugin-datalabels";
 import { HelpCircle, BarChart3, Ruler } from "lucide-react";
+
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
 interface Inspeccion {
@@ -75,10 +76,8 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
     return Object.entries(ejeGroups).map(([eje, data]) => ({
       eje,
       averageDepth: data.count ? parseFloat((data.totalDepth / data.count).toFixed(2)) : 0,
-      count: data.count,
     }));
   }, [tires, t.unknown]);
-
 
   const chartData = {
     labels: averageDepthData.map((item) => item.eje),
@@ -169,7 +168,8 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
       <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm sm:text-base font-semibold truncate leading-tight">{t.title}</h2>
+            <BarChart3 size={18} className="text-white/90 shrink-0" />
+            <h2 className="text-sm sm:text-base font-semibold truncate">{t.title}</h2>
           </div>
           <div className="relative shrink-0">
             <button

@@ -529,13 +529,13 @@ function ManualView({
         if (!item.tireId) continue;
 
         if (item.tipo === "reencauche") {
-          // Determine next vida value — fetch current tire's vida
+          // Determine next vida value — fetch just this tire by id
+          // instead of downloading the whole fleet to find one row.
           let currentVida = "nueva";
           try {
-            const tireRes = await authFetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`);
+            const tireRes = await authFetch(`${API_BASE}/tires/${item.tireId}`);
             if (tireRes.ok) {
-              const allTires = await tireRes.json();
-              const tire = allTires.find((t: any) => t.id === item.tireId);
+              const tire = await tireRes.json();
               if (tire) currentVida = tire.vidaActual ?? "nueva";
             }
           } catch { /* use default */ }
@@ -1274,9 +1274,16 @@ export default function PedidosTab() {
   const fetchAll = useCallback(async (cId: string) => {
     setLoading(true);
     try {
-      const [settingsRes, tiresRes, ordersRes, distRes, bucketsRes, companyRes, allDistRes] = await Promise.all([
+      // Tires go through the paged helper — the legacy
+      // /tires?companyId=X&slim=true endpoint shipped the whole fleet in
+      // one response, which for 16k-tire clients was a 5-10 MB payload
+      // that blocked render. fetchTiresPaged wraps /tires/page with the
+      // same slim projection + Redis per-page cache.
+      const { fetchTiresPaged } = await import("@/shared/fetchTiresPaged");
+
+      const [settingsRes, tires, ordersRes, distRes, bucketsRes, companyRes, allDistRes] = await Promise.all([
         authFetch(`${API_BASE}/companies/${cId}/agent-settings`),
-        authFetch(`${API_BASE}/tires?companyId=${cId}&slim=true`),
+        fetchTiresPaged<any>(cId),
         authFetch(`${API_BASE}/purchase-orders/company?companyId=${cId}`),
         authFetch(`${API_BASE}/companies/${cId}/distributors`),
         authFetch(`${API_BASE}/inventory-buckets?companyId=${cId}`),
@@ -1285,7 +1292,7 @@ export default function PedidosTab() {
       ]);
 
       if (settingsRes.ok) { const data = await settingsRes.json(); setSettings(data.agentSettings ?? null); }
-      if (tiresRes.ok) setTires(await tiresRes.json());
+      setTires(tires);
       if (ordersRes.ok) setOrders(await ordersRes.json());
       if (distRes.ok) setDistributors(await distRes.json());
       if (bucketsRes.ok) setBuckets(await bucketsRes.json());

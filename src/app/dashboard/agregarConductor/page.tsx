@@ -22,6 +22,15 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
 const inputCls =
   "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
 
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(extra ?? {}),
+  };
+}
+
 function convertFileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -60,7 +69,11 @@ const UserPlateInspection: React.FC = () => {
 
   async function fetchUsers(companyId: string) {
     try {
-      const res = await fetch(`${API_BASE}/users?companyId=${companyId}`);
+      // Auth header was missing — backend rejected with 401 and the page
+      // surfaced "Error fetching users" every time.
+      const res = await fetch(`${API_BASE}/users?companyId=${companyId}`, {
+        headers: authHeaders(),
+      });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setUsers(data); setUserLoading(false);
@@ -72,13 +85,17 @@ const UserPlateInspection: React.FC = () => {
     setError("");
     setLoading(true);
     try {
-      const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${plate}`);
+      const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${plate}`, {
+        headers: authHeaders(),
+      });
       if (!vRes.ok) throw new Error("Vehicle not found");
       const v = await vRes.json();
       setVehicle({ id: v.id, placa: v.placa, tipovhc: v.tipovhc, tireCount: v._count?.tires ?? 0, kilometrajeActual: v.kilometrajeActual });
       setNewKilometraje(v.kilometrajeActual);
 
-      const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${v.id}`);
+      const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${v.id}`, {
+        headers: authHeaders(),
+      });
       if (!tRes.ok) throw new Error("Error fetching tires");
       const tData = await tRes.json();
       setTires(tData);
@@ -105,7 +122,7 @@ const UserPlateInspection: React.FC = () => {
         const u = tireUpdates[tire.id];
         const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders(),
           body: JSON.stringify({
             profundidadInt: Number(u.profundidadInt),
             profundidadCen: Number(u.profundidadCen),

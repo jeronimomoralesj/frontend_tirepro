@@ -167,9 +167,17 @@ const VidaPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const companyId = localStorage.getItem("companyId") ?? "";
+      // Prefer the active distribuidor client (set on agregarDist/page.tsx);
+      // fall back to the user's own companyId only if no client is selected.
+      let targetCompanyId = "";
+      try {
+        const raw = localStorage.getItem("distClient");
+        if (raw) targetCompanyId = JSON.parse(raw).id ?? "";
+      } catch {/* ignore */}
+      if (!targetCompanyId) targetCompanyId = localStorage.getItem("companyId") ?? "";
+
       const vRes = await authFetch(
-        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}${companyId ? `&companyId=${companyId}` : ""}`
+        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}${targetCompanyId ? `&companyId=${targetCompanyId}` : ""}`
       );
       if (!vRes.ok) throw new Error("Vehículo no encontrado");
       const vData: Vehicle = await vRes.json();

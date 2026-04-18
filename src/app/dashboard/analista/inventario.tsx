@@ -185,11 +185,15 @@ function groupByDate(tires: InventoryTire[]): Array<{ label: string; tires: Inve
 // =============================================================================
 
 async function fetchInventoryData(companyId: string) {
-  const [tiresRes, bucketsRes] = await Promise.all([
-    fetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`, { headers: authHeaders(), cache: 'no-store' }),
+  // Paged fetch — legacy /tires?slim=true dumped the full fleet in one
+  // request, which for 16k-tire clients was the single biggest cause of
+  // the inventory tab "taking forever". fetchTiresPaged pages via
+  // /tires/page with Redis caching per page.
+  const { fetchTiresPaged } = await import("@/shared/fetchTiresPaged");
+  const [allTires, bucketsRes] = await Promise.all([
+    fetchTiresPaged<any>(companyId),
     fetch(`${API_BASE}/inventory-buckets?companyId=${companyId}`, { headers: authHeaders(), cache: 'no-store' }),
   ]);
-  const allTires: any[] = tiresRes.ok ? await tiresRes.json() : [];
   const filtered: InventoryTire[] = allTires.filter(
     (t: any) => !t.vehicleId && t.vidaActual !== "fin"
   );

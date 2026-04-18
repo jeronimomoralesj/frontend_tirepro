@@ -39,23 +39,29 @@ function buildLinks(plan: string, isAdmin: boolean): NavLink[] {
       { name: "Resumen",   path: "/dashboard/distribuidor", icon: LayoutDashboard },
       { name: "Pedidos",   path: "/dashboard/pedidosDist",  icon: ShoppingCart    },
       { name: "Desechos",  path: "/dashboard/desechosDist", icon: Trash2          },
-      { name: "Clientes",  path: "/dashboard/clientes",     icon: User2           },
+      { name: "Gestión",   path: "/dashboard/clientes",     icon: User2           },
       { name: "Vehículos", path: "/dashboard/vehiculoDist", icon: Truck           },
       { name: "Buscar",    path: "/dashboard/buscarDist",   icon: Search          },
       { name: "Agregar",   path: "/dashboard/agregarDist",  icon: Plus            },
     ];
   }
-  if (isAdmin) {
+
+  // Fleet nav — plus + pro. Role distinction only affects "Agregar":
+  // admins see the full /dashboard/agregar, everyone else the
+  // lightweight /agregarConductor (inspection capture flow).
+  if (plan === "plus" || plan === "pro") {
     return [
       { name: "Resumen",    path: "/dashboard/resumen",    icon: LayoutDashboard },
       { name: "Analista",   path: "/dashboard/analista",   icon: Glasses         },
       { name: "Detalle",    path: "/dashboard/detalle",    icon: ClipboardList   },
       { name: "Inventario", path: "/dashboard/inventario", icon: Package         },
       { name: "Vehículos",  path: "/dashboard/vehiculo",   icon: Car             },
-      { name: "Agregar",    path: "/dashboard/agregar",    icon: Plus            },
+      { name: "Agregar",    path: isAdmin ? "/dashboard/agregar" : "/dashboard/agregarConductor", icon: Plus },
       { name: "Buscar",     path: "/dashboard/buscar",     icon: Search          },
     ];
   }
+
+  // Marketplace / unknown plan — inspection-only flow.
   return [
     { name: "Agregar", path: "/dashboard/agregarConductor", icon: Plus },
   ];
@@ -181,10 +187,14 @@ export default function Sidebar({
   // -- Fetch company once we have the id ---------------------------------------
   useEffect(() => {
     if (!user?.companyId) return;
-    fetch(`${API_BASE}/companies/${user.companyId}`)
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then(setCompany)
-      .catch(err => console.error("Error fetching company:", err));
+    // Uses the shared cache so the root /dashboard + RouteGuard + this
+    // sidebar share one network call per minute. Without dedupe, every
+    // navigation hit /api/companies/:id three times in parallel and
+    // triggered 429 Too Many Requests on rate-limited tenants.
+    import("@/shared/fetchCompany")
+      .then(({ fetchCompany }) => fetchCompany(user.companyId))
+      .then((c) => setCompany(c as CompanyData))
+      .catch((err) => console.error("Error fetching company:", err));
   }, [user?.companyId]);
 
   // Lock body scroll only while the mobile drawer is open.

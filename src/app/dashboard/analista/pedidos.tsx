@@ -1548,15 +1548,14 @@ const PedidosPage: React.FC = () => {
 
   const loadInventory = useCallback(async (cid: string) => {
     try {
-      const [tiresRes, bucketsRes, vehiclesRes] = await Promise.all([
-        authFetch(`${API_BASE}/tires?companyId=${cid}&slim=true`),
+      // Paged helper for tires; the other two endpoints are already small.
+      const { fetchTiresPaged } = await import("@/shared/fetchTiresPaged");
+      const [allTires, bucketsRes, vehiclesRes] = await Promise.all([
+        fetchTiresPaged<any>(cid),
         authFetch(`${API_BASE}/inventory-buckets?companyId=${cid}`),
         authFetch(`${API_BASE}/vehicles?companyId=${cid}`),
       ]);
-      if (tiresRes.ok) {
-        const allTires: any[] = await tiresRes.json();
-        setInventory(allTires.filter((t: any) => !t.vehicleId && t.vidaActual !== "fin"));
-      }
+      setInventory(allTires.filter((t: any) => !t.vehicleId && t.vidaActual !== "fin"));
       if (bucketsRes.ok) {
         const bd = await bucketsRes.json();
         setBuckets(bd.buckets ?? []);
@@ -1577,15 +1576,14 @@ const PedidosPage: React.FC = () => {
 
       await Promise.all([loadCompany(cid), loadInventory(cid)]);
 
-      const [tiresRes, benchRes] = await Promise.allSettled([
-        authFetch(`${API_BASE}/tires?companyId=${encodeURIComponent(cid)}&slim=true`),
+      const { fetchTiresPaged } = await import("@/shared/fetchTiresPaged");
+      const [tiresResSettled, benchRes] = await Promise.allSettled([
+        fetchTiresPaged<RawTire>(cid),
         authFetch(`${API_BASE}/tire-benchmarks`),
       ]);
 
-      if (tiresRes.status === "rejected") throw new Error("No se pudieron cargar las llantas.");
-      const tiresHttp = (tiresRes as PromiseFulfilledResult<Response>).value;
-      if (!tiresHttp.ok) throw new Error("Error al cargar llantas de la flota.");
-      const raw: RawTire[] = await tiresHttp.json();
+      if (tiresResSettled.status === "rejected") throw new Error("No se pudieron cargar las llantas.");
+      const raw = (tiresResSettled as PromiseFulfilledResult<RawTire[]>).value;
       if (!Array.isArray(raw) || raw.length === 0) throw new Error("No hay llantas registradas en la flota.");
 
       const benchmarks = new Map<string, RawBenchmark>();

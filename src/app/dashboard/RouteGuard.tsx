@@ -5,20 +5,23 @@ import { usePathname, useRouter } from "next/navigation";
 
 // Which company plans can access which route prefixes
 const ROUTE_ACCESS: Record<string, { plans: string[]; roles?: string[] }> = {
-  // Admin / fleet pages — pro or enterprise, admin role
-  "/dashboard/resumen":      { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/analista":     { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/detalle":      { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/inventario":   { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/vehiculo":     { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/agregar":      { plans: ["pro", "enterprise"] },
-  "/dashboard/buscar":       { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/desechos":     { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/semaforo":     { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/flota":        { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/trips":        { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/cupones":      { plans: ["pro", "enterprise"], roles: ["admin"] },
-  "/dashboard/resumenMini":  { plans: ["pro", "enterprise", "basic"], roles: ["admin"] },
+  // Fleet pages — plus + pro tiers. Marketplace tier is intentionally
+  // excluded (marketplace-only users have no fleet to manage — they
+  // live on /marketplace). Admin-only destructive actions still gate
+  // per-page (e.g. /agregar, /cupones).
+  "/dashboard/resumen":      { plans: ["plus", "pro"] },
+  "/dashboard/analista":     { plans: ["plus", "pro"] },
+  "/dashboard/detalle":      { plans: ["plus", "pro"] },
+  "/dashboard/inventario":   { plans: ["plus", "pro"] },
+  "/dashboard/vehiculo":     { plans: ["plus", "pro"] },
+  "/dashboard/agregar":      { plans: ["plus", "pro"], roles: ["admin"] },
+  "/dashboard/buscar":       { plans: ["plus", "pro"] },
+  "/dashboard/desechos":     { plans: ["plus", "pro"] },
+  "/dashboard/semaforo":     { plans: ["plus", "pro"] },
+  "/dashboard/flota":        { plans: ["plus", "pro"] },
+  "/dashboard/trips":        { plans: ["plus", "pro"] },
+  "/dashboard/cupones":      { plans: ["pro"], roles: ["admin"] },
+  "/dashboard/resumenMini":  { plans: ["plus", "pro"] },
 
   // Distributor pages
   "/dashboard/distribuidor":   { plans: ["distribuidor"] },
@@ -81,21 +84,31 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
           return;
         }
 
-        // Check role if required
+        // Fetch company plan via the shared cache. Root /dashboard and
+        // the sidebar ask for the same object in parallel — the dedupe
+        // layer collapses them to one network call.
+        const { fetchCompany } = await import("@/shared/fetchCompany");
+        let company: { plan?: string };
+        try {
+          company = await fetchCompany(user.companyId);
+        } catch {
+          // Transient backend hiccup (429 / 5xx). Don't log the user out —
+          // admit them optimistically; any invalid-token path will surface
+          // itself via the next real API call.
+          setAllowed(true);
+          return;
+        }
+        const plan = company.plan ?? "pro";
+
+        // Check role if required — route to the user's home page for
+        // their plan rather than to /agregarConductor (old default).
         if (access.roles && !access.roles.includes(user.role)) {
-          redirectToHome(user);
+          redirectToHome(plan);
           return;
         }
 
-        // Fetch company plan
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/companies/${user.companyId}`
-        );
-        if (!res.ok) { router.replace("/login"); return; }
-        const company = await res.json();
-
-        if (!access.plans.includes(company.plan)) {
-          redirectToHome(user, company.plan);
+        if (!access.plans.includes(plan)) {
+          redirectToHome(plan);
           return;
         }
 
@@ -105,11 +118,10 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
       }
     }
 
-    function redirectToHome(user: any, plan?: string) {
-      const p = plan ?? "basic";
-      if (p === "distribuidor") router.replace("/dashboard/distribuidor");
-      else if (user.role === "admin" && (p === "pro" || p === "enterprise")) router.replace("/dashboard/resumen");
-      else router.replace("/dashboard/agregarConductor");
+    function redirectToHome(plan: string) {
+      if (plan === "distribuidor")      router.replace("/dashboard/distribuidor");
+      else if (plan === "marketplace")  router.replace("/marketplace");
+      else                              router.replace("/dashboard/resumen");
     }
 
     check();

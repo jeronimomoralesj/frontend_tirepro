@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { AlertOctagon, Timer, CheckCircle2, RotateCcw, HelpCircle, Activity } from "lucide-react";
+
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export type Inspection = {
@@ -77,7 +78,6 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
 
     setTireCounts(counts);
   }, [tires]);
-
 
   const conditions = ["buenEstado", "dias60", "dias30", "cambioInmediato"] as const;
   const conditionLabels = conditions.map((key) => t.labels[key]);
@@ -154,9 +154,8 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
       <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div>
-              <h2 className="text-base sm:text-lg font-semibold leading-tight">{t.title}</h2>
-            </div>
+            <Activity size={20} className="text-white/90" />
+            <h2 className="text-base sm:text-lg font-semibold">{t.title}</h2>
           </div>
           <div className="relative print:hidden">
             <button

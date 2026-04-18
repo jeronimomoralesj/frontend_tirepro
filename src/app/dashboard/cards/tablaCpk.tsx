@@ -33,18 +33,16 @@ export type Tire = {
 };
 
 // =============================================================================
-// Vida tabs — reencauche1/2/3 collapse into a single "reencauche" tab because
-// the ranking compares products (nueva casings vs retread bands), not which
-// retread attempt number the tire is on.
+// Vida tabs
 // =============================================================================
-type VidaKey = "nueva" | "reencauche";
+type VidaKey = "nueva" | "reencauche1" | "reencauche2" | "reencauche3";
 
 const VIDA_TABS: { key: VidaKey; label: string; color: string; border: string }[] = [
-  { key: "nueva",      label: "Nueva",       color: "#10b981", border: "rgba(16,185,129,0.3)" },
-  { key: "reencauche", label: "Reencauche",  color: "#3b82f6", border: "rgba(59,130,246,0.3)" },
+  { key: "nueva",       label: "Nueva",      color: "#10b981", border: "rgba(16,185,129,0.3)" },
+  { key: "reencauche1", label: "Reencauche 1", color: "#3b82f6", border: "rgba(59,130,246,0.3)" },
+  { key: "reencauche2", label: "Reencauche 2", color: "#8b5cf6", border: "rgba(139,92,246,0.3)" },
+  { key: "reencauche3", label: "Reencauche 3", color: "#f97316", border: "rgba(249,115,22,0.3)" },
 ];
-
-const REENCAUCHE_RAW_VIDAS = new Set(["reencauche1", "reencauche2", "reencauche3"]);
 
 // =============================================================================
 // Fuzzy normalisation — collapses typos like "Continental" vs "Continetal"
@@ -87,6 +85,62 @@ function groupKey(marca: string, dimension: string, diseno: string): string {
 // =============================================================================
 // Per-vida inspection helpers
 // =============================================================================
+function tireHasVida(tire: Tire, vida: VidaKey): boolean {
+  return tire.vida.some(v => normalizeVidaValue(v.valor) === vida);
+}
+
+function isReencaucheVida(vida: VidaKey): boolean {
+  return vida === "reencauche1" || vida === "reencauche2" || vida === "reencauche3";
+}
+
+function getGroupingDesign(tire: Tire, vida: VidaKey): string {
+  if (isReencaucheVida(vida)) {
+    return tire.banda?.trim() || tire.diseno?.trim() || "Sin banda";
+  }
+  return tire.diseno?.trim() || tire.banda?.trim() || "Sin diseño";
+}
+
+function getVidaStart(tire: Tire, vida: VidaKey): Date | null {
+  const evt = tire.vida
+    .filter(v => normalizeVidaValue(v.valor) === vida)
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
+
+  return evt ? new Date(evt.fecha) : null;
+}
+
+function getVidaEnd(tire: Tire, vida: VidaKey): Date | null {
+  const SEQ: VidaKey[] = ["nueva", "reencauche1", "reencauche2", "reencauche3"];
+  const idx = SEQ.indexOf(vida);
+  if (idx < 0 || idx === SEQ.length - 1) return null;
+  return getVidaStart(tire, SEQ[idx + 1]);
+}
+
+function getInspeccionesForVida(tire: Tire, vida: VidaKey): Inspection[] {
+  const sortedAll = [...tire.inspecciones].sort(
+    (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+  );
+
+  const tagged = sortedAll.filter(
+    (i) => normalizeVidaValue(i.vidaAlMomento) === vida
+  );
+  if (tagged.length > 0) return tagged;
+
+  const start = getVidaStart(tire, vida);
+  const end = getVidaEnd(tire, vida);
+
+  if (start) {
+    const ranged = sortedAll.filter((i) => {
+      const d = new Date(i.fecha);
+      return d >= start && (!end || d < end);
+    });
+    if (ranged.length > 0) return ranged;
+  }
+
+  // Fallback: if the tire belongs to this vida but tagging/dates are incomplete,
+  // still use all inspections so it does not disappear from the table.
+  return sortedAll;
+}
+
 function normalizeVidaValue(value?: string | null): VidaKey | null {
   const v = (value || "")
     .toLowerCase()
@@ -96,67 +150,11 @@ function normalizeVidaValue(value?: string | null): VidaKey | null {
     .trim();
 
   if (v === "nueva") return "nueva";
-  if (REENCAUCHE_RAW_VIDAS.has(v)) return "reencauche";
+  if (v === "reencauche1") return "reencauche1";
+  if (v === "reencauche2") return "reencauche2";
+  if (v === "reencauche3") return "reencauche3";
+
   return null;
-}
-
-function tireHasVida(tire: Tire, vida: VidaKey): boolean {
-  return tire.vida.some(v => normalizeVidaValue(v.valor) === vida);
-}
-
-function isReencaucheVida(vida: VidaKey): boolean {
-  return vida === "reencauche";
-}
-
-function getGroupingDesign(tire: Tire, vida: VidaKey): string {
-  if (isReencaucheVida(vida)) {
-    // After the retread brand fix, tire.diseno reflects the current banda.
-    return tire.diseno?.trim() || tire.banda?.trim() || "Sin banda";
-  }
-  return tire.diseno?.trim() || tire.banda?.trim() || "Sin diseño";
-}
-
-// Earliest event matching the vida (for nueva: the nueva event; for
-// reencauche: the first retread event the tire ever went through).
-function getVidaStart(tire: Tire, vida: VidaKey): Date | null {
-  const evt = tire.vida
-    .filter(v => normalizeVidaValue(v.valor) === vida)
-    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
-
-  return evt ? new Date(evt.fecha) : null;
-}
-
-function getInspeccionesForVida(tire: Tire, vida: VidaKey): Inspection[] {
-  const sortedAll = [...tire.inspecciones].sort(
-    (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-  );
-
-  // Prefer the inspection-level tag — every inspection records the vida
-  // it belongs to. For reencauche this aggregates across retread #1/2/3.
-  const tagged = sortedAll.filter(
-    (i) => normalizeVidaValue(i.vidaAlMomento) === vida
-  );
-  if (tagged.length > 0) return tagged;
-
-  // Fallback: use the date window between the earliest matching event and
-  // (for nueva) the first reencauche event that ended this phase.
-  const start = getVidaStart(tire, vida);
-  if (vida === "nueva") {
-    const firstReenc = getVidaStart(tire, "reencauche");
-    if (start) {
-      const ranged = sortedAll.filter((i) => {
-        const d = new Date(i.fecha);
-        return d >= start && (!firstReenc || d < firstReenc);
-      });
-      if (ranged.length > 0) return ranged;
-    }
-  } else if (start) {
-    const ranged = sortedAll.filter((i) => new Date(i.fecha) >= start);
-    if (ranged.length > 0) return ranged;
-  }
-
-  // Last-resort: return all inspections so the tire doesn't vanish.
-  return sortedAll;
 }
 // =============================================================================
 // Group rows
@@ -187,45 +185,75 @@ function buildGroups(tires: Tire[], vida: VidaKey): GroupRow[] {
     tire: Tire; cpk: number; cpkProy: number | null; depth: number | null; insps: Inspection[];
   }[]> = {};
 
-  const normKeys: Record<string, string> = {}; // norm(marca)__norm(dim)__norm(dis) → bucket key
+  // ---------------------------------------------------------------------------
+  // Two-phase bucketing: previously the main per-tire loop ran fuzzyMatch
+  // against EVERY existing bucket key — for 16k tires that was ~19 million
+  // Levenshtein operations and made filter toggles feel like the UI froze.
+  //
+  // Phase 1: collect the *raw* normalized keys (cheap, O(n), no fuzzy).
+  // Phase 2: collapse those unique keys with fuzzy matching. The key space
+  //          is typically < 100 distinct triples, so fuzzy runs on a small
+  //          set — O(k²) where k ≈ 50.
+  // Phase 3: the per-tire loop becomes an O(1) Map lookup into the canonical
+  //          key built in phase 2.
+  // ---------------------------------------------------------------------------
 
-  for (const tire of tires) {
-    if (!tireHasVida(tire, vida)) continue;
+  // --- Phase 1: raw-key collection -----------------------------------------
+  const tireKeys: string[] = new Array(tires.length);         // rawKey per tire (""=skip)
+  const rawLabels = new Map<string, [string, string, string]>(); // rawKey → [m, d, s]
+
+  for (let i = 0; i < tires.length; i++) {
+    const tire = tires[i];
+    if (!tireHasVida(tire, vida)) { tireKeys[i] = ""; continue; }
+    const m = tire.marca?.trim() || "";
+    const d = tire.dimension?.trim() || "";
+    const s = getGroupingDesign(tire, vida);
+    const rawKey = `${norm(m)}__${norm(d)}__${norm(s)}`;
+    tireKeys[i] = rawKey;
+    if (!rawLabels.has(rawKey)) rawLabels.set(rawKey, [m, d, s]);
+  }
+
+  // --- Phase 2: fuzzy-collapse the unique raw keys to canonical keys -------
+  const canonicalOf = new Map<string, string>();   // rawKey → canonicalKey
+  const canonicalList: string[] = [];               // ordered list of canonicals (for fuzzy scan)
+
+  for (const rawKey of rawLabels.keys()) {
+    const [m1, d1, s1] = rawKey.split("__");
+    let matched: string | null = null;
+    for (const ck of canonicalList) {
+      const [m2, d2, s2] = ck.split("__");
+      if (fuzzyMatch(m1, m2) && fuzzyMatch(d1, d2) && fuzzyMatch(s1, s2)) {
+        matched = ck;
+        break;
+      }
+    }
+    if (matched) {
+      canonicalOf.set(rawKey, matched);
+    } else {
+      canonicalOf.set(rawKey, rawKey);
+      canonicalList.push(rawKey);
+      // First-seen label wins, same semantics as before.
+      const [m, d, s] = rawLabels.get(rawKey)!;
+      marcaLabels[rawKey]     = m;
+      dimensionLabels[rawKey] = d;
+      disenoLabels[rawKey]    = s;
+      buckets[rawKey]         = [];
+    }
+  }
+
+  // --- Phase 3: populate buckets with O(1) lookups -------------------------
+  for (let i = 0; i < tires.length; i++) {
+    const rawKey = tireKeys[i];
+    if (!rawKey) continue;
+    const tire = tires[i];
     const insps = getInspeccionesForVida(tire, vida);
     const last = insps.length ? insps[insps.length - 1] : null;
     if (!last) continue;
 
-    const effectiveCpk =
-      last.cpk ??
-      last.cpkProyectado ??
-      null;
-
+    const effectiveCpk = last.cpk ?? last.cpkProyectado ?? null;
     if (effectiveCpk == null) continue;
 
-    const m = tire.marca?.trim() || "";
-    const d = tire.dimension?.trim() || "";
-    const s = getGroupingDesign(tire, vida);
-
-    const nm = norm(m), nd = norm(d), ns = norm(s);
-
-    // Find an existing bucket whose keys fuzzy-match this tire
-    let bucketKey: string | null = null;
-    for (const existingKey of Object.keys(normKeys)) {
-      const [em, ed, es] = existingKey.split("__");
-      if (fuzzyMatch(nm, em) && fuzzyMatch(nd, ed) && fuzzyMatch(ns, es)) {
-        bucketKey = normKeys[existingKey];
-        break;
-      }
-    }
-
-    if (!bucketKey) {
-      bucketKey = `${nm}__${nd}__${ns}`;
-      normKeys[`${nm}__${nd}__${ns}`] = bucketKey;
-      marcaLabels[bucketKey]     = m;
-      dimensionLabels[bucketKey] = d;
-      disenoLabels[bucketKey]    = s;
-      buckets[bucketKey]         = [];
-    }
+    const bucketKey = canonicalOf.get(rawKey)!;
 
     const depthValues = [
       last.profundidadInt,

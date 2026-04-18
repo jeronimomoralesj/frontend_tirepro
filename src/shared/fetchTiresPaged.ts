@@ -96,7 +96,11 @@ export interface ProgressiveTiresOpts extends TiresPagedOpts {
    * Minimum ms between mid-stream onChunk calls. First and last pages always
    * fire immediately; middle pages coalesce via a trailing-edge timer so the
    * caller's React tree doesn't re-render + re-aggregate on every 2000-tire
-   * page arrival. Set to 0 to disable throttling. Default 350ms.
+   * page arrival. Set to 0 to disable throttling. Default 750ms.
+   *
+   * 750ms is tuned for 10–20k-tire clients: with ~300ms server response per
+   * page, that gives ~3 updates instead of 8, cutting chart.js redraws by
+   * more than half while still feeling live.
    */
   throttleMs?: number;
 }
@@ -108,7 +112,7 @@ export async function fetchTiresProgressive<T = any>(
   const limit      = Math.min(opts.limit ?? 2000, 2000);
   const maxTires   = opts.maxTires ?? Number.POSITIVE_INFINITY;
   const fetcher    = opts.fetcher ?? defaultFetcher;
-  const throttleMs = opts.throttleMs ?? 350;
+  const throttleMs = opts.throttleMs ?? 750;
 
   const all: T[] = [];
   let cursor: string | null = null;

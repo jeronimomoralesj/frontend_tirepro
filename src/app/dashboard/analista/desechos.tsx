@@ -210,9 +210,10 @@ const DesechosStats: React.FC = () => {
       const companyId = localStorage.getItem("companyId");
       if (!companyId) { setError("No se encontró el companyId"); setLoading(false); return; }
       try {
-        const res = await authFetch(`${API_BASE}/tires?companyId=${companyId}&slim=true`);
-        if (!res.ok) throw new Error("Error al cargar los datos");
-        const tires: Tire[] = await res.json();
+        // Paged fetch — legacy single-response /tires?slim=true was shipping
+        // 5–10 MB payloads to 16k-tire clients and blocking render.
+        const { fetchTiresPaged } = await import("@/shared/fetchTiresPaged");
+        const tires = await fetchTiresPaged<Tire>(companyId);
         setDesechos(tires.map((t) => t.desechos).filter(Boolean) as DesechoData[]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al obtener las llantas");

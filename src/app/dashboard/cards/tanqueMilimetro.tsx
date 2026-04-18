@@ -2,6 +2,7 @@
 
 import React from "react";
 import { HelpCircle } from "lucide-react";
+
 export type Inspection = {
   profundidadInt: number;
   profundidadCen: number;
@@ -59,14 +60,13 @@ const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({
 
   const progressPercentage = (averageProgress * 100).toFixed(2);
 
-
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden w-full">
       {/* Header */}
       <div className="bg-[#173D68] text-white px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <h2 className="text-base sm:text-xl font-bold leading-tight truncate">{t.title}</h2>
-        </div>
+        <h2 className="text-base sm:text-xl font-bold leading-tight truncate">
+          {t.title}
+        </h2>
         <div className="group relative cursor-pointer flex-shrink-0">
           <HelpCircle
             className="text-white hover:text-gray-200 transition-colors"

@@ -8,23 +8,23 @@ import {
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 
-import SemaforoPie     from "../cards/SemaforoPie";
-import SemaforoTabla   from "../cards/SemaforoTabla";
-import type { Vehicle, Tire as SemaforoTire } from "../cards/SemaforoTabla";
-import PorMarca        from "../cards/PorMarca";
-import PorBanda        from "../cards/PorBanda";
-import PorVida         from "../cards/PorVida";
-import PromedioEje     from "../cards/PromedioEje";
-import TipoVehiculo    from "../cards/TipoVehiculo";
+import SemaforoPie     from "../cards/semaforoPie";
+import SemaforoTabla   from "../cards/semaforoTabla";
+import type { Vehicle, Tire as SemaforoTire } from "../cards/semaforoTabla";
+import PorMarca        from "../cards/porMarca";
+import PorBanda        from "../cards/porBanda";
+import PorVida         from "../cards/porVida";
+import PromedioEje     from "../cards/promedioEje";
+import TipoVehiculo    from "../cards/tipoVehiculo";
 import ProyeccionVida  from "../cards/ProyeccionVida";
-import TablaCpk        from "../cards/TablaCpk";
-import type { Tire as TablaCpkTire } from "../cards/TablaCpk";
-import DetallesLlantas from "../cards/DetallesLlantas";
-import type { Tire as DetallesLlantasTire } from "../cards/DetallesLlantas";
-import ReencaucheHistorico from "../cards/ReencaucheHistorico";
-import type { Tire as ReencaucheTire } from "../cards/ReencaucheHistorico";
-import TanqueMilimetro from "../cards/TanqueMilimetro";
-import type { Tire as TanqueTire } from "../cards/TanqueMilimetro";
+import TablaCpk        from "../cards/tablaCpk";
+import type { Tire as TablaCpkTire } from "../cards/tablaCpk";
+import DetallesLlantas from "../cards/detallesLlantas";
+import type { Tire as DetallesLlantasTire } from "../cards/detallesLlantas";
+import ReencaucheHistorico from "../cards/reencaucheHistorico";
+import type { Tire as ReencaucheTire } from "../cards/reencaucheHistorico";
+import TanqueMilimetro from "../cards/tanqueMilimetro";
+import type { Tire as TanqueTire } from "../cards/tanqueMilimetro";
 
 // =============================================================================
 // Types
@@ -521,14 +521,16 @@ function LoadProgressBar({
 
   return (
     <>
-      {/* Sticky thin bar at the very top */}
-      <div className="sticky top-0 z-30 h-1 bg-gray-100 overflow-hidden">
+      {/* Fixed-position strip at the very top of the viewport. z-50 keeps
+          it above the sticky page header (z-40) — previously the strip
+          was sticky z-30 under the header and was being covered by it. */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-[3px] bg-gray-100/80 overflow-hidden pointer-events-none">
         <div
           className={hasExpected ? "h-full transition-all duration-300" : "h-full animate-pulse"}
           style={{
             width: hasExpected ? `${isDone ? 100 : Math.max(pct, 3)}%` : "40%",
             background: "linear-gradient(90deg, #1E76B6 0%, #348CCB 50%, #7DC5F0 100%)",
-            boxShadow: "0 0 12px rgba(52,140,203,0.45)",
+            boxShadow: "0 0 12px rgba(52,140,203,0.55)",
             marginLeft: hasExpected ? "0" : "30%",
           }}
         />
@@ -592,6 +594,15 @@ export default function DistribuidorPage() {
   // smoothly even while the heavier setAllTires is throttled.
   const [loadedTires,      setLoadedTires]      = useState(0);
   const [streaming,        setStreaming]        = useState(false);
+  // Chart data source — snapshot of allTires that only updates on
+  // (a) first chunk (so charts paint as soon as page 1 arrives) and
+  // (b) stream completion (final authoritative dataset).
+  //
+  // Mid-stream allTires updates are deliberately ignored here. For a
+  // 16k-tire client, this eliminates ~6 chart.js re-render storms during
+  // the 3s stream. The progress bar + loadedTires counter give the user
+  // live "we're still loading" feedback without paying the render cost.
+  const [chartTires,       setChartTires]       = useState<SemaforoTire[]>([]);
   const [marcaData,        setMarcaData]        = useState<Record<string, number>>({});
   const [bandaData,        setBandaData]        = useState<Record<string, number>>({});
   // (cpkTires/detailTires/reencaucheTires/tanqueTires state dropped —
@@ -613,6 +624,35 @@ export default function DistribuidorPage() {
       setUserName(u.name || u.email || "Distribuidor");
     }
   }, []);
+
+  // -- Chart data snapshot --
+  //
+  // Charts read `chartTires`, not `allTires`. This effect decides when
+  // chartTires gets synced from allTires:
+  //   - First chunk arrives  → paint charts immediately (fast first paint)
+  //   - Stream completes     → sync final authoritative dataset
+  //
+  // Intermediate chunks deliberately skip — for a 16k-tire load, that's
+  // the difference between ~7 chart.js redraws and 2. The progress bar
+  // and live tire counter give the user feedback that more data is on
+  // the way without paying for a re-render of the entire chart tree
+  // every 2000 tires.
+  useEffect(() => {
+    // Client cleared
+    if (allTires.length === 0) {
+      if (chartTires.length !== 0) setChartTires([]);
+      return;
+    }
+    // First paint: snapshot the very first non-empty allTires
+    if (chartTires.length === 0) {
+      setChartTires(allTires);
+      return;
+    }
+    // Stream finished: snapshot final value
+    if (!streaming && chartTires !== allTires) {
+      setChartTires(allTires);
+    }
+  }, [allTires, streaming, chartTires]);
 
   // -- Fetch companies list (lightweight — just names, no counts) -------------
   const fetchCompanies = useCallback(async () => {
@@ -651,7 +691,7 @@ export default function DistribuidorPage() {
   const clearClientData = useCallback(() => {
   setAvgCpkProyectado(0); setAvgCptProyectado(0);
   setSavingPerMonth(0); setSavingPerYear(0); setSavingPct(0);
-  setAllVehicles([]); setAllTires([]);
+  setAllVehicles([]); setAllTires([]); setChartTires([]);
   setMarcaData({}); setBandaData({});
   setVidaStats({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
   setSelectedEje("");
@@ -833,16 +873,17 @@ export default function DistribuidorPage() {
     return m;
   }, [allVehicles]);
 
-  // Defer filter values: the FilterFab pill reads `filterValues` and updates
-  // instantly on click, but the expensive useMemo chain below reads the
-  // deferred copy, so React renders the new UI at high priority and the
-  // heavy chart re-aggregation (9 x O(n) maps over up to 20k tires) happens
-  // at idle priority. Toggling a filter off no longer feels frozen.
+  // Defer filter values so the FilterFab pill updates instantly on click
+  // while the heavy memo chain reads the deferred copy.
   const deferredFilterValues = useDeferredValue(filterValues);
   const deferredFilterSearch = useDeferredValue(filterSearch);
 
   const filteredTires: NormTire[] = useMemo(() => {
-    const raw = allTires as unknown as NormTire[];
+    // Filter the chartTires snapshot (NOT allTires). During streaming,
+    // chartTires is frozen at the first-chunk snapshot — so filters and
+    // charts both work on the same dataset, and mid-stream tire arrivals
+    // don't trigger a full filter recompute.
+    const raw = chartTires as unknown as NormTire[];
     let result = raw;
 
     // Vida filter (also hides "fin" by default like detalle)
@@ -879,16 +920,18 @@ export default function DistribuidorPage() {
       });
     }
     return result;
-  }, [allTires, deferredFilterValues, deferredFilterSearch, vehicleMap]);
+  }, [chartTires, deferredFilterValues, deferredFilterSearch, vehicleMap]);
 
   // True while React is catching up a deferred filter change — used for a
   // subtle overlay hint so the user knows the charts are about to update.
   const filterPending =
     filterValues !== deferredFilterValues || filterSearch !== deferredFilterSearch;
 
-  // Filter dropdown options derived from the unfiltered tire pool.
+  // Filter dropdown options derived from the chart snapshot — same
+  // rationale as filteredTires above: mid-stream chunks shouldn't rebuild
+  // the marca/eje Sets.
   const filterOptions: FilterOption[] = useMemo(() => {
-    const raw = allTires as unknown as NormTire[];
+    const raw = chartTires as unknown as NormTire[];
     const ALERT_OPTIONS = ["Todos", ...Object.values(ALERT_META).map((m) => m.label)];
     return [
       { key: "alert", label: "Estado", options: ALERT_OPTIONS },
@@ -896,7 +939,7 @@ export default function DistribuidorPage() {
       { key: "eje",   label: "Eje",    options: ["Todos", ...Array.from(new Set(raw.map((t) => t.eje).filter(Boolean))).sort()] },
       { key: "vida",  label: "Vida",   options: ["Todos", "nueva", "reencauche1", "reencauche2", "reencauche3", "fin"] },
     ];
-  }, [allTires]);
+  }, [chartTires]);
 
   // -- Card-specific shapes derived from the filtered tires -----------------
   const filteredMarcaData = useMemo(() => {

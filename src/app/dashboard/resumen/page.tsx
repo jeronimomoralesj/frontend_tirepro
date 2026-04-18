@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Download,
@@ -31,8 +31,8 @@ import {
   fmtCOP,
   fmtCOPCompact,
 } from "../components/chartConfig";
-import PorVida from "../cards/PorVida";
-import PorMarca from "../cards/PorMarca";
+import PorVida from "../cards/porVida";
+import PorMarca from "../cards/porMarca";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 
@@ -187,10 +187,93 @@ function isInversionCost(c: { concepto?: string | null }): boolean {
   return INVERSION_CONCEPTS.has(k);
 }
 
+// =============================================================================
+// Streaming progress bar — thin sticky bar + numeric pill
+// =============================================================================
+
+function LoadProgressBar({
+  streaming, loaded, expected,
+}: {
+  streaming: boolean; loaded: number; expected: number;
+}) {
+  const [visible, setVisible] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (streaming) {
+      setVisible(true);
+      if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
+    } else if (visible) {
+      // Flash to 100% then fade
+      hideTimer.current = setTimeout(() => setVisible(false), 800);
+    }
+    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
+  }, [streaming, visible]);
+
+  if (!visible) return null;
+
+  const hasExpected = expected > 0;
+  const pct = hasExpected
+    ? Math.min(100, Math.round((loaded / expected) * 100))
+    : 0;
+  const isDone = !streaming && hasExpected;
+
+  return (
+    <>
+      {/* Thin bar pinned at the very top of the viewport.
+          z-50 keeps it ABOVE the sticky page header (z-40). Previously it
+          was z-30 below the header, so the 0.92-opacity backdrop-blur
+          header was painting over the 1px strip — invisible in practice. */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-[3px] bg-gray-100/80 overflow-hidden pointer-events-none">
+        <div
+          className={hasExpected ? "h-full transition-all duration-300" : "h-full animate-pulse"}
+          style={{
+            width: hasExpected ? `${isDone ? 100 : Math.max(pct, 3)}%` : "40%",
+            background: "linear-gradient(90deg, #1E76B6 0%, #348CCB 50%, #7DC5F0 100%)",
+            boxShadow: "0 0 12px rgba(52,140,203,0.55)",
+            marginLeft: hasExpected ? "0" : "30%",
+          }}
+        />
+      </div>
+
+      {/* Count pill — renders in normal content flow below the header. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3">
+        <div
+          className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-[11px]"
+          style={{
+            background: "linear-gradient(135deg, rgba(30,118,182,0.06), rgba(52,140,203,0.04))",
+            border: "1px solid rgba(52,140,203,0.2)",
+          }}
+        >
+          <Loader2 className={`w-3.5 h-3.5 text-[#1E76B6] ${streaming ? "animate-spin" : ""}`} />
+          <span className="font-bold text-[#0A183A]">
+            {isDone
+              ? "Listo"
+              : hasExpected
+                ? `Cargando ${loaded.toLocaleString("es-CO")} de ${expected.toLocaleString("es-CO")} llantas`
+                : `Cargando ${loaded.toLocaleString("es-CO")} llantas…`}
+          </span>
+          {hasExpected && (
+            <span className="ml-auto text-[#1E76B6] font-black tabular-nums">
+              {isDone ? "100%" : `${pct}%`}
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function ResumenPage() {
   const router = useRouter();
-  const [tires, setTires] = useState<RawTire[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Raw tires as they stream in (unthrottled counter source — drives the
+  // progress bar). `tires` below is the frozen snapshot used by charts.
+  const [allTires, setAllTires]   = useState<RawTire[]>([]);
+  const [tires, setTires]         = useState<RawTire[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [streaming, setStreaming] = useState(false);
+  const [loadedTires, setLoadedTires] = useState(0);
+  const [expectedTires, setExpectedTires] = useState(0);
   const [userName, setUserName] = useState("");
   const [error, setError] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -212,26 +295,80 @@ export default function ResumenPage() {
     if (!user.companyId) return;
 
     setLoading(true);
-    // Progressive render: show the dashboard after page 1 arrives (~300-500ms),
-    // then stream remaining pages in the background and let React re-render
-    // the aggregates as more tires land. For a 20k-tire account the user
-    // sees usable data within half a second even though the total fetch
-    // takes ~2s on a cold Redis.
+    setStreaming(true);
+    setLoadedTires(0);
+
+    // Read stats.tires for the progress bar denominator via the shared
+    // cache. Sidebar + RouteGuard + root redirect fetch the same object
+    // and we reuse their response instead of firing a fourth parallel
+    // request that tripped the rate limiter.
+    import("@/shared/fetchCompany")
+      .then(({ fetchCompany }) => fetchCompany(user.companyId!))
+      .then((c) => {
+        const total = c?._count?.tires ?? c?.stats?.tires ?? 0;
+        if (typeof total === "number" && total > 0) setExpectedTires(total);
+      })
+      .catch(() => {});
+
+    // Progressive fetch: page 1 paints charts (~300-500ms), subsequent pages
+    // update the progress bar live but charts stay frozen at the page-1
+    // snapshot until the stream ends. Avoids re-rendering 12 chart.js canvases
+    // 8 times for a 20k-tire account.
     import('@/shared/fetchTiresPaged').then(({ fetchTiresProgressive }) => {
       fetchTiresProgressive<RawTire>(user.companyId!, {
+        // Unthrottled — drives the smooth progress bar.
+        onProgress: (loaded) => setLoadedTires(loaded),
+        // Throttled (750ms) — updates allTires. The chart snapshot effect
+        // below decides whether to forward this into `tires`.
         onChunk: (soFar) => {
-          setTires(soFar);
-          if (soFar.length > 0) setLoading(false);  // first chunk = ready to render
+          startTransition(() => {
+            setAllTires(soFar as RawTire[]);
+          });
+          // Always clear the full-page spinner on first chunk, even if
+          // the chunk is empty (zero-tire tenant). The old `soFar.length > 0`
+          // guard stranded newly-provisioned companies on the loading
+          // spinner forever — "reloads and reloads" from the user's POV.
+          setLoading(false);
         },
-      }).catch(() => setLoading(false));
+      })
+        .catch(() => setLoading(false))
+        .finally(() => setStreaming(false));
     });
   }, [router]);
+
+  // Chart data snapshot: `tires` (consumed by charts) only updates on
+  // (a) first chunk — immediate first paint
+  // (b) stream completion — final authoritative data
+  // Mid-stream chunk arrivals are deliberately ignored here; the progress
+  // bar gives live feedback instead. Same pattern as the distribuidor page.
+  useEffect(() => {
+    if (allTires.length === 0) {
+      if (tires.length !== 0) setTires([]);
+      return;
+    }
+    if (tires.length === 0) {
+      // First-chunk paint
+      setTires(allTires);
+      return;
+    }
+    if (!streaming && tires !== allTires) {
+      setTires(allTires);
+    }
+  }, [allTires, streaming, tires]);
 
   // -- Derived data -----------------------------------------------------------
 
   const months = useMemo(() => getLast12Months(), []);
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  // Defer filter values so toggling a filter doesn't block the main thread
+  // while 10+ useMemos reshape. Pill updates instant; chart re-render is
+  // idle-priority.
+  const deferredFilterValues = useDeferredValue(filterValues);
+  const deferredFilterSearch = useDeferredValue(filterSearch);
+  const filterPending =
+    filterValues !== deferredFilterValues || filterSearch !== deferredFilterSearch;
 
   const filterOptions: FilterOption[] = useMemo(() => [
     { key: "marca", label: "Marca", options: ["Todos", ...Array.from(new Set(tires.map((t) => t.marca))).sort()] },
@@ -242,43 +379,45 @@ export default function ResumenPage() {
   const filtered = useMemo(() => {
     // Exclude fin de vida unless explicitly selected
     let result = tires;
-    if (!filterValues.vida || filterValues.vida === "Todos")
+    if (!deferredFilterValues.vida || deferredFilterValues.vida === "Todos")
       result = result.filter((t) => t.vidaActual !== "fin");
     else
-      result = result.filter((t) => t.vidaActual === filterValues.vida);
-    if (filterValues.marca && filterValues.marca !== "Todos")
-      result = result.filter((t) => t.marca === filterValues.marca);
-    if (filterValues.eje && filterValues.eje !== "Todos")
-      result = result.filter((t) => t.eje === filterValues.eje);
-    if (filterSearch.trim()) {
-      const q = filterSearch.toLowerCase();
+      result = result.filter((t) => t.vidaActual === deferredFilterValues.vida);
+    if (deferredFilterValues.marca && deferredFilterValues.marca !== "Todos")
+      result = result.filter((t) => t.marca === deferredFilterValues.marca);
+    if (deferredFilterValues.eje && deferredFilterValues.eje !== "Todos")
+      result = result.filter((t) => t.eje === deferredFilterValues.eje);
+    if (deferredFilterSearch.trim()) {
+      const q = deferredFilterSearch.toLowerCase();
       result = result.filter((t) => t.placa.toLowerCase().includes(q) || t.marca.toLowerCase().includes(q));
     }
     return result;
-  }, [tires, filterValues, filterSearch]);
+  }, [tires, deferredFilterValues, deferredFilterSearch]);
 
   // Fin-de-vida tires (for dinero perdido — applies marca/eje/search but always keeps only fin)
   const finTires = useMemo(() => {
     let result = tires.filter((t) => t.vidaActual === "fin");
-    if (filterValues.marca && filterValues.marca !== "Todos")
-      result = result.filter((t) => t.marca === filterValues.marca);
-    if (filterValues.eje && filterValues.eje !== "Todos")
-      result = result.filter((t) => t.eje === filterValues.eje);
-    if (filterSearch.trim()) {
-      const q = filterSearch.toLowerCase();
+    if (deferredFilterValues.marca && deferredFilterValues.marca !== "Todos")
+      result = result.filter((t) => t.marca === deferredFilterValues.marca);
+    if (deferredFilterValues.eje && deferredFilterValues.eje !== "Todos")
+      result = result.filter((t) => t.eje === deferredFilterValues.eje);
+    if (deferredFilterSearch.trim()) {
+      const q = deferredFilterSearch.toLowerCase();
       result = result.filter((t) => t.placa.toLowerCase().includes(q) || t.marca.toLowerCase().includes(q));
     }
     return result;
-  }, [tires, filterValues, filterSearch]);
+  }, [tires, deferredFilterValues, deferredFilterSearch]);
 
+  // Reads `filtered` (not raw `tires`) so the KPI respects marca/eje/vida
+  // and the search box — matched how the rest of the cards already behave.
   const inversionMes = useMemo(() => {
     let total = 0;
-    tires.forEach((t) => (t.costos ?? []).forEach((c) => {
+    filtered.forEach((t) => (t.costos ?? []).forEach((c) => {
       if (!isInversionCost(c)) return;
       if (toMonthKey(c.fecha) === currentMonth) total += c.valor;
     }));
     return total;
-  }, [tires, currentMonth]);
+  }, [filtered, currentMonth]);
 
   const llantasAnalizadas = useMemo(
     () => filtered.filter((t) => t.inspecciones?.length > 0).length,
@@ -301,7 +440,7 @@ export default function ResumenPage() {
       "":           "#1E76B6",
     };
     const byConcept: Record<string, { total: number; count: number }> = {};
-    tires.forEach((t) => {
+    filtered.forEach((t) => {
       (t.costos ?? []).forEach((c) => {
         if (!isInversionCost(c)) return;
         if (toMonthKey(c.fecha) !== currentMonth) return;
@@ -322,7 +461,7 @@ export default function ResumenPage() {
       .sort((a, b) => b.total - a.total);
     const grandTotal = entries.reduce((s, e) => s + e.total, 0);
     return { entries, grandTotal };
-  }, [tires, currentMonth]);
+  }, [filtered, currentMonth]);
 
   // Chart data: CPK evolution (km-weighted per month).
   // Prefers lifetimeCpk (sum-of-costs-across-all-vidas / total km) so the
@@ -581,8 +720,18 @@ export default function ResumenPage() {
         </button>
       </div>
 
+      {/* Streaming progress bar — sticky under the header while tires load */}
+      <LoadProgressBar streaming={streaming} loaded={loadedTires} expected={expectedTires} />
+
       {/* -- CONTENT --------------------------------------------------------- */}
-      <div ref={contentRef} className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <div
+        ref={contentRef}
+        className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5 transition-opacity duration-200"
+        style={{
+          opacity: filterPending ? 0.55 : 1,
+          pointerEvents: filterPending ? "none" : "auto",
+        }}
+      >
         {error && (
           <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "rgba(10,24,58,0.06)", border: "1px solid rgba(10,24,58,0.2)" }}>
             <AlertCircle className="w-4 h-4 text-[#173D68] flex-shrink-0 mt-0.5" />
@@ -592,9 +741,27 @@ export default function ResumenPage() {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-20 text-[#1E76B6]">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-sm font-medium">Cargando datos...</span>
+          // Friendly loading state — live tire count + progress so the
+          // user sees motion instead of a static spinner. The sticky
+          // progress bar already gives the percentage up top; this is the
+          // mid-page reassurance.
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <div className="relative w-10 h-10">
+              <div className="absolute inset-0 rounded-full border-2 border-[#1E76B6]/15" />
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#1E76B6] animate-spin" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-black text-[#0A183A]">
+                {loadedTires > 0
+                  ? `Cargando ${loadedTires.toLocaleString("es-CO")} llantas…`
+                  : "Preparando tu panel…"}
+              </p>
+              {expectedTires > 0 && (
+                <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
+                  {Math.min(100, Math.round((loadedTires / expectedTires) * 100))}% de {expectedTires.toLocaleString("es-CO")}
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <>

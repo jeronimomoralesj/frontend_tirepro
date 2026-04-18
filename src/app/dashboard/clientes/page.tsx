@@ -5,8 +5,40 @@ import {
   Building2, Users, Plus, X, ChevronDown, Search,
   UserPlus, Eye, EyeOff, CheckCircle, AlertCircle,
   Loader2, Car, Circle, ArrowRight, Calendar, TrendingUp,
-  Sparkles, Activity, DollarSign, ShieldCheck, Mail, Clock,
+  Activity, DollarSign, ShieldCheck, Mail, Clock, UserCheck,
 } from "lucide-react";
+
+// =============================================================================
+// Types — Mi Equipo
+// =============================================================================
+
+type TabKey = "clientes" | "equipo";
+
+type DateRangeKey = "today" | "7d" | "30d" | "90d" | "all";
+
+type EquipoUser = {
+  id:             string;
+  name:           string;
+  email:          string;
+  role:           string;
+  createdAt:      string;
+  lastLoginAt:    string | null;
+  loginCount:     number;
+  inspections:    number;
+  lastInspection: string | null;
+};
+
+function dateRangeFromKey(key: DateRangeKey): { from?: string; to?: string } {
+  const now = new Date();
+  if (key === "all") return {};
+  if (key === "today") {
+    const start = new Date(now); start.setHours(0, 0, 0, 0);
+    return { from: start.toISOString() };
+  }
+  const days = key === "7d" ? 7 : key === "30d" ? 30 : 90;
+  const start = new Date(now); start.setDate(start.getDate() - days);
+  return { from: start.toISOString() };
+}
 
 // =============================================================================
 // Types
@@ -344,12 +376,11 @@ function ClientCard({ client, onAddUser }: { client: Client; onAddUser: (c: Clie
                 <Circle className="w-1.5 h-1.5 fill-current" />{client.plan}
               </span>
               {stats && stats.yearsAsClient > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
                       style={{
-                        background: "linear-gradient(135deg, rgba(22,163,74,0.12), rgba(34,197,94,0.08))",
+                        background: "rgba(22,163,74,0.08)",
                         color: "#15803d",
                       }}>
-                  <Sparkles className="w-2.5 h-2.5" />
                   {stats.yearsAsClient} año{stats.yearsAsClient === 1 ? "" : "s"}
                 </span>
               )}
@@ -561,6 +592,176 @@ function StatBlock({ icon, label, value, sub }: {
 }
 
 // =============================================================================
+// Mi Equipo section — per-user inspection metrics for the distribuidor
+// =============================================================================
+
+const DATE_RANGE_OPTIONS: { k: DateRangeKey; label: string }[] = [
+  { k: "today", label: "Hoy" },
+  { k: "7d",    label: "7 días" },
+  { k: "30d",   label: "30 días" },
+  { k: "90d",   label: "90 días" },
+  { k: "all",   label: "Todo" },
+];
+
+function EquipoSection({
+  equipo, loading, dateRange, onDateRangeChange, search, onSearchChange,
+}: {
+  equipo: EquipoUser[];
+  loading: boolean;
+  dateRange: DateRangeKey;
+  onDateRangeChange: (r: DateRangeKey) => void;
+  search: string;
+  onSearchChange: (s: string) => void;
+}) {
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const list = term
+      ? equipo.filter(u => u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term))
+      : equipo;
+    return [...list].sort((a, b) => b.inspections - a.inspections);
+  }, [equipo, search]);
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar: date range + search */}
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <div className="flex gap-1 bg-white rounded-xl p-1 border overflow-x-auto"
+             style={{ borderColor: "rgba(52,140,203,0.2)" }}>
+          {DATE_RANGE_OPTIONS.map(({ k, label }) => {
+            const active = dateRange === k;
+            return (
+              <button
+                key={k}
+                onClick={() => onDateRangeChange(k)}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap"
+                style={{
+                  background: active ? "linear-gradient(135deg, #0A183A, #1E76B6)" : "transparent",
+                  color:      active ? "white" : "#64748b",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre o correo…"
+            value={search}
+            onChange={e => onSearchChange(e.target.value)}
+            className={`${inputCls} pl-11`}
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      {/* List */}
+      {loading ? (
+        <div className="flex items-center justify-center gap-3 py-20 text-[#1E76B6]">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="text-sm font-medium">Cargando equipo…</span>
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="p-12 flex flex-col items-center justify-center text-center">
+          <div className="p-4 rounded-2xl mb-4" style={{ background: "rgba(30,118,182,0.06)" }}>
+            <Users className="w-8 h-8 text-[#1E76B6] opacity-50" />
+          </div>
+          <p className="text-sm font-black text-[#0A183A] mb-1">
+            {search ? "Sin resultados" : "No hay usuarios en tu equipo"}
+          </p>
+          <p className="text-xs text-gray-400 max-w-xs">
+            {search
+              ? `No se encontraron usuarios para "${search}"`
+              : "Tus usuarios aparecerán aquí con sus métricas de inspecciones"}
+          </p>
+        </Card>
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="divide-y" style={{ borderColor: "rgba(52,140,203,0.08)" }}>
+            {filtered.map(u => <EquipoRow key={u.id} user={u} />)}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function EquipoRow({ user }: { user: EquipoUser }) {
+  const initials = user.name.trim().split(/\s+/).slice(0, 2).map(s => s[0]).join("").toUpperCase();
+  const lastLogin = user.lastLoginAt
+    ? new Date(user.lastLoginAt).toLocaleDateString("es-CO")
+    : "—";
+  const lastInsp = user.lastInspection
+    ? new Date(user.lastInspection).toLocaleDateString("es-CO")
+    : "—";
+
+  return (
+    <div className="flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-[rgba(240,247,255,0.6)] transition-colors">
+      {/* Avatar */}
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0"
+        style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+      >
+        {initials || "?"}
+      </div>
+
+      {/* Name + email */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-black text-[#0A183A] truncate">{user.name}</p>
+          <span
+            className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider flex-shrink-0"
+            style={{
+              background: user.role === "admin" ? "rgba(30,118,182,0.1)" : "rgba(100,116,139,0.1)",
+              color: user.role === "admin" ? "#1E76B6" : "#64748b",
+            }}
+          >
+            {user.role}
+          </span>
+        </div>
+        <p className="text-[11px] text-gray-500 truncate flex items-center gap-1 mt-0.5">
+          <Mail className="w-2.5 h-2.5 flex-shrink-0" />
+          {user.email}
+        </p>
+      </div>
+
+      {/* Inspecciones — the headline metric for this tab */}
+      <div className="flex-shrink-0 text-right w-20 hidden sm:block">
+        <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Inspecciones</p>
+        <p className="text-lg font-black text-[#173D68] tabular-nums mt-0.5 leading-none">
+          {user.inspections.toLocaleString("es-CO")}
+        </p>
+        <p className="text-[10px] text-gray-400 mt-1 tabular-nums">
+          últ. {lastInsp}
+        </p>
+      </div>
+
+      {/* Login activity */}
+      <div className="flex-shrink-0 text-right w-20 hidden md:block">
+        <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Logins</p>
+        <p className="text-sm font-black text-[#0A183A] tabular-nums mt-0.5 leading-none">
+          {user.loginCount.toLocaleString("es-CO")}
+        </p>
+        <p className="text-[10px] text-gray-400 mt-1 tabular-nums flex items-center gap-1 justify-end">
+          <Clock className="w-2.5 h-2.5" />
+          {lastLogin}
+        </p>
+      </div>
+
+      {/* Compact mobile-only inline metric */}
+      <div className="flex-shrink-0 text-right sm:hidden">
+        <p className="text-lg font-black text-[#173D68] tabular-nums leading-none">
+          {user.inspections.toLocaleString("es-CO")}
+        </p>
+        <p className="text-[9px] text-gray-400 mt-0.5">insp.</p>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Main Page
 // =============================================================================
 
@@ -569,6 +770,15 @@ export default function ClientesPage() {
   const [loading,     setLoading]     = useState(true);
   const [searchTerm,  setSearchTerm]  = useState("");
   const [toasts,      setToasts]      = useState<Toast[]>([]);
+
+  // -- Tab state ---------------------------------------------------------------
+  const [activeTab, setActiveTab] = useState<TabKey>("clientes");
+
+  // -- Mi Equipo tab ----------------------------------------------------------
+  const [equipo,         setEquipo]         = useState<EquipoUser[]>([]);
+  const [equipoLoading,  setEquipoLoading]  = useState(false);
+  const [dateRange,      setDateRange]      = useState<DateRangeKey>("30d");
+  const [equipoSearch,   setEquipoSearch]   = useState("");
 
   // Modal state
   const [showCreateModal,  setShowCreateModal]  = useState(false);
@@ -618,7 +828,7 @@ export default function ClientesPage() {
           id:           access.company.id,
           name:         access.company.name,
           profileImage: access.company.profileImage ?? "",
-          plan:         access.company.plan ?? "basic",
+          plan:         access.company.plan ?? "pro",
           vehicleCount: access.company.stats?.vehicles ?? access.company._count?.vehicles ?? 0,
           tireCount:    access.company.stats?.tires    ?? access.company._count?.tires    ?? 0,
           stats:        access.company.stats ?? undefined,
@@ -663,6 +873,32 @@ export default function ClientesPage() {
   }, []);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
+
+  // -- Fetch Mi Equipo (distribuidor's own users + inspection counts) --------
+  const fetchEquipo = useCallback(async (range: DateRangeKey) => {
+    const distributorId = getDistributorId();
+    if (!distributorId) return;
+    setEquipoLoading(true);
+    try {
+      const { from, to } = dateRangeFromKey(range);
+      const qs = new URLSearchParams({ companyId: distributorId });
+      if (from) qs.set("from", from);
+      if (to)   qs.set("to",   to);
+      const res = await fetch(`${API_BASE}/users/inspection-stats?${qs.toString()}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error("Error al cargar el equipo");
+      const data = (await res.json()) as EquipoUser[];
+      setEquipo(data);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Error inesperado", "error");
+    } finally {
+      setEquipoLoading(false);
+    }
+  }, []);
+
+  // Re-fetch when the Equipo tab opens or the date range changes.
+  useEffect(() => {
+    if (activeTab === "equipo") fetchEquipo(dateRange);
+  }, [activeTab, dateRange, fetchEquipo]);
 
   // -- Create Company -----------------------------------------------------------
   async function handleCreateCompany(e: React.FormEvent) {
@@ -850,34 +1086,74 @@ export default function ClientesPage() {
                 </div>
                 <div>
                   <h1 className="font-black text-white text-xl sm:text-2xl leading-none tracking-tight">
-                    Gestión de Clientes
+                    Gestión
                   </h1>
-                  <p className="text-xs text-white/60 mt-1.5 flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3" />
-                    Vista consolidada de {clients.length} cliente{clients.length !== 1 ? "s" : ""} vinculado{clients.length !== 1 ? "s" : ""}
+                  <p className="text-xs text-white/60 mt-1.5">
+                    {activeTab === "clientes"
+                      ? `${clients.length} cliente${clients.length !== 1 ? "s" : ""} vinculado${clients.length !== 1 ? "s" : ""}`
+                      : `${equipo.length} usuario${equipo.length !== 1 ? "s" : ""} en tu equipo`}
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => { resetAll(); setShowCreateModal(true); }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-[#0A183A] bg-white hover:bg-blue-50 transition-all active:scale-95"
-                style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.18)" }}
-              >
-                <Plus className="w-4 h-4" />
-                Nuevo Cliente
-              </button>
+              {activeTab === "clientes" && (
+                <button
+                  onClick={() => { resetAll(); setShowCreateModal(true); }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-[#0A183A] bg-white hover:bg-blue-50 transition-all active:scale-95"
+                  style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.18)" }}
+                >
+                  <Plus className="w-4 h-4" />
+                  Nuevo Cliente
+                </button>
+              )}
             </div>
 
-            {/* Aggregate KPI pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
-              <HeroKpi icon={<Building2 className="w-3.5 h-3.5" />} label="Clientes"   value={clients.length.toLocaleString("es-CO")} />
-              <HeroKpi icon={<Car className="w-3.5 h-3.5" />}       label="Vehículos"  value={totals.vehicles.toLocaleString("es-CO")} />
-              <HeroKpi icon={<Activity className="w-3.5 h-3.5" />}  label="Llantas"    value={totals.tires.toLocaleString("es-CO")} />
-              <HeroKpi icon={<Users className="w-3.5 h-3.5" />}     label="Usuarios"   value={totals.users.toLocaleString("es-CO")} />
-              <HeroKpi icon={<TrendingUp className="w-3.5 h-3.5" />} label="Insp. 30d" value={totals.insp30.toLocaleString("es-CO")} />
-            </div>
+            {/* Aggregate KPI pills — Clientes tab shows fleet totals;
+                Mi Equipo tab shows team / inspection totals. */}
+            {activeTab === "clientes" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+                <HeroKpi icon={<Building2 className="w-3.5 h-3.5" />} label="Clientes"   value={clients.length.toLocaleString("es-CO")} />
+                <HeroKpi icon={<Car className="w-3.5 h-3.5" />}       label="Vehículos"  value={totals.vehicles.toLocaleString("es-CO")} />
+                <HeroKpi icon={<Activity className="w-3.5 h-3.5" />}  label="Llantas"    value={totals.tires.toLocaleString("es-CO")} />
+                <HeroKpi icon={<Users className="w-3.5 h-3.5" />}     label="Usuarios"   value={totals.users.toLocaleString("es-CO")} />
+                <HeroKpi icon={<TrendingUp className="w-3.5 h-3.5" />} label="Insp. 30d" value={totals.insp30.toLocaleString("es-CO")} />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <HeroKpi icon={<Users className="w-3.5 h-3.5" />}      label="Miembros"      value={equipo.length.toLocaleString("es-CO")} />
+                <HeroKpi icon={<UserCheck className="w-3.5 h-3.5" />}  label="Activos 30d"   value={equipo.filter(u => u.lastLoginAt && (Date.now() - new Date(u.lastLoginAt).getTime()) < 30*86400000).length.toLocaleString("es-CO")} />
+                <HeroKpi icon={<Activity className="w-3.5 h-3.5" />}   label="Inspecciones"  value={equipo.reduce((s, u) => s + u.inspections, 0).toLocaleString("es-CO")} />
+                <HeroKpi icon={<ShieldCheck className="w-3.5 h-3.5" />} label="Admins"       value={equipo.filter(u => u.role === "admin").length.toLocaleString("es-CO")} />
+              </div>
+            )}
           </div>
         </div>
+
+        {/* -- Tab switcher ------------------------------------------------- */}
+        <div className="flex gap-1 bg-white rounded-xl p-1 border w-fit"
+             style={{ borderColor: "rgba(52,140,203,0.2)" }}>
+          {([
+            { k: "clientes", label: "Clientes" },
+            { k: "equipo",   label: "Mi Equipo" },
+          ] as const).map(({ k, label }) => {
+            const active = activeTab === k;
+            return (
+              <button
+                key={k}
+                onClick={() => setActiveTab(k)}
+                className="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+                style={{
+                  background: active ? "linear-gradient(135deg, #0A183A, #1E76B6)" : "transparent",
+                  color:      active ? "white" : "#64748b",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* -- Clientes tab ------------------------------------------------- */}
+        {activeTab === "clientes" && <>
 
         {/* -- Toolbar: search + sort --------------------------------------- */}
         <div className="flex flex-col sm:flex-row gap-2.5">
@@ -948,7 +1224,7 @@ export default function ClientesPage() {
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {visibleClients.map(client => (
                 <ClientCard key={client.id} client={client} onAddUser={openAddUser} />
               ))}
@@ -987,6 +1263,21 @@ export default function ClientesPage() {
               )}
             </div>
           </>
+        )}
+
+        </>}
+        {/* -- End Clientes tab -------------------------------------------- */}
+
+        {/* -- Mi Equipo tab ------------------------------------------------ */}
+        {activeTab === "equipo" && (
+          <EquipoSection
+            equipo={equipo}
+            loading={equipoLoading}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            search={equipoSearch}
+            onSearchChange={setEquipoSearch}
+          />
         )}
       </div>
 

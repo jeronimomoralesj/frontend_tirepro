@@ -155,8 +155,16 @@ const EventosPage: React.FC = () => {
 
     setLoading(true);
     try {
+      // Scope to the active distribuidor client (set by agregarDist/page.tsx).
+      let distClientId = "";
+      try {
+        const raw = localStorage.getItem("distClient");
+        if (raw) distClientId = JSON.parse(raw).id ?? "";
+      } catch {/* ignore */}
+
       const vRes = await authFetch(
         `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}`
+        + (distClientId ? `&companyId=${distClientId}` : "")
       );
       if (!vRes.ok) throw new Error("Vehículo no encontrado");
       const vData: Vehicle = await vRes.json();

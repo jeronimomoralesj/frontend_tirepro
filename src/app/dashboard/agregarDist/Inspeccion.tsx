@@ -22,6 +22,8 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
+  Building2,
+  Check,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import FastMode from "./FastMode";
@@ -46,6 +48,17 @@ function authHeaders(): HeadersInit {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+}
+
+// The parent page (agregarDist/page.tsx) persists the active client as
+// `distClient` in localStorage. Each lookup here appends &companyId=<that>
+// so CompanyScopeGuard doesn't auto-inject the distribuidor's own (empty)
+// companyId and 404 on a client placa.
+function getDistClientId(): string {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem("distClient") : null;
+    return raw ? (JSON.parse(raw).id ?? "") : "";
+  } catch { return ""; }
 }
 
 // Vehicle axle configuration presets (must match the values used in the
@@ -993,6 +1006,109 @@ function ExportModal({
 }
 
 // =============================================================================
+// Client selector — distribuidor picks which client's placa to inspect
+// =============================================================================
+
+type DistClient = { id: string; name: string; profileImage?: string };
+
+function ClientSelector({
+  clients, selected, onSelect, loading,
+}: {
+  clients: DistClient[];
+  selected: DistClient | null;
+  onSelect: (c: DistClient) => void;
+  loading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = search.trim()
+    ? clients.filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : clients;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        type="button"
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+        style={{
+          background: "white",
+          border: `1.5px solid ${selected ? "rgba(30,118,182,0.35)" : "rgba(220,38,38,0.3)"}`,
+          boxShadow: "0 1px 4px rgba(10,24,58,0.05)",
+        }}
+      >
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+        >
+          {selected?.profileImage
+            /* eslint-disable-next-line @next/next/no-img-element */
+            ? <img src={selected.profileImage} alt="" className="max-w-full max-h-full object-contain p-1" />
+            : <Building2 className="w-4 h-4 text-white" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black text-[#0A183A] truncate leading-tight">
+            {selected ? selected.name : "Selecciona un cliente"}
+          </p>
+          <p className="text-[10px] text-gray-500 mt-0.5">
+            {selected ? "Cambiar cliente" : "Requerido para buscar la placa"}
+          </p>
+        </div>
+        {loading
+          ? <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+          : <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />}
+      </button>
+
+      {open && (
+        <div
+          className="absolute z-40 top-full left-0 right-0 mt-1.5 rounded-xl overflow-hidden bg-white"
+          style={{
+            border: "1px solid rgba(52,140,203,0.25)",
+            boxShadow: "0 12px 28px rgba(10,24,58,0.15)",
+          }}
+        >
+          <div className="px-3 py-2 border-b border-gray-100">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Buscar cliente…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/30"
+              style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+            />
+          </div>
+          <ul className="overflow-y-auto max-h-80">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-5 text-center text-xs text-gray-400">
+                {clients.length === 0 ? "No tienes clientes vinculados" : "Sin resultados"}
+              </li>
+            ) : filtered.map((c) => (
+              <li key={c.id}>
+                <button
+                  onClick={() => { onSelect(c); setOpen(false); setSearch(""); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[rgba(240,247,255,0.8)] transition-colors text-left"
+                >
+                  <div
+                    className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 text-white text-[10px] font-black"
+                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+                  >
+                    {c.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="flex-1 text-sm font-semibold text-[#0A183A] truncate">{c.name}</span>
+                  {selected?.id === c.id && <Check className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // Page
 // =============================================================================
 
@@ -1001,6 +1117,35 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [mode, setMode] = useState<"normal" | "fast">("normal");
   const [placaInput,      setPlacaInput]      = useState("");
   const [newKilometraje,  setNewKilometraje]  = useState(0);
+
+  // Active dist client (persisted so it survives sub-tab switches).
+  const [clients,        setClients]        = useState<DistClient[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
+  const [activeClient,   setActiveClient]   = useState<DistClient | null>(null);
+
+  useEffect(() => {
+    // Restore persisted selection so we don't force a re-pick every mount.
+    try {
+      const raw = localStorage.getItem("distClient");
+      if (raw) setActiveClient(JSON.parse(raw));
+    } catch { /* ignore */ }
+
+    fetch(`${API_BASE}/companies/me/clients`, { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Array<{ company: { id: string; name: string; profileImage?: string } }>) => {
+        const list: DistClient[] = data
+          .filter((a) => a?.company?.id)
+          .map((a) => ({ id: a.company.id, name: a.company.name, profileImage: a.company.profileImage }));
+        setClients(list);
+      })
+      .catch(() => { /* keep UI usable */ })
+      .finally(() => setClientsLoading(false));
+  }, []);
+
+  function selectClient(c: DistClient) {
+    setActiveClient(c);
+    try { localStorage.setItem("distClient", JSON.stringify(c)); } catch { /* ignore */ }
+  }
   const [inspectorName,   setInspectorName]   = useState("");   // NEW
 
   // Pre-fill the inspector name with the logged-in user's name the first
@@ -1188,13 +1333,13 @@ export default function InspeccionPage({ language }: { language?: string }) {
     const placa = placaInput.trim().toUpperCase();
     if (!placa) { setError("Por favor ingrese la placa del vehículo"); return; }
 
+    if (!activeClient) { setError("Selecciona un cliente primero"); return; }
     setLoading(true);
     try {
-      const vRes = await fetch(
-        `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa)}`,
-        { headers: authHeaders() }
-      );
-      if (!vRes.ok) throw new Error("Vehículo no encontrado");
+      const url = `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa)}`
+        + `&companyId=${activeClient.id}`;
+      const vRes = await fetch(url, { headers: authHeaders() });
+      if (!vRes.ok) throw new Error("Vehículo no encontrado en este cliente");
       const vData: Vehicle = await vRes.json();
       setVehicle(vData);
       setNewKilometraje(vData.kilometrajeActual);
@@ -1705,31 +1850,44 @@ export default function InspeccionPage({ language }: { language?: string }) {
         {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
         {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
 
-        {/* -- Search ---------------------------------------------------------- */}
+        {/* -- Client selector + placa search -------------------------------- */}
         <Card>
-          <CardHeader icon={Search} title="Buscar Vehículo" subtitle="Ingrese la placa para cargar sus neumáticos" />
-          <form onSubmit={handleSearch} className="flex gap-3">
-            <input
-              type="text"
-              value={placaInput}
-              onChange={(e) => setPlacaInput(e.target.value.toUpperCase())}
-              placeholder="Ej: ABC123"
-              className={`${inputCls} flex-1`}
-              style={{ textTransform: "uppercase" }}
+          <CardHeader
+            icon={Search}
+            title="Buscar Vehículo"
+            subtitle="Escoge el cliente y luego ingresa la placa"
+          />
+          <div className="space-y-3">
+            <ClientSelector
+              clients={clients}
+              selected={activeClient}
+              onSelect={selectClient}
+              loading={clientsLoading}
             />
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-            >
-              {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Buscando…</>
-              ) : (
-                <><Search className="w-4 h-4" /> Buscar</>
-              )}
-            </button>
-          </form>
+            <form onSubmit={handleSearch} className="flex gap-3">
+              <input
+                type="text"
+                value={placaInput}
+                onChange={(e) => setPlacaInput(e.target.value.toUpperCase())}
+                placeholder={activeClient ? "Ej: ABC123" : "Selecciona un cliente primero"}
+                disabled={!activeClient}
+                className={`${inputCls} flex-1`}
+                style={{ textTransform: "uppercase", opacity: activeClient ? 1 : 0.5 }}
+              />
+              <button
+                type="submit"
+                disabled={loading || !activeClient}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+              >
+                {loading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Buscando…</>
+                ) : (
+                  <><Search className="w-4 h-4" /> Buscar</>
+                )}
+              </button>
+            </form>
+          </div>
         </Card>
 
         {/* -- Vehicle info ---------------------------------------------------- */}

@@ -1,22 +1,22 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useDeferredValue, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, BarChart3, Calendar } from "lucide-react";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 
-import SemaforoPie from "../cards/SemaforoPie";
-import SemaforoTabla from "../cards/SemaforoTabla";
-import TablaCpk from "../cards/TablaCpk";
-import PorMarca from "../cards/PorMarca";
-import PorBanda from "../cards/PorBanda";
-import PorVida from "../cards/PorVida";
-import PromedioEje from "../cards/PromedioEje";
-import TipoVehiculo from "../cards/TipoVehiculo";
-import HistoricChart from "../cards/HistoricChart";
-import ReencaucheHistorico from "../cards/ReencaucheHistorico";
-import TanqueMilimetro from "../cards/TanqueMilimetro";
+import SemaforoPie from "../cards/semaforoPie";
+import SemaforoTabla from "../cards/semaforoTabla";
+import TablaCpk from "../cards/tablaCpk";
+import PorMarca from "../cards/porMarca";
+import PorBanda from "../cards/porBanda";
+import PorVida from "../cards/porVida";
+import PromedioEje from "../cards/promedioEje";
+import TipoVehiculo from "../cards/tipoVehiculo";
+import HistoricChart from "../cards/historicChart";
+import ReencaucheHistorico from "../cards/reencaucheHistorico";
+import TanqueMilimetro from "../cards/tanqueMilimetro";
 import ProyeccionVida from "../cards/ProyeccionVida";
 
 /* -- API ------------------------------------------------------------------- */
@@ -151,6 +151,78 @@ const ALERT_META: Record<
   none: { label: "Sin Inspeccion", color: "#64748b", bg: "rgba(100,116,139,0.08)" },
 };
 
+/* -- Streaming progress bar — sticky thin bar + numeric pill ----------------
+ * Mirrors the resumen/distribuidor component so the UX is consistent across
+ * the three dashboards.
+ * ---------------------------------------------------------------------------- */
+
+function LoadProgressBar({
+  streaming, loaded, expected,
+}: {
+  streaming: boolean; loaded: number; expected: number;
+}) {
+  const [visible, setVisible] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (streaming) {
+      setVisible(true);
+      if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
+    } else if (visible) {
+      hideTimer.current = setTimeout(() => setVisible(false), 800);
+    }
+    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
+  }, [streaming, visible]);
+
+  if (!visible) return null;
+
+  const hasExpected = expected > 0;
+  const pct = hasExpected ? Math.min(100, Math.round((loaded / expected) * 100)) : 0;
+  const isDone = !streaming && hasExpected;
+
+  return (
+    <>
+      {/* Fixed strip at the very top of the viewport — z-50 keeps it above
+          the sticky page header (z-40) which was painting over the 1px
+          sticky-z-30 version and making it invisible. */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-[3px] bg-gray-100/80 overflow-hidden pointer-events-none">
+        <div
+          className={hasExpected ? "h-full transition-all duration-300" : "h-full animate-pulse"}
+          style={{
+            width: hasExpected ? `${isDone ? 100 : Math.max(pct, 3)}%` : "40%",
+            background: "linear-gradient(90deg, #1E76B6 0%, #348CCB 50%, #7DC5F0 100%)",
+            boxShadow: "0 0 12px rgba(52,140,203,0.55)",
+            marginLeft: hasExpected ? "0" : "30%",
+          }}
+        />
+      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3">
+        <div
+          className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-[11px]"
+          style={{
+            background: "linear-gradient(135deg, rgba(30,118,182,0.06), rgba(52,140,203,0.04))",
+            border: "1px solid rgba(52,140,203,0.2)",
+          }}
+        >
+          <Loader2 className={`w-3.5 h-3.5 text-[#1E76B6] ${streaming ? "animate-spin" : ""}`} />
+          <span className="font-bold text-[#0A183A]">
+            {isDone
+              ? "Listo"
+              : hasExpected
+                ? `Cargando ${loaded.toLocaleString("es-CO")} de ${expected.toLocaleString("es-CO")} llantas`
+                : `Cargando ${loaded.toLocaleString("es-CO")} llantas…`}
+          </span>
+          {hasExpected && (
+            <span className="ml-auto text-[#1E76B6] font-black tabular-nums">
+              {isDone ? "100%" : `${pct}%`}
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* -- Section header -------------------------------------------------------- */
 
 function SectionHeader({ title }: { title: string }) {
@@ -170,9 +242,16 @@ function SectionHeader({ title }: { title: string }) {
 
 export default function DetallePage() {
   const router = useRouter();
-  const [tires, setTires] = useState<Tire[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  // `allTires` is the unthrottled accumulator; `tires` is a frozen snapshot
+  // updated only on first chunk + stream completion so charts don't
+  // re-render 8 times for 16k-tire clients. Same pattern as resumen.
+  const [allTires, setAllTires]   = useState<Tire[]>([]);
+  const [tires, setTires]         = useState<Tire[]>([]);
+  const [vehicles, setVehicles]   = useState<Vehicle[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [streaming, setStreaming] = useState(false);
+  const [loadedTires, setLoadedTires]     = useState(0);
+  const [expectedTires, setExpectedTires] = useState(0);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({
     alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos",
   });
@@ -189,6 +268,19 @@ export default function DetallePage() {
     if (!user.companyId) return;
 
     setLoading(true);
+    setStreaming(true);
+    setLoadedTires(0);
+
+    // Expected tire count for the progress bar denominator. Uses the
+    // shared cache so RouteGuard/sidebar/here all share one network call.
+    import("@/shared/fetchCompany")
+      .then(({ fetchCompany }) => fetchCompany(user.companyId!))
+      .then((c) => {
+        const total = c?._count?.tires ?? c?.stats?.tires ?? 0;
+        if (typeof total === "number" && total > 0) setExpectedTires(total);
+      })
+      .catch(() => {});
+
     (async () => {
       try {
         const { fetchTiresProgressive } = await import('@/shared/fetchTiresPaged');
@@ -199,17 +291,49 @@ export default function DetallePage() {
           .then((v) => setVehicles(v))
           .catch(() => {});
 
+        // Incremental normalisation: only normalise the NEW tires in each
+        // chunk, not the full accumulator. Saves ~100ms per 1k tires.
+        const normalisedAcc: Tire[] = [];
+        let lastIdx = 0;
+
         await fetchTiresProgressive<any>(user.companyId!, {
+          // Unthrottled — keeps the progress bar smooth.
+          onProgress: (loaded) => setLoadedTires(loaded),
+          // Throttled (750ms default).
           onChunk: (soFar) => {
-            setTires((soFar as any[]).map(normaliseTire));
-            if (soFar.length > 0) setLoading(false);
+            const arr = soFar as any[];
+            for (let i = lastIdx; i < arr.length; i++) {
+              normalisedAcc.push(normaliseTire(arr[i]));
+            }
+            lastIdx = arr.length;
+            const snapshot = normalisedAcc.slice();
+            startTransition(() => {
+              setAllTires(snapshot);
+            });
+            setLoading(false);
           },
         });
         await vehiclesPromise;
       } catch {/* silent */}
       setLoading(false);
+      setStreaming(false);
     })();
   }, [router]);
+
+  /* -- Chart data snapshot (first chunk + stream end only) ---------------- */
+  useEffect(() => {
+    if (allTires.length === 0) {
+      if (tires.length !== 0) setTires([]);
+      return;
+    }
+    if (tires.length === 0) {
+      setTires(allTires);
+      return;
+    }
+    if (!streaming && tires !== allTires) {
+      setTires(allTires);
+    }
+  }, [allTires, streaming, tires]);
 
   /* -- Vehicle map --------------------------------------------------------- */
 
@@ -232,29 +356,37 @@ export default function DetallePage() {
 
   /* -- Filtered tires ------------------------------------------------------ */
 
+  // Defer filter values so the FilterFab pill updates instantly while the
+  // heavy memo chain (alert classify + 4 filters + 6 downstream useMemos)
+  // runs at idle priority. Toggling a filter off no longer freezes the UI.
+  const deferredFilterValues = useDeferredValue(filterValues);
+  const deferredFilterSearch = useDeferredValue(filterSearch);
+  const filterPending =
+    filterValues !== deferredFilterValues || filterSearch !== deferredFilterSearch;
+
   const filtered = useMemo(() => {
-    let result = [...tires];
+    let result = tires;
 
     // Exclude fin de vida unless explicitly selected
-    if (!filterValues.vida || filterValues.vida === "Todos")
+    if (!deferredFilterValues.vida || deferredFilterValues.vida === "Todos")
       result = result.filter((t) => ((t as any).vidaActual ?? "nueva") !== "fin");
     else
-      result = result.filter((t) => ((t as any).vidaActual ?? "nueva") === filterValues.vida);
+      result = result.filter((t) => ((t as any).vidaActual ?? "nueva") === deferredFilterValues.vida);
 
     // Alert filter
-    const alertVal = filterValues.alert;
+    const alertVal = deferredFilterValues.alert;
     if (alertVal && alertVal !== "Todos") {
       const alertKey = Object.entries(ALERT_META).find(([, v]) => v.label === alertVal)?.[0];
       if (alertKey) result = result.filter((t) => classifyAlert(t) === alertKey);
     }
 
-    if (filterValues.marca && filterValues.marca !== "Todos")
-      result = result.filter((t) => t.marca === filterValues.marca);
-    if (filterValues.eje && filterValues.eje !== "Todos")
-      result = result.filter((t) => t.eje === filterValues.eje);
+    if (deferredFilterValues.marca && deferredFilterValues.marca !== "Todos")
+      result = result.filter((t) => t.marca === deferredFilterValues.marca);
+    if (deferredFilterValues.eje && deferredFilterValues.eje !== "Todos")
+      result = result.filter((t) => t.eje === deferredFilterValues.eje);
 
-    if (filterSearch.trim()) {
-      const q = filterSearch.trim().toLowerCase();
+    if (deferredFilterSearch.trim()) {
+      const q = deferredFilterSearch.trim().toLowerCase();
       result = result.filter((t) => {
         const tirePlaca = ((t as any).placa ?? "").toLowerCase();
         const vPlaca = t.vehicleId ? (vehicleMap[t.vehicleId] ?? "").toLowerCase() : "";
@@ -263,7 +395,7 @@ export default function DetallePage() {
     }
 
     return result;
-  }, [tires, filterValues, filterSearch, vehicleMap]);
+  }, [tires, deferredFilterValues, deferredFilterSearch, vehicleMap]);
 
   /* -- Alert counts (same filtered set as all cards) --------------------- */
 
@@ -330,8 +462,17 @@ export default function DetallePage() {
         </div>
       </div>
 
+      {/* Streaming progress bar — sticky under the header while tires load */}
+      <LoadProgressBar streaming={streaming} loaded={loadedTires} expected={expectedTires} />
+
       {/* -- Content --------------------------------------------------------- */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div
+        className="max-w-7xl mx-auto px-4 sm:px-6 py-6 transition-opacity duration-200"
+        style={{
+          opacity: filterPending ? 0.55 : 1,
+          pointerEvents: filterPending ? "none" : "auto",
+        }}
+      >
         {/* Summary badges */}
         {!loading && (
           <div className="mb-6">
@@ -358,9 +499,26 @@ export default function DetallePage() {
           </div>
         )}
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-32 text-[#1E76B6]">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <span className="text-sm font-medium">Cargando datos...</span>
+          // Progress-aware loading state — shows live tire count so the user
+          // gets motion instead of a stuck spinner while the first chunk
+          // arrives.
+          <div className="flex flex-col items-center justify-center py-32 gap-3">
+            <div className="relative w-10 h-10">
+              <div className="absolute inset-0 rounded-full border-2 border-[#1E76B6]/15" />
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#1E76B6] animate-spin" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-black text-[#0A183A]">
+                {loadedTires > 0
+                  ? `Cargando ${loadedTires.toLocaleString("es-CO")} llantas…`
+                  : "Preparando el detalle…"}
+              </p>
+              {expectedTires > 0 && (
+                <p className="text-[11px] text-gray-500 mt-1 tabular-nums">
+                  {Math.min(100, Math.round((loadedTires / expectedTires) * 100))}% de {expectedTires.toLocaleString("es-CO")}
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-10">

@@ -320,8 +320,8 @@ function DataTable({ cols, rows, small }: {
 
 function PlanBadge({ plan }: { plan: string }) {
   const m: Record<string, string> = {
-    premium: "#059669", pro: "#1E76B6", enterprise: "#7c3aed",
-    distribuidor: "#ea580c", basic: "#94a3b8",
+    pro: "#1E76B6", plus: "#7c3aed",
+    distribuidor: "#ea580c", marketplace: "#94a3b8",
   };
   const col = m[plan?.toLowerCase()] ?? "#94a3b8";
   return (
@@ -616,7 +616,7 @@ export default function AdminDashboard() {
     const topCo    = [...companies].sort((a, b) => (b.tireCount || 0) - (a.tireCount || 0)).slice(0, 15);
     const perDist: Record<number, number> = {};
     companies.forEach(c => { perDist[c.periodicity] = (perDist[c.periodicity] || 0) + 1; });
-    const planPrice: Record<string, number> = { premium: 500_000, pro: 300_000, enterprise: 1_000_000, distribuidor: 400_000, basic: 150_000 };
+    const planPrice: Record<string, number> = { pro: 300_000, plus: 0, distribuidor: 1_000_000, marketplace: 0 };
 
     // Users
     const ubr: Record<string, number> = {};
@@ -1260,10 +1260,10 @@ export default function AdminDashboard() {
             {/* ======== COMPAÑÍAS ======== */}
             {tab === "companies" && <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <KPI label="Total compañías" value={companies.length}                                        color={P.navy}   icon="🏢" />
-                <KPI label="Enterprise"      value={S.cbp["enterprise"]   || 0}                             color={P.violet} icon="⭐" />
-                <KPI label="Premium / Pro"   value={(S.cbp["premium"]||0)+(S.cbp["pro"]||0)}               color={P.emerald} icon="💎" />
-                <KPI label="Distribuidores"  value={S.cbp["distribuidor"] || 0}                             color={P.flame}  icon="🔗" />
+                <KPI label="Total compañías" value={companies.length}                   color={P.navy}    icon="🏢" />
+                <KPI label="Plus"            value={S.cbp["plus"]         || 0}        color={P.violet}  icon="⭐" />
+                <KPI label="Pro"             value={S.cbp["pro"]          || 0}        color={P.emerald} icon="💎" />
+                <KPI label="Distribuidores"  value={S.cbp["distribuidor"] || 0}        color={P.flame}   icon="🔗" />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1308,8 +1308,8 @@ export default function AdminDashboard() {
                     .sort((a, b) => (b.tireCount || 0) - (a.tireCount || 0))
                     .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))
                     .map(c => {
-                      const planKey = c.plan?.toLowerCase() ?? "basic";
-                      const rev = (S.planPrice as any)[planKey] ?? 150_000;
+                      const planKey = c.plan?.toLowerCase() ?? "pro";
+                      const rev = (S.planPrice as any)[planKey] ?? 0;
                       return [
                         <span key={c.id} className="font-black text-[#0A183A]">{c.name}</span>,
                         <PlanBadge key="p" plan={c.plan} />,
