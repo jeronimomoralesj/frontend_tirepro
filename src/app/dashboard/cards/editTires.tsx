@@ -55,7 +55,9 @@ const EditTires: React.FC<EditTiresProps> = ({ isOpen, onClose, vehicle, apiBase
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${apiBase}/tires?vehicleId=${vehicle.id}`);
+      // Backend's GET /tires requires companyId. For per-vehicle drill-downs
+      // use the dedicated /tires/vehicle?vehicleId route instead.
+      const res = await fetch(`${apiBase}/tires/vehicle?vehicleId=${vehicle.id}`);
       if (!res.ok) throw new Error("Failed to fetch tires");
       
       const data = await res.json();
