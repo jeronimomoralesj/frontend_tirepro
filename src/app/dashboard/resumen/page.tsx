@@ -35,6 +35,7 @@ import PorVida from "../cards/porVida";
 import PorMarca from "../cards/porMarca";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
+import LazyMount from "@/shared/LazyMount";
 
 // -- Chart.js registration ----------------------------------------------------
 
@@ -773,7 +774,8 @@ export default function ResumenPage() {
               <MetricCard label="Llantas Analizadas" value={llantasAnalizadas.toLocaleString("es-CO")} subtitle={`de ${filtered.length.toLocaleString("es-CO")} filtradas`} />
             </div>
 
-            {/* Row 1: CPK Evolution + Por Vida */}
+            {/* Row 1: CPK Evolution + Por Vida — eager (first-above-fold). */}
+            <LazyMount eager minHeight={360}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <CardWrap
                 title="CPK Proyectado"
@@ -787,8 +789,10 @@ export default function ResumenPage() {
               </CardWrap>
               <PorVida tires={filtered.map((t) => ({ id: t.id, vida: [{ valor: t.vidaActual ?? "nueva", fecha: new Date().toISOString() }] }))} />
             </div>
+            </LazyMount>
 
             {/* Row 2: Inversion Mensual + Por Marca */}
+            <LazyMount minHeight={360}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               <CardWrap
                 title="Inversion Mensual"
@@ -802,8 +806,10 @@ export default function ResumenPage() {
               </CardWrap>
               <PorMarca groupData={marcaData} />
             </div>
+            </LazyMount>
 
             {/* Row 3: Dinero Perdido + Inversion por Categoria */}
+            <LazyMount minHeight={360}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <CardWrap
                 title="Dinero Perdido por Desecho"
@@ -878,9 +884,11 @@ export default function ResumenPage() {
                 </div>
               </div>
             </div>
+            </LazyMount>
 
             {/* Mejores Combinaciones CPK */}
             {topCpkCombinations.length > 0 && (
+              <LazyMount minHeight={280}>
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Award className="w-4 h-4 text-[#348CCB]" />
@@ -913,6 +921,7 @@ export default function ResumenPage() {
                   ))}
                 </div>
               </div>
+              </LazyMount>
             )}
           </>
         )}
