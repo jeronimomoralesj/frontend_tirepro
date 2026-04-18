@@ -30,7 +30,27 @@ import type { Tire as TanqueTire } from "../cards/TanqueMilimetro";
 // Types
 // =============================================================================
 
-type Company = { id: string; name: string; vehicleCount: number; tireCount: number };
+type CompanyStats = {
+  users:            number;
+  vehicles:         number;
+  tires:            number;
+  activeTires:      number;
+  finTires:         number;
+  lastInspection:   string | null;
+  avgCpk:           number | null;
+  inversionTotal:   number;
+  clientSince:      string;
+  distributorSince: string;
+  yearsAsClient:    number;
+};
+type Company = {
+  id:           string;
+  name:         string;
+  vehicleCount: number;
+  tireCount:    number;
+  stats?:       CompanyStats;
+  profileImage?: string | null;
+};
 
 type RawCosto      = { valor: number; fecha: string | Date };
 type RawInspeccion = {
@@ -248,9 +268,14 @@ function PageHeader({
                       >
                         {co.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{co.name}</p>
-                        <p className="text-[10px] text-gray-400">{co.tireCount} neumáticos · {co.vehicleCount} vehículos</p>
+                        <p className="text-[10px] text-gray-400 truncate">
+                          {co.stats?.activeTires ?? co.tireCount} neumáticos · {co.vehicleCount} vehículos
+                          {co.stats?.users != null && ` · ${co.stats.users} usuario${co.stats.users === 1 ? '' : 's'}`}
+                          {co.stats?.yearsAsClient != null && co.stats.yearsAsClient > 0 &&
+                            ` · ${co.stats.yearsAsClient} año${co.stats.yearsAsClient === 1 ? '' : 's'} cliente`}
+                        </p>
                       </div>
                     </button>
                   ))}
@@ -503,10 +528,12 @@ export default function DistribuidorPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const list: Company[] = data.map((access: any) => ({
-        id: access.company.id,
-        name: access.company.name,
-        vehicleCount: access.company._count?.vehicles ?? 0,
-        tireCount: access.company._count?.tires ?? 0,
+        id:           access.company.id,
+        name:         access.company.name,
+        vehicleCount: access.company.stats?.vehicles ?? access.company._count?.vehicles ?? 0,
+        tireCount:    access.company.stats?.tires    ?? access.company._count?.tires    ?? 0,
+        profileImage: access.company.profileImage ?? null,
+        stats:        access.company.stats ?? undefined,
       }));
 
       setCompanies(list);
@@ -876,23 +903,70 @@ export default function DistribuidorPage() {
           <>
             {/* -- Client context bar ---------------------------------------- */}
             <div
-              className="flex items-center justify-between px-4 py-3 rounded-xl"
+              className="flex flex-col gap-3 px-4 py-3 rounded-xl"
               style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.15)" }}
             >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-sm"
-                  style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
-                >
-                  {selectedClient.name.charAt(0).toUpperCase()}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-sm flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+                  >
+                    {selectedClient.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-[#0A183A] truncate">{selectedClient.name}</p>
+                    <p className="text-[10px] text-gray-500">
+                      {selectedClient.vehicleCount} vehículos · {selectedClient.tireCount} neumáticos
+                      {selectedClient.stats?.users != null && ` · ${selectedClient.stats.users} usuario${selectedClient.stats.users === 1 ? '' : 's'}`}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-black text-[#0A183A]">{selectedClient.name}</p>
-                  <p className="text-[10px] text-gray-500">
-                    {selectedClient.vehicleCount} vehículos · {selectedClient.tireCount} neumáticos
-                  </p>
-                </div>
+                {selectedClient.stats && (
+                  <div className="flex items-center gap-2 text-[10px]">
+                    {selectedClient.stats.yearsAsClient > 0 && (
+                      <span className="px-2 py-1 rounded-lg font-semibold"
+                            style={{ background: "rgba(52,140,203,0.12)", color: "#1E76B6" }}>
+                        {selectedClient.stats.yearsAsClient} año{selectedClient.stats.yearsAsClient === 1 ? '' : 's'} cliente
+                      </span>
+                    )}
+                    {selectedClient.stats.lastInspection && (
+                      <span className="px-2 py-1 rounded-lg font-semibold text-[#0A183A]"
+                            style={{ background: "rgba(10,24,58,0.07)" }}>
+                        últ. insp · {new Date(selectedClient.stats.lastInspection).toLocaleDateString("es-CO")}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
+              {selectedClient.stats && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div className="px-3 py-2 rounded-lg bg-white border border-[rgba(10,24,58,0.06)]">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Activas</p>
+                    <p className="font-black text-[#0A183A]">{selectedClient.stats.activeTires.toLocaleString("es-CO")}</p>
+                  </div>
+                  <div className="px-3 py-2 rounded-lg bg-white border border-[rgba(10,24,58,0.06)]">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Retiradas</p>
+                    <p className="font-black text-[#0A183A]">{selectedClient.stats.finTires.toLocaleString("es-CO")}</p>
+                  </div>
+                  <div className="px-3 py-2 rounded-lg bg-white border border-[rgba(10,24,58,0.06)]">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">CPK prom.</p>
+                    <p className="font-black text-[#0A183A]">
+                      {selectedClient.stats.avgCpk != null
+                        ? `$${Math.round(selectedClient.stats.avgCpk).toLocaleString("es-CO")}`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div className="px-3 py-2 rounded-lg bg-white border border-[rgba(10,24,58,0.06)]">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Inversión</p>
+                    <p className="font-black text-[#0A183A]">
+                      {selectedClient.stats.inversionTotal > 0
+                        ? `$${(selectedClient.stats.inversionTotal / 1_000_000).toFixed(1)}M`
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* -- KPI cards -------------------------------------------------- */}
