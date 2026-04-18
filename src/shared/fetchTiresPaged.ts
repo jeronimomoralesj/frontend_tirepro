@@ -142,6 +142,11 @@ export async function fetchTiresProgressive<T = any>(
       all.push(...chunk);
       pages++;
 
+      // onProgress fires on EVERY page — not throttled. The caller uses
+      // this to drive a progress bar; it shouldn't be gated by the heavy
+      // onChunk throttle or the UI will jump in big steps.
+      opts.onProgress?.(all.length, pages);
+
       const isFirst = pages === 1;
       const isLast  = !body.nextCursor || all.length >= maxTires;
       const since   = Date.now() - lastFiredAt;

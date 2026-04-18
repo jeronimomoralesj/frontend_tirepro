@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, startTransition } from "react";
 import {
   Package, Calendar, Search, ChevronDown, Loader2,
   AlertCircle, X, Building2, BarChart3,
@@ -470,6 +470,84 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 // =============================================================================
+// Load-progress bar — sticky thin bar + centered pill shown while the tire
+// stream is filling in. Auto-hides 800ms after the stream completes so the
+// bar animates smoothly to 100% instead of blinking away.
+// =============================================================================
+
+function LoadProgressBar({
+  streaming, loaded, expected,
+}: {
+  streaming: boolean; loaded: number; expected: number;
+}) {
+  const [visible, setVisible] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (streaming) {
+      setVisible(true);
+      if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
+    } else if (visible) {
+      // Let the bar flash to 100% before hiding
+      hideTimer.current = setTimeout(() => setVisible(false), 800);
+    }
+    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
+  }, [streaming, visible]);
+
+  if (!visible) return null;
+
+  // If we don't have an expected count (first-ever load of a client whose
+  // stats haven't populated yet) fall back to a pulsing indeterminate bar.
+  const hasExpected = expected > 0;
+  const pct = hasExpected
+    ? Math.min(100, Math.round((loaded / expected) * 100))
+    : 0;
+  const isDone = !streaming && hasExpected;
+
+  return (
+    <>
+      {/* Sticky thin bar at the very top */}
+      <div className="sticky top-0 z-30 h-1 bg-gray-100 overflow-hidden">
+        <div
+          className={hasExpected ? "h-full transition-all duration-300" : "h-full animate-pulse"}
+          style={{
+            width: hasExpected ? `${isDone ? 100 : Math.max(pct, 3)}%` : "40%",
+            background: "linear-gradient(90deg, #1E76B6 0%, #348CCB 50%, #7DC5F0 100%)",
+            boxShadow: "0 0 12px rgba(52,140,203,0.45)",
+            marginLeft: hasExpected ? "0" : "30%",
+          }}
+        />
+      </div>
+
+      {/* Centered pill with numeric progress */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 pt-3">
+        <div
+          className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-[11px]"
+          style={{
+            background: "linear-gradient(135deg, rgba(30,118,182,0.06), rgba(52,140,203,0.04))",
+            border: "1px solid rgba(52,140,203,0.2)",
+          }}
+        >
+          <Loader2 className={`w-3.5 h-3.5 text-[#1E76B6] ${streaming ? "animate-spin" : ""}`} />
+          <span className="font-bold text-[#0A183A]">
+            {isDone
+              ? "Listo"
+              : hasExpected
+                ? `Cargando ${loaded.toLocaleString("es-CO")} de ${expected.toLocaleString("es-CO")} llantas`
+                : `Cargando ${loaded.toLocaleString("es-CO")} llantas…`}
+          </span>
+          {hasExpected && (
+            <span className="ml-auto text-[#1E76B6] font-black tabular-nums">
+              {isDone ? "100%" : `${pct}%`}
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// =============================================================================
 // Main Page
 // =============================================================================
 
@@ -494,6 +572,11 @@ export default function DistribuidorPage() {
   const [allVehicles,      setAllVehicles]      = useState<Vehicle[]>([]);
   const [allTires,         setAllTires]         = useState<SemaforoTire[]>([]);
   const [loadingCards,     setLoadingCards]     = useState(false);
+  // Streaming-load progress for large clients (100k+ tires). loadedTires
+  // ticks up on every page arrival (unthrottled) so the progress bar moves
+  // smoothly even while the heavier setAllTires is throttled.
+  const [loadedTires,      setLoadedTires]      = useState(0);
+  const [streaming,        setStreaming]        = useState(false);
   const [marcaData,        setMarcaData]        = useState<Record<string, number>>({});
   const [bandaData,        setBandaData]        = useState<Record<string, number>>({});
   const [cpkTires,         setCpkTires]         = useState<TablaCpkTire[]>([]);
@@ -563,6 +646,7 @@ export default function DistribuidorPage() {
   setSelectedEje("");
   setFilterValues({ alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos" });
   setFilterSearch("");
+  setLoadedTires(0); setStreaming(false);
 }, []);
 
   // -- Fetch full tire data — ONLY for the single selected client -------------
@@ -571,6 +655,8 @@ export default function DistribuidorPage() {
 
     const run = async () => {
       setLoadingCards(true);
+      setStreaming(true);
+      setLoadedTires(0);
 
       try {
         // Progressive fetch: distributor pages often have 100k+ tires. We
@@ -582,15 +668,40 @@ export default function DistribuidorPage() {
         const vehiclesArr: Vehicle[] = vRes.ok ? await vRes.json() : [];
         setAllVehicles(vehiclesArr);
 
+        // Incremental normalisation: keep a running NormTire[] and only
+        // call normaliseTire on tires we haven't seen yet. Previously we
+        // re-normalised the full accumulator on every chunk — O(n²) total
+        // work. For a 20k-tire client that was 110k normaliseTire calls
+        // instead of 20k.
         let firstChunkSeen = false;
+        const normalisedAcc: NormTire[] = [];
+        let lastIdx = 0;
+
         const rawTires = await fetchTiresProgressive<RawTire>(selectedClient.id, {
+          // Fires on every page (unthrottled) — drives the progress bar.
+          onProgress: (loaded) => setLoadedTires(loaded),
+          // Fires throttled (350ms) — drives the heavy tire state that
+          // triggers chart re-aggregation. Wrapped in startTransition so
+          // the derived useMemos don't block input or scroll.
           onChunk: (soFar) => {
-            const normalised = soFar.map(normaliseTire);
-            setAllTires(normalised as unknown as SemaforoTire[]);
+            const arr = soFar as RawTire[];
+            for (let i = lastIdx; i < arr.length; i++) {
+              normalisedAcc.push(normaliseTire(arr[i]));
+            }
+            lastIdx = arr.length;
+            const snapshot = normalisedAcc.slice();
+            startTransition(() => {
+              setAllTires(snapshot as unknown as SemaforoTire[]);
+            });
             if (!firstChunkSeen) { setLoadingCards(false); firstChunkSeen = true; }
           },
         });
-        const tiresArr: NormTire[] = rawTires.map(normaliseTire);
+        // Catch any tires added after the last onChunk (throttle tail).
+        for (let i = lastIdx; i < rawTires.length; i++) {
+          normalisedAcc.push(normaliseTire(rawTires[i]));
+        }
+        const tiresArr: NormTire[] = normalisedAcc;
+        setLoadedTires(tiresArr.length);
 
         setAllVehicles(vehiclesArr);
         setAllTires(tiresArr as unknown as SemaforoTire[]);
@@ -701,6 +812,7 @@ export default function DistribuidorPage() {
         setError(e instanceof Error ? e.message : "Error cargando datos del cliente");
       } finally {
         setLoadingCards(false);
+        setStreaming(false);
       }
     };
 
@@ -875,6 +987,12 @@ export default function DistribuidorPage() {
         onSearch={setClientSearch}
         showDropdown={showDropdown}
         setShowDropdown={setShowDropdown}
+      />
+
+      <LoadProgressBar
+        streaming={streaming}
+        loaded={loadedTires}
+        expected={selectedClient?.tireCount ?? selectedClient?.stats?.tires ?? 0}
       />
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
