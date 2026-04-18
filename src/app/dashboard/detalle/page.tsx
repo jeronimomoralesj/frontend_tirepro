@@ -189,20 +189,19 @@ export default function DetallePage() {
     if (!user.companyId) return;
 
     setLoading(true);
-    Promise.all([
-      authFetch(`${API_BASE}/tires?companyId=${user.companyId}&slim=true`).then((r) =>
-        r.ok ? r.json() : [],
-      ),
-      authFetch(`${API_BASE}/vehicles?companyId=${user.companyId}`).then((r) =>
-        r.ok ? r.json() : [],
-      ),
-    ])
-      .then(([rawTires, rawVehicles]) => {
-        setTires((rawTires as any[]).map(normaliseTire));
+    (async () => {
+      try {
+        const { fetchTiresPaged } = await import('@/shared/fetchTiresPaged');
+        const [rawTires, vRes] = await Promise.all([
+          fetchTiresPaged<any>(user.companyId!),
+          authFetch(`${API_BASE}/vehicles?companyId=${user.companyId}`),
+        ]);
+        const rawVehicles = vRes.ok ? await vRes.json() : [];
+        setTires(rawTires.map(normaliseTire));
         setVehicles(rawVehicles);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      } catch {/* silent */}
+      setLoading(false);
+    })();
   }, [router]);
 
   /* -- Vehicle map --------------------------------------------------------- */

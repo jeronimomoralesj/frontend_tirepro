@@ -212,11 +212,12 @@ export default function ResumenPage() {
     if (!user.companyId) return;
 
     setLoading(true);
-    // slim=true → backend returns a projected payload (no full inspection /
-    // cost history). Cuts response size ~10x for fleets with 5k+ tires.
-    authFetch(`${API_BASE}/tires?companyId=${user.companyId}&slim=true`)
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data: RawTire[]) => setTires(data))
+    // Cursor-paginated fetch: backend returns slim tire payloads in chunks
+    // of 500, each Redis-cached independently. Drop-in replacement for the
+    // old /tires?slim=true call — returns the same flat array shape.
+    import('@/shared/fetchTiresPaged')
+      .then(({ fetchTiresPaged }) => fetchTiresPaged<RawTire>(user.companyId!))
+      .then((data) => setTires(data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);

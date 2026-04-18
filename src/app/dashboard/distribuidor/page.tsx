@@ -546,15 +546,17 @@ export default function DistribuidorPage() {
       setLoadingCards(true);
 
       try {
-        const [vRes, tRes] = await Promise.all([
+        // Cursor-paginated tires + parallel vehicles fetch. On distributor
+        // accounts with 100k+ tires the backend streams them back in 500-row
+        // chunks (each Redis-cached independently), so we don't blow the
+        // browser heap or the 4 GB EC2 box.
+        const { fetchTiresPaged } = await import('@/shared/fetchTiresPaged');
+        const [vRes, rawTires] = await Promise.all([
           authFetch(`${API_BASE}/vehicles?companyId=${selectedClient.id}`),
-          // slim=true → backend returns a projected payload (latest 12 inspections,
-          // core cost fields only). Essential for fleets of 5k-10k tires.
-          authFetch(`${API_BASE}/tires?companyId=${selectedClient.id}&slim=true`),
+          fetchTiresPaged<RawTire>(selectedClient.id),
         ]);
 
         const vehiclesArr: Vehicle[] = vRes.ok ? await vRes.json() : [];
-        const rawTires: RawTire[]    = tRes.ok ? await tRes.json() : [];
         const tiresArr: NormTire[]   = rawTires.map(normaliseTire);
 
         setAllVehicles(vehiclesArr);
