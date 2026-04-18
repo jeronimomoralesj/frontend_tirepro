@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef, startTransition } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useDeferredValue, startTransition } from "react";
 import {
   Package, Calendar, Search, ChevronDown, Loader2,
   AlertCircle, X, Building2, BarChart3,
@@ -844,12 +844,20 @@ export default function DistribuidorPage() {
     return m;
   }, [allVehicles]);
 
+  // Defer filter values: the FilterFab pill reads `filterValues` and updates
+  // instantly on click, but the expensive useMemo chain below reads the
+  // deferred copy, so React renders the new UI at high priority and the
+  // heavy chart re-aggregation (9 x O(n) maps over up to 20k tires) happens
+  // at idle priority. Toggling a filter off no longer feels frozen.
+  const deferredFilterValues = useDeferredValue(filterValues);
+  const deferredFilterSearch = useDeferredValue(filterSearch);
+
   const filteredTires: NormTire[] = useMemo(() => {
     const raw = allTires as unknown as NormTire[];
-    let result = [...raw];
+    let result = raw;
 
     // Vida filter (also hides "fin" by default like detalle)
-    if (!filterValues.vida || filterValues.vida === "Todos") {
+    if (!deferredFilterValues.vida || deferredFilterValues.vida === "Todos") {
       result = result.filter((t) => {
         const last = t.vida[t.vida.length - 1]?.valor ?? "nueva";
         return last !== "fin";
@@ -857,24 +865,24 @@ export default function DistribuidorPage() {
     } else {
       result = result.filter((t) => {
         const last = t.vida[t.vida.length - 1]?.valor ?? "nueva";
-        return last === filterValues.vida;
+        return last === deferredFilterValues.vida;
       });
     }
 
-    if (filterValues.alert && filterValues.alert !== "Todos") {
-      const key = Object.entries(ALERT_META).find(([, v]) => v.label === filterValues.alert)?.[0];
+    if (deferredFilterValues.alert && deferredFilterValues.alert !== "Todos") {
+      const key = Object.entries(ALERT_META).find(([, v]) => v.label === deferredFilterValues.alert)?.[0];
       if (key) result = result.filter((t) => classifyAlert(t) === key);
     }
 
-    if (filterValues.marca && filterValues.marca !== "Todos") {
-      result = result.filter((t) => t.marca === filterValues.marca);
+    if (deferredFilterValues.marca && deferredFilterValues.marca !== "Todos") {
+      result = result.filter((t) => t.marca === deferredFilterValues.marca);
     }
-    if (filterValues.eje && filterValues.eje !== "Todos") {
-      result = result.filter((t) => t.eje === filterValues.eje);
+    if (deferredFilterValues.eje && deferredFilterValues.eje !== "Todos") {
+      result = result.filter((t) => t.eje === deferredFilterValues.eje);
     }
 
-    if (filterSearch.trim()) {
-      const q = filterSearch.trim().toLowerCase();
+    if (deferredFilterSearch.trim()) {
+      const q = deferredFilterSearch.trim().toLowerCase();
       result = result.filter((t) => {
         const tirePlaca = (t.placa ?? "").toLowerCase();
         const vPlaca = t.vehicleId ? (vehicleMap[t.vehicleId] ?? "").toLowerCase() : "";
@@ -882,7 +890,12 @@ export default function DistribuidorPage() {
       });
     }
     return result;
-  }, [allTires, filterValues, filterSearch, vehicleMap]);
+  }, [allTires, deferredFilterValues, deferredFilterSearch, vehicleMap]);
+
+  // True while React is catching up a deferred filter change — used for a
+  // subtle overlay hint so the user knows the charts are about to update.
+  const filterPending =
+    filterValues !== deferredFilterValues || filterSearch !== deferredFilterSearch;
 
   // Filter dropdown options derived from the unfiltered tire pool.
   const filterOptions: FilterOption[] = useMemo(() => {
@@ -1128,7 +1141,13 @@ export default function DistribuidorPage() {
                 <span className="text-sm font-medium">Cargando datos del cliente…</span>
               </div>
             ) : (
-              <div className="space-y-10">
+              <div
+                className="space-y-10 transition-opacity duration-200"
+                style={{
+                  opacity: filterPending ? 0.55 : 1,
+                  pointerEvents: filterPending ? "none" : "auto",
+                }}
+              >
                 {/* -- 1. Semáforo --------------------------------------------- */}
                 <section>
                   <SectionHeader title="Semáforo" />
