@@ -770,6 +770,12 @@ export default function ClientesPage() {
 
   const [sortKey, setSortKey] = useState<'name' | 'tires' | 'users' | 'cpk' | 'recent'>('tires');
 
+  // Pagination: render in batches of PAGE_SIZE so a distribuidor with many
+  // clients doesn't pay the DOM cost of rendering everything upfront. Search
+  // and sort both reset the visible count back to the first page.
+  const PAGE_SIZE = 24;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
   const filteredClients = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     let list = term
@@ -788,6 +794,15 @@ export default function ClientesPage() {
     });
     return list;
   }, [clients, searchTerm, sortKey]);
+
+  // Reset pagination whenever the filtered set changes
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [searchTerm, sortKey]);
+
+  const visibleClients = useMemo(
+    () => filteredClients.slice(0, visibleCount),
+    [filteredClients, visibleCount],
+  );
+  const hasMore = filteredClients.length > visibleCount;
 
   // Aggregate across every client — shown on the hero strip
   const totals = useMemo(() => {
@@ -932,11 +947,46 @@ export default function ClientesPage() {
             )}
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredClients.map(client => (
-              <ClientCard key={client.id} client={client} onAddUser={openAddUser} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {visibleClients.map(client => (
+                <ClientCard key={client.id} client={client} onAddUser={openAddUser} />
+              ))}
+            </div>
+
+            {/* Pagination footer — count + load more */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <p className="text-[11px] font-semibold text-gray-500">
+                Mostrando{" "}
+                <span className="text-[#0A183A] font-black">{visibleClients.length.toLocaleString("es-CO")}</span>
+                {" "}de{" "}
+                <span className="text-[#0A183A] font-black">{filteredClients.length.toLocaleString("es-CO")}</span>
+                {" "}cliente{filteredClients.length === 1 ? "" : "s"}
+              </p>
+              {hasMore && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-black text-white transition-all hover:opacity-90 active:scale-95"
+                    style={{
+                      background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)",
+                      boxShadow: "0 4px 12px -2px rgba(30,118,182,0.35)",
+                    }}
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    Cargar {Math.min(PAGE_SIZE, filteredClients.length - visibleCount)} más
+                  </button>
+                  <button
+                    onClick={() => setVisibleCount(filteredClients.length)}
+                    className="px-3 py-2 rounded-xl text-[11px] font-bold text-[#0A183A] transition-all hover:bg-[rgba(30,118,182,0.06)] active:scale-95"
+                    style={{ border: "1px solid rgba(30,118,182,0.25)" }}
+                  >
+                    Mostrar todos
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
 

@@ -92,43 +92,80 @@ export async function fetchTiresPaged<T = any>(
 export interface ProgressiveTiresOpts extends TiresPagedOpts {
   /** Called with the running full array every time a page arrives. */
   onChunk: <T>(soFar: T[]) => void;
+  /**
+   * Minimum ms between mid-stream onChunk calls. First and last pages always
+   * fire immediately; middle pages coalesce via a trailing-edge timer so the
+   * caller's React tree doesn't re-render + re-aggregate on every 2000-tire
+   * page arrival. Set to 0 to disable throttling. Default 350ms.
+   */
+  throttleMs?: number;
 }
 
 export async function fetchTiresProgressive<T = any>(
   companyId: string,
   opts: ProgressiveTiresOpts,
 ): Promise<T[]> {
-  const limit    = Math.min(opts.limit ?? 2000, 2000);
-  const maxTires = opts.maxTires ?? Number.POSITIVE_INFINITY;
-  const fetcher  = opts.fetcher ?? defaultFetcher;
+  const limit      = Math.min(opts.limit ?? 2000, 2000);
+  const maxTires   = opts.maxTires ?? Number.POSITIVE_INFINITY;
+  const fetcher    = opts.fetcher ?? defaultFetcher;
+  const throttleMs = opts.throttleMs ?? 350;
 
   const all: T[] = [];
   let cursor: string | null = null;
+  let pages = 0;
+  let lastFiredAt = 0;
+  let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
-  while (true) {
-    if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
-
-    const url =
-      `${API_BASE}/tires/page?companyId=${encodeURIComponent(companyId)}` +
-      `&limit=${limit}` +
-      (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
-
-    const res = await fetcher(url);
-    if (!res.ok) {
-      if (all.length === 0) throw new Error(`fetchTiresProgressive: HTTP ${res.status}`);
-      break;
-    }
-
-    const body = await res.json() as { data: T[]; nextCursor: string | null };
-    const chunk = body?.data ?? [];
-    all.push(...chunk);
-
-    // Hand the caller a fresh array snapshot so React detects a change
+  const fire = () => {
+    if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
+    lastFiredAt = Date.now();
     opts.onChunk([...all]);
+  };
 
-    if (all.length >= maxTires) break;
-    if (!body.nextCursor) break;
-    cursor = body.nextCursor;
+  try {
+    while (true) {
+      if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
+
+      const url =
+        `${API_BASE}/tires/page?companyId=${encodeURIComponent(companyId)}` +
+        `&limit=${limit}` +
+        (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
+
+      const res = await fetcher(url);
+      if (!res.ok) {
+        if (all.length === 0) throw new Error(`fetchTiresProgressive: HTTP ${res.status}`);
+        break;
+      }
+
+      const body = await res.json() as { data: T[]; nextCursor: string | null };
+      const chunk = body?.data ?? [];
+      all.push(...chunk);
+      pages++;
+
+      const isFirst = pages === 1;
+      const isLast  = !body.nextCursor || all.length >= maxTires;
+      const since   = Date.now() - lastFiredAt;
+
+      if (throttleMs <= 0 || isFirst || isLast) {
+        // First page: instant first paint. Last page: final authoritative
+        // array. Both bypass the throttle so the UI is never stuck on stale
+        // data after the fetch finishes.
+        fire();
+      } else if (since >= throttleMs) {
+        fire();
+      } else if (!pendingTimer) {
+        // Schedule a trailing-edge flush. If more pages land before it fires,
+        // they'll just accumulate into `all` and the pending timer picks
+        // them up without scheduling redundant renders.
+        pendingTimer = setTimeout(fire, throttleMs - since);
+      }
+
+      if (all.length >= maxTires) break;
+      if (!body.nextCursor) break;
+      cursor = body.nextCursor;
+    }
+  } finally {
+    if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
   }
 
   return all;
