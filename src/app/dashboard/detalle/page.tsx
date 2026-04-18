@@ -191,14 +191,21 @@ export default function DetallePage() {
     setLoading(true);
     (async () => {
       try {
-        const { fetchTiresPaged } = await import('@/shared/fetchTiresPaged');
-        const [rawTires, vRes] = await Promise.all([
-          fetchTiresPaged<any>(user.companyId!),
-          authFetch(`${API_BASE}/vehicles?companyId=${user.companyId}`),
-        ]);
-        const rawVehicles = vRes.ok ? await vRes.json() : [];
-        setTires(rawTires.map(normaliseTire));
-        setVehicles(rawVehicles);
+        const { fetchTiresProgressive } = await import('@/shared/fetchTiresPaged');
+        // Kick off the vehicles fetch in parallel — it's small enough to be
+        // fire-and-forget against the incoming tire stream.
+        const vehiclesPromise = authFetch(`${API_BASE}/vehicles?companyId=${user.companyId}`)
+          .then((r) => r.ok ? r.json() : [])
+          .then((v) => setVehicles(v))
+          .catch(() => {});
+
+        await fetchTiresProgressive<any>(user.companyId!, {
+          onChunk: (soFar) => {
+            setTires((soFar as any[]).map(normaliseTire));
+            if (soFar.length > 0) setLoading(false);
+          },
+        });
+        await vehiclesPromise;
       } catch {/* silent */}
       setLoading(false);
     })();

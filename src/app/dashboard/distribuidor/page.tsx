@@ -546,18 +546,24 @@ export default function DistribuidorPage() {
       setLoadingCards(true);
 
       try {
-        // Cursor-paginated tires + parallel vehicles fetch. On distributor
-        // accounts with 100k+ tires the backend streams them back in 500-row
-        // chunks (each Redis-cached independently), so we don't blow the
-        // browser heap or the 4 GB EC2 box.
-        const { fetchTiresPaged } = await import('@/shared/fetchTiresPaged');
-        const [vRes, rawTires] = await Promise.all([
-          authFetch(`${API_BASE}/vehicles?companyId=${selectedClient.id}`),
-          fetchTiresPaged<RawTire>(selectedClient.id),
-        ]);
-
+        // Progressive fetch: distributor pages often have 100k+ tires. We
+        // render aggregates from page 1 (~2,000 tires) immediately, then
+        // refine as more pages stream in. The backend Redis-caches each
+        // page independently so subsequent drill-downs are near-instant.
+        const { fetchTiresProgressive } = await import('@/shared/fetchTiresPaged');
+        const vRes = await authFetch(`${API_BASE}/vehicles?companyId=${selectedClient.id}`);
         const vehiclesArr: Vehicle[] = vRes.ok ? await vRes.json() : [];
-        const tiresArr: NormTire[]   = rawTires.map(normaliseTire);
+        setAllVehicles(vehiclesArr);
+
+        let firstChunkSeen = false;
+        const rawTires = await fetchTiresProgressive<RawTire>(selectedClient.id, {
+          onChunk: (soFar) => {
+            const normalised = soFar.map(normaliseTire);
+            setAllTires(normalised as unknown as SemaforoTire[]);
+            if (!firstChunkSeen) { setLoadingCards(false); firstChunkSeen = true; }
+          },
+        });
+        const tiresArr: NormTire[] = rawTires.map(normaliseTire);
 
         setAllVehicles(vehiclesArr);
         setAllTires(tiresArr as unknown as SemaforoTire[]);

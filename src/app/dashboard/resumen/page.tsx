@@ -212,14 +212,19 @@ export default function ResumenPage() {
     if (!user.companyId) return;
 
     setLoading(true);
-    // Cursor-paginated fetch: backend returns slim tire payloads in chunks
-    // of 500, each Redis-cached independently. Drop-in replacement for the
-    // old /tires?slim=true call — returns the same flat array shape.
-    import('@/shared/fetchTiresPaged')
-      .then(({ fetchTiresPaged }) => fetchTiresPaged<RawTire>(user.companyId!))
-      .then((data) => setTires(data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    // Progressive render: show the dashboard after page 1 arrives (~300-500ms),
+    // then stream remaining pages in the background and let React re-render
+    // the aggregates as more tires land. For a 20k-tire account the user
+    // sees usable data within half a second even though the total fetch
+    // takes ~2s on a cold Redis.
+    import('@/shared/fetchTiresPaged').then(({ fetchTiresProgressive }) => {
+      fetchTiresProgressive<RawTire>(user.companyId!, {
+        onChunk: (soFar) => {
+          setTires(soFar);
+          if (soFar.length > 0) setLoading(false);  // first chunk = ready to render
+        },
+      }).catch(() => setLoading(false));
+    });
   }, [router]);
 
   // -- Derived data -----------------------------------------------------------
