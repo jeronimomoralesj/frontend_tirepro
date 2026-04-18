@@ -1,7 +1,10 @@
 // src/app/blog/page.tsx — Server Component
 import BlogClient from './BlogClient'
 
-export const revalidate = 86400 // 24 hours
+// Shorter ISR window than the original 24h: if the API is briefly down when
+// a deploy builds (like the IP-change outage we had), the empty result now
+// auto-corrects in an hour instead of sticking for a full day.
+export const revalidate = 3600 // 1 hour
 
 const PRIMARY = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
