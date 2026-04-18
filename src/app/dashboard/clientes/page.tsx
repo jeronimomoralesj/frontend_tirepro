@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Building2, Users, Plus, X, ChevronDown, Search,
   UserPlus, Eye, EyeOff, CheckCircle, AlertCircle,
-  Loader2, Car, Circle, ArrowRight,
+  Loader2, Car, Circle, ArrowRight, Calendar, TrendingUp,
+  Sparkles, Activity, DollarSign, ShieldCheck, Mail, Clock,
 } from "lucide-react";
 
 // =============================================================================
@@ -193,16 +194,43 @@ function Modal({
 // Client Card
 // =============================================================================
 
+function HeroKpi({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl backdrop-blur-sm"
+      style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}
+    >
+      <div className="p-1.5 rounded-lg text-white/90 flex-shrink-0"
+           style={{ background: "rgba(52,140,203,0.22)" }}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[9px] text-white/50 uppercase tracking-wide font-bold leading-none">{label}</p>
+        <p className="text-sm text-white font-black leading-tight mt-0.5 truncate">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 function Sparkline({ data, color = "#1E76B6" }: { data: number[]; color?: string }) {
   if (!data.length) return null;
   const max = Math.max(...data, 1);
-  const w = 120, h = 32, step = data.length > 1 ? w / (data.length - 1) : 0;
-  const pts = data.map((v, i) => `${i * step},${h - (v / max) * (h - 4) - 2}`).join(" ");
+  const w = 140, h = 40, step = data.length > 1 ? w / (data.length - 1) : 0;
+  const pts = data.map((v, i) => `${i * step},${h - (v / max) * (h - 6) - 3}`).join(" ");
+  const areaPts = `0,${h} ${pts} ${(data.length - 1) * step},${h}`;
+  const gradId = `spark-grad-${color.replace(/[^a-z0-9]/gi, "")}`;
   return (
     <svg width={w} height={h} className="overflow-visible">
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor={color} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={areaPts} fill={`url(#${gradId})`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {data.map((v, i) => (
-        <circle key={i} cx={i * step} cy={h - (v / max) * (h - 4) - 2} r="1.75" fill={color} />
+        <circle key={i} cx={i * step} cy={h - (v / max) * (h - 6) - 3} r="2.25" fill="white" stroke={color} strokeWidth="1.5" />
       ))}
     </svg>
   );
@@ -227,6 +255,7 @@ function ClientCard({ client, onAddUser }: { client: Client; onAddUser: (c: Clie
   const [expanded, setExpanded] = useState(false);
   const [users, setUsers]       = useState<ClientUser[] | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [hovered, setHovered]   = useState(false);
 
   const stats = client.stats;
 
@@ -244,63 +273,133 @@ function ClientCard({ client, onAddUser }: { client: Client; onAddUser: (c: Clie
     }
   }
 
+  // Freshness indicator based on last inspection
+  const freshness = (() => {
+    if (!stats?.lastInspection) return { color: "#94a3b8", label: "Sin actividad" };
+    const days = Math.floor((Date.now() - new Date(stats.lastInspection).getTime()) / 86400000);
+    if (days <= 7)  return { color: "#10b981", label: `hace ${days}d` };
+    if (days <= 30) return { color: "#f59e0b", label: `hace ${days}d` };
+    return            { color: "#ef4444", label: `hace ${days}d` };
+  })();
+
   return (
-    <Card className="overflow-hidden">
-      <div className="h-1" style={{ background: "linear-gradient(90deg, #0A183A, #1E76B6, #348CCB)" }} />
+    <div
+      className="group relative rounded-2xl overflow-hidden transition-all duration-300"
+      style={{
+        background: "white",
+        border: `1px solid ${hovered ? "rgba(30,118,182,0.35)" : "rgba(52,140,203,0.14)"}`,
+        boxShadow: hovered
+          ? "0 20px 40px -12px rgba(30,118,182,0.22), 0 6px 16px -8px rgba(10,24,58,0.08)"
+          : "0 2px 12px rgba(10,24,58,0.04)",
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Top accent stripe */}
+      <div className="h-1"
+           style={{ background: "linear-gradient(90deg, #0A183A 0%, #1E76B6 45%, #348CCB 100%)" }} />
+
       <div className="p-5">
-        {/* Header */}
-        <div className="flex items-start gap-3 mb-4">
+        {/* Header — avatar + name + plan + freshness */}
+        <div className="flex items-start gap-3 mb-5">
           <div className="relative flex-shrink-0">
             <div
-              className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+              className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center transition-transform group-hover:scale-105"
+              style={{
+                background: "linear-gradient(135deg, #0A183A 0%, #173D68 55%, #1E76B6 100%)",
+                boxShadow: "0 6px 16px -4px rgba(10,24,58,0.3)",
+              }}
             >
-              {client.profileImage && client.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+              {client.profileImage && !client.profileImage.includes("logoFull.png") ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={client.profileImage} alt={client.name} className="max-w-full max-h-full object-contain p-1" />
+                <img src={client.profileImage} alt={client.name} className="max-w-full max-h-full object-contain p-1.5" />
               ) : (
-                <span className="text-white font-black text-lg">{client.name.charAt(0).toUpperCase()}</span>
+                <span className="text-white font-black text-xl tracking-tight">
+                  {client.name.charAt(0).toUpperCase()}
+                </span>
               )}
             </div>
-            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-400 border-2 border-white rounded-full" />
+            <div
+              className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center"
+              style={{ background: freshness.color }}
+              title={`Última inspección · ${freshness.label}`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-white/70 animate-pulse" />
+            </div>
           </div>
+
           <div className="flex-1 min-w-0">
-            <h3 className="font-black text-[#0A183A] text-sm leading-tight truncate">{client.name}</h3>
-            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            <h3 className="font-black text-[#0A183A] text-[15px] leading-tight truncate pr-6">
+              {client.name}
+            </h3>
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide"
-                style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
+                style={{
+                  background: "linear-gradient(135deg, rgba(30,118,182,0.12), rgba(52,140,203,0.08))",
+                  color: "#1E76B6",
+                }}
               >
                 <Circle className="w-1.5 h-1.5 fill-current" />{client.plan}
               </span>
               {stats && stats.yearsAsClient > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
-                      style={{ background: "rgba(22,163,74,0.08)", color: "#15803d" }}>
-                  {stats.yearsAsClient}a cliente
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(22,163,74,0.12), rgba(34,197,94,0.08))",
+                        color: "#15803d",
+                      }}>
+                  <Sparkles className="w-2.5 h-2.5" />
+                  {stats.yearsAsClient} año{stats.yearsAsClient === 1 ? "" : "s"}
                 </span>
               )}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                    style={{
+                      background: `${freshness.color}15`,
+                      color: freshness.color,
+                    }}>
+                <Activity className="w-2.5 h-2.5" />
+                {freshness.label}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <StatBlock icon={<Car className="w-3.5 h-3.5" />} label="Vehículos" value={fmtNum(stats?.vehicles ?? client.vehicleCount)} />
-          <StatBlock label="Llantas" value={fmtNum(stats?.activeTires ?? client.tireCount)}
-                     sub={stats?.finTires ? `${stats.finTires} ret.` : undefined} />
-          <StatBlock icon={<Users className="w-3.5 h-3.5" />} label="Usuarios" value={fmtNum(stats?.users)} />
-          <StatBlock label="CPK prom." value={stats?.avgCpk != null ? `$${Math.round(stats.avgCpk).toLocaleString("es-CO")}` : "—"} />
-          <StatBlock label="Inversión" value={fmtMoney(stats?.inversionTotal)} />
-          <StatBlock label="Insp. 30d" value={fmtNum(stats?.inspections30d)} />
+        {/* Stats — two featured + compact four */}
+        <div className="grid grid-cols-2 gap-2.5 mb-3">
+          <FeaturedStat
+            icon={<Activity className="w-4 h-4" />}
+            label="Llantas activas"
+            value={fmtNum(stats?.activeTires ?? client.tireCount)}
+            sub={stats?.finTires ? `${stats.finTires.toLocaleString("es-CO")} retiradas` : "—"}
+            accent="#1E76B6"
+          />
+          <FeaturedStat
+            icon={<Users className="w-4 h-4" />}
+            label="Usuarios"
+            value={fmtNum(stats?.users)}
+            sub={stats?.vehicles != null ? `${stats.vehicles} vehículos` : "—"}
+            accent="#348CCB"
+          />
         </div>
 
-        {/* Inspection trend */}
+        <div className="grid grid-cols-3 gap-1.5 mb-4">
+          <CompactStat icon={<DollarSign className="w-3 h-3" />} label="CPK"       value={stats?.avgCpk != null ? `$${Math.round(stats.avgCpk)}` : "—"} />
+          <CompactStat icon={<TrendingUp className="w-3 h-3" />} label="Inversión" value={fmtMoney(stats?.inversionTotal)} />
+          <CompactStat icon={<ShieldCheck className="w-3 h-3" />} label="30d"      value={fmtNum(stats?.inspections30d)} />
+        </div>
+
+        {/* Sparkline */}
         {stats?.inspectionsByMonth && stats.inspectionsByMonth.some(m => m.count > 0) && (
-          <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl mb-3"
-               style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.1)" }}>
-            <div>
-              <p className="text-[10px] text-gray-400 leading-none uppercase tracking-wide">Inspecciones · 6m</p>
-              <p className="text-[11px] text-[#173D68] mt-0.5">
+          <div className="flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl mb-3"
+               style={{
+                 background: "linear-gradient(135deg, rgba(10,24,58,0.025), rgba(30,118,182,0.04))",
+                 border: "1px solid rgba(52,140,203,0.1)",
+               }}>
+            <div className="min-w-0">
+              <p className="text-[9px] text-gray-400 leading-none uppercase tracking-widest font-bold">Inspecciones · 6m</p>
+              <p className="text-[11px] text-[#173D68] font-semibold mt-1 flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
                 últ. {fmtDate(stats.lastInspection)}
               </p>
             </div>
@@ -308,72 +407,137 @@ function ClientCard({ client, onAddUser }: { client: Client; onAddUser: (c: Clie
           </div>
         )}
 
-        {/* Footer */}
+        {/* Actions */}
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => onAddUser(client)}
-            className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
-            style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-black text-white transition-all hover:opacity-95 active:scale-95"
+            style={{
+              background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)",
+              boxShadow: "0 4px 12px -2px rgba(30,118,182,0.35)",
+            }}
           >
-            <UserPlus className="w-3.5 h-3.5" />Usuario
+            <UserPlus className="w-3.5 h-3.5" />Agregar usuario
           </button>
           <button
             onClick={toggle}
-            className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black text-[#0A183A] border border-[rgba(30,118,182,0.25)] hover:bg-[#F0F7FF] transition-all"
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-black transition-all active:scale-95"
+            style={{
+              color: expanded ? "white" : "#0A183A",
+              background: expanded ? "linear-gradient(135deg, #348CCB, #1E76B6)" : "transparent",
+              border: expanded ? "1px solid transparent" : "1px solid rgba(30,118,182,0.25)",
+            }}
           >
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
-            {expanded ? "Ocultar" : "Detalles"}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`} />
+            {expanded ? "Ocultar detalles" : "Ver detalles"}
           </button>
         </div>
 
-        {/* Expanded detail */}
+        {/* Expanded */}
         {expanded && (
-          <div className="mt-4 space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="px-3 py-2 rounded-lg bg-[rgba(10,24,58,0.03)]">
-                <p className="text-[10px] text-gray-400">Cliente desde</p>
-                <p className="font-bold text-[#0A183A]">{fmtDate(stats?.distributorSince)}</p>
+          <div className="mt-4 pt-4 border-t border-[rgba(52,140,203,0.1)] space-y-3 animate-in fade-in duration-200">
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="px-3 py-2.5 rounded-xl"
+                   style={{ background: "rgba(10,24,58,0.035)", border: "1px solid rgba(52,140,203,0.1)" }}>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">Cliente desde</p>
+                <p className="text-xs font-black text-[#0A183A] mt-0.5">{fmtDate(stats?.distributorSince)}</p>
               </div>
-              <div className="px-3 py-2 rounded-lg bg-[rgba(10,24,58,0.03)]">
-                <p className="text-[10px] text-gray-400">Empresa creada</p>
-                <p className="font-bold text-[#0A183A]">{fmtDate(stats?.clientSince)}</p>
+              <div className="px-3 py-2.5 rounded-xl"
+                   style={{ background: "rgba(10,24,58,0.035)", border: "1px solid rgba(52,140,203,0.1)" }}>
+                <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">Empresa creada</p>
+                <p className="text-xs font-black text-[#0A183A] mt-0.5">{fmtDate(stats?.clientSince)}</p>
               </div>
             </div>
-            <div className="px-3 py-2 rounded-lg border border-[rgba(52,140,203,0.12)]">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Usuarios ({users?.length ?? 0})</p>
+
+            {/* Users list */}
+            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.12)" }}>
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b"
+                   style={{ borderColor: "rgba(52,140,203,0.1)", background: "rgba(248,250,255,0.6)" }}>
+                <p className="text-[10px] text-[#0A183A] uppercase tracking-widest font-black flex items-center gap-1.5">
+                  <Users className="w-3 h-3 text-[#1E76B6]" />
+                  Usuarios ({users?.length ?? 0})
+                </p>
+              </div>
               {loadingUsers ? (
-                <div className="flex items-center gap-2 text-[11px] text-[#1E76B6]">
+                <div className="flex items-center gap-2 text-[11px] text-[#1E76B6] px-3 py-3">
                   <Loader2 className="w-3 h-3 animate-spin" />cargando…
                 </div>
               ) : !users || users.length === 0 ? (
-                <p className="text-[11px] text-gray-400 italic">Sin usuarios registrados</p>
+                <p className="text-[11px] text-gray-400 italic px-3 py-3">Sin usuarios registrados</p>
               ) : (
-                <ul className="space-y-1">
-                  {users.map(u => (
-                    <li key={u.id} className="flex items-center justify-between gap-2 text-[11px] leading-tight">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-[#0A183A] truncate">{u.name}</p>
-                        <p className="text-gray-400 truncate">{u.email}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0 text-[10px] text-gray-500">
-                        <span className="px-1.5 py-0.5 rounded-full bg-[rgba(30,118,182,0.08)] text-[#1E76B6] font-bold uppercase">
-                          {u.role}
-                        </span>
-                        {u.lastLoginAt && (
-                          <span title={`Último login · ${new Date(u.lastLoginAt).toLocaleString("es-CO")}`}>
-                            {fmtDate(u.lastLoginAt)}
+                <ul className="divide-y divide-[rgba(52,140,203,0.08)]">
+                  {users.map(u => {
+                    const initials = u.name.trim().split(/\s+/).slice(0, 2).map(s => s[0]).join("").toUpperCase();
+                    return (
+                      <li key={u.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-[rgba(240,247,255,0.6)] transition-colors">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-black flex-shrink-0"
+                             style={{ background: "linear-gradient(135deg, #173D68, #1E76B6)" }}>
+                          {initials || "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-[#0A183A] truncate leading-tight">{u.name}</p>
+                          <p className="text-[10px] text-gray-500 truncate flex items-center gap-1 mt-0.5">
+                            <Mail className="w-2.5 h-2.5" />{u.email}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="px-2 py-0.5 rounded-full bg-[rgba(30,118,182,0.08)] text-[#1E76B6] text-[9px] font-black uppercase tracking-wider">
+                            {u.role}
                           </span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
+                          {u.lastLoginAt && (
+                            <span className="flex items-center gap-0.5 text-[9px] text-gray-500"
+                                  title={`Último login · ${new Date(u.lastLoginAt).toLocaleString("es-CO")}`}>
+                              <Clock className="w-2.5 h-2.5" />{fmtDate(u.lastLoginAt)}
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
           </div>
         )}
       </div>
-    </Card>
+    </div>
+  );
+}
+
+function FeaturedStat({ icon, label, value, sub, accent }: {
+  icon: React.ReactNode; label: string; value: string; sub?: string; accent: string;
+}) {
+  return (
+    <div className="relative overflow-hidden px-3 py-3 rounded-xl"
+         style={{
+           background: `linear-gradient(135deg, ${accent}12, ${accent}05)`,
+           border: `1px solid ${accent}22`,
+         }}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="p-1 rounded-md" style={{ background: `${accent}18`, color: accent }}>
+          {icon}
+        </div>
+        <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">{label}</p>
+      </div>
+      <p className="text-lg font-black text-[#0A183A] leading-none tracking-tight">{value}</p>
+      {sub && <p className="text-[10px] text-gray-500 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+function CompactStat({ icon, label, value }: {
+  icon: React.ReactNode; label: string; value: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0"
+         style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.08)" }}>
+      <span className="text-[#1E76B6] flex-shrink-0">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[9px] text-gray-400 leading-none uppercase tracking-widest font-bold truncate">{label}</p>
+        <p className="text-[11px] font-black text-[#0A183A] mt-0.5 truncate">{value}</p>
+      </div>
+    </div>
   );
 }
 
@@ -604,64 +768,137 @@ export default function ClientesPage() {
     setShowAddUserModal(true);
   }
 
-  const filteredClients = clients.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [sortKey, setSortKey] = useState<'name' | 'tires' | 'users' | 'cpk' | 'recent'>('tires');
+
+  const filteredClients = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    let list = term
+      ? clients.filter(c => c.name.toLowerCase().includes(term))
+      : clients.slice();
+    list.sort((a, b) => {
+      switch (sortKey) {
+        case 'name':   return a.name.localeCompare(b.name);
+        case 'tires':  return (b.stats?.activeTires ?? b.tireCount) - (a.stats?.activeTires ?? a.tireCount);
+        case 'users':  return (b.stats?.users ?? 0) - (a.stats?.users ?? 0);
+        case 'cpk':    return (a.stats?.avgCpk ?? Infinity) - (b.stats?.avgCpk ?? Infinity);
+        case 'recent':
+          return new Date(b.stats?.lastInspection ?? 0).getTime()
+               - new Date(a.stats?.lastInspection ?? 0).getTime();
+      }
+    });
+    return list;
+  }, [clients, searchTerm, sortKey]);
+
+  // Aggregate across every client — shown on the hero strip
+  const totals = useMemo(() => {
+    const acc = { tires: 0, vehicles: 0, users: 0, inversion: 0, insp30: 0 };
+    for (const c of clients) {
+      acc.tires    += c.stats?.activeTires ?? c.tireCount;
+      acc.vehicles += c.stats?.vehicles   ?? c.vehicleCount;
+      acc.users    += c.stats?.users      ?? 0;
+      acc.inversion += c.stats?.inversionTotal ?? 0;
+      acc.insp30   += c.stats?.inspections30d  ?? 0;
+    }
+    return acc;
+  }, [clients]);
 
   // ==========================================================================
   // Render
   // ==========================================================================
 
   return (
-    <div className="min-h-screen" style={{ background: "white" }}>
+    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #F8FAFF 0%, #FFFFFF 40%)" }}>
       <Toasts toasts={toasts} onRemove={id => setToasts(prev => prev.filter(t => t.id !== id))} />
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-5">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-5">
 
-        {/* -- Page header --------------------------------------------------- */}
+        {/* -- Hero banner with aggregate KPIs ------------------------------- */}
         <div
-          className="px-4 sm:px-6 py-5 rounded-2xl"
+          className="relative overflow-hidden rounded-3xl"
           style={{
-            background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)",
-            boxShadow: "0 8px 32px rgba(10,24,58,0.22)",
+            background: "linear-gradient(135deg, #0A183A 0%, #173D68 50%, #1E76B6 100%)",
+            boxShadow: "0 20px 48px -12px rgba(10,24,58,0.35)",
           }}
         >
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
-                <Building2 className="w-5 h-5 text-white" />
+          {/* Decorative glows */}
+          <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-20"
+               style={{ background: "radial-gradient(circle, #348CCB, transparent 70%)" }} />
+          <div className="absolute -bottom-32 -left-10 w-80 h-80 rounded-full opacity-10"
+               style={{ background: "radial-gradient(circle, #ffffff, transparent 70%)" }} />
+
+          <div className="relative px-6 sm:px-8 py-6 sm:py-8">
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl backdrop-blur-sm"
+                     style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.18)" }}>
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="font-black text-white text-xl sm:text-2xl leading-none tracking-tight">
+                    Gestión de Clientes
+                  </h1>
+                  <p className="text-xs text-white/60 mt-1.5 flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3" />
+                    Vista consolidada de {clients.length} cliente{clients.length !== 1 ? "s" : ""} vinculado{clients.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="font-black text-white text-lg leading-none tracking-tight">
-                  Gestión de Clientes
-                </h1>
-                <p className="text-xs text-white/60 mt-0.5">
-                  {clients.length} cliente{clients.length !== 1 ? "s" : ""} vinculados
-                </p>
-              </div>
+              <button
+                onClick={() => { resetAll(); setShowCreateModal(true); }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-[#0A183A] bg-white hover:bg-blue-50 transition-all active:scale-95"
+                style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.18)" }}
+              >
+                <Plus className="w-4 h-4" />
+                Nuevo Cliente
+              </button>
             </div>
-            <button
-              onClick={() => { resetAll(); setShowCreateModal(true); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black text-[#0A183A] bg-white hover:bg-blue-50 transition-all"
-              style={{ boxShadow: "0 2px 12px rgba(10,24,58,0.15)" }}
-            >
-              <Plus className="w-4 h-4" />
-              Nuevo Cliente
-            </button>
+
+            {/* Aggregate KPI pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+              <HeroKpi icon={<Building2 className="w-3.5 h-3.5" />} label="Clientes"   value={clients.length.toLocaleString("es-CO")} />
+              <HeroKpi icon={<Car className="w-3.5 h-3.5" />}       label="Vehículos"  value={totals.vehicles.toLocaleString("es-CO")} />
+              <HeroKpi icon={<Activity className="w-3.5 h-3.5" />}  label="Llantas"    value={totals.tires.toLocaleString("es-CO")} />
+              <HeroKpi icon={<Users className="w-3.5 h-3.5" />}     label="Usuarios"   value={totals.users.toLocaleString("es-CO")} />
+              <HeroKpi icon={<TrendingUp className="w-3.5 h-3.5" />} label="Insp. 30d" value={totals.insp30.toLocaleString("es-CO")} />
+            </div>
           </div>
         </div>
 
-        {/* -- Search ------------------------------------------------------- */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Buscar clientes…"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className={`${inputCls} pl-11`}
-            style={inputStyle}
-          />
+        {/* -- Toolbar: search + sort --------------------------------------- */}
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar clientes por nombre…"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className={`${inputCls} pl-11`}
+              style={inputStyle}
+            />
+          </div>
+          <div className="flex gap-1.5 bg-white rounded-xl px-1.5 py-1.5 border"
+               style={{ borderColor: "rgba(52,140,203,0.2)" }}>
+            {([
+              { k: 'tires',  label: 'Más llantas'   },
+              { k: 'users',  label: 'Más usuarios'  },
+              { k: 'cpk',    label: 'Mejor CPK'     },
+              { k: 'recent', label: 'Recientes'     },
+              { k: 'name',   label: 'A-Z'           },
+            ] as const).map(({ k, label }) => (
+              <button
+                key={k}
+                onClick={() => setSortKey(k)}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap"
+                style={{
+                  background: sortKey === k ? "linear-gradient(135deg, #0A183A, #1E76B6)" : "transparent",
+                  color:      sortKey === k ? "white" : "#64748b",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* -- Grid / states ------------------------------------------------ */}
