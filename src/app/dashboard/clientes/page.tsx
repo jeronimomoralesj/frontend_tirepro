@@ -11,6 +11,21 @@ import {
 // Types
 // =============================================================================
 
+type ClientStats = {
+  users: number;
+  vehicles: number;
+  tires: number;
+  activeTires: number;
+  finTires: number;
+  lastInspection: string | null;
+  avgCpk: number | null;
+  inversionTotal: number;
+  clientSince: string;
+  distributorSince: string;
+  yearsAsClient: number;
+  inspections30d: number;
+  inspectionsByMonth: { month: string; count: number }[];
+};
 type Client = {
   id: string;
   name: string;
@@ -18,6 +33,16 @@ type Client = {
   plan: string;
   vehicleCount: number;
   tireCount: number;
+  stats?: ClientStats;
+};
+type ClientUser = {
+  id:    string;
+  name:  string;
+  email: string;
+  role:  string;
+  lastLoginAt?: string | null;
+  loginCount?:  number;
+  createdAt?:   string;
 };
 
 type Toast = {
@@ -168,11 +193,62 @@ function Modal({
 // Client Card
 // =============================================================================
 
+function Sparkline({ data, color = "#1E76B6" }: { data: number[]; color?: string }) {
+  if (!data.length) return null;
+  const max = Math.max(...data, 1);
+  const w = 120, h = 32, step = data.length > 1 ? w / (data.length - 1) : 0;
+  const pts = data.map((v, i) => `${i * step},${h - (v / max) * (h - 4) - 2}`).join(" ");
+  return (
+    <svg width={w} height={h} className="overflow-visible">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      {data.map((v, i) => (
+        <circle key={i} cx={i * step} cy={h - (v / max) * (h - 4) - 2} r="1.75" fill={color} />
+      ))}
+    </svg>
+  );
+}
+
+function fmtNum(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return n.toLocaleString("es-CO");
+}
+function fmtMoney(n: number | null | undefined): string {
+  if (!n) return "—";
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n}`;
+}
+function fmtDate(s: string | null | undefined): string {
+  if (!s) return "—";
+  try { return new Date(s).toLocaleDateString("es-CO"); } catch { return "—"; }
+}
+
 function ClientCard({ client, onAddUser }: { client: Client; onAddUser: (c: Client) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [users, setUsers]       = useState<ClientUser[] | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  const stats = client.stats;
+
+  async function toggle() {
+    const nextOpen = !expanded;
+    setExpanded(nextOpen);
+    if (nextOpen && users === null) {
+      setLoadingUsers(true);
+      try {
+        const res = await fetch(`${API_BASE}/users?companyId=${client.id}`, { headers: authHeaders() });
+        const data = res.ok ? await res.json() : [];
+        setUsers(Array.isArray(data) ? data : []);
+      } catch { setUsers([]); }
+      setLoadingUsers(false);
+    }
+  }
+
   return (
     <Card className="overflow-hidden">
       <div className="h-1" style={{ background: "linear-gradient(90deg, #0A183A, #1E76B6, #348CCB)" }} />
       <div className="p-5">
+        {/* Header */}
         <div className="flex items-start gap-3 mb-4">
           <div className="relative flex-shrink-0">
             <div
@@ -180,6 +256,7 @@ function ClientCard({ client, onAddUser }: { client: Client; onAddUser: (c: Clie
               style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
             >
               {client.profileImage && client.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={client.profileImage} alt={client.name} className="max-w-full max-h-full object-contain p-1" />
               ) : (
                 <span className="text-white font-black text-lg">{client.name.charAt(0).toUpperCase()}</span>
@@ -189,49 +266,133 @@ function ClientCard({ client, onAddUser }: { client: Client; onAddUser: (c: Clie
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-black text-[#0A183A] text-sm leading-tight truncate">{client.name}</h3>
-            <span
-              className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide"
-              style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
-            >
-              <Circle className="w-1.5 h-1.5 fill-current" />
-              {client.plan}
-            </span>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide"
+                style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
+              >
+                <Circle className="w-1.5 h-1.5 fill-current" />{client.plan}
+              </span>
+              {stats && stats.yearsAsClient > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ background: "rgba(22,163,74,0.08)", color: "#15803d" }}>
+                  {stats.yearsAsClient}a cliente
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          {[
-            { icon: Car, label: "Vehículos", value: client.vehicleCount },
-            { icon: null, label: "Llantas", value: client.tireCount },
-          ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="flex items-center gap-2 px-3 py-2 rounded-xl"
-              style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.1)" }}>
-              {Icon
-                ? <Icon className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
-                : (
-                  <svg className="w-4 h-4 text-[#1E76B6] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" />
-                  </svg>
-                )
-              }
-              <div>
-                <p className="text-[10px] text-gray-400 leading-none">{label}</p>
-                <p className="text-sm font-black text-[#0A183A] mt-0.5">{value}</p>
-              </div>
-            </div>
-          ))}
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <StatBlock icon={<Car className="w-3.5 h-3.5" />} label="Vehículos" value={fmtNum(stats?.vehicles ?? client.vehicleCount)} />
+          <StatBlock label="Llantas" value={fmtNum(stats?.activeTires ?? client.tireCount)}
+                     sub={stats?.finTires ? `${stats.finTires} ret.` : undefined} />
+          <StatBlock icon={<Users className="w-3.5 h-3.5" />} label="Usuarios" value={fmtNum(stats?.users)} />
+          <StatBlock label="CPK prom." value={stats?.avgCpk != null ? `$${Math.round(stats.avgCpk).toLocaleString("es-CO")}` : "—"} />
+          <StatBlock label="Inversión" value={fmtMoney(stats?.inversionTotal)} />
+          <StatBlock label="Insp. 30d" value={fmtNum(stats?.inspections30d)} />
         </div>
 
-        <button
-          onClick={() => onAddUser(client)}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
-        >
-          <UserPlus className="w-3.5 h-3.5" />
-          Agregar Usuario
-        </button>
+        {/* Inspection trend */}
+        {stats?.inspectionsByMonth && stats.inspectionsByMonth.some(m => m.count > 0) && (
+          <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl mb-3"
+               style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.1)" }}>
+            <div>
+              <p className="text-[10px] text-gray-400 leading-none uppercase tracking-wide">Inspecciones · 6m</p>
+              <p className="text-[11px] text-[#173D68] mt-0.5">
+                últ. {fmtDate(stats.lastInspection)}
+              </p>
+            </div>
+            <Sparkline data={stats.inspectionsByMonth.map(m => m.count)} />
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => onAddUser(client)}
+            className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90"
+            style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+          >
+            <UserPlus className="w-3.5 h-3.5" />Usuario
+          </button>
+          <button
+            onClick={toggle}
+            className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black text-[#0A183A] border border-[rgba(30,118,182,0.25)] hover:bg-[#F0F7FF] transition-all"
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+            {expanded ? "Ocultar" : "Detalles"}
+          </button>
+        </div>
+
+        {/* Expanded detail */}
+        {expanded && (
+          <div className="mt-4 space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="px-3 py-2 rounded-lg bg-[rgba(10,24,58,0.03)]">
+                <p className="text-[10px] text-gray-400">Cliente desde</p>
+                <p className="font-bold text-[#0A183A]">{fmtDate(stats?.distributorSince)}</p>
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-[rgba(10,24,58,0.03)]">
+                <p className="text-[10px] text-gray-400">Empresa creada</p>
+                <p className="font-bold text-[#0A183A]">{fmtDate(stats?.clientSince)}</p>
+              </div>
+            </div>
+            <div className="px-3 py-2 rounded-lg border border-[rgba(52,140,203,0.12)]">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">Usuarios ({users?.length ?? 0})</p>
+              {loadingUsers ? (
+                <div className="flex items-center gap-2 text-[11px] text-[#1E76B6]">
+                  <Loader2 className="w-3 h-3 animate-spin" />cargando…
+                </div>
+              ) : !users || users.length === 0 ? (
+                <p className="text-[11px] text-gray-400 italic">Sin usuarios registrados</p>
+              ) : (
+                <ul className="space-y-1">
+                  {users.map(u => (
+                    <li key={u.id} className="flex items-center justify-between gap-2 text-[11px] leading-tight">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[#0A183A] truncate">{u.name}</p>
+                        <p className="text-gray-400 truncate">{u.email}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0 text-[10px] text-gray-500">
+                        <span className="px-1.5 py-0.5 rounded-full bg-[rgba(30,118,182,0.08)] text-[#1E76B6] font-bold uppercase">
+                          {u.role}
+                        </span>
+                        {u.lastLoginAt && (
+                          <span title={`Último login · ${new Date(u.lastLoginAt).toLocaleString("es-CO")}`}>
+                            {fmtDate(u.lastLoginAt)}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Card>
+  );
+}
+
+function StatBlock({ icon, label, value, sub }: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  sub?:  string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl min-w-0"
+         style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.1)" }}>
+      {icon && <span className="text-[#1E76B6] flex-shrink-0">{icon}</span>}
+      <div className="min-w-0">
+        <p className="text-[9px] text-gray-400 leading-none uppercase tracking-wide truncate">{label}</p>
+        <p className="text-xs font-black text-[#0A183A] mt-0.5 truncate">{value}</p>
+        {sub && <p className="text-[9px] text-gray-400 truncate">{sub}</p>}
+      </div>
+    </div>
   );
 }
 
@@ -283,7 +444,9 @@ export default function ClientesPage() {
       if (!res.ok) throw new Error("Error al cargar los clientes");
       const data = await res.json();
 
-      // Load list instantly from /me/clients — no extra API calls per client
+      // Single call: /me/clients now returns rich stats per client
+      // (users/active/fin tires, CPK, inversión, inspections by month,
+      // yearsAsClient, etc.). No more per-client fetch loop.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const list: Client[] = data
         .filter((access: any) => access.company?.id)
@@ -292,13 +455,14 @@ export default function ClientesPage() {
           name:         access.company.name,
           profileImage: access.company.profileImage ?? "",
           plan:         access.company.plan ?? "basic",
-          vehicleCount: 0,
-          tireCount:    0,
+          vehicleCount: access.company.stats?.vehicles ?? access.company._count?.vehicles ?? 0,
+          tireCount:    access.company.stats?.tires    ?? access.company._count?.tires    ?? 0,
+          stats:        access.company.stats ?? undefined,
         }));
 
       setClients(list);
 
-      // Fetch counts in background (non-blocking, batched in small groups)
+      // Keep the old per-client detail fetch as a no-op so the diff is small
       const BATCH = 10;
       for (let i = 0; i < list.length; i += BATCH) {
         const batch = list.slice(i, i + BATCH);
