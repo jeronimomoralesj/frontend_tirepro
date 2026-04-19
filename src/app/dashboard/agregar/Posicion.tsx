@@ -250,7 +250,7 @@ function TireTooltip({ tire, anchor }: { tire: Tire; anchor: HTMLElement | null 
   useEffect(() => {
     if (!anchor || typeof window === "undefined") return;
 
-    const TIP_WIDTH = 224, TIP_HEIGHT = 220, GAP = 10;
+    const TIP_WIDTH = 224, TIP_HEIGHT = 220, GAP = 18;
 
     const update = () => {
       const r = anchor.getBoundingClientRect();

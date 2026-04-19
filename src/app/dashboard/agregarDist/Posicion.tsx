@@ -254,7 +254,7 @@ function TireTooltip({ tire, anchor }: { tire: Tire; anchor: HTMLElement | null 
 
     const TIP_WIDTH  = 224;            // Tailwind w-56
     const TIP_HEIGHT = 220;            // rough estimate; overshoots safely
-    const GAP        = 10;
+    const GAP        = 18;             // extra breathing room above the tile
 
     const update = () => {
       const r = anchor.getBoundingClientRect();
