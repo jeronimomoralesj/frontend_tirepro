@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -294,6 +294,23 @@ function PublicMarketplace() {
 
   function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setRimSizes([]); setCategoryLabel(""); setCiudad(""); setCiudadManual(false); }
 
+  // Matching brands for the current search term — surfaced as a horizontal
+  // strip above the product listings. This lets users land on a brand page
+  // even when we currently stock zero tires of that brand (the brand page
+  // has a graceful empty state + links back to the full marketplace).
+  const matchingBrands = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
+    const hits: BrandMeta[] = [];
+    for (const meta of brandsMap.values()) {
+      if (meta.name.toLowerCase().includes(q)) {
+        hits.push(meta);
+        if (hits.length >= 12) break; // keep the row scannable
+      }
+    }
+    return hits.sort((a, b) => a.name.localeCompare(b.name));
+  }, [search, brandsMap]);
+
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       {/* ═══ NAV ═══ */}
@@ -495,7 +512,7 @@ function PublicMarketplace() {
               <div className="flex items-center justify-between mb-4 gap-3">
                 <p className="text-sm text-gray-500">
                   <span className="font-bold text-[#0A183A]">{total}</span> resultado{total !== 1 ? "s" : ""}
-                  {search && <> para <span className="font-bold text-[#0A183A]">"{search}"</span></>}
+                  {search && <> para <span className="font-bold text-[#0A183A]">&quot;{search}&quot;</span></>}
                 </p>
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
                   className="px-3 py-2 rounded-xl text-xs font-bold border border-gray-200 bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]">
@@ -506,10 +523,68 @@ function PublicMarketplace() {
                 </select>
               </div>
 
+              {/* Brand match strip — shows matching brands during search
+                  even if zero tires are currently listed. Links to the
+                  brand page where the user can learn about the brand
+                  and see any future listings. */}
+              {matchingBrands.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
+                    Marcas que coinciden con &quot;{search}&quot;
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+                    {matchingBrands.map((b) => (
+                      <Link
+                        key={b.slug}
+                        href={`/marketplace/brand/${b.slug}`}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-[#1E76B6] hover:shadow-md transition-all flex-shrink-0 group"
+                      >
+                        <span
+                          className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-[#0A183A] to-[#1E76B6] text-white text-xs font-black"
+                        >
+                          {b.logoUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={b.logoUrl} alt="" className="max-w-full max-h-full object-contain p-0.5 bg-white" />
+                          ) : (
+                            b.name.charAt(0).toUpperCase()
+                          )}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-[#0A183A] leading-tight">{b.name}</span>
+                          <span className="text-[9px] text-gray-400 group-hover:text-[#1E76B6] transition-colors">
+                            Ver marca →
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Product list — full-width rows */}
               <div className="space-y-3">
                 {listings.map((l) => <ProductRow key={l.id} l={l} brandsMap={brandsMap} />)}
               </div>
+
+              {/* Empty-state callout when no listings BUT we matched a
+                  brand — guide the user to the brand page. */}
+              {!loading && listings.length === 0 && matchingBrands.length > 0 && (
+                <div className="bg-white rounded-2xl p-6 sm:p-8 text-center border border-gray-100">
+                  <p className="text-sm font-black text-[#0A183A] mb-1">
+                    Sin llantas en el marketplace ahora mismo
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Pero sí conocemos la marca. Visita su página para conocer más sobre{" "}
+                    <span className="font-bold text-[#0A183A]">{matchingBrands[0].name}</span>.
+                  </p>
+                  <Link
+                    href={`/marketplace/brand/${matchingBrands[0].slug}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-[#0A183A] to-[#1E76B6] hover:opacity-90 transition-opacity"
+                  >
+                    Ir a {matchingBrands[0].name}
+                  </Link>
+                </div>
+              )}
 
               {/* Pagination */}
               {pages > 1 && (

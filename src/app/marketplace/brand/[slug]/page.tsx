@@ -128,15 +128,35 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   const flag = flagFor(brand.country);
   const yearsActive = brand.foundedYear ? new Date().getFullYear() - brand.foundedYear : null;
 
-  // Admin-configurable hero styling. Falls back to the default TirePro gradient
-  // when primaryColor isn't set so legacy brands look identical.
+  // ─── Brand palette ────────────────────────────────────────────────────────
+  // Every accent color on this page derives from the brand's own colors so
+  // the page feels owned by the brand — not just a generic TirePro page with
+  // a different logo. Falls back to TirePro defaults when a brand hasn't
+  // been customized.
+  const PRIMARY = brand.primaryColor ?? "#1E76B6";
+  const ACCENT  = brand.accentColor  ?? "#0A183A";
+  // Hex → rgba with alpha. Tolerates #rgb, #rrggbb, or anything non-hex
+  // (falls through to PRIMARY to stay safe).
+  const rgba = (hex: string, a: number): string => {
+    const m = hex.replace("#", "");
+    if (!/^[0-9a-f]{3}$|^[0-9a-f]{6}$/i.test(m)) return `rgba(30,118,182,${a})`;
+    const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  };
+
+  // Hero: image over a brand-colored tint when both exist, else pure brand
+  // gradient, else TirePro default. The dark overlay keeps text readable
+  // regardless of the image lightness.
   const heroBackground = brand.heroImageUrl
-    ? `linear-gradient(135deg, rgba(10,24,58,0.75) 0%, rgba(23,61,104,0.6) 100%), url(${brand.heroImageUrl}) center/cover`
+    ? `linear-gradient(135deg, ${rgba(ACCENT, 0.82)} 0%, ${rgba(PRIMARY, 0.55)} 100%), url(${brand.heroImageUrl}) center/cover`
     : brand.primaryColor
-    ? `linear-gradient(135deg, ${brand.primaryColor} 0%, ${brand.accentColor ?? brand.primaryColor} 55%, ${brand.accentColor ?? brand.primaryColor} 100%)`
+    ? `linear-gradient(135deg, ${PRIMARY} 0%, ${ACCENT} 55%, ${ACCENT} 100%)`
     : "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)";
 
-  const facts: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; value: string; sub?: string }> = [];
+  const facts: Array<{ icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string; value: string; sub?: string }> = [];
   if (brand.country)       facts.push({ icon: MapPin,    label: "País de origen", value: `${flag} ${brand.country}` });
   if (brand.foundedYear)   facts.push({ icon: Calendar,  label: "Fundada en",     value: String(brand.foundedYear), sub: yearsActive ? `${yearsActive} años en el mercado` : undefined });
   if (brand.headquarters)  facts.push({ icon: Building2, label: "Sede",           value: brand.headquarters });
@@ -234,18 +254,44 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
       <main className="max-w-5xl mx-auto px-3 sm:px-6 py-8 -mt-4 relative space-y-8">
         {/* Facts grid */}
         {facts.length > 0 && (
-          <section className="bg-white rounded-3xl p-5 sm:p-6" style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}>
-            <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-4">Datos de la marca</p>
+          <section
+            className="bg-white rounded-3xl p-5 sm:p-6 relative overflow-hidden"
+            style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+          >
+            {/* Brand-colored top rail so each card feels owned by the brand. */}
+            <div
+              className="absolute top-0 left-0 right-0 h-1"
+              style={{ background: `linear-gradient(90deg, ${PRIMARY}, ${ACCENT})` }}
+              aria-hidden
+            />
+            <p
+              className="text-[10px] font-black uppercase tracking-widest mb-4"
+              style={{ color: PRIMARY }}
+            >
+              Datos de la marca
+            </p>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {facts.map(({ icon: Icon, label, value, sub }) => (
-                <div key={label} className="rounded-2xl p-4" style={{
-                  background: "linear-gradient(135deg,rgba(30,118,182,0.06),rgba(52,140,203,0.04))",
-                  border: "1px solid rgba(30,118,182,0.12)",
-                }}>
-                  <div className="w-9 h-9 rounded-xl bg-white border border-[#1E76B6]/15 flex items-center justify-center mb-2.5">
-                    <Icon className="w-4 h-4 text-[#1E76B6]" />
+                <div
+                  key={label}
+                  className="rounded-2xl p-4"
+                  style={{
+                    background: `linear-gradient(135deg, ${rgba(PRIMARY, 0.07)}, ${rgba(PRIMARY, 0.03)})`,
+                    border: `1px solid ${rgba(PRIMARY, 0.14)}`,
+                  }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl bg-white flex items-center justify-center mb-2.5"
+                    style={{ border: `1px solid ${rgba(PRIMARY, 0.18)}` }}
+                  >
+                    <Icon className="w-4 h-4" style={{ color: PRIMARY }} />
                   </div>
-                  <p className="text-[9px] font-black text-[#1E76B6] uppercase tracking-widest">{label}</p>
+                  <p
+                    className="text-[9px] font-black uppercase tracking-widest"
+                    style={{ color: PRIMARY }}
+                  >
+                    {label}
+                  </p>
                   <p className="text-sm font-black text-[#0A183A] mt-0.5 leading-tight">{value}</p>
                   {sub && <p className="text-[10px] text-gray-500 mt-0.5">{sub}</p>}
                 </div>
@@ -254,22 +300,33 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
           </section>
         )}
 
-        {/* Description */}
+        {/* Description — with a brand-colored left accent bar. */}
         {brand.description && (
-          <section className="bg-white rounded-3xl p-6" style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}>
-            <h2 className="text-lg font-black text-[#0A183A] mb-3">Historia de {brand.name}</h2>
-            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{brand.description}</p>
-            {brand.website && (
-              <a
-                href={brand.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 mt-4 text-xs font-black text-[#1E76B6] hover:underline"
-              >
-                <Globe className="w-3.5 h-3.5" />
-                Sitio oficial
-              </a>
-            )}
+          <section
+            className="bg-white rounded-3xl p-6 relative overflow-hidden"
+            style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+          >
+            <div
+              className="absolute top-0 bottom-0 left-0 w-1.5"
+              style={{ background: `linear-gradient(180deg, ${PRIMARY}, ${ACCENT})` }}
+              aria-hidden
+            />
+            <div className="pl-4">
+              <h2 className="text-lg font-black text-[#0A183A] mb-3">Historia de {brand.name}</h2>
+              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{brand.description}</p>
+              {brand.website && (
+                <a
+                  href={brand.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-4 text-xs font-black hover:underline transition-colors"
+                  style={{ color: PRIMARY }}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  Sitio oficial
+                </a>
+              )}
+            </div>
           </section>
         )}
 
@@ -279,7 +336,11 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
             <h2 className="text-lg font-black text-[#0A183A] mb-3">Plantas de producción</h2>
             <div className="flex flex-wrap gap-2">
               {brand.plants.map((p, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#1E76B6]/10 text-[#1E76B6]">
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+                  style={{ background: rgba(PRIMARY, 0.1), color: PRIMARY }}
+                >
                   <Factory className="w-3 h-3" />
                   {[p.city, p.country].filter(Boolean).join(", ")}
                 </span>
@@ -292,13 +353,19 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
         <section>
           <div className="flex items-end justify-between mb-3">
             <div>
-              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Catálogo</p>
+              <p
+                className="text-[10px] font-black uppercase tracking-widest mb-1"
+                style={{ color: PRIMARY }}
+              >
+                Catálogo
+              </p>
               <h2 className="text-xl sm:text-2xl font-black text-[#0A183A]">Llantas {brand.name} disponibles</h2>
             </div>
             {brand.total > brand.listings.length && (
               <Link
                 href={`/marketplace?q=${encodeURIComponent(brand.name)}`}
-                className="text-xs font-black text-[#1E76B6] hover:underline flex items-center gap-1"
+                className="text-xs font-black hover:underline flex items-center gap-1 transition-colors"
+                style={{ color: PRIMARY }}
               >
                 Ver las {brand.total} <ArrowRight className="w-3 h-3" />
               </Link>
@@ -321,9 +388,21 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                   <Link
                     key={l.id}
                     href={`/marketplace/product/${l.id}`}
-                    className="bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group border border-gray-100"
+                    className="bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group relative"
+                    style={{ border: `1px solid ${rgba(PRIMARY, 0.1)}` }}
                   >
-                    <div className="aspect-square flex items-center justify-center overflow-hidden" style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}>
+                    {/* Brand accent strip at the top of each card */}
+                    <div
+                      className="absolute top-0 left-0 right-0 h-0.5 opacity-40 group-hover:opacity-100 transition-opacity"
+                      style={{ background: `linear-gradient(90deg, ${PRIMARY}, ${ACCENT})` }}
+                      aria-hidden
+                    />
+                    <div
+                      className="aspect-square flex items-center justify-center overflow-hidden"
+                      style={{
+                        background: `radial-gradient(circle at 30% 20%, #ffffff, ${rgba(PRIMARY, 0.04)})`,
+                      }}
+                    >
                       {cover ? (
                         <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension}`} className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform" />
                       ) : (
@@ -331,7 +410,12 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                       )}
                     </div>
                     <div className="p-3.5">
-                      <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>
+                      <p
+                        className="text-[10px] font-black uppercase tracking-widest"
+                        style={{ color: PRIMARY }}
+                      >
+                        {l.marca}
+                      </p>
                       <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
                       <p className="text-[10px] text-gray-400">{l.dimension}</p>
                       <p className="text-base font-black text-[#0A183A] mt-1">{fmtCOP(price)}</p>
