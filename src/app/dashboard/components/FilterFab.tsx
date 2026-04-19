@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { SlidersHorizontal, X, Search, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, X, Search, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import {
+  AdvancedCondition,
+  FIELD_META,
+  OP_LABELS,
+  NumericField,
+  Operator,
+  newCondition,
+} from '@/shared/advancedFilters';
 
 /* -- Filter config ---------------------------------------------------------- */
 
@@ -21,6 +29,9 @@ interface FilterFabProps {
   search?: string;
   onSearchChange?: (v: string) => void;
   searchPlaceholder?: string;
+  /** Optional advanced (numeric comparison) conditions */
+  advancedConditions?: AdvancedCondition[];
+  onAdvancedChange?: (next: AdvancedCondition[]) => void;
 }
 
 const ALL = 'Todos';
@@ -32,13 +43,31 @@ export default function FilterFab({
   search,
   onSearchChange,
   searchPlaceholder = 'Buscar...',
+  advancedConditions,
+  onAdvancedChange,
 }: FilterFabProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const advEnabled = Array.isArray(advancedConditions) && !!onAdvancedChange;
+  const adv = advancedConditions ?? [];
 
-  const activeCount = Object.values(values).filter(
-    (v) => v && v !== ALL,
-  ).length + (search?.trim() ? 1 : 0);
+  const activeCount =
+    Object.values(values).filter((v) => v && v !== ALL).length
+    + (search?.trim() ? 1 : 0)
+    + adv.length;
+
+  function updateAdv(next: AdvancedCondition[]) {
+    onAdvancedChange?.(next);
+  }
+  function patchAdv(id: string, patch: Partial<AdvancedCondition>) {
+    updateAdv(adv.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }
+  function removeAdv(id: string) {
+    updateAdv(adv.filter((c) => c.id !== id));
+  }
+  function addAdv() {
+    updateAdv([...adv, newCondition()]);
+  }
 
   // Close on outside click
   useEffect(() => {
@@ -55,6 +84,7 @@ export default function FilterFab({
   function clearAll() {
     filters.forEach((f) => onChange(f.key, ALL));
     onSearchChange?.('');
+    if (advEnabled) onAdvancedChange?.([]);
   }
 
   return (
@@ -216,6 +246,126 @@ export default function FilterFab({
                 </div>
               );
             })}
+
+            {/* Advanced numeric conditions */}
+            {advEnabled && (
+              <div className="pt-3" style={{ borderTop: '1px solid rgba(52,140,203,0.1)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Filtros avanzados
+                    {adv.length > 0 && (
+                      <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                            style={{ background: 'rgba(30,118,182,0.1)', color: '#1E76B6' }}>
+                        {adv.length}
+                      </span>
+                    )}
+                  </label>
+                  <button
+                    onClick={addAdv}
+                    className="flex items-center gap-1 text-[10px] font-bold text-[#1E76B6] hover:opacity-70 transition-opacity"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Agregar
+                  </button>
+                </div>
+
+                {adv.length === 0 ? (
+                  <p className="text-[10px] text-gray-400 italic mb-1">
+                    Ej. CPK menor que 50, Km mayor que 40 000…
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {adv.map((cond) => {
+                      const meta = FIELD_META[cond.field];
+                      return (
+                        <div
+                          key={cond.id}
+                          className="p-2 rounded-xl"
+                          style={{
+                            background: 'rgba(30,118,182,0.04)',
+                            border: '1px solid rgba(30,118,182,0.15)',
+                          }}
+                        >
+                          {/* Row 1: field + operator + remove */}
+                          <div className="flex items-center gap-1.5">
+                            <div className="relative flex-1 min-w-0">
+                              <select
+                                value={cond.field}
+                                onChange={(e) => patchAdv(cond.id, { field: e.target.value as NumericField })}
+                                className="w-full appearance-none px-2 py-1.5 pr-7 rounded-lg text-[11px] font-semibold bg-white border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#348CCB]/30"
+                                style={{ color: '#0A183A' }}
+                              >
+                                {(Object.keys(FIELD_META) as NumericField[]).map((f) => (
+                                  <option key={f} value={f}>{FIELD_META[f].label}</option>
+                                ))}
+                              </select>
+                              <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                            </div>
+                            <div className="relative w-24">
+                              <select
+                                value={cond.op}
+                                onChange={(e) => patchAdv(cond.id, { op: e.target.value as Operator })}
+                                className="w-full appearance-none px-2 py-1.5 pr-6 rounded-lg text-[11px] font-bold bg-white border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#348CCB]/30"
+                                style={{ color: '#1E76B6' }}
+                              >
+                                {(Object.keys(OP_LABELS) as Operator[]).map((o) => (
+                                  <option key={o} value={o}>
+                                    {o === 'gt' ? '>' : o === 'lt' ? '<' : o === 'gte' ? '≥'
+                                      : o === 'lte' ? '≤' : o === 'eq' ? '=' : 'entre'}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                            </div>
+                            <button
+                              onClick={() => removeAdv(cond.id)}
+                              className="flex-shrink-0 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                              aria-label="Eliminar condición"
+                            >
+                              <Trash2 className="w-3 h-3 text-red-400" />
+                            </button>
+                          </div>
+
+                          {/* Row 2: value input(s) + unit */}
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <div className="flex-1 relative">
+                              <input
+                                type="number"
+                                value={cond.value}
+                                onChange={(e) => patchAdv(cond.id, { value: parseFloat(e.target.value) || 0 })}
+                                placeholder={meta.placeholder}
+                                className="w-full px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-white border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#348CCB]/30"
+                                style={{ color: '#0A183A' }}
+                              />
+                            </div>
+                            {cond.op === 'between' && (
+                              <>
+                                <span className="text-[10px] text-gray-400 font-bold">y</span>
+                                <div className="flex-1 relative">
+                                  <input
+                                    type="number"
+                                    value={cond.value2 ?? ''}
+                                    onChange={(e) => patchAdv(cond.id, { value2: parseFloat(e.target.value) || 0 })}
+                                    placeholder={meta.placeholder}
+                                    className="w-full px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-white border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#348CCB]/30"
+                                    style={{ color: '#0A183A' }}
+                                  />
+                                </div>
+                              </>
+                            )}
+                            {meta.unit && (
+                              <span className="text-[10px] text-gray-400 font-bold w-10 text-right">
+                                {meta.unit}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

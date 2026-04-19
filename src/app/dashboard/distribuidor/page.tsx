@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
+import { AdvancedCondition, passAllAdvanced } from "@/shared/advancedFilters";
 
 import SemaforoPie     from "../cards/semaforoPie";
 import SemaforoTabla   from "../cards/semaforoTabla";
@@ -615,6 +616,7 @@ export default function DistribuidorPage() {
     alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos",
   });
   const [filterSearch, setFilterSearch] = useState("");
+  const [advancedConditions, setAdvancedConditions] = useState<AdvancedCondition[]>([]);
 
   // -- Auth user --------------------------------------------------------------
   useEffect(() => {
@@ -877,6 +879,7 @@ export default function DistribuidorPage() {
   // while the heavy memo chain reads the deferred copy.
   const deferredFilterValues = useDeferredValue(filterValues);
   const deferredFilterSearch = useDeferredValue(filterSearch);
+  const deferredAdvanced     = useDeferredValue(advancedConditions);
 
   const filteredTires: NormTire[] = useMemo(() => {
     // Filter the chartTires snapshot (NOT allTires). During streaming,
@@ -919,13 +922,18 @@ export default function DistribuidorPage() {
         return tirePlaca.includes(q) || vPlaca.includes(q);
       });
     }
+    if (deferredAdvanced.length > 0) {
+      result = result.filter((t) => passAllAdvanced(t, deferredAdvanced));
+    }
     return result;
-  }, [chartTires, deferredFilterValues, deferredFilterSearch, vehicleMap]);
+  }, [chartTires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, vehicleMap]);
 
   // True while React is catching up a deferred filter change — used for a
   // subtle overlay hint so the user knows the charts are about to update.
   const filterPending =
-    filterValues !== deferredFilterValues || filterSearch !== deferredFilterSearch;
+    filterValues       !== deferredFilterValues
+    || filterSearch    !== deferredFilterSearch
+    || advancedConditions !== deferredAdvanced;
 
   // Filter dropdown options derived from the chart snapshot — same
   // rationale as filteredTires above: mid-stream chunks shouldn't rebuild
@@ -1273,6 +1281,8 @@ export default function DistribuidorPage() {
           search={filterSearch}
           onSearchChange={setFilterSearch}
           searchPlaceholder="Buscar por placa..."
+          advancedConditions={advancedConditions}
+          onAdvancedChange={setAdvancedConditions}
         />
       )}
     </div>

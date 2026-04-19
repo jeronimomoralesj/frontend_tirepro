@@ -36,6 +36,7 @@ import PorMarca from "../cards/porMarca";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 import LazyMount from "@/shared/LazyMount";
+import { AdvancedCondition, passAllAdvanced } from "@/shared/advancedFilters";
 
 // -- Chart.js registration ----------------------------------------------------
 
@@ -284,6 +285,7 @@ export default function ResumenPage() {
     marca: "Todos", eje: "Todos", vida: "Todos",
   });
   const [filterSearch, setFilterSearch] = useState("");
+  const [advancedConditions, setAdvancedConditions] = useState<AdvancedCondition[]>([]);
 
   // -- Fetch ------------------------------------------------------------------
 
@@ -368,8 +370,11 @@ export default function ResumenPage() {
   // idle-priority.
   const deferredFilterValues = useDeferredValue(filterValues);
   const deferredFilterSearch = useDeferredValue(filterSearch);
+  const deferredAdvanced     = useDeferredValue(advancedConditions);
   const filterPending =
-    filterValues !== deferredFilterValues || filterSearch !== deferredFilterSearch;
+    filterValues       !== deferredFilterValues
+    || filterSearch    !== deferredFilterSearch
+    || advancedConditions !== deferredAdvanced;
 
   const filterOptions: FilterOption[] = useMemo(() => [
     { key: "marca", label: "Marca", options: ["Todos", ...Array.from(new Set(tires.map((t) => t.marca))).sort()] },
@@ -392,8 +397,11 @@ export default function ResumenPage() {
       const q = deferredFilterSearch.toLowerCase();
       result = result.filter((t) => t.placa.toLowerCase().includes(q) || t.marca.toLowerCase().includes(q));
     }
+    if (deferredAdvanced.length > 0) {
+      result = result.filter((t) => passAllAdvanced(t, deferredAdvanced));
+    }
     return result;
-  }, [tires, deferredFilterValues, deferredFilterSearch]);
+  }, [tires, deferredFilterValues, deferredFilterSearch, deferredAdvanced]);
 
   // Fin-de-vida tires (for dinero perdido — applies marca/eje/search but always keeps only fin)
   const finTires = useMemo(() => {
@@ -935,6 +943,8 @@ export default function ResumenPage() {
           search={filterSearch}
           onSearchChange={setFilterSearch}
           searchPlaceholder="Buscar por placa o marca..."
+          advancedConditions={advancedConditions}
+          onAdvancedChange={setAdvancedConditions}
         />
       )}
     </div>

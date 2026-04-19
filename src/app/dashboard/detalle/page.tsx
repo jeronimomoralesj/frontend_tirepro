@@ -6,6 +6,7 @@ import { Loader2, BarChart3, Calendar } from "lucide-react";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 import LazyMount from "@/shared/LazyMount";
+import { AdvancedCondition, passAllAdvanced } from "@/shared/advancedFilters";
 
 import SemaforoPie from "../cards/semaforoPie";
 import SemaforoTabla from "../cards/semaforoTabla";
@@ -257,6 +258,7 @@ export default function DetallePage() {
     alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos",
   });
   const [filterSearch, setFilterSearch] = useState("");
+  const [advancedConditions, setAdvancedConditions] = useState<AdvancedCondition[]>([]);
   const [selectedEje, setSelectedEje] = useState("");
 
   /* -- Fetch --------------------------------------------------------------- */
@@ -362,8 +364,11 @@ export default function DetallePage() {
   // runs at idle priority. Toggling a filter off no longer freezes the UI.
   const deferredFilterValues = useDeferredValue(filterValues);
   const deferredFilterSearch = useDeferredValue(filterSearch);
+  const deferredAdvanced     = useDeferredValue(advancedConditions);
   const filterPending =
-    filterValues !== deferredFilterValues || filterSearch !== deferredFilterSearch;
+    filterValues       !== deferredFilterValues
+    || filterSearch    !== deferredFilterSearch
+    || advancedConditions !== deferredAdvanced;
 
   const filtered = useMemo(() => {
     let result = tires;
@@ -395,8 +400,13 @@ export default function DetallePage() {
       });
     }
 
+    // Advanced numeric conditions (CPK >, km <, depth between, etc.).
+    if (deferredAdvanced.length > 0) {
+      result = result.filter((t) => passAllAdvanced(t, deferredAdvanced));
+    }
+
     return result;
-  }, [tires, deferredFilterValues, deferredFilterSearch, vehicleMap]);
+  }, [tires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, vehicleMap]);
 
   /* -- Alert counts (same filtered set as all cards) --------------------- */
 
@@ -604,6 +614,8 @@ export default function DetallePage() {
           search={filterSearch}
           onSearchChange={setFilterSearch}
           searchPlaceholder="Buscar por placa..."
+          advancedConditions={advancedConditions}
+          onAdvancedChange={setAdvancedConditions}
         />
       )}
     </div>
