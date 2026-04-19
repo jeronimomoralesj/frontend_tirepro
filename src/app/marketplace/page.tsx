@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Loader2, Package, Truck, X, Store, MapPin,
   ChevronLeft, ChevronRight, Star,
@@ -96,6 +96,8 @@ export default function PublicMarketplaceWrapper() {
 
 function PublicMarketplace() {
   const searchParams = useSearchParams();
+  const router       = useRouter();
+  const pathname     = usePathname();
   const [listings, setListings] = useState<Listing[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -290,25 +292,57 @@ function PublicMarketplace() {
   useEffect(() => { fetchListings(); }, [fetchListings]);
   useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, rimSizes, ciudad, sortBy]);
 
+  // Keep the URL's `?q=` in sync with the search state so users can share
+  // links (`/marketplace?q=Bfgoodrich`) and the back button works as they
+  // expect. Uses router.replace so we don't stack history entries on
+  // every keystroke. Debounced via the trim() check — empty searches
+  // clear the query param cleanly.
+  useEffect(() => {
+    const trimmed = search.trim();
+    const current = searchParams.get("q") ?? "";
+    if (trimmed === current) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    if (trimmed) params.set("q", trimmed);
+    else         params.delete("q");
+
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [search, pathname, router, searchParams]);
+
   const activeFilters = [dimension, marca, tipo, distributorId, rimSizes.length > 0 ? "rim" : "", ciudadManual ? ciudad : ""].filter(Boolean).length;
 
   function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setRimSizes([]); setCategoryLabel(""); setCiudad(""); setCiudadManual(false); }
 
   // Matching brands for the current search term — surfaced as a horizontal
-  // strip above the product listings. This lets users land on a brand page
-  // even when we currently stock zero tires of that brand (the brand page
-  // has a graceful empty state + links back to the full marketplace).
+  // strip above the product listings. Lets users land on a brand page even
+  // when we currently stock zero tires of that brand.
+  //
+  // Ranking: starts-with > word-boundary > substring. Also normalizes
+  // diacritics so "bfg" / "BFGOODRICH" / "bf goodrich" all find
+  // BFGoodrich. Kept at 12 max so the strip stays scannable on mobile.
   const matchingBrands = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q || q.length < 2) return [];
-    const hits: BrandMeta[] = [];
+    const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const q = norm(search);
+    if (!q || q.length < 1) return [];
+
+    type Scored = { meta: BrandMeta; score: number };
+    const scored: Scored[] = [];
     for (const meta of brandsMap.values()) {
-      if (meta.name.toLowerCase().includes(q)) {
-        hits.push(meta);
-        if (hits.length >= 12) break; // keep the row scannable
-      }
+      const n = norm(meta.name);
+      let score = 0;
+      if (n === q)                              score = 100;
+      else if (n.startsWith(q))                 score = 80;
+      // Word-boundary match — picks up "BF Goodrich" when user types "go"
+      else if (new RegExp(`\\b${q}`).test(n))   score = 60;
+      else if (n.includes(q))                   score = 40;
+      // Compact match: collapse spaces/hyphens so "bfg" matches "bf goodrich"
+      else if (q.length >= 3 && n.replace(/[\s-]+/g, "").includes(q.replace(/[\s-]+/g, "")))
+        score = 30;
+      if (score > 0) scored.push({ meta, score });
     }
-    return hits.sort((a, b) => a.name.localeCompare(b.name));
+    scored.sort((a, b) => b.score - a.score || a.meta.name.localeCompare(b.meta.name));
+    return scored.slice(0, 12).map((s) => s.meta);
   }, [search, brandsMap]);
 
   return (
@@ -508,6 +542,54 @@ function PublicMarketplace() {
             </aside>
 
             <div>
+              {/* Brand match strip — rendered FIRST so users see matching
+                  brands even when there are zero product rows below.
+                  Appears whenever the search term matches ≥1 brand
+                  regardless of whether we stock their tires right now. */}
+              {matchingBrands.length > 0 && search.trim() && (
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">
+                      {matchingBrands.length === 1
+                        ? `Marca: ${matchingBrands[0].name}`
+                        : `Marcas que coinciden con "${search}"`}
+                    </p>
+                    {matchingBrands.length > 1 && (
+                      <span className="text-[10px] font-bold text-gray-400">
+                        {matchingBrands.length} marca{matchingBrands.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+                    {matchingBrands.map((b) => (
+                      <Link
+                        key={b.slug}
+                        href={`/marketplace/brand/${b.slug}`}
+                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white border border-gray-200 hover:border-[#1E76B6] hover:shadow-md transition-all flex-shrink-0 group min-w-[160px]"
+                      >
+                        <span
+                          className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-sm font-black"
+                          style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+                        >
+                          {b.logoUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={b.logoUrl} alt="" className="max-w-full max-h-full object-contain p-0.5 bg-white" />
+                          ) : (
+                            b.name.charAt(0).toUpperCase()
+                          )}
+                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-black text-[#0A183A] leading-tight truncate">{b.name}</span>
+                          <span className="text-[9px] text-gray-400 group-hover:text-[#1E76B6] transition-colors">
+                            Ver marca →
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Results header */}
               <div className="flex items-center justify-between mb-4 gap-3">
                 <p className="text-sm text-gray-500">
@@ -522,44 +604,6 @@ function PublicMarketplace() {
                   <option value="newest">Más recientes</option>
                 </select>
               </div>
-
-              {/* Brand match strip — shows matching brands during search
-                  even if zero tires are currently listed. Links to the
-                  brand page where the user can learn about the brand
-                  and see any future listings. */}
-              {matchingBrands.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
-                    Marcas que coinciden con &quot;{search}&quot;
-                  </p>
-                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
-                    {matchingBrands.map((b) => (
-                      <Link
-                        key={b.slug}
-                        href={`/marketplace/brand/${b.slug}`}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-[#1E76B6] hover:shadow-md transition-all flex-shrink-0 group"
-                      >
-                        <span
-                          className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-[#0A183A] to-[#1E76B6] text-white text-xs font-black"
-                        >
-                          {b.logoUrl ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={b.logoUrl} alt="" className="max-w-full max-h-full object-contain p-0.5 bg-white" />
-                          ) : (
-                            b.name.charAt(0).toUpperCase()
-                          )}
-                        </span>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-black text-[#0A183A] leading-tight">{b.name}</span>
-                          <span className="text-[9px] text-gray-400 group-hover:text-[#1E76B6] transition-colors">
-                            Ver marca →
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Product list — full-width rows */}
               <div className="space-y-3">
