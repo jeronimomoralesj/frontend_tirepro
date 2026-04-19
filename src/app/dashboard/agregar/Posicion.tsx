@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   X,
@@ -236,17 +237,54 @@ function SectionLabel({ children, count }: { children: React.ReactNode; count?: 
 // Tire tooltip
 // =============================================================================
 
-function TireTooltip({ tire }: { tire: Tire }) {
+function TireTooltip({ tire, anchor }: { tire: Tire; anchor: HTMLElement | null }) {
   const lastInsp = (tire.inspecciones ?? []).at(-1);
   const vida     = getCurrentVida(tire);
   const costo    = getLastCosto(tire);
 
-  return (
+  // Portal + fixed positioning so the tooltip escapes the Inventario
+  // scroll container's `overflow-y-auto` clipping (tires at the top row
+  // used to have their tooltip chopped off).
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!anchor || typeof window === "undefined") return;
+
+    const TIP_WIDTH = 224, TIP_HEIGHT = 220, GAP = 10;
+
+    const update = () => {
+      const r = anchor.getBoundingClientRect();
+      const anchorCenterX = r.left + r.width / 2;
+      const spaceAbove = r.top;
+      const top = spaceAbove >= TIP_HEIGHT + GAP ? r.top - GAP - TIP_HEIGHT : r.bottom + GAP;
+      let left = anchorCenterX - TIP_WIDTH / 2;
+      const margin = 8;
+      if (left < margin) left = margin;
+      if (left + TIP_WIDTH > window.innerWidth - margin) left = window.innerWidth - TIP_WIDTH - margin;
+      setPos({ top, left });
+    };
+
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [anchor]);
+
+  if (typeof window === "undefined" || !pos) return null;
+
+  return createPortal(
     <div
-      className="absolute z-50 bottom-[115%] left-1/2 -translate-x-1/2 w-56 text-white text-xs rounded-2xl shadow-2xl p-3 pointer-events-none"
-      style={{ background: "#0A183A", border: "1px solid rgba(52,140,203,0.3)" }}
+      className="fixed z-[1000] w-56 text-white text-xs rounded-2xl shadow-2xl p-3 pointer-events-none"
+      style={{
+        top: pos.top,
+        left: pos.left,
+        background: "#0A183A",
+        border: "1px solid rgba(52,140,203,0.3)",
+      }}
     >
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-[#0A183A]" />
       <p className="font-bold text-sm text-[#348CCB] mb-2 truncate">{tire.marca} — {tire.diseno}</p>
       <div className="grid grid-cols-2 gap-x-2 gap-y-1">
         <span className="text-white/50">Dimensión</span><span className="truncate">{tire.dimension ?? "—"}</span>
@@ -271,7 +309,8 @@ function TireTooltip({ tire }: { tire: Tire }) {
         </>
       )}
       {!lastInsp && <p className="text-white/40 italic mt-1">Sin inspecciones registradas</p>}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -305,7 +344,7 @@ function DraggableTire({ tire, variant = "vehicle" }: { tire: Tire; variant?: "v
         border: "2px solid rgba(52,140,203,0.3)",
       }}
     >
-      {hovered && !isDragging && <TireTooltip tire={tire} />}
+      {hovered && !isDragging && <TireTooltip tire={tire} anchor={ref.current} />}
       <span
         className="text-white font-black text-[10px] tracking-wider text-center px-1 leading-tight"
         style={{ fontFamily: "'DM Mono', monospace" }}
@@ -336,21 +375,23 @@ function InventoryTile({ tire }: { tire: Tire }) {
       ref={ref}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="relative flex flex-col items-center justify-center rounded-2xl cursor-move select-none px-3 py-3 transition-all"
+      className="relative flex flex-col items-center justify-center rounded-xl cursor-move select-none px-1.5 py-1.5 transition-all"
       style={{
-        width: 90, height: 90,
+        // Compact 68×68 tile lets ~4 more fit per row and halves the
+        // vertical footprint of the Inventario scroll pane.
+        width: 68, height: 68,
         background: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
         opacity: isDragging ? 0.4 : 1,
         border: "1px solid rgba(52,140,203,0.3)",
         boxShadow: hovered ? "0 6px 20px rgba(10,24,58,0.2)" : "0 2px 8px rgba(10,24,58,0.1)",
       }}
     >
-      {hovered && !isDragging && <TireTooltip tire={tire} />}
-      <span className="text-white font-black text-[10px] tracking-wider text-center leading-tight" style={{ fontFamily: "'DM Mono', monospace" }}>
+      {hovered && !isDragging && <TireTooltip tire={tire} anchor={ref.current} />}
+      <span className="text-white font-black text-[9px] tracking-wider text-center leading-tight" style={{ fontFamily: "'DM Mono', monospace" }}>
         {tire.marca.toUpperCase().slice(0, 6)}
       </span>
-      <span className="text-white/70 text-[9px] mt-1 truncate w-full text-center">{tire.diseno}</span>
-      <span className="text-white/60 text-[9px] font-semibold">{getMinDepth(tire)}</span>
+      <span className="text-white/70 text-[8px] truncate w-full text-center leading-tight">{tire.diseno}</span>
+      <span className="text-white/60 text-[8px] font-semibold leading-none">{getMinDepth(tire)}</span>
     </div>
   );
 }
