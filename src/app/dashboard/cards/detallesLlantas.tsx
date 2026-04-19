@@ -103,17 +103,32 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({ tires, vehicles }) =>
 
   const searchFilteredTires = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return tires;
-    return tires.filter((tire) => {
-      const vehPlaca = tire.vehicleId ? (vehicleMap[tire.vehicleId] ?? "").toLowerCase() : "";
-      return (
-        tire.placa.toLowerCase().includes(q) ||
-        tire.marca.toLowerCase().includes(q) ||
-        tire.diseno.toLowerCase().includes(q) ||
-        tire.dimension.toLowerCase().includes(q) ||
-        tire.eje.toLowerCase().includes(q) ||
-        vehPlaca.includes(q)
-      );
+    const base = !q
+      ? tires
+      : tires.filter((tire) => {
+          const vehPlaca = tire.vehicleId ? (vehicleMap[tire.vehicleId] ?? "").toLowerCase() : "";
+          return (
+            tire.placa.toLowerCase().includes(q) ||
+            tire.marca.toLowerCase().includes(q) ||
+            tire.diseno.toLowerCase().includes(q) ||
+            tire.dimension.toLowerCase().includes(q) ||
+            tire.eje.toLowerCase().includes(q) ||
+            vehPlaca.includes(q)
+          );
+        });
+
+    // Sort by vehicle placa (A→Z), then by posicion (1→N). Keeps all tires
+    // from the same vehicle together so the user can read down a truck
+    // without hunting. Tires with no vehicle (inventory / free pool) sink
+    // to the bottom so the fleet rows come first.
+    return [...base].sort((a, b) => {
+      const pa = a.vehicleId ? (vehicleMap[a.vehicleId] ?? "") : "";
+      const pb = b.vehicleId ? (vehicleMap[b.vehicleId] ?? "") : "";
+      // Empty placa always sorts last
+      if (!pa && pb) return 1;
+      if (pa && !pb) return -1;
+      if (pa !== pb) return pa.localeCompare(pb, "es", { numeric: true, sensitivity: "base" });
+      return (a.posicion ?? 0) - (b.posicion ?? 0);
     });
   }, [tires, vehicleMap, searchTerm]);
 
