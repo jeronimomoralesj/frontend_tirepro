@@ -124,12 +124,18 @@ function Modal({
   danger?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto overscroll-contain"
-         style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[calc(100vh-2rem)] my-auto"
-           style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain px-4 py-6 sm:py-12"
+      style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto"
+        style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div
-          className="px-6 py-4 flex justify-between items-center rounded-t-2xl shrink-0"
+          className="px-6 py-4 flex justify-between items-center rounded-t-2xl"
           style={{
             background: danger
               ? "linear-gradient(135deg, #173D68 0%, #0A183A 100%)"
@@ -144,9 +150,7 @@ function Modal({
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
-          {children}
-        </div>
+        {children}
       </div>
     </div>
   );

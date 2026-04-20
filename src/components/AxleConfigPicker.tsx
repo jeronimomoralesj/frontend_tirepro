@@ -122,7 +122,7 @@ export function AxleConfigPicker({
   const normalizedValue = value ?? "";
 
   return (
-    <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 ${className}`}>
+    <div className={`grid grid-cols-3 gap-2 ${className}`}>
       {options.map((cfg) => {
         const isCurrent = normalizedValue === cfg.value;
         return (
@@ -131,7 +131,7 @@ export function AxleConfigPicker({
             type="button"
             disabled={disabled}
             onClick={() => onChange(cfg.value)}
-            className="relative flex flex-col items-center justify-between rounded-xl p-2.5 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative flex flex-col items-center justify-between rounded-xl p-2 transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden min-w-0"
             style={{
               border: isCurrent ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.25)",
               background: isCurrent ? "rgba(30,118,182,0.08)" : "#fff",
@@ -149,14 +149,14 @@ export function AxleConfigPicker({
                 Actual
               </span>
             )}
-            <div className="flex-1 flex items-center justify-center w-full">
-              <MiniAxleDiagram config={cfg.value} />
+            <div className="flex-1 flex items-center justify-center w-full overflow-hidden">
+              <MiniAxleDiagram config={cfg.value} tireSize={10} axleWidth={20} />
             </div>
-            <div className="text-center mt-1.5">
+            <div className="text-center mt-1.5 w-full">
               <p className="text-[11px] font-bold text-[#0A183A] leading-none">
                 {cfg.label}
               </p>
-              <p className="text-[9px] text-[#93b8d4] mt-1 leading-tight">
+              <p className="text-[9px] text-[#93b8d4] mt-1 leading-tight break-words">
                 {cfg.description}
               </p>
             </div>
