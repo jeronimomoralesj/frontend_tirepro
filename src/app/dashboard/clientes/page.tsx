@@ -16,28 +16,55 @@ type TabKey = "clientes" | "equipo";
 
 type DateRangeKey = "today" | "7d" | "30d" | "90d" | "all";
 
+type EquipoClientBreakdown = {
+  clientCompanyId:   string | null;
+  clientCompanyName: string;
+  vehiclesInspected: number;
+  tiresInspected:    number;
+};
+
 type EquipoUser = {
   id:             string;
   name:           string;
   email:          string;
   role:           string;
   createdAt:      string;
-  lastLoginAt:    string | null;
-  loginCount:     number;
-  inspections:    number;
-  lastInspection: string | null;
+  lastLoginAt:    string | null;   // lifetime
+  loginCount:     number;           // lifetime
+  inspections:    number;           // in window
+  lastInspection: string | null;    // in window
+  // New window-scoped fields returned by the v2 endpoint.
+  loginsInWindow?:     number;
+  lastLoginInWindow?:  string | null;
+  clientsInspected?:   number;
+  clients?:            EquipoClientBreakdown[];
 };
 
-function dateRangeFromKey(key: DateRangeKey): { from?: string; to?: string } {
-  const now = new Date();
-  if (key === "all") return {};
-  if (key === "today") {
-    const start = new Date(now); start.setHours(0, 0, 0, 0);
-    return { from: start.toISOString() };
-  }
-  const days = key === "7d" ? 7 : key === "30d" ? 30 : 90;
-  const start = new Date(now); start.setDate(start.getDate() - days);
-  return { from: start.toISOString() };
+type KpiMetric = "vehicles_inspected" | "clients_inspected" | "tires_inspected";
+type KpiPeriod = "weekly" | "monthly" | "quarterly" | "custom";
+
+type TeamKpi = {
+  id:          string;
+  companyId:   string;
+  userId:      string | null;
+  metric:      KpiMetric;
+  period:      KpiPeriod;
+  periodStart: string;
+  periodEnd:   string;
+  target:      number;
+  notas:       string | null;
+  user?:       { id: string; name: string; email: string } | null;
+  actual:      number;
+  pct:         number;
+};
+
+function dateRangeFromKey(key: DateRangeKey): { days?: number; from?: string; to?: string } {
+  if (key === "all")   return {};
+  if (key === "today") return { days: 1 };
+  if (key === "7d")    return { days: 7 };
+  if (key === "30d")   return { days: 30 };
+  if (key === "90d")   return { days: 90 };
+  return {};
 }
 
 // =============================================================================
@@ -688,75 +715,389 @@ function EquipoSection({
   );
 }
 
+// =============================================================================
+// KPI panel — admin-defined inspection goals with live completion bars.
+// Company-wide KPIs have userId=null; individual KPIs target one user.
+// Fetches on mount, refreshes after create/delete.
+// =============================================================================
+const KPI_METRICS: { k: KpiMetric; label: string }[] = [
+  { k: "vehicles_inspected", label: "Vehículos inspeccionados" },
+  { k: "tires_inspected",    label: "Llantas inspeccionadas"   },
+  { k: "clients_inspected",  label: "Clientes inspeccionados"  },
+];
+const KPI_PERIODS: { k: KpiPeriod; label: string }[] = [
+  { k: "weekly",    label: "Semanal"    },
+  { k: "monthly",   label: "Mensual"    },
+  { k: "quarterly", label: "Trimestral" },
+  { k: "custom",    label: "Personalizado" },
+];
+
+function periodRange(period: KpiPeriod, start: string): { start: string; end: string } {
+  const startDate = new Date(start);
+  const end = new Date(startDate);
+  if (period === "weekly")    end.setDate(end.getDate() + 7);
+  else if (period === "monthly")   end.setMonth(end.getMonth() + 1);
+  else if (period === "quarterly") end.setMonth(end.getMonth() + 3);
+  else end.setMonth(end.getMonth() + 1);
+  return { start: startDate.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+function kpiMetricLabel(m: KpiMetric) {
+  return KPI_METRICS.find(x => x.k === m)?.label ?? m;
+}
+
+function KpiPanel({
+  equipo,
+  onToast,
+}: {
+  equipo: EquipoUser[];
+  onToast: (msg: string, type: "success" | "error") => void;
+}) {
+  const [kpis, setKpis]       = useState<TeamKpi[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // New-KPI form state
+  const today = new Date().toISOString().slice(0, 10);
+  const [formMetric,  setFormMetric]  = useState<KpiMetric>("vehicles_inspected");
+  const [formPeriod,  setFormPeriod]  = useState<KpiPeriod>("monthly");
+  const [formStart,   setFormStart]   = useState(today);
+  const [formEnd,     setFormEnd]     = useState(() => periodRange("monthly", today).end);
+  const [formTarget,  setFormTarget]  = useState<number | "">("");
+  const [formUser,    setFormUser]    = useState<string>("");   // "" = company-wide
+  const [formSubmitting, setFormSubmitting] = useState(false);
+
+  // Role check — KPI admin UI is admin-only to match existing permissions.
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user") ?? "{}");
+      setIsAdmin(u?.role === "admin");
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    const distributorId = getDistributorId();
+    if (!distributorId) return;
+    setLoading(true);
+    const qs = new URLSearchParams({ companyId: distributorId, includeExpired: "true" });
+    fetch(`${API_BASE}/team-kpis?${qs.toString()}`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("Error al cargar KPIs")))
+      .then((data: TeamKpi[]) => setKpis(Array.isArray(data) ? data : []))
+      .catch(err => onToast(err instanceof Error ? err.message : "Error KPIs", "error"))
+      .finally(() => setLoading(false));
+  }, [refreshKey, onToast]);
+
+  // Recompute end date when period changes (custom leaves it alone).
+  useEffect(() => {
+    if (formPeriod === "custom") return;
+    setFormEnd(periodRange(formPeriod, formStart).end);
+  }, [formPeriod, formStart]);
+
+  async function handleCreate() {
+    const distributorId = getDistributorId();
+    if (!distributorId) return;
+    if (!(typeof formTarget === "number" && formTarget > 0)) {
+      onToast("La meta debe ser un número mayor a 0", "error");
+      return;
+    }
+    setFormSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/team-kpis`, {
+        method:  "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          companyId:   distributorId,
+          userId:      formUser || null,
+          metric:      formMetric,
+          period:      formPeriod,
+          periodStart: formStart,
+          periodEnd:   formEnd,
+          target:      formTarget,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? "Error al crear KPI");
+      }
+      onToast("KPI creado", "success");
+      setShowForm(false);
+      setFormTarget("");
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "Error al crear KPI", "error");
+    } finally {
+      setFormSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      const res = await fetch(`${API_BASE}/team-kpis/${id}`, {
+        method: "DELETE", headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error("Error al eliminar");
+      onToast("KPI eliminado", "success");
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "Error al eliminar", "error");
+    }
+  }
+
+  // Global vs individual split — renders in two columns for clarity.
+  const globalKpis     = kpis.filter(k => !k.userId);
+  const individualKpis = kpis.filter(k =>  k.userId);
+
+  return (
+    <Card className="p-4 sm:p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm font-black text-[#0A183A]">KPIs del equipo</p>
+          <p className="text-[11px] text-gray-500">
+            Define metas de inspección. Compañía completa o por usuario.
+          </p>
+        </div>
+        {isAdmin && (
+          <button
+            onClick={() => setShowForm(x => !x)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold text-white"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+          >
+            <Plus className="w-3.5 h-3.5" /> {showForm ? "Cerrar" : "Nuevo KPI"}
+          </button>
+        )}
+      </div>
+
+      {/* Create form */}
+      {showForm && isAdmin && (
+        <div className="rounded-xl p-3 grid gap-2 sm:grid-cols-6" style={{ background: "rgba(240,247,255,0.6)", border: "1px solid rgba(52,140,203,0.15)" }}>
+          <select value={formMetric} onChange={e => setFormMetric(e.target.value as KpiMetric)} className="sm:col-span-2 text-xs px-2 py-1.5 rounded-lg border" style={{ borderColor: "rgba(52,140,203,0.25)" }}>
+            {KPI_METRICS.map(m => <option key={m.k} value={m.k}>{m.label}</option>)}
+          </select>
+          <select value={formPeriod} onChange={e => setFormPeriod(e.target.value as KpiPeriod)} className="text-xs px-2 py-1.5 rounded-lg border" style={{ borderColor: "rgba(52,140,203,0.25)" }}>
+            {KPI_PERIODS.map(p => <option key={p.k} value={p.k}>{p.label}</option>)}
+          </select>
+          <input type="date" value={formStart} onChange={e => setFormStart(e.target.value)} className="text-xs px-2 py-1.5 rounded-lg border" style={{ borderColor: "rgba(52,140,203,0.25)" }} />
+          <input type="date" value={formEnd} onChange={e => setFormEnd(e.target.value)} className="text-xs px-2 py-1.5 rounded-lg border" style={{ borderColor: "rgba(52,140,203,0.25)" }} />
+          <input type="number" min={1} placeholder="Meta" value={formTarget} onChange={e => setFormTarget(e.target.value === "" ? "" : Number(e.target.value))} className="text-xs px-2 py-1.5 rounded-lg border tabular-nums" style={{ borderColor: "rgba(52,140,203,0.25)" }} />
+          <select value={formUser} onChange={e => setFormUser(e.target.value)} className="sm:col-span-3 text-xs px-2 py-1.5 rounded-lg border" style={{ borderColor: "rgba(52,140,203,0.25)" }}>
+            <option value="">Toda la compañía</option>
+            {equipo.map(u => <option key={u.id} value={u.id}>{u.name} — {u.email}</option>)}
+          </select>
+          <button onClick={handleCreate} disabled={formSubmitting || !formTarget} className="sm:col-span-3 text-xs font-bold text-white rounded-lg py-2 disabled:opacity-40" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+            {formSubmitting ? "Guardando…" : "Crear KPI"}
+          </button>
+        </div>
+      )}
+
+      {/* KPI lists */}
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-gray-500 py-4">
+          <Loader2 className="w-4 h-4 animate-spin" /> Cargando KPIs…
+        </div>
+      ) : kpis.length === 0 ? (
+        <div className="text-center py-6">
+          <p className="text-xs text-gray-500">
+            Aún no hay KPIs. {isAdmin ? "Crea uno arriba para empezar a medir el equipo." : "Pide a un administrador que defina metas."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          <KpiList title="Globales (toda la compañía)" kpis={globalKpis} onDelete={isAdmin ? handleDelete : undefined} />
+          <KpiList title="Individuales"                  kpis={individualKpis} onDelete={isAdmin ? handleDelete : undefined} />
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function KpiList({
+  title, kpis, onDelete,
+}: {
+  title: string;
+  kpis: TeamKpi[];
+  onDelete?: (id: string) => void;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-wider text-gray-500 mb-2">{title}</p>
+      {kpis.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">Sin KPIs en este grupo.</p>
+      ) : (
+        <div className="space-y-2">
+          {kpis.map(k => {
+            const on = k.pct >= 100;
+            return (
+              <div key={k.id} className="rounded-xl p-2.5" style={{ border: "1px solid rgba(52,140,203,0.15)", background: "white" }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="flex-1 text-xs font-bold text-[#0A183A] truncate">
+                    {kpiMetricLabel(k.metric)}
+                    {k.user && <span className="text-[10px] font-medium text-gray-500 ml-1">· {k.user.name}</span>}
+                  </p>
+                  <p className="text-[10px] text-gray-400 tabular-nums">
+                    {new Date(k.periodStart).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
+                    {" – "}
+                    {new Date(k.periodEnd).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
+                  </p>
+                  {onDelete && (
+                    <button onClick={() => onDelete(k.id)} className="text-gray-300 hover:text-red-500">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(52,140,203,0.1)" }}>
+                  <div
+                    className="h-full transition-all"
+                    style={{
+                      width: `${Math.max(2, k.pct)}%`,
+                      background: on
+                        ? "linear-gradient(90deg, #22c55e, #16a34a)"
+                        : "linear-gradient(90deg, #1E76B6, #348CCB)",
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[10px] text-gray-500 tabular-nums">
+                    {k.actual.toLocaleString("es-CO")} / {k.target.toLocaleString("es-CO")}
+                  </p>
+                  <p className={`text-[10px] font-black tabular-nums ${on ? "text-emerald-600" : "text-[#1E76B6]"}`}>
+                    {k.pct}%
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EquipoRow({ user }: { user: EquipoUser }) {
+  const [expanded, setExpanded] = useState(false);
   const initials = user.name.trim().split(/\s+/).slice(0, 2).map(s => s[0]).join("").toUpperCase();
-  const lastLogin = user.lastLoginAt
-    ? new Date(user.lastLoginAt).toLocaleDateString("es-CO")
+  const lastLoginInWindow = user.lastLoginInWindow ?? null;
+  const lastLogin = lastLoginInWindow
+    ? new Date(lastLoginInWindow).toLocaleDateString("es-CO")
     : "—";
   const lastInsp = user.lastInspection
     ? new Date(user.lastInspection).toLocaleDateString("es-CO")
     : "—";
+  const loginsInWindow = user.loginsInWindow ?? 0;
+  const clients = user.clients ?? [];
 
   return (
-    <div className="flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-[rgba(240,247,255,0.6)] transition-colors">
-      {/* Avatar */}
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0"
-        style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded(x => !x)}
+        className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-[rgba(240,247,255,0.6)] transition-colors text-left"
       >
-        {initials || "?"}
-      </div>
-
-      {/* Name + email */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <p className="text-sm font-black text-[#0A183A] truncate">{user.name}</p>
-          <span
-            className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider flex-shrink-0"
-            style={{
-              background: user.role === "admin" ? "rgba(30,118,182,0.1)" : "rgba(100,116,139,0.1)",
-              color: user.role === "admin" ? "#1E76B6" : "#64748b",
-            }}
-          >
-            {user.role}
-          </span>
+        {/* Avatar */}
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+        >
+          {initials || "?"}
         </div>
-        <p className="text-[11px] text-gray-500 truncate flex items-center gap-1 mt-0.5">
-          <Mail className="w-2.5 h-2.5 flex-shrink-0" />
-          {user.email}
-        </p>
-      </div>
 
-      {/* Inspecciones — the headline metric for this tab */}
-      <div className="flex-shrink-0 text-right w-20 hidden sm:block">
-        <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Inspecciones</p>
-        <p className="text-lg font-black text-[#173D68] tabular-nums mt-0.5 leading-none">
-          {user.inspections.toLocaleString("es-CO")}
-        </p>
-        <p className="text-[10px] text-gray-400 mt-1 tabular-nums">
-          últ. {lastInsp}
-        </p>
-      </div>
+        {/* Name + email */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-black text-[#0A183A] truncate">{user.name}</p>
+            <span
+              className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider flex-shrink-0"
+              style={{
+                background: user.role === "admin" ? "rgba(30,118,182,0.1)" : "rgba(100,116,139,0.1)",
+                color: user.role === "admin" ? "#1E76B6" : "#64748b",
+              }}
+            >
+              {user.role}
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-500 truncate flex items-center gap-1 mt-0.5">
+            <Mail className="w-2.5 h-2.5 flex-shrink-0" />
+            {user.email}
+          </p>
+        </div>
 
-      {/* Login activity */}
-      <div className="flex-shrink-0 text-right w-20 hidden md:block">
-        <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Logins</p>
-        <p className="text-sm font-black text-[#0A183A] tabular-nums mt-0.5 leading-none">
-          {user.loginCount.toLocaleString("es-CO")}
-        </p>
-        <p className="text-[10px] text-gray-400 mt-1 tabular-nums flex items-center gap-1 justify-end">
-          <Clock className="w-2.5 h-2.5" />
-          {lastLogin}
-        </p>
-      </div>
+        {/* Inspections (in selected window) */}
+        <div className="flex-shrink-0 text-right w-20 hidden sm:block">
+          <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Inspecciones</p>
+          <p className="text-lg font-black text-[#173D68] tabular-nums mt-0.5 leading-none">
+            {user.inspections.toLocaleString("es-CO")}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-1 tabular-nums">
+            últ. {lastInsp}
+          </p>
+        </div>
 
-      {/* Compact mobile-only inline metric */}
-      <div className="flex-shrink-0 text-right sm:hidden">
-        <p className="text-lg font-black text-[#173D68] tabular-nums leading-none">
-          {user.inspections.toLocaleString("es-CO")}
-        </p>
-        <p className="text-[9px] text-gray-400 mt-0.5">insp.</p>
-      </div>
+        {/* Clientes atendidos (distinct client fleets inspected in window) */}
+        <div className="flex-shrink-0 text-right w-20 hidden lg:block">
+          <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Clientes</p>
+          <p className="text-sm font-black text-[#173D68] tabular-nums mt-0.5 leading-none">
+            {(user.clientsInspected ?? 0).toLocaleString("es-CO")}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-1">atendidos</p>
+        </div>
+
+        {/* Logins — NOW window-scoped, was lifetime before. */}
+        <div className="flex-shrink-0 text-right w-20 hidden md:block">
+          <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Logins</p>
+          <p className="text-sm font-black text-[#0A183A] tabular-nums mt-0.5 leading-none">
+            {loginsInWindow.toLocaleString("es-CO")}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-1 tabular-nums flex items-center gap-1 justify-end">
+            <Clock className="w-2.5 h-2.5" />
+            {lastLogin}
+          </p>
+        </div>
+
+        {/* Mobile compact */}
+        <div className="flex-shrink-0 text-right sm:hidden">
+          <p className="text-lg font-black text-[#173D68] tabular-nums leading-none">
+            {user.inspections.toLocaleString("es-CO")}
+          </p>
+          <p className="text-[9px] text-gray-400 mt-0.5">insp.</p>
+        </div>
+
+        <ChevronDown
+          className={`w-4 h-4 text-[#1E76B6] transition-transform flex-shrink-0 ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {/* Expanded detail — per-client breakdown */}
+      {expanded && (
+        <div className="px-3 sm:px-5 py-3" style={{ background: "rgba(240,247,255,0.4)" }}>
+          {clients.length === 0 ? (
+            <p className="text-xs text-gray-500 italic">
+              Sin inspecciones registradas en el período seleccionado.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                    <th className="pb-2 pr-3">Cliente</th>
+                    <th className="pb-2 pr-3 text-right tabular-nums">Vehículos</th>
+                    <th className="pb-2 text-right tabular-nums">Llantas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map((c, i) => (
+                    <tr key={c.clientCompanyId ?? `n${i}`} className="border-t" style={{ borderColor: "rgba(52,140,203,0.08)" }}>
+                      <td className="py-1.5 pr-3 font-semibold text-[#173D68] truncate">{c.clientCompanyName}</td>
+                      <td className="py-1.5 pr-3 text-right tabular-nums">{c.vehiclesInspected.toLocaleString("es-CO")}</td>
+                      <td className="py-1.5 text-right tabular-nums">{c.tiresInspected.toLocaleString("es-CO")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -880,8 +1221,9 @@ export default function ClientesPage() {
     if (!distributorId) return;
     setEquipoLoading(true);
     try {
-      const { from, to } = dateRangeFromKey(range);
+      const { days, from, to } = dateRangeFromKey(range);
       const qs = new URLSearchParams({ companyId: distributorId });
+      if (days !== undefined) qs.set("days", String(days));
       if (from) qs.set("from", from);
       if (to)   qs.set("to",   to);
       const res = await fetch(`${API_BASE}/users/inspection-stats?${qs.toString()}`, { headers: authHeaders() });
@@ -1120,7 +1462,9 @@ export default function ClientesPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 <HeroKpi icon={<Users className="w-3.5 h-3.5" />}      label="Miembros"      value={equipo.length.toLocaleString("es-CO")} />
-                <HeroKpi icon={<UserCheck className="w-3.5 h-3.5" />}  label="Activos 30d"   value={equipo.filter(u => u.lastLoginAt && (Date.now() - new Date(u.lastLoginAt).getTime()) < 30*86400000).length.toLocaleString("es-CO")} />
+                {/* Window-aware: counts users with at least one login in the
+                    selected range instead of a fixed 30d lookback. */}
+                <HeroKpi icon={<UserCheck className="w-3.5 h-3.5" />}  label="Activos"       value={equipo.filter(u => (u.loginsInWindow ?? 0) > 0).length.toLocaleString("es-CO")} />
                 <HeroKpi icon={<Activity className="w-3.5 h-3.5" />}   label="Inspecciones"  value={equipo.reduce((s, u) => s + u.inspections, 0).toLocaleString("es-CO")} />
                 <HeroKpi icon={<ShieldCheck className="w-3.5 h-3.5" />} label="Admins"       value={equipo.filter(u => u.role === "admin").length.toLocaleString("es-CO")} />
               </div>
@@ -1270,14 +1614,20 @@ export default function ClientesPage() {
 
         {/* -- Mi Equipo tab ------------------------------------------------ */}
         {activeTab === "equipo" && (
-          <EquipoSection
-            equipo={equipo}
-            loading={equipoLoading}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            search={equipoSearch}
-            onSearchChange={setEquipoSearch}
-          />
+          <div className="space-y-6">
+            <EquipoSection
+              equipo={equipo}
+              loading={equipoLoading}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              search={equipoSearch}
+              onSearchChange={setEquipoSearch}
+            />
+            <KpiPanel
+              equipo={equipo}
+              onToast={addToast}
+            />
+          </div>
         )}
       </div>
 
