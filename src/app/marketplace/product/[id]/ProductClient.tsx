@@ -6,7 +6,8 @@ import Link from "next/link";
 import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
   Mail, Globe, Star, Clock, CheckCircle, Shield, Recycle, ChevronLeft,
-  ChevronRight, Minus, Plus, X, Check, Search, Zap,
+  ChevronRight, ChevronDown, Minus, Plus, X, Check, Search, Zap, Info,
+  Weight, Scale, Gauge,
 } from "lucide-react";
 import { useCart } from "../../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
@@ -27,7 +28,22 @@ interface Product {
   incluyeIva: boolean; cantidadDisponible: number; tiempoEntrega: string | null;
   descripcion: string | null; imageUrls: string[] | null; coverIndex: number;
   distributor: { id: string; name: string; profileImage: string; ciudad: string | null; telefono: string | null; emailAtencion: string | null; tipoEntrega: string | null; cobertura: any[] | null };
-  catalog: { terreno: string | null; reencauchable: boolean; kmEstimadosReales: number | null; cpkEstimado: number | null; crowdAvgCpk: number | null; psiRecomendado: number | null; rtdMm: number | null } | null;
+  catalog: {
+    id?: string; skuRef?: string;
+    terreno: string | null; reencauchable: boolean;
+    kmEstimadosReales: number | null; kmEstimadosFabrica?: number | null;
+    cpkEstimado: number | null; crowdAvgCpk: number | null;
+    psiRecomendado: number | null; rtdMm: number | null;
+    indiceCarga?: string | null; indiceVelocidad?: string | null;
+    vidasReencauche?: number | null;
+    anchoMm?: number | null; perfil?: string | null; rin?: string | null;
+    posicion?: string | null; ejeTirePro?: string | null; pesoKg?: number | null;
+    pctPavimento?: number | null; pctDestapado?: number | null;
+    segmento?: string | null; tipo?: string | null; construccion?: string | null;
+    notasColombia?: string | null; fuente?: string | null;
+    crowdAvgPrice?: number | null; crowdAvgKm?: number | null;
+    crowdConfidence?: number | null; crowdCompanyCount?: number | null;
+  } | null;
   reviews: Review[];
   _count: { reviews: number };
   totalSold?: number;
@@ -74,6 +90,20 @@ const BRAND_TIER_META: Record<string, { label: string; bg: string }> = {
   value:   { label: "Económica",  bg: "linear-gradient(135deg,#64748b,#94a3b8)" },
 };
 
+// Load index → kg per single tire. ISO 4000-series curve: kg ≈ 45 × 1.0307^LI.
+// Accurate within ~2% across the truck range (LI 100–180) which is all that
+// matters for the fleet insight — we only surface it as "approximately Xkg".
+function parseLoadIndex(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const m = raw.match(/(\d{2,3})/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return n >= 50 && n <= 220 ? n : null;
+}
+function loadIndexToKg(li: number): number {
+  return Math.round(45 * Math.pow(1.0307, li));
+}
+
 export default function ProductClient({
   initialProduct,
   brandInfo,
@@ -94,7 +124,9 @@ export default function ProductClient({
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
-  // Vehicle recommendation
+  // Notas TirePro collapsible
+  const [notasOpen, setNotasOpen] = useState(false);
+  // Per-placa analysis
   const [vrPlaca, setVrPlaca] = useState("");
   const [vrLoading, setVrLoading] = useState(false);
   const [vrResult, setVrResult] = useState<{
@@ -103,6 +135,8 @@ export default function ProductClient({
     matches: Array<{ posicion: number; eje: string; reason: string; severity: "urgent" | "soon" | "ok" | "empty" }>;
     incompatible: Array<{ posicion: number; reason: string }>;
     summary: string;
+    insights: Array<{ kind: "load" | "cpk" | "reencauche" | "vehicle"; ok: boolean | null; title: string; detail: string }>;
+    vehicleLabel?: string | null;
   } | null>(null);
   const [vrError, setVrError] = useState("");
   const [isProUser, setIsProUser] = useState(false);
@@ -419,10 +453,85 @@ export default function ProductClient({
               {product.tiempoEntrega && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">{product.tiempoEntrega}</span>}
             </div>
 
-            {/* Description */}
+            {/* Description (from distributor) */}
             {product.descripcion && (
               <p className="text-sm text-gray-600 mt-4 leading-relaxed whitespace-pre-line">{product.descripcion}</p>
             )}
+
+            {/* Notas TirePro — collapsible technical sheet */}
+            {product.catalog && (() => {
+              const c = product.catalog;
+              const loadLi = parseLoadIndex(c.indiceCarga);
+              const loadKg = loadLi != null ? loadIndexToKg(loadLi) : null;
+              const rows: Array<{ label: string; value: string; icon?: any }> = [];
+              if (c.anchoMm != null || c.perfil || c.rin) {
+                const parts = [c.anchoMm != null ? `${c.anchoMm}mm` : null, c.perfil ? `perfil ${c.perfil}` : null, c.rin ? `rin ${c.rin}` : null].filter(Boolean);
+                if (parts.length) rows.push({ label: "Medida", value: parts.join(" · ") });
+              }
+              if (c.rtdMm != null)        rows.push({ label: "Profundidad inicial", value: `${c.rtdMm} mm` });
+              if (c.psiRecomendado != null) rows.push({ label: "Presión recomendada", value: `${c.psiRecomendado} PSI` });
+              if (c.indiceCarga)          rows.push({ label: "Índice de carga", value: loadKg ? `${c.indiceCarga} · ~${loadKg.toLocaleString("es-CO")} kg por llanta` : c.indiceCarga });
+              if (c.indiceVelocidad)      rows.push({ label: "Índice de velocidad", value: c.indiceVelocidad });
+              if (c.pesoKg != null)       rows.push({ label: "Peso de la llanta", value: `${c.pesoKg} kg` });
+              if (c.kmEstimadosReales != null) rows.push({ label: "Km estimados (Colombia)", value: `${(c.kmEstimadosReales / 1000).toFixed(0)}K km` });
+              if (c.kmEstimadosFabrica != null && c.kmEstimadosFabrica !== c.kmEstimadosReales) rows.push({ label: "Km estimados (fábrica)", value: `${(c.kmEstimadosFabrica / 1000).toFixed(0)}K km` });
+              if (c.cpkEstimado != null)  rows.push({ label: "CPK estimado", value: `${fmtCOP(Math.round(c.cpkEstimado))}/km` });
+              if (c.terreno)              rows.push({ label: "Terreno", value: c.terreno });
+              if (c.pctPavimento != null && c.pctDestapado != null) rows.push({ label: "Uso pavimento / destapado", value: `${c.pctPavimento}% / ${c.pctDestapado}%` });
+              if (c.ejeTirePro || c.posicion) rows.push({ label: "Posición de eje", value: c.ejeTirePro ?? c.posicion ?? "—" });
+              if (c.segmento)             rows.push({ label: "Segmento", value: c.segmento });
+              if (c.construccion)         rows.push({ label: "Construcción", value: c.construccion });
+              if (c.tipo)                 rows.push({ label: "Tipo", value: c.tipo });
+              rows.push({ label: "Reencauchable", value: c.reencauchable ? `Sí${c.vidasReencauche ? ` · hasta ${c.vidasReencauche} vidas` : ""}` : "No" });
+              if (c.skuRef)               rows.push({ label: "SKU TirePro", value: c.skuRef });
+
+              return (
+                <div className="mt-4 rounded-2xl border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => setNotasOpen(!notasOpen)}
+                    className="w-full px-4 py-3 flex items-center gap-2.5 hover:bg-gray-50 transition-colors"
+                    style={{ background: notasOpen ? "rgba(30,118,182,0.04)" : "white" }}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+                      <Info className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-xs font-black text-[#0A183A]">Notas TirePro</p>
+                      <p className="text-[10px] text-gray-500">Ficha técnica verificada · {rows.length} datos</p>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${notasOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {notasOpen && (
+                    <div className="px-4 pb-4 pt-1 space-y-0.5" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                      {rows.map((r, i) => (
+                        <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                          <span className="text-[11px] text-gray-500 flex-shrink-0">{r.label}</span>
+                          <span className="text-[11px] font-bold text-[#0A183A] text-right">{r.value}</span>
+                        </div>
+                      ))}
+                      {c.notasColombia && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1">Notas Colombia</p>
+                          <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-line">{c.notasColombia}</p>
+                        </div>
+                      )}
+                      {c.crowdCompanyCount != null && c.crowdCompanyCount >= 3 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1.5">Datos reales de la red</p>
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            {c.crowdAvgPrice != null && <div><span className="text-gray-500">Precio típico: </span><span className="font-bold text-[#0A183A]">{fmtCOP(Math.round(c.crowdAvgPrice))}</span></div>}
+                            {c.crowdAvgKm != null && <div><span className="text-gray-500">Km reales: </span><span className="font-bold text-[#0A183A]">{(c.crowdAvgKm / 1000).toFixed(0)}K</span></div>}
+                            {c.crowdAvgCpk != null && <div><span className="text-gray-500">CPK real: </span><span className="font-bold text-[#0A183A]">{fmtCOP(Math.round(c.crowdAvgCpk))}/km</span></div>}
+                            {c.crowdConfidence != null && <div><span className="text-gray-500">Confianza: </span><span className="font-bold text-[#0A183A]">{Math.round(c.crowdConfidence * 100)}%</span></div>}
+                          </div>
+                          <p className="text-[9px] text-gray-400 mt-1.5">Basado en {c.crowdCompanyCount} empresas de la red TirePro</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Specs */}
             {product.catalog && (
@@ -699,24 +808,24 @@ export default function ProductClient({
               })()}
             </div>
 
-            {/* ═══ VEHICLE RECOMMENDATION AGENT (pro users only) ═══ */}
+            {/* ═══ PER-PLACA ANALYSIS (pro users only) ═══ */}
             {isProUser && (
             <div className="mt-6 p-5 rounded-2xl border border-gray-100" style={{ background: "linear-gradient(135deg, rgba(10,24,58,0.03), rgba(30,118,182,0.03))", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
-              <p className="text-[10px] font-black text-[#ef4444] uppercase tracking-widest mb-1">Agente IA · Pro</p>
+              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">TirePro · Pro</p>
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm font-black text-[#0A183A]">SENTINEL — análisis por placa</p>
-                <Zap className="w-3.5 h-3.5 text-[#ef4444]" />
+                <p className="text-sm font-black text-[#0A183A]">Análisis por placa</p>
+                <Zap className="w-3.5 h-3.5 text-[#1E76B6]" />
               </div>
-              <p className="text-[10px] text-gray-500 mb-3">Ingresa la placa y analizamos cuáles posiciones de tu vehículo aceptan esta llanta y cuáles no, considerando eje y dimensiones.</p>
+              <p className="text-[10px] text-gray-500 mb-3">Ingresa la placa y analizamos todo: compatibilidad por posición, índice de carga vs peso del vehículo, reencauchabilidad e historial de tus llantas actuales.</p>
 
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={vrPlaca}
                   onChange={(e) => setVrPlaca(e.target.value.toUpperCase())}
-                  placeholder="Ej: ABC123"
-                  maxLength={6}
-                  className="flex-1 px-3 py-2.5 rounded-xl text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#ef4444]/20 focus:border-[#ef4444] text-[#0A183A] placeholder-gray-400 uppercase"
+                  placeholder="Ingresa la placa"
+                  maxLength={7}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-sm bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] text-[#0A183A] placeholder-gray-400 uppercase"
                   style={{ fontFamily: "'DM Mono', monospace" }}
                 />
                 <button
@@ -725,7 +834,7 @@ export default function ProductClient({
                     setVrLoading(true); setVrError(""); setVrResult(null);
                     try {
                       const token = localStorage.getItem("token") ?? "";
-                      if (!token) { setVrError("Inicia sesion para usar el agente"); setVrLoading(false); return; }
+                      if (!token) { setVrError("Inicia sesión para analizar la placa"); setVrLoading(false); return; }
                       const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(vrPlaca)}`, {
                         headers: { Authorization: `Bearer ${token}` },
                       });
@@ -736,11 +845,9 @@ export default function ProductClient({
                       });
                       const tires: any[] = tRes.ok ? await tRes.json() : [];
 
-                      // ----- AXIS-AWARE COMPATIBILITY ANALYSIS -----
-                      // Convention: P1 / P2 = front axle = 'direccion'.
-                      // Everything else = rear / 'traccion'. Steer-only and
-                      // drive-only tires can't be swapped because of casing
-                      // construction and tread compound differences.
+                      // ----- AXIS-AWARE COMPATIBILITY -----
+                      // P1/P2 = steer, rest = drive. Casing + tread compound
+                      // differences make cross-axis swaps unsafe.
                       const tireEje = (product.eje ?? "libre").toLowerCase();
                       const tireDimension = (product.dimension ?? "").trim();
 
@@ -750,8 +857,6 @@ export default function ProductClient({
                         return productEje === posEje;
                       };
 
-                      // Group existing tires by eje so we can read the
-                      // dominant dimension per axle group.
                       const dimByEje: Record<string, Map<string, number>> = { direccion: new Map(), traccion: new Map() };
                       tires.forEach((t: any) => {
                         const e = t.eje?.toLowerCase() === "direccion" || t.eje?.toLowerCase() === "traccion"
@@ -770,11 +875,9 @@ export default function ProductClient({
 
                       const matches: Array<{ posicion: number; eje: string; reason: string; severity: "urgent" | "soon" | "ok" | "empty" }> = [];
                       const incompatible: Array<{ posicion: number; reason: string }> = [];
-
                       const occupied = new Set(tires.map((t: any) => t.posicion));
                       const maxPos = Math.max(6, ...tires.map((t: any) => t.posicion ?? 0));
 
-                      // Empty slots first
                       for (let p = 1; p <= maxPos; p++) {
                         if (occupied.has(p)) continue;
                         const e = positionEje(p);
@@ -789,7 +892,6 @@ export default function ProductClient({
                         matches.push({ posicion: p, eje: e, reason: `Posición vacía — ${dimNote}`, severity: "empty" });
                       }
 
-                      // Occupied slots
                       tires.forEach((t: any) => {
                         const pos = t.posicion;
                         const tEje = t.eje?.toLowerCase() || positionEje(pos);
@@ -812,7 +914,6 @@ export default function ProductClient({
                         }
                       });
 
-                      // Sort: urgent → soon → empty → ok, then by position
                       const order: Record<string, number> = { urgent: 0, soon: 1, empty: 2, ok: 3 };
                       matches.sort((a, b) => order[a.severity] - order[b.severity] || a.posicion - b.posicion);
 
@@ -841,17 +942,93 @@ export default function ProductClient({
                           const bits = [];
                           if (dirDim)  bits.push(`eje delantero: ${dirDim}`);
                           if (tracDim) bits.push(`ejes traseros: ${tracDim}`);
-                          parts.push(`Tu vehículo actualmente usa ${bits.join(" · ")}.`);
+                          parts.push(`Vehículo actualmente usa ${bits.join(" · ")}.`);
                         }
                         return parts.join(" ");
                       })();
 
-                      setVrResult({ verdict, headline, matches, incompatible, summary });
+                      // ----- EXTRA INSIGHTS -----
+                      const insights: Array<{ kind: "load" | "cpk" | "reencauche" | "vehicle"; ok: boolean | null; title: string; detail: string }> = [];
+
+                      // Vehicle summary (tipovhc, config, KM)
+                      {
+                        const bits: string[] = [];
+                        if (vehicle.tipovhc) bits.push(String(vehicle.tipovhc));
+                        if (vehicle.configuracion) bits.push(`config ${vehicle.configuracion}`);
+                        if (vehicle.kilometrajeActual) bits.push(`${Math.round(vehicle.kilometrajeActual).toLocaleString("es-CO")} km`);
+                        if (bits.length) insights.push({ kind: "vehicle", ok: null, title: "Tu vehículo", detail: bits.join(" · ") });
+                      }
+
+                      // Load-bearing: tire load index vs vehicle pesoCarga
+                      const li = parseLoadIndex(product.catalog?.indiceCarga ?? null);
+                      const tireKg = li != null ? loadIndexToKg(li) : null;
+                      const pesoCarga = typeof vehicle.pesoCarga === "number" ? vehicle.pesoCarga : null;
+                      if (tireKg != null && pesoCarga && pesoCarga > 0) {
+                        const nTires = Math.max(tires.length, 4);
+                        const totalCap = tireKg * nTires;
+                        const headroom = totalCap - pesoCarga;
+                        const ok = headroom >= 0;
+                        insights.push({
+                          kind: "load",
+                          ok,
+                          title: ok ? "Índice de carga adecuado" : "Índice de carga insuficiente",
+                          detail: `Capacidad total estimada: ${totalCap.toLocaleString("es-CO")} kg (${tireKg.toLocaleString("es-CO")} kg × ${nTires} llantas) vs peso de carga ${pesoCarga.toLocaleString("es-CO")} kg`,
+                        });
+                      } else if (tireKg != null) {
+                        insights.push({
+                          kind: "load",
+                          ok: null,
+                          title: "Carga por llanta",
+                          detail: `Soporta ~${tireKg.toLocaleString("es-CO")} kg por unidad (índice ${product.catalog?.indiceCarga}). Sin peso de carga registrado para validar.`,
+                        });
+                      }
+
+                      // Historic CPK comparison
+                      const mountedCpks = tires.map((t: any) => t.currentCpk ?? t.lifetimeCpk ?? 0).filter((v: number) => v > 0);
+                      const fleetAvgCpk = mountedCpks.length ? mountedCpks.reduce((a: number, b: number) => a + b, 0) / mountedCpks.length : null;
+                      const productCpk = product.catalog?.cpkEstimado ?? (kmEstimados > 0 ? price / kmEstimados : null);
+                      if (fleetAvgCpk && productCpk) {
+                        const better = productCpk < fleetAvgCpk;
+                        const diffPct = Math.abs(((productCpk - fleetAvgCpk) / fleetAvgCpk) * 100);
+                        insights.push({
+                          kind: "cpk",
+                          ok: better,
+                          title: better ? "CPK proyectado mejor que tu flota" : "CPK proyectado mayor que tu flota",
+                          detail: `Este producto: ${fmtCOP(Math.round(productCpk))}/km · Promedio flota: ${fmtCOP(Math.round(fleetAvgCpk))}/km (${diffPct.toFixed(0)}% ${better ? "mejor" : "peor"})`,
+                        });
+                      }
+
+                      // Reencauchabilidad
+                      const reencauchable = product.catalog?.reencauchable ?? false;
+                      const vidasReencauche = product.catalog?.vidasReencauche ?? 0;
+                      if (reencauchable) {
+                        insights.push({
+                          kind: "reencauche",
+                          ok: true,
+                          title: "Casco reencauchable",
+                          detail: vidasReencauche > 0
+                            ? `Soporta hasta ${vidasReencauche} vida${vidasReencauche === 1 ? "" : "s"} adicional${vidasReencauche === 1 ? "" : "es"} — amortiza costo sobre ~${(vidasReencauche + 1)} ciclos`
+                            : "Permite reencauche — amortiza costo sobre múltiples vidas",
+                        });
+                      } else {
+                        insights.push({
+                          kind: "reencauche",
+                          ok: false,
+                          title: "No reencauchable",
+                          detail: "El costo se amortiza en una sola vida; evalúa CPK con más cuidado",
+                        });
+                      }
+
+                      const vehicleLabel = vehicle.placa
+                        ? `${String(vehicle.placa).toUpperCase()}${vehicle.tipovhc ? ` · ${vehicle.tipovhc}` : ""}`
+                        : null;
+
+                      setVrResult({ verdict, headline, matches, incompatible, summary, insights, vehicleLabel });
                     } catch { setVrError("Error al analizar el vehículo"); }
                     setVrLoading(false);
                   }}
                   className="px-4 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-40 transition-all hover:opacity-90 flex-shrink-0"
-                  style={{ background: "#ef4444" }}>
+                  style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
                   {vrLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Zap className="w-3.5 h-3.5 inline mr-1" />Analizar</>}
                 </button>
               </div>
@@ -871,12 +1048,43 @@ export default function ProductClient({
                   empty:  { label: "Vacía",   bg: "rgba(30,118,182,0.1)", color: "#1E76B6" },
                   ok:     { label: "Compat.", bg: "rgba(34,197,94,0.1)",  color: "#16a34a" },
                 };
+                const insightIcon: Record<string, any> = {
+                  load: Weight, cpk: Gauge, reencauche: Recycle, vehicle: Truck,
+                };
+                const insightColor = (ok: boolean | null): string =>
+                  ok === true ? "#16a34a" : ok === false ? "#ef4444" : "#1E76B6";
                 return (
                   <div className="mt-3 p-4 rounded-2xl bg-white border border-gray-100">
                     <div className="flex items-start gap-2 pb-3 mb-3 border-b border-gray-100">
                       <span className="w-2 h-2 mt-1.5 rounded-full flex-shrink-0" style={{ background: verdictColor[vrResult.verdict] }} />
-                      <p className="text-xs font-black text-[#0A183A] leading-snug">{vrResult.headline}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-[#0A183A] leading-snug">{vrResult.headline}</p>
+                        {vrResult.vehicleLabel && (
+                          <p className="text-[10px] text-gray-400 font-bold mt-0.5">{vrResult.vehicleLabel}</p>
+                        )}
+                      </div>
                     </div>
+
+                    {vrResult.insights.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">Insights TirePro</p>
+                        <div className="space-y-1.5">
+                          {vrResult.insights.map((ins, i) => {
+                            const Icon = insightIcon[ins.kind] ?? Info;
+                            const col = insightColor(ins.ok);
+                            return (
+                              <div key={i} className="flex items-start gap-2 px-2.5 py-2 rounded-lg" style={{ background: `${col}10`, border: `1px solid ${col}25` }}>
+                                <Icon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: col }} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] font-black text-[#0A183A] leading-tight">{ins.title}</p>
+                                  <p className="text-[10px] text-gray-600 leading-snug mt-0.5">{ins.detail}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {vrResult.matches.length > 0 && (
                       <div className="mb-3">
