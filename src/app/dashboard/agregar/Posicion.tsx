@@ -780,12 +780,17 @@ function BucketInventoryPanel({
   onTiresLoaded,
   refreshKey,
   onDropToBucket,
+  hiddenIds,
 }: {
   companyId:    string;
   bucketData:   BucketData;
   onTiresLoaded: (tires: Tire[]) => void;
   refreshKey:   number;
   onDropToBucket?: (tireId: string, bucketId: string, bucketName: string) => void;
+  // Tires that have been optimistically moved out of the inventory in this
+  // session (e.g. dragged onto a vehicle position) — hide until save so the
+  // user sees them leave the bucket immediately.
+  hiddenIds?:   Set<string>;
 }) {
   const [activeTab,   setActiveTab]   = useState<string>("disponible");
   const [tires,       setTires]       = useState<Tire[]>([]);
@@ -821,8 +826,9 @@ function BucketInventoryPanel({
   }, [companyId, activeTab, refreshKey]);
 
   const filtered = tires.filter(t =>
-    t.marca.toLowerCase().includes(search.toLowerCase()) ||
-    t.diseno.toLowerCase().includes(search.toLowerCase())
+    !(hiddenIds?.has(t.id)) &&
+    (t.marca.toLowerCase().includes(search.toLowerCase()) ||
+     t.diseno.toLowerCase().includes(search.toLowerCase()))
   );
 
   const tabs = [
@@ -974,6 +980,10 @@ export default function PosicionPage() {
   const [companyId,          setCompanyId]          = useState<string>("");
   const [bucketData,         setBucketData]         = useState<BucketData>({ disponible: 0, buckets: [] });
   const [companyInventory,   setCompanyInventory]   = useState<Tire[]>([]);
+  // Tires moved OUT of the bucket panel in this session (drag → position).
+  // The bucket panel holds its own fetched tire list; this set tells it
+  // which IDs to visually hide until the next inventory refresh (post-save).
+  const [hiddenBucketIds,    setHiddenBucketIds]    = useState<Set<string>>(new Set());
   const [inventoryRefresh,   setInventoryRefresh]   = useState(0);
   const [fixedLayout,        setFixedLayout]        = useState<string[][] | null>(null);
   const [isExportOpen,       setIsExportOpen]       = useState(false);
@@ -1040,6 +1050,13 @@ export default function PosicionPage() {
     } else if (fromInventory) {
       pushMoveToast(`${fromInventory.marca} movida a ${bucketName}`);
     }
+
+    // Tile was hidden while it lived on the vehicle — unhide so it
+    // reappears in the bucket panel the user just dropped it into.
+    setHiddenBucketIds((prev) => {
+      if (!prev.has(tireId)) return prev;
+      const next = new Set(prev); next.delete(tireId); return next;
+    });
 
     // Persist the bucket assignment. "disponible" means the default pool
     // (no specific bucket) — represented as bucketId: null on the backend.
@@ -1149,6 +1166,7 @@ export default function PosicionPage() {
         setBucketData(buckets);
       } catch { /* ignore */ }
     }
+    setHiddenBucketIds(new Set());
     setInventoryRefresh((r) => r + 1);
     await handleSearch();
   }
@@ -1156,6 +1174,7 @@ export default function PosicionPage() {
   async function handleSearch() {
     if (!placa.trim()) return;
     setError(""); setSuccess(""); setVehicle(null); setAllTires([]); setOriginalState({}); setFixedLayout(null);
+    setHiddenBucketIds(new Set());
     setLoading(true);
     try {
       const vRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa.trim().toLowerCase())}`, { headers: authHeaders() });
@@ -1238,6 +1257,11 @@ export default function PosicionPage() {
           if (prev.find((t) => t.id === tireId)) return prev;
           return [...prev, { ...tire, position: null, posicion: null, vehicleId: null }];
         });
+        // Un-hide so the tile reappears in the bucket panel.
+        setHiddenBucketIds((prev) => {
+          if (!prev.has(tireId)) return prev;
+          const next = new Set(prev); next.delete(tireId); return next;
+        });
         pushMoveToast(`${tire.marca} movida de ${from} a Inventario`);
       }
       return;
@@ -1257,6 +1281,15 @@ export default function PosicionPage() {
         return [...updated, { ...invTire, position: newPosition, posicion }];
       });
       setCompanyInventory((prev) => prev.filter((t) => t.id !== tireId));
+      // Hide in bucket panel immediately — otherwise the tile sits in
+      // Disponible until Save and the user can't tell the drop took.
+      setHiddenBucketIds((prev) => {
+        const next = new Set(prev);
+        next.add(tireId);
+        // Bumped tire came back from a position to the inventory — unhide it.
+        if (bumped) next.delete(bumped.id);
+        return next;
+      });
       setOriginalState((prev) => ({ ...prev, [tireId]: null }));
       pushMoveToast(`${invTire.marca} movida de Inventario a ${describePos(newPosition)}`);
       if (bumped) {
@@ -1318,6 +1351,7 @@ export default function PosicionPage() {
       setOriginalState(newOriginal);
       // Commit bucket moves — Cancel no longer needs to revert them.
       originalBucketRef.current.clear();
+      setHiddenBucketIds(new Set());
 
       const changes = calculateChanges();
       setTireChanges(changes);
@@ -1421,6 +1455,7 @@ export default function PosicionPage() {
               }}
               refreshKey={inventoryRefresh}
               onDropToBucket={handleDropToBucket}
+              hiddenIds={hiddenBucketIds}
             />
           )}
 
