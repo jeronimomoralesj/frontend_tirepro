@@ -451,33 +451,73 @@ function OrderCard({
 function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: string; onUpdated: () => void }) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const items: any[] = Array.isArray(bid.items) ? bid.items : [];
   const myResponse = (bid.responses ?? [])[0]; // already filtered by distributorId in API
   const hasQuoted = myResponse?.status === "cotizada";
+  const hasRejected = myResponse?.status === "rechazada";
   const deadline = bid.deadline ? new Date(bid.deadline) : null;
   const hoursLeft = deadline ? Math.max(0, Math.round((deadline.getTime() - Date.now()) / (1000 * 60 * 60))) : null;
 
   const [cotItems, setCotItems] = useState<Array<{
-    precioUnitario: number; disponible: boolean; tiempoEntrega: string; notas: string; alternativeMarca: string; alternativeModelo: string;
+    precioUnitario: number; disponible: boolean; tiempoEntrega: string; notas: string;
+    alternativeMarca: string; alternativeModelo: string; alternativePrecio: number;
+    bandaOfrecida: string;
   }>>(
-    items.map(() => ({ precioUnitario: 0, disponible: true, tiempoEntrega: "1-3 dias", notas: "", alternativeMarca: "", alternativeModelo: "" }))
+    items.map(() => ({
+      precioUnitario: 0, disponible: true, tiempoEntrega: "1-3 dias", notas: "",
+      alternativeMarca: "", alternativeModelo: "", alternativePrecio: 0,
+      bandaOfrecida: "",
+    }))
   );
   const [globalNotas, setGlobalNotas] = useState("");
   const [incluyeIva, setIncluyeIva] = useState(false);
 
-  const totalCotizado = cotItems.reduce((s, c) => s + (c.disponible ? c.precioUnitario : 0), 0) * (incluyeIva ? 1.19 : 1);
+  // Autofill: two items are "the same tire" if tipo+marca+dimension+eje match.
+  // Editing a field on one propagates to all siblings so the dist doesn't have
+  // to retype the same price/band 5× for a fleet request of the same SKU.
+  const itemKeyOf = (it: any) => `${it?.tipo ?? ""}|${(it?.marca ?? "").trim().toLowerCase()}|${(it?.dimension ?? "").trim().toLowerCase()}|${(it?.eje ?? "").trim().toLowerCase()}`;
+  const siblingIndexes = useMemo(() => {
+    const groups: Record<string, number[]> = {};
+    items.forEach((it, i) => {
+      const k = itemKeyOf(it);
+      (groups[k] ??= []).push(i);
+    });
+    return items.map((it) => groups[itemKeyOf(it)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  function patchItem(idx: number, patch: Partial<typeof cotItems[number]>, propagate: boolean) {
+    setCotItems((prev) => {
+      const targets = propagate ? siblingIndexes[idx] : [idx];
+      return prev.map((c, i) => (targets.includes(i) ? { ...c, ...patch } : c));
+    });
+  }
+
+  const totalCotizado = cotItems.reduce((s, c) => {
+    if (!c.disponible) {
+      return s + (c.alternativeMarca && c.alternativeModelo ? c.alternativePrecio : 0);
+    }
+    return s + c.precioUnitario;
+  }, 0) * (incluyeIva ? 1.19 : 1);
 
   async function handleSubmitBid() {
     setSubmitting(true);
     try {
       const cotizacion = cotItems.map((c, i) => ({
         itemIndex: i,
-        precioUnitario: c.precioUnitario,
+        precioUnitario: c.disponible
+          ? c.precioUnitario
+          : (c.alternativeMarca && c.alternativeModelo ? c.alternativePrecio : 0),
         disponible: c.disponible,
         tiempoEntrega: c.tiempoEntrega,
         notas: c.notas,
-        alternativeTire: c.alternativeMarca && c.alternativeModelo
+        alternativeTire: !c.disponible && c.alternativeMarca && c.alternativeModelo
           ? `${c.alternativeMarca} ${c.alternativeModelo}` : undefined,
+        alternativePrecio: !c.disponible && c.alternativeMarca && c.alternativeModelo
+          ? c.alternativePrecio : undefined,
+        bandaOfrecida: items[i]?.tipo === "reencauche" && c.disponible && c.bandaOfrecida
+          ? c.bandaOfrecida : undefined,
       }));
       await authFetch(`${API_BASE}/marketplace/bid-responses`, {
         method: "POST",
@@ -496,18 +536,37 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
     setSubmitting(false);
   }
 
+  async function handleRejectBid() {
+    if (!confirm("¿Rechazar esta licitación por completo? No podrás cotizar después.")) return;
+    setRejecting(true);
+    try {
+      await authFetch(`${API_BASE}/marketplace/bid-responses/reject`, {
+        method: "POST",
+        body: JSON.stringify({
+          bidRequestId: bid.id,
+          distributorId: companyId,
+          notas: globalNotas || null,
+        }),
+      });
+      onUpdated();
+    } catch { /* */ }
+    setRejecting(false);
+  }
+
   return (
-    <div className="bg-white rounded-xl overflow-hidden" style={{ border: `1px solid ${hasQuoted ? "rgba(34,197,94,0.2)" : "rgba(139,92,246,0.2)"}` }}>
+    <div className="bg-white rounded-xl overflow-hidden" style={{
+      border: `1px solid ${hasRejected ? "rgba(239,68,68,0.25)" : hasQuoted ? "rgba(34,197,94,0.2)" : "rgba(139,92,246,0.2)"}`,
+    }}>
       <button onClick={() => setOpen(!open)} className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors">
         <Gavel className="w-4 h-4 text-[#8b5cf6] flex-shrink-0" />
         <div className="flex-1 min-w-0 text-left">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-bold text-[#0A183A]">{bid.company?.name ?? "Cliente"}</p>
             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{
-              background: hasQuoted ? "rgba(34,197,94,0.1)" : "rgba(139,92,246,0.1)",
-              color: hasQuoted ? "#22c55e" : "#8b5cf6",
+              background: hasRejected ? "rgba(239,68,68,0.1)" : hasQuoted ? "rgba(34,197,94,0.1)" : "rgba(139,92,246,0.1)",
+              color: hasRejected ? "#ef4444" : hasQuoted ? "#22c55e" : "#8b5cf6",
             }}>
-              {hasQuoted ? "Cotizado" : "Pendiente"}
+              {hasRejected ? "Rechazado" : hasQuoted ? "Cotizado" : "Pendiente"}
             </span>
           </div>
           <p className="text-[10px] text-gray-400">
@@ -532,42 +591,67 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
           <div className="space-y-2">
             {items.map((item: any, idx: number) => {
               const cot = cotItems[idx];
+              const isReencauche = item.tipo === "reencauche";
+              const siblingCount = siblingIndexes[idx]?.length ?? 1;
+              const isFirstOfGroup = (siblingIndexes[idx]?.[0] ?? idx) === idx;
+              const groupBadge = siblingCount > 1 && isFirstOfGroup
+                ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}>×{siblingCount} · autocompletado</span>
+                : null;
+
               return (
                 <div key={idx} className="rounded-lg p-3" style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(10,24,58,0.05)" }}>
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="text-xs font-bold text-[#0A183A]">{item.marca} {item.dimension}</p>
+                      <p className="text-xs font-bold text-[#0A183A] flex items-center gap-1.5">
+                        {item.marca} {item.dimension}
+                        {groupBadge}
+                      </p>
                       <p className="text-[10px] text-gray-400">
-                        {item.tipo === "reencauche" ? "Reencauche" : "Nueva"} · Eje: {item.eje ?? "—"}
+                        {isReencauche ? "Reencauche" : "Nueva"} · Eje: {item.eje ?? "—"}
                         {item.catalogSuggestion && <> · Sugerido: {item.catalogSuggestion}</>}
                       </p>
                     </div>
                     <label className="flex items-center gap-1.5">
                       <input type="checkbox" checked={cot.disponible}
-                        onChange={(e) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, disponible: e.target.checked } : c))}
+                        onChange={(e) => patchItem(idx, { disponible: e.target.checked }, true)}
                         className="accent-[#22c55e]" />
                       <span className="text-[10px] font-bold text-gray-500">Disponible</span>
                     </label>
                   </div>
 
                   {cot.disponible ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase">Precio unitario</label>
-                        <input type="number" value={cot.precioUnitario || ""} placeholder="COP"
-                          onChange={(e) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, precioUnitario: Number(e.target.value) } : c))}
-                          className={inputCls} />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase">Tiempo entrega</label>
-                        <select value={cot.tiempoEntrega}
-                          onChange={(e) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, tiempoEntrega: e.target.value } : c))}
-                          className={inputCls}>
-                          <option value="Inmediato">Inmediato</option>
-                          <option value="1-3 dias">1-3 dias</option>
-                          <option value="1 semana">1 semana</option>
-                          <option value="2 semanas">2 semanas</option>
-                        </select>
+                    <div className="space-y-2">
+                      {isReencauche && (
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Banda a ofrecer</label>
+                          <CatalogAutocomplete
+                            value={cot.bandaOfrecida}
+                            onChange={(v) => patchItem(idx, { bandaOfrecida: v }, true)}
+                            field="modelo"
+                            filterMarca={item.marca}
+                            filterDimension={item.dimension}
+                            placeholder="Ej. Bandag BDR-HT"
+                          />
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Precio unitario</label>
+                          <input type="number" value={cot.precioUnitario || ""} placeholder="COP"
+                            onChange={(e) => patchItem(idx, { precioUnitario: Number(e.target.value) }, true)}
+                            className={inputCls} />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-bold text-gray-400 uppercase">Tiempo entrega</label>
+                          <select value={cot.tiempoEntrega}
+                            onChange={(e) => patchItem(idx, { tiempoEntrega: e.target.value }, true)}
+                            className={inputCls}>
+                            <option value="Inmediato">Inmediato</option>
+                            <option value="1-3 dias">1-3 dias</option>
+                            <option value="1 semana">1 semana</option>
+                            <option value="2 semanas">2 semanas</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -576,17 +660,23 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
                       <div className="grid grid-cols-2 gap-2">
                         <CatalogAutocomplete
                           value={cot.alternativeMarca}
-                          onChange={(v) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, alternativeMarca: v } : c))}
+                          onChange={(v) => patchItem(idx, { alternativeMarca: v }, true)}
                           field="marca"
                           placeholder="Marca alternativa"
                         />
                         <CatalogAutocomplete
                           value={cot.alternativeModelo}
-                          onChange={(v) => setCotItems((p) => p.map((c, i) => i === idx ? { ...c, alternativeModelo: v } : c))}
+                          onChange={(v) => patchItem(idx, { alternativeModelo: v }, true)}
                           field="modelo"
                           filterMarca={cot.alternativeMarca}
                           placeholder="Modelo"
                         />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-gray-400 uppercase">Precio alternativa</label>
+                        <input type="number" value={cot.alternativePrecio || ""} placeholder="COP"
+                          onChange={(e) => patchItem(idx, { alternativePrecio: Number(e.target.value) }, true)}
+                          className={inputCls} />
                       </div>
                     </div>
                   )}
@@ -606,15 +696,32 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
           </div>
 
           <textarea value={globalNotas} onChange={(e) => setGlobalNotas(e.target.value)}
-            placeholder="Notas generales de la cotizacion..." rows={2}
+            placeholder={hasRejected ? "Licitación rechazada." : "Notas generales de la cotizacion..."} rows={2}
+            disabled={hasRejected}
             className={`${inputCls} resize-none`} />
 
-          <button onClick={handleSubmitBid} disabled={submitting || totalCotizado <= 0}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
-            style={{ background: "linear-gradient(135deg, #8b5cf6, #6d28d9)" }}>
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {hasQuoted ? "Actualizar Cotizacion" : "Enviar Cotizacion"}
-          </button>
+          {hasRejected ? (
+            <div className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold"
+              style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444" }}>
+              <X className="w-4 h-4" />
+              Licitación rechazada
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              <button onClick={handleRejectBid} disabled={rejecting || submitting}
+                className="sm:col-span-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+                {rejecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                Rechazar
+              </button>
+              <button onClick={handleSubmitBid} disabled={submitting || rejecting || totalCotizado <= 0}
+                className="sm:col-span-3 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg, #8b5cf6, #6d28d9)" }}>
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {hasQuoted ? "Actualizar Cotizacion" : "Enviar Cotizacion"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
