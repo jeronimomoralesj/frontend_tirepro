@@ -1330,7 +1330,9 @@ export default function PosicionPage() {
       if (external.length > 0) {
         const aRes = await fetch(`${API_BASE}/tires/assign-vehicle`, {
           method: "POST", headers: authHeaders(),
-          body: JSON.stringify({ vehiclePlaca: placa.trim().toLowerCase(), tireIds: external.map((t) => t.id) }),
+          // Send vehicleId (unique) — placa can match multiple rows after
+          // merquepro-v2 (orphan + active sharing the same plate).
+          body: JSON.stringify({ vehicleId: vehicle.id, tireIds: external.map((t) => t.id) }),
         });
         if (aRes.ok) setAllTires((prev) => prev.map((t) => external.find((e) => e.id === t.id) ? { ...t, vehicleId: vehicle.id } : t));
       }
@@ -1340,7 +1342,7 @@ export default function PosicionPage() {
 
       const res = await fetch(`${API_BASE}/tires/update-positions`, {
         method: "POST", headers: authHeaders(),
-        body: JSON.stringify({ placa: placa.trim(), updates }),
+        body: JSON.stringify({ vehicleId: vehicle.id, updates }),
       });
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b?.message ?? "Error al actualizar posiciones"); }
 
