@@ -364,7 +364,7 @@ function DraggableTire({ tire, variant = "vehicle" }: { tire: Tire; variant?: "v
 // Inventory tile (rectangular)
 // =============================================================================
 
-function InventoryTile({ tire }: { tire: Tire }) {
+function InventoryTile({ tire, pulse = false }: { tire: Tire; pulse?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   const [{ isDragging }, dragRef] = useDrag(
@@ -379,15 +379,19 @@ function InventoryTile({ tire }: { tire: Tire }) {
       ref={ref}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="relative flex flex-col items-center justify-center rounded-xl cursor-move select-none px-1.5 py-1.5 transition-all"
+      className={`relative flex flex-col items-center justify-center rounded-xl cursor-move select-none px-1.5 py-1.5 transition-all ${pulse ? "animate-tire-pulse" : ""}`}
       style={{
         // Compact 68×68 tile lets ~4 more fit per row and halves the
         // vertical footprint of the Inventario scroll pane.
         width: 68, height: 68,
         background: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
         opacity: isDragging ? 0.4 : 1,
-        border: "1px solid rgba(52,140,203,0.3)",
-        boxShadow: hovered ? "0 6px 20px rgba(10,24,58,0.2)" : "0 2px 8px rgba(10,24,58,0.1)",
+        border: pulse ? "2px solid #348CCB" : "1px solid rgba(52,140,203,0.3)",
+        boxShadow: pulse
+          ? "0 0 0 4px rgba(52,140,203,0.35), 0 8px 24px rgba(52,140,203,0.4)"
+          : hovered
+            ? "0 6px 20px rgba(10,24,58,0.2)"
+            : "0 2px 8px rgba(10,24,58,0.1)",
       }}
     >
       {hovered && !isDragging && <TireTooltip tire={tire} anchor={ref.current} />}
@@ -793,16 +797,23 @@ function BucketInventoryPanel({
   refreshKey,
   onDropToBucket,
   hiddenIds,
+  extraDisponibleTires,
+  pulseTireId,
 }: {
   companyId:    string;
   bucketData:   BucketData;
   onTiresLoaded: (tires: Tire[]) => void;
   refreshKey:   number;
   onDropToBucket?: (tireId: string, bucketId: string, bucketName: string) => void;
-  // Tires that have been optimistically moved out of the inventory in this
-  // session (e.g. dragged onto a vehicle position) — hide until save so the
-  // user sees them leave the bucket immediately.
+  // Tires optimistically moved out in this session — hide until save.
   hiddenIds?:   Set<string>;
+  // Tires the parent knows should appear in Disponible even though the
+  // panel's own fetch doesn't yet include them (e.g. a tire just bumped
+  // off a vehicle position — still vehicleId=X in DB until save).
+  extraDisponibleTires?: Tire[];
+  // Highlights a freshly-arrived tile with a quick pulse so the drop feels
+  // real. Cleared by the parent after the animation.
+  pulseTireId?: string | null;
 }) {
   const [activeTab,   setActiveTab]   = useState<string>("disponible");
   const [tires,       setTires]       = useState<Tire[]>([]);
@@ -837,7 +848,17 @@ function BucketInventoryPanel({
       .finally(() => setLoadingTab(false));
   }, [companyId, activeTab, refreshKey]);
 
-  const filtered = tires.filter(t =>
+  // Effective tires for the active tab. In Disponible, fold in any extras
+  // the parent is tracking (bumped tires) and dedup by id. Named buckets
+  // render only what the server returned.
+  const effectiveTires: Tire[] = React.useMemo(() => {
+    if (activeTab !== "disponible" || !extraDisponibleTires?.length) return tires;
+    const known = new Set(tires.map(t => t.id));
+    const extras = extraDisponibleTires.filter(t => !known.has(t.id));
+    return extras.length ? [...extras, ...tires] : tires;
+  }, [tires, extraDisponibleTires, activeTab]);
+
+  const filtered = effectiveTires.filter(t =>
     !(hiddenIds?.has(t.id)) &&
     (t.marca.toLowerCase().includes(search.toLowerCase()) ||
      t.diseno.toLowerCase().includes(search.toLowerCase()))
@@ -929,7 +950,9 @@ function BucketInventoryPanel({
         </div>
       ) : filtered.length > 0 ? (
         <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto">
-          {filtered.map(tire => <InventoryTile key={tire.id} tire={tire} />)}
+          {filtered.map(tire => (
+            <InventoryTile key={tire.id} tire={tire} pulse={pulseTireId === tire.id} />
+          ))}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
@@ -996,6 +1019,9 @@ export default function PosicionPage() {
   // The bucket panel holds its own fetched tire list; this set tells it
   // which IDs to visually hide until the next inventory refresh (post-save).
   const [hiddenBucketIds,    setHiddenBucketIds]    = useState<Set<string>>(new Set());
+  // One-shot pulse target: the id of a tire that just landed in the
+  // Disponible panel so the user sees the arrival. Cleared via timeout.
+  const [pulseTireId,        setPulseTireId]        = useState<string | null>(null);
   const [inventoryRefresh,   setInventoryRefresh]   = useState(0);
   const [fixedLayout,        setFixedLayout]        = useState<string[][] | null>(null);
   const [isExportOpen,       setIsExportOpen]       = useState(false);
@@ -1282,23 +1308,26 @@ export default function PosicionPage() {
     if (invTire) {
       const posicion = newPosition === "0" ? 0 : parseInt(newPosition);
       const bumped = allTires.find((t) => t.position === newPosition && newPosition !== "0");
+      // Remove the bumped tire from allTires entirely (not just blank its
+      // position) — otherwise it sticks in "Llantas Disponibles" on the
+      // vehicle and Save won't unassign it (removedIds would miss it).
       setAllTires((prev) => {
-        const updated = prev.map((t) => t.position === newPosition && newPosition !== "0" ? { ...t, position: null, posicion: null } : t);
-        if (bumped) {
-          setCompanyInventory((ci) => {
-            if (ci.find((t) => t.id === bumped.id)) return ci;
-            return [...ci, { ...bumped, position: null, posicion: null, vehicleId: null }];
-          });
-        }
-        return [...updated, { ...invTire, position: newPosition, posicion }];
+        const filtered = bumped ? prev.filter((t) => t.id !== bumped.id) : prev;
+        return [...filtered, { ...invTire, position: newPosition, posicion }];
       });
+      // The bumped tire now lives in the inventory (optimistic). Mark it
+      // with `optimistic: true` so the bucket panel surfaces it in
+      // Disponible even though the server still has it on the vehicle.
+      if (bumped) {
+        setCompanyInventory((ci) => {
+          if (ci.find((t) => t.id === bumped.id)) return ci;
+          return [...ci, { ...bumped, position: null, posicion: null, vehicleId: null }];
+        });
+      }
       setCompanyInventory((prev) => prev.filter((t) => t.id !== tireId));
-      // Hide in bucket panel immediately — otherwise the tile sits in
-      // Disponible until Save and the user can't tell the drop took.
       setHiddenBucketIds((prev) => {
         const next = new Set(prev);
         next.add(tireId);
-        // Bumped tire came back from a position to the inventory — unhide it.
         if (bumped) next.delete(bumped.id);
         return next;
       });
@@ -1306,6 +1335,9 @@ export default function PosicionPage() {
       pushMoveToast(`${invTire.marca} movida de Inventario a ${describePos(newPosition)}`);
       if (bumped) {
         pushMoveToast(`${bumped.marca} movida de ${describePos(bumped.position)} a Inventario`);
+        // Flash the freshly-arrived tile in the bucket panel.
+        setPulseTireId(bumped.id);
+        setTimeout(() => setPulseTireId((prev) => (prev === bumped.id ? null : prev)), 700);
       }
     } else {
       const moving = allTires.find((t) => t.id === tireId);
@@ -1468,6 +1500,8 @@ export default function PosicionPage() {
               refreshKey={inventoryRefresh}
               onDropToBucket={handleDropToBucket}
               hiddenIds={hiddenBucketIds}
+              extraDisponibleTires={companyInventory}
+              pulseTireId={pulseTireId}
             />
           )}
 

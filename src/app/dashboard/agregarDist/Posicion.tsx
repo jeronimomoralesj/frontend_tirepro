@@ -373,7 +373,7 @@ function DraggableTire({ tire, variant = "vehicle" }: { tire: Tire; variant?: "v
 // Inventory tile (rectangular)
 // =============================================================================
 
-function InventoryTile({ tire }: { tire: Tire }) {
+function InventoryTile({ tire, pulse = false }: { tire: Tire; pulse?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   const [{ isDragging }, dragRef] = useDrag(
@@ -388,15 +388,19 @@ function InventoryTile({ tire }: { tire: Tire }) {
       ref={ref}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="relative flex flex-col items-center justify-center rounded-xl cursor-move select-none px-1.5 py-1.5 transition-all"
+      className={`relative flex flex-col items-center justify-center rounded-xl cursor-move select-none px-1.5 py-1.5 transition-all ${pulse ? "animate-tire-pulse" : ""}`}
       style={{
         // Compact 68×68 tile lets ~4 more fit per row and reduces the
         // vertical height of the Inventario scroll pane.
         width: 68, height: 68,
         background: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
         opacity: isDragging ? 0.4 : 1,
-        border: "1px solid rgba(52,140,203,0.3)",
-        boxShadow: hovered ? "0 6px 20px rgba(10,24,58,0.2)" : "0 2px 8px rgba(10,24,58,0.1)",
+        border: pulse ? "2px solid #348CCB" : "1px solid rgba(52,140,203,0.3)",
+        boxShadow: pulse
+          ? "0 0 0 4px rgba(52,140,203,0.35), 0 8px 24px rgba(52,140,203,0.4)"
+          : hovered
+            ? "0 6px 20px rgba(10,24,58,0.2)"
+            : "0 2px 8px rgba(10,24,58,0.1)",
       }}
     >
       {hovered && !isDragging && <TireTooltip tire={tire} anchor={ref.current} />}
@@ -802,6 +806,8 @@ function BucketInventoryPanel({
   refreshKey,
   onDropToBucket,
   hiddenIds,
+  extraDisponibleTires,
+  pulseTireId,
 }: {
   companyId:    string;
   bucketData:   BucketData;
@@ -810,6 +816,10 @@ function BucketInventoryPanel({
   onDropToBucket?: (tireId: string, bucketId: string, bucketName: string) => void;
   // Tires moved OUT in this session (drag → position). Hide until save.
   hiddenIds?:   Set<string>;
+  // Extras surfaced in Disponible that aren't yet in the server response.
+  extraDisponibleTires?: Tire[];
+  // One-shot pulse for a freshly-arrived tile.
+  pulseTireId?: string | null;
 }) {
   const [activeTab,   setActiveTab]   = useState<string>("disponible");
   const [tires,       setTires]       = useState<Tire[]>([]);
@@ -844,7 +854,15 @@ function BucketInventoryPanel({
       .finally(() => setLoadingTab(false));
   }, [companyId, activeTab, refreshKey]);
 
-  const filtered = tires.filter(t =>
+  // See regular Posicion comment: fold parent-tracked extras into Disponible.
+  const effectiveTires: Tire[] = React.useMemo(() => {
+    if (activeTab !== "disponible" || !extraDisponibleTires?.length) return tires;
+    const known = new Set(tires.map(t => t.id));
+    const extras = extraDisponibleTires.filter(t => !known.has(t.id));
+    return extras.length ? [...extras, ...tires] : tires;
+  }, [tires, extraDisponibleTires, activeTab]);
+
+  const filtered = effectiveTires.filter(t =>
     !(hiddenIds?.has(t.id)) &&
     (t.marca.toLowerCase().includes(search.toLowerCase()) ||
      t.diseno.toLowerCase().includes(search.toLowerCase()))
@@ -936,7 +954,9 @@ function BucketInventoryPanel({
         </div>
       ) : filtered.length > 0 ? (
         <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto">
-          {filtered.map(tire => <InventoryTile key={tire.id} tire={tire} />)}
+          {filtered.map(tire => (
+            <InventoryTile key={tire.id} tire={tire} pulse={pulseTireId === tire.id} />
+          ))}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
@@ -1001,6 +1021,7 @@ export default function PosicionPage() {
   const [companyInventory,   setCompanyInventory]   = useState<Tire[]>([]);
   // See regular Posicion for rationale — hides optimistic-out tires.
   const [hiddenBucketIds,    setHiddenBucketIds]    = useState<Set<string>>(new Set());
+  const [pulseTireId,        setPulseTireId]        = useState<string | null>(null);
   const [inventoryRefresh,   setInventoryRefresh]   = useState(0);
   const [fixedLayout,        setFixedLayout]        = useState<string[][] | null>(null);
   const [isExportOpen,       setIsExportOpen]       = useState(false);
@@ -1308,18 +1329,20 @@ export default function PosicionPage() {
     if (invTire) {
       const posicion = newPosition === "0" ? 0 : parseInt(newPosition);
       const bumped = allTires.find((t) => t.position === newPosition && newPosition !== "0");
+      // Remove bumped tire entirely so it doesn't sit in "Llantas
+      // Disponibles" on the vehicle AND so Save's removedIds logic catches
+      // it for unassignment.
       setAllTires((prev) => {
-        const updated = prev.map((t) => t.position === newPosition && newPosition !== "0" ? { ...t, position: null, posicion: null } : t);
-        if (bumped) {
-          setCompanyInventory((ci) => {
-            if (ci.find((t) => t.id === bumped.id)) return ci;
-            return [...ci, { ...bumped, position: null, posicion: null, vehicleId: null }];
-          });
-        }
-        return [...updated, { ...invTire, position: newPosition, posicion }];
+        const filtered = bumped ? prev.filter((t) => t.id !== bumped.id) : prev;
+        return [...filtered, { ...invTire, position: newPosition, posicion }];
       });
+      if (bumped) {
+        setCompanyInventory((ci) => {
+          if (ci.find((t) => t.id === bumped.id)) return ci;
+          return [...ci, { ...bumped, position: null, posicion: null, vehicleId: null }];
+        });
+      }
       setCompanyInventory((prev) => prev.filter((t) => t.id !== tireId));
-      // Hide the tile in the bucket panel immediately so the move feels real.
       setHiddenBucketIds((prev) => {
         const next = new Set(prev);
         next.add(tireId);
@@ -1330,6 +1353,8 @@ export default function PosicionPage() {
       pushMoveToast(`${invTire.marca} movida de Inventario a ${describePos(newPosition)}`);
       if (bumped) {
         pushMoveToast(`${bumped.marca} movida de ${describePos(bumped.position)} a Inventario`);
+        setPulseTireId(bumped.id);
+        setTimeout(() => setPulseTireId((prev) => (prev === bumped.id ? null : prev)), 700);
       }
     } else {
       const moving = allTires.find((t) => t.id === tireId);
@@ -1556,6 +1581,8 @@ export default function PosicionPage() {
               refreshKey={inventoryRefresh}
               onDropToBucket={handleDropToBucket}
               hiddenIds={hiddenBucketIds}
+              extraDisponibleTires={companyInventory}
+              pulseTireId={pulseTireId}
             />
           )}
 
