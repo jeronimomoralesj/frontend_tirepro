@@ -1176,36 +1176,9 @@ export default function ClientesPage() {
         }));
 
       setClients(list);
-
-      // Keep the old per-client detail fetch as a no-op so the diff is small
-      const BATCH = 10;
-      for (let i = 0; i < list.length; i += BATCH) {
-        const batch = list.slice(i, i + BATCH);
-        Promise.all(
-          batch.map(async (client) => {
-            try {
-              const detailRes = await fetch(`${API_BASE}/companies/${client.id}`, { headers: authHeaders() });
-              if (!detailRes.ok) return null;
-              const detail = await detailRes.json();
-              return {
-                id: client.id,
-                vehicleCount: detail._count?.vehicles ?? 0,
-                tireCount: detail._count?.tires ?? 0,
-              };
-            } catch { return null; }
-          })
-        ).then((results) => {
-          const updates = results.filter(Boolean) as { id: string; vehicleCount: number; tireCount: number }[];
-          if (updates.length > 0) {
-            setClients((prev) =>
-              prev.map((c) => {
-                const u = updates.find((r) => r.id === c.id);
-                return u ? { ...c, vehicleCount: u.vehicleCount, tireCount: u.tireCount } : c;
-              })
-            );
-          }
-        });
-      }
+      // Counts already come from /me/clients in one call. The old
+      // per-client /companies/:id fan-out was a leftover that sprayed
+      // 500+ requests per page load and triggered the throttler.
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Error inesperado", "error");
     } finally {
