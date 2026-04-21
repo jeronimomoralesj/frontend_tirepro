@@ -68,6 +68,8 @@ interface BucketData {
 
 interface Tire {
   id: string;
+  // Tire's serial / identifier (DB column is also `placa`). Shown on tiles.
+  placa: string;
   marca: string;
   diseno: string;
   dimension?: string;
@@ -295,7 +297,8 @@ function TireTooltip({ tire, anchor }: { tire: Tire; anchor: HTMLElement | null 
         border: "1px solid rgba(52,140,203,0.3)",
       }}
     >
-      <p className="font-bold text-sm text-[#348CCB] mb-2 truncate">{tire.marca} — {tire.diseno}</p>
+      <p className="font-black text-sm text-white mb-0.5 truncate" style={{ fontFamily: "'DM Mono', monospace" }}>{tire.placa}</p>
+      <p className="font-semibold text-xs text-[#348CCB] mb-2 truncate">{tire.marca} — {tire.diseno}</p>
       <div className="grid grid-cols-2 gap-x-2 gap-y-1">
         <span className="text-white/50">Dimensión</span><span className="truncate">{tire.dimension ?? "—"}</span>
         <span className="text-white/50">Eje</span><span>{tire.eje ?? "—"}</span>
@@ -397,10 +400,18 @@ function InventoryTile({ tire }: { tire: Tire }) {
       }}
     >
       {hovered && !isDragging && <TireTooltip tire={tire} anchor={ref.current} />}
-      <span className="text-white font-black text-[9px] tracking-wider text-center leading-tight" style={{ fontFamily: "'DM Mono', monospace" }}>
-        {tire.marca.toUpperCase().slice(0, 6)}
+      {/* Tire ID (serial/placa) is what lets users actually track the tire —
+          brand alone is ambiguous. Full details are in the hover tooltip. */}
+      <span
+        className="text-white font-black text-[10px] tracking-wider text-center leading-tight w-full truncate"
+        title={tire.placa}
+        style={{ fontFamily: "'DM Mono', monospace" }}
+      >
+        {tire.placa}
       </span>
-      <span className="text-white/70 text-[8px] truncate w-full text-center leading-tight">{tire.diseno}</span>
+      <span className="text-white/70 text-[8px] truncate w-full text-center leading-tight">
+        {tire.marca.toUpperCase().slice(0, 8)}
+      </span>
       <span className="text-white/60 text-[8px] font-semibold leading-none">{getMinDepth(tire)}</span>
     </div>
   );
