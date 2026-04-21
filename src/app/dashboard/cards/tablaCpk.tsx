@@ -273,7 +273,7 @@ function buildGroups(tires: Tire[], vida: VidaKey): GroupRow[] {
     });
   }
 
-  return Object.entries(buckets).map(([key, rows]): GroupRow => {
+  return Object.entries(buckets).filter(([, rows]) => rows.length > 0).map(([key, rows]): GroupRow => {
     const cpks    = rows.map(r => r.cpk);
     const proys   = rows.map(r => r.cpkProy).filter((v): v is number => v != null);
     const depths  = rows.map(r => r.depth).filter((v): v is number => v != null);
