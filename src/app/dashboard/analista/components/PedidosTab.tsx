@@ -467,6 +467,30 @@ function ManualView({
       return bT - aT;
     });
 
+  // Tires the fleet has sent to reencauche — grouped by lifecycle state so
+  // a single status strip can read "5 esperando pickup · 3 aprobadas en
+  // proceso con entrega el …". Counts items (not orders) across every
+  // order since a single order can have tires in multiple states.
+  const reencaucheEnCurso = useMemo(() => {
+    let enBucket = 0;
+    let aprobadas = 0;
+    let nextEta: Date | null = null;
+    for (const o of orders) {
+      for (const it of ((o.items ?? []) as any[])) {
+        if (it.tipo !== "reencauche") continue;
+        if (it.status === "en_reencauche_bucket") enBucket += 1;
+        if (it.status === "aprobada") {
+          aprobadas += 1;
+          if (it.estimatedDelivery) {
+            const d = new Date(it.estimatedDelivery);
+            if (!nextEta || d < nextEta) nextEta = d;
+          }
+        }
+      }
+    }
+    return { enBucket, aprobadas, nextEta, total: enBucket + aprobadas };
+  }, [orders]);
+
   // Merge distributors: connected ones first, then all others
   const connectedIds = new Set(distributors.map((d) => d.distributor.id));
   const sortedDistributors = useMemo(() => {
@@ -861,9 +885,39 @@ function ManualView({
     </div>
   ) : null;
 
+  // Status strip that reminds the fleet their tires are in reencauche.
+  // Rendered only when there's something in motion so empty state stays
+  // quiet.
+  const reencaucheStrip = reencaucheEnCurso.total > 0 ? (
+    <div
+      className="rounded-xl flex items-center gap-3 flex-wrap px-4 py-3 text-xs"
+      style={{
+        background: "rgba(124,58,237,0.06)",
+        border: "1px solid rgba(124,58,237,0.18)",
+      }}
+    >
+      <RotateCcw className="w-4 h-4 text-[#7c3aed] flex-shrink-0" />
+      <p className="font-bold text-[#0A183A]">
+        Tienes <span className="text-[#7c3aed]">{reencaucheEnCurso.total}</span> llanta{reencaucheEnCurso.total !== 1 ? "s" : ""} en reencauche
+      </p>
+      <span className="text-gray-500">
+        {reencaucheEnCurso.enBucket > 0 && <>· {reencaucheEnCurso.enBucket} esperando revisión del distribuidor</>}
+        {reencaucheEnCurso.enBucket > 0 && reencaucheEnCurso.aprobadas > 0 && " "}
+        {reencaucheEnCurso.aprobadas > 0 && (
+          <>· {reencaucheEnCurso.aprobadas} aprobada{reencaucheEnCurso.aprobadas !== 1 ? "s" : ""} en proceso
+          {reencaucheEnCurso.nextEta && (
+            <> · próxima entrega {reencaucheEnCurso.nextEta.toLocaleDateString("es-CO", { day: "numeric", month: "short" })}</>
+          )}
+          </>
+        )}
+      </span>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-5">
       {ofertasBlock}
+      {reencaucheStrip}
       {/* Recommendations header + budget */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
         <div className="bg-[#173D68] text-white p-4 rounded-t-xl flex items-center gap-3">

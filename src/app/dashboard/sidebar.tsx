@@ -263,10 +263,14 @@ export default function Sidebar({
     return () => { cancelled = true; clearInterval(id); };
   }, [user?.companyId, company?.plan]);
 
-  // Fleet (plus/pro) side — bubble on the Analista nav item whenever
-  // there's a cotización waiting for the fleet to accept/reject/revise.
-  // Counts PurchaseOrders in `cotizacion_recibida` for this company,
-  // same 60s cadence.
+  // Fleet (plus/pro) side — bubble on the Analista nav item counts two
+  // distinct "things that need attention":
+  //   1. Cotizaciones the dist has sent back (order.status = cotizacion_recibida)
+  //   2. Tires currently in the reencauche flow (items where tipo='reencauche'
+  //      and status ∈ {en_reencauche_bucket, aprobada}) — so the fleet is
+  //      reminded their tires are physically in motion even when no user
+  //      action is required right now.
+  // Summed into one badge so the fleet has a single "attention" counter.
   useEffect(() => {
     if (!user?.companyId || company?.plan === "distribuidor") {
       setPendingQuotesCount(0);
@@ -282,10 +286,17 @@ export default function Sidebar({
         );
         if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled) {
-          const count = Array.isArray(data)
-            ? data.filter((o: { status?: string }) => o.status === "cotizacion_recibida").length
-            : 0;
+        if (!cancelled && Array.isArray(data)) {
+          let count = 0;
+          for (const o of data as Array<{ status?: string; items?: Array<{ tipo?: string; status?: string }> }>) {
+            if (o.status === "cotizacion_recibida") count += 1;
+            for (const it of (o.items ?? [])) {
+              if (it.tipo === "reencauche"
+                  && (it.status === "en_reencauche_bucket" || it.status === "aprobada")) {
+                count += 1;
+              }
+            }
+          }
           setPendingQuotesCount(count);
         }
       } catch { /* silent */ }

@@ -1263,6 +1263,7 @@ function ReencaucheReviewSection({
   const [statusFilter,   setStatusFilter]   = useState<ReencaucheStatus | "all">("all");
   const [approving,      setApproving]      = useState<ReencaucheItem | null>(null);
   const [rejecting,      setRejecting]      = useState<ReencaucheItem | null>(null);
+  const [returning,      setReturning]      = useState<ReencaucheItem | null>(null);
   // Multi-select + entregar modal — aprobada tires the dist is handing back.
   const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
   const [entregarOpen,   setEntregarOpen]   = useState(false);
@@ -1519,18 +1520,27 @@ function ReencaucheReviewSection({
                     <Send className="w-3 h-3" /> Entregar
                   </button>
                 ) : (
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     <button
                       onClick={() => setApproving(it)}
                       className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-white bg-green-500 hover:bg-green-600 transition-colors"
+                      title="Reencauchar"
                     >
-                      <Check className="w-3 h-3" /> Aceptar
+                      <Check className="w-3 h-3" /> Reencauchar
+                    </button>
+                    <button
+                      onClick={() => setReturning(it)}
+                      className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-[#1E76B6] bg-[#1E76B6]/10 hover:bg-[#1E76B6]/15 transition-colors"
+                      title="Devolver a Disponible — tire isn't retreadable para este job pero sigue siendo útil"
+                    >
+                      <Send className="w-3 h-3 rotate-180" /> Devolver
                     </button>
                     <button
                       onClick={() => setRejecting(it)}
                       className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                      title="Fin de vida — tire no sirve más"
                     >
-                      <X className="w-3 h-3" /> Rechazar
+                      <X className="w-3 h-3" /> Fin de vida
                     </button>
                   </div>
                 )}
@@ -1550,13 +1560,23 @@ function ReencaucheReviewSection({
         />
       )}
 
-      {/* Reject modal */}
+      {/* Reject modal — fin-de-vida path */}
       {rejecting && (
         <RejectReencaucheModal
           item={rejecting}
           companyId={companyId}
           onClose={() => setRejecting(null)}
           onDone={() => { setRejecting(null); onUpdated(); }}
+        />
+      )}
+
+      {/* Return modal — tire is fine, just not retreadable for this job */}
+      {returning && (
+        <ReturnReencaucheModal
+          item={returning}
+          companyId={companyId}
+          onClose={() => setReturning(null)}
+          onDone={() => { setReturning(null); onUpdated(); }}
         />
       )}
 
@@ -1996,6 +2016,108 @@ function RejectReencaucheModal({
             style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}>
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
             Rechazar y enviar a fin de vida
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Return modal — dist inspects the tire, decides it's still usable but
+// not retreadable for this job. Tire goes back to the fleet's Disponible
+// bucket; no desechos form, no vida change. Just a short motivo so the
+// fleet can see why.
+function ReturnReencaucheModal({
+  item, companyId, onClose, onDone,
+}: {
+  item: ReencaucheItem;
+  companyId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [motivo, setMotivo] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err,    setErr]    = useState<string | null>(null);
+
+  async function submit() {
+    if (!motivo.trim()) {
+      setErr("Dinos por qué no pudiste reencaucharla.");
+      return;
+    }
+    setErr(null);
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders/items/${item.id}/return-to-disponible`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          distributorId: companyId,
+          motivoRechazo: motivo.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? "No se pudo devolver la llanta");
+      }
+      onDone();
+    } catch (e: any) {
+      setErr(e.message ?? "Error");
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="px-5 py-3 flex items-center justify-between" style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+          <h2 className="font-bold text-sm text-white">Devolver a Disponible</h2>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-5 space-y-3 text-sm">
+          <div className="rounded-lg p-3" style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.18)" }}>
+            <p className="text-[11px] font-bold text-[#1E76B6] uppercase tracking-wider">Llanta</p>
+            <p className="text-sm font-bold text-[#0A183A] mt-0.5">
+              {item.marca}{item.modelo ? ` · ${item.modelo}` : ""} · {item.dimension}
+            </p>
+            <p className="text-xs text-gray-500">
+              {item._clientName} · {item.tire?.vehicle?.placa ?? item.vehiclePlaca ?? "—"}
+              {item.tire?.posicion != null ? ` · P${item.tire.posicion}` : ""}
+            </p>
+          </div>
+
+          <div className="rounded-lg p-2.5 flex items-start gap-2" style={{ background: "#f9fafb" }}>
+            <AlertCircle className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
+            <p className="text-[11px] text-gray-600">
+              La llanta volverá al inventario <strong>Disponible</strong> del cliente sin
+              cambios en la vida. Usa esta opción cuando la llanta no sirva para
+              reencauche pero <strong>todavía pueda usarse</strong> (p.ej. no cumple
+              especificaciones del banco, cliente pidió otra banda…).
+            </p>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Motivo</label>
+            <textarea
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              rows={3}
+              placeholder="Ej: casco apto pero cliente pidió otra banda; casco bueno, fuera de especificación para nuestro proceso; …"
+              className={inputCls}
+            />
+          </div>
+
+          {err && <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5">{err}</p>}
+        </div>
+        <div className="px-5 py-3 bg-gray-50 flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">
+            Cancelar
+          </button>
+          <button onClick={submit} disabled={saving}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg, #1E76B6, #0A183A)" }}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5 rotate-180" />}
+            Devolver a Disponible
           </button>
         </div>
       </div>
