@@ -33,21 +33,51 @@ function authFetch(url: string, opts: RequestInit = {}): Promise<Response> {
 
 // -- Types --------------------------------------------------------------------
 
+// Mirrors the backend PurchaseOrderItem row. Optional quote fields are
+// filled by the dist at cotización time; lifecycle fields drive the
+// reencauche flow (en_reencauche_bucket → aprobada/rechazada → entregada).
+type ItemStatus =
+  | "pendiente"
+  | "cotizada"
+  | "en_reencauche_bucket"
+  | "aprobada"
+  | "rechazada"
+  | "entregada"
+  | "completada"
+  | "cancelada";
+
 interface OrderItem {
-  tireId?: string;
+  id: string;
+  tireId?: string | null;
   marca: string;
+  modelo?: string | null;
   dimension: string;
-  eje?: string;
+  eje?: string | null;
   cantidad: number;
   tipo: "nueva" | "reencauche";
-  vehiclePlaca?: string;
-  urgency?: string;
-  catalogSuggestion?: string | null;
-  bandaRecomendada?: string | null;
+  vehiclePlaca?: string | null;
+  urgency?: string | null;
+  notas?: string | null;
+
+  // Quote fields (filled at cotización time)
+  precioUnitario?: number | null;
+  disponible?: boolean | null;
+  tiempoEntrega?: string | null;
+  cotizacionNotas?: string | null;
+
+  // Lifecycle
+  status: ItemStatus;
+  estimatedDelivery?: string | null;
+  motivoRechazo?: string | null;
+  finalizedAt?: string | null;
+  vidaPrevia?: string | null;
+  vidaNueva?: string | null;
 }
 
-interface CotizacionItem {
-  itemIndex: number;
+// Draft state held in the UI while the dist is filling in the quote form.
+// Converted to the API payload in handleSubmitCotizacion.
+interface CotizacionDraft {
+  itemId: string;
   precioUnitario: number;
   disponible: boolean;
   tiempoEntrega: string;
@@ -63,7 +93,6 @@ interface PurchaseOrder {
   items: OrderItem[];
   totalEstimado: number | null;
   totalCotizado: number | null;
-  cotizacion: CotizacionItem[] | null;
   cotizacionFecha: string | null;
   cotizacionNotas: string | null;
   notas: string | null;
@@ -127,18 +156,20 @@ function OrderCard({
   const st = STATUS_META[order.status] ?? STATUS_META.solicitud_enviada;
   const canQuote = order.status === "solicitud_enviada";
 
-  // Editable cotizacion state (one per item)
-  const [cotItems, setCotItems] = useState<CotizacionItem[]>(() =>
-    items.map((_, i) => ({
-      itemIndex: i,
+  // Editable cotización draft — one row per item, keyed by the item's stable
+  // id so the form stays aligned with the server's rows even if item order
+  // changes between fetches.
+  const [cotItems, setCotItems] = useState<CotizacionDraft[]>(() =>
+    items.map((it) => ({
+      itemId:         it.id,
       precioUnitario: 0,
-      disponible: true,
-      tiempoEntrega: "Inmediato",
-      notas: "",
+      disponible:     true,
+      tiempoEntrega:  "Inmediato",
+      notas:          "",
     })),
   );
 
-  function updateCotItem(idx: number, field: keyof CotizacionItem, value: any) {
+  function updateCotItem(idx: number, field: keyof CotizacionDraft, value: any) {
     setCotItems((prev) =>
       prev.map((c, i) => (i === idx ? { ...c, [field]: value } : c)),
     );
@@ -158,11 +189,23 @@ function OrderCard({
     setSending(true);
     try {
       const notasWithIva = [generalNotes, conIva ? "Precios incluyen IVA (19%)" : "Precios sin IVA"].filter(Boolean).join(" — ");
+      // Strip UI-only fields (alternativeTire) — if the dist suggested an
+      // alternative we fold it into the notas for that item so nothing is
+      // lost when the server persists the row.
+      const payload = cotItems.map((c) => ({
+        itemId:         c.itemId,
+        precioUnitario: c.precioUnitario,
+        disponible:     c.disponible,
+        tiempoEntrega:  c.tiempoEntrega,
+        notas:          c.alternativeTire
+                          ? `[Alternativa: ${c.alternativeTire}] ${c.notas}`.trim()
+                          : c.notas,
+      }));
       const res = await authFetch(`${API_BASE}/purchase-orders/${order.id}/cotizacion`, {
         method: "PATCH",
         body: JSON.stringify({
           distributorId: companyId,
-          cotizacion: cotItems,
+          cotizacion: payload,
           totalCotizado: totalCot,
           notas: notasWithIva || undefined,
         }),
@@ -262,12 +305,16 @@ function OrderCard({
                       <td className="py-2.5 pr-2" style={{ minWidth: "140px" }}>
                         {item.tipo === "nueva" ? (
                           <div>
-                            <p className="font-medium text-[#0A183A] text-sm">{item.catalogSuggestion || item.marca}</p>
+                            <p className="font-medium text-[#0A183A] text-sm">
+                              {item.marca}{item.modelo ? ` ${item.modelo}` : ""}
+                            </p>
                             {item.vehiclePlaca && <p className="text-[10px] text-gray-400">Veh: {item.vehiclePlaca}</p>}
                           </div>
                         ) : (
                           <div>
-                            <p className="font-medium text-[#7c3aed] text-sm">{item.bandaRecomendada || "Banda por definir"}</p>
+                            <p className="font-medium text-[#7c3aed] text-sm">
+                              {item.modelo || "Banda por definir"}
+                            </p>
                             {item.vehiclePlaca && <p className="text-[10px] text-gray-400">Veh: {item.vehiclePlaca}</p>}
                           </div>
                         )}
@@ -361,19 +408,22 @@ function OrderCard({
             </table>
           </div>
 
-          {/* Already quoted — read-only summary */}
-          {!canQuote && order.cotizacion && (
+          {/* Already quoted — read-only summary, pulled from the items
+              themselves (per-item pricing replaced the legacy cotizacion JSON). */}
+          {!canQuote && items.some((it) => it.precioUnitario != null) && (
             <div className="rounded-xl p-4" style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(52,140,203,0.1)" }}>
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Cotizacion enviada</p>
-              {(order.cotizacion as CotizacionItem[]).map((c, i) => (
-                <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-gray-50 last:border-0">
-                  <span className="text-gray-500">{items[c.itemIndex]?.marca ?? `Item ${c.itemIndex + 1}`} - {items[c.itemIndex]?.dimension ?? ""}</span>
+              {items.map((it) => (
+                <div key={it.id} className="flex items-center justify-between text-xs py-1 border-b border-gray-50 last:border-0">
+                  <span className="text-gray-500">
+                    {it.marca}{it.modelo ? ` ${it.modelo}` : ""} — {it.dimension}
+                  </span>
                   <div className="flex items-center gap-3">
-                    <span className={c.disponible ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
-                      {c.disponible ? "Disponible" : "No disp."}
+                    <span className={it.disponible ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
+                      {it.disponible ? "Disponible" : "No disp."}
                     </span>
-                    <span className="font-bold text-[#0A183A]">{fmtCOP(c.precioUnitario)}</span>
-                    <span className="text-gray-400">{c.tiempoEntrega}</span>
+                    <span className="font-bold text-[#0A183A]">{fmtCOP(it.precioUnitario ?? 0)}</span>
+                    <span className="text-gray-400">{it.tiempoEntrega ?? "—"}</span>
                   </div>
                 </div>
               ))}

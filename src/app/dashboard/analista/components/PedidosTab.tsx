@@ -394,7 +394,7 @@ function ManualView({
   const [tab, setTab] = useState<"reencauche" | "nueva">("reencauche");
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [actionModal, setActionModal] = useState<"send" | "bucket" | "acceptConfirm" | null>(null);
+  const [actionModal, setActionModal] = useState<"send" | "bucket" | "acceptConfirm" | "sendReencauche" | null>(null);
   // Per-tire spec overrides. Empty by default — the analista can edit one row
   // (editingTireId) or bulk-edit every selected row sharing a reference
   // (bulkEditKey). Cleared whenever the tab changes so a reencauche override
@@ -643,100 +643,57 @@ function ManualView({
     setActionModal("acceptConfirm");
   }
 
+  // Accept the order on the server. If it contains reencauche items we then
+  // open the bucket-send confirmation so the fleet can physically hand over
+  // the tires before the distributor starts the approval review. Per-tire
+  // vida changes no longer happen here — they run later in the lifecycle
+  // (dist entregar step) so the state matches physical reality.
   async function executeAcceptOrder() {
     if (!orderToAccept) return;
     setAccepting(true);
     try {
-      const items = Array.isArray(orderToAccept.items) ? orderToAccept.items as any[] : [];
-      const cotItems = Array.isArray(orderToAccept.cotizacion) ? orderToAccept.cotizacion as any[] : [];
-
-      // Process each tire based on type
-      for (let ci = 0; ci < cotItems.length; ci++) {
-        const cot = cotItems[ci];
-        const item = items[cot.itemIndex] ?? {};
-        if (!item.tireId) continue;
-
-        if (item.tipo === "reencauche") {
-          // Determine next vida value — fetch just this tire by id
-          // instead of downloading the whole fleet to find one row.
-          let currentVida = "nueva";
-          try {
-            const tireRes = await authFetch(`${API_BASE}/tires/${item.tireId}`);
-            if (tireRes.ok) {
-              const tire = await tireRes.json();
-              if (tire) currentVida = tire.vidaActual ?? "nueva";
-            }
-          } catch { /* use default */ }
-
-          const vidaMap: Record<string, string> = { nueva: "reencauche1", reencauche1: "reencauche2", reencauche2: "reencauche3" };
-          const nextVida = vidaMap[currentVida] ?? "reencauche1";
-
-          // Clean banda name: strip prefixes like "Banda direccional (ej. ...)" → just the actual name
-          let rawBanda = cot.alternativeTire || item.bandaRecomendada || "";
-          rawBanda = rawBanda.replace(/^Banda\s+(direccional|tracción|toda posición|libre\/remolque|libre|remolque)\s*/i, "").trim();
-          // If it was just a category label with nothing after, use a generic
-          const bandaName = rawBanda || "Banda reencauche";
-
-          await authFetch(`${API_BASE}/tires/${item.tireId}/vida`, {
-            method: "PATCH",
-            body: JSON.stringify({
-              valor: nextVida,
-              banda: bandaName,
-              costo: cot.precioUnitario || 0,
-              profundidadInicial: 16,
-            }),
-          });
-        } else if (item.tipo === "nueva") {
-          // Parse the tire name properly — could be "Michelin X Line Energy Z" from catalog
-          const fullName = cot.alternativeTire || item.catalogSuggestion || "";
-          // Try to split: first word = marca, rest = diseño
-          const nameParts = fullName.trim().split(/\s+/);
-          const tireMarca = nameParts[0] || item.marca || "Sin marca";
-          const tireDiseno = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Nueva";
-
-          // Set old tire to fin de vida
-          try {
-            await authFetch(`${API_BASE}/tires/${item.tireId}/vida`, {
-              method: "PATCH",
-              body: JSON.stringify({
-                valor: "fin",
-                motivoFin: "desgaste",
-                notasRetiro: `Reemplazada — ${tireMarca} ${tireDiseno}`,
-              }),
-            });
-          } catch { /* old tire vida update is best-effort */ }
-
-          // Create the new tire with proper brand/model/dimension
-          await authFetch(`${API_BASE}/tires/create`, {
-            method: "POST",
-            body: JSON.stringify({
-              placa: `${(item.vehiclePlaca ?? "NEW").toUpperCase()}-${Date.now().toString(36).slice(-5).toUpperCase()}`,
-              marca: tireMarca,
-              diseno: tireDiseno,
-              dimension: item.dimension,
-              eje: item.eje || "libre",
-              posicion: 0,
-              profundidadInicial: 16,
-              costo: [{ valor: cot.precioUnitario || 0, fecha: new Date().toISOString() }],
-              vidaActual: "nueva",
-              companyId,
-              vehicleId: null,
-            }),
-          });
-        }
-      }
-
-      // Accept the order
-      await authFetch(`${API_BASE}/purchase-orders/${orderToAccept.id}/accept`, {
+      const res = await authFetch(`${API_BASE}/purchase-orders/${orderToAccept.id}/accept`, {
         method: "PATCH",
         body: JSON.stringify({ companyId }),
       });
+      if (!res.ok) throw new Error("No se pudo aceptar la orden");
 
+      // If there's any reencauche item with a tire attached, prompt the user
+      // to send those tires to the reencauche bucket now. Otherwise we're done.
+      const reencaucheItems = (orderToAccept.items as any[])
+        .filter((it) => it?.tipo === "reencauche" && it?.tireId);
+
+      if (reencaucheItems.length > 0) {
+        setActionModal("sendReencauche");
+      } else {
+        setOrderToAccept(null);
+        setActionModal(null);
+        onRefresh();
+      }
+    } catch (e: any) {
+      alert(`Error al procesar: ${e.message ?? "Error desconocido"}`);
+    }
+    setAccepting(false);
+  }
+
+  // Fleet confirms the reencauche tires are ready to leave the vehicles. The
+  // backend moves the tires into the Reencauche bucket and flips each item
+  // to `en_reencauche_bucket`. The vehicles will show "empty" positions
+  // until the retread comes back.
+  async function executeSendToReencauche() {
+    if (!orderToAccept) return;
+    setAccepting(true);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders/${orderToAccept.id}/reencauche/send`, {
+        method: "POST",
+        body: JSON.stringify({ companyId }),
+      });
+      if (!res.ok) throw new Error("No se pudieron mover las llantas al bucket");
       setOrderToAccept(null);
       setActionModal(null);
       onRefresh();
     } catch (e: any) {
-      alert(`Error al procesar: ${e.message ?? "Error desconocido"}`);
+      alert(`Error: ${e.message ?? "Error desconocido"}`);
     }
     setAccepting(false);
   }
@@ -972,7 +929,7 @@ function ManualView({
           </div>
           <div className="space-y-3">
             {cotizaciones.map((o) => {
-              const cotItems = Array.isArray(o.cotizacion) ? o.cotizacion as any[] : [];
+              // Quote data lives on each item now — no separate cotizacion array.
               const items = Array.isArray(o.items) ? o.items as any[] : [];
               return (
                 <div key={o.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid rgba(249,115,22,0.2)" }}>
@@ -987,24 +944,29 @@ function ManualView({
 
                   {/* Items detail */}
                   <div className="px-4 py-3 space-y-2">
-                    {cotItems.map((c: any, ci: number) => {
-                      const item = items[c.itemIndex] ?? {};
-                      return (
-                        <div key={ci} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-[#0A183A]">
-                              {c.alternativeTire || (item.tipo === "nueva" ? (item.catalogSuggestion || item.marca) : (item.bandaRecomendada || "Reencauche"))}
-                            </p>
-                            <p className="text-[10px] text-gray-400">{item.dimension} — {item.eje ?? ""} — {c.tiempoEntrega}</p>
-                            {c.alternativeTire && <p className="text-[10px] text-[#f97316]">Alternativa propuesta por distribuidor</p>}
-                          </div>
-                          <div className="text-right flex-shrink-0 ml-3">
-                            <p className="font-bold text-[#0A183A]">{fmtCOP(c.precioUnitario)}</p>
-                            <p className="text-[10px]" style={{ color: c.disponible ? "#22c55e" : "#ef4444" }}>{c.disponible ? "Disponible" : "No disp."}</p>
-                          </div>
+                    {items.map((it: any) => (
+                      <div key={it.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-[#0A183A]">
+                            {it.marca}{it.modelo ? ` ${it.modelo}` : ""}
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {it.dimension}{it.eje ? ` — ${it.eje}` : ""}
+                            {it.tiempoEntrega ? ` — ${it.tiempoEntrega}` : ""}
+                            {it.tipo === "reencauche" && it.tire?.vehicle?.placa
+                              ? ` — ${it.tire.vehicle.placa}·P${it.tire.posicion ?? "?"}`
+                              : ""}
+                          </p>
+                          {it.cotizacionNotas && <p className="text-[10px] text-[#f97316]">{it.cotizacionNotas}</p>}
                         </div>
-                      );
-                    })}
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <p className="font-bold text-[#0A183A]">{fmtCOP(it.precioUnitario ?? 0)}</p>
+                          <p className="text-[10px]" style={{ color: it.disponible ? "#22c55e" : "#ef4444" }}>
+                            {it.disponible ? "Disponible" : "No disp."}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                     {o.cotizacionNotas && <p className="text-xs text-gray-500 pt-1">{o.cotizacionNotas}</p>}
                   </div>
 
@@ -1320,7 +1282,6 @@ function ManualView({
       {/* ============== Accept Confirmation Modal ============== */}
       {actionModal === "acceptConfirm" && orderToAccept && (() => {
         const oItems = Array.isArray(orderToAccept.items) ? orderToAccept.items as any[] : [];
-        const oCot = Array.isArray(orderToAccept.cotizacion) ? orderToAccept.cotizacion as any[] : [];
         const reencItems = oItems.filter((it: any) => it.tipo === "reencauche");
         const newItems = oItems.filter((it: any) => it.tipo === "nueva");
 
@@ -1333,7 +1294,7 @@ function ManualView({
               </div>
               <div className="p-5 space-y-4">
                 <p className="text-sm text-[#0A183A]">
-                  Al aceptar la cotización de <strong>{orderToAccept.distributor?.name}</strong>, se ejecutarán estas acciones:
+                  Vas a aceptar la cotización de <strong>{orderToAccept.distributor?.name}</strong>. El pedido pasará al estado <em>aceptada</em> y el distribuidor empezará a procesarlo.
                 </p>
 
                 {reencItems.length > 0 && (
@@ -1343,17 +1304,23 @@ function ManualView({
                       {reencItems.length} llanta{reencItems.length !== 1 ? "s" : ""} a reencauchar
                     </p>
                     <ul className="space-y-1">
-                      {reencItems.map((it: any, idx: number) => {
-                        const c = oCot.find((c: any) => oItems[c.itemIndex]?.tireId === it.tireId);
-                        return (
-                          <li key={idx} className="text-xs text-[#0A183A] flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] flex-shrink-0" />
-                            <span>{it.dimension} — {c?.alternativeTire || it.bandaRecomendada || "Banda reencauche"}</span>
-                          </li>
-                        );
-                      })}
+                      {reencItems.slice(0, 8).map((it: any) => (
+                        <li key={it.id} className="text-xs text-[#0A183A] flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#7c3aed] flex-shrink-0" />
+                          <span>
+                            {it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "—"}
+                            {it.tire?.posicion != null ? ` · P${it.tire.posicion}` : ""}
+                            {" — "}{it.modelo || "Banda por definir"} · {it.dimension}
+                          </span>
+                        </li>
+                      ))}
+                      {reencItems.length > 8 && (
+                        <li className="text-[10px] text-gray-400">+ {reencItems.length - 8} más</li>
+                      )}
                     </ul>
-                    <p className="text-[10px] text-[#7c3aed]/70 mt-2">Se avanzará la vida y se creará una inspección inicial con la nueva profundidad.</p>
+                    <p className="text-[10px] text-[#7c3aed]/70 mt-2">
+                      Después de aceptar, te pediremos enviar estas llantas al bucket de Reencauche.
+                    </p>
                   </div>
                 )}
 
@@ -1364,17 +1331,16 @@ function ManualView({
                       {newItems.length} llanta{newItems.length !== 1 ? "s" : ""} nueva{newItems.length !== 1 ? "s" : ""}
                     </p>
                     <ul className="space-y-1">
-                      {newItems.map((it: any, idx: number) => {
-                        const c = oCot.find((c: any) => oItems[c.itemIndex]?.tireId === it.tireId);
-                        return (
-                          <li key={idx} className="text-xs text-[#0A183A] flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#1E76B6] flex-shrink-0" />
-                            <span>{c?.alternativeTire || it.catalogSuggestion || it.marca} — {it.dimension}</span>
-                          </li>
-                        );
-                      })}
+                      {newItems.slice(0, 8).map((it: any) => (
+                        <li key={it.id} className="text-xs text-[#0A183A] flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#1E76B6] flex-shrink-0" />
+                          <span>{it.marca}{it.modelo ? ` ${it.modelo}` : ""} — {it.dimension}</span>
+                        </li>
+                      ))}
+                      {newItems.length > 8 && (
+                        <li className="text-[10px] text-gray-400">+ {newItems.length - 8} más</li>
+                      )}
                     </ul>
-                    <p className="text-[10px] text-[#1E76B6]/70 mt-2">Las llantas actuales se marcarán como fin de vida y se crearán nuevas en el sistema.</p>
                   </div>
                 )}
 
@@ -1392,7 +1358,83 @@ function ManualView({
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
                     style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
                     {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                    Confirmar y Ejecutar
+                    Aceptar pedido
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ============== Send-to-Reencauche-bucket Modal ============== */}
+      {actionModal === "sendReencauche" && orderToAccept && (() => {
+        const reencItems = (Array.isArray(orderToAccept.items) ? orderToAccept.items as any[] : [])
+          .filter((it: any) => it.tipo === "reencauche" && it.tireId);
+
+        // Group by vehicle so the warning matches how the operator thinks
+        // ("vehicle ABC-123 will be down three tires").
+        const byVehicle = new Map<string, any[]>();
+        for (const it of reencItems) {
+          const placa = it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "Sin vehículo";
+          const list = byVehicle.get(placa) ?? [];
+          list.push(it);
+          byVehicle.set(placa, list);
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
+            <div className="bg-white rounded-xl shadow-sm w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+              <div className="px-6 py-4 flex justify-between items-center sticky top-0 z-10" style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}>
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-white" />
+                  <h2 className="font-bold text-sm text-white">Enviar llantas al reencauche</h2>
+                </div>
+                <button onClick={() => { setActionModal(null); setOrderToAccept(null); onRefresh(); }} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="rounded-xl p-3 flex items-start gap-2.5" style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)" }}>
+                  <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-[#713f12]">
+                    Los vehículos involucrados quedarán con <strong>posiciones vacías</strong> hasta que el distribuidor
+                    devuelva las llantas retrituradas. Asegúrate de tener llantas de respaldo si el vehículo debe operar
+                    mientras tanto.
+                  </p>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Se moverán <strong>{reencItems.length}</strong> llanta{reencItems.length !== 1 ? "s" : ""} al bucket
+                  de Reencauche. El distribuidor las revisará una por una y decidirá cuáles acepta para reencauchar.
+                </p>
+
+                <div className="space-y-2">
+                  {[...byVehicle.entries()].map(([placa, list]) => (
+                    <div key={placa} className="rounded-xl p-3" style={{ background: "rgba(124,58,237,0.04)", border: "1px solid rgba(124,58,237,0.12)" }}>
+                      <p className="text-[11px] font-black uppercase tracking-wider text-[#7c3aed] mb-1.5">
+                        {placa} — {list.length} posición{list.length !== 1 ? "es" : ""}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {list.map((it: any) => (
+                          <span key={it.id} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border"
+                                style={{ borderColor: "rgba(124,58,237,0.25)", color: "#7c3aed" }}>
+                            P{it.tire?.posicion ?? "?"}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => { setActionModal(null); setOrderToAccept(null); onRefresh(); }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#7c3aed] border border-[#7c3aed]/30 hover:bg-[#f5f3ff] transition-colors">
+                    Ahora no
+                  </button>
+                  <button onClick={executeSendToReencauche} disabled={accepting}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}>
+                    {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    Enviar al bucket
                   </button>
                 </div>
               </div>
