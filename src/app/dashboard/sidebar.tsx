@@ -104,11 +104,15 @@ function CompanyAvatar({
 // =============================================================================
 
 function NavItem({
-  link, active, collapsed, onClick,
+  link, active, collapsed, onClick, badge,
 }: {
   link: NavLink; active: boolean; collapsed: boolean; onClick?: () => void;
+  // Optional notification count. Anything > 0 renders a small red bubble
+  // over the icon; numeric values 1–99 are shown, 99+ collapses to "99+".
+  badge?: number;
 }) {
   const Icon = link.icon;
+  const showBadge = typeof badge === "number" && badge > 0;
 
   return (
     <Link
@@ -139,15 +143,34 @@ function NavItem({
       }}
     >
       <div
-        className="flex-shrink-0 p-1.5 rounded-lg transition-all duration-200"
+        className="relative flex-shrink-0 p-1.5 rounded-lg transition-all duration-200"
         style={{
           background: active ? "rgba(255,255,255,0.15)" : "rgba(30,118,182,0.08)",
         }}
       >
         <Icon className="w-4 h-4" />
+        {showBadge && (
+          <span
+            className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center text-white tabular-nums"
+            style={{ background: "#ef4444", boxShadow: "0 0 0 1.5px white" }}
+            aria-label={`${badge} notificaciones`}
+          >
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
       </div>
       {!collapsed && (
-        <span className="leading-none truncate">{link.name}</span>
+        <span className="leading-none truncate flex-1">{link.name}</span>
+      )}
+      {/* Text-row badge when not collapsed — mirrors the icon dot so it's
+          visible at a glance even when the icon area is crowded. */}
+      {!collapsed && showBadge && (
+        <span
+          className="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white tabular-nums"
+          style={{ background: "#ef4444" }}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
       )}
     </Link>
   );
@@ -169,8 +192,12 @@ export default function Sidebar({
   setIsMobileOpen: (v: boolean) => void;
 }) {
   const pathname = usePathname();
-  const [user,    setUser]    = useState<UserData | null>(null);
-  const [company, setCompany] = useState<CompanyData | null>(null);
+  const [user,          setUser]          = useState<UserData | null>(null);
+  const [company,       setCompany]       = useState<CompanyData | null>(null);
+  // Open bid requests available to this dist — drives the red bubble on
+  // the "Pedidos" sidebar item. Polled every 60s so new invitations show
+  // up without a page refresh. Zero for non-dist users.
+  const [openBidsCount, setOpenBidsCount] = useState<number>(0);
 
   // -- Bootstrap: load user from localStorage ----------------------------------
   useEffect(() => {
@@ -205,6 +232,33 @@ export default function Sidebar({
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, [isMobileOpen]);
+
+  // Poll open bid requests for distribuidores — feeds the red bubble on
+  // the Pedidos nav item so open licitaciones surface without a manual
+  // page load. 60s cadence is a sane balance between freshness and
+  // request volume; the endpoint is cheap (single indexed query).
+  useEffect(() => {
+    if (!user?.companyId || company?.plan !== "distribuidor") {
+      setOpenBidsCount(0);
+      return;
+    }
+    let cancelled = false;
+    async function tick() {
+      try {
+        const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+        const res = await fetch(
+          `${API_BASE}/marketplace/bid-requests/available?distributorId=${user!.companyId}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setOpenBidsCount(Array.isArray(data) ? data.length : 0);
+      } catch { /* silent — keep the last known count */ }
+    }
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [user?.companyId, company?.plan]);
 
   // Still loading
   if (!user || !company) return null;
@@ -344,6 +398,7 @@ export default function Sidebar({
               active={pathname === link.path}
               collapsed={false}
               onClick={closeMobile}
+              badge={link.path === "/dashboard/pedidosDist" ? openBidsCount : undefined}
             />
           ))}
         </nav>
@@ -476,6 +531,7 @@ export default function Sidebar({
               link={link}
               active={pathname === link.path}
               collapsed={collapsed}
+              badge={link.path === "/dashboard/pedidosDist" ? openBidsCount : undefined}
             />
           ))}
         </nav>

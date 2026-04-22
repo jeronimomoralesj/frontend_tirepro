@@ -2143,8 +2143,10 @@ function PedidosSection() {
           />
         )}
 
-        {/* Licitaciones activas */}
-        {bidRequests.length > 0 && (
+        {/* Licitaciones activas — only make sense on the "Nuevas" tab.
+            En Proceso / Completadas are about orders the dist has already
+            engaged with; open bids are still a new-opportunity stream. */}
+        {tab === "nuevas" && bidRequests.length > 0 && (
           <div>
             <button onClick={() => setShowBids(!showBids)} className="w-full flex items-center gap-3 mb-3">
               <Gavel className="w-4 h-4 text-[#8b5cf6]" />
@@ -2168,7 +2170,7 @@ function PedidosSection() {
           <div className="flex items-center justify-center py-20 text-[#1E76B6]">
             <Loader2 className="w-5 h-5 animate-spin" />
           </div>
-        ) : filtered.length === 0 && bidRequests.length === 0 ? (
+        ) : filtered.length === 0 && (tab !== "nuevas" || bidRequests.length === 0) ? (
           <div className="flex flex-col items-center py-20 text-gray-400">
             <Package className="w-8 h-8 mb-2" />
             <p className="text-sm font-bold text-[#0A183A]">Sin pedidos en esta categoria</p>
