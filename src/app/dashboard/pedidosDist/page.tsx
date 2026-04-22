@@ -2070,9 +2070,13 @@ function PedidosSection() {
   const fetchOrders = useCallback(async (cId: string) => {
     setLoading(true);
     try {
+      // Use /distributor (full history) instead of /available so the dist
+      // can see quoted-but-not-adjudicated bids on En Proceso and won/
+      // lost ones on Completadas. /available still drives the sidebar
+      // bubble, which only counts fresh work.
       const [ordersRes, bidsRes] = await Promise.all([
         authFetch(`${API_BASE}/purchase-orders/distributor?companyId=${cId}`),
-        authFetch(`${API_BASE}/marketplace/bid-requests/available?distributorId=${cId}`),
+        authFetch(`${API_BASE}/marketplace/bid-requests/distributor?distributorId=${cId}`),
       ]);
       if (ordersRes.ok) setOrders(await ordersRes.json());
       if (bidsRes.ok) setBidRequests(await bidsRes.json());
@@ -2095,11 +2099,36 @@ function PedidosSection() {
     [orders, tab],
   );
 
+  // Classify each bid request against the three tabs the dist sees.
+  // Source of truth is (bid.status, my response.status) — no server-side
+  // grouping, since the same bid shifts tabs as the dist acts on it.
+  function bidMatchesTab(bid: any, t: FilterTab): boolean {
+    const my = (bid?.responses ?? [])[0];
+    const myStatus = my?.status as string | undefined;
+    const open = bid.status === "abierta";
+    if (t === "nuevas") {
+      return open && myStatus !== "cotizada" && myStatus !== "rechazada" && myStatus !== "ganadora";
+    }
+    if (t === "proceso") {
+      return open && myStatus === "cotizada";
+    }
+    // completadas: anything terminal or where the dist has a terminal state
+    return !open || myStatus === "ganadora" || myStatus === "rechazada";
+  }
+
+  const bidsByTab = useMemo(
+    () => bidRequests.filter((b) => bidMatchesTab(b, tab)),
+    [bidRequests, tab],
+  );
+
   const counts = useMemo(() => ({
-    nuevas: orders.filter((o) => matchFilter(o.status, "nuevas")).length,
-    proceso: orders.filter((o) => matchFilter(o.status, "proceso")).length,
-    completadas: orders.filter((o) => matchFilter(o.status, "completadas")).length,
-  }), [orders]);
+    nuevas:      orders.filter((o) => matchFilter(o.status, "nuevas")).length
+               + bidRequests.filter((b) => bidMatchesTab(b, "nuevas")).length,
+    proceso:     orders.filter((o) => matchFilter(o.status, "proceso")).length
+               + bidRequests.filter((b) => bidMatchesTab(b, "proceso")).length,
+    completadas: orders.filter((o) => matchFilter(o.status, "completadas")).length
+               + bidRequests.filter((b) => bidMatchesTab(b, "completadas")).length,
+  }), [orders, bidRequests]);
 
   return (
     <div>
@@ -2143,21 +2172,26 @@ function PedidosSection() {
           />
         )}
 
-        {/* Licitaciones activas — only make sense on the "Nuevas" tab.
-            En Proceso / Completadas are about orders the dist has already
-            engaged with; open bids are still a new-opportunity stream. */}
-        {tab === "nuevas" && bidRequests.length > 0 && (
+        {/* Licitaciones — visible on every tab now, scoped to the bids
+            that belong to that tab's state. Nuevas = open & unquoted;
+            En Proceso = open & already quoted (waiting for adjudication);
+            Completadas = won, lost, cancelled, or closed. */}
+        {bidsByTab.length > 0 && (
           <div>
             <button onClick={() => setShowBids(!showBids)} className="w-full flex items-center gap-3 mb-3">
               <Gavel className="w-4 h-4 text-[#8b5cf6]" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#8b5cf6]">Licitaciones Abiertas</h3>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6]">{bidRequests.length}</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#8b5cf6]">
+                {tab === "nuevas"     ? "Licitaciones abiertas"
+                 : tab === "proceso"  ? "Licitaciones cotizadas"
+                                      : "Licitaciones cerradas"}
+              </h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6]">{bidsByTab.length}</span>
               <div className="flex-1 h-px bg-gray-200" />
               {showBids ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
             </button>
             {showBids && (
               <div className="space-y-3 mb-6">
-                {bidRequests.map((bid: any) => (
+                {bidsByTab.map((bid: any) => (
                   <BidRequestCard key={bid.id} bid={bid} companyId={companyId} onUpdated={() => fetchOrders(companyId)} />
                 ))}
               </div>
@@ -2170,7 +2204,7 @@ function PedidosSection() {
           <div className="flex items-center justify-center py-20 text-[#1E76B6]">
             <Loader2 className="w-5 h-5 animate-spin" />
           </div>
-        ) : filtered.length === 0 && (tab !== "nuevas" || bidRequests.length === 0) ? (
+        ) : filtered.length === 0 && bidsByTab.length === 0 ? (
           <div className="flex flex-col items-center py-20 text-gray-400">
             <Package className="w-8 h-8 mb-2" />
             <p className="text-sm font-bold text-[#0A183A]">Sin pedidos en esta categoria</p>

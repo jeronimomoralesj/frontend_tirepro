@@ -197,7 +197,10 @@ export default function Sidebar({
   // Open bid requests available to this dist — drives the red bubble on
   // the "Pedidos" sidebar item. Polled every 60s so new invitations show
   // up without a page refresh. Zero for non-dist users.
-  const [openBidsCount, setOpenBidsCount] = useState<number>(0);
+  const [openBidsCount,      setOpenBidsCount]      = useState<number>(0);
+  // Cotizaciones waiting for the fleet to accept/reject — drives the red
+  // bubble on the "Analista" nav item for non-dist (fleet) users.
+  const [pendingQuotesCount, setPendingQuotesCount] = useState<number>(0);
 
   // -- Bootstrap: load user from localStorage ----------------------------------
   useEffect(() => {
@@ -254,6 +257,38 @@ export default function Sidebar({
         const data = await res.json();
         if (!cancelled) setOpenBidsCount(Array.isArray(data) ? data.length : 0);
       } catch { /* silent — keep the last known count */ }
+    }
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [user?.companyId, company?.plan]);
+
+  // Fleet (plus/pro) side — bubble on the Analista nav item whenever
+  // there's a cotización waiting for the fleet to accept/reject/revise.
+  // Counts PurchaseOrders in `cotizacion_recibida` for this company,
+  // same 60s cadence.
+  useEffect(() => {
+    if (!user?.companyId || company?.plan === "distribuidor") {
+      setPendingQuotesCount(0);
+      return;
+    }
+    let cancelled = false;
+    async function tick() {
+      try {
+        const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+        const res = await fetch(
+          `${API_BASE}/purchase-orders/company?companyId=${user!.companyId}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const count = Array.isArray(data)
+            ? data.filter((o: { status?: string }) => o.status === "cotizacion_recibida").length
+            : 0;
+          setPendingQuotesCount(count);
+        }
+      } catch { /* silent */ }
     }
     tick();
     const id = setInterval(tick, 60_000);
@@ -398,7 +433,11 @@ export default function Sidebar({
               active={pathname === link.path}
               collapsed={false}
               onClick={closeMobile}
-              badge={link.path === "/dashboard/pedidosDist" ? openBidsCount : undefined}
+              badge={
+                link.path === "/dashboard/pedidosDist" ? openBidsCount
+                : link.path === "/dashboard/analista"  ? pendingQuotesCount
+                : undefined
+              }
             />
           ))}
         </nav>
@@ -531,7 +570,11 @@ export default function Sidebar({
               link={link}
               active={pathname === link.path}
               collapsed={collapsed}
-              badge={link.path === "/dashboard/pedidosDist" ? openBidsCount : undefined}
+              badge={
+                link.path === "/dashboard/pedidosDist" ? openBidsCount
+                : link.path === "/dashboard/analista"  ? pendingQuotesCount
+                : undefined
+              }
             />
           ))}
         </nav>

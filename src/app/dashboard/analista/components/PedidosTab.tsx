@@ -612,14 +612,43 @@ function ManualView({
   }
 
   // Award a bid
+  // Key format: `${bidRequestId}:${distributorId}` — one spinner per
+  // candidate so rapid double-clicks on the same row get deduplicated.
+  const [awarding, setAwarding] = useState<string | null>(null);
+
+  // Which ofertas the user has expanded to see tire-by-tire prices.
+  // Defaults to empty — cards render as compact summaries until opened.
+  const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(new Set());
+  function toggleOferta(id: string) {
+    setExpandedOfertas(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+
   async function handleAwardBid(bidRequestId: string, distributorId: string) {
+    const key = `${bidRequestId}:${distributorId}`;
+    if (awarding === key) return;                  // ignore double-click
+    setAwarding(key);
     try {
       const res = await authFetch(`${API_BASE}/marketplace/bid-requests/${bidRequestId}/award`, {
         method: "PATCH",
         body: JSON.stringify({ distributorId, companyId }),
       });
-      if (res.ok) fetchBidRequests();
-    } catch { /* */ }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any));
+        // The backend throws BadRequest when the bid is already adjudicada
+        // or the dist never submitted a quote — surface that instead of
+        // failing silently so the user understands why the button didn't
+        // do anything.
+        window.alert(body?.message ?? `No se pudo adjudicar (${res.status})`);
+        return;
+      }
+      await fetchBidRequests();
+    } finally {
+      setAwarding(null);
+    }
   }
 
   async function handleBulkMoveToBucket() {
@@ -931,18 +960,35 @@ function ManualView({
             {cotizaciones.map((o) => {
               // Quote data lives on each item now — no separate cotizacion array.
               const items = Array.isArray(o.items) ? o.items as any[] : [];
+              const isExpanded = expandedOfertas.has(o.id);
               return (
                 <div key={o.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid rgba(249,115,22,0.2)" }}>
-                  {/* Header */}
-                  <div className="px-4 py-3 flex items-center justify-between" style={{ background: "rgba(249,115,22,0.05)" }}>
-                    <div>
+                  {/* Header — click to toggle per-item detail */}
+                  <button
+                    type="button"
+                    onClick={() => toggleOferta(o.id)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[rgba(249,115,22,0.08)] transition-colors"
+                    style={{ background: "rgba(249,115,22,0.05)" }}
+                  >
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-[#0A183A]">{o.distributor?.name ?? "Distribuidor"}</p>
-                      <p className="text-[10px] text-gray-400">{fmtDate(o.createdAt)} — {items.length} llantas</p>
+                      <p className="text-[10px] text-gray-400">
+                        {fmtDate(o.createdAt)} — {items.length} llanta{items.length !== 1 ? "s" : ""}
+                        {" · "}
+                        <span className="text-[#f97316] font-semibold">
+                          {isExpanded ? "Ocultar detalle" : "Ver detalle por llanta"}
+                        </span>
+                      </p>
                     </div>
-                    <p className="text-lg font-black text-[#0A183A]">{fmtCOP(o.totalCotizado ?? 0)}</p>
-                  </div>
+                    <p className="text-lg font-black text-[#0A183A] flex-shrink-0 ml-3">{fmtCOP(o.totalCotizado ?? 0)}</p>
+                    <ChevronDown
+                      className={`w-4 h-4 text-[#f97316] ml-2 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                    />
+                  </button>
 
-                  {/* Items detail */}
+                  {/* Items detail — hidden by default so a page of offers
+                      stays scannable; click the header to expand. */}
+                  {isExpanded && (
                   <div className="px-4 py-3 space-y-2">
                     {items.map((it: any) => (
                       <div key={it.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
@@ -976,8 +1022,12 @@ function ManualView({
                     ))}
                     {o.cotizacionNotas && <p className="text-xs text-gray-500 pt-1">{o.cotizacionNotas}</p>}
                   </div>
+                  )}
 
-                  {/* Actions */}
+                  {/* Actions — always visible so the fleet can accept/reject
+                      without expanding every card, but offer acceptance
+                      without reviewing details is a flow the warning on
+                      the header already hints at. */}
                   <div className="px-4 py-3 flex gap-2 flex-wrap" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
                     <button onClick={() => handleAcceptOrder(o.id)}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-green-500 hover:bg-green-600 transition-colors">
@@ -1061,13 +1111,21 @@ function ManualView({
                               </p>
                             </div>
                             <p className="text-base font-black text-[#0A183A]">{fmtCOP(resp.totalCotizado ?? 0)}</p>
-                            {isOpen && !winner && resp.status === "cotizada" && (
-                              <button onClick={() => handleAwardBid(bid.id, resp.distributorId)}
-                                className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white transition-all hover:opacity-90"
-                                style={{ background: "#22c55e" }}>
-                                Adjudicar
-                              </button>
-                            )}
+                            {isOpen && !winner && resp.status === "cotizada" && (() => {
+                              const awardKey = `${bid.id}:${resp.distributorId}`;
+                              const busy = awarding === awardKey;
+                              return (
+                                <button
+                                  onClick={() => handleAwardBid(bid.id, resp.distributorId)}
+                                  disabled={busy}
+                                  className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1"
+                                  style={{ background: "#22c55e" }}
+                                >
+                                  {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+                                  {busy ? "Adjudicando…" : "Adjudicar"}
+                                </button>
+                              );
+                            })()}
                           </div>
                         );
                       })}
