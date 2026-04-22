@@ -12,9 +12,14 @@ export type NumericField =
   | "cpk"            // lifetime/current CPK — falls back to last inspection
   | "cpkProyectado"  // last inspection's projected CPK
   | "km"             // tire.kilometrosRecorridos
+  | "kmProyectado"   // last inspection's projected km to EOL
+  | "kmEstimados"    // last inspection's kilometrosEstimados
   | "depthMin"       // min of last inspection's int/cen/ext
   | "depthInicial"   // tire.profundidadInicial
+  | "desgastePct"    // % worn = (inicial - min actual) / inicial * 100
   | "costoTotal"     // sum of costos[].valor
+  | "diasEnUso"      // days the tire has been mounted (last inspection)
+  | "diasSinInspeccion" // days since the most recent inspection
   | "inspecciones";  // count of inspections
 
 export type Operator = "gt" | "lt" | "gte" | "lte" | "eq" | "between";
@@ -36,13 +41,18 @@ export interface FieldMeta {
 }
 
 export const FIELD_META: Record<NumericField, FieldMeta> = {
-  cpk:           { label: "CPK",                 unit: "$/km", placeholder: "50" },
-  cpkProyectado: { label: "CPK Proyectado",      unit: "$/km", placeholder: "50" },
-  km:            { label: "Km recorridos",       unit: "km",   placeholder: "50000" },
-  depthMin:      { label: "Profundidad mín.",    unit: "mm",   placeholder: "5" },
-  depthInicial:  { label: "Profundidad inicial", unit: "mm",   placeholder: "20" },
-  costoTotal:    { label: "Costo total",         unit: "$",    placeholder: "1000000" },
-  inspecciones:  { label: "Inspecciones",        unit: "#",    placeholder: "3" },
+  cpk:               { label: "CPK",                 unit: "$/km", placeholder: "50" },
+  cpkProyectado:     { label: "CPK Proyectado",      unit: "$/km", placeholder: "50" },
+  km:                { label: "Km recorridos",       unit: "km",   placeholder: "50000" },
+  kmProyectado:      { label: "Km Proyectados",      unit: "km",   placeholder: "100000" },
+  kmEstimados:       { label: "Km Estimados",        unit: "km",   placeholder: "80000" },
+  depthMin:          { label: "Profundidad mín.",    unit: "mm",   placeholder: "5" },
+  depthInicial:      { label: "Profundidad inicial", unit: "mm",   placeholder: "20" },
+  desgastePct:       { label: "% Desgaste",          unit: "%",    placeholder: "60" },
+  costoTotal:        { label: "Costo total",         unit: "$",    placeholder: "1000000" },
+  diasEnUso:         { label: "Días en uso",         unit: "días", placeholder: "180" },
+  diasSinInspeccion: { label: "Días sin inspección", unit: "días", placeholder: "30" },
+  inspecciones:      { label: "Inspecciones",        unit: "#",    placeholder: "3" },
 };
 
 export const OP_LABELS: Record<Operator, string> = {
@@ -85,6 +95,20 @@ export function extractField(tire: any, field: NumericField): number | null {
     case "km":
       return typeof tire?.kilometrosRecorridos === "number"
         ? tire.kilometrosRecorridos : null;
+    case "kmProyectado": {
+      // Projected km until the tire reaches legal tread limit — the most
+      // recent inspection's computed value. Falls back to the tire-level
+      // cached `projectedKmRemaining` if no inspection is loaded (slim mode).
+      const last = pickLastInspection(tire);
+      if (last?.kmProyectado && last.kmProyectado > 0) return last.kmProyectado;
+      if (tire?.projectedKmRemaining && tire.projectedKmRemaining > 0) return tire.projectedKmRemaining;
+      return null;
+    }
+    case "kmEstimados": {
+      const last = pickLastInspection(tire);
+      return last?.kilometrosEstimados && last.kilometrosEstimados > 0
+        ? last.kilometrosEstimados : null;
+    }
     case "depthMin": {
       const last = pickLastInspection(tire);
       if (last) {
@@ -96,6 +120,26 @@ export function extractField(tire: any, field: NumericField): number | null {
     }
     case "depthInicial":
       return typeof tire?.profundidadInicial === "number" ? tire.profundidadInicial : null;
+    case "desgastePct": {
+      // % worn: (initial - min current) / initial × 100. Useful for
+      // "muéstrame todas las llantas con más del 70 % de desgaste" —
+      // direct proxy for retirement urgency.
+      const initial = tire?.profundidadInicial;
+      if (typeof initial !== "number" || initial <= 0) return null;
+      const last = pickLastInspection(tire);
+      let minNow: number | null = null;
+      if (last) {
+        const mins = [last.profundidadInt, last.profundidadCen, last.profundidadExt]
+          .filter((v: any) => typeof v === "number" && !Number.isNaN(v));
+        if (mins.length) minNow = Math.min(...mins);
+      }
+      if (minNow === null && typeof tire?.currentProfundidad === "number") {
+        minNow = tire.currentProfundidad;
+      }
+      if (minNow === null) return null;
+      if (minNow <= 0) return 100;
+      return Math.max(0, Math.min(100, ((initial - minNow) / initial) * 100));
+    }
     case "costoTotal": {
       // Support both field names (detalle uses `costo`, resumen uses `costos`).
       const list = (tire?.costos ?? tire?.costo ?? []) as Array<{ valor?: number }>;
@@ -103,6 +147,26 @@ export function extractField(tire: any, field: NumericField): number | null {
       let sum = 0;
       for (const c of list) sum += (c?.valor ?? 0);
       return sum;
+    }
+    case "diasEnUso": {
+      const last = pickLastInspection(tire);
+      if (last?.diasEnUso && last.diasEnUso > 0) return last.diasEnUso;
+      // Fallback: derive from fechaInstalacion if present.
+      if (tire?.fechaInstalacion) {
+        const inst = new Date(tire.fechaInstalacion).getTime();
+        if (!Number.isNaN(inst)) {
+          return Math.max(0, Math.floor((Date.now() - inst) / 86_400_000));
+        }
+      }
+      return null;
+    }
+    case "diasSinInspeccion": {
+      const last = pickLastInspection(tire);
+      const fecha = last?.fecha;
+      if (!fecha) return null;
+      const t = new Date(fecha).getTime();
+      if (Number.isNaN(t)) return null;
+      return Math.max(0, Math.floor((Date.now() - t) / 86_400_000));
     }
     case "inspecciones":
       return pickInspectionsArray(tire).length;

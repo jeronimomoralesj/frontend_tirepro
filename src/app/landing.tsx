@@ -621,7 +621,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
           animateCounter(setCounter1, 28, 1200)
           animateCounter(setCounter2, 3, 1400)
           animateCounter(setCounter3, 95, 1000)
-          animateCounter(setCounter4, 2000, 6000)
+          animateCounter(setCounter4, 7500, 3000)
         }
       },
       { threshold: 0.3 }

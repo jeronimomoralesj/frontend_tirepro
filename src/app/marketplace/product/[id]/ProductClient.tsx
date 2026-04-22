@@ -848,8 +848,15 @@ export default function ProductClient({
                       // ----- AXIS-AWARE COMPATIBILITY -----
                       // P1/P2 = steer, rest = drive. Casing + tread compound
                       // differences make cross-axis swaps unsafe.
+                      //
+                      // Dimensions run through `normDim` before any compare
+                      // or map-key so "295/80R22.5" matches "295/80 r22.5"
+                      // / "295/80 R 22.5" even on rows written before the
+                      // canonical-dimension migration landed.
+                      const normDim = (s: string | null | undefined) =>
+                        (s ?? "").replace(/\s+/g, "").toUpperCase();
                       const tireEje = (product.eje ?? "libre").toLowerCase();
-                      const tireDimension = (product.dimension ?? "").trim();
+                      const tireDimension = normDim(product.dimension);
 
                       const positionEje = (pos: number): "direccion" | "traccion" => (pos <= 2 ? "direccion" : "traccion");
                       const ejeFits = (productEje: string, posEje: string) => {
@@ -862,7 +869,7 @@ export default function ProductClient({
                         const e = t.eje?.toLowerCase() === "direccion" || t.eje?.toLowerCase() === "traccion"
                           ? t.eje.toLowerCase()
                           : positionEje(t.posicion ?? 0);
-                        const d = (t.dimension ?? "").trim();
+                        const d = normDim(t.dimension);
                         if (!d) return;
                         const m = dimByEje[e];
                         m.set(d, (m.get(d) ?? 0) + 1);
@@ -895,7 +902,7 @@ export default function ProductClient({
                       tires.forEach((t: any) => {
                         const pos = t.posicion;
                         const tEje = t.eje?.toLowerCase() || positionEje(pos);
-                        const tDim = (t.dimension ?? "").trim();
+                        const tDim = normDim(t.dimension);
                         const depth = typeof t.currentProfundidad === "number" ? t.currentProfundidad : 99;
                         if (!ejeFits(tireEje, tEje)) {
                           incompatible.push({ posicion: pos, reason: `Posición de ${tEje}; esta llanta es de ${tireEje}` });

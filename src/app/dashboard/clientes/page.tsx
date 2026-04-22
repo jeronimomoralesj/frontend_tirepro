@@ -4,9 +4,12 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Building2, Users, Plus, X, ChevronDown, Search,
   UserPlus, Eye, EyeOff, CheckCircle, AlertCircle,
-  Loader2, Car, Circle, ArrowRight, Calendar, TrendingUp,
-  Activity, DollarSign, ShieldCheck, Mail, Clock, UserCheck,
+  Loader2, Car, Circle, ArrowRight, Calendar, TrendingUp, TrendingDown,
+  Activity, DollarSign, ShieldCheck, Mail, Clock, UserCheck, Trophy, BarChart3,
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+} from "recharts";
 
 // =============================================================================
 // Types — Mi Equipo
@@ -14,7 +17,7 @@ import {
 
 type TabKey = "clientes" | "equipo";
 
-type DateRangeKey = "today" | "7d" | "30d" | "90d" | "all";
+type DateRangeKey = "today" | "7d" | "30d" | "90d" | "all" | "month";
 
 type EquipoClientBreakdown = {
   clientCompanyId:   string | null;
@@ -58,13 +61,52 @@ type TeamKpi = {
   pct:         number;
 };
 
-function dateRangeFromKey(key: DateRangeKey): { days?: number; from?: string; to?: string } {
+function dateRangeFromKey(
+  key: DateRangeKey,
+  month?: string,
+): { days?: number; from?: string; to?: string } {
   if (key === "all")   return {};
   if (key === "today") return { days: 1 };
   if (key === "7d")    return { days: 7 };
   if (key === "30d")   return { days: 30 };
   if (key === "90d")   return { days: 90 };
+  if (key === "month") {
+    const [from, to] = monthWindow(month ?? currentMonthKey());
+    return { from, to };
+  }
   return {};
+}
+
+// Given a YYYY-MM key, return [fromISODate, toISODate] covering the whole month
+// in UTC. The backend treats `to` as exclusive (`fecha < to`), so we pass the
+// first day of the *next* month.
+function monthWindow(ym: string): [string, string] {
+  const [y, m] = ym.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) {
+    const [yy, mm] = currentMonthKey().split("-").map(Number);
+    return monthWindow(`${yy}-${String(mm).padStart(2, "0")}`);
+  }
+  const from = new Date(Date.UTC(y, m - 1, 1)).toISOString().slice(0, 10);
+  const to   = new Date(Date.UTC(y, m,     1)).toISOString().slice(0, 10);
+  return [from, to];
+}
+
+function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Shift a YYYY-MM key by `delta` months.
+function shiftMonth(ym: string, delta: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1, 1));
+  return d.toLocaleDateString("es-CO", { month: "short", year: "2-digit", timeZone: "UTC" });
 }
 
 // =============================================================================
@@ -627,11 +669,14 @@ const DATE_RANGE_OPTIONS: { k: DateRangeKey; label: string }[] = [
   { k: "7d",    label: "7 días" },
   { k: "30d",   label: "30 días" },
   { k: "90d",   label: "90 días" },
+  { k: "month", label: "Mes" },
   { k: "all",   label: "Todo" },
 ];
 
 function EquipoSection({
   equipo, loading, dateRange, onDateRangeChange, search, onSearchChange,
+  selectedMonth, onSelectedMonthChange,
+  previousPeriodTotal, trendData, trendLoading,
 }: {
   equipo: EquipoUser[];
   loading: boolean;
@@ -639,6 +684,11 @@ function EquipoSection({
   onDateRangeChange: (r: DateRangeKey) => void;
   search: string;
   onSearchChange: (s: string) => void;
+  selectedMonth: string;
+  onSelectedMonthChange: (m: string) => void;
+  previousPeriodTotal: number | null;
+  trendData: { month: string; label: string; inspections: number }[];
+  trendLoading: boolean;
 }) {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -648,9 +698,42 @@ function EquipoSection({
     return [...list].sort((a, b) => b.inspections - a.inspections);
   }, [equipo, search]);
 
+  // Summary stats for the selected window.
+  const totals = useMemo(() => {
+    const total     = equipo.reduce((s, u) => s + u.inspections, 0);
+    const active    = equipo.filter(u => u.inspections > 0).length;
+    const avg       = active > 0 ? Math.round(total / active) : 0;
+    const top       = [...equipo].sort((a, b) => b.inspections - a.inspections)[0] ?? null;
+    return { total, active, avg, top };
+  }, [equipo]);
+
+  // Delta vs previous equivalent window.
+  const delta = useMemo(() => {
+    if (previousPeriodTotal == null) return null;
+    if (previousPeriodTotal === 0 && totals.total === 0) return { pct: 0, up: true };
+    if (previousPeriodTotal === 0) return { pct: 100, up: true };
+    const pct = Math.round(((totals.total - previousPeriodTotal) / previousPeriodTotal) * 100);
+    return { pct, up: pct >= 0 };
+  }, [previousPeriodTotal, totals.total]);
+
+  const rangeLabel = (() => {
+    const opt = DATE_RANGE_OPTIONS.find(o => o.k === dateRange);
+    if (dateRange === "month") return monthLabel(selectedMonth);
+    return opt?.label ?? "Periodo";
+  })();
+
+  // Top 10 users for the ranking chart.
+  const ranking = useMemo(() => {
+    return [...equipo]
+      .filter(u => u.inspections > 0)
+      .sort((a, b) => b.inspections - a.inspections)
+      .slice(0, 10)
+      .map(u => ({ name: u.name.split(" ")[0] || u.name, full: u.name, inspections: u.inspections }));
+  }, [equipo]);
+
   return (
     <div className="space-y-4">
-      {/* Toolbar: date range + search */}
+      {/* Toolbar: date range + month picker + search */}
       <div className="flex flex-col sm:flex-row gap-2.5">
         <div className="flex gap-1 bg-white rounded-xl p-1 border overflow-x-auto"
              style={{ borderColor: "rgba(52,140,203,0.2)" }}>
@@ -671,6 +754,19 @@ function EquipoSection({
             );
           })}
         </div>
+        {dateRange === "month" && (
+          <div className="flex items-center gap-1.5 bg-white rounded-xl px-2.5 py-1 border"
+               style={{ borderColor: "rgba(52,140,203,0.2)" }}>
+            <Calendar className="w-3.5 h-3.5 text-[#1E76B6]" />
+            <input
+              type="month"
+              value={selectedMonth}
+              max={currentMonthKey()}
+              onChange={e => onSelectedMonthChange(e.target.value || currentMonthKey())}
+              className="text-xs font-bold text-[#0A183A] bg-transparent focus:outline-none tabular-nums"
+            />
+          </div>
+        )}
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
@@ -683,6 +779,133 @@ function EquipoSection({
           />
         </div>
       </div>
+
+      {/* Summary card — totals for the selected window + delta vs previous */}
+      {!loading && equipo.length > 0 && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                Resumen · {rangeLabel}
+              </p>
+              <p className="text-sm font-black text-[#0A183A] mt-0.5">
+                Desempeño del equipo
+              </p>
+            </div>
+            {delta && (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-black"
+                style={{
+                  background: delta.up ? "rgba(22,163,74,0.08)" : "rgba(220,38,38,0.08)",
+                  color:      delta.up ? "#15803d" : "#DC2626",
+                }}
+              >
+                {delta.up ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                {delta.up ? "+" : ""}{delta.pct}% vs periodo anterior
+                <span className="text-[10px] font-medium opacity-70">
+                  ({previousPeriodTotal?.toLocaleString("es-CO")})
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <SummaryStat icon={<Activity className="w-3.5 h-3.5" />} label="Inspecciones" value={totals.total.toLocaleString("es-CO")} accent="#1E76B6" />
+            <SummaryStat icon={<UserCheck className="w-3.5 h-3.5" />} label="Usuarios activos" value={`${totals.active}/${equipo.length}`} accent="#15803d" />
+            <SummaryStat icon={<BarChart3 className="w-3.5 h-3.5" />} label="Promedio / activo" value={totals.avg.toLocaleString("es-CO")} accent="#173D68" />
+            <SummaryStat
+              icon={<Trophy className="w-3.5 h-3.5" />}
+              label="Top"
+              value={totals.top && totals.top.inspections > 0
+                ? `${totals.top.name.split(" ")[0]} · ${totals.top.inspections.toLocaleString("es-CO")}`
+                : "—"}
+              accent="#d97706"
+            />
+          </div>
+        </Card>
+      )}
+
+      {/* Charts row */}
+      {!loading && equipo.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/* Top users ranking chart */}
+          <Card className="p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Trophy className="w-4 h-4 text-[#1E76B6]" />
+              <p className="text-sm font-black text-[#0A183A]">Ranking de inspecciones</p>
+              <span className="text-[10px] text-gray-400 ml-auto">Top 10 · {rangeLabel}</span>
+            </div>
+            {ranking.length === 0 ? (
+              <p className="text-xs text-gray-400 italic py-8 text-center">
+                Sin inspecciones registradas en este periodo.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(160, ranking.length * 28)}>
+                <BarChart data={ranking} layout="vertical" margin={{ left: 4, right: 30, top: 4, bottom: 0 }}>
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" width={80}
+                         tick={{ fontSize: 11, fill: "#173D68", fontWeight: 700 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(52,140,203,0.06)" }}
+                    contentStyle={{
+                      borderRadius: 12, border: "1px solid rgba(52,140,203,0.2)",
+                      fontSize: 11, fontWeight: 600,
+                    }}
+                    formatter={(v: number, _n, entry) => [`${v.toLocaleString("es-CO")} inspecciones`, entry.payload.full]}
+                    labelFormatter={() => ""}
+                  />
+                  <Bar dataKey="inspections" radius={[0, 6, 6, 0]}>
+                    {ranking.map((_, i) => (
+                      <Cell key={i} fill={i === 0 ? "#0A183A" : i < 3 ? "#1E76B6" : "#348CCB"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          {/* 12-month trend chart */}
+          <Card className="p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-4 h-4 text-[#1E76B6]" />
+              <p className="text-sm font-black text-[#0A183A]">Inspecciones por mes</p>
+              <span className="text-[10px] text-gray-400 ml-auto">Últimos 12 meses</span>
+            </div>
+            {trendLoading ? (
+              <div className="flex items-center justify-center py-12 text-[#1E76B6]">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <span className="text-xs">Cargando tendencia…</span>
+              </div>
+            ) : trendData.length === 0 || trendData.every(d => d.inspections === 0) ? (
+              <p className="text-xs text-gray-400 italic py-8 text-center">
+                Sin datos históricos disponibles.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(160, 12 * 24)}>
+                <BarChart data={trendData} margin={{ left: 0, right: 8, top: 4, bottom: 0 }}>
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#64748b", fontWeight: 700 }}
+                         axisLine={false} tickLine={false} interval={0} />
+                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={36} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(52,140,203,0.06)" }}
+                    contentStyle={{
+                      borderRadius: 12, border: "1px solid rgba(52,140,203,0.2)",
+                      fontSize: 11, fontWeight: 600,
+                    }}
+                    formatter={(v: number) => [`${v.toLocaleString("es-CO")} inspecciones`, ""]}
+                  />
+                  <Bar dataKey="inspections" radius={[6, 6, 0, 0]}>
+                    {trendData.map((d, i) => (
+                      <Cell key={i} fill={
+                        dateRange === "month" && d.month === selectedMonth ? "#0A183A" : "#348CCB"
+                      } />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* List */}
       {loading ? (
@@ -711,6 +934,25 @@ function EquipoSection({
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+function SummaryStat({
+  icon, label, value, accent,
+}: {
+  icon: React.ReactNode; label: string; value: string; accent: string;
+}) {
+  return (
+    <div className="rounded-xl p-3 flex items-center gap-3"
+         style={{ background: "rgba(240,247,255,0.5)", border: "1px solid rgba(52,140,203,0.12)" }}>
+      <div className="p-2 rounded-lg flex-shrink-0" style={{ background: `${accent}14`, color: accent }}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 leading-none">{label}</p>
+        <p className="text-base font-black text-[#0A183A] tabular-nums mt-1 leading-none truncate">{value}</p>
+      </div>
     </div>
   );
 }
@@ -1120,6 +1362,10 @@ export default function ClientesPage() {
   const [equipoLoading,  setEquipoLoading]  = useState(false);
   const [dateRange,      setDateRange]      = useState<DateRangeKey>("30d");
   const [equipoSearch,   setEquipoSearch]   = useState("");
+  const [selectedMonth,  setSelectedMonth]  = useState<string>(() => currentMonthKey());
+  const [prevPeriodTotal, setPrevPeriodTotal] = useState<number | null>(null);
+  const [trendData,      setTrendData]      = useState<{ month: string; label: string; inspections: number }[]>([]);
+  const [trendLoading,   setTrendLoading]   = useState(false);
 
   // Modal state
   const [showCreateModal,  setShowCreateModal]  = useState(false);
@@ -1189,20 +1435,55 @@ export default function ClientesPage() {
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
   // -- Fetch Mi Equipo (distribuidor's own users + inspection counts) --------
-  const fetchEquipo = useCallback(async (range: DateRangeKey) => {
+  // Also fetches the immediately-preceding equivalent window in parallel so
+  // the summary card can show a % delta. For "all" there's no previous window.
+  const fetchEquipo = useCallback(async (range: DateRangeKey, month: string) => {
     const distributorId = getDistributorId();
     if (!distributorId) return;
     setEquipoLoading(true);
     try {
-      const { days, from, to } = dateRangeFromKey(range);
-      const qs = new URLSearchParams({ companyId: distributorId });
-      if (days !== undefined) qs.set("days", String(days));
-      if (from) qs.set("from", from);
-      if (to)   qs.set("to",   to);
-      const res = await fetch(`${API_BASE}/users/inspection-stats?${qs.toString()}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Error al cargar el equipo");
-      const data = (await res.json()) as EquipoUser[];
+      const current = dateRangeFromKey(range, month);
+
+      // Previous-period bounds: for days-based ranges, the prior N days ending
+      // now-N; for month, the month immediately before the selected one.
+      const prev = (() => {
+        if (range === "all") return null;
+        if (range === "month") {
+          const [from, to] = monthWindow(shiftMonth(month, -1));
+          return { from, to };
+        }
+        if (current.days !== undefined) {
+          const now = new Date();
+          const end = new Date(now.getTime() - current.days * 86_400_000);
+          const start = new Date(end.getTime() - current.days * 86_400_000);
+          return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) };
+        }
+        return null;
+      })();
+
+      const buildUrl = (q: { days?: number; from?: string; to?: string }) => {
+        const qs = new URLSearchParams({ companyId: distributorId });
+        if (q.days !== undefined) qs.set("days", String(q.days));
+        if (q.from) qs.set("from", q.from);
+        if (q.to)   qs.set("to",   q.to);
+        return `${API_BASE}/users/inspection-stats?${qs.toString()}`;
+      };
+
+      const [curRes, prevRes] = await Promise.all([
+        fetch(buildUrl(current), { headers: authHeaders() }),
+        prev ? fetch(buildUrl(prev), { headers: authHeaders() }) : Promise.resolve(null),
+      ]);
+
+      if (!curRes.ok) throw new Error("Error al cargar el equipo");
+      const data = (await curRes.json()) as EquipoUser[];
       setEquipo(data);
+
+      if (prevRes && prevRes.ok) {
+        const prevData = (await prevRes.json()) as EquipoUser[];
+        setPrevPeriodTotal(prevData.reduce((s, u) => s + u.inspections, 0));
+      } else {
+        setPrevPeriodTotal(null);
+      }
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Error inesperado", "error");
     } finally {
@@ -1210,10 +1491,43 @@ export default function ClientesPage() {
     }
   }, []);
 
-  // Re-fetch when the Equipo tab opens or the date range changes.
+  // Fetch 12-month trend — parallel per-month calls aggregated client-side.
+  // Anchored at `selectedMonth` when in "Mes" mode, else at the current month.
+  const fetchTrend = useCallback(async (anchorMonth: string) => {
+    const distributorId = getDistributorId();
+    if (!distributorId) return;
+    setTrendLoading(true);
+    try {
+      const months = Array.from({ length: 12 }, (_, i) => shiftMonth(anchorMonth, -(11 - i)));
+      const results = await Promise.all(months.map(async (m) => {
+        const [from, to] = monthWindow(m);
+        const qs = new URLSearchParams({ companyId: distributorId, from, to });
+        const res = await fetch(`${API_BASE}/users/inspection-stats?${qs.toString()}`, { headers: authHeaders() });
+        if (!res.ok) return { month: m, label: monthLabel(m), inspections: 0 };
+        const rows = (await res.json()) as EquipoUser[];
+        const total = rows.reduce((s, u) => s + u.inspections, 0);
+        return { month: m, label: monthLabel(m), inspections: total };
+      }));
+      setTrendData(results);
+    } catch {
+      setTrendData([]);
+    } finally {
+      setTrendLoading(false);
+    }
+  }, []);
+
+  // Re-fetch when the Equipo tab opens or the range/selected month changes.
   useEffect(() => {
-    if (activeTab === "equipo") fetchEquipo(dateRange);
-  }, [activeTab, dateRange, fetchEquipo]);
+    if (activeTab === "equipo") fetchEquipo(dateRange, selectedMonth);
+  }, [activeTab, dateRange, selectedMonth, fetchEquipo]);
+
+  // Refresh the 12-month trend when the anchor month changes (or when the
+  // Equipo tab opens while in a non-month range — anchor on the current month).
+  useEffect(() => {
+    if (activeTab !== "equipo") return;
+    const anchor = dateRange === "month" ? selectedMonth : currentMonthKey();
+    fetchTrend(anchor);
+  }, [activeTab, dateRange, selectedMonth, fetchTrend]);
 
   // -- Create Company -----------------------------------------------------------
   async function handleCreateCompany(e: React.FormEvent) {
@@ -1595,6 +1909,11 @@ export default function ClientesPage() {
               onDateRangeChange={setDateRange}
               search={equipoSearch}
               onSearchChange={setEquipoSearch}
+              selectedMonth={selectedMonth}
+              onSelectedMonthChange={setSelectedMonth}
+              previousPeriodTotal={prevPeriodTotal}
+              trendData={trendData}
+              trendLoading={trendLoading}
             />
             <KpiPanel
               equipo={equipo}
