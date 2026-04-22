@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, ChevronDown, ChevronUp, Send, Check, X,
   BarChart3, Calendar, Package, Gavel, Clock, DollarSign, Store,
-  Building, CheckCircle, AlertCircle, User,
+  Building, CheckCircle, AlertCircle, User, RotateCcw,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
@@ -1110,6 +1110,445 @@ function DistributorProfileSection() {
 }
 
 // =============================================================================
+// Reencauche review — dist-side review/approval UI for tires the fleet has
+// sent to the reencauche bucket. Surfaces per-item accept (with ETA) and
+// reject (routes tire to fin-de-vida with motivo + desechos). Lives inside
+// the "En Proceso" tab because those items are tires physically at the
+// distributor's facility awaiting disposition.
+// =============================================================================
+
+type ReencaucheStatus = "en_reencauche_bucket" | "aprobada";
+
+interface ReencaucheItem extends OrderItem {
+  // Widened so the filtered map carries enough context to render each row
+  // without joining back to the parent order.
+  _orderId:    string;
+  _clientName: string;
+  _clientId:   string;
+  _createdAt:  string;
+  tire?: {
+    id: string;
+    placa: string;
+    posicion: number | null;
+    vidaActual: string;
+    vehicle?: { id: string; placa: string } | null;
+  } | null;
+}
+
+function ReencaucheReviewSection({
+  orders, companyId, onUpdated,
+}: {
+  orders: PurchaseOrder[];
+  companyId: string;
+  onUpdated: () => void;
+}) {
+  const [clientFilter,   setClientFilter]   = useState<string>("all");
+  const [statusFilter,   setStatusFilter]   = useState<ReencaucheStatus | "all">("all");
+  const [approving,      setApproving]      = useState<ReencaucheItem | null>(null);
+  const [rejecting,      setRejecting]      = useState<ReencaucheItem | null>(null);
+
+  // Flatten orders → per-item rows that are actively in the reencauche flow.
+  const allItems: ReencaucheItem[] = useMemo(() => {
+    const rows: ReencaucheItem[] = [];
+    for (const o of orders) {
+      if (!Array.isArray(o.items)) continue;
+      for (const it of o.items) {
+        if (it.tipo !== "reencauche") continue;
+        if (it.status !== "en_reencauche_bucket" && it.status !== "aprobada") continue;
+        rows.push({
+          ...(it as any),
+          _orderId:    o.id,
+          _clientName: o.company?.name ?? "Cliente",
+          _clientId:   o.companyId,
+          _createdAt:  o.createdAt,
+        });
+      }
+    }
+    // Oldest-first so the dist tackles the longest-waiting tires first.
+    rows.sort((a, b) => new Date(a._createdAt).getTime() - new Date(b._createdAt).getTime());
+    return rows;
+  }, [orders]);
+
+  // Distinct client list for the filter dropdown.
+  const clientOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const it of allItems) seen.set(it._clientId, it._clientName);
+    return [...seen.entries()].map(([id, name]) => ({ id, name }));
+  }, [allItems]);
+
+  const filtered = useMemo(() => {
+    return allItems.filter((it) => {
+      if (clientFilter !== "all" && it._clientId !== clientFilter) return false;
+      if (statusFilter !== "all" && it.status !== statusFilter) return false;
+      return true;
+    });
+  }, [allItems, clientFilter, statusFilter]);
+
+  const counts = useMemo(() => ({
+    pendientes: allItems.filter((i) => i.status === "en_reencauche_bucket").length,
+    aprobadas:  allItems.filter((i) => i.status === "aprobada").length,
+  }), [allItems]);
+
+  if (allItems.length === 0) return null;
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(124,58,237,0.2)", background: "rgba(124,58,237,0.02)" }}>
+      {/* Header */}
+      <div className="px-4 py-3 flex items-center gap-2 flex-wrap" style={{ background: "rgba(124,58,237,0.06)", borderBottom: "1px solid rgba(124,58,237,0.15)" }}>
+        <RotateCcw className="w-4 h-4 text-[#7c3aed]" />
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#7c3aed]">Reencauche · revisión</h3>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#7c3aed]/10 text-[#7c3aed]">
+          {counts.pendientes} por aprobar · {counts.aprobadas} en proceso
+        </span>
+
+        <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+          {/* Status filter */}
+          <div className="flex gap-1 bg-white rounded-lg p-0.5 border" style={{ borderColor: "rgba(124,58,237,0.2)" }}>
+            {([
+              { k: "all" as const,                    label: "Todos" },
+              { k: "en_reencauche_bucket" as const,   label: "Por aprobar" },
+              { k: "aprobada" as const,               label: "En proceso" },
+            ]).map(({ k, label }) => (
+              <button
+                key={k}
+                onClick={() => setStatusFilter(k)}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-md transition-colors"
+                style={{
+                  background: statusFilter === k ? "#7c3aed" : "transparent",
+                  color:      statusFilter === k ? "white" : "#7c3aed",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Client filter */}
+          {clientOptions.length > 1 && (
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="text-[11px] font-bold text-[#0A183A] bg-white border rounded-lg px-2 py-1"
+              style={{ borderColor: "rgba(124,58,237,0.2)" }}
+            >
+              <option value="all">Todos los clientes</option>
+              {clientOptions.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+
+      {/* Items list */}
+      {filtered.length === 0 ? (
+        <p className="text-xs text-gray-400 italic py-6 text-center">
+          Sin llantas que coincidan con el filtro.
+        </p>
+      ) : (
+        <div className="divide-y divide-[#7c3aed]/10">
+          {filtered.map((it) => {
+            const placa    = it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "—";
+            const pos      = it.tire?.posicion != null ? `P${it.tire.posicion}` : "—";
+            const vidaIn   = it.vidaPrevia  ?? it.tire?.vidaActual ?? "—";
+            const etaStr   = it.estimatedDelivery
+              ? new Date(it.estimatedDelivery).toLocaleDateString("es-CO", { day: "numeric", month: "short" })
+              : null;
+            const isAprobada = it.status === "aprobada";
+
+            return (
+              <div key={it.id} className="px-4 py-3 flex items-center gap-3 flex-wrap text-xs">
+                {/* Client */}
+                <div className="flex items-center gap-1.5 min-w-[140px]">
+                  <Building className="w-3 h-3 text-gray-400" />
+                  <span className="font-bold text-[#0A183A] truncate">{it._clientName}</span>
+                </div>
+
+                {/* Tire spec */}
+                <div className="flex-1 min-w-[180px]">
+                  <p className="font-semibold text-[#0A183A]">
+                    {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
+                  </p>
+                  <p className="text-[10px] text-gray-400">
+                    {placa} · {pos} · vida actual: <span className="font-mono">{vidaIn}</span>
+                    {it.precioUnitario ? ` · ${fmtCOP(it.precioUnitario)}` : ""}
+                  </p>
+                </div>
+
+                {/* Status / ETA badge */}
+                {isAprobada ? (
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1"
+                        style={{ background: "rgba(34,197,94,0.1)", color: "#15803d" }}>
+                    <CheckCircle className="w-3 h-3" />
+                    {etaStr ? `Entrega: ${etaStr}` : "Aprobada"}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1"
+                        style={{ background: "rgba(234,179,8,0.1)", color: "#a16207" }}>
+                    <Clock className="w-3 h-3" />
+                    Por aprobar
+                  </span>
+                )}
+
+                {/* Actions — only for items awaiting approval */}
+                {!isAprobada && (
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setApproving(it)}
+                      className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-white bg-green-500 hover:bg-green-600 transition-colors"
+                    >
+                      <Check className="w-3 h-3" /> Aceptar
+                    </button>
+                    <button
+                      onClick={() => setRejecting(it)}
+                      className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                    >
+                      <X className="w-3 h-3" /> Rechazar
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Approve modal */}
+      {approving && (
+        <ApproveReencaucheModal
+          item={approving}
+          companyId={companyId}
+          onClose={() => setApproving(null)}
+          onDone={() => { setApproving(null); onUpdated(); }}
+        />
+      )}
+
+      {/* Reject modal */}
+      {rejecting && (
+        <RejectReencaucheModal
+          item={rejecting}
+          companyId={companyId}
+          onClose={() => setRejecting(null)}
+          onDone={() => { setRejecting(null); onUpdated(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ApproveReencaucheModal({
+  item, companyId, onClose, onDone,
+}: {
+  item: ReencaucheItem;
+  companyId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  // Default ETA a week out — typical retread turnaround. Dist can adjust.
+  const [eta,     setEta]     = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [saving,  setSaving]  = useState(false);
+  const [err,     setErr]     = useState<string | null>(null);
+
+  async function submit() {
+    setErr(null);
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders/items/${item.id}/approve`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          distributorId:     companyId,
+          estimatedDelivery: eta,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? "No se pudo aprobar la llanta");
+      }
+      onDone();
+    } catch (e: any) {
+      setErr(e.message ?? "Error");
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="px-5 py-3 flex items-center justify-between" style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+          <h2 className="font-bold text-sm text-white">Aceptar para reencauche</h2>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-5 space-y-3 text-sm">
+          <div className="rounded-lg p-3" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.18)" }}>
+            <p className="text-[11px] font-bold text-green-700 uppercase tracking-wider">Llanta</p>
+            <p className="text-sm font-bold text-[#0A183A] mt-0.5">
+              {item.marca}{item.modelo ? ` · ${item.modelo}` : ""} · {item.dimension}
+            </p>
+            <p className="text-xs text-gray-500">
+              {item._clientName} · {item.tire?.vehicle?.placa ?? item.vehiclePlaca ?? "—"}
+              {item.tire?.posicion != null ? ` · P${item.tire.posicion}` : ""}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">
+              Fecha estimada de entrega
+            </label>
+            <input
+              type="date"
+              value={eta}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setEta(e.target.value)}
+              className={inputCls}
+            />
+            <p className="text-[10px] text-gray-400 mt-1">
+              El cliente verá esta fecha en el estado del pedido.
+            </p>
+          </div>
+
+          {err && <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5">{err}</p>}
+        </div>
+        <div className="px-5 py-3 bg-gray-50 flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">
+            Cancelar
+          </button>
+          <button onClick={submit} disabled={saving || !eta}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Aceptar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RejectReencaucheModal({
+  item, companyId, onClose, onDone,
+}: {
+  item: ReencaucheItem;
+  companyId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [motivo,              setMotivo]              = useState("");
+  const [causales,            setCausales]            = useState("");
+  const [milimetros,          setMilimetros]          = useState<number | "">("");
+  const [saving,              setSaving]              = useState(false);
+  const [err,                 setErr]                 = useState<string | null>(null);
+
+  async function submit() {
+    if (!motivo.trim() || !causales.trim() || typeof milimetros !== "number") {
+      setErr("Completa el motivo, la causa y los milímetros desechados.");
+      return;
+    }
+    setErr(null);
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders/items/${item.id}/reject`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          distributorId: companyId,
+          motivoRechazo: motivo.trim(),
+          desechos: {
+            causales:             causales.trim(),
+            milimetrosDesechados: milimetros,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? "No se pudo rechazar la llanta");
+      }
+      onDone();
+    } catch (e: any) {
+      setErr(e.message ?? "Error");
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="px-5 py-3 flex items-center justify-between" style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}>
+          <h2 className="font-bold text-sm text-white">Rechazar para reencauche</h2>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-5 space-y-3 text-sm">
+          <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)" }}>
+            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-[11px] text-red-700">
+              Rechazar esta llanta la enviará a <strong>fin de vida</strong>. Esta acción es irreversible.
+            </p>
+          </div>
+
+          <div className="rounded-lg p-2" style={{ background: "#f9fafb" }}>
+            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Llanta</p>
+            <p className="text-xs font-bold text-[#0A183A] mt-0.5">
+              {item.marca}{item.modelo ? ` · ${item.modelo}` : ""} · {item.dimension} · vida {item.tire?.vidaActual ?? "—"}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Motivo del rechazo</label>
+            <textarea
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              rows={2}
+              placeholder="Ej: casco comprometido, separación lateral..."
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Causa del desecho</label>
+            <textarea
+              value={causales}
+              onChange={(e) => setCausales(e.target.value)}
+              rows={2}
+              placeholder="Detalle técnico para el snapshot de fin-de-vida"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Milímetros desechados</label>
+            <input
+              type="number"
+              min={0}
+              step={0.1}
+              value={milimetros}
+              onChange={(e) => setMilimetros(e.target.value === "" ? "" : Number(e.target.value))}
+              className={inputCls}
+            />
+          </div>
+
+          {err && <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5">{err}</p>}
+        </div>
+        <div className="px-5 py-3 bg-gray-50 flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">
+            Cancelar
+          </button>
+          <button onClick={submit} disabled={saving}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+            Rechazar y enviar a fin de vida
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 
 export default function PedidosDistPage() {
   const [section, setSection] = useState<"pedidos" | "marketplace" | "catalogo" | "perfil">("pedidos");
@@ -1239,6 +1678,15 @@ function PedidosSection() {
             </button>
           ))}
         </div>
+
+        {/* Reencauche review — only makes sense alongside in-flight orders */}
+        {tab === "proceso" && (
+          <ReencaucheReviewSection
+            orders={orders}
+            companyId={companyId}
+            onUpdated={() => fetchOrders(companyId)}
+          />
+        )}
 
         {/* Licitaciones activas */}
         {bidRequests.length > 0 && (
