@@ -1618,12 +1618,18 @@ const AjustesPage: React.FC = () => {
           const currentPlan = company?.plan ?? "marketplace";
           const isDistributor = currentPlan === "distribuidor";
           const isMarketplaceOnly = !user.companyId;
-          const PLANS = [
+          // Distribuidor and non-distribuidor plans live in separate tracks —
+          // a distribuidor can't downgrade to fleet plans and vice versa, so
+          // we only show the cards from the user's own track.
+          const ALL_PLANS = [
             { id: "marketplace", name: "Marketplace", price: "Gratis", priceDetail: "Para siempre", desc: "Acceso al marketplace de llantas", features: ["Comprar llantas", "Comparar precios", "Resenas y calificaciones", "Busqueda por placa"], current: isMarketplaceOnly, canSwitch: false, highlight: false },
             { id: "plus", name: "Plus", price: "Gratis", priceDetail: "Para siempre", desc: "Gestion basica de flotas + marketplace", features: ["Todo de Marketplace", "Dashboard de flota", "Analisis basico de desgaste", "Inventario de llantas", "Reportes y semaforo", "Gestion de vehiculos"], current: currentPlan === "plus", canSwitch: isMarketplaceOnly || currentPlan === "pro", highlight: false },
             { id: "pro", name: "Pro", price: "$10.000", priceDetail: "/mes", desc: "Gestion avanzada con IA + marketplace", features: ["Todo de Plus", "Agentes IA (Nikita, Sentinel, Campa, Linex)", "Analisis avanzado de desgaste con IA", "Notificaciones inteligentes", "Prediccion de reemplazo", "Multiples usuarios", "Roles y permisos", "Distribuidores conectados", "Soporte prioritario"], current: currentPlan === "pro", canSwitch: isMarketplaceOnly || currentPlan === "plus", highlight: true },
             { id: "distribuidor", name: "Distribuidor", price: "$1.000.000", priceDetail: "/mes", desc: "Vende llantas en el marketplace", features: ["Catalogo de productos", "Gestion de pedidos", "Analitica de ventas", "Clientes conectados", "Perfil de distribuidor publico", "Notificaciones por email"], current: isDistributor, canSwitch: isMarketplaceOnly, highlight: false },
           ];
+          const PLANS = isDistributor
+            ? ALL_PLANS.filter((p) => p.id === "distribuidor")
+            : ALL_PLANS.filter((p) => p.id !== "distribuidor");
 
           async function doSwitchPlan(planId: string) {
             if (isMarketplaceOnly) { setPlanSwitchingTo(planId); setPlanShowForm(true); return; }
