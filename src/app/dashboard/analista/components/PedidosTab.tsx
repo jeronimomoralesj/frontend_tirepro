@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Loader2, Check, X, Send, Package, ChevronDown,
   ChevronRight, AlertTriangle, Truck, RotateCcw,
-  Printer, Archive, CheckSquare, Square,
+  Printer, Archive, CheckSquare, Square, Pencil,
 } from "lucide-react";
 
 // ===============================================================================
@@ -34,6 +34,10 @@ interface AgentSettings { agentEnabled: boolean; purchaseMode: "agent_auto" | "m
 interface PurchaseOrder {
   id: string; status: string; items: any[]; totalEstimado: number | null;
   totalCotizado: number | null; cotizacionNotas: string | null; notas: string | null;
+  // cotizacion is always undefined now (per-item quote data moved to items[]) —
+  // kept on the type so legacy code paths still compile. Phase 5 rewrites those
+  // call sites to read from items[] directly.
+  cotizacion?: any[] | null;
   createdAt: string; distributor?: { id: string; name: string }; company?: { id: string; name: string };
 }
 
@@ -97,6 +101,47 @@ const BANDA_REC: Record<string, string> = {
   libre: "Banda toda posición",
   remolque: "Banda libre/remolque",
 };
+
+// ===============================================================================
+// Recommendation override — lets the analista change marca/modelo/dimension/
+// cantidad on a specific recommendation before it becomes a purchase-order
+// item. Stored in-memory only; committed on submit.
+// ===============================================================================
+
+type ItemOverride = {
+  marca?:     string;
+  modelo?:    string;   // tread design for nueva; banda recomendada for reencauche
+  dimension?: string;
+  cantidad?:  number;
+};
+
+// Stable reference key used to group recommendations "of the same tire" — the
+// bulk-edit flow ("all Continental HDR 295 → X") applies one override to every
+// row sharing this key. Case- and whitespace-insensitive so minor catalog
+// variation doesn't split an otherwise-identical reference.
+function refKey(marca: string, modelo: string, dimension: string): string {
+  return `${marca}|${modelo}|${dimension}`.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// The tire specs that will actually be sent to the distributor for a given
+// recommendation, folding any override on top of the recommendation's own
+// baseline (catalog match → recommended banda → raw tire).
+function effectiveSpec(r: Recommendation, ov?: ItemOverride) {
+  const baseMarca     = r.type === "nueva"
+    ? (r.catalogMatch?.marca ?? r.tire.marca)
+    : r.tire.marca;
+  const baseModelo    = r.type === "nueva"
+    ? (r.catalogMatch?.modelo ?? r.tire.diseno)
+    : (r.bandaRecomendada ?? r.tire.diseno);
+  const baseDimension = r.catalogMatch?.dimension ?? r.tire.dimension;
+
+  return {
+    marca:     ov?.marca     ?? baseMarca,
+    modelo:    ov?.modelo    ?? baseModelo,
+    dimension: ov?.dimension ?? baseDimension,
+    cantidad:  ov?.cantidad  ?? 1,
+  };
+}
 
 function analyzeFleet(tires: RawTire[]): Recommendation[] {
   const recs: Recommendation[] = [];
@@ -350,6 +395,13 @@ function ManualView({
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionModal, setActionModal] = useState<"send" | "bucket" | "acceptConfirm" | null>(null);
+  // Per-tire spec overrides. Empty by default — the analista can edit one row
+  // (editingTireId) or bulk-edit every selected row sharing a reference
+  // (bulkEditKey). Cleared whenever the tab changes so a reencauche override
+  // doesn't silently apply to a nueva-tab rec with the same tireId.
+  const [overrides,      setOverrides]      = useState<Record<string, ItemOverride>>({});
+  const [editingTireId,  setEditingTireId]  = useState<string | null>(null);
+  const [bulkEditKey,    setBulkEditKey]    = useState<string | null>(null);
   const [sendDistId, setSendDistId] = useState("");
   const [sendDistIds, setSendDistIds] = useState<Set<string>>(new Set());
   const [bidDeadlineHours, setBidDeadlineHours] = useState(48);
@@ -416,16 +468,92 @@ function ManualView({
   // Fetch bid requests on mount
   useEffect(() => { fetchBidRequests(); }, [companyId]);
 
-  // Build items from selected recommendations
+  // Build items from selected recommendations, applying any override the
+  // analista set via the per-item or bulk edit UI.
   function buildItems() {
-    return selectedRecs.map((r) => ({
-      tireId: r.tire.id, marca: r.tire.marca, dimension: r.tire.dimension,
-      diseno: r.tire.diseno, eje: r.tire.eje,
-      cantidad: 1, tipo: r.type, vehiclePlaca: r.vehiclePlaca, urgency: r.urgency,
-      catalogId: r.catalogMatch?.skuRef ?? null,
-      catalogSuggestion: r.catalogMatch ? `${r.catalogMatch.marca} ${r.catalogMatch.modelo}` : null,
-      bandaRecomendada: r.bandaRecomendada ?? null,
-    }));
+    return selectedRecs.map((r) => {
+      const spec = effectiveSpec(r, overrides[r.tire.id]);
+      return {
+        tireId: r.tire.id,
+        tipo: r.type,
+        marca: spec.marca,
+        modelo: spec.modelo,
+        dimension: spec.dimension,
+        eje: r.tire.eje,
+        cantidad: spec.cantidad,
+        vehiclePlaca: r.vehiclePlaca,
+        urgency: r.urgency,
+      };
+    });
+  }
+
+  // Stats for the selected-items summary strip — rolls up by effective
+  // (marca + modelo + dimension) so the analista can see at a glance
+  // "I'm about to order 20 Continental HDR and 30 Michelin XDE2".
+  const selectedStats = useMemo(() => {
+    const byBrand      = new Map<string, number>();
+    const byReference  = new Map<string, { marca: string; modelo: string; dimension: string; count: number }>();
+    for (const r of selectedRecs) {
+      const spec = effectiveSpec(r, overrides[r.tire.id]);
+      byBrand.set(spec.marca, (byBrand.get(spec.marca) ?? 0) + spec.cantidad);
+      const key = refKey(spec.marca, spec.modelo, spec.dimension);
+      const prev = byReference.get(key);
+      byReference.set(key, {
+        marca:     spec.marca,
+        modelo:    spec.modelo,
+        dimension: spec.dimension,
+        count:     (prev?.count ?? 0) + spec.cantidad,
+      });
+    }
+    const overridden = Object.keys(overrides).filter((k) => selected.has(k)).length;
+    return {
+      byBrand:     [...byBrand.entries()].sort((a, b) => b[1] - a[1]),
+      byReference: [...byReference.values()].sort((a, b) => b.count - a.count),
+      overridden,
+    };
+  }, [selectedRecs, overrides, selected]);
+
+  // Group selected recs by reference for the bulk-edit picker. Only groups
+  // with >1 row are worth offering a "change all of these" action.
+  const selectedRefGroups = useMemo(() => {
+    const m = new Map<string, { marca: string; modelo: string; dimension: string; tireIds: string[] }>();
+    for (const r of selectedRecs) {
+      const spec = effectiveSpec(r, overrides[r.tire.id]);
+      const key = refKey(spec.marca, spec.modelo, spec.dimension);
+      const prev = m.get(key);
+      if (prev) prev.tireIds.push(r.tire.id);
+      else m.set(key, { marca: spec.marca, modelo: spec.modelo, dimension: spec.dimension, tireIds: [r.tire.id] });
+    }
+    return [...m.entries()].map(([key, g]) => ({ key, ...g }));
+  }, [selectedRecs, overrides]);
+
+  function applyPerItemEdit(tireId: string, next: ItemOverride) {
+    setOverrides((prev) => {
+      const n = { ...prev };
+      // Drop the override if every field is blank — keeps state lean and
+      // makes "revert to recommendation" a single click on the modal.
+      if (!next.marca && !next.modelo && !next.dimension && !next.cantidad) {
+        delete n[tireId];
+      } else {
+        n[tireId] = next;
+      }
+      return n;
+    });
+  }
+
+  function applyBulkEdit(tireIds: string[], next: ItemOverride) {
+    setOverrides((prev) => {
+      const n = { ...prev };
+      for (const id of tireIds) {
+        const merged: ItemOverride = { ...prev[id], ...next };
+        if (!merged.marca && !merged.modelo && !merged.dimension && !merged.cantidad) {
+          delete n[id];
+        } else {
+          n[id] = merged;
+        }
+      }
+      return n;
+    });
   }
 
   // Send as bid request to multiple distributors
@@ -661,7 +789,7 @@ function ManualView({
         {(["reencauche", "nueva"] as const).map((t) => {
           const count = recs.filter((r) => r.type === t).length;
           return (
-            <button key={t} onClick={() => { setTab(t); setSelected(new Set()); setUrgencyFilter("all"); }}
+            <button key={t} onClick={() => { setTab(t); setSelected(new Set()); setUrgencyFilter("all"); setOverrides({}); }}
               className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
               style={{ background: tab === t ? "#0A183A" : "transparent", color: tab === t ? "#fff" : "#173D68", border: tab === t ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}
             >
@@ -706,6 +834,88 @@ function ManualView({
         )}
       </div>
 
+      {/* Summary strip — live totals by brand / reference for the current
+          selection. Gives the analista a glance at what the order will look
+          like (e.g. "20 Continental · 30 Michelin") before it's sent. */}
+      {selectedRecs.length > 0 && (
+        <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Package className="w-3.5 h-3.5 text-[#1E76B6]" />
+            <p className="text-[11px] font-black uppercase tracking-wider text-[#0A183A]">
+              Resumen del pedido
+            </p>
+            <span className="text-[10px] text-gray-400">
+              {selectedRecs.length} llanta{selectedRecs.length !== 1 ? "s" : ""}
+              {selectedStats.overridden > 0 && <> · {selectedStats.overridden} editada{selectedStats.overridden !== 1 ? "s" : ""}</>}
+            </span>
+            {selectedRefGroups.some((g) => g.tireIds.length > 1) && (
+              <button
+                onClick={() => {
+                  // Open bulk-edit on the largest multi-row group by default.
+                  const multi = selectedRefGroups.filter((g) => g.tireIds.length > 1)
+                                                 .sort((a, b) => b.tireIds.length - a.tireIds.length);
+                  if (multi[0]) setBulkEditKey(multi[0].key);
+                }}
+                className="ml-auto flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#0A183A] text-white hover:bg-[#173D68] transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+                Editar referencia en grupo
+              </button>
+            )}
+          </div>
+
+          {/* Brand pills */}
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {selectedStats.byBrand.map(([brand, n]) => (
+              <span
+                key={brand}
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}
+              >
+                {n} {brand}
+              </span>
+            ))}
+          </div>
+
+          {/* Reference breakdown — shows multi-row groups so bulk-edit
+              candidates are obvious. */}
+          {selectedStats.byReference.length > 0 && (
+            <div className="divide-y divide-gray-50 border-t border-gray-50 pt-1">
+              {selectedStats.byReference.slice(0, 6).map((ref) => {
+                const group = selectedRefGroups.find(
+                  (g) => g.marca === ref.marca && g.modelo === ref.modelo && g.dimension === ref.dimension,
+                );
+                return (
+                  <div
+                    key={`${ref.marca}-${ref.modelo}-${ref.dimension}`}
+                    className="flex items-center gap-2 py-1.5 text-[11px]"
+                  >
+                    <span className="font-mono text-gray-400 w-6 text-right">{ref.count}×</span>
+                    <span className="font-semibold text-[#0A183A] truncate flex-1">
+                      {ref.marca} {ref.modelo}
+                    </span>
+                    <span className="text-gray-400 tabular-nums">{ref.dimension}</span>
+                    {group && group.tireIds.length > 1 && (
+                      <button
+                        onClick={() => setBulkEditKey(refKey(ref.marca, ref.modelo, ref.dimension))}
+                        className="text-[10px] font-bold text-[#1E76B6] hover:underline flex-shrink-0"
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {selectedStats.byReference.length > 6 && (
+                <p className="text-[10px] text-gray-400 pt-1">
+                  + {selectedStats.byReference.length - 6} referencia{selectedStats.byReference.length - 6 !== 1 ? "s" : ""} más
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Vehicle groups */}
       {groups.length === 0 ? (
         <div className="flex flex-col items-center py-16 text-gray-400">
@@ -714,7 +924,16 @@ function ManualView({
         </div>
       ) : (
         groups.map(([placa, vehicleRecs]) => (
-          <VehicleRecGroup key={placa} placa={placa} recs={vehicleRecs} selected={selected} onToggle={toggleSelect} tab={tab} />
+          <VehicleRecGroup
+            key={placa}
+            placa={placa}
+            recs={vehicleRecs}
+            selected={selected}
+            onToggle={toggleSelect}
+            tab={tab}
+            overrides={overrides}
+            onEdit={setEditingTireId}
+          />
         ))
       )}
 
@@ -1181,6 +1400,214 @@ function ManualView({
           </div>
         );
       })()}
+
+      {/* ============== Per-item Edit Modal ============== */}
+      {editingTireId && (() => {
+        const rec = recs.find((r) => r.tire.id === editingTireId);
+        if (!rec) return null;
+        return (
+          <EditItemModal
+            rec={rec}
+            override={overrides[editingTireId]}
+            onClose={() => setEditingTireId(null)}
+            onSave={(next) => { applyPerItemEdit(editingTireId, next); setEditingTireId(null); }}
+          />
+        );
+      })()}
+
+      {/* ============== Bulk Edit Modal ============== */}
+      {bulkEditKey && (() => {
+        const group = selectedRefGroups.find((g) => g.key === bulkEditKey);
+        if (!group) return null;
+        return (
+          <BulkEditModal
+            group={group}
+            onClose={() => setBulkEditKey(null)}
+            onSave={(next) => { applyBulkEdit(group.tireIds, next); setBulkEditKey(null); }}
+          />
+        );
+      })()}
+    </div>
+  );
+}
+
+// ===============================================================================
+// Edit modals — one row at a time or every selected row of the same reference.
+// Both write into the override map which is read by `effectiveSpec` /
+// `buildItems` on submit.
+// ===============================================================================
+
+function EditItemModal({
+  rec, override, onClose, onSave,
+}: {
+  rec: Recommendation;
+  override?: ItemOverride;
+  onClose: () => void;
+  onSave: (next: ItemOverride) => void;
+}) {
+  // Prefill the form with whatever the analista would actually order right
+  // now — either the override or, if none yet, the current recommendation
+  // baseline — so they see the true starting point, not a blank form.
+  const baseline = effectiveSpec(rec, override);
+  const [marca,     setMarca]     = useState<string>(baseline.marca);
+  const [modelo,    setModelo]    = useState<string>(baseline.modelo ?? "");
+  const [dimension, setDimension] = useState<string>(baseline.dimension);
+  const [cantidad,  setCantidad]  = useState<number>(baseline.cantidad);
+
+  const original = effectiveSpec(rec, undefined);
+  const isDirty =
+    marca.trim()     !== original.marca     ||
+    modelo.trim()    !== (original.modelo ?? "") ||
+    dimension.trim() !== original.dimension ||
+    cantidad         !== original.cantidad;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+           className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="bg-[#0A183A] px-5 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-white/50">Editar referencia</p>
+            <p className="text-sm font-black text-white">{rec.vehiclePlaca} · P{rec.tire.posicion}</p>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Recomendación original</p>
+          <p className="text-xs text-gray-500">
+            {original.marca} {original.modelo} <span className="text-gray-400">· {original.dimension}</span>
+          </p>
+
+          <div className="h-px bg-gray-100 my-2" />
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Marca</label>
+            <input type="text" className={inputCls} value={marca} onChange={(e) => setMarca(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">
+              {rec.type === "reencauche" ? "Banda" : "Modelo / diseño"}
+            </label>
+            <input type="text" className={inputCls} value={modelo} onChange={(e) => setModelo(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Dimensión</label>
+            <input type="text" className={inputCls} value={dimension} onChange={(e) => setDimension(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Cantidad</label>
+            <input type="number" min={1} className={inputCls}
+                   value={cantidad}
+                   onChange={(e) => setCantidad(Math.max(1, Number(e.target.value) || 1))} />
+          </div>
+        </div>
+
+        <div className="px-5 py-3 bg-gray-50 flex gap-2">
+          {override && (
+            <button
+              onClick={() => onSave({})}
+              className="px-3 py-2 rounded-lg text-xs font-bold text-[#64748b] hover:bg-gray-100 transition-colors"
+            >
+              Restaurar
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onSave(isDirty ? {
+              marca:     marca.trim(),
+              modelo:    modelo.trim() || undefined,
+              dimension: dimension.trim(),
+              cantidad,
+            } : {})}
+            disabled={!marca.trim() || !dimension.trim()}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-white bg-[#0A183A] hover:bg-[#173D68] disabled:opacity-40 transition-colors"
+          >
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BulkEditModal({
+  group, onClose, onSave,
+}: {
+  group: { key: string; marca: string; modelo: string; dimension: string; tireIds: string[] };
+  onClose: () => void;
+  onSave: (next: ItemOverride) => void;
+}) {
+  const [marca,     setMarca]     = useState<string>(group.marca);
+  const [modelo,    setModelo]    = useState<string>(group.modelo ?? "");
+  const [dimension, setDimension] = useState<string>(group.dimension);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+           className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="bg-[#0A183A] px-5 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-white/50">Editar en grupo</p>
+            <p className="text-sm font-black text-white">
+              {group.tireIds.length} llantas con la misma referencia
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <div className="rounded-lg p-3" style={{ background: "rgba(52,140,203,0.06)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Actualmente</p>
+            <p className="text-xs font-bold text-[#0A183A] mt-0.5">
+              {group.marca} {group.modelo} <span className="text-gray-400">· {group.dimension}</span>
+            </p>
+          </div>
+          <p className="text-[11px] text-gray-500">
+            Cambiarás las {group.tireIds.length} llantas seleccionadas por la referencia que definas abajo.
+          </p>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Marca</label>
+            <input type="text" className={inputCls} value={marca} onChange={(e) => setMarca(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Modelo / banda</label>
+            <input type="text" className={inputCls} value={modelo} onChange={(e) => setModelo(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Dimensión</label>
+            <input type="text" className={inputCls} value={dimension} onChange={(e) => setDimension(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="px-5 py-3 bg-gray-50 flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={() => onSave({
+              marca:     marca.trim(),
+              modelo:    modelo.trim() || undefined,
+              dimension: dimension.trim(),
+            })}
+            disabled={!marca.trim() || !dimension.trim()}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-white bg-[#0A183A] hover:bg-[#173D68] disabled:opacity-40 transition-colors"
+          >
+            Aplicar a {group.tireIds.length}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1190,13 +1617,15 @@ function ManualView({
 // ===============================================================================
 
 function VehicleRecGroup({
-  placa, recs, selected, onToggle, tab,
+  placa, recs, selected, onToggle, tab, overrides, onEdit,
 }: {
   placa: string;
   recs: Recommendation[];
   selected: Set<string>;
   onToggle: (id: string) => void;
   tab: "reencauche" | "nueva";
+  overrides: Record<string, ItemOverride>;
+  onEdit: (tireId: string) => void;
 }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -1213,6 +1642,9 @@ function VehicleRecGroup({
           const sel = selected.has(r.tire.id);
           const u = URGENCY_META[r.urgency];
           const price = tab === "reencauche" ? 650000 : (r.catalogMatch?.precioCop ?? r.estimatedPrice);
+          const ov = overrides[r.tire.id];
+          const spec = effectiveSpec(r, ov);
+          const isOverridden = !!ov;
 
           return (
             <div key={r.tire.id} onClick={() => onToggle(r.tire.id)}
@@ -1228,10 +1660,27 @@ function VehicleRecGroup({
               {/* Urgency dot */}
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: u.color }} title={u.label} />
 
-              {/* Info */}
+              {/* Info — shows the effective (possibly overridden) spec so the
+                  analista sees what will actually be ordered. */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#0A183A]">{r.tire.marca} {r.tire.dimension}</span>
+                  <span className="text-xs font-bold text-[#0A183A]">
+                    {spec.marca} {spec.modelo && <span className="font-medium text-[#173D68]">{spec.modelo}</span>} {spec.dimension}
+                  </span>
+                  {spec.cantidad > 1 && (
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-[#0A183A] text-white">
+                      ×{spec.cantidad}
+                    </span>
+                  )}
+                  {isOverridden && (
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                      style={{ background: "rgba(245,158,11,0.1)", color: "#d97706" }}
+                      title={`Original: ${r.tire.marca} ${r.tire.diseno} ${r.tire.dimension}`}
+                    >
+                      Editada
+                    </span>
+                  )}
                   <span className="text-[10px] text-gray-400">P{r.tire.posicion} · {r.tire.eje}</span>
                 </div>
                 <p className="text-[10px] text-gray-400 truncate">{r.reason}</p>
@@ -1248,6 +1697,15 @@ function VehicleRecGroup({
               <span className="text-[11px] font-bold text-[#0A183A] flex-shrink-0 w-20 text-right">
                 {fmtCOP(price)}
               </span>
+
+              {/* Edit button — stops propagation so it doesn't toggle the row */}
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(r.tire.id); }}
+                className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#1E76B6] hover:bg-[#1E76B6]/10 transition-colors"
+                title="Editar referencia / cantidad"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
             </div>
           );
         })}
