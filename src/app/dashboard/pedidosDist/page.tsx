@@ -837,7 +837,80 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
             </div>
           )}
 
-          {/* Per-item pricing */}
+          {/* Once the dist has quoted, render a read-only summary of what
+              they sent — same UX as the OrderCard's "Cotización enviada"
+              block. The editable form only shows while the dist can still
+              act on the bid (hasQuoted/hasRejected gate below). */}
+          {hasQuoted && (() => {
+            const submitted: any[] = Array.isArray(myResponse?.cotizacion)
+              ? (myResponse.cotizacion as any[])
+              : [];
+            const byIdx = new Map<number, any>();
+            submitted.forEach((q, i) => {
+              const idx = typeof q?.itemIndex === "number" ? q.itemIndex : i;
+              byIdx.set(idx, q);
+            });
+            return (
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(34,197,94,0.2)" }}>
+                <div className="px-4 py-3 flex items-center justify-between" style={{ background: "rgba(34,197,94,0.06)" }}>
+                  <div>
+                    <p className="text-sm font-bold text-[#15803d]">Cotización enviada</p>
+                    <p className="text-[10px] text-gray-500">
+                      {items.length} llanta{items.length !== 1 ? "s" : ""}
+                      {myResponse?.submittedAt && <> · {fmtDate(myResponse.submittedAt)}</>}
+                      {myResponse?.tiempoEntrega && <> · entrega {myResponse.tiempoEntrega}</>}
+                      {myResponse?.incluyeIva && <> · IVA incluido</>}
+                    </p>
+                  </div>
+                  <p className="text-lg font-black text-[#0A183A] tabular-nums">
+                    {fmtCOP(myResponse?.totalCotizado ?? 0)}
+                  </p>
+                </div>
+                <div className="px-4 py-3 space-y-2 bg-white">
+                  {items.map((item: any, idx: number) => {
+                    const q = byIdx.get(idx);
+                    const offeredName = item?.tipo === "reencauche" && (q?.bandaOfrecidaMarca || q?.bandaOfrecidaModelo)
+                      ? `${q.bandaOfrecidaMarca ?? ""} ${q.bandaOfrecidaModelo ?? ""}`.trim()
+                      : `${item.marca ?? ""}${item.modelo ? ` ${item.modelo}` : item.diseno ? ` ${item.diseno}` : ""}`.trim();
+                    return (
+                      <div key={idx} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-[#0A183A]">
+                            {offeredName || "Sin especificar"}
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {item.dimension}
+                            {item.eje ? ` — ${item.eje}` : ""}
+                            {item.vehiclePlaca ? ` — ${item.vehiclePlaca}` : ""}
+                            {q?.bandaOfrecidaProfundidad ? ` — ${q.bandaOfrecidaProfundidad}mm` : ""}
+                            {q?.tiempoEntrega ? ` — ${q.tiempoEntrega}` : ""}
+                          </p>
+                          {q?.notas && <p className="text-[10px] text-[#f97316] mt-0.5">{q.notas}</p>}
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <p className="font-bold text-[#0A183A] tabular-nums">{fmtCOP(q?.precioUnitario ?? 0)}</p>
+                          <p className="text-[10px]" style={{ color: q?.disponible ? "#22c55e" : "#ef4444" }}>
+                            {q?.disponible ? "Disponible" : "No disp."}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {myResponse?.notas && <p className="text-xs text-gray-500 pt-1 italic">Notas: {myResponse.notas}</p>}
+                  <p className="text-[10px] text-gray-500 text-right pt-1">
+                    Esperando decisión del cliente…
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Per-item pricing + footer — only render while the dist can
+              still quote. Once hasQuoted, the read-only summary above
+              is the whole view. Hasrejected keeps its own terminal
+              message below (inside this conditional) so the footer
+              block keeps working. */}
+          {!hasQuoted && (<>
           <div className="space-y-2">
             {items.map((item: any, idx: number) => {
               const cot = cotItems[idx];
@@ -1002,10 +1075,11 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
                 className="sm:col-span-3 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
                 style={{ background: "linear-gradient(135deg, #8b5cf6, #6d28d9)" }}>
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {hasQuoted ? "Actualizar Cotizacion" : "Enviar Cotizacion"}
+                Enviar Cotizacion
               </button>
             </div>
           )}
+          </>)}
         </div>
       )}
     </div>
