@@ -34,6 +34,7 @@ interface AgentSettings { agentEnabled: boolean; purchaseMode: "agent_auto" | "m
 interface PurchaseOrder {
   id: string; status: string; items: any[]; totalEstimado: number | null;
   totalCotizado: number | null; cotizacionNotas: string | null; notas: string | null;
+  cotizacionFecha?: string | null;
   // cotizacion is always undefined now (per-item quote data moved to items[]) —
   // kept on the type so legacy code paths still compile. Phase 5 rewrites those
   // call sites to read from items[] directly.
@@ -455,7 +456,16 @@ function ManualView({
 
   const allTabSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.tire.id));
 
-  const cotizaciones = orders.filter((o) => o.status === "cotizacion_recibida");
+  // Newest quote first so the offer the fleet just got lands at the top
+  // of the "Ofertas para revisar" section — matches the sidebar bubble's
+  // promise ("there's something new to look at").
+  const cotizaciones = orders
+    .filter((o) => o.status === "cotizacion_recibida")
+    .sort((a, b) => {
+      const aT = a.cotizacionFecha ? new Date(a.cotizacionFecha).getTime() : 0;
+      const bT = b.cotizacionFecha ? new Date(b.cotizacionFecha).getTime() : 0;
+      return bT - aT;
+    });
 
   // Merge distributors: connected ones first, then all others
   const connectedIds = new Set(distributors.map((d) => d.distributor.id));
@@ -747,8 +757,113 @@ function ManualView({
   }, [tires]);
   const budgetPct = budget > 0 ? Math.min((monthSpent / budget) * 100, 100) : 0;
 
+  // Ofertas to review — rendered at the very top of the return (below)
+  // so new quotes are the first thing the fleet sees when they land on
+  // Pedidos, matching the sidebar-bubble promise. Kept as a variable
+  // (not duplicated JSX) so the block's handlers + state stay in one
+  // place.
+  const ofertasBlock = cotizaciones.length > 0 ? (
+    <div>
+      <div className="flex items-center gap-3 mb-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#f97316]">Ofertas Para Revisar</h3>
+        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#f97316] text-white tabular-nums">
+          {cotizaciones.length} nueva{cotizaciones.length !== 1 ? "s" : ""}
+        </span>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+      <div className="space-y-3">
+        {cotizaciones.map((o) => {
+          const items = Array.isArray(o.items) ? o.items as any[] : [];
+          const isExpanded = expandedOfertas.has(o.id);
+          return (
+            <div key={o.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid rgba(249,115,22,0.2)" }}>
+              {/* Header — click to toggle per-item detail */}
+              <button
+                type="button"
+                onClick={() => toggleOferta(o.id)}
+                className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[rgba(249,115,22,0.08)] transition-colors"
+                style={{ background: "rgba(249,115,22,0.05)" }}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[#0A183A]">{o.distributor?.name ?? "Distribuidor"}</p>
+                  <p className="text-[10px] text-gray-400">
+                    {fmtDate(o.cotizacionFecha ?? o.createdAt)} — {items.length} llanta{items.length !== 1 ? "s" : ""}
+                    {" · "}
+                    <span className="text-[#f97316] font-semibold">
+                      {isExpanded ? "Ocultar detalle" : "Ver detalle por llanta"}
+                    </span>
+                  </p>
+                </div>
+                <p className="text-lg font-black text-[#0A183A] flex-shrink-0 ml-3">{fmtCOP(o.totalCotizado ?? 0)}</p>
+                <ChevronDown
+                  className={`w-4 h-4 text-[#f97316] ml-2 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {/* Items detail — hidden by default so a page of offers
+                  stays scannable; click the header to expand. */}
+              {isExpanded && (
+                <div className="px-4 py-3 space-y-2">
+                  {items.map((it: any) => (
+                    <div key={it.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-[#0A183A]">
+                          {it.marca}{it.modelo ? ` ${it.modelo}` : ""}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          {it.dimension}{it.eje ? ` — ${it.eje}` : ""}
+                          {it.tiempoEntrega ? ` — ${it.tiempoEntrega}` : ""}
+                          {it.tipo === "reencauche" && it.tire?.vehicle?.placa
+                            ? ` — ${it.tire.vehicle.placa}·P${it.tire.posicion ?? "?"}`
+                            : ""}
+                        </p>
+                        {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                          <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
+                            Banda ofrecida: {it.bandaOfrecidaMarca}
+                            {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
+                            {it.bandaOfrecidaModelo}
+                          </p>
+                        )}
+                        {it.cotizacionNotas && <p className="text-[10px] text-[#f97316]">{it.cotizacionNotas}</p>}
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-3">
+                        <p className="font-bold text-[#0A183A]">{fmtCOP(it.precioUnitario ?? 0)}</p>
+                        <p className="text-[10px]" style={{ color: it.disponible ? "#22c55e" : "#ef4444" }}>
+                          {it.disponible ? "Disponible" : "No disp."}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {o.cotizacionNotas && <p className="text-xs text-gray-500 pt-1">{o.cotizacionNotas}</p>}
+                </div>
+              )}
+
+              {/* Actions — always visible so the fleet can act without
+                  expanding every card. */}
+              <div className="px-4 py-3 flex gap-2 flex-wrap" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
+                <button onClick={() => handleAcceptOrder(o.id)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-green-500 hover:bg-green-600 transition-colors">
+                  <Check className="w-3 h-3" /> Aceptar
+                </button>
+                <button onClick={() => { const msg = prompt("Nota para el distribuidor (qué necesitas diferente):"); if (msg) handleRevisionRequest(o.id, msg); }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-[#f97316] bg-orange-50 hover:bg-orange-100 transition-colors">
+                  <RotateCcw className="w-3 h-3" /> Pedir Revisión
+                </button>
+                <button onClick={() => handleRejectOrder(o.id)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
+                  <X className="w-3 h-3" /> Rechazar
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-5">
+      {ofertasBlock}
       {/* Recommendations header + budget */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
         <div className="bg-[#173D68] text-white p-4 rounded-t-xl flex items-center gap-3">
@@ -949,105 +1064,7 @@ function ManualView({
         </div>
       )}
 
-      {/* ========== Ofertas recibidas (cotizaciones) ========== */}
-      {cotizaciones.length > 0 && (
-        <div>
-          <div className="flex items-center gap-3 mb-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#f97316]">Ofertas Para Revisar</h3>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-          <div className="space-y-3">
-            {cotizaciones.map((o) => {
-              // Quote data lives on each item now — no separate cotizacion array.
-              const items = Array.isArray(o.items) ? o.items as any[] : [];
-              const isExpanded = expandedOfertas.has(o.id);
-              return (
-                <div key={o.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid rgba(249,115,22,0.2)" }}>
-                  {/* Header — click to toggle per-item detail */}
-                  <button
-                    type="button"
-                    onClick={() => toggleOferta(o.id)}
-                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[rgba(249,115,22,0.08)] transition-colors"
-                    style={{ background: "rgba(249,115,22,0.05)" }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-[#0A183A]">{o.distributor?.name ?? "Distribuidor"}</p>
-                      <p className="text-[10px] text-gray-400">
-                        {fmtDate(o.createdAt)} — {items.length} llanta{items.length !== 1 ? "s" : ""}
-                        {" · "}
-                        <span className="text-[#f97316] font-semibold">
-                          {isExpanded ? "Ocultar detalle" : "Ver detalle por llanta"}
-                        </span>
-                      </p>
-                    </div>
-                    <p className="text-lg font-black text-[#0A183A] flex-shrink-0 ml-3">{fmtCOP(o.totalCotizado ?? 0)}</p>
-                    <ChevronDown
-                      className={`w-4 h-4 text-[#f97316] ml-2 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                    />
-                  </button>
-
-                  {/* Items detail — hidden by default so a page of offers
-                      stays scannable; click the header to expand. */}
-                  {isExpanded && (
-                  <div className="px-4 py-3 space-y-2">
-                    {items.map((it: any) => (
-                      <div key={it.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[#0A183A]">
-                            {it.marca}{it.modelo ? ` ${it.modelo}` : ""}
-                          </p>
-                          <p className="text-[10px] text-gray-400">
-                            {it.dimension}{it.eje ? ` — ${it.eje}` : ""}
-                            {it.tiempoEntrega ? ` — ${it.tiempoEntrega}` : ""}
-                            {it.tipo === "reencauche" && it.tire?.vehicle?.placa
-                              ? ` — ${it.tire.vehicle.placa}·P${it.tire.posicion ?? "?"}`
-                              : ""}
-                          </p>
-                          {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
-                            <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
-                              Banda ofrecida: {it.bandaOfrecidaMarca}
-                              {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
-                              {it.bandaOfrecidaModelo}
-                            </p>
-                          )}
-                          {it.cotizacionNotas && <p className="text-[10px] text-[#f97316]">{it.cotizacionNotas}</p>}
-                        </div>
-                        <div className="text-right flex-shrink-0 ml-3">
-                          <p className="font-bold text-[#0A183A]">{fmtCOP(it.precioUnitario ?? 0)}</p>
-                          <p className="text-[10px]" style={{ color: it.disponible ? "#22c55e" : "#ef4444" }}>
-                            {it.disponible ? "Disponible" : "No disp."}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    {o.cotizacionNotas && <p className="text-xs text-gray-500 pt-1">{o.cotizacionNotas}</p>}
-                  </div>
-                  )}
-
-                  {/* Actions — always visible so the fleet can accept/reject
-                      without expanding every card, but offer acceptance
-                      without reviewing details is a flow the warning on
-                      the header already hints at. */}
-                  <div className="px-4 py-3 flex gap-2 flex-wrap" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
-                    <button onClick={() => handleAcceptOrder(o.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-green-500 hover:bg-green-600 transition-colors">
-                      <Check className="w-3 h-3" /> Aceptar
-                    </button>
-                    <button onClick={() => { const msg = prompt("Nota para el distribuidor (qué necesitas diferente):"); if (msg) handleRevisionRequest(o.id, msg); }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-[#f97316] bg-orange-50 hover:bg-orange-100 transition-colors">
-                      <RotateCcw className="w-3 h-3" /> Pedir Revisión
-                    </button>
-                    <button onClick={() => handleRejectOrder(o.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
-                      <X className="w-3 h-3" /> Rechazar
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Ofertas rendered at the top of the return via `ofertasBlock` */}
 
       {/* ========== Licitaciones activas ========== */}
       {bidRequests.length > 0 && (
