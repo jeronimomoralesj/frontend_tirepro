@@ -26,6 +26,22 @@ type EquipoClientBreakdown = {
   tiresInspected:    number;
 };
 
+// Server-derived per-client rollup: who (from the distribuidor's team)
+// inspected a given client and how much they did. Computed client-side
+// from the inspection-stats payload — no new endpoint.
+type ClientAggregate = {
+  clientCompanyId:   string | null;
+  clientCompanyName: string;
+  vehiclesInspected: number;
+  tiresInspected:    number;
+  users: {
+    id:                string;
+    name:              string;
+    vehiclesInspected: number;
+    tiresInspected:    number;
+  }[];
+};
+
 type EquipoUser = {
   id:             string;
   name:           string;
@@ -690,6 +706,11 @@ function EquipoSection({
   trendData: { month: string; label: string; inspections: number }[];
   trendLoading: boolean;
 }) {
+  // Which axis the list below the charts groups by. The stat card and the
+  // charts always summarize the full window; this switch only flips the
+  // list between per-user and per-client rollups.
+  const [viewMode, setViewMode] = useState<"users" | "clients">("users");
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     const list = term
@@ -698,14 +719,51 @@ function EquipoSection({
     return [...list].sort((a, b) => b.inspections - a.inspections);
   }, [equipo, search]);
 
+  // Per-client cross-tab — inverts each user's `clients[]` array so we can
+  // answer "which clients did my team touch this month, and who inspected
+  // each?" in a single pass. Keyed by clientCompanyId (falls back to the
+  // lowercased name when the relation is missing, to keep orphan fleets
+  // distinguishable).
+  const clientBreakdown = useMemo<ClientAggregate[]>(() => {
+    const acc = new Map<string, ClientAggregate>();
+    for (const u of equipo) {
+      for (const c of (u.clients ?? [])) {
+        const key = c.clientCompanyId ?? `_name:${c.clientCompanyName.toLowerCase().trim()}`;
+        const prev = acc.get(key) ?? {
+          clientCompanyId:   c.clientCompanyId,
+          clientCompanyName: c.clientCompanyName,
+          vehiclesInspected: 0,
+          tiresInspected:    0,
+          users:             [],
+        };
+        prev.vehiclesInspected += c.vehiclesInspected;
+        prev.tiresInspected    += c.tiresInspected;
+        prev.users.push({
+          id:                u.id,
+          name:              u.name,
+          vehiclesInspected: c.vehiclesInspected,
+          tiresInspected:    c.tiresInspected,
+        });
+        acc.set(key, prev);
+      }
+    }
+    // Sort clients by volume (tires) desc, and sort each client's users the
+    // same way so the heaviest contributor always leads the expanded row.
+    const list = [...acc.values()];
+    for (const c of list) c.users.sort((a, b) => b.tiresInspected - a.tiresInspected);
+    list.sort((a, b) => b.tiresInspected - a.tiresInspected);
+    return list;
+  }, [equipo]);
+
   // Summary stats for the selected window.
   const totals = useMemo(() => {
     const total     = equipo.reduce((s, u) => s + u.inspections, 0);
     const active    = equipo.filter(u => u.inspections > 0).length;
     const avg       = active > 0 ? Math.round(total / active) : 0;
     const top       = [...equipo].sort((a, b) => b.inspections - a.inspections)[0] ?? null;
-    return { total, active, avg, top };
-  }, [equipo]);
+    const clients   = clientBreakdown.length;
+    return { total, active, avg, top, clients };
+  }, [equipo, clientBreakdown]);
 
   // Delta vs previous equivalent window.
   const delta = useMemo(() => {
@@ -808,8 +866,9 @@ function EquipoSection({
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <SummaryStat icon={<Activity className="w-3.5 h-3.5" />} label="Inspecciones" value={totals.total.toLocaleString("es-CO")} accent="#1E76B6" />
+            <SummaryStat icon={<Building2 className="w-3.5 h-3.5" />} label="Clientes atendidos" value={totals.clients.toLocaleString("es-CO")} accent="#7c3aed" />
             <SummaryStat icon={<UserCheck className="w-3.5 h-3.5" />} label="Usuarios activos" value={`${totals.active}/${equipo.length}`} accent="#15803d" />
             <SummaryStat icon={<BarChart3 className="w-3.5 h-3.5" />} label="Promedio / activo" value={totals.avg.toLocaleString("es-CO")} accent="#173D68" />
             <SummaryStat
@@ -907,12 +966,48 @@ function EquipoSection({
         </div>
       )}
 
+      {/* View toggle — picks the grouping axis for the list below */}
+      {!loading && equipo.length > 0 && (
+        <div className="flex gap-1 bg-white rounded-xl p-1 border w-fit"
+             style={{ borderColor: "rgba(52,140,203,0.2)" }}>
+          {([
+            { k: "users"   as const, label: "Por usuario",  icon: <Users     className="w-3 h-3" />, count: equipo.filter(u => u.inspections > 0).length },
+            { k: "clients" as const, label: "Por cliente",  icon: <Building2 className="w-3 h-3" />, count: clientBreakdown.length },
+          ]).map(({ k, label, icon, count }) => {
+            const active = viewMode === k;
+            return (
+              <button
+                key={k}
+                onClick={() => setViewMode(k)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all"
+                style={{
+                  background: active ? "linear-gradient(135deg, #0A183A, #1E76B6)" : "transparent",
+                  color:      active ? "white" : "#64748b",
+                }}
+              >
+                {icon}
+                {label}
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                      style={{ background: active ? "rgba(255,255,255,0.2)" : "rgba(52,140,203,0.1)" }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center gap-3 py-20 text-[#1E76B6]">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span className="text-sm font-medium">Cargando equipo…</span>
         </div>
+      ) : viewMode === "clients" ? (
+        <ClientsList
+          clients={clientBreakdown}
+          search={search}
+        />
       ) : filtered.length === 0 ? (
         <Card className="p-12 flex flex-col items-center justify-center text-center">
           <div className="p-4 rounded-2xl mb-4" style={{ background: "rgba(30,118,182,0.06)" }}>
@@ -1338,6 +1433,134 @@ function EquipoRow({ user }: { user: EquipoUser }) {
               </table>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// ClientsList — per-client rollup of team activity in the selected window.
+// Each row expands to reveal exactly which users touched that client and
+// how many vehicles / tires they inspected. Surfaces the "who inspected
+// which client" answer that the per-user view can't give directly.
+// =============================================================================
+
+function ClientsList({ clients, search }: { clients: ClientAggregate[]; search: string }) {
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return clients;
+    return clients.filter((c) =>
+      c.clientCompanyName.toLowerCase().includes(term)
+      || c.users.some((u) => u.name.toLowerCase().includes(term)),
+    );
+  }, [clients, search]);
+
+  if (filtered.length === 0) {
+    return (
+      <Card className="p-12 flex flex-col items-center justify-center text-center">
+        <div className="p-4 rounded-2xl mb-4" style={{ background: "rgba(124,58,237,0.06)" }}>
+          <Building2 className="w-8 h-8 text-[#7c3aed] opacity-50" />
+        </div>
+        <p className="text-sm font-black text-[#0A183A] mb-1">
+          {search ? "Sin resultados" : "No hay clientes inspeccionados en este periodo"}
+        </p>
+        <p className="text-xs text-gray-400 max-w-xs">
+          {search
+            ? `No se encontraron clientes para "${search}"`
+            : "Cuando tu equipo inspeccione clientes en el periodo seleccionado, aparecerán aquí"}
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="divide-y" style={{ borderColor: "rgba(52,140,203,0.08)" }}>
+        {filtered.map((c) => (
+          <ClientRow key={c.clientCompanyId ?? `n:${c.clientCompanyName}`} client={c} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function ClientRow({ client }: { client: ClientAggregate }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded((x) => !x)}
+        className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-[rgba(240,247,255,0.6)] transition-colors text-left"
+      >
+        {/* Avatar / icon */}
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, #5b21b6, #7c3aed)" }}
+        >
+          <Building2 className="w-4 h-4 text-white" />
+        </div>
+
+        {/* Name + user count */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black text-[#0A183A] truncate">{client.clientCompanyName}</p>
+          <p className="text-[11px] text-gray-500">
+            {client.users.length} usuario{client.users.length !== 1 ? "s" : ""} del equipo inspeccionaron
+          </p>
+        </div>
+
+        {/* Tires / vehicles */}
+        <div className="flex-shrink-0 text-right w-20 hidden sm:block">
+          <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Llantas</p>
+          <p className="text-lg font-black text-[#173D68] tabular-nums mt-0.5 leading-none">
+            {client.tiresInspected.toLocaleString("es-CO")}
+          </p>
+        </div>
+        <div className="flex-shrink-0 text-right w-20 hidden md:block">
+          <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold leading-none">Vehículos</p>
+          <p className="text-sm font-black text-[#0A183A] tabular-nums mt-0.5 leading-none">
+            {client.vehiclesInspected.toLocaleString("es-CO")}
+          </p>
+        </div>
+
+        {/* Mobile compact */}
+        <div className="flex-shrink-0 text-right sm:hidden">
+          <p className="text-lg font-black text-[#173D68] tabular-nums leading-none">
+            {client.tiresInspected.toLocaleString("es-CO")}
+          </p>
+          <p className="text-[9px] text-gray-400 mt-0.5">llantas</p>
+        </div>
+
+        <ChevronDown
+          className={`w-4 h-4 text-[#7c3aed] transition-transform flex-shrink-0 ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {/* Expanded — users who inspected this client */}
+      {expanded && (
+        <div className="px-3 sm:px-5 py-3" style={{ background: "rgba(243,232,255,0.4)" }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  <th className="pb-2 pr-3">Usuario</th>
+                  <th className="pb-2 pr-3 text-right tabular-nums">Vehículos</th>
+                  <th className="pb-2 text-right tabular-nums">Llantas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {client.users.map((u) => (
+                  <tr key={u.id} className="border-t" style={{ borderColor: "rgba(124,58,237,0.08)" }}>
+                    <td className="py-1.5 pr-3 font-semibold text-[#173D68] truncate">{u.name}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">{u.vehiclesInspected.toLocaleString("es-CO")}</td>
+                    <td className="py-1.5 text-right tabular-nums">{u.tiresInspected.toLocaleString("es-CO")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
