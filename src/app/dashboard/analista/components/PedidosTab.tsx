@@ -326,16 +326,30 @@ function printProposal(recs: Recommendation[], tab: string) {
 // ===============================================================================
 
 function OfertasPrelude({
-  orders, companyId, onRefresh,
+  orders, companyId, onRefresh, bidsRefreshTick,
 }: {
   orders: PurchaseOrder[];
   companyId: string;
   onRefresh: () => void;
+  // Bumped by ManualView after publishing a new bid request, so the
+  // prelude refetches licitaciones without losing its own UI state.
+  bidsRefreshTick: number;
 }) {
   const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(new Set());
   const [orderToAccept, setOrderToAccept]     = useState<PurchaseOrder | null>(null);
   const [accepting, setAccepting]             = useState(false);
   const [showAccept, setShowAccept]           = useState(false);
+
+  // Licitaciones — also live at the top of the page (above Recomendaciones)
+  // because incoming bid responses need the same "react now" prominence as
+  // direct cotizaciones. State owned here because OfertasPrelude is the
+  // only consumer that renders them.
+  const [bidRequests, setBidRequests]         = useState<any[]>([]);
+  const [awarding, setAwarding]               = useState<string | null>(null);
+  const [expandedResponses, setExpandedResponses] = useState<Set<string>>(new Set());
+  // Refresh signal from ManualView — when the fleet publishes a new bid
+  // request from its recommendations, it bumps this counter so we re-fetch.
+  useEffect(() => { if (bidsRefreshTick > 0) fetchBidRequests(); }, [bidsRefreshTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleOferta(id: string) {
     setExpandedOfertas(prev => {
@@ -343,6 +357,46 @@ function OfertasPrelude({
       if (n.has(id)) n.delete(id); else n.add(id);
       return n;
     });
+  }
+  function toggleResponse(key: string) {
+    setExpandedResponses(prev => {
+      const n = new Set(prev);
+      if (n.has(key)) n.delete(key); else n.add(key);
+      return n;
+    });
+  }
+
+  // Fetch bids the fleet created (to see dist responses). Runs on mount
+  // + whenever the parent triggers onRefresh through the ofertas flow,
+  // so awarding/rejecting keeps the list fresh.
+  async function fetchBidRequests() {
+    if (!companyId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/bid-requests/company?companyId=${companyId}`);
+      if (res.ok) setBidRequests(await res.json());
+    } catch { /* silent */ }
+  }
+  useEffect(() => { fetchBidRequests(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleAwardBid(bidRequestId: string, distributorId: string) {
+    const key = `${bidRequestId}:${distributorId}`;
+    if (awarding === key) return;
+    setAwarding(key);
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/bid-requests/${bidRequestId}/award`, {
+        method: "PATCH",
+        body: JSON.stringify({ distributorId, companyId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any));
+        window.alert(body?.message ?? `No se pudo adjudicar (${res.status})`);
+        return;
+      }
+      await fetchBidRequests();
+      onRefresh();
+    } finally {
+      setAwarding(null);
+    }
   }
 
   // Newest quote first.
@@ -411,8 +465,14 @@ function OfertasPrelude({
   }
 
   // Nothing worth showing? Render nothing so the page isn't pushed down
-  // by an empty prelude.
-  if (cotizaciones.length === 0 && pedidosAceptados.length === 0 && reencaucheEnCurso.total === 0) {
+  // by an empty prelude. Licitaciones count too — they're the same kind
+  // of "react now" surface as a direct oferta.
+  if (
+    cotizaciones.length === 0
+    && pedidosAceptados.length === 0
+    && reencaucheEnCurso.total === 0
+    && bidRequests.length === 0
+  ) {
     return null;
   }
 
@@ -499,6 +559,154 @@ function OfertasPrelude({
                       <X className="w-3 h-3" /> Rechazar
                     </button>
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Licitaciones — bid requests the fleet created, with dist responses.
+          Collapsible per response, award button stays in the header row. */}
+      {bidRequests.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#8b5cf6]">Licitaciones</h3>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#8b5cf6] text-white tabular-nums">
+              {bidRequests.length}
+            </span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+          <div className="space-y-3">
+            {bidRequests.map((bid: any) => {
+              const items = Array.isArray(bid.items) ? bid.items : [];
+              const responses = bid.responses ?? [];
+              const quoted = responses.filter((r: any) => r.status === "cotizada" || r.status === "ganadora");
+              const winner = responses.find((r: any) => r.status === "ganadora");
+              const isOpen = bid.status === "abierta";
+              const deadline = bid.deadline ? new Date(bid.deadline) : null;
+              const hoursLeft = deadline ? Math.max(0, Math.round((deadline.getTime() - Date.now()) / (1000 * 60 * 60))) : null;
+
+              return (
+                <div key={bid.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: `1px solid ${isOpen ? "rgba(139,92,246,0.2)" : "rgba(0,0,0,0.06)"}` }}>
+                  <div className="px-4 py-3 flex items-center justify-between" style={{ background: isOpen ? "rgba(139,92,246,0.04)" : "rgba(0,0,0,0.02)" }}>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-[#0A183A]">{items.length} llantas</p>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{
+                          background: bid.status === "abierta" ? "rgba(139,92,246,0.1)" : bid.status === "adjudicada" ? "rgba(34,197,94,0.1)" : "rgba(0,0,0,0.05)",
+                          color: bid.status === "abierta" ? "#8b5cf6" : bid.status === "adjudicada" ? "#22c55e" : "#64748b",
+                        }}>
+                          {bid.status === "abierta" ? "Abierta" : bid.status === "adjudicada" ? "Adjudicada" : bid.status === "cerrada" ? "Cerrada" : "Cancelada"}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {fmtDate(bid.createdAt)} — {responses.length} invitados, {quoted.length} cotizaron
+                        {isOpen && hoursLeft !== null && <> — <span className="font-bold text-[#8b5cf6]">{hoursLeft}h restantes</span></>}
+                      </p>
+                    </div>
+                    <p className="text-sm font-black text-[#0A183A]">{fmtCOP(bid.totalEstimado ?? 0)}</p>
+                  </div>
+
+                  {quoted.length > 0 && (
+                    <div className="px-4 py-3 space-y-2" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                      {quoted.sort((a: any, b: any) => (a.totalCotizado ?? Infinity) - (b.totalCotizado ?? Infinity)).map((resp: any, i: number) => {
+                        const isWinner = resp.status === "ganadora";
+                        const isBest = i === 0 && !winner;
+                        const respKey = `${bid.id}:${resp.id}`;
+                        const isExpanded = expandedResponses.has(respKey);
+                        const respCot = Array.isArray(resp.cotizacion) ? resp.cotizacion : [];
+                        return (
+                          <div key={resp.id} className="rounded-lg overflow-hidden" style={{
+                            background: isWinner ? "rgba(34,197,94,0.06)" : isBest ? "rgba(30,118,182,0.04)" : "rgba(0,0,0,0.01)",
+                            border: isWinner ? "1px solid rgba(34,197,94,0.2)" : isBest ? "1px solid rgba(30,118,182,0.15)" : "1px solid rgba(0,0,0,0.04)",
+                          }}>
+                            <button
+                              type="button"
+                              onClick={() => toggleResponse(respKey)}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-black/[0.02] transition-colors"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-xs font-bold text-[#0A183A]">{resp.distributor?.name ?? "Distribuidor"}</p>
+                                  {isWinner && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-green-500 text-white">GANADOR</span>}
+                                  {isBest && !winner && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6]">Mejor precio</span>}
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                  {resp.tiempoEntrega ?? "Sin tiempo estimado"} {resp.incluyeIva ? "· IVA incluido" : ""}
+                                  {respCot.length > 0 && (
+                                    <> · <span className="text-[#8b5cf6] font-semibold">
+                                      {isExpanded ? "Ocultar detalle" : "Ver detalle por llanta"}
+                                    </span></>
+                                  )}
+                                </p>
+                              </div>
+                              <p className="text-base font-black text-[#0A183A]">{fmtCOP(resp.totalCotizado ?? 0)}</p>
+                              {isOpen && !winner && resp.status === "cotizada" && (() => {
+                                const awardKey = `${bid.id}:${resp.distributorId}`;
+                                const busy = awarding === awardKey;
+                                return (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleAwardBid(bid.id, resp.distributorId); }}
+                                    disabled={busy}
+                                    className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1"
+                                    style={{ background: "#22c55e" }}
+                                  >
+                                    {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+                                    {busy ? "Adjudicando…" : "Adjudicar"}
+                                  </button>
+                                );
+                              })()}
+                              <ChevronDown
+                                className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                              />
+                            </button>
+
+                            {isExpanded && respCot.length > 0 && (
+                              <div className="px-3 pb-3 pt-1 space-y-1.5 border-t" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                                {respCot.map((c: any, idx: number) => {
+                                  const srcItem = items[c.itemIndex] ?? {};
+                                  const offeredName = c.alternativeTire
+                                    ?? ((c.bandaOfrecidaMarca || c.bandaOfrecidaModelo)
+                                          ? `${c.bandaOfrecidaMarca ?? ""} ${c.bandaOfrecidaModelo ?? ""}`.trim()
+                                          : (srcItem.marca ?? "") + (srcItem.modelo ? ` ${srcItem.modelo}` : ""));
+                                  return (
+                                    <div key={idx} className="flex items-center justify-between text-[11px] py-1.5 px-2 rounded bg-white/60">
+                                      <div className="min-w-0 flex-1">
+                                        <p className="font-semibold text-[#0A183A] truncate">{offeredName || "Sin especificar"}</p>
+                                        <p className="text-[10px] text-gray-400">
+                                          {srcItem.dimension ?? ""}
+                                          {srcItem.eje ? ` · ${srcItem.eje}` : ""}
+                                          {srcItem.vehiclePlaca ? ` · ${srcItem.vehiclePlaca}` : ""}
+                                          {c.bandaOfrecidaProfundidad ? ` · ${c.bandaOfrecidaProfundidad}mm` : ""}
+                                        </p>
+                                        {c.notas && <p className="text-[10px] text-[#f97316] mt-0.5">{c.notas}</p>}
+                                      </div>
+                                      <div className="text-right flex-shrink-0 ml-3">
+                                        <p className="font-bold text-[#0A183A] tabular-nums">{fmtCOP(c.precioUnitario ?? 0)}</p>
+                                        <p className="text-[10px]" style={{ color: c.disponible ? "#22c55e" : "#ef4444" }}>
+                                          {c.disponible ? "Disponible" : "No disp."}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {resp.notas && <p className="text-[10px] text-gray-500 italic pt-1">Notas: {resp.notas}</p>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {isOpen && responses.filter((r: any) => r.status === "pendiente").length > 0 && (
+                    <div className="px-4 py-2" style={{ background: "rgba(0,0,0,0.01)", borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                      <p className="text-[10px] text-gray-400">
+                        Esperando: {responses.filter((r: any) => r.status === "pendiente").map((r: any) => r.distributor?.name).join(", ")}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -712,7 +920,7 @@ function AgentView({ orders, budget, tires }: { orders: PurchaseOrder[]; budget:
 // ===============================================================================
 
 function ManualView({
-  recs, orders, distributors, allDistributors, buckets, companyId, onRefresh, budget, tires,
+  recs, orders, distributors, allDistributors, buckets, companyId, onRefresh, onBidsRefresh, budget, tires,
 }: {
   recs: Recommendation[];
   orders: PurchaseOrder[];
@@ -721,6 +929,9 @@ function ManualView({
   buckets: Bucket[];
   companyId: string;
   onRefresh: () => void;
+  // Fires after a new bid request is published, tells the prelude to
+  // refetch its licitaciones list.
+  onBidsRefresh: () => void;
   budget: number;
   tires: RawTire[];
 }) {
@@ -738,7 +949,8 @@ function ManualView({
   const [sendDistId, setSendDistId] = useState("");
   const [sendDistIds, setSendDistIds] = useState<Set<string>>(new Set());
   const [bidDeadlineHours, setBidDeadlineHours] = useState(48);
-  const [bidRequests, setBidRequests] = useState<any[]>([]);
+  // bidRequests moved to OfertasPrelude — ManualView just fires
+  // onBidsRefresh() after publishing a new bid to trigger a refetch.
   const [sendNotes, setSendNotes] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [orderToAccept, setOrderToAccept] = useState<PurchaseOrder | null>(null);
@@ -859,9 +1071,6 @@ function ManualView({
     return [...connected, ...others];
   }, [distributors, allDistributors, connectedIds]);
 
-  // Fetch bid requests on mount
-  useEffect(() => { fetchBidRequests(); }, [companyId]);
-
   // Build items from selected recommendations, applying any override the
   // analista set via the per-item or bulk edit UI.
   function buildItems() {
@@ -973,7 +1182,7 @@ function ManualView({
       if (!res.ok) throw new Error();
       setSelected(new Set()); setActionModal(null); setSendNotes(""); setDeliveryAddress("");
       setSendDistIds(new Set());
-      fetchBidRequests();
+      onBidsRefresh();
       onRefresh();
     } catch { /* */ }
     setSending(false);
@@ -996,66 +1205,7 @@ function ManualView({
     setSending(false);
   }
 
-  // Fetch active bid requests
-  async function fetchBidRequests() {
-    if (!companyId) return;
-    try {
-      const res = await authFetch(`${API_BASE}/marketplace/bid-requests/company?companyId=${companyId}`);
-      if (res.ok) setBidRequests(await res.json());
-    } catch { /* */ }
-  }
-
-  // Award a bid
-  // Key format: `${bidRequestId}:${distributorId}` — one spinner per
-  // candidate so rapid double-clicks on the same row get deduplicated.
-  const [awarding, setAwarding] = useState<string | null>(null);
-
-  // Which ofertas the user has expanded to see tire-by-tire prices.
-  // Defaults to empty — cards render as compact summaries until opened.
-  const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(new Set());
-  function toggleOferta(id: string) {
-    setExpandedOfertas(prev => {
-      const n = new Set(prev);
-      if (n.has(id)) n.delete(id); else n.add(id);
-      return n;
-    });
-  }
-
-  // Expanded state for per-response licitación detail. Keyed as
-  // `${bidId}:${responseId}` so two distributors' cards on the same
-  // licitación expand independently.
-  const [expandedResponses, setExpandedResponses] = useState<Set<string>>(new Set());
-  function toggleResponse(key: string) {
-    setExpandedResponses(prev => {
-      const n = new Set(prev);
-      if (n.has(key)) n.delete(key); else n.add(key);
-      return n;
-    });
-  }
-
-  async function handleAwardBid(bidRequestId: string, distributorId: string) {
-    const key = `${bidRequestId}:${distributorId}`;
-    if (awarding === key) return;                  // ignore double-click
-    setAwarding(key);
-    try {
-      const res = await authFetch(`${API_BASE}/marketplace/bid-requests/${bidRequestId}/award`, {
-        method: "PATCH",
-        body: JSON.stringify({ distributorId, companyId }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({} as any));
-        // The backend throws BadRequest when the bid is already adjudicada
-        // or the dist never submitted a quote — surface that instead of
-        // failing silently so the user understands why the button didn't
-        // do anything.
-        window.alert(body?.message ?? `No se pudo adjudicar (${res.status})`);
-        return;
-      }
-      await fetchBidRequests();
-    } finally {
-      setAwarding(null);
-    }
-  }
+  // Licitaciones state/handlers moved to OfertasPrelude.
 
   async function handleBulkMoveToBucket() {
     if (!bucketId || selected.size === 0) return;
@@ -1119,203 +1269,6 @@ function ManualView({
     return total;
   }, [tires]);
   const budgetPct = budget > 0 ? Math.min((monthSpent / budget) * 100, 100) : 0;
-
-  // Ofertas to review — rendered at the very top of the return (below)
-  // so new quotes are the first thing the fleet sees when they land on
-  // Pedidos, matching the sidebar-bubble promise. Kept as a variable
-  // (not duplicated JSX) so the block's handlers + state stay in one
-  // place.
-  const ofertasBlock = cotizaciones.length > 0 ? (
-    <div>
-      <div className="flex items-center gap-3 mb-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#f97316]">Ofertas Para Revisar</h3>
-        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#f97316] text-white tabular-nums">
-          {cotizaciones.length} nueva{cotizaciones.length !== 1 ? "s" : ""}
-        </span>
-        <div className="flex-1 h-px bg-gray-200" />
-      </div>
-      <div className="space-y-3">
-        {cotizaciones.map((o) => {
-          const items = Array.isArray(o.items) ? o.items as any[] : [];
-          const isExpanded = expandedOfertas.has(o.id);
-          return (
-            <div key={o.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid rgba(249,115,22,0.2)" }}>
-              {/* Header — click to toggle per-item detail */}
-              <button
-                type="button"
-                onClick={() => toggleOferta(o.id)}
-                className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[rgba(249,115,22,0.08)] transition-colors"
-                style={{ background: "rgba(249,115,22,0.05)" }}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-[#0A183A]">{o.distributor?.name ?? "Distribuidor"}</p>
-                  <p className="text-[10px] text-gray-400">
-                    {fmtDate(o.cotizacionFecha ?? o.createdAt)} — {items.length} llanta{items.length !== 1 ? "s" : ""}
-                    {" · "}
-                    <span className="text-[#f97316] font-semibold">
-                      {isExpanded ? "Ocultar detalle" : "Ver detalle por llanta"}
-                    </span>
-                  </p>
-                </div>
-                <p className="text-lg font-black text-[#0A183A] flex-shrink-0 ml-3">{fmtCOP(o.totalCotizado ?? 0)}</p>
-                <ChevronDown
-                  className={`w-4 h-4 text-[#f97316] ml-2 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              {/* Items detail — hidden by default so a page of offers
-                  stays scannable; click the header to expand. */}
-              {isExpanded && (
-                <div className="px-4 py-3 space-y-2">
-                  {items.map((it: any) => (
-                    <div key={it.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[#0A183A]">
-                          {it.marca}{it.modelo ? ` ${it.modelo}` : ""}
-                        </p>
-                        <p className="text-[10px] text-gray-400">
-                          {it.dimension}{it.eje ? ` — ${it.eje}` : ""}
-                          {it.tiempoEntrega ? ` — ${it.tiempoEntrega}` : ""}
-                          {it.tipo === "reencauche" && it.tire?.vehicle?.placa
-                            ? ` — ${it.tire.vehicle.placa}·P${it.tire.posicion ?? "?"}`
-                            : ""}
-                        </p>
-                        {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
-                          <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
-                            Banda ofrecida: {it.bandaOfrecidaMarca}
-                            {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
-                            {it.bandaOfrecidaModelo}
-                          </p>
-                        )}
-                        {it.cotizacionNotas && <p className="text-[10px] text-[#f97316]">{it.cotizacionNotas}</p>}
-                      </div>
-                      <div className="text-right flex-shrink-0 ml-3">
-                        <p className="font-bold text-[#0A183A]">{fmtCOP(it.precioUnitario ?? 0)}</p>
-                        <p className="text-[10px]" style={{ color: it.disponible ? "#22c55e" : "#ef4444" }}>
-                          {it.disponible ? "Disponible" : "No disp."}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {o.cotizacionNotas && <p className="text-xs text-gray-500 pt-1">{o.cotizacionNotas}</p>}
-                </div>
-              )}
-
-              {/* Actions — always visible so the fleet can act without
-                  expanding every card. */}
-              <div className="px-4 py-3 flex gap-2 flex-wrap" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
-                <button onClick={() => handleAcceptOrder(o.id)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-green-500 hover:bg-green-600 transition-colors">
-                  <Check className="w-3 h-3" /> Aceptar
-                </button>
-                <button onClick={() => { const msg = prompt("Nota para el distribuidor (qué necesitas diferente):"); if (msg) handleRevisionRequest(o.id, msg); }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-[#f97316] bg-orange-50 hover:bg-orange-100 transition-colors">
-                  <RotateCcw className="w-3 h-3" /> Pedir Revisión
-                </button>
-                <button onClick={() => handleRejectOrder(o.id)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
-                  <X className="w-3 h-3" /> Rechazar
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  ) : null;
-
-  // Status strip that reminds the fleet their tires are in reencauche.
-  // Rendered only when there's something in motion so empty state stays
-  // quiet.
-  const reencaucheStrip = reencaucheEnCurso.total > 0 ? (
-    <div
-      className="rounded-xl flex items-center gap-3 flex-wrap px-4 py-3 text-xs"
-      style={{
-        background: "rgba(124,58,237,0.06)",
-        border: "1px solid rgba(124,58,237,0.18)",
-      }}
-    >
-      <RotateCcw className="w-4 h-4 text-[#7c3aed] flex-shrink-0" />
-      <p className="font-bold text-[#0A183A]">
-        Tienes <span className="text-[#7c3aed]">{reencaucheEnCurso.total}</span> llanta{reencaucheEnCurso.total !== 1 ? "s" : ""} en reencauche
-      </p>
-      <span className="text-gray-500">
-        {reencaucheEnCurso.enBucket > 0 && <>· {reencaucheEnCurso.enBucket} esperando revisión del distribuidor</>}
-        {reencaucheEnCurso.enBucket > 0 && reencaucheEnCurso.aprobadas > 0 && " "}
-        {reencaucheEnCurso.aprobadas > 0 && (
-          <>· {reencaucheEnCurso.aprobadas} aprobada{reencaucheEnCurso.aprobadas !== 1 ? "s" : ""} en proceso
-          {reencaucheEnCurso.nextEta && (
-            <> · próxima entrega {reencaucheEnCurso.nextEta.toLocaleDateString("es-CO", { day: "numeric", month: "short" })}</>
-          )}
-          </>
-        )}
-      </span>
-    </div>
-  ) : null;
-
-  // Accepted-orders "pending quotation" block — cards with the dist's
-  // logo, total committed, pickup date (or "sin programar"). These sit
-  // in place of recommendations for the tires they cover since those
-  // tires are already spoken for.
-  const pedidosAceptadosBlock = pedidosAceptados.length > 0 ? (
-    <div>
-      <div className="flex items-center gap-3 mb-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#15803d]">Pedidos aceptados · esperando recogida</h3>
-        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-green-600 text-white tabular-nums">
-          {pedidosAceptados.length}
-        </span>
-        <div className="flex-1 h-px bg-gray-200" />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {pedidosAceptados.map((o) => {
-          const items = Array.isArray(o.items) ? o.items as any[] : [];
-          const nuevaCount      = items.filter((it) => it.tipo === "nueva").length;
-          const reencaucheCount = items.filter((it) => it.tipo === "reencauche").length;
-          const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
-          return (
-            <div key={o.id} className="rounded-xl p-4 bg-white" style={{ border: "1px solid rgba(34,197,94,0.2)" }}>
-              <div className="flex items-start gap-3 mb-3">
-                {o.distributor?.profileImage ? (
-                  <img src={o.distributor.profileImage}
-                       className="w-10 h-10 rounded-xl object-contain bg-gray-50 flex-shrink-0"
-                       alt={o.distributor.name} />
-                ) : (
-                  <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black text-sm"
-                       style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
-                    {(o.distributor?.name ?? "?").charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-[#0A183A] truncate">{o.distributor?.name ?? "Distribuidor"}</p>
-                  <p className="text-[10px] text-gray-500">
-                    {nuevaCount > 0 && <>{nuevaCount} nueva{nuevaCount > 1 ? "s" : ""}</>}
-                    {nuevaCount > 0 && reencaucheCount > 0 && " · "}
-                    {reencaucheCount > 0 && <>{reencaucheCount} reencauche</>}
-                  </p>
-                </div>
-                <p className="text-base font-black text-[#0A183A] tabular-nums flex-shrink-0">
-                  {fmtCOP(o.totalCotizado ?? 0)}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 text-[11px] py-2 px-2.5 rounded-lg"
-                   style={{ background: pickup ? "rgba(34,197,94,0.06)" : "rgba(234,179,8,0.06)" }}>
-                <Clock className={`w-3 h-3 ${pickup ? "text-green-700" : "text-yellow-700"}`} />
-                {pickup ? (
-                  <span className="font-semibold text-green-800">
-                    Recogida programada: {pickup.toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}
-                  </span>
-                ) : (
-                  <span className="font-semibold text-yellow-800">
-                    Esperando que el distribuidor programe la recogida
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  ) : null;
 
   return (
     <div className="space-y-5">
@@ -1522,159 +1475,9 @@ function ManualView({
         </div>
       )}
 
-      {/* Ofertas rendered at the top of the return via `ofertasBlock` */}
-
-      {/* ========== Licitaciones activas ========== */}
-      {bidRequests.length > 0 && (
-        <div>
-          <div className="flex items-center gap-3 mb-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#8b5cf6]">Licitaciones</h3>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6]">{bidRequests.length}</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-          <div className="space-y-3">
-            {bidRequests.map((bid: any) => {
-              const items = Array.isArray(bid.items) ? bid.items : [];
-              const responses = bid.responses ?? [];
-              const quoted = responses.filter((r: any) => r.status === "cotizada" || r.status === "ganadora");
-              const winner = responses.find((r: any) => r.status === "ganadora");
-              const isOpen = bid.status === "abierta";
-              const deadline = bid.deadline ? new Date(bid.deadline) : null;
-              const hoursLeft = deadline ? Math.max(0, Math.round((deadline.getTime() - Date.now()) / (1000 * 60 * 60))) : null;
-
-              return (
-                <div key={bid.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: `1px solid ${isOpen ? "rgba(139,92,246,0.2)" : "rgba(0,0,0,0.06)"}` }}>
-                  {/* Header */}
-                  <div className="px-4 py-3 flex items-center justify-between" style={{ background: isOpen ? "rgba(139,92,246,0.04)" : "rgba(0,0,0,0.02)" }}>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-[#0A183A]">{items.length} llantas</p>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{
-                          background: bid.status === "abierta" ? "rgba(139,92,246,0.1)" : bid.status === "adjudicada" ? "rgba(34,197,94,0.1)" : "rgba(0,0,0,0.05)",
-                          color: bid.status === "abierta" ? "#8b5cf6" : bid.status === "adjudicada" ? "#22c55e" : "#64748b",
-                        }}>
-                          {bid.status === "abierta" ? "Abierta" : bid.status === "adjudicada" ? "Adjudicada" : bid.status === "cerrada" ? "Cerrada" : "Cancelada"}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-gray-400 mt-0.5">
-                        {fmtDate(bid.createdAt)} — {responses.length} invitados, {quoted.length} cotizaron
-                        {isOpen && hoursLeft !== null && <> — <span className="font-bold text-[#8b5cf6]">{hoursLeft}h restantes</span></>}
-                      </p>
-                    </div>
-                    <p className="text-sm font-black text-[#0A183A]">{fmtCOP(bid.totalEstimado ?? 0)}</p>
-                  </div>
-
-                  {/* Responses comparison — each response collapses to a
-                      one-line summary; clicking opens the per-tire detail
-                      (request vs offer, price, availability, banda). */}
-                  {quoted.length > 0 && (
-                    <div className="px-4 py-3 space-y-2" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
-                      {quoted.sort((a: any, b: any) => (a.totalCotizado ?? Infinity) - (b.totalCotizado ?? Infinity)).map((resp: any, i: number) => {
-                        const isWinner = resp.status === "ganadora";
-                        const isBest = i === 0 && !winner;
-                        const respKey = `${bid.id}:${resp.id}`;
-                        const isExpanded = expandedResponses.has(respKey);
-                        const respCot = Array.isArray(resp.cotizacion) ? resp.cotizacion : [];
-                        return (
-                          <div key={resp.id} className="rounded-lg overflow-hidden" style={{
-                            background: isWinner ? "rgba(34,197,94,0.06)" : isBest ? "rgba(30,118,182,0.04)" : "rgba(0,0,0,0.01)",
-                            border: isWinner ? "1px solid rgba(34,197,94,0.2)" : isBest ? "1px solid rgba(30,118,182,0.15)" : "1px solid rgba(0,0,0,0.04)",
-                          }}>
-                            <button
-                              type="button"
-                              onClick={() => toggleResponse(respKey)}
-                              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-black/[0.02] transition-colors"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="text-xs font-bold text-[#0A183A]">{resp.distributor?.name ?? "Distribuidor"}</p>
-                                  {isWinner && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-green-500 text-white">GANADOR</span>}
-                                  {isBest && !winner && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6]">Mejor precio</span>}
-                                </div>
-                                <p className="text-[10px] text-gray-400 mt-0.5">
-                                  {resp.tiempoEntrega ?? "Sin tiempo estimado"} {resp.incluyeIva ? "· IVA incluido" : ""}
-                                  {respCot.length > 0 && (
-                                    <> · <span className="text-[#8b5cf6] font-semibold">
-                                      {isExpanded ? "Ocultar detalle" : "Ver detalle por llanta"}
-                                    </span></>
-                                  )}
-                                </p>
-                              </div>
-                              <p className="text-base font-black text-[#0A183A]">{fmtCOP(resp.totalCotizado ?? 0)}</p>
-                              {isOpen && !winner && resp.status === "cotizada" && (() => {
-                                const awardKey = `${bid.id}:${resp.distributorId}`;
-                                const busy = awarding === awardKey;
-                                return (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleAwardBid(bid.id, resp.distributorId); }}
-                                    disabled={busy}
-                                    className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1"
-                                    style={{ background: "#22c55e" }}
-                                  >
-                                    {busy && <Loader2 className="w-3 h-3 animate-spin" />}
-                                    {busy ? "Adjudicando…" : "Adjudicar"}
-                                  </button>
-                                );
-                              })()}
-                              <ChevronDown
-                                className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                              />
-                            </button>
-
-                            {/* Per-tire detail — request on the left, offer on the right */}
-                            {isExpanded && respCot.length > 0 && (
-                              <div className="px-3 pb-3 pt-1 space-y-1.5 border-t"
-                                   style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-                                {respCot.map((c: any, idx: number) => {
-                                  const srcItem = items[c.itemIndex] ?? {};
-                                  const offeredName = c.alternativeTire
-                                    ?? ((c.bandaOfrecidaMarca || c.bandaOfrecidaModelo)
-                                          ? `${c.bandaOfrecidaMarca ?? ""} ${c.bandaOfrecidaModelo ?? ""}`.trim()
-                                          : (srcItem.marca ?? "") + (srcItem.modelo ? ` ${srcItem.modelo}` : ""));
-                                  return (
-                                    <div key={idx} className="flex items-center justify-between text-[11px] py-1.5 px-2 rounded bg-white/60">
-                                      <div className="min-w-0 flex-1">
-                                        <p className="font-semibold text-[#0A183A] truncate">{offeredName || "Sin especificar"}</p>
-                                        <p className="text-[10px] text-gray-400">
-                                          {srcItem.dimension ?? ""}
-                                          {srcItem.eje ? ` · ${srcItem.eje}` : ""}
-                                          {srcItem.vehiclePlaca ? ` · ${srcItem.vehiclePlaca}` : ""}
-                                          {c.bandaOfrecidaProfundidad ? ` · ${c.bandaOfrecidaProfundidad}mm` : ""}
-                                        </p>
-                                        {c.notas && <p className="text-[10px] text-[#f97316] mt-0.5">{c.notas}</p>}
-                                      </div>
-                                      <div className="text-right flex-shrink-0 ml-3">
-                                        <p className="font-bold text-[#0A183A] tabular-nums">{fmtCOP(c.precioUnitario ?? 0)}</p>
-                                        <p className="text-[10px]" style={{ color: c.disponible ? "#22c55e" : "#ef4444" }}>
-                                          {c.disponible ? "Disponible" : "No disp."}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                                {resp.notas && <p className="text-[10px] text-gray-500 italic pt-1">Notas: {resp.notas}</p>}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Pending responses */}
-                  {isOpen && responses.filter((r: any) => r.status === "pendiente").length > 0 && (
-                    <div className="px-4 py-2" style={{ background: "rgba(0,0,0,0.01)", borderTop: "1px solid rgba(0,0,0,0.04)" }}>
-                      <p className="text-[10px] text-gray-400">
-                        Esperando: {responses.filter((r: any) => r.status === "pendiente").map((r: any) => r.distributor?.name).join(", ")}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Ofertas + licitaciones rendered at the top of the page by
+          OfertasPrelude (PedidosTab level) so they appear in both agent
+          and manual modes. */}
 
       {/* ========== Historial (collapsible) ========== */}
       {orders.filter((o) => o.status === "aceptada" || o.status === "rechazada").length > 0 && (
@@ -2286,6 +2089,9 @@ export default function PedidosTab() {
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [tires, setTires] = useState<RawTire[]>([]);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
+  // Increment to tell OfertasPrelude to refetch licitaciones. Bumped by
+  // ManualView's handleSendBid when a new bid request is published.
+  const [bidsRefreshTick, setBidsRefreshTick] = useState(0);
   const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [allDistributors, setAllDistributors] = useState<{ id: string; name: string }[]>([]);
   const [buckets, setBuckets] = useState<Bucket[]>([]);
@@ -2453,6 +2259,7 @@ export default function PedidosTab() {
         orders={orders}
         companyId={companyId}
         onRefresh={() => fetchAll(companyId)}
+        bidsRefreshTick={bidsRefreshTick}
       />
       {isAgentAuto ? (
         <AgentView orders={orders} budget={settings?.monthlyBudgetCap ?? 0} tires={tires} />
@@ -2465,6 +2272,7 @@ export default function PedidosTab() {
           buckets={buckets}
           companyId={companyId}
           onRefresh={() => fetchAll(companyId)}
+          onBidsRefresh={() => setBidsRefreshTick((n) => n + 1)}
           budget={settings?.monthlyBudgetCap ?? 0}
           tires={tires}
         />

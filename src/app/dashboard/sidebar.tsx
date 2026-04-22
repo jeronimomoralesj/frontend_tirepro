@@ -263,13 +263,13 @@ export default function Sidebar({
     return () => { cancelled = true; clearInterval(id); };
   }, [user?.companyId, company?.plan]);
 
-  // Fleet (plus/pro) side — bubble on the Analista nav item counts two
+  // Fleet (plus/pro) side — bubble on the Analista nav item counts three
   // distinct "things that need attention":
   //   1. Cotizaciones the dist has sent back (order.status = cotizacion_recibida)
   //   2. Tires currently in the reencauche flow (items where tipo='reencauche'
-  //      and status ∈ {en_reencauche_bucket, aprobada}) — so the fleet is
-  //      reminded their tires are physically in motion even when no user
-  //      action is required right now.
+  //      and status ∈ {en_reencauche_bucket, aprobada})
+  //   3. Licitaciones with at least one new dist response (status=cotizada),
+  //      not yet adjudicated — same "react now" surface as cotizaciones.
   // Summed into one badge so the fleet has a single "attention" counter.
   useEffect(() => {
     if (!user?.companyId || company?.plan === "distribuidor") {
@@ -280,25 +280,39 @@ export default function Sidebar({
     async function tick() {
       try {
         const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
-        const res = await fetch(
-          `${API_BASE}/purchase-orders/company?companyId=${user!.companyId}`,
-          { headers: token ? { Authorization: `Bearer ${token}` } : {} },
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && Array.isArray(data)) {
-          let count = 0;
-          for (const o of data as Array<{ status?: string; items?: Array<{ tipo?: string; status?: string }> }>) {
-            if (o.status === "cotizacion_recibida") count += 1;
-            for (const it of (o.items ?? [])) {
-              if (it.tipo === "reencauche"
-                  && (it.status === "en_reencauche_bucket" || it.status === "aprobada")) {
-                count += 1;
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+        const [ordersRes, bidsRes] = await Promise.all([
+          fetch(`${API_BASE}/purchase-orders/company?companyId=${user!.companyId}`, { headers }),
+          fetch(`${API_BASE}/marketplace/bid-requests/company?companyId=${user!.companyId}`, { headers }),
+        ]);
+        let count = 0;
+        if (ordersRes.ok) {
+          const data = await ordersRes.json();
+          if (Array.isArray(data)) {
+            for (const o of data as Array<{ status?: string; items?: Array<{ tipo?: string; status?: string }> }>) {
+              if (o.status === "cotizacion_recibida") count += 1;
+              for (const it of (o.items ?? [])) {
+                if (it.tipo === "reencauche"
+                    && (it.status === "en_reencauche_bucket" || it.status === "aprobada")) {
+                  count += 1;
+                }
               }
             }
           }
-          setPendingQuotesCount(count);
         }
+        if (bidsRes.ok) {
+          const bids = await bidsRes.json();
+          if (Array.isArray(bids)) {
+            for (const b of bids as Array<{ status?: string; responses?: Array<{ status?: string }> }>) {
+              // Only open bids where at least one dist has already quoted
+              // — adjudicada/cerrada/cancelada are not actionable, and
+              // bids still waiting for every dist need no user attention.
+              if (b.status !== "abierta") continue;
+              if ((b.responses ?? []).some((r) => r.status === "cotizada")) count += 1;
+            }
+          }
+        }
+        if (!cancelled) setPendingQuotesCount(count);
       } catch { /* silent */ }
     }
     tick();
