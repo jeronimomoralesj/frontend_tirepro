@@ -64,6 +64,9 @@ interface OrderItem {
   disponible?: boolean | null;
   tiempoEntrega?: string | null;
   cotizacionNotas?: string | null;
+  // Reencauche-only: the banda the dist will use.
+  bandaOfrecidaMarca?: string | null;
+  bandaOfrecidaModelo?: string | null;
 
   // Lifecycle
   status: ItemStatus;
@@ -83,6 +86,9 @@ interface CotizacionDraft {
   tiempoEntrega: string;
   notas: string;
   alternativeTire?: string;
+  // Reencauche-only: the banda the dist commits to.
+  bandaOfrecidaMarca?: string;
+  bandaOfrecidaModelo?: string;
 }
 
 interface PurchaseOrder {
@@ -161,11 +167,16 @@ function OrderCard({
   // changes between fetches.
   const [cotItems, setCotItems] = useState<CotizacionDraft[]>(() =>
     items.map((it) => ({
-      itemId:         it.id,
-      precioUnitario: 0,
-      disponible:     true,
-      tiempoEntrega:  "Inmediato",
-      notas:          "",
+      itemId:               it.id,
+      precioUnitario:       0,
+      disponible:           true,
+      tiempoEntrega:        "Inmediato",
+      notas:                "",
+      // Seed the banda fields from the fleet's recommendation so the dist
+      // can accept-as-is in one click; they can override if they'd rather
+      // use a different banda brand or type.
+      bandaOfrecidaMarca:   it.tipo === "reencauche" ? (it.marca  ?? "") : "",
+      bandaOfrecidaModelo:  it.tipo === "reencauche" ? (it.modelo ?? "") : "",
     })),
   );
 
@@ -191,16 +202,22 @@ function OrderCard({
       const notasWithIva = [generalNotes, conIva ? "Precios incluyen IVA (19%)" : "Precios sin IVA"].filter(Boolean).join(" — ");
       // Strip UI-only fields (alternativeTire) — if the dist suggested an
       // alternative we fold it into the notas for that item so nothing is
-      // lost when the server persists the row.
-      const payload = cotItems.map((c) => ({
-        itemId:         c.itemId,
-        precioUnitario: c.precioUnitario,
-        disponible:     c.disponible,
-        tiempoEntrega:  c.tiempoEntrega,
-        notas:          c.alternativeTire
-                          ? `[Alternativa: ${c.alternativeTire}] ${c.notas}`.trim()
-                          : c.notas,
-      }));
+      // lost when the server persists the row. The banda fields are only
+      // sent for reencauche items so nueva items don't pick up stale text.
+      const payload = cotItems.map((c, i) => {
+        const isReencauche = items[i]?.tipo === "reencauche";
+        return {
+          itemId:               c.itemId,
+          precioUnitario:       c.precioUnitario,
+          disponible:           c.disponible,
+          tiempoEntrega:        c.tiempoEntrega,
+          notas:                c.alternativeTire
+                                  ? `[Alternativa: ${c.alternativeTire}] ${c.notas}`.trim()
+                                  : c.notas,
+          bandaOfrecidaMarca:   isReencauche ? (c.bandaOfrecidaMarca?.trim()  || undefined) : undefined,
+          bandaOfrecidaModelo:  isReencauche ? (c.bandaOfrecidaModelo?.trim() || undefined) : undefined,
+        };
+      });
       const res = await authFetch(`${API_BASE}/purchase-orders/${order.id}/cotizacion`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -353,12 +370,33 @@ function OrderCard({
                             </button>
                           </td>
                           <td className="py-2.5 px-2">
-                            {!cotItems[i]?.disponible ? (
+                            {item.tipo === "reencauche" ? (
+                              // Reencauche quotes need banda brand + type
+                              // (always, not just when disponible is false),
+                              // so both the fleet and the entregar step see
+                              // exactly what banda the dist committed to.
+                              <div className="flex flex-col gap-1" style={{ minWidth: "180px" }}>
+                                <input
+                                  type="text"
+                                  value={cotItems[i]?.bandaOfrecidaMarca ?? ""}
+                                  onChange={(e) => updateCotItem(i, "bandaOfrecidaMarca", e.target.value)}
+                                  placeholder="Marca banda"
+                                  className={`${inputCls} text-xs`}
+                                />
+                                <input
+                                  type="text"
+                                  value={cotItems[i]?.bandaOfrecidaModelo ?? ""}
+                                  onChange={(e) => updateCotItem(i, "bandaOfrecidaModelo", e.target.value)}
+                                  placeholder="Tipo / diseño"
+                                  className={`${inputCls} text-xs`}
+                                />
+                              </div>
+                            ) : !cotItems[i]?.disponible ? (
                               <input
                                 type="text"
                                 value={cotItems[i]?.alternativeTire ?? ""}
                                 onChange={(e) => updateCotItem(i, "alternativeTire", e.target.value)}
-                                placeholder={item.tipo === "nueva" ? "Llanta alternativa..." : "Banda alternativa..."}
+                                placeholder="Llanta alternativa..."
                                 className={`${inputCls} text-xs`}
                                 style={{ minWidth: "150px" }}
                               />
@@ -415,10 +453,17 @@ function OrderCard({
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Cotizacion enviada</p>
               {items.map((it) => (
                 <div key={it.id} className="flex items-center justify-between text-xs py-1 border-b border-gray-50 last:border-0">
-                  <span className="text-gray-500">
-                    {it.marca}{it.modelo ? ` ${it.modelo}` : ""} — {it.dimension}
-                  </span>
-                  <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-gray-500">
+                      {it.marca}{it.modelo ? ` ${it.modelo}` : ""} — {it.dimension}
+                    </p>
+                    {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                      <p className="text-[10px] text-[#7c3aed] font-semibold">
+                        Banda ofrecida: {it.bandaOfrecidaMarca}{it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}{it.bandaOfrecidaModelo}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     <span className={it.disponible ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
                       {it.disponible ? "Disponible" : "No disp."}
                     </span>
@@ -1386,6 +1431,13 @@ function ReencaucheReviewSection({
                     {placa} · {pos} · vida actual: <span className="font-mono">{vidaIn}</span>
                     {it.precioUnitario ? ` · ${fmtCOP(it.precioUnitario)}` : ""}
                   </p>
+                  {(it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                    <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
+                      Banda ofrecida: {it.bandaOfrecidaMarca}
+                      {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
+                      {it.bandaOfrecidaModelo}
+                    </p>
+                  )}
                 </div>
 
                 {/* Status / ETA badge */}
@@ -1517,9 +1569,12 @@ function EntregarModal({
     const init: Record<string, Row> = {};
     for (const it of items) {
       init[it.id] = {
-        banda:              it.modelo ?? "",
-        bandaMarca:         "",
-        costo:              it.precioUnitario ?? "",
+        // Pre-fill from the dist's own quote (bandaOfrecida*) when it's
+        // there; fall back to the fleet's requested modelo for banda and
+        // to empty for marca so the dist doesn't retype the common case.
+        banda:              it.bandaOfrecidaModelo ?? it.modelo ?? "",
+        bandaMarca:         it.bandaOfrecidaMarca  ?? "",
+        costo:              it.precioUnitario      ?? "",
         profundidadInicial: 16,
         proveedor:          "",
       };

@@ -957,6 +957,13 @@ function ManualView({
                               ? ` — ${it.tire.vehicle.placa}·P${it.tire.posicion ?? "?"}`
                               : ""}
                           </p>
+                          {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                            <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
+                              Banda ofrecida: {it.bandaOfrecidaMarca}
+                              {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
+                              {it.bandaOfrecidaModelo}
+                            </p>
+                          )}
                           {it.cotizacionNotas && <p className="text-[10px] text-[#f97316]">{it.cotizacionNotas}</p>}
                         </div>
                         <div className="text-right flex-shrink-0 ml-3">
