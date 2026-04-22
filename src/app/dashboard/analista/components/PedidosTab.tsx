@@ -318,6 +318,335 @@ function printProposal(recs: Recommendation[], tab: string) {
 }
 
 // ===============================================================================
+// OfertasPrelude — renders at the top of the Pedidos page for every fleet
+// view (Agent or Manual). Surfaces new cotizaciones first, then accepted
+// orders awaiting pickup, then the "tires in motion" strip. Isolated so
+// the ofertas flow doesn't depend on whether the fleet is in agent_auto
+// mode — the dist's quote shows up immediately either way.
+// ===============================================================================
+
+function OfertasPrelude({
+  orders, companyId, onRefresh,
+}: {
+  orders: PurchaseOrder[];
+  companyId: string;
+  onRefresh: () => void;
+}) {
+  const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(new Set());
+  const [orderToAccept, setOrderToAccept]     = useState<PurchaseOrder | null>(null);
+  const [accepting, setAccepting]             = useState(false);
+  const [showAccept, setShowAccept]           = useState(false);
+
+  function toggleOferta(id: string) {
+    setExpandedOfertas(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+
+  // Newest quote first.
+  const cotizaciones = orders
+    .filter((o) => o.status === "cotizacion_recibida")
+    .sort((a, b) => {
+      const aT = a.cotizacionFecha ? new Date(a.cotizacionFecha).getTime() : 0;
+      const bT = b.cotizacionFecha ? new Date(b.cotizacionFecha).getTime() : 0;
+      return bT - aT;
+    });
+  const pedidosAceptados = orders.filter((o) => o.status === "aceptada");
+
+  const reencaucheEnCurso = (() => {
+    let enBucket = 0, aprobadas = 0;
+    let nextEta: Date | null = null;
+    for (const o of orders) {
+      for (const it of ((o.items ?? []) as any[])) {
+        if (it.tipo !== "reencauche") continue;
+        if (it.status === "en_reencauche_bucket") enBucket += 1;
+        if (it.status === "aprobada") {
+          aprobadas += 1;
+          if (it.estimatedDelivery) {
+            const d = new Date(it.estimatedDelivery);
+            if (!nextEta || d < nextEta) nextEta = d;
+          }
+        }
+      }
+    }
+    return { enBucket, aprobadas, nextEta, total: enBucket + aprobadas };
+  })();
+
+  function openAccept(orderId: string) {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    setOrderToAccept(order);
+    setShowAccept(true);
+  }
+  async function executeAccept() {
+    if (!orderToAccept) return;
+    setAccepting(true);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders/${orderToAccept.id}/accept`, {
+        method: "PATCH",
+        body: JSON.stringify({ companyId }),
+      });
+      if (!res.ok) throw new Error("No se pudo aceptar la orden");
+      setShowAccept(false);
+      setOrderToAccept(null);
+      onRefresh();
+    } catch (e: any) {
+      alert(`Error: ${e.message ?? "Error desconocido"}`);
+    }
+    setAccepting(false);
+  }
+  async function handleReject(orderId: string) {
+    await authFetch(`${API_BASE}/purchase-orders/${orderId}/reject`, {
+      method: "PATCH", body: JSON.stringify({ companyId }),
+    });
+    onRefresh();
+  }
+  async function handleRevision(orderId: string, notas: string) {
+    await authFetch(`${API_BASE}/purchase-orders/${orderId}/revision`, {
+      method: "PATCH", body: JSON.stringify({ companyId, notas }),
+    });
+    onRefresh();
+  }
+
+  // Nothing worth showing? Render nothing so the page isn't pushed down
+  // by an empty prelude.
+  if (cotizaciones.length === 0 && pedidosAceptados.length === 0 && reencaucheEnCurso.total === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-5 mb-5">
+      {/* Ofertas para revisar */}
+      {cotizaciones.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#f97316]">Ofertas Para Revisar</h3>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#f97316] text-white tabular-nums">
+              {cotizaciones.length} nueva{cotizaciones.length !== 1 ? "s" : ""}
+            </span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+          <div className="space-y-3">
+            {cotizaciones.map((o) => {
+              const items = Array.isArray(o.items) ? o.items as any[] : [];
+              const isExpanded = expandedOfertas.has(o.id);
+              return (
+                <div key={o.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid rgba(249,115,22,0.2)" }}>
+                  <button type="button" onClick={() => toggleOferta(o.id)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[rgba(249,115,22,0.08)] transition-colors"
+                    style={{ background: "rgba(249,115,22,0.05)" }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-[#0A183A]">{o.distributor?.name ?? "Distribuidor"}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {fmtDate(o.cotizacionFecha ?? o.createdAt)} — {items.length} llanta{items.length !== 1 ? "s" : ""}
+                        {" · "}
+                        <span className="text-[#f97316] font-semibold">
+                          {isExpanded ? "Ocultar detalle" : "Ver detalle por llanta"}
+                        </span>
+                      </p>
+                    </div>
+                    <p className="text-lg font-black text-[#0A183A] flex-shrink-0 ml-3">{fmtCOP(o.totalCotizado ?? 0)}</p>
+                    <ChevronDown className={`w-4 h-4 text-[#f97316] ml-2 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                  </button>
+                  {isExpanded && (
+                    <div className="px-4 py-3 space-y-2">
+                      {items.map((it: any) => (
+                        <div key={it.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-[#0A183A]">
+                              {it.marca}{it.modelo ? ` ${it.modelo}` : ""}
+                            </p>
+                            <p className="text-[10px] text-gray-400">
+                              {it.dimension}{it.eje ? ` — ${it.eje}` : ""}
+                              {it.tiempoEntrega ? ` — ${it.tiempoEntrega}` : ""}
+                              {it.tipo === "reencauche" && it.tire?.vehicle?.placa
+                                ? ` — ${it.tire.vehicle.placa}·P${it.tire.posicion ?? "?"}`
+                                : ""}
+                            </p>
+                            {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                              <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
+                                Banda ofrecida: {it.bandaOfrecidaMarca}
+                                {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
+                                {it.bandaOfrecidaModelo}
+                              </p>
+                            )}
+                            {it.cotizacionNotas && <p className="text-[10px] text-[#f97316]">{it.cotizacionNotas}</p>}
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-3">
+                            <p className="font-bold text-[#0A183A]">{fmtCOP(it.precioUnitario ?? 0)}</p>
+                            <p className="text-[10px]" style={{ color: it.disponible ? "#22c55e" : "#ef4444" }}>
+                              {it.disponible ? "Disponible" : "No disp."}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {o.cotizacionNotas && <p className="text-xs text-gray-500 pt-1">{o.cotizacionNotas}</p>}
+                    </div>
+                  )}
+                  <div className="px-4 py-3 flex gap-2 flex-wrap" style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
+                    <button onClick={() => openAccept(o.id)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white bg-green-500 hover:bg-green-600 transition-colors">
+                      <Check className="w-3 h-3" /> Aceptar
+                    </button>
+                    <button onClick={() => { const msg = prompt("Nota para el distribuidor (qué necesitas diferente):"); if (msg) handleRevision(o.id, msg); }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-[#f97316] bg-orange-50 hover:bg-orange-100 transition-colors">
+                      <RotateCcw className="w-3 h-3" /> Pedir Revisión
+                    </button>
+                    <button onClick={() => handleReject(o.id)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-colors">
+                      <X className="w-3 h-3" /> Rechazar
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Pedidos aceptados esperando recogida */}
+      {pedidosAceptados.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#15803d]">Pedidos aceptados · esperando recogida</h3>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-green-600 text-white tabular-nums">
+              {pedidosAceptados.length}
+            </span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {pedidosAceptados.map((o) => {
+              const items = Array.isArray(o.items) ? o.items as any[] : [];
+              const nuevaCount      = items.filter((it) => it.tipo === "nueva").length;
+              const reencaucheCount = items.filter((it) => it.tipo === "reencauche").length;
+              const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
+              return (
+                <div key={o.id} className="rounded-xl p-4 bg-white" style={{ border: "1px solid rgba(34,197,94,0.2)" }}>
+                  <div className="flex items-start gap-3 mb-3">
+                    {o.distributor?.profileImage ? (
+                      <img src={o.distributor.profileImage}
+                           className="w-10 h-10 rounded-xl object-contain bg-gray-50 flex-shrink-0"
+                           alt={o.distributor.name} />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black text-sm"
+                           style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+                        {(o.distributor?.name ?? "?").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-[#0A183A] truncate">{o.distributor?.name ?? "Distribuidor"}</p>
+                      <p className="text-[10px] text-gray-500">
+                        {nuevaCount > 0 && <>{nuevaCount} nueva{nuevaCount > 1 ? "s" : ""}</>}
+                        {nuevaCount > 0 && reencaucheCount > 0 && " · "}
+                        {reencaucheCount > 0 && <>{reencaucheCount} reencauche</>}
+                      </p>
+                    </div>
+                    <p className="text-base font-black text-[#0A183A] tabular-nums flex-shrink-0">
+                      {fmtCOP(o.totalCotizado ?? 0)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] py-2 px-2.5 rounded-lg"
+                       style={{ background: pickup ? "rgba(34,197,94,0.06)" : "rgba(234,179,8,0.06)" }}>
+                    <Clock className={`w-3 h-3 ${pickup ? "text-green-700" : "text-yellow-700"}`} />
+                    {pickup ? (
+                      <span className="font-semibold text-green-800">
+                        Recogida programada: {pickup.toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-yellow-800">
+                        Esperando que el distribuidor programe la recogida
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Reencauche en curso strip */}
+      {reencaucheEnCurso.total > 0 && (
+        <div className="rounded-xl flex items-center gap-3 flex-wrap px-4 py-3 text-xs"
+             style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.18)" }}>
+          <RotateCcw className="w-4 h-4 text-[#7c3aed] flex-shrink-0" />
+          <p className="font-bold text-[#0A183A]">
+            Tienes <span className="text-[#7c3aed]">{reencaucheEnCurso.total}</span> llanta{reencaucheEnCurso.total !== 1 ? "s" : ""} en reencauche
+          </p>
+          <span className="text-gray-500">
+            {reencaucheEnCurso.enBucket > 0 && <>· {reencaucheEnCurso.enBucket} esperando revisión del distribuidor</>}
+            {reencaucheEnCurso.enBucket > 0 && reencaucheEnCurso.aprobadas > 0 && " "}
+            {reencaucheEnCurso.aprobadas > 0 && (
+              <>· {reencaucheEnCurso.aprobadas} aprobada{reencaucheEnCurso.aprobadas !== 1 ? "s" : ""} en proceso
+              {reencaucheEnCurso.nextEta && (
+                <> · próxima entrega {reencaucheEnCurso.nextEta.toLocaleDateString("es-CO", { day: "numeric", month: "short" })}</>
+              )}
+              </>
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* Accept confirm modal */}
+      {showAccept && orderToAccept && (() => {
+        const oItems = Array.isArray(orderToAccept.items) ? orderToAccept.items as any[] : [];
+        const reencItems = oItems.filter((it: any) => it.tipo === "reencauche");
+        const newItems = oItems.filter((it: any) => it.tipo === "nueva");
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
+            <div className="bg-white rounded-xl shadow-sm w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+              <div className="px-6 py-4 flex justify-between items-center sticky top-0 z-10" style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+                <h2 className="font-bold text-sm text-white">Confirmar Aceptación</h2>
+                <button onClick={() => { setShowAccept(false); setOrderToAccept(null); }} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <p className="text-sm text-[#0A183A]">
+                  Vas a aceptar la cotización de <strong>{orderToAccept.distributor?.name}</strong>. El distribuidor programará la recogida y te avisará cuando vaya a buscar las llantas.
+                </p>
+                {reencItems.length > 0 && (
+                  <div className="rounded-xl p-3" style={{ background: "rgba(124,58,237,0.05)", border: "1px solid rgba(124,58,237,0.15)" }}>
+                    <p className="text-xs font-bold text-[#7c3aed] uppercase tracking-wider mb-2">
+                      <RotateCcw className="w-3 h-3 inline mr-1" />
+                      {reencItems.length} llanta{reencItems.length !== 1 ? "s" : ""} a reencauchar
+                    </p>
+                  </div>
+                )}
+                {newItems.length > 0 && (
+                  <div className="rounded-xl p-3" style={{ background: "rgba(30,118,182,0.05)", border: "1px solid rgba(30,118,182,0.15)" }}>
+                    <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-wider mb-2">
+                      <Package className="w-3 h-3 inline mr-1" />
+                      {newItems.length} llanta{newItems.length !== 1 ? "s" : ""} nueva{newItems.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                )}
+                <div className="rounded-xl p-3 flex items-center justify-between" style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(52,140,203,0.1)" }}>
+                  <span className="text-sm font-bold text-[#0A183A]">Total cotizado</span>
+                  <span className="text-lg font-black text-[#0A183A]">{fmtCOP(orderToAccept.totalCotizado ?? 0)}</span>
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => { setShowAccept(false); setOrderToAccept(null); }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">
+                    Cancelar
+                  </button>
+                  <button onClick={executeAccept} disabled={accepting}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                    style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+                    {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Aceptar pedido
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+// ===============================================================================
 // Agent auto mode view
 // ===============================================================================
 
@@ -978,9 +1307,9 @@ function ManualView({
 
   return (
     <div className="space-y-5">
-      {ofertasBlock}
-      {pedidosAceptadosBlock}
-      {reencaucheStrip}
+      {/* Ofertas / pedidos aceptados / reencauche strip are rendered by
+          OfertasPrelude at the PedidosTab level so they also appear in
+          agent_auto mode, not only manual. */}
       {/* Recommendations header + budget */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
         <div className="bg-[#173D68] text-white p-4 rounded-t-xl flex items-center gap-3">
@@ -2049,6 +2378,16 @@ export default function PedidosTab() {
 
   return (
     <>
+      {/* Shared prelude — renders ofertas, pedidos aceptados, and the
+          reencauche status strip regardless of agent_auto vs manual mode.
+          Previously only ManualView showed these, so fleets in agent_auto
+          mode couldn't see new quotes until they scrolled past the orders
+          history. */}
+      <OfertasPrelude
+        orders={orders}
+        companyId={companyId}
+        onRefresh={() => fetchAll(companyId)}
+      />
       {isAgentAuto ? (
         <AgentView orders={orders} budget={settings?.monthlyBudgetCap ?? 0} tires={tires} />
       ) : (
