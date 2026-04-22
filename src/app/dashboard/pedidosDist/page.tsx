@@ -67,6 +67,7 @@ interface OrderItem {
   // Reencauche-only: the banda the dist will use.
   bandaOfrecidaMarca?: string | null;
   bandaOfrecidaModelo?: string | null;
+  bandaOfrecidaProfundidad?: number | null;
 
   // Lifecycle
   status: ItemStatus;
@@ -86,9 +87,12 @@ interface CotizacionDraft {
   tiempoEntrega: string;
   notas: string;
   alternativeTire?: string;
-  // Reencauche-only: the banda the dist commits to.
+  // Reencauche-only: the banda the dist commits to + its initial
+  // profundidad (mm). The profundidad matters at entregar time because
+  // the vida snapshot seeds from it.
   bandaOfrecidaMarca?: string;
   bandaOfrecidaModelo?: string;
+  bandaOfrecidaProfundidad?: number | "";
 }
 
 interface PurchaseOrder {
@@ -200,16 +204,17 @@ function OrderCard({
   // changes between fetches.
   const [cotItems, setCotItems] = useState<CotizacionDraft[]>(() =>
     items.map((it) => ({
-      itemId:               it.id,
-      precioUnitario:       0,
-      disponible:           true,
-      tiempoEntrega:        "Inmediato",
-      notas:                "",
+      itemId:                    it.id,
+      precioUnitario:            0,
+      disponible:                true,
+      tiempoEntrega:             "Inmediato",
+      notas:                     "",
       // Seed the banda fields from the fleet's recommendation so the dist
       // can accept-as-is in one click; they can override if they'd rather
       // use a different banda brand or type.
-      bandaOfrecidaMarca:   it.tipo === "reencauche" ? (it.marca  ?? "") : "",
-      bandaOfrecidaModelo:  it.tipo === "reencauche" ? (it.modelo ?? "") : "",
+      bandaOfrecidaMarca:        it.tipo === "reencauche" ? (it.marca  ?? "") : "",
+      bandaOfrecidaModelo:       it.tipo === "reencauche" ? (it.modelo ?? "") : "",
+      bandaOfrecidaProfundidad:  "",
     })),
   );
 
@@ -240,15 +245,17 @@ function OrderCard({
       const payload = cotItems.map((c, i) => {
         const isReencauche = items[i]?.tipo === "reencauche";
         return {
-          itemId:               c.itemId,
-          precioUnitario:       c.precioUnitario,
-          disponible:           c.disponible,
-          tiempoEntrega:        c.tiempoEntrega,
-          notas:                c.alternativeTire
-                                  ? `[Alternativa: ${c.alternativeTire}] ${c.notas}`.trim()
-                                  : c.notas,
-          bandaOfrecidaMarca:   isReencauche ? (c.bandaOfrecidaMarca?.trim()  || undefined) : undefined,
-          bandaOfrecidaModelo:  isReencauche ? (c.bandaOfrecidaModelo?.trim() || undefined) : undefined,
+          itemId:                    c.itemId,
+          precioUnitario:            c.precioUnitario,
+          disponible:                c.disponible,
+          tiempoEntrega:             c.tiempoEntrega,
+          notas:                     c.alternativeTire
+                                       ? `[Alternativa: ${c.alternativeTire}] ${c.notas}`.trim()
+                                       : c.notas,
+          bandaOfrecidaMarca:        isReencauche ? (c.bandaOfrecidaMarca?.trim()  || undefined) : undefined,
+          bandaOfrecidaModelo:       isReencauche ? (c.bandaOfrecidaModelo?.trim() || undefined) : undefined,
+          bandaOfrecidaProfundidad:  isReencauche && typeof c.bandaOfrecidaProfundidad === "number"
+                                       ? c.bandaOfrecidaProfundidad : undefined,
         };
       });
       const res = await authFetch(`${API_BASE}/purchase-orders/${order.id}/cotizacion`, {
@@ -404,10 +411,11 @@ function OrderCard({
                           </td>
                           <td className="py-2.5 px-2">
                             {item.tipo === "reencauche" ? (
-                              // Reencauche quotes need banda brand + type
-                              // (always, not just when disponible is false),
-                              // so both the fleet and the entregar step see
-                              // exactly what banda the dist committed to.
+                              // Reencauche quotes need banda brand + type +
+                              // profundidad inicial (always, not just when
+                              // disponible is false) — the entregar step
+                              // seeds vida + snapshot from these exact
+                              // values so the dist commits to them now.
                               <div className="flex flex-col gap-1" style={{ minWidth: "180px" }}>
                                 <input
                                   type="text"
@@ -421,6 +429,19 @@ function OrderCard({
                                   value={cotItems[i]?.bandaOfrecidaModelo ?? ""}
                                   onChange={(e) => updateCotItem(i, "bandaOfrecidaModelo", e.target.value)}
                                   placeholder="Tipo / diseño"
+                                  className={`${inputCls} text-xs`}
+                                />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={0.1}
+                                  value={cotItems[i]?.bandaOfrecidaProfundidad ?? ""}
+                                  onChange={(e) => updateCotItem(
+                                    i,
+                                    "bandaOfrecidaProfundidad",
+                                    e.target.value === "" ? "" : Number(e.target.value),
+                                  )}
+                                  placeholder="Prof. inicial (mm)"
                                   className={`${inputCls} text-xs`}
                                 />
                               </div>
@@ -520,11 +541,12 @@ function OrderCard({
                           {it.tiempoEntrega ? ` — ${it.tiempoEntrega}` : ""}
                           {it.vehiclePlaca ? ` — ${it.vehiclePlaca}` : ""}
                         </p>
-                        {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                        {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo || it.bandaOfrecidaProfundidad) && (
                           <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
                             Banda ofrecida: {it.bandaOfrecidaMarca}
                             {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
                             {it.bandaOfrecidaModelo}
+                            {it.bandaOfrecidaProfundidad ? ` · ${it.bandaOfrecidaProfundidad}mm` : ""}
                           </p>
                         )}
                         {it.cotizacionNotas && <p className="text-[10px] text-[#f97316] mt-0.5">{it.cotizacionNotas}</p>}
@@ -1695,11 +1717,12 @@ function ReencaucheReviewSection({
                     {placa} · {pos} · vida actual: <span className="font-mono">{vidaIn}</span>
                     {it.precioUnitario ? ` · ${fmtCOP(it.precioUnitario)}` : ""}
                   </p>
-                  {(it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                  {(it.bandaOfrecidaMarca || it.bandaOfrecidaModelo || it.bandaOfrecidaProfundidad) && (
                     <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
                       Banda ofrecida: {it.bandaOfrecidaMarca}
                       {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
                       {it.bandaOfrecidaModelo}
+                      {it.bandaOfrecidaProfundidad ? ` · ${it.bandaOfrecidaProfundidad}mm` : ""}
                     </p>
                   )}
                 </div>
@@ -2092,12 +2115,16 @@ function EntregarModal({
     for (const it of items) {
       init[it.id] = {
         // Pre-fill from the dist's own quote (bandaOfrecida*) when it's
-        // there; fall back to the fleet's requested modelo for banda and
-        // to empty for marca so the dist doesn't retype the common case.
+        // there; fall back to the fleet's requested modelo for banda
+        // and to 16mm as the industry-standard new-banda thickness.
+        // Profundidad comes straight from what the dist committed to
+        // at quote time so the vida snapshot matches the quote exactly.
         banda:              it.bandaOfrecidaModelo ?? it.modelo ?? "",
         bandaMarca:         it.bandaOfrecidaMarca  ?? "",
         costo:              it.precioUnitario      ?? "",
-        profundidadInicial: 16,
+        profundidadInicial: typeof it.bandaOfrecidaProfundidad === "number"
+                              ? it.bandaOfrecidaProfundidad
+                              : 16,
         proveedor:          "",
       };
     }

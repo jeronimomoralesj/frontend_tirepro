@@ -525,11 +525,12 @@ function OfertasPrelude({
                                 ? ` — ${it.tire.vehicle.placa}·P${it.tire.posicion ?? "?"}`
                                 : ""}
                             </p>
-                            {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                            {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo || it.bandaOfrecidaProfundidad) && (
                               <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
                                 Banda ofrecida: {it.bandaOfrecidaMarca}
                                 {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
                                 {it.bandaOfrecidaModelo}
+                                {it.bandaOfrecidaProfundidad ? ` · ${it.bandaOfrecidaProfundidad}mm` : ""}
                               </p>
                             )}
                             {it.cotizacionNotas && <p className="text-[10px] text-[#f97316]">{it.cotizacionNotas}</p>}
