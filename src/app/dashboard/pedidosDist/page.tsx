@@ -165,6 +165,9 @@ function OrderCard({
   const [pickupDraft, setPickupDraft] = useState<string>("");
   const [pickupSaving, setPickupSaving] = useState(false);
   const [showPickupModal, setShowPickupModal] = useState(false);
+  // Whether the "Cotización enviada" card is expanded — default closed so
+  // the list of orders stays scannable; click to see tire-by-tire.
+  const [sentQuoteOpen, setSentQuoteOpen] = useState(false);
 
   const items = order.items ?? [];
   const st = STATUS_META[order.status] ?? STATUS_META.solicitud_enviada;
@@ -476,36 +479,69 @@ function OrderCard({
             </table>
           </div>
 
-          {/* Already quoted — read-only summary, pulled from the items
-              themselves (per-item pricing replaced the legacy cotizacion JSON). */}
+          {/* Already quoted — collapsible card that mirrors the pro's
+              Ofertas Para Revisar UX. Header shows summary, click to
+              expand and inspect tire-by-tire. */}
           {!canQuote && items.some((it) => it.precioUnitario != null) && (
-            <div className="rounded-xl p-4" style={{ background: "rgba(10,24,58,0.02)", border: "1px solid rgba(52,140,203,0.1)" }}>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Cotizacion enviada</p>
-              {items.map((it) => (
-                <div key={it.id} className="flex items-center justify-between text-xs py-1 border-b border-gray-50 last:border-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-gray-500">
-                      {it.marca}{it.modelo ? ` ${it.modelo}` : ""} — {it.dimension}
-                    </p>
-                    {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
-                      <p className="text-[10px] text-[#7c3aed] font-semibold">
-                        Banda ofrecida: {it.bandaOfrecidaMarca}{it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}{it.bandaOfrecidaModelo}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className={it.disponible ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
-                      {it.disponible ? "Disponible" : "No disp."}
+            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(249,115,22,0.2)" }}>
+              <button
+                type="button"
+                onClick={() => setSentQuoteOpen((v) => !v)}
+                className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[rgba(249,115,22,0.08)] transition-colors"
+                style={{ background: "rgba(249,115,22,0.05)" }}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[#0A183A]">Cotización enviada</p>
+                  <p className="text-[10px] text-gray-400">
+                    {items.length} llanta{items.length !== 1 ? "s" : ""}
+                    {order.cotizacionFecha && <> · {fmtDate(order.cotizacionFecha)}</>}
+                    {" · "}
+                    <span className="text-[#f97316] font-semibold">
+                      {sentQuoteOpen ? "Ocultar detalle" : "Ver detalle por llanta"}
                     </span>
-                    <span className="font-bold text-[#0A183A]">{fmtCOP(it.precioUnitario ?? 0)}</span>
-                    <span className="text-gray-400">{it.tiempoEntrega ?? "—"}</span>
-                  </div>
+                  </p>
                 </div>
-              ))}
-              {order.cotizacionNotas && (
-                <p className="text-xs text-gray-500 mt-2">Notas: {order.cotizacionNotas}</p>
+                <p className="text-lg font-black text-[#0A183A] flex-shrink-0 ml-3 tabular-nums">
+                  {fmtCOP(order.totalCotizado ?? 0)}
+                </p>
+                <ChevronDown className={`w-4 h-4 text-[#f97316] ml-2 flex-shrink-0 transition-transform ${sentQuoteOpen ? "rotate-180" : ""}`} />
+              </button>
+              {sentQuoteOpen && (
+                <div className="px-4 py-3 space-y-2 bg-white">
+                  {items.map((it) => (
+                    <div key={it.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-[#0A183A]">
+                          {it.marca}{it.modelo ? ` ${it.modelo}` : ""}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          {it.dimension}
+                          {it.eje ? ` — ${it.eje}` : ""}
+                          {it.tiempoEntrega ? ` — ${it.tiempoEntrega}` : ""}
+                          {it.vehiclePlaca ? ` — ${it.vehiclePlaca}` : ""}
+                        </p>
+                        {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo) && (
+                          <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
+                            Banda ofrecida: {it.bandaOfrecidaMarca}
+                            {it.bandaOfrecidaMarca && it.bandaOfrecidaModelo ? " · " : ""}
+                            {it.bandaOfrecidaModelo}
+                          </p>
+                        )}
+                        {it.cotizacionNotas && <p className="text-[10px] text-[#f97316] mt-0.5">{it.cotizacionNotas}</p>}
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-3">
+                        <p className="font-bold text-[#0A183A] tabular-nums">{fmtCOP(it.precioUnitario ?? 0)}</p>
+                        <p className="text-[10px]" style={{ color: it.disponible ? "#22c55e" : "#ef4444" }}>
+                          {it.disponible ? "Disponible" : "No disp."}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {order.cotizacionNotas && (
+                    <p className="text-xs text-gray-500 pt-1">Notas: {order.cotizacionNotas}</p>
+                  )}
+                </div>
               )}
-              <p className="text-sm font-black text-[#0A183A] mt-3 text-right">Total: {fmtCOP(order.totalCotizado ?? 0)}</p>
             </div>
           )}
 

@@ -1021,6 +1021,18 @@ function ManualView({
     });
   }
 
+  // Expanded state for per-response licitación detail. Keyed as
+  // `${bidId}:${responseId}` so two distributors' cards on the same
+  // licitación expand independently.
+  const [expandedResponses, setExpandedResponses] = useState<Set<string>>(new Set());
+  function toggleResponse(key: string) {
+    setExpandedResponses(prev => {
+      const n = new Set(prev);
+      if (n.has(key)) n.delete(key); else n.add(key);
+      return n;
+    });
+  }
+
   async function handleAwardBid(bidRequestId: string, distributorId: string) {
     const key = `${bidRequestId}:${distributorId}`;
     if (awarding === key) return;                  // ignore double-click
@@ -1552,43 +1564,97 @@ function ManualView({
                     <p className="text-sm font-black text-[#0A183A]">{fmtCOP(bid.totalEstimado ?? 0)}</p>
                   </div>
 
-                  {/* Responses comparison */}
+                  {/* Responses comparison — each response collapses to a
+                      one-line summary; clicking opens the per-tire detail
+                      (request vs offer, price, availability, banda). */}
                   {quoted.length > 0 && (
                     <div className="px-4 py-3 space-y-2" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
                       {quoted.sort((a: any, b: any) => (a.totalCotizado ?? Infinity) - (b.totalCotizado ?? Infinity)).map((resp: any, i: number) => {
                         const isWinner = resp.status === "ganadora";
                         const isBest = i === 0 && !winner;
+                        const respKey = `${bid.id}:${resp.id}`;
+                        const isExpanded = expandedResponses.has(respKey);
+                        const respCot = Array.isArray(resp.cotizacion) ? resp.cotizacion : [];
                         return (
-                          <div key={resp.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{
+                          <div key={resp.id} className="rounded-lg overflow-hidden" style={{
                             background: isWinner ? "rgba(34,197,94,0.06)" : isBest ? "rgba(30,118,182,0.04)" : "rgba(0,0,0,0.01)",
                             border: isWinner ? "1px solid rgba(34,197,94,0.2)" : isBest ? "1px solid rgba(30,118,182,0.15)" : "1px solid rgba(0,0,0,0.04)",
                           }}>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-xs font-bold text-[#0A183A]">{resp.distributor?.name ?? "Distribuidor"}</p>
-                                {isWinner && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-green-500 text-white">GANADOR</span>}
-                                {isBest && !winner && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6]">Mejor precio</span>}
+                            <button
+                              type="button"
+                              onClick={() => toggleResponse(respKey)}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-black/[0.02] transition-colors"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-xs font-bold text-[#0A183A]">{resp.distributor?.name ?? "Distribuidor"}</p>
+                                  {isWinner && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-green-500 text-white">GANADOR</span>}
+                                  {isBest && !winner && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-[#1E76B6]/10 text-[#1E76B6]">Mejor precio</span>}
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                  {resp.tiempoEntrega ?? "Sin tiempo estimado"} {resp.incluyeIva ? "· IVA incluido" : ""}
+                                  {respCot.length > 0 && (
+                                    <> · <span className="text-[#8b5cf6] font-semibold">
+                                      {isExpanded ? "Ocultar detalle" : "Ver detalle por llanta"}
+                                    </span></>
+                                  )}
+                                </p>
                               </div>
-                              <p className="text-[10px] text-gray-400 mt-0.5">
-                                {resp.tiempoEntrega ?? "Sin tiempo estimado"} {resp.incluyeIva ? "· IVA incluido" : ""}
-                              </p>
-                            </div>
-                            <p className="text-base font-black text-[#0A183A]">{fmtCOP(resp.totalCotizado ?? 0)}</p>
-                            {isOpen && !winner && resp.status === "cotizada" && (() => {
-                              const awardKey = `${bid.id}:${resp.distributorId}`;
-                              const busy = awarding === awardKey;
-                              return (
-                                <button
-                                  onClick={() => handleAwardBid(bid.id, resp.distributorId)}
-                                  disabled={busy}
-                                  className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1"
-                                  style={{ background: "#22c55e" }}
-                                >
-                                  {busy && <Loader2 className="w-3 h-3 animate-spin" />}
-                                  {busy ? "Adjudicando…" : "Adjudicar"}
-                                </button>
-                              );
-                            })()}
+                              <p className="text-base font-black text-[#0A183A]">{fmtCOP(resp.totalCotizado ?? 0)}</p>
+                              {isOpen && !winner && resp.status === "cotizada" && (() => {
+                                const awardKey = `${bid.id}:${resp.distributorId}`;
+                                const busy = awarding === awardKey;
+                                return (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleAwardBid(bid.id, resp.distributorId); }}
+                                    disabled={busy}
+                                    className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1"
+                                    style={{ background: "#22c55e" }}
+                                  >
+                                    {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+                                    {busy ? "Adjudicando…" : "Adjudicar"}
+                                  </button>
+                                );
+                              })()}
+                              <ChevronDown
+                                className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                              />
+                            </button>
+
+                            {/* Per-tire detail — request on the left, offer on the right */}
+                            {isExpanded && respCot.length > 0 && (
+                              <div className="px-3 pb-3 pt-1 space-y-1.5 border-t"
+                                   style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                                {respCot.map((c: any, idx: number) => {
+                                  const srcItem = items[c.itemIndex] ?? {};
+                                  const offeredName = c.alternativeTire
+                                    ?? ((c.bandaOfrecidaMarca || c.bandaOfrecidaModelo)
+                                          ? `${c.bandaOfrecidaMarca ?? ""} ${c.bandaOfrecidaModelo ?? ""}`.trim()
+                                          : (srcItem.marca ?? "") + (srcItem.modelo ? ` ${srcItem.modelo}` : ""));
+                                  return (
+                                    <div key={idx} className="flex items-center justify-between text-[11px] py-1.5 px-2 rounded bg-white/60">
+                                      <div className="min-w-0 flex-1">
+                                        <p className="font-semibold text-[#0A183A] truncate">{offeredName || "Sin especificar"}</p>
+                                        <p className="text-[10px] text-gray-400">
+                                          {srcItem.dimension ?? ""}
+                                          {srcItem.eje ? ` · ${srcItem.eje}` : ""}
+                                          {srcItem.vehiclePlaca ? ` · ${srcItem.vehiclePlaca}` : ""}
+                                          {c.bandaOfrecidaProfundidad ? ` · ${c.bandaOfrecidaProfundidad}mm` : ""}
+                                        </p>
+                                        {c.notas && <p className="text-[10px] text-[#f97316] mt-0.5">{c.notas}</p>}
+                                      </div>
+                                      <div className="text-right flex-shrink-0 ml-3">
+                                        <p className="font-bold text-[#0A183A] tabular-nums">{fmtCOP(c.precioUnitario ?? 0)}</p>
+                                        <p className="text-[10px]" style={{ color: c.disponible ? "#22c55e" : "#ef4444" }}>
+                                          {c.disponible ? "Disponible" : "No disp."}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {resp.notas && <p className="text-[10px] text-gray-500 italic pt-1">Notas: {resp.notas}</p>}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
