@@ -557,12 +557,20 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
   const [cotItems, setCotItems] = useState<Array<{
     precioUnitario: number; disponible: boolean; tiempoEntrega: string; notas: string;
     alternativeMarca: string; alternativeModelo: string; alternativePrecio: number;
-    bandaOfrecida: string;
+    // Reencauche offer — split into brand + design. Profundidad captured
+    // alongside so even bandas that aren't in the catalog carry the info
+    // the fleet and the entregar step need.
+    bandaOfrecidaMarca:       string;
+    bandaOfrecidaModelo:      string;
+    bandaOfrecidaProfundidad: number | "";
   }>>(
-    items.map(() => ({
+    items.map((it: any) => ({
       precioUnitario: 0, disponible: true, tiempoEntrega: "1-3 dias", notas: "",
       alternativeMarca: "", alternativeModelo: "", alternativePrecio: 0,
-      bandaOfrecida: "",
+      // Seed marca from the fleet's requested banda so dist can accept-as-is.
+      bandaOfrecidaMarca:       it?.tipo === "reencauche" ? (it?.marca  ?? "") : "",
+      bandaOfrecidaModelo:      "",
+      bandaOfrecidaProfundidad: "",
     }))
   );
   const [globalNotas, setGlobalNotas] = useState("");
@@ -599,21 +607,33 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
   async function handleSubmitBid() {
     setSubmitting(true);
     try {
-      const cotizacion = cotItems.map((c, i) => ({
-        itemIndex: i,
-        precioUnitario: c.disponible
-          ? c.precioUnitario
-          : (c.alternativeMarca && c.alternativeModelo ? c.alternativePrecio : 0),
-        disponible: c.disponible,
-        tiempoEntrega: c.tiempoEntrega,
-        notas: c.notas,
-        alternativeTire: !c.disponible && c.alternativeMarca && c.alternativeModelo
-          ? `${c.alternativeMarca} ${c.alternativeModelo}` : undefined,
-        alternativePrecio: !c.disponible && c.alternativeMarca && c.alternativeModelo
-          ? c.alternativePrecio : undefined,
-        bandaOfrecida: items[i]?.tipo === "reencauche" && c.disponible && c.bandaOfrecida
-          ? c.bandaOfrecida : undefined,
-      }));
+      const cotizacion = cotItems.map((c, i) => {
+        const isReencauche = items[i]?.tipo === "reencauche";
+        // Keep the legacy single-string `bandaOfrecida` populated when we
+        // have both marca + modelo so existing bid consumers still work;
+        // ship the structured fields alongside it for the new UI.
+        const bandaFull = isReencauche && c.disponible && c.bandaOfrecidaMarca && c.bandaOfrecidaModelo
+          ? `${c.bandaOfrecidaMarca} ${c.bandaOfrecidaModelo}`.trim()
+          : undefined;
+        return {
+          itemIndex: i,
+          precioUnitario: c.disponible
+            ? c.precioUnitario
+            : (c.alternativeMarca && c.alternativeModelo ? c.alternativePrecio : 0),
+          disponible: c.disponible,
+          tiempoEntrega: c.tiempoEntrega,
+          notas: c.notas,
+          alternativeTire: !c.disponible && c.alternativeMarca && c.alternativeModelo
+            ? `${c.alternativeMarca} ${c.alternativeModelo}` : undefined,
+          alternativePrecio: !c.disponible && c.alternativeMarca && c.alternativeModelo
+            ? c.alternativePrecio : undefined,
+          bandaOfrecida:           bandaFull,
+          bandaOfrecidaMarca:      isReencauche && c.disponible ? (c.bandaOfrecidaMarca?.trim()  || undefined) : undefined,
+          bandaOfrecidaModelo:     isReencauche && c.disponible ? (c.bandaOfrecidaModelo?.trim() || undefined) : undefined,
+          bandaOfrecidaProfundidad: isReencauche && c.disponible && typeof c.bandaOfrecidaProfundidad === "number"
+            ? c.bandaOfrecidaProfundidad : undefined,
+        };
+      });
       await authFetch(`${API_BASE}/marketplace/bid-responses`, {
         method: "POST",
         body: JSON.stringify({
@@ -717,17 +737,51 @@ function BidRequestCard({ bid, companyId, onUpdated }: { bid: any; companyId: st
                   {cot.disponible ? (
                     <div className="space-y-2">
                       {isReencauche && (
-                        <div>
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Banda a ofrecer</label>
-                          <CatalogAutocomplete
-                            value={cot.bandaOfrecida}
-                            onChange={(v) => patchItem(idx, { bandaOfrecida: v }, true)}
-                            field="modelo"
-                            filterMarca={item.marca}
-                            filterDimension={item.dimension}
-                            placeholder="Ej. Bandag BDR-HT"
-                          />
-                        </div>
+                        <>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] font-bold text-gray-400 uppercase">Banda · marca</label>
+                              <CatalogAutocomplete
+                                value={cot.bandaOfrecidaMarca}
+                                onChange={(v) => patchItem(idx, { bandaOfrecidaMarca: v }, true)}
+                                field="marca"
+                                placeholder="Ej. Bandag"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-gray-400 uppercase">Banda · diseño</label>
+                              <CatalogAutocomplete
+                                value={cot.bandaOfrecidaModelo}
+                                onChange={(v) => patchItem(idx, { bandaOfrecidaModelo: v }, true)}
+                                field="modelo"
+                                filterMarca={cot.bandaOfrecidaMarca}
+                                filterDimension={item.dimension}
+                                placeholder="Ej. BDR-HT"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-gray-400 uppercase">
+                              Profundidad inicial (mm)
+                              <span className="text-[9px] font-medium text-gray-400 normal-case ml-1">
+                                — requerida si la banda no está en tu catálogo
+                              </span>
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.1}
+                              value={cot.bandaOfrecidaProfundidad === "" ? "" : cot.bandaOfrecidaProfundidad}
+                              onChange={(e) => patchItem(
+                                idx,
+                                { bandaOfrecidaProfundidad: e.target.value === "" ? "" : Number(e.target.value) },
+                                true,
+                              )}
+                              placeholder="Ej. 16"
+                              className={inputCls}
+                            />
+                          </div>
+                        </>
                       )}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
