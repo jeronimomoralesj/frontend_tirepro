@@ -1135,6 +1135,24 @@ interface ReencaucheItem extends OrderItem {
   } | null;
 }
 
+type StatsRange = "month" | "7d" | "30d" | "90d" | "all";
+
+function rangeStart(range: StatsRange): Date | null {
+  if (range === "all") return null;
+  const now = new Date();
+  if (range === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
+  const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
+  return new Date(now.getTime() - days * 86_400_000);
+}
+
+const STATS_RANGE_LABEL: Record<StatsRange, string> = {
+  month: "Este mes",
+  "7d":  "7 días",
+  "30d": "30 días",
+  "90d": "90 días",
+  all:   "Todo",
+};
+
 function ReencaucheReviewSection({
   orders, companyId, onUpdated,
 }: {
@@ -1146,6 +1164,10 @@ function ReencaucheReviewSection({
   const [statusFilter,   setStatusFilter]   = useState<ReencaucheStatus | "all">("all");
   const [approving,      setApproving]      = useState<ReencaucheItem | null>(null);
   const [rejecting,      setRejecting]      = useState<ReencaucheItem | null>(null);
+  // Multi-select + entregar modal — aprobada tires the dist is handing back.
+  const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
+  const [entregarOpen,   setEntregarOpen]   = useState(false);
+  const [statsRange,     setStatsRange]     = useState<StatsRange>("month");
 
   // Flatten orders → per-item rows that are actively in the reencauche flow.
   const allItems: ReencaucheItem[] = useMemo(() => {
@@ -1184,15 +1206,84 @@ function ReencaucheReviewSection({
     });
   }, [allItems, clientFilter, statusFilter]);
 
+  // Delivered items — for the stats strip. Scanned across ALL orders (not
+  // just active), filtered by finalizedAt within the selected window.
+  const deliveredStats = useMemo(() => {
+    const start = rangeStart(statsRange);
+    let count = 0;
+    let total = 0;
+    for (const o of orders) {
+      if (!Array.isArray(o.items)) continue;
+      for (const it of o.items) {
+        if (it.tipo !== "reencauche" || it.status !== "entregada") continue;
+        if (start && (!it.finalizedAt || new Date(it.finalizedAt) < start)) continue;
+        count += 1;
+        total += (it.precioUnitario ?? 0) * (it.cantidad ?? 1);
+      }
+    }
+    return { count, total };
+  }, [orders, statsRange]);
+
   const counts = useMemo(() => ({
     pendientes: allItems.filter((i) => i.status === "en_reencauche_bucket").length,
     aprobadas:  allItems.filter((i) => i.status === "aprobada").length,
   }), [allItems]);
 
-  if (allItems.length === 0) return null;
+  // Aprobada rows the dist currently ticked for hand-off.
+  const selectedItems = useMemo(
+    () => allItems.filter((i) => i.status === "aprobada" && selectedIds.has(i.id)),
+    [allItems, selectedIds],
+  );
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  // Nothing to review AND no history in the window → render nothing so we
+  // don't clutter the "En Proceso" tab with an empty purple card.
+  if (allItems.length === 0 && deliveredStats.count === 0) return null;
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(124,58,237,0.2)", background: "rgba(124,58,237,0.02)" }}>
+      {/* Stats strip — count + $ of reencauches delivered in the chosen range */}
+      <div className="px-4 py-2.5 flex items-center gap-3 flex-wrap" style={{ background: "rgba(34,197,94,0.04)", borderBottom: "1px solid rgba(34,197,94,0.12)" }}>
+        <CheckCircle className="w-4 h-4 text-[#15803d]" />
+        <div className="flex items-baseline gap-4">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-[#15803d]">Entregadas</p>
+            <p className="text-sm font-black text-[#0A183A] tabular-nums leading-none">
+              {deliveredStats.count.toLocaleString("es-CO")}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-[#15803d]">Facturado</p>
+            <p className="text-sm font-black text-[#0A183A] tabular-nums leading-none">
+              {fmtCOP(deliveredStats.total)}
+            </p>
+          </div>
+        </div>
+        <div className="ml-auto flex gap-1 bg-white rounded-lg p-0.5 border" style={{ borderColor: "rgba(34,197,94,0.2)" }}>
+          {(["month", "7d", "30d", "90d", "all"] as StatsRange[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setStatsRange(r)}
+              className="text-[10px] font-bold px-2 py-0.5 rounded-md transition-colors"
+              style={{
+                background: statsRange === r ? "#15803d" : "transparent",
+                color:      statsRange === r ? "white" : "#15803d",
+              }}
+            >
+              {STATS_RANGE_LABEL[r]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Header */}
       <div className="px-4 py-3 flex items-center gap-2 flex-wrap" style={{ background: "rgba(124,58,237,0.06)", borderBottom: "1px solid rgba(124,58,237,0.15)" }}>
         <RotateCcw className="w-4 h-4 text-[#7c3aed]" />
@@ -1256,8 +1347,30 @@ function ReencaucheReviewSection({
               : null;
             const isAprobada = it.status === "aprobada";
 
+            const sel = selectedIds.has(it.id);
             return (
-              <div key={it.id} className="px-4 py-3 flex items-center gap-3 flex-wrap text-xs">
+              <div
+                key={it.id}
+                className="px-4 py-3 flex items-center gap-3 flex-wrap text-xs transition-colors"
+                style={{ background: sel ? "rgba(34,197,94,0.05)" : undefined }}
+              >
+                {/* Checkbox — only tires awaiting hand-off are selectable */}
+                {isAprobada ? (
+                  <button
+                    onClick={() => toggleSelect(it.id)}
+                    className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-all"
+                    style={{
+                      background: sel ? "#15803d" : "transparent",
+                      border: sel ? "none" : "1.5px solid #cbd5e1",
+                    }}
+                    title="Seleccionar para entrega"
+                  >
+                    {sel && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+                  </button>
+                ) : (
+                  <span className="w-4 h-4 flex-shrink-0" />
+                )}
+
                 {/* Client */}
                 <div className="flex items-center gap-1.5 min-w-[140px]">
                   <Building className="w-3 h-3 text-gray-400" />
@@ -1290,8 +1403,16 @@ function ReencaucheReviewSection({
                   </span>
                 )}
 
-                {/* Actions — only for items awaiting approval */}
-                {!isAprobada && (
+                {/* Actions — split per lifecycle state */}
+                {isAprobada ? (
+                  <button
+                    onClick={() => { setSelectedIds(new Set([it.id])); setEntregarOpen(true); }}
+                    className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-white bg-[#0A183A] hover:bg-[#173D68] transition-colors"
+                    title="Entregar esta llanta"
+                  >
+                    <Send className="w-3 h-3" /> Entregar
+                  </button>
+                ) : (
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => setApproving(it)}
@@ -1332,8 +1453,233 @@ function ReencaucheReviewSection({
           onDone={() => { setRejecting(null); onUpdated(); }}
         />
       )}
+
+      {/* Multi-select action bar — only when at least one aprobada is ticked */}
+      {selectedItems.length > 0 && !entregarOpen && (
+        <div className="px-4 py-2 flex items-center gap-3 text-xs" style={{ background: "rgba(10,24,58,0.04)", borderTop: "1px solid rgba(10,24,58,0.1)" }}>
+          <span className="font-bold text-[#0A183A]">
+            {selectedItems.length} seleccionada{selectedItems.length !== 1 ? "s" : ""} para entregar
+          </span>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-gray-500 hover:text-gray-700 ml-2"
+          >
+            Limpiar
+          </button>
+          <button
+            onClick={() => setEntregarOpen(true)}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-[#0A183A] hover:bg-[#173D68] transition-colors"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Entregar {selectedItems.length > 1 ? `${selectedItems.length} llantas` : "llanta"}
+          </button>
+        </div>
+      )}
+
+      {entregarOpen && selectedItems.length > 0 && (
+        <EntregarModal
+          items={selectedItems}
+          companyId={companyId}
+          onClose={() => setEntregarOpen(false)}
+          onDone={() => {
+            setEntregarOpen(false);
+            setSelectedIds(new Set());
+            onUpdated();
+          }}
+        />
+      )}
     </div>
   );
+}
+
+// Entregar modal — captures the retread details needed to progress each
+// tire's vida and then fires POST /purchase-orders/:orderId/entregar. We
+// batch deliveries by their parent order so one form submission can touch
+// multiple orders in a single transaction per order.
+function EntregarModal({
+  items, companyId, onClose, onDone,
+}: {
+  items: ReencaucheItem[];
+  companyId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  // Sensible defaults: ~16 mm profundidad for a fresh retread, banda = the
+  // modelo the dist committed to at approval time. Dist can adjust per row.
+  type Row = {
+    banda:              string;
+    bandaMarca:         string;
+    costo:              number | "";
+    profundidadInicial: number | "";
+    proveedor:          string;
+  };
+  const [rows, setRows] = useState<Record<string, Row>>(() => {
+    const init: Record<string, Row> = {};
+    for (const it of items) {
+      init[it.id] = {
+        banda:              it.modelo ?? "",
+        bandaMarca:         "",
+        costo:              it.precioUnitario ?? "",
+        profundidadInicial: 16,
+        proveedor:          "",
+      };
+    }
+    return init;
+  });
+  const [saving, setSaving] = useState(false);
+  const [err,    setErr]    = useState<string | null>(null);
+
+  function patch(id: string, next: Partial<Row>) {
+    setRows((prev) => ({ ...prev, [id]: { ...prev[id], ...next } }));
+  }
+
+  async function submit() {
+    // Validate all rows first — do not start any network call if anything
+    // is obviously malformed, so the dist doesn't end up in a partial state.
+    for (const it of items) {
+      const r = rows[it.id];
+      if (!r?.banda.trim() || typeof r.costo !== "number" || typeof r.profundidadInicial !== "number") {
+        setErr(`Completa banda, costo y profundidad inicial para cada llanta.`);
+        return;
+      }
+      if (r.profundidadInicial <= 0) {
+        setErr(`La profundidad inicial debe ser mayor a 0.`);
+        return;
+      }
+    }
+    setErr(null);
+    setSaving(true);
+    try {
+      // Group by orderId so we can POST once per order (the backend expects
+      // an array of deliveries under a single order).
+      const byOrder = new Map<string, { tireId: string; banda: string; bandaMarca?: string; costo: number; profundidadInicial: number; proveedor?: string }[]>();
+      for (const it of items) {
+        if (!it.tireId) continue;
+        const r = rows[it.id];
+        const list = byOrder.get(it._orderId) ?? [];
+        list.push({
+          tireId:             it.tireId,
+          banda:              r.banda.trim(),
+          bandaMarca:         r.bandaMarca.trim() || undefined,
+          costo:              r.costo as number,
+          profundidadInicial: r.profundidadInicial as number,
+          proveedor:          r.proveedor.trim() || undefined,
+        });
+        byOrder.set(it._orderId, list);
+      }
+
+      for (const [orderId, deliveries] of byOrder.entries()) {
+        const res = await authFetch(`${API_BASE}/purchase-orders/${orderId}/entregar`, {
+          method: "POST",
+          body: JSON.stringify({ distributorId: companyId, deliveries }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.message ?? `No se pudo entregar el pedido ${orderId.slice(0, 8)}`);
+        }
+      }
+      onDone();
+    } catch (e: any) {
+      setErr(e.message ?? "Error al entregar");
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+           className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div className="px-5 py-3 flex items-center justify-between flex-shrink-0" style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
+          <div>
+            <h2 className="font-bold text-sm text-white">Entregar reencauche</h2>
+            <p className="text-[11px] text-white/60 mt-0.5">
+              {items.length} llanta{items.length !== 1 ? "s" : ""} — el vida avanzará y pasará al bucket Disponible
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {items.map((it) => {
+            const r = rows[it.id];
+            const nextVida = nextVidaLabel(it.tire?.vidaActual ?? it.vidaPrevia ?? "nueva");
+            return (
+              <div key={it.id} className="rounded-xl p-3" style={{ background: "rgba(124,58,237,0.04)", border: "1px solid rgba(124,58,237,0.15)" }}>
+                <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                  <div>
+                    <p className="text-sm font-bold text-[#0A183A]">
+                      {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
+                    </p>
+                    <p className="text-[10px] text-gray-500">
+                      {it._clientName} · {it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "—"}
+                      {it.tire?.posicion != null ? ` · P${it.tire.posicion}` : ""}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}>
+                    vida → <span className="font-mono">{nextVida}</span>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Banda</label>
+                    <input className={`${inputCls} text-xs`} value={r.banda}
+                           onChange={(e) => patch(it.id, { banda: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Marca banda</label>
+                    <input className={`${inputCls} text-xs`} value={r.bandaMarca}
+                           onChange={(e) => patch(it.id, { bandaMarca: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Costo (COP)</label>
+                    <input type="number" min={0} className={`${inputCls} text-xs`} value={r.costo}
+                           onChange={(e) => patch(it.id, { costo: e.target.value === "" ? "" : Number(e.target.value) })} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Prof. inicial (mm)</label>
+                    <input type="number" min={0} step={0.1} className={`${inputCls} text-xs`} value={r.profundidadInicial}
+                           onChange={(e) => patch(it.id, { profundidadInicial: e.target.value === "" ? "" : Number(e.target.value) })} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Proveedor</label>
+                    <input className={`${inputCls} text-xs`} value={r.proveedor}
+                           onChange={(e) => patch(it.id, { proveedor: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {err && <div className="px-5 pt-2 flex-shrink-0"><p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5">{err}</p></div>}
+
+        <div className="px-5 py-3 bg-gray-50 flex gap-2 flex-shrink-0 border-t border-gray-100">
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">
+            Cancelar
+          </button>
+          <button onClick={submit} disabled={saving}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            Confirmar entrega
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Small readability helper — shows the vida the retread will bump to.
+function nextVidaLabel(current: string): string {
+  const map: Record<string, string> = {
+    nueva:       "reencauche1",
+    reencauche1: "reencauche2",
+    reencauche2: "reencauche3",
+    reencauche3: "fin",
+  };
+  return map[current] ?? "reencauche1";
 }
 
 function ApproveReencaucheModal({
