@@ -40,8 +40,10 @@ type ItemStatus =
   | "pendiente"
   | "cotizada"
   | "en_reencauche_bucket"
+  | "recogida_por_dist"
   | "aprobada"
   | "rechazada"
+  | "devuelta"
   | "entregada"
   | "completada"
   | "cancelada";
@@ -49,6 +51,16 @@ type ItemStatus =
 interface OrderItem {
   id: string;
   tireId?: string | null;
+  // Snapshot of the tire the item references — attached server-side via
+  // ORDER_INCLUDE so the UI can show placa / posicion / vehicle without
+  // a second round-trip.
+  tire?: {
+    id: string;
+    placa?: string | null;
+    posicion?: number | null;
+    vidaActual?: string | null;
+    vehicle?: { id: string; placa?: string | null } | null;
+  } | null;
   marca: string;
   modelo?: string | null;
   dimension: string;
@@ -152,10 +164,13 @@ const inputCls =
 function OrderCard({
   order,
   companyId,
+  companyName,
   onUpdated,
 }: {
   order: PurchaseOrder;
   companyId: string;
+  // Own company name — flows into the EntregarModal's proveedor field.
+  companyName: string;
   onUpdated: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -169,6 +184,8 @@ function OrderCard({
   const [pickupDraft, setPickupDraft] = useState<string>("");
   const [pickupSaving, setPickupSaving] = useState(false);
   const [showPickupModal, setShowPickupModal] = useState(false);
+  // Phase 1 modal — dist confirms WHICH tires they actually picked up.
+  const [showRecogerModal, setShowRecogerModal] = useState(false);
   // Whether the "Cotización enviada" card is expanded — default closed so
   // the list of orders stays scannable; click to see tire-by-tire.
   const [sentQuoteOpen, setSentQuoteOpen] = useState(false);
@@ -177,7 +194,14 @@ function OrderCard({
   const st = STATUS_META[order.status] ?? STATUS_META.solicitud_enviada;
   const canQuote = order.status === "solicitud_enviada";
   const isAccepted = order.status === "aceptada";
-  const hasReencauche = items.some((it) => it.tipo === "reencauche" && it.status === "cotizada");
+  // Two-phase pickup counters. `pending` = tires still at the fleet's
+  // facility waiting for the dist to collect. `collected` = tires the
+  // dist has picked up and is about to decide on. Surfacing both lets
+  // the dist run multiple pickups for an order if not everything is
+  // there on the first trip.
+  const pendingPickup    = items.filter((it) => it.tipo === "reencauche" && it.status === "cotizada");
+  const collectedPending = items.filter((it) => it.tipo === "reencauche" && it.status === "recogida_por_dist");
+  const hasReencauche    = pendingPickup.length > 0 || collectedPending.length > 0;
 
   async function handleSchedulePickup() {
     if (!pickupDraft) return;
@@ -608,18 +632,36 @@ function OrderCard({
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2 items-center flex-wrap">
-                  <p className="text-[11px] text-gray-600 flex-1 min-w-[180px]">
-                    Cuando recojas las llantas, abre la ventana de recogida y decide por cada una: reencauchar, devolver, o fin de vida.
+                <div className="space-y-2">
+                  <p className="text-[11px] text-gray-600">
+                    Flujo de recogida en dos pasos:
+                    <br/>
+                    <strong>1.</strong> Confirma qué llantas recogiste físicamente (las que no hayan estado en sitio quedan pendientes).
+                    <br/>
+                    <strong>2.</strong> Decide por cada llanta recogida: reencauchar, devolver, o fin de vida.
                   </p>
-                  <button
-                    onClick={() => setShowPickupModal(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
-                    style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}
-                  >
-                    <Truck className="w-3.5 h-3.5" />
-                    Ejecutar recogida
-                  </button>
+                  <div className="flex gap-2 flex-wrap">
+                    {pendingPickup.length > 0 && (
+                      <button
+                        onClick={() => setShowRecogerModal(true)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                        Recoger llantas ({pendingPickup.length})
+                      </button>
+                    )}
+                    {collectedPending.length > 0 && (
+                      <button
+                        onClick={() => setShowPickupModal(true)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Decidir destino ({collectedPending.length})
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -678,8 +720,17 @@ function OrderCard({
         </div>
       )}
 
-      {/* Pickup modal — opens from the "Ejecutar recogida" button once a
-          pickup date is scheduled. */}
+      {/* Phase 1 — which tires did the dist actually pick up? */}
+      {showRecogerModal && (
+        <RecogerModal
+          order={order}
+          pending={pendingPickup}
+          companyId={companyId}
+          onClose={() => setShowRecogerModal(false)}
+          onDone={() => { setShowRecogerModal(false); onUpdated(); }}
+        />
+      )}
+      {/* Phase 2 — decide what to do with each collected tire. */}
       {showPickupModal && (
         <PickupModal
           order={order}
@@ -1484,10 +1535,13 @@ const STATS_RANGE_LABEL: Record<StatsRange, string> = {
 };
 
 function ReencaucheReviewSection({
-  orders, companyId, onUpdated,
+  orders, companyId, companyName, onUpdated,
 }: {
   orders: PurchaseOrder[];
   companyId: string;
+  // Dist's own company name — forwarded to EntregarModal so the
+  // `proveedor` field pre-fills instead of forcing the dist to retype.
+  companyName: string;
   onUpdated: () => void;
 }) {
   const [clientFilter,   setClientFilter]   = useState<string>("all");
@@ -1713,6 +1767,11 @@ function ReencaucheReviewSection({
                   <p className="font-semibold text-[#0A183A]">
                     {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
                   </p>
+                  {it.tire?.placa && (
+                    <p className="text-[10px] text-gray-400">
+                      ID tire: <span className="font-mono font-semibold text-[#0A183A]">{it.tire.placa}</span>
+                    </p>
+                  )}
                   <p className="text-[10px] text-gray-400">
                     {placa} · {pos} · vida actual: <span className="font-mono">{vidaIn}</span>
                     {it.precioUnitario ? ` · ${fmtCOP(it.precioUnitario)}` : ""}
@@ -1838,6 +1897,7 @@ function ReencaucheReviewSection({
         <EntregarModal
           items={selectedItems}
           companyId={companyId}
+          companyName={companyName}
           onClose={() => setEntregarOpen(false)}
           onDone={() => {
             setEntregarOpen(false);
@@ -1854,10 +1914,137 @@ function ReencaucheReviewSection({
 // tire's vida and then fires POST /purchase-orders/:orderId/entregar. We
 // batch deliveries by their parent order so one form submission can touch
 // multiple orders in a single transaction per order.
-// Pickup modal — dist physically collects the tires from the fleet and
-// decides what happens to each one on the spot. Submit fires a single
-// batch POST /:id/pickup; the server moves tires + updates statuses
-// atomically per item.
+// Phase 1 pickup modal — dist ticks off which tires they actually
+// collected at the fleet's facility. Anything they leave unchecked
+// stays in status=cotizada so they can come back for it next trip.
+// On submit: POST /:id/recoger with the list of itemIds, which moves
+// those items to recogida_por_dist, ready for Phase 2 (PickupModal).
+function RecogerModal({
+  order, pending, companyId, onClose, onDone,
+}: {
+  order: PurchaseOrder;
+  pending: OrderItem[];
+  companyId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  // Default everything ticked — most of the time the dist collects all
+  // of what they scheduled. Untick what's missing.
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(pending.map((it) => it.id)));
+  const [saving, setSaving] = useState(false);
+  const [err,    setErr]    = useState<string | null>(null);
+
+  function toggle(id: string) {
+    setPicked((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+
+  async function submit() {
+    if (picked.size === 0) {
+      setErr("Selecciona al menos una llanta recogida.");
+      return;
+    }
+    setErr(null);
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders/${order.id}/recoger`, {
+        method: "POST",
+        body: JSON.stringify({ distributorId: companyId, itemIds: [...picked] }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? "No se pudo confirmar la recogida");
+      }
+      onDone();
+    } catch (e: any) {
+      setErr(e.message ?? "Error");
+    }
+    setSaving(false);
+  }
+
+  const notPicked = pending.length - picked.size;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+           className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div className="px-5 py-3 flex items-center justify-between flex-shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}>
+          <div>
+            <h2 className="font-bold text-sm text-white">Recoger llantas · paso 1 de 2</h2>
+            <p className="text-[11px] text-white/60 mt-0.5">
+              Marca las llantas que tienes en tu camión. Las que dejes sin marcar quedarán pendientes.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {pending.map((it) => {
+            const isPicked = picked.has(it.id);
+            return (
+              <button
+                key={it.id}
+                type="button"
+                onClick={() => toggle(it.id)}
+                className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-50 transition-colors"
+                style={{
+                  background: isPicked ? "rgba(124,58,237,0.06)" : "white",
+                  border: `1px solid ${isPicked ? "rgba(124,58,237,0.25)" : "rgba(0,0,0,0.08)"}`,
+                }}
+              >
+                <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+                     style={{ background: isPicked ? "#7c3aed" : "transparent",
+                              border: isPicked ? "none" : "1.5px solid #cbd5e1" }}>
+                  {isPicked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[#0A183A]">
+                    {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    {it.tire?.placa ? <>ID <span className="font-mono">{it.tire.placa}</span> · </> : ""}
+                    {it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "—"}
+                    {it.tire?.posicion != null ? ` · P${it.tire.posicion}` : ""}
+                    {it.bandaOfrecidaMarca || it.bandaOfrecidaModelo
+                      ? ` · banda ${it.bandaOfrecidaMarca ?? ""} ${it.bandaOfrecidaModelo ?? ""}`.replace(/\s+/g, " ").trim()
+                      : ""}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {err && <div className="px-5 pt-2 flex-shrink-0"><p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5">{err}</p></div>}
+
+        <div className="px-5 py-3 bg-gray-50 flex items-center gap-2 flex-shrink-0 border-t border-gray-100">
+          <p className="text-[11px] text-gray-500 flex-1">
+            {picked.size} de {pending.length} recogidas
+            {notPicked > 0 && <> · {notPicked} quedarán pendientes</>}
+          </p>
+          <button onClick={onClose}
+            className="px-4 py-2 rounded-lg text-xs font-bold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">
+            Cancelar
+          </button>
+          <button onClick={submit} disabled={saving || picked.size === 0}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Confirmar recogida
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Phase 2 pickup modal — dist physically collects the tires from the
+// fleet and decides what happens to each one on the spot. Submit fires
+// a single batch POST /:id/pickup; the server moves tires + updates
+// statuses atomically per item.
 function PickupModal({
   order, companyId, onClose, onDone,
 }: {
@@ -1874,7 +2061,8 @@ function PickupModal({
     causales:             string;          // fin_de_vida only
     milimetros:           number | "";     // fin_de_vida only
   };
-  const reencaucheItems = order.items.filter((it) => it.tipo === "reencauche" && it.status === "cotizada");
+  // Phase 2: only tires the dist already confirmed as picked up.
+  const reencaucheItems = order.items.filter((it) => it.tipo === "reencauche" && it.status === "recogida_por_dist");
 
   const defaultEta = (() => {
     const d = new Date();
@@ -1990,10 +2178,15 @@ function PickupModal({
             return (
               <div key={it.id} className="rounded-xl p-3" style={{ border: "1px solid rgba(124,58,237,0.15)" }}>
                 <div className="flex items-start justify-between mb-3 gap-2 flex-wrap">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-[#0A183A]">
                       {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
                     </p>
+                    {(it as any).tire?.placa && (
+                      <p className="text-[10px] text-gray-400">
+                        ID tire: <span className="font-mono font-semibold text-[#0A183A]">{(it as any).tire.placa}</span>
+                      </p>
+                    )}
                     <p className="text-[10px] text-gray-500">
                       {it.vehiclePlaca ?? "—"}
                       {it.bandaOfrecidaMarca ? ` · banda: ${it.bandaOfrecidaMarca} ${it.bandaOfrecidaModelo ?? ""}` : ""}
@@ -2094,10 +2287,14 @@ function PickupModal({
 }
 
 function EntregarModal({
-  items, companyId, onClose, onDone,
+  items, companyId, companyName, onClose, onDone,
 }: {
   items: ReencaucheItem[];
   companyId: string;
+  // Dist's own company name — auto-filled as the proveedor since they
+  // are the provider of the retread. Editable in case a sub-contract
+  // is involved.
+  companyName: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -2119,13 +2316,14 @@ function EntregarModal({
         // and to 16mm as the industry-standard new-banda thickness.
         // Profundidad comes straight from what the dist committed to
         // at quote time so the vida snapshot matches the quote exactly.
+        // Proveedor is the dist themselves unless overridden.
         banda:              it.bandaOfrecidaModelo ?? it.modelo ?? "",
         bandaMarca:         it.bandaOfrecidaMarca  ?? "",
         costo:              it.precioUnitario      ?? "",
         profundidadInicial: typeof it.bandaOfrecidaProfundidad === "number"
                               ? it.bandaOfrecidaProfundidad
                               : 16,
-        proveedor:          "",
+        proveedor:          companyName ?? "",
       };
     }
     return init;
@@ -2210,10 +2408,15 @@ function EntregarModal({
             return (
               <div key={it.id} className="rounded-xl p-3" style={{ background: "rgba(124,58,237,0.04)", border: "1px solid rgba(124,58,237,0.15)" }}>
                 <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-[#0A183A]">
                       {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
                     </p>
+                    {it.tire?.placa && (
+                      <p className="text-[10px] text-gray-400">
+                        ID tire: <span className="font-mono font-semibold text-[#0A183A]">{it.tire.placa}</span>
+                      </p>
+                    )}
                     <p className="text-[10px] text-gray-500">
                       {it._clientName} · {it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "—"}
                       {it.tire?.posicion != null ? ` · P${it.tire.posicion}` : ""}
@@ -2660,6 +2863,9 @@ function PedidosSection() {
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [companyId, setCompanyId] = useState("");
+  // Own company name — pre-filled into the EntregarModal's `proveedor`
+  // field so the dist doesn't retype their own name on every delivery.
+  const [companyName, setCompanyName] = useState("");
   const [tab, setTab] = useState<FilterTab>("nuevas");
   const [bidRequests, setBidRequests] = useState<any[]>([]);
   const [showBids, setShowBids] = useState(false);
@@ -2689,6 +2895,12 @@ function PedidosSection() {
     if (!user.companyId) return;
     setCompanyId(user.companyId);
     fetchOrders(user.companyId);
+    // Fetch own company profile once — needed to pre-fill `proveedor`
+    // in the EntregarModal so the dist doesn't retype their own name.
+    authFetch(`${API_BASE}/companies/${user.companyId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((c) => { if (c?.name) setCompanyName(c.name); })
+      .catch(() => { /* silent — field just stays empty */ });
   }, [router, fetchOrders]);
 
   const filtered = useMemo(
@@ -2709,8 +2921,11 @@ function PedidosSection() {
     if (t === "proceso") {
       return open && myStatus === "cotizada";
     }
-    // completadas: anything terminal or where the dist has a terminal state
-    return !open || myStatus === "ganadora" || myStatus === "rechazada";
+    // Completadas intentionally excludes bids — once the fleet adjudicates,
+    // a PurchaseOrder is created and that PO is what represents the
+    // ongoing → completed work. The bid itself is just an audit record
+    // and doesn't need to clutter the dist's active work list.
+    return false;
   }
 
   const bidsByTab = useMemo(
@@ -2765,6 +2980,7 @@ function PedidosSection() {
           <ReencaucheReviewSection
             orders={orders}
             companyId={companyId}
+            companyName={companyName}
             onUpdated={() => fetchOrders(companyId)}
           />
         )}
@@ -2813,6 +3029,7 @@ function PedidosSection() {
                 key={order.id}
                 order={order}
                 companyId={companyId}
+                companyName={companyName}
                 onUpdated={() => fetchOrders(companyId)}
               />
             ))}
