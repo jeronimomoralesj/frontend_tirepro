@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Loader2, Check, X, Send, Package, ChevronDown,
   ChevronRight, AlertTriangle, Truck, RotateCcw,
-  Printer, Archive, CheckSquare, Square, Pencil,
+  Printer, Archive, CheckSquare, Square, Pencil, Clock,
 } from "lucide-react";
 
 // ===============================================================================
@@ -35,11 +35,14 @@ interface PurchaseOrder {
   id: string; status: string; items: any[]; totalEstimado: number | null;
   totalCotizado: number | null; cotizacionNotas: string | null; notas: string | null;
   cotizacionFecha?: string | null;
+  pickupDate?: string | null;
   // cotizacion is always undefined now (per-item quote data moved to items[]) —
   // kept on the type so legacy code paths still compile. Phase 5 rewrites those
   // call sites to read from items[] directly.
   cotizacion?: any[] | null;
-  createdAt: string; distributor?: { id: string; name: string }; company?: { id: string; name: string };
+  createdAt: string;
+  distributor?: { id: string; name: string; profileImage?: string | null };
+  company?: { id: string; name: string };
 }
 
 interface Distributor { id: string; distributor: { id: string; name: string } }
@@ -395,7 +398,7 @@ function ManualView({
   const [tab, setTab] = useState<"reencauche" | "nueva">("reencauche");
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [actionModal, setActionModal] = useState<"send" | "bucket" | "acceptConfirm" | "sendReencauche" | null>(null);
+  const [actionModal, setActionModal] = useState<"send" | "bucket" | "acceptConfirm" | null>(null);
   // Per-tire spec overrides. Empty by default — the analista can edit one row
   // (editingTireId) or bulk-edit every selected row sharing a reference
   // (bulkEditKey). Cleared whenever the tab changes so a reencauche override
@@ -416,7 +419,32 @@ function ManualView({
   const [showSolicitudes, setShowSolicitudes] = useState(false);
   const [showHistorial, setShowHistorial] = useState(false);
 
-  const byType = useMemo(() => recs.filter((r) => r.type === tab), [recs, tab]);
+  // Any tire already in a live order (cotizada / aceptada / aprobada) should
+  // disappear from recomendaciones — the fleet has already committed it,
+  // re-suggesting it is noise. Defined here because `visibleRecs` needs it.
+  const tireIdsInActiveOrders = useMemo(() => {
+    const s = new Set<string>();
+    for (const o of orders) {
+      if (o.status === "completada" || o.status === "rechazada") continue;
+      for (const it of (o.items ?? [])) {
+        if (it?.tireId && (
+          it.status === "pendiente"
+          || it.status === "cotizada"
+          || it.status === "aprobada"
+        )) {
+          s.add(it.tireId);
+        }
+      }
+    }
+    return s;
+  }, [orders]);
+
+  // Hide recs whose tire is already committed to a live order.
+  const visibleRecs = useMemo(
+    () => recs.filter((r) => !tireIdsInActiveOrders.has(r.tire.id)),
+    [recs, tireIdsInActiveOrders],
+  );
+  const byType = useMemo(() => visibleRecs.filter((r) => r.type === tab), [visibleRecs, tab]);
   const filtered = useMemo(() => {
     if (urgencyFilter === "all") return byType;
     if (urgencyFilter === "urgent") return byType.filter((r) => r.urgency === "critical" || r.urgency === "immediate");
@@ -466,6 +494,9 @@ function ManualView({
       const bT = b.cotizacionFecha ? new Date(b.cotizacionFecha).getTime() : 0;
       return bT - aT;
     });
+
+  // Accepted orders awaiting dist pickup — pending-quotation cards.
+  const pedidosAceptados = orders.filter((o) => o.status === "aceptada");
 
   // Tires the fleet has sent to reencauche — grouped by lifecycle state so
   // a single status strip can read "5 esperando pickup · 3 aprobadas en
@@ -706,11 +737,10 @@ function ManualView({
     setActionModal("acceptConfirm");
   }
 
-  // Accept the order on the server. If it contains reencauche items we then
-  // open the bucket-send confirmation so the fleet can physically hand over
-  // the tires before the distributor starts the approval review. Per-tire
-  // vida changes no longer happen here — they run later in the lifecycle
-  // (dist entregar step) so the state matches physical reality.
+  // Accept the order on the server. No tires move here — the dist owns
+  // the pickup moment, and they'll run their pickup flow (reencauchar /
+  // devolver / fin-de-vida per tire) later. Accept is now just a commit
+  // of the quote.
   async function executeAcceptOrder() {
     if (!orderToAccept) return;
     setAccepting(true);
@@ -720,43 +750,11 @@ function ManualView({
         body: JSON.stringify({ companyId }),
       });
       if (!res.ok) throw new Error("No se pudo aceptar la orden");
-
-      // If there's any reencauche item with a tire attached, prompt the user
-      // to send those tires to the reencauche bucket now. Otherwise we're done.
-      const reencaucheItems = (orderToAccept.items as any[])
-        .filter((it) => it?.tipo === "reencauche" && it?.tireId);
-
-      if (reencaucheItems.length > 0) {
-        setActionModal("sendReencauche");
-      } else {
-        setOrderToAccept(null);
-        setActionModal(null);
-        onRefresh();
-      }
-    } catch (e: any) {
-      alert(`Error al procesar: ${e.message ?? "Error desconocido"}`);
-    }
-    setAccepting(false);
-  }
-
-  // Fleet confirms the reencauche tires are ready to leave the vehicles. The
-  // backend moves the tires into the Reencauche bucket and flips each item
-  // to `en_reencauche_bucket`. The vehicles will show "empty" positions
-  // until the retread comes back.
-  async function executeSendToReencauche() {
-    if (!orderToAccept) return;
-    setAccepting(true);
-    try {
-      const res = await authFetch(`${API_BASE}/purchase-orders/${orderToAccept.id}/reencauche/send`, {
-        method: "POST",
-        body: JSON.stringify({ companyId }),
-      });
-      if (!res.ok) throw new Error("No se pudieron mover las llantas al bucket");
       setOrderToAccept(null);
       setActionModal(null);
       onRefresh();
     } catch (e: any) {
-      alert(`Error: ${e.message ?? "Error desconocido"}`);
+      alert(`Error al procesar: ${e.message ?? "Error desconocido"}`);
     }
     setAccepting(false);
   }
@@ -914,9 +912,74 @@ function ManualView({
     </div>
   ) : null;
 
+  // Accepted-orders "pending quotation" block — cards with the dist's
+  // logo, total committed, pickup date (or "sin programar"). These sit
+  // in place of recommendations for the tires they cover since those
+  // tires are already spoken for.
+  const pedidosAceptadosBlock = pedidosAceptados.length > 0 ? (
+    <div>
+      <div className="flex items-center gap-3 mb-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[#15803d]">Pedidos aceptados · esperando recogida</h3>
+        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-green-600 text-white tabular-nums">
+          {pedidosAceptados.length}
+        </span>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {pedidosAceptados.map((o) => {
+          const items = Array.isArray(o.items) ? o.items as any[] : [];
+          const nuevaCount      = items.filter((it) => it.tipo === "nueva").length;
+          const reencaucheCount = items.filter((it) => it.tipo === "reencauche").length;
+          const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
+          return (
+            <div key={o.id} className="rounded-xl p-4 bg-white" style={{ border: "1px solid rgba(34,197,94,0.2)" }}>
+              <div className="flex items-start gap-3 mb-3">
+                {o.distributor?.profileImage ? (
+                  <img src={o.distributor.profileImage}
+                       className="w-10 h-10 rounded-xl object-contain bg-gray-50 flex-shrink-0"
+                       alt={o.distributor.name} />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-black text-sm"
+                       style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+                    {(o.distributor?.name ?? "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black text-[#0A183A] truncate">{o.distributor?.name ?? "Distribuidor"}</p>
+                  <p className="text-[10px] text-gray-500">
+                    {nuevaCount > 0 && <>{nuevaCount} nueva{nuevaCount > 1 ? "s" : ""}</>}
+                    {nuevaCount > 0 && reencaucheCount > 0 && " · "}
+                    {reencaucheCount > 0 && <>{reencaucheCount} reencauche</>}
+                  </p>
+                </div>
+                <p className="text-base font-black text-[#0A183A] tabular-nums flex-shrink-0">
+                  {fmtCOP(o.totalCotizado ?? 0)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] py-2 px-2.5 rounded-lg"
+                   style={{ background: pickup ? "rgba(34,197,94,0.06)" : "rgba(234,179,8,0.06)" }}>
+                <Clock className={`w-3 h-3 ${pickup ? "text-green-700" : "text-yellow-700"}`} />
+                {pickup ? (
+                  <span className="font-semibold text-green-800">
+                    Recogida programada: {pickup.toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                ) : (
+                  <span className="font-semibold text-yellow-800">
+                    Esperando que el distribuidor programe la recogida
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-5">
       {ofertasBlock}
+      {pedidosAceptadosBlock}
       {reencaucheStrip}
       {/* Recommendations header + budget */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
@@ -942,7 +1005,7 @@ function ManualView({
       {/* Type tabs */}
       <div className="flex items-center gap-2">
         {(["reencauche", "nueva"] as const).map((t) => {
-          const count = recs.filter((r) => r.type === t).length;
+          const count = visibleRecs.filter((r) => r.type === t).length;
           return (
             <button key={t} onClick={() => { setTab(t); setSelected(new Set()); setUrgencyFilter("all"); setOverrides({}); }}
               className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
@@ -1503,81 +1566,7 @@ function ManualView({
         );
       })()}
 
-      {/* ============== Send-to-Reencauche-bucket Modal ============== */}
-      {actionModal === "sendReencauche" && orderToAccept && (() => {
-        const reencItems = (Array.isArray(orderToAccept.items) ? orderToAccept.items as any[] : [])
-          .filter((it: any) => it.tipo === "reencauche" && it.tireId);
-
-        // Group by vehicle so the warning matches how the operator thinks
-        // ("vehicle ABC-123 will be down three tires").
-        const byVehicle = new Map<string, any[]>();
-        for (const it of reencItems) {
-          const placa = it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "Sin vehículo";
-          const list = byVehicle.get(placa) ?? [];
-          list.push(it);
-          byVehicle.set(placa, list);
-        }
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
-            <div className="bg-white rounded-xl shadow-sm w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
-              <div className="px-6 py-4 flex justify-between items-center sticky top-0 z-10" style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}>
-                <div className="flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4 text-white" />
-                  <h2 className="font-bold text-sm text-white">Enviar llantas al reencauche</h2>
-                </div>
-                <button onClick={() => { setActionModal(null); setOrderToAccept(null); onRefresh(); }} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
-              </div>
-              <div className="p-5 space-y-4">
-                <div className="rounded-xl p-3 flex items-start gap-2.5" style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)" }}>
-                  <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-[#713f12]">
-                    Los vehículos involucrados quedarán con <strong>posiciones vacías</strong> hasta que el distribuidor
-                    devuelva las llantas retrituradas. Asegúrate de tener llantas de respaldo si el vehículo debe operar
-                    mientras tanto.
-                  </p>
-                </div>
-
-                <p className="text-xs text-gray-500">
-                  Se moverán <strong>{reencItems.length}</strong> llanta{reencItems.length !== 1 ? "s" : ""} al bucket
-                  de Reencauche. El distribuidor las revisará una por una y decidirá cuáles acepta para reencauchar.
-                </p>
-
-                <div className="space-y-2">
-                  {[...byVehicle.entries()].map(([placa, list]) => (
-                    <div key={placa} className="rounded-xl p-3" style={{ background: "rgba(124,58,237,0.04)", border: "1px solid rgba(124,58,237,0.12)" }}>
-                      <p className="text-[11px] font-black uppercase tracking-wider text-[#7c3aed] mb-1.5">
-                        {placa} — {list.length} posición{list.length !== 1 ? "es" : ""}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {list.map((it: any) => (
-                          <span key={it.id} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border"
-                                style={{ borderColor: "rgba(124,58,237,0.25)", color: "#7c3aed" }}>
-                            P{it.tire?.posicion ?? "?"}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-3 pt-1">
-                  <button onClick={() => { setActionModal(null); setOrderToAccept(null); onRefresh(); }}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#7c3aed] border border-[#7c3aed]/30 hover:bg-[#f5f3ff] transition-colors">
-                    Ahora no
-                  </button>
-                  <button onClick={executeSendToReencauche} disabled={accepting}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
-                    style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}>
-                    {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    Enviar al bucket
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* send-to-reencauche modal removed — pickup is dist-owned now */}
 
       {/* ============== Per-item Edit Modal ============== */}
       {editingTireId && (() => {

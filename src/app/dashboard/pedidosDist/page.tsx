@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, ChevronDown, ChevronUp, Send, Check, X,
   BarChart3, Calendar, Package, Gavel, Clock, DollarSign, Store,
-  Building, CheckCircle, AlertCircle, User, RotateCcw,
+  Building, CheckCircle, AlertCircle, User, RotateCcw, Truck,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
@@ -102,6 +102,7 @@ interface PurchaseOrder {
   cotizacionFecha: string | null;
   cotizacionNotas: string | null;
   notas: string | null;
+  pickupDate?: string | null;
   resolvedAt: string | null;
   createdAt: string;
   company?: { id: string; name: string; profileImage?: string };
@@ -158,9 +159,38 @@ function OrderCard({
   const [generalNotes, setGeneralNotes] = useState("");
   const [conIva, setConIva] = useState(false);
 
+  // Pickup state — only relevant for accepted orders. Scheduling is inline
+  // (just a date + save); actually performing the pickup opens a modal
+  // so each item can carry its own decision.
+  const [pickupDraft, setPickupDraft] = useState<string>("");
+  const [pickupSaving, setPickupSaving] = useState(false);
+  const [showPickupModal, setShowPickupModal] = useState(false);
+
   const items = order.items ?? [];
   const st = STATUS_META[order.status] ?? STATUS_META.solicitud_enviada;
   const canQuote = order.status === "solicitud_enviada";
+  const isAccepted = order.status === "aceptada";
+  const hasReencauche = items.some((it) => it.tipo === "reencauche" && it.status === "cotizada");
+
+  async function handleSchedulePickup() {
+    if (!pickupDraft) return;
+    setPickupSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders/${order.id}/schedule-pickup`, {
+        method: "PATCH",
+        body: JSON.stringify({ distributorId: companyId, pickupDate: pickupDraft }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any));
+        window.alert(body?.message ?? "No se pudo programar la recogida");
+        return;
+      }
+      setPickupDraft("");
+      onUpdated();
+    } finally {
+      setPickupSaving(false);
+    }
+  }
 
   // Editable cotización draft — one row per item, keyed by the item's stable
   // id so the form stays aligned with the server's rows even if item order
@@ -479,6 +509,64 @@ function OrderCard({
             </div>
           )}
 
+          {/* Pickup block — only for accepted orders that still have
+              reencauche items awaiting decision. Two states:
+                (1) No pickupDate yet → inline date picker to schedule.
+                (2) Date set       → "Ejecutar recogida" opens the batch
+                                     decision modal. */}
+          {isAccepted && hasReencauche && (
+            <div className="rounded-xl p-4" style={{ background: "rgba(124,58,237,0.05)", border: "1px solid rgba(124,58,237,0.15)" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-3.5 h-3.5 text-[#7c3aed]" />
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#7c3aed]">Recogida</p>
+                {order.pickupDate && (
+                  <span className="text-[10px] text-gray-500 ml-auto">
+                    programada para {new Date(order.pickupDate).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                )}
+              </div>
+              {!order.pickupDate ? (
+                <div className="flex gap-2 items-end flex-wrap">
+                  <div className="flex-1 min-w-[180px]">
+                    <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1">
+                      Fecha para recoger las llantas
+                    </label>
+                    <input
+                      type="date"
+                      min={new Date().toISOString().slice(0, 10)}
+                      value={pickupDraft}
+                      onChange={(e) => setPickupDraft(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                  <button
+                    onClick={handleSchedulePickup}
+                    disabled={!pickupDraft || pickupSaving}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-40"
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}
+                  >
+                    {pickupSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calendar className="w-3.5 h-3.5" />}
+                    Programar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2 items-center flex-wrap">
+                  <p className="text-[11px] text-gray-600 flex-1 min-w-[180px]">
+                    Cuando recojas las llantas, abre la ventana de recogida y decide por cada una: reencauchar, devolver, o fin de vida.
+                  </p>
+                  <button
+                    onClick={() => setShowPickupModal(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}
+                  >
+                    <Truck className="w-3.5 h-3.5" />
+                    Ejecutar recogida
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Quote form footer */}
           {canQuote && (
             <div className="space-y-3 pt-2">
@@ -530,6 +618,17 @@ function OrderCard({
             </div>
           )}
         </div>
+      )}
+
+      {/* Pickup modal — opens from the "Ejecutar recogida" button once a
+          pickup date is scheduled. */}
+      {showPickupModal && (
+        <PickupModal
+          order={order}
+          companyId={companyId}
+          onClose={() => setShowPickupModal(false)}
+          onDone={() => { setShowPickupModal(false); onUpdated(); }}
+        />
       )}
     </div>
   );
@@ -1622,6 +1721,245 @@ function ReencaucheReviewSection({
 // tire's vida and then fires POST /purchase-orders/:orderId/entregar. We
 // batch deliveries by their parent order so one form submission can touch
 // multiple orders in a single transaction per order.
+// Pickup modal — dist physically collects the tires from the fleet and
+// decides what happens to each one on the spot. Submit fires a single
+// batch POST /:id/pickup; the server moves tires + updates statuses
+// atomically per item.
+function PickupModal({
+  order, companyId, onClose, onDone,
+}: {
+  order: PurchaseOrder;
+  companyId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  type Decision = "reencauchar" | "devolver" | "fin_de_vida";
+  type Row = {
+    decision:             Decision;
+    estimatedDelivery:    string;          // reencauchar
+    motivo:               string;          // devolver + fin_de_vida
+    causales:             string;          // fin_de_vida only
+    milimetros:           number | "";     // fin_de_vida only
+  };
+  const reencaucheItems = order.items.filter((it) => it.tipo === "reencauche" && it.status === "cotizada");
+
+  const defaultEta = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const [rows, setRows] = useState<Record<string, Row>>(() => {
+    const init: Record<string, Row> = {};
+    for (const it of reencaucheItems) {
+      init[it.id] = {
+        decision:          "reencauchar",
+        estimatedDelivery: defaultEta,
+        motivo:            "",
+        causales:          "",
+        milimetros:        "",
+      };
+    }
+    return init;
+  });
+  const [saving, setSaving] = useState(false);
+  const [err,    setErr]    = useState<string | null>(null);
+
+  function patch(id: string, next: Partial<Row>) {
+    setRows((prev) => ({ ...prev, [id]: { ...prev[id], ...next } }));
+  }
+
+  async function submit() {
+    // Validate every row before firing — partial submit would leave the
+    // order in an inconsistent state.
+    const decisions: any[] = [];
+    for (const it of reencaucheItems) {
+      const r = rows[it.id];
+      if (r.decision === "reencauchar") {
+        if (!r.estimatedDelivery) {
+          setErr("Falta la fecha de entrega estimada para alguna llanta aprobada.");
+          return;
+        }
+        decisions.push({
+          itemId:            it.id,
+          decision:          "reencauchar",
+          estimatedDelivery: r.estimatedDelivery,
+        });
+      } else if (r.decision === "devolver") {
+        if (!r.motivo.trim()) {
+          setErr("Falta motivo para alguna llanta devuelta.");
+          return;
+        }
+        decisions.push({
+          itemId:        it.id,
+          decision:      "devolver",
+          motivoRechazo: r.motivo.trim(),
+        });
+      } else {
+        if (!r.motivo.trim() || !r.causales.trim() || typeof r.milimetros !== "number") {
+          setErr("Falta completar los campos de fin de vida para alguna llanta.");
+          return;
+        }
+        decisions.push({
+          itemId:        it.id,
+          decision:      "fin_de_vida",
+          motivoRechazo: r.motivo.trim(),
+          desechos: {
+            causales:             r.causales.trim(),
+            milimetrosDesechados: r.milimetros as number,
+          },
+        });
+      }
+    }
+
+    setErr(null);
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/purchase-orders/${order.id}/pickup`, {
+        method: "POST",
+        body: JSON.stringify({ distributorId: companyId, decisions }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? "No se pudo ejecutar la recogida");
+      }
+      onDone();
+    } catch (e: any) {
+      setErr(e.message ?? "Error");
+    }
+    setSaving(false);
+  }
+
+  const counts = {
+    reencauchar: reencaucheItems.filter((it) => rows[it.id]?.decision === "reencauchar").length,
+    devolver:    reencaucheItems.filter((it) => rows[it.id]?.decision === "devolver").length,
+    fin:         reencaucheItems.filter((it) => rows[it.id]?.decision === "fin_de_vida").length,
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+           className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div className="px-5 py-3 flex items-center justify-between flex-shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}>
+          <div>
+            <h2 className="font-bold text-sm text-white">Ejecutar recogida</h2>
+            <p className="text-[11px] text-white/60 mt-0.5">
+              {reencaucheItems.length} llanta{reencaucheItems.length !== 1 ? "s" : ""} ·
+              {" "}{counts.reencauchar} reencauchar · {counts.devolver} devolver · {counts.fin} fin de vida
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {reencaucheItems.map((it) => {
+            const r = rows[it.id];
+            return (
+              <div key={it.id} className="rounded-xl p-3" style={{ border: "1px solid rgba(124,58,237,0.15)" }}>
+                <div className="flex items-start justify-between mb-3 gap-2 flex-wrap">
+                  <div>
+                    <p className="text-sm font-bold text-[#0A183A]">
+                      {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
+                    </p>
+                    <p className="text-[10px] text-gray-500">
+                      {it.vehiclePlaca ?? "—"}
+                      {it.bandaOfrecidaMarca ? ` · banda: ${it.bandaOfrecidaMarca} ${it.bandaOfrecidaModelo ?? ""}` : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Decision radios */}
+                <div className="flex gap-1.5 mb-2 flex-wrap">
+                  {([
+                    { k: "reencauchar" as const, label: "Reencauchar", color: "#15803d", bg: "rgba(34,197,94,0.1)" },
+                    { k: "devolver"    as const, label: "Devolver",    color: "#1E76B6", bg: "rgba(30,118,182,0.1)" },
+                    { k: "fin_de_vida" as const, label: "Fin de vida", color: "#dc2626", bg: "rgba(239,68,68,0.1)" },
+                  ]).map(({ k, label, color, bg }) => {
+                    const active = r.decision === k;
+                    return (
+                      <button
+                        key={k}
+                        onClick={() => patch(it.id, { decision: k })}
+                        className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
+                        style={{
+                          background: active ? bg : "transparent",
+                          color:      active ? color : "#64748b",
+                          border:     active ? `1px solid ${color}40` : "1px solid rgba(0,0,0,0.08)",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Decision-specific fields */}
+                {r.decision === "reencauchar" && (
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">ETA de entrega</label>
+                    <input type="date" className={`${inputCls} text-xs`}
+                           min={new Date().toISOString().slice(0, 10)}
+                           value={r.estimatedDelivery}
+                           onChange={(e) => patch(it.id, { estimatedDelivery: e.target.value })} />
+                  </div>
+                )}
+                {r.decision === "devolver" && (
+                  <div>
+                    <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Motivo</label>
+                    <textarea rows={2} className={`${inputCls} text-xs`}
+                              placeholder="Ej: casco bueno pero fuera de especificación para nuestro proceso…"
+                              value={r.motivo}
+                              onChange={(e) => patch(it.id, { motivo: e.target.value })} />
+                  </div>
+                )}
+                {r.decision === "fin_de_vida" && (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Motivo del rechazo</label>
+                      <input className={`${inputCls} text-xs`}
+                             placeholder="Ej: casco comprometido"
+                             value={r.motivo}
+                             onChange={(e) => patch(it.id, { motivo: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Causales del desecho</label>
+                      <input className={`${inputCls} text-xs`}
+                             placeholder="Detalle técnico para el snapshot"
+                             value={r.causales}
+                             onChange={(e) => patch(it.id, { causales: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-bold uppercase tracking-wider text-gray-500 block mb-0.5">Milímetros desechados</label>
+                      <input type="number" min={0} step={0.1} className={`${inputCls} text-xs`}
+                             value={r.milimetros}
+                             onChange={(e) => patch(it.id, { milimetros: e.target.value === "" ? "" : Number(e.target.value) })} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {err && <div className="px-5 pt-2 flex-shrink-0"><p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1.5">{err}</p></div>}
+
+        <div className="px-5 py-3 bg-gray-50 flex gap-2 flex-shrink-0 border-t border-gray-100">
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-xs font-bold text-[#1E76B6] border border-[#348CCB]/30 hover:bg-[#F0F7FF] transition-colors">
+            Cancelar
+          </button>
+          <button onClick={submit} disabled={saving}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)" }}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
+            Confirmar recogida
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EntregarModal({
   items, companyId, onClose, onDone,
 }: {
