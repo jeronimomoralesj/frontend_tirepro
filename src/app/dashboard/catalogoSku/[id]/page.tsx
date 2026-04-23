@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Loader2, Upload, X, FileDown, Download, Plus,
-  AlertCircle, Trash2, Image as ImageIcon, CheckCircle2,
+  AlertCircle, Trash2, Image as ImageIcon, CheckCircle2, Film, Video,
 } from "lucide-react";
 import { buildCatalogPdf, type PdfInput } from "../pdf";
 
@@ -61,6 +61,24 @@ type CatalogDetail = {
   pctDestapado: number;
   notasColombia: string | null;
   images: CatalogImage[];
+  video?: CatalogVideo | null;
+};
+
+type CatalogVideo = {
+  id:           string;
+  url:          string;
+  originalName: string | null;
+  mimeType:     string | null;
+  sizeBytes:    number | null;
+  createdAt:    string;
+};
+
+type BrandInfo = {
+  name:    string;
+  slug:    string;
+  logoUrl: string | null;
+  country: string | null;
+  tier:    string | null;
 };
 
 // =============================================================================
@@ -71,11 +89,16 @@ type CatalogDetail = {
 
 type FieldKey =
   | "dimension" | "indiceCarga" | "indiceVelocidad" | "rtdMm" | "psiRecomendado"
-  | "pesoKg"    | "kmEstimadosReales" | "cpkEstimado" | "ejeTirePro" | "terreno"
-  | "pctUso"    | "reencauchable" | "construccion" | "segmento" | "tipo" | "skuRef";
+  | "pesoKg"    | "ejeTirePro"  | "terreno"         | "pctUso"
+  | "reencauchable" | "construccion" | "segmento" | "tipo" | "skuRef";
 
 type FieldDef = { key: FieldKey; label: string; defaultOn: boolean; render: (d: CatalogDetail) => string | null };
 
+// Note: kmEstimadosReales and cpkEstimado are tracked in the DB (used by
+// TirePro's internal analytics) but are deliberately NOT exposed here.
+// A salesperson sending a product sheet to a customer shouldn't be
+// leading with our CPK estimate — that's a TirePro-side number, not a
+// manufacturer datum they can defend.
 const FIELDS: FieldDef[] = [
   { key: "dimension",         label: "Dimensión",               defaultOn: true,  render: (d) => d.dimension },
   { key: "indiceCarga",       label: "Índice de carga",         defaultOn: true,  render: (d) => d.indiceCarga },
@@ -83,8 +106,6 @@ const FIELDS: FieldDef[] = [
   { key: "rtdMm",             label: "Profundidad inicial",     defaultOn: true,  render: (d) => d.rtdMm != null ? `${d.rtdMm} mm` : null },
   { key: "psiRecomendado",    label: "Presión recomendada",     defaultOn: true,  render: (d) => d.psiRecomendado != null ? `${d.psiRecomendado} PSI` : null },
   { key: "pesoKg",            label: "Peso",                    defaultOn: false, render: (d) => d.pesoKg != null ? `${d.pesoKg} kg` : null },
-  { key: "kmEstimadosReales", label: "Km estimados",            defaultOn: true,  render: (d) => d.kmEstimadosReales != null ? `${(d.kmEstimadosReales / 1000).toFixed(0)}K km` : null },
-  { key: "cpkEstimado",       label: "CPK estimado",            defaultOn: false, render: (d) => d.cpkEstimado != null ? `$${Math.round(d.cpkEstimado).toLocaleString("es-CO")}/km` : null },
   { key: "ejeTirePro",        label: "Eje",                     defaultOn: true,  render: (d) => d.ejeTirePro ?? d.posicion },
   { key: "terreno",           label: "Terreno",                 defaultOn: true,  render: (d) => d.terreno },
   { key: "pctUso",            label: "Pavimento / Destapado",   defaultOn: false, render: (d) => `${d.pctPavimento}% / ${d.pctDestapado}%` },
@@ -134,10 +155,14 @@ export default function CatalogoSkuDetailPage() {
   const [repName,       setRepName]       = useState("");
   const [repPhone,      setRepPhone]      = useState("");
   const [companyCtx,    setCompanyCtx]    = useState<CompanyCtx | null>(null);
+  const [brand,         setBrand]         = useState<BrandInfo | null>(null);
+  const [videoUploading,setVideoUploading]= useState(false);
+  const [videoDeleting, setVideoDeleting] = useState(false);
   const [generating,    setGenerating]    = useState(false);
   const [toast,         setToast]         = useState<string>("");
 
-  const fileInput = useRef<HTMLInputElement>(null);
+  const fileInput  = useRef<HTMLInputElement>(null);
+  const videoInput = useRef<HTMLInputElement>(null);
 
   // Seed rep name from the logged-in user + hydrate company context.
   useEffect(() => {
@@ -197,6 +222,75 @@ export default function CatalogoSkuDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Pull manufacturer brand info once we know the marca. Normalized slug
+  // matches what /marketplace/brands/:slug expects (see ProductClient).
+  useEffect(() => {
+    if (!sku?.marca) return;
+    const slug = sku.marca
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-");
+    if (!slug) return;
+    fetch(`${API_BASE}/marketplace/brands/${slug}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (b && typeof b === "object") {
+          setBrand({
+            name:    b.name    ?? sku.marca,
+            slug:    b.slug    ?? slug,
+            logoUrl: b.logoUrl ?? null,
+            country: b.country ?? null,
+            tier:    b.tier    ?? null,
+          });
+        }
+      })
+      .catch(() => { /* brand page is optional */ });
+  }, [sku?.marca]);
+
+  async function onUploadVideo(files: FileList | null) {
+    if (!files || files.length === 0 || !sku) return;
+    const file = files[0];
+    if (file.size > 50 * 1024 * 1024) {
+      setError("El video supera 50 MB. Comprímelo antes de subirlo.");
+      if (videoInput.current) videoInput.current.value = "";
+      return;
+    }
+    setVideoUploading(true); setError("");
+    try {
+      const fd = new FormData();
+      fd.append("video", file);
+      const res = await authFetch(`${API_BASE}/catalog/dist/${sku.id}/video`, { method: "POST", body: fd });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(body || `HTTP ${res.status}`);
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al subir video");
+    } finally {
+      setVideoUploading(false);
+      if (videoInput.current) videoInput.current.value = "";
+    }
+  }
+
+  async function onDeleteVideo() {
+    if (!sku?.video) return;
+    if (!confirm("¿Eliminar el video?")) return;
+    setVideoDeleting(true);
+    try {
+      const res = await authFetch(`${API_BASE}/catalog/dist/${sku.id}/video`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al eliminar video");
+    } finally {
+      setVideoDeleting(false);
+    }
+  }
+
   async function onUpload(files: FileList | null) {
     if (!files || files.length === 0 || !sku) return;
     setUploading(true); setError("");
@@ -253,6 +347,17 @@ export default function CatalogoSkuDetailPage() {
         .filter((img) => selectedImgs.has(img.id))
         .map((img) => img.url);
 
+      // Route S3-hosted images through our authenticated asset proxy so
+      // browser CORS on the bucket can't break PDF rendering. Anything
+      // that's not ours (e.g. brand logos from manufacturer CDNs) falls
+      // back to a direct fetch inside pdf.ts.
+      const proxyFetcher = async (u: string): Promise<Blob | null> => {
+        if (!/amazonaws\.com/.test(u)) return null;
+        const r = await authFetch(`${API_BASE}/catalog/dist/asset-proxy?url=${encodeURIComponent(u)}`);
+        if (!r.ok) return null;
+        return await r.blob();
+      };
+
       const pdfInput: PdfInput = {
         companyName:    companyCtx?.name ?? null,
         companyLogoUrl: companyCtx?.profileImage ?? null,
@@ -261,6 +366,8 @@ export default function CatalogoSkuDetailPage() {
         companyCity:    companyCtx?.ciudad ?? null,
         repName:        repName.trim() || companyCtx?.name || null,
         repPhone:       repPhone.trim() || companyCtx?.telefono || null,
+        brandLogoUrl:   brand?.logoUrl ?? null,
+        brandCountry:   brand?.country ?? null,
         marca:     sku.marca,
         modelo:    sku.modelo,
         dimension: sku.dimension,
@@ -270,6 +377,7 @@ export default function CatalogoSkuDetailPage() {
         priceMode,
         priceCop:  price,
         notes:     sku.notasColombia,
+        fetchViaProxy: proxyFetcher,
       };
 
       const blob = await buildCatalogPdf(pdfInput);
@@ -421,6 +529,64 @@ export default function CatalogoSkuDetailPage() {
                 </div>
               </>
             )}
+
+            {/* Video block — single attachable MP4 / MOV / WebM. Never
+                embedded in the PDF; the sales rep downloads it and
+                forwards separately as an "instructional" asset. */}
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-black text-[#0A183A] flex items-center gap-1.5">
+                  <Film className="w-4 h-4 text-[#1E76B6]" />
+                  Video (opcional)
+                </h3>
+                {!sku.video && (
+                  <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", color: "white" }}>
+                    {videoUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    {videoUploading ? "Subiendo…" : "Subir video"}
+                    <input ref={videoInput} type="file" accept="video/mp4,video/quicktime,video/webm" hidden
+                      onChange={(e) => onUploadVideo(e.target.files)} />
+                  </label>
+                )}
+              </div>
+              {sku.video ? (
+                <div className="rounded-xl p-3" style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.15)" }}>
+                  <video src={sku.video.url} controls preload="metadata"
+                    className="w-full rounded-lg bg-black" style={{ maxHeight: 280 }} />
+                  <div className="flex items-center justify-between mt-2 gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#0A183A] truncate">
+                        {sku.video.originalName || "Video del producto"}
+                      </p>
+                      {sku.video.sizeBytes != null && (
+                        <p className="text-[10px] text-gray-400">
+                          {(sku.video.sizeBytes / (1024 * 1024)).toFixed(1)} MB
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <a href={sku.video.url} download={sku.video.originalName || "video"} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+                        <Download className="w-3 h-3" />
+                        Descargar
+                      </a>
+                      <button onClick={onDeleteVideo} disabled={videoDeleting}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 transition-all disabled:opacity-40">
+                        {videoDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl flex flex-col items-center justify-center py-6 text-gray-400 gap-1.5"
+                  style={{ background: "#F0F7FF", border: "1px dashed rgba(52,140,203,0.3)" }}>
+                  <Video className="w-8 h-8 opacity-40" />
+                  <p className="text-[10px]">Hasta 50 MB · MP4, MOV, WebM</p>
+                  <p className="text-[10px] text-gray-400">No se incluye en el PDF — sirve para enviar aparte</p>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* RIGHT — Full spec + PDF builder */}

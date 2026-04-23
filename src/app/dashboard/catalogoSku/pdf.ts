@@ -37,6 +37,10 @@ export type PdfInput = {
   modelo:     string;
   dimension:  string;
   categoria:  string | null;
+  // Manufacturer info from the marketplace BrandInfo table — rendered as a
+  // small logo + country tag near the title. Both optional.
+  brandLogoUrl: string | null;
+  brandCountry: string | null;
   // Gallery — already filtered to what the user wants. First one is the hero.
   imageUrls:  string[];
   // Spec rows already filtered to enabled fields with resolved values.
@@ -46,6 +50,12 @@ export type PdfInput = {
   priceCop:  number | null;
   // Misc
   notes: string | null;
+  // Optional image fetcher. The detail page wires this to a backend
+  // asset proxy that authenticates via the JWT header — so S3-hosted
+  // images load without depending on the bucket's CORS policy.
+  // Returns null (or throws) when the fetch fails, in which case the
+  // loader falls back to a direct fetch of the original URL.
+  fetchViaProxy?: (url: string) => Promise<Blob | null>;
 };
 
 // Default palette — used when the dist hasn't set a colorMarca yet.
@@ -102,18 +112,37 @@ function isDefaultPlaceholderLogo(url: string | null | undefined): boolean {
   return !!url && url.includes(DEFAULT_LOGO_FRAGMENT);
 }
 
-async function loadImageAsDataUrl(url: string | null): Promise<string | null> {
+async function blobToDataUrl(blob: Blob): Promise<string | null> {
+  return new Promise((resolve) => {
+    const fr = new FileReader();
+    fr.onloadend = () => resolve(typeof fr.result === "string" ? fr.result : null);
+    fr.onerror   = () => resolve(null);
+    fr.readAsDataURL(blob);
+  });
+}
+
+async function loadImageAsDataUrl(
+  url: string | null,
+  viaProxy?: (u: string) => Promise<Blob | null>,
+): Promise<string | null> {
   if (!url) return null;
+  // Try the proxy first so S3 CORS never comes into play; fall back to
+  // a direct fetch (covers third-party CDNs like brand logos where the
+  // proxy refuses to forward).
+  if (viaProxy) {
+    try {
+      const blob = await viaProxy(url);
+      if (blob) {
+        const dataUrl = await blobToDataUrl(blob);
+        if (dataUrl) return dataUrl;
+      }
+    } catch { /* fall through */ }
+  }
   try {
-    const res = await fetch(url, { mode: "cors" });
+    const res = await fetch(url, { mode: "cors", credentials: "omit" });
     if (!res.ok) return null;
     const blob = await res.blob();
-    return await new Promise<string | null>((resolve) => {
-      const fr = new FileReader();
-      fr.onloadend = () => resolve(typeof fr.result === "string" ? fr.result : null);
-      fr.onerror   = () => resolve(null);
-      fr.readAsDataURL(blob);
-    });
+    return await blobToDataUrl(blob);
   } catch {
     return null;
   }
@@ -169,10 +198,12 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   const logoUrl = isDefaultPlaceholderLogo(input.companyLogoUrl)
     ? null
     : input.companyLogoUrl;
+  const proxy = input.fetchViaProxy;
   const heroSelected = input.imageUrls.slice(0, 4);
-  const [logoData, ...productDatas] = await Promise.all([
-    loadImageAsDataUrl(logoUrl),
-    ...heroSelected.map(loadImageAsDataUrl),
+  const [logoData, brandLogoData, ...productDatas] = await Promise.all([
+    loadImageAsDataUrl(logoUrl, proxy),
+    loadImageAsDataUrl(input.brandLogoUrl, proxy),
+    ...heroSelected.map((u) => loadImageAsDataUrl(u, proxy)),
   ]);
   const productImages = productDatas.filter((d): d is string => !!d);
 
@@ -234,13 +265,41 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   // TITLE
   // ───────────────────────────────────────────────────────────────────────────
   let y = 120;
+  // Marca + manufacturer info (brand logo inline at the start of the line,
+  // country appended after the marca name). Brand logo box is small by
+  // request — 28×16 — so it reads as a tag, not a second header.
+  const marcaText = input.marca.toUpperCase();
+  let cursorX = M;
+  if (brandLogoData) {
+    const { w, h } = await imageDims(brandLogoData);
+    const boxW = 36, boxH = 18;
+    const scale = Math.min(boxW / w, boxH / h);
+    const drawW = w * scale, drawH = h * scale;
+    doc.addImage(
+      brandLogoData,
+      detectFormat(brandLogoData),
+      cursorX, y - drawH + 2,
+      drawW, drawH,
+      undefined,
+      "SLOW",
+    );
+    cursorX += drawW + 8;
+  }
   doc.setTextColor(...brand);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text(input.marca.toUpperCase(), M, y);
+  doc.text(marcaText, cursorX, y);
+  if (input.brandCountry) {
+    const marcaWidth = doc.getTextWidth(marcaText);
+    doc.setTextColor(...FALLBACK.muted);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`· ${input.brandCountry}`, cursorX + marcaWidth + 6, y);
+  }
 
   y += 22;
   doc.setTextColor(...FALLBACK.ink);
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.text(input.modelo, M, y);
 
