@@ -577,7 +577,9 @@ const AjustesPage: React.FC = () => {
   const [showChange,   setShowChange]   = useState(false);
   const [logoPreview,  setLogoPreview]  = useState<string | null>(null);
 
-  const [newUserData, setNewUserData] = useState({ name: "", email: "", password: "", role: "regular" });
+  // Default role is "viewer" — "regular" isn't a value in the Prisma
+  // UserRole enum and submissions with it 400 at the validation pipe.
+  const [newUserData, setNewUserData] = useState({ name: "", email: "", password: "", role: "viewer" });
   const [notifChannel, setNotifChannel] = useState<string>("none");
   const [notifContact, setNotifContact] = useState("");
   const [savingNotif, setSavingNotif] = useState(false);
@@ -1978,8 +1980,17 @@ const AjustesPage: React.FC = () => {
                   onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
                   className={inputCls} style={inputStyle}
                 >
-                  <option value="regular">Usuario Regular</option>
+                  <option value="viewer">Usuario Regular</option>
                   <option value="admin">Administrador</option>
+                  {/* Catalog roles are distribuidor-only — the backend
+                      rejects them for other plans and showing them to a
+                      fleet admin would just confuse. */}
+                  {(company?.plan ?? "").toLowerCase() === "distribuidor" && (
+                    <>
+                      <option value="catalogo">Catálogo (ventas)</option>
+                      <option value="catalogo_admin">Catálogo Admin (ventas + stats)</option>
+                    </>
+                  )}
                 </select>
               </Field>
               <div className="pt-2 flex gap-2">

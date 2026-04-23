@@ -103,6 +103,17 @@ function defaultToggles(): Record<FieldKey, boolean> {
 // Page
 // =============================================================================
 
+// Subset of Company the PDF builder needs. Fetched once up-front so PDF
+// generation doesn't hit the network between clicks.
+type CompanyCtx = {
+  name: string;
+  profileImage: string | null;
+  colorMarca:   string | null;
+  sitioWeb:     string | null;
+  ciudad:       string | null;
+  telefono:     string | null;
+};
+
 export default function CatalogoSkuDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
@@ -113,23 +124,69 @@ export default function CatalogoSkuDetailPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
 
   // PDF builder state
-  const [toggles,   setToggles]   = useState<Record<FieldKey, boolean>>(defaultToggles());
-  const [priceMode, setPriceMode] = useState<"none" | "sin_iva" | "con_iva">("none");
-  const [priceInput,setPriceInput]= useState("");
-  const [generating,setGenerating]= useState(false);
-  const [toast,     setToast]     = useState<string>("");
+  const [toggles,       setToggles]       = useState<Record<FieldKey, boolean>>(defaultToggles());
+  const [priceMode,     setPriceMode]     = useState<"none" | "sin_iva" | "con_iva">("none");
+  const [priceInput,    setPriceInput]    = useState("");
+  // Which images go in the PDF. Initialized to the full set on first load
+  // so the default "generate" gives them everything; user unchecks to
+  // remove. Kept as a Set of image IDs.
+  const [selectedImgs,  setSelectedImgs]  = useState<Set<string>>(new Set());
+  const [repName,       setRepName]       = useState("");
+  const [repPhone,      setRepPhone]      = useState("");
+  const [companyCtx,    setCompanyCtx]    = useState<CompanyCtx | null>(null);
+  const [generating,    setGenerating]    = useState(false);
+  const [toast,         setToast]         = useState<string>("");
 
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // Seed rep name from the logged-in user + hydrate company context.
+  useEffect(() => {
+    try {
+      const userRaw = localStorage.getItem("user");
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      if (user?.name && !repName) setRepName(user.name);
+      if (user?.companyId) {
+        authFetch(`${API_BASE}/companies/${user.companyId}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((c) => {
+            if (!c) return;
+            setCompanyCtx({
+              name:         c.name ?? "",
+              profileImage: c.profileImage ?? null,
+              colorMarca:   c.colorMarca   ?? null,
+              sitioWeb:     c.sitioWeb     ?? null,
+              ciudad:       c.ciudad       ?? null,
+              telefono:     c.telefono     ?? null,
+            });
+            if (!repPhone && c.telefono) setRepPhone(c.telefono);
+          })
+          .catch(() => {});
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
       const res = await authFetch(`${API_BASE}/catalog/dist/${id}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data: CatalogDetail = await res.json();
       setSku(data);
       // Seed the price input from the catalog's own price if it has one.
       if (data.precioCop && priceMode === "none") setPriceInput(String(Math.round(data.precioCop)));
+      // Pre-select every uploaded image. Newly added images after the
+      // initial load get auto-selected too (see onUpload).
+      setSelectedImgs((prev) => {
+        if (prev.size === 0) return new Set(data.images.map((i) => i.id));
+        // Keep existing picks but drop IDs that no longer exist (deleted).
+        const alive = new Set(data.images.map((i) => i.id));
+        const next = new Set<string>();
+        for (const id of prev) if (alive.has(id)) next.add(id);
+        // If upload just landed, select new image IDs too.
+        for (const img of data.images) if (!prev.has(img.id) && prev.size > 0) next.add(img.id);
+        return next;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar el SKU");
     } finally {
@@ -180,22 +237,6 @@ export default function CatalogoSkuDetailPage() {
     if (!sku) return;
     setGenerating(true); setError(""); setToast("");
     try {
-      // Resolve company logo from the user's stored company or /companies/me.
-      let logoUrl: string | null = null;
-      let companyName: string | null = null;
-      try {
-        const userRaw = localStorage.getItem("user");
-        const user = userRaw ? JSON.parse(userRaw) : null;
-        if (user?.companyId) {
-          const r = await authFetch(`${API_BASE}/companies/${user.companyId}`);
-          if (r.ok) {
-            const c = await r.json();
-            logoUrl = c.profileImage ?? null;
-            companyName = c.name ?? null;
-          }
-        }
-      } catch { /* non-fatal */ }
-
       const enabledRows = FIELDS
         .filter((f) => toggles[f.key])
         .map((f) => ({ label: f.label, value: f.render(sku) }))
@@ -205,18 +246,30 @@ export default function CatalogoSkuDetailPage() {
         ? null
         : Number(priceInput.replace(/[^0-9]/g, "")) || 0;
 
+      // Preserve gallery order (by coverIndex) for the subset the user
+      // picked — keeps the PDF layout deterministic regardless of click
+      // order in the UI.
+      const imageUrls = sku.images
+        .filter((img) => selectedImgs.has(img.id))
+        .map((img) => img.url);
+
       const pdfInput: PdfInput = {
-        companyName,
-        companyLogoUrl: logoUrl,
-        marca: sku.marca,
-        modelo: sku.modelo,
+        companyName:    companyCtx?.name ?? null,
+        companyLogoUrl: companyCtx?.profileImage ?? null,
+        companyColor:   companyCtx?.colorMarca ?? null,
+        companyWebsite: companyCtx?.sitioWeb ?? null,
+        companyCity:    companyCtx?.ciudad ?? null,
+        repName:        repName.trim() || companyCtx?.name || null,
+        repPhone:       repPhone.trim() || companyCtx?.telefono || null,
+        marca:     sku.marca,
+        modelo:    sku.modelo,
         dimension: sku.dimension,
         categoria: sku.categoria,
-        heroImageUrl: sku.images[0]?.url ?? null,
-        rows: enabledRows,
+        imageUrls,
+        rows:      enabledRows,
         priceMode,
-        priceCop: price,
-        notes: sku.notasColombia,
+        priceCop:  price,
+        notes:     sku.notasColombia,
       };
 
       const blob = await buildCatalogPdf(pdfInput);
@@ -321,19 +374,52 @@ export default function CatalogoSkuDetailPage() {
                 <p className="text-[10px] text-gray-400">Sube hasta 5 MB por imagen (JPG · PNG · WebP)</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {sku.images.map((img) => (
-                  <div key={img.id} className="relative group aspect-square rounded-xl overflow-hidden"
-                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.15)" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img.url} alt="" className="w-full h-full object-contain p-1" />
-                    <button onClick={() => onDeleteImage(img.id)} disabled={deleting === img.id}
-                      className="absolute top-1 right-1 p-1 rounded-full bg-white/90 hover:bg-red-500 hover:text-white text-gray-500 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-100">
-                      {deleting === img.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                    </button>
-                  </div>
-                ))}
-              </div>
+              <>
+                <p className="text-[10px] text-gray-500">
+                  Toca una imagen para incluirla o excluirla del PDF · {selectedImgs.size}/{sku.images.length} seleccionada{selectedImgs.size === 1 ? "" : "s"}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {sku.images.map((img) => {
+                    const selected = selectedImgs.has(img.id);
+                    const toggle = () => setSelectedImgs((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(img.id)) next.delete(img.id); else next.add(img.id);
+                      return next;
+                    });
+                    return (
+                      <div key={img.id}
+                        role="button" tabIndex={0}
+                        onClick={toggle}
+                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggle()}
+                        className="relative group aspect-square rounded-xl overflow-hidden cursor-pointer transition-all"
+                        style={{
+                          background: "#F0F7FF",
+                          border: selected ? "2px solid #1E76B6" : "1px solid rgba(52,140,203,0.15)",
+                          boxShadow: selected ? "0 0 0 2px rgba(30,118,182,0.15)" : undefined,
+                        }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img.url} alt="" className="w-full h-full object-contain p-1"
+                          style={{ opacity: selected ? 1 : 0.55 }} />
+                        {/* Selection badge (top-left) — always visible when selected */}
+                        <span className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{
+                            background: selected ? "#1E76B6" : "rgba(255,255,255,0.9)",
+                            border: selected ? "none" : "1px solid rgba(52,140,203,0.3)",
+                            color: selected ? "white" : "#348CCB",
+                          }}>
+                          {selected ? <CheckCircle2 className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                        </span>
+                        {/* Delete (top-right, hover-only) */}
+                        <button onClick={(e) => { e.stopPropagation(); onDeleteImage(img.id); }}
+                          disabled={deleting === img.id}
+                          className="absolute top-1 right-1 p-1 rounded-full bg-white/90 hover:bg-red-500 hover:text-white text-gray-500 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-100">
+                          {deleting === img.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </section>
 
@@ -431,6 +517,35 @@ export default function CatalogoSkuDetailPage() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Contact block — printed in the footer of the PDF */}
+              <div className="mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB] mb-1.5">Contacto en el PDF</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase">Nombre</label>
+                    <input type="text" value={repName} onChange={(e) => setRepName(e.target.value)}
+                      placeholder="Tu nombre"
+                      className="w-full px-3 py-2 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                      style={{ border: "1px solid rgba(52,140,203,0.2)" }} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-gray-400 uppercase">Teléfono</label>
+                    <input type="text" value={repPhone} onChange={(e) => setRepPhone(e.target.value)}
+                      placeholder="Ej: 300 123 4567"
+                      className="w-full px-3 py-2 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                      style={{ border: "1px solid rgba(52,140,203,0.2)" }} />
+                  </div>
+                </div>
+                {(companyCtx?.sitioWeb || companyCtx?.ciudad) && (
+                  <p className="text-[10px] text-gray-500 mt-1.5">
+                    Se añadirá también
+                    {companyCtx.sitioWeb && <> {companyCtx.sitioWeb}</>}
+                    {companyCtx.sitioWeb && companyCtx.ciudad && <> ·</>}
+                    {companyCtx.ciudad  && <> {companyCtx.ciudad}</>}
+                  </p>
+                )}
               </div>
 
               <button onClick={onGeneratePdf} disabled={generating}
