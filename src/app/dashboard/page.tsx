@@ -13,16 +13,24 @@ export default function DashboardPage() {
       if (!stored) {
         return router.replace('/login');
       }
-      let user: { companyId?: string };
+      let user: { companyId?: string; role?: string };
       try {
         user = JSON.parse(stored);
       } catch {
         return router.replace('/login');
       }
 
-      const { companyId } = user;
+      const { companyId, role } = user;
       if (!companyId) {
         return router.replace('/login');
+      }
+
+      // Catalog-scoped roles never need to see the distribuidor resumen
+      // — shortcut them straight to the catalog module before we even
+      // fetch the company record. Saves a round-trip and avoids the
+      // flash of /distribuidor they would've seen during the fetch.
+      if (role === 'catalogo' || role === 'catalogo_admin') {
+        return router.replace('/dashboard/catalogoSku');
       }
 
       // 2) Fetch company via the shared cache — dedupes with the concurrent
