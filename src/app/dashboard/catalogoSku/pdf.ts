@@ -92,6 +92,16 @@ function tint(rgb: [number, number, number], alpha: number): [number, number, nu
 // Asset loading
 // =============================================================================
 
+// URL fragment for TirePro's default placeholder logo. Any Company whose
+// profileImage still points at this (i.e. the dist never uploaded their
+// own) must NOT render it in the PDF — printing the TirePro logo as the
+// salesperson's brand is worse than printing no logo at all.
+const DEFAULT_LOGO_FRAGMENT = "companyResources/logoFull";
+
+function isDefaultPlaceholderLogo(url: string | null | undefined): boolean {
+  return !!url && url.includes(DEFAULT_LOGO_FRAGMENT);
+}
+
 async function loadImageAsDataUrl(url: string | null): Promise<string | null> {
   if (!url) return null;
   try {
@@ -107,6 +117,18 @@ async function loadImageAsDataUrl(url: string | null): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+// jspdf wants "PNG" / "JPEG" / "WEBP" to pick its decoder. Inferring from
+// the data URL's MIME prefix avoids passing the wrong format (which jspdf
+// will still accept but can muddy colors on certain inputs).
+function detectFormat(dataUrl: string): "PNG" | "JPEG" | "WEBP" {
+  const m = dataUrl.match(/^data:image\/(png|jpe?g|webp);/i);
+  if (!m) return "PNG";
+  const mime = m[1].toLowerCase();
+  if (mime === "jpg" || mime === "jpeg") return "JPEG";
+  if (mime === "webp") return "WEBP";
+  return "PNG";
 }
 
 function imageDims(dataUrl: string): Promise<{ w: number; h: number }> {
@@ -140,11 +162,16 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   const brandText   = readableTextOn(brand);
   const brandTint08 = tint(brand, 0.08);
 
-  // Pre-fetch logo + every selected product image in parallel. Capped at 4
-  // to keep the layout readable on one page.
+  // Pre-fetch logo + every selected product image in parallel. Capped at
+  // 4 hero/thumbs to keep the layout readable on one page. The logo is
+  // skipped entirely when it's still the TirePro default placeholder —
+  // stamping our logo on a distributor's sales sheet is a branding own-goal.
+  const logoUrl = isDefaultPlaceholderLogo(input.companyLogoUrl)
+    ? null
+    : input.companyLogoUrl;
   const heroSelected = input.imageUrls.slice(0, 4);
   const [logoData, ...productDatas] = await Promise.all([
-    loadImageAsDataUrl(input.companyLogoUrl),
+    loadImageAsDataUrl(logoUrl),
     ...heroSelected.map(loadImageAsDataUrl),
   ]);
   const productImages = productDatas.filter((d): d is string => !!d);
@@ -158,20 +185,40 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   doc.setFillColor(...FALLBACK.ink);
   doc.rect(0, 84, pageW, 6, "F");
 
-  // Logo in a white tile (left)
+  // Logo in a white tile (left). If no logo is available (either the dist
+  // hasn't uploaded one, the fetch failed, or we stripped the TirePro
+  // placeholder) render the company name in a white-pill fallback so
+  // there's still a recognizable brand on the banner.
   if (logoData) {
     const { w, h } = await imageDims(logoData);
-    const boxW = 140, boxH = 56;
+    const boxW = 150, boxH = 60;
     const scale = Math.min(boxW / w, boxH / h);
     const drawW = w * scale, drawH = h * scale;
     doc.setFillColor(255, 255, 255);
-    doc.roundedRect(M - 8, 17, boxW + 16, 60, 6, 6, "F");
-    doc.addImage(logoData, "PNG", M - 8 + (boxW + 16 - drawW) / 2, 17 + (60 - drawH) / 2, drawW, drawH, undefined, "FAST");
+    doc.roundedRect(M - 8, 15, boxW + 16, 64, 8, 8, "F");
+    doc.addImage(
+      logoData,
+      detectFormat(logoData),
+      M - 8 + (boxW + 16 - drawW) / 2,
+      15 + (64 - drawH) / 2,
+      drawW, drawH,
+      undefined,
+      "SLOW",   // logos are small + high-contrast — pay compression time for crisp edges
+    );
   } else if (input.companyName) {
-    doc.setTextColor(...brandText);
+    doc.setFillColor(255, 255, 255);
+    const pillH = 36;
+    const pillPadX = 16;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text(input.companyName, M, 50);
+    doc.setFontSize(14);
+    const textW = doc.getTextWidth(input.companyName);
+    const pillW = Math.min(260, textW + pillPadX * 2);
+    doc.roundedRect(M - 8, 27, pillW, pillH, 8, 8, "F");
+    doc.setTextColor(...brand);
+    doc.text(input.companyName, M - 8 + pillW / 2, 27 + pillH / 2 + 4, {
+      align: "center",
+      maxWidth: pillW - pillPadX,
+    });
   }
 
   // Right-side label
@@ -209,17 +256,32 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   // ───────────────────────────────────────────────────────────────────────────
   let tableWidth = pageW - 2 * M;
   const heroData = productImages[0];
-  const HERO_BOX_Y = 110;
-  const HERO_BOX_W = 200, HERO_BOX_H = 170;
+  // Bigger hero so the tire itself is the centerpiece of the sales sheet.
+  // 250×230 pts ≈ 3.5×3.2 inches at the PDF's native 72dpi.
+  const HERO_BOX_Y = 108;
+  const HERO_BOX_W = 250, HERO_BOX_H = 230;
   if (heroData) {
     const { w, h } = await imageDims(heroData);
     const scale = Math.min(HERO_BOX_W / w, HERO_BOX_H / h);
     const drawW = w * scale, drawH = h * scale;
     const x = pageW - M - HERO_BOX_W;
+    // Softer radial-ish background — a flat tint + a faint brand frame
+    // makes the tire pop without needing transparent PNG uploads.
     doc.setFillColor(...FALLBACK.page);
-    doc.roundedRect(x, HERO_BOX_Y, HERO_BOX_W, HERO_BOX_H, 10, 10, "F");
-    doc.addImage(heroData, "PNG", x + (HERO_BOX_W - drawW) / 2, HERO_BOX_Y + (HERO_BOX_H - drawH) / 2, drawW, drawH, undefined, "FAST");
-    tableWidth = pageW - 2 * M - HERO_BOX_W - 20;
+    doc.roundedRect(x, HERO_BOX_Y, HERO_BOX_W, HERO_BOX_H, 12, 12, "F");
+    doc.setDrawColor(...tint(brand, 0.18));
+    doc.setLineWidth(0.6);
+    doc.roundedRect(x, HERO_BOX_Y, HERO_BOX_W, HERO_BOX_H, 12, 12, "S");
+    doc.addImage(
+      heroData,
+      detectFormat(heroData),
+      x + (HERO_BOX_W - drawW) / 2,
+      HERO_BOX_Y + (HERO_BOX_H - drawH) / 2,
+      drawW, drawH,
+      undefined,
+      "MEDIUM",   // better quality than FAST; noticeable on zoomed/printed photos
+    );
+    tableWidth = pageW - 2 * M - HERO_BOX_W - 22;
   }
 
   y += 22;
@@ -280,7 +342,18 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
       const x = M + i * (thumbW + gap);
       doc.setFillColor(...FALLBACK.page);
       doc.roundedRect(x, y, thumbW, thumbH, 8, 8, "F");
-      doc.addImage(data, "PNG", x + (thumbW - drawW) / 2, y + (thumbH - drawH) / 2, drawW, drawH, undefined, "FAST");
+      doc.setDrawColor(...tint(brand, 0.14));
+      doc.setLineWidth(0.5);
+      doc.roundedRect(x, y, thumbW, thumbH, 8, 8, "S");
+      doc.addImage(
+        data,
+        detectFormat(data),
+        x + (thumbW - drawW) / 2,
+        y + (thumbH - drawH) / 2,
+        drawW, drawH,
+        undefined,
+        "MEDIUM",
+      );
     }
     y += thumbH + 18;
   }
