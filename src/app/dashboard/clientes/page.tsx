@@ -171,7 +171,7 @@ type Toast = {
 
 // FIX: UserRole must match the Prisma enum exactly — no "regular" value exists.
 // Valid values: admin | viewer | technician
-type UserRole = "admin" | "viewer" | "technician";
+type UserRole = "admin" | "viewer" | "technician" | "catalogo" | "catalogo_admin";
 
 // =============================================================================
 // Constants
@@ -2342,7 +2342,9 @@ function UserFormFields({
         </div>
       </Field>
 
-      {/* FIX: options now use "admin" | "viewer" | "technician" — matching UserRole enum */}
+      {/* Roles — the last two are distribuidor-only (catalog datasheet
+          module). A catalogo user gets only the SKU tab; catalogo_admin
+          gets the SKU tab + the downloads-stats dashboard. */}
       <Field label="Rol">
         <div className="relative">
           <select
@@ -2353,6 +2355,8 @@ function UserFormFields({
             <option value="admin">Administrador</option>
             <option value="viewer">Solo Lectura</option>
             <option value="technician">Técnico</option>
+            <option value="catalogo">Catálogo (ventas)</option>
+            <option value="catalogo_admin">Catálogo Admin (ventas + stats)</option>
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>

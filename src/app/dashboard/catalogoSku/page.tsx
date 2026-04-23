@@ -63,6 +63,15 @@ export default function CatalogoSkuPage() {
   const [items,     setItems]     = useState<CatalogRow[]>([]);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState("");
+  // Stats are manager-only — a plain `catalogo` sales rep shouldn't see
+  // their teammates' numbers. The backend enforces this too.
+  const [canSeeStats, setCanSeeStats] = useState(false);
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user") ?? "{}");
+      setCanSeeStats(u?.role === "admin" || u?.role === "catalogo_admin");
+    } catch { /* leave as false */ }
+  }, []);
 
   const PAGE_SIZE = 24;
 
@@ -112,12 +121,14 @@ export default function CatalogoSkuPage() {
             <p className="text-xs text-[#348CCB] mt-0.5">Fichas técnicas para tus clientes</p>
           </div>
         </div>
-        <Link href="/dashboard/catalogoSku/stats"
-          className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
-          style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(30,118,182,0.2)", color: "#1E76B6" }}>
-          <BarChart3 className="w-4 h-4" />
-          Estadísticas
-        </Link>
+        {canSeeStats && (
+          <Link href="/dashboard/catalogoSku/stats"
+            className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+            style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(30,118,182,0.2)", color: "#1E76B6" }}>
+            <BarChart3 className="w-4 h-4" />
+            Estadísticas
+          </Link>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">

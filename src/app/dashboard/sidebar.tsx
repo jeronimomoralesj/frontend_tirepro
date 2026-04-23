@@ -33,8 +33,17 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
 // Helpers — build nav links based on plan + role
 // =============================================================================
 
-function buildLinks(plan: string, isAdmin: boolean): NavLink[] {
+function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
   if (plan === "distribuidor") {
+    // Catalog-only roles: sales reps (catalogo) and sales managers
+    // (catalogo_admin) see ONLY the SKU catalog — not Pedidos / Desechos
+    // / Gestión / Vehículos etc. They're hired to push product, not to
+    // manage fleets.
+    if (role === "catalogo" || role === "catalogo_admin") {
+      return [
+        { name: "Catálogo", path: "/dashboard/catalogoSku", icon: BookOpen },
+      ];
+    }
     return [
       { name: "Resumen",   path: "/dashboard/distribuidor", icon: LayoutDashboard },
       { name: "Pedidos",   path: "/dashboard/pedidosDist",  icon: ShoppingCart    },
@@ -325,7 +334,7 @@ export default function Sidebar({
   if (!user || !company) return null;
 
   const isAdmin = user.role === "admin";
-  const links   = buildLinks(company.plan, isAdmin);
+  const links   = buildLinks(company.plan, isAdmin, user.role);
 
   function handleLogout() {
     localStorage.clear();

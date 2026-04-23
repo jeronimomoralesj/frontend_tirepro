@@ -3,15 +3,17 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthProvider";
 import { useRouter } from "next/navigation";
-import { 
-  UserPlus, 
-  User, 
-  Mail, 
-  Lock, 
-  AlertCircle, 
-  Check, 
+import {
+  UserPlus,
+  User,
+  Mail,
+  Lock,
+  AlertCircle,
+  Check,
   Building2,
   Shield,
+  BookOpen,
+  ChartBar,
 } from "lucide-react";
 type CompanyInfo = {
   name: string;
@@ -21,11 +23,14 @@ type CompanyInfo = {
 export default function AddUser() {
   const router = useRouter();
   const { user, token } = useAuth();
+  // Default role is `viewer`, not `regular` — `regular` isn't in the
+  // Prisma UserRole enum and submissions with that value 400 at the
+  // validation pipe.
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
-    role: "regular",
+    role: "viewer",
     companyId: user?.companyId || "",
   });
   
@@ -161,60 +166,55 @@ export default function AddUser() {
             {/* Formulario */}
             <form onSubmit={handleSubmit} className="p-6">
               <div className="space-y-5">
-                {/* Selección de Rol */}
+                {/* Selección de Rol — the catalog-only roles are
+                    distribuidor-plan only, so fleet admins don't see
+                    irrelevant options. */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-[#173D68] block">Rol</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div
-                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                        form.role === "regular"
-                          ? "border-[#348CCB] bg-[#348CCB]/5"
-                          : "border-gray-200 hover:border-[#348CCB]/30"
-                      }`}
-                      onClick={() => setForm({ ...form, role: "regular" })}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <User className="h-5 w-5 text-[#348CCB]" />
-                        <div className={`w-4 h-4 rounded-full ${
-                          form.role === "regular" 
-                            ? "bg-[#348CCB]" 
-                            : "border border-gray-300"
-                        }`}></div>
+                  {(() => {
+                    const isDist = (companyInfo?.plan ?? "").toLowerCase() === "distribuidor";
+                    const options: Array<{
+                      value: string; title: string; desc: string;
+                      icon: React.ComponentType<{ className?: string }>;
+                    }> = [
+                      { value: "viewer",     title: "Regular",        desc: "Usuario estándar con acceso limitado", icon: User },
+                      { value: "admin",      title: "Administrador",  desc: "Acceso completo a todas las funciones", icon: Shield },
+                    ];
+                    if (isDist) {
+                      options.push(
+                        { value: "catalogo",       title: "Catálogo (ventas)",        desc: "Solo el módulo de catálogo SKU",       icon: BookOpen },
+                        { value: "catalogo_admin", title: "Catálogo Admin",           desc: "Catálogo + estadísticas del equipo",  icon: ChartBar },
+                      );
+                    }
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {options.map((opt) => {
+                          const Icon = opt.icon;
+                          const active = form.role === opt.value;
+                          return (
+                            <div key={opt.value}
+                              className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                                active ? "border-[#348CCB] bg-[#348CCB]/5" : "border-gray-200 hover:border-[#348CCB]/30"
+                              }`}
+                              onClick={() => setForm({ ...form, role: opt.value })}>
+                              <div className="flex items-center justify-between mb-2">
+                                <Icon className="h-5 w-5 text-[#348CCB]" />
+                                <div className={`w-4 h-4 rounded-full ${active ? "bg-[#348CCB]" : "border border-gray-300"}`} />
+                              </div>
+                              <h3 className="text-[#0A183A] font-medium">{opt.title}</h3>
+                              <p className="text-[#173D68]/70 text-xs mt-1">{opt.desc}</p>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <h3 className="text-[#0A183A] font-medium">Regular</h3>
-                      <p className="text-[#173D68]/70 text-xs mt-1">Usuario estándar con acceso limitado</p>
-                    </div>
-                    
-                    <div
-                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                        form.role === "admin"
-                          ? "border-[#348CCB] bg-[#348CCB]/5"
-                          : "border-gray-200 hover:border-[#348CCB]/30"
-                      }`}
-                      onClick={() => setForm({ ...form, role: "admin" })}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <Shield className="h-5 w-5 text-[#348CCB]" />
-                        <div className={`w-4 h-4 rounded-full ${
-                          form.role === "admin" 
-                            ? "bg-[#348CCB]" 
-                            : "border border-gray-300"
-                        }`}></div>
-                      </div>
-                      <h3 className="text-[#0A183A] font-medium">Administrador</h3>
-                      <p className="text-[#173D68]/70 text-xs mt-1">Acceso completo a todas las funciones</p>
-                    </div>
-                  </div>
-                  
-                  {/* Select oculto para mantener el valor del formulario */}
-                  <select
-                    name="role"
-                    value={form.role}
-                    onChange={handleChange}
-                    className="hidden"
-                  >
-                    <option value="regular">Regular</option>
+                    );
+                  })()}
+                  {/* Keeps the form submission value in sync with the card pick. */}
+                  <select name="role" value={form.role} onChange={handleChange} className="hidden">
+                    <option value="viewer">Regular</option>
                     <option value="admin">Admin</option>
+                    <option value="catalogo">Catálogo</option>
+                    <option value="catalogo_admin">Catálogo Admin</option>
                   </select>
                 </div>
 
