@@ -350,31 +350,60 @@ type AdvisorResult = {
 };
 
 function AdvisorModal({ onClose }: { onClose: () => void }) {
+  // Core profile
   const [tier, setTier]                   = useState<string>("");
   const [dimension, setDimension]         = useState<string>("");
   const [eje, setEje]                     = useState<string>("");
   const [categoria, setCategoria]         = useState<string>("");
-  const [reencauchable, setReencauchable] = useState<string>("any");  // "true" | "false" | "any"
-  const [pctPavimento, setPctPavimento]   = useState<string>("");     // string so we can tell "unset" from 0
+  const [reencauchable, setReencauchable] = useState<string>("any");
+  const [pctPavimento, setPctPavimento]   = useState<string>("");
   const [terreno, setTerreno]             = useState<string>("");
-  const [loading, setLoading]             = useState(false);
-  const [results, setResults]             = useState<AdvisorResult[] | null>(null);
-  const [error, setError]                 = useState("");
+  // Expanded — every remaining catalog attribute as an optional filter
+  const [indiceCarga, setIndiceCarga]         = useState<string>("");
+  const [indiceVelocidad, setIndiceVelocidad] = useState<string>("");
+  const [minRtdMm, setMinRtdMm]               = useState<string>("");
+  const [minPsiRecomendado, setMinPsi]        = useState<string>("");
+  const [cinturones, setCinturones]           = useState<string>("");
+  const [pr, setPr]                           = useState<string>("");
+  const [construccion, setConstruccion]       = useState<string>("");
+  const [segmento, setSegmento]               = useState<string>("");
+  const [tipoTubeless, setTipoTubeless]       = useState<string>("");
+  const [tipoBanda, setTipoBanda]             = useState<string>("");
+  const [advancedOpen, setAdvancedOpen]       = useState(false);
+  const [loading, setLoading]                 = useState(false);
+  const [results, setResults]                 = useState<AdvisorResult[] | null>(null);
+  const [error, setError]                     = useState("");
 
   async function onSubmit() {
     setLoading(true); setError(""); setResults(null);
     try {
       const body: Record<string, unknown> = {};
-      if (tier)      body.tier = tier;
-      if (dimension.trim()) body.dimension = dimension.trim();
-      if (eje)       body.eje = eje;
-      if (categoria) body.categoria = categoria;
+      if (tier)                   body.tier = tier;
+      if (dimension.trim())       body.dimension = dimension.trim();
+      if (eje)                    body.eje = eje;
+      if (categoria)              body.categoria = categoria;
       if (reencauchable !== "any") body.reencauchable = reencauchable === "true";
       if (pctPavimento !== "") {
         const n = Number(pctPavimento);
         if (!Number.isNaN(n)) body.pctPavimento = Math.max(0, Math.min(100, n));
       }
-      if (terreno) body.terreno = terreno;
+      if (terreno)                body.terreno = terreno;
+      if (indiceCarga.trim())     body.indiceCarga = indiceCarga.trim();
+      if (indiceVelocidad.trim()) body.indiceVelocidad = indiceVelocidad.trim();
+      if (minRtdMm !== "") {
+        const n = Number(minRtdMm);
+        if (!Number.isNaN(n) && n > 0) body.minRtdMm = n;
+      }
+      if (minPsiRecomendado !== "") {
+        const n = Number(minPsiRecomendado);
+        if (!Number.isNaN(n) && n > 0) body.minPsiRecomendado = n;
+      }
+      if (cinturones.trim())      body.cinturones = cinturones.trim();
+      if (pr.trim())              body.pr = pr.trim();
+      if (construccion)           body.construccion = construccion;
+      if (segmento.trim())        body.segmento = segmento.trim();
+      if (tipoTubeless)           body.tipo = tipoTubeless;
+      if (tipoBanda.trim())       body.tipoBanda = tipoBanda.trim();
 
       const res = await authFetch(`${API_BASE}/catalog/dist/recommend`, {
         method: "POST",
@@ -463,6 +492,48 @@ function AdvisorModal({ onClose }: { onClose: () => void }) {
               { v: "true",  l: "Sí" },
               { v: "false", l: "No" },
             ]} />
+
+            {/* Advanced — every remaining spec as an optional filter. Hidden
+                by default so the form doesn't overwhelm first-time users. */}
+            <button type="button" onClick={() => setAdvancedOpen((v) => !v)}
+              className="w-full text-left text-[10px] font-bold uppercase tracking-wide text-[#1E76B6] hover:text-[#0A183A] transition-colors flex items-center gap-1 mt-2">
+              {advancedOpen ? "▾" : "▸"} Filtros avanzados
+            </button>
+            {advancedOpen && (
+              <div className="space-y-3 pt-1">
+                <TextInput label="Índice de carga" value={indiceCarga} onChange={setIndiceCarga} placeholder="Ej: 152/148" />
+                <TextInput label="Índice de velocidad" value={indiceVelocidad} onChange={setIndiceVelocidad} placeholder="Ej: M, K, L" />
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">Profundidad mínima (mm)</label>
+                  <input type="number" step="0.1" min="0" value={minRtdMm}
+                    onChange={(e) => setMinRtdMm(e.target.value)} placeholder="Ej: 16"
+                    className="w-full mt-0.5 px-2.5 py-2 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">PSI mínimo</label>
+                  <input type="number" min="0" value={minPsiRecomendado}
+                    onChange={(e) => setMinPsi(e.target.value)} placeholder="Ej: 110"
+                    className="w-full mt-0.5 px-2.5 py-2 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }} />
+                </div>
+                <TextInput label="Cinturones" value={cinturones} onChange={setCinturones} placeholder="Ej: 4B+2N" />
+                <TextInput label="PR (ply rating)" value={pr} onChange={setPr} placeholder="Ej: 16, 18PR" />
+                <Select label="Construcción" value={construccion} onChange={setConstruccion} options={[
+                  { v: "",            l: "Cualquiera" },
+                  { v: "Radial",      l: "Radial" },
+                  { v: "Convencional", l: "Convencional" },
+                ]} />
+                <TextInput label="Segmento" value={segmento} onChange={setSegmento} placeholder="Ej: Tractomula, Bus" />
+                <Select label="Tipo" value={tipoTubeless} onChange={setTipoTubeless} options={[
+                  { v: "",          l: "Cualquiera" },
+                  { v: "Tubeless",  l: "Tubeless" },
+                  { v: "Tube-Type", l: "Tube-Type" },
+                ]} />
+                <TextInput label="Tipo de banda" value={tipoBanda} onChange={setTipoBanda} placeholder="Ej: Bandag BDR-HT" />
+              </div>
+            )}
+
             <button onClick={onSubmit} disabled={loading}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-40 mt-2"
               style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
