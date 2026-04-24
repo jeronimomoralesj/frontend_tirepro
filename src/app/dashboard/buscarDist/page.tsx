@@ -14,6 +14,7 @@ import {
   LineElement, Title, Tooltip, Filler, BarElement,
 } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
+import { VehicleTireGrid, TireGridLegend } from "../components/VehicleTireGrid";
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -72,7 +73,15 @@ export type Tire = {
   primeraVida?: Array<{ cpk?: number; diseno?: string; costo?: number; kilometros?: number }>;
   costo: CostEntry[]; inspecciones: Inspection[]; vida: VidaEntry[];
 };
-export type Vehicle = { id: string; placa: string; tipovhc?: string; carga?: string };
+export type Vehicle = {
+  id: string;
+  placa: string;
+  tipovhc?: string;
+  carga?: string;
+  // Axle/tire config ("2-4", "2-4-4", …) drives the VehicleTireGrid
+  // layout. Null / missing falls back to a position-count heuristic.
+  configuracion?: string | null;
+};
 interface Company { id: string; name: string; }
 
 // =============================================================================
@@ -157,6 +166,21 @@ const SEMAFORO_META: Record<SemaforoCondition, {
   dias30:          { label: "30 Días", color: "#f97316", bg: "rgba(249,115,22,0.12)", lightBg: "#fed7aa", icon: <AlertOctagon size={14} /> },
   cambioInmediato: { label: "Urgente", color: "#ef4444", bg: "rgba(239,68,68,0.12)",  lightBg: "#fecaca", icon: <RotateCcw size={14} /> },
 };
+
+// Bridge from semaforo status → VehicleTireGrid tone.
+function semaforoTone(tire: Tire): { color: string; label: string } {
+  const cond = getSemaforoCondition(tire);
+  if (!cond) return { color: "rgba(10,24,58,0.25)", label: "Sin inspección" };
+  const meta = SEMAFORO_META[cond];
+  return { color: meta.color, label: meta.label };
+}
+const SEMAFORO_LEGEND: Array<{ color: string; label: string }> = [
+  { color: SEMAFORO_META.buenEstado.color,      label: "Óptimo" },
+  { color: SEMAFORO_META.dias60.color,          label: "60 días" },
+  { color: SEMAFORO_META.dias30.color,          label: "30 días" },
+  { color: SEMAFORO_META.cambioInmediato.color, label: "Urgente" },
+  { color: "rgba(10,24,58,0.25)",               label: "Sin inspección" },
+];
 
 function calcMmHealthScore(tire: Tire): number {
   if (!tire.inspecciones.length) return 0;
@@ -1604,11 +1628,52 @@ const BuscarDist: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {tires.map(tire => (
-                <TireCard key={tire.id} tire={tire} onView={() => setSelectedTire(tire)} />
-              ))}
-            </div>
+            {vehicle ? (
+              // Car-style grid — mirrors the buscar (fleet) layout. Tires
+              // without a posicion fall into the "Sin posición" strip below
+              // so a dist never loses sight of them.
+              (() => {
+                const unpositioned = tires.filter((t) => !t.posicion || t.posicion <= 0);
+                return (
+                  <div className="rounded-2xl p-4 sm:p-6"
+                    style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)" }}>
+                    <VehicleTireGrid
+                      tires={tires}
+                      configuracion={vehicle.configuracion}
+                      onSelect={(t) => setSelectedTire(t)}
+                      tone={semaforoTone}
+                    />
+                    <TireGridLegend items={SEMAFORO_LEGEND} />
+                    {unpositioned.length > 0 && (
+                      <div className="mt-4 pt-4" style={{ borderTop: "1px dashed rgba(52,140,203,0.18)" }}>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 mb-2">
+                          Sin posición asignada
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {unpositioned.map((t) => {
+                            const { color } = semaforoTone(t);
+                            return (
+                              <button key={t.id} onClick={() => setSelectedTire(t)}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all hover:opacity-90"
+                                style={{ background: `${color}14`, border: `1px solid ${color}`, color: "#0A183A" }}>
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                                {t.placa}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {tires.map(tire => (
+                  <TireCard key={tire.id} tire={tire} onView={() => setSelectedTire(tire)} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
