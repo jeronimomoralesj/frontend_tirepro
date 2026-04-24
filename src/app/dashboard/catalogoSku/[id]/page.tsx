@@ -6,10 +6,11 @@ import Link from "next/link";
 import {
   ArrowLeft, Loader2, Upload, X, FileDown, Download, Plus,
   AlertCircle, Trash2, Image as ImageIcon, CheckCircle2, Film, Video,
-  Edit3, Save, ShoppingCart, Check,
+  Edit3, Save, ShoppingCart, Check, Share2,
 } from "lucide-react";
 import { buildCatalogPdf, type PdfInput } from "../pdf";
 import { useCatalogCart } from "../cart";
+import { canSharePdf, sharePdf, downloadPdf } from "../share";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
@@ -177,6 +178,11 @@ export default function CatalogoSkuDetailPage() {
   const [videoUploading,setVideoUploading]= useState(false);
   const [videoDeleting, setVideoDeleting] = useState(false);
   const [generating,    setGenerating]    = useState(false);
+  const [sharing,       setSharing]       = useState(false);
+  // Detected once on mount — the "Compartir" button only renders when the
+  // browser supports sharing a PDF file via navigator.share({ files }).
+  // Typically true on iOS Safari 15+ / Chrome on Android, false on desktop.
+  const [canShare,      setCanShare]      = useState(false);
   const [toast,         setToast]         = useState<string>("");
   // Admin-only edit modal — only `admin` role distribuidor users can
   // mutate the master catalog row, since it's shared with every other
@@ -199,6 +205,8 @@ export default function CatalogoSkuDetailPage() {
 
   const fileInput  = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setCanShare(canSharePdf()); }, []);
 
   // Seed rep name from the logged-in user + hydrate company context.
   useEffect(() => {
@@ -456,9 +464,10 @@ export default function CatalogoSkuDetailPage() {
     }
   }
 
-  async function onGeneratePdf() {
+  async function onGeneratePdf(action: "download" | "share" = "download") {
     if (!sku) return;
-    setGenerating(true); setError(""); setToast("");
+    if (action === "share") setSharing(true); else setGenerating(true);
+    setError(""); setToast("");
     try {
       const enabledRows = FIELDS
         .filter((f) => toggles[f.key])
@@ -533,31 +542,51 @@ export default function CatalogoSkuDetailPage() {
       };
 
       const blob = await buildCatalogPdf(pdfInput);
-      // Save to user's disk.
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href = url;
-      a.download = `${sku.marca}-${sku.modelo}-${sku.dimension}.pdf`.replace(/[^a-zA-Z0-9._-]/g, "_");
-      a.click();
-      URL.revokeObjectURL(url);
+      const filename = `${sku.marca}-${sku.modelo}-${sku.dimension}.pdf`.replace(/[^a-zA-Z0-9._-]/g, "_");
 
-      // Log the download — best-effort, don't surface failures to the user.
-      authFetch(`${API_BASE}/catalog/dist/${sku.id}/track-download`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceMode,
-          priceCop: price,
-          fieldsIncluded: toggles,
-        }),
-      }).catch(() => {});
+      // Share → native sheet on mobile; Download → anchor + object URL.
+      // Both paths end up as "we handed the file to the user," so both
+      // count as a download for analytics.
+      let shared = false;
+      if (action === "share") {
+        try {
+          shared = await sharePdf(blob, filename, `${sku.marca} ${sku.modelo} ${sku.dimension}`);
+        } catch {
+          // If the share sheet blew up mid-call, fall back to a download
+          // so the user doesn't walk away empty-handed.
+          downloadPdf(blob, filename);
+        }
+      } else {
+        downloadPdf(blob, filename);
+      }
 
-      setToast("PDF descargado");
-      setTimeout(() => setToast(""), 3000);
+      // Log the download — best-effort, don't surface failures to the
+      // user. Skip if the user cancelled the share sheet (shared=false
+      // AND action=share) — they didn't actually receive the file.
+      const wasDelivered = action === "download" || shared;
+      if (wasDelivered) {
+        authFetch(`${API_BASE}/catalog/dist/${sku.id}/track-download`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            priceMode,
+            priceCop: price,
+            fieldsIncluded: toggles,
+          }),
+        }).catch(() => {});
+      }
+
+      if (action === "share" && !shared) {
+        // User dismissed the share sheet — stay silent, no toast.
+      } else {
+        setToast(action === "share" ? "PDF compartido" : "PDF descargado");
+        setTimeout(() => setToast(""), 3000);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error generando PDF");
     } finally {
       setGenerating(false);
+      setSharing(false);
     }
   }
 
@@ -959,12 +988,25 @@ export default function CatalogoSkuDetailPage() {
                 )}
               </div>
 
-              <button onClick={onGeneratePdf} disabled={generating || sku.subscribed === false}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-40"
-                style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
-                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {generating ? "Generando…" : "Descargar PDF"}
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => onGeneratePdf("download")}
+                  disabled={generating || sharing || sku.subscribed === false}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+                  {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {generating ? "Generando…" : "Descargar PDF"}
+                </button>
+                {canShare && (
+                  <button onClick={() => onGeneratePdf("share")}
+                    disabled={generating || sharing || sku.subscribed === false}
+                    title="Compartir por WhatsApp, correo, etc."
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-all hover:opacity-90 disabled:opacity-40"
+                    style={{ background: "white", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.3)" }}>
+                    {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                    <span className="hidden sm:inline">{sharing ? "Preparando…" : "Compartir"}</span>
+                  </button>
+                )}
+              </div>
 
               {/* Quote / cart add — lets the rep stack this tire with others
                   and export ONE PDF with the full selection. Toggles: if

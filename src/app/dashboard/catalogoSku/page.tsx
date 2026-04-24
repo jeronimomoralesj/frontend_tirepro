@@ -430,6 +430,17 @@ function AdvisorModal({ onClose }: { onClose: () => void }) {
   const [reencauchable, setReencauchable] = useState<string>("any");
   const [pctPavimento, setPctPavimento]   = useState<string>("");
   const [terreno, setTerreno]             = useState<string>("");
+  // Dimensions dropdown sourced from THIS dist's subscribed catalog — a
+  // rep picks instead of typing, which eliminates the "295/80R22.5" vs
+  // "295/80 R22.5" typo class. Empty while loading / if the endpoint
+  // fails — the field just shows "Cualquiera" in that case.
+  const [dimensions, setDimensions]       = useState<string[]>([]);
+  useEffect(() => {
+    authFetch(`${API_BASE}/catalog/dist/dimensions`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.dimensions) setDimensions(d.dimensions); })
+      .catch(() => {});
+  }, []);
   // Expanded — every remaining catalog attribute as an optional filter
   const [indiceCarga, setIndiceCarga]         = useState<string>("");
   const [indiceVelocidad, setIndiceVelocidad] = useState<string>("");
@@ -531,7 +542,10 @@ function AdvisorModal({ onClose }: { onClose: () => void }) {
               { v: "nueva",      l: "Nueva" },
               { v: "reencauche", l: "Reencauche" },
             ]} />
-            <TextInput label="Dimensión" value={dimension} onChange={setDimension} placeholder="Ej: 295/80R22.5" />
+            <Select label="Dimensión" value={dimension} onChange={setDimension} options={[
+              { v: "", l: dimensions.length === 0 ? "Cargando…" : "Cualquiera" },
+              ...dimensions.map((d) => ({ v: d, l: d })),
+            ]} />
             <Select label="Eje" value={eje} onChange={setEje} options={[
               { v: "",          l: "Cualquiera" },
               { v: "direccion", l: "Dirección" },
@@ -683,9 +697,14 @@ function AdvisorModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Score is a 0-100 fit percentage (backend filters out anything below 40%,
+// so values surfaced here fall in [40, 100]). Buckets:
+//   70+ → strong fit (green)
+//   50+ → decent (amber)
+//   40+ → minimal (gray) — still passed the threshold, just barely
 function scoreTone(score: number): { bg: string; fg: string } {
-  if (score >= 60) return { bg: "rgba(16,185,129,0.12)",  fg: "#059669" };
-  if (score >= 30) return { bg: "rgba(245,158,11,0.15)",  fg: "#b45309" };
+  if (score >= 70) return { bg: "rgba(16,185,129,0.12)",  fg: "#059669" };
+  if (score >= 50) return { bg: "rgba(245,158,11,0.15)",  fg: "#b45309" };
   return                 { bg: "rgba(100,116,139,0.1)",  fg: "#64748b" };
 }
 

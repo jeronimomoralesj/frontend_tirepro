@@ -14,10 +14,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Loader2, Download, Trash2, Plus, Minus, FileDown,
-  Image as ImageIcon, CheckCircle2, AlertCircle, X,
+  Image as ImageIcon, CheckCircle2, AlertCircle, X, Share2,
 } from "lucide-react";
 import { useCatalogCart, type CartItem } from "../cart";
-import { buildQuotePdf, type QuoteInput, type QuoteIncludeFields } from "../pdf";
+import { buildQuotePdf, buildComparativePdf, type QuoteInput, type QuoteIncludeFields, type PdfBrand } from "../pdf";
+import { canSharePdf, sharePdf, downloadPdf } from "../share";
 
 // Master list of toggleable ficha fields shown on the cotización page.
 // Ordering matches the order the PDF renders each segment — keeping
@@ -87,8 +88,13 @@ export default function CotizacionPage() {
   // detailed quote (indiceCarga, rtd, psi, cinturones, pr, …).
   const [fichaFields, setFichaFields] = useState<QuoteIncludeFields>(defaultFichaToggles);
   const [generating, setGenerating]  = useState(false);
+  const [sharing,    setSharing]     = useState(false);
+  // Detected once on mount — gates the mobile-only "Compartir" button.
+  const [canShare,   setCanShare]    = useState(false);
   const [toast,      setToast]       = useState("");
   const [error,      setError]       = useState("");
+
+  useEffect(() => { setCanShare(canSharePdf()); }, []);
 
   useEffect(() => {
     try {
@@ -124,9 +130,10 @@ export default function CotizacionPage() {
   const grandTotal = items.reduce((s, it) => s + lineTotal(it), 0);
   const totalUnits = items.reduce((s, it) => s + Math.max(1, it.quantity || 1), 0);
 
-  async function onGenerate() {
+  async function onGenerate(action: "download" | "share" = "download") {
     if (items.length === 0) return;
-    setGenerating(true); setError(""); setToast("");
+    if (action === "share") setSharing(true); else setGenerating(true);
+    setError(""); setToast("");
     try {
       const proxyFetcher = async (u: string): Promise<Blob | null> => {
         if (!/amazonaws\.com/.test(u)) return null;
@@ -134,6 +141,46 @@ export default function CotizacionPage() {
         if (!r.ok) return null;
         return await r.blob();
       };
+
+      // Comparative mode renders a single-tire-style datasheet per item,
+      // which includes the "Acerca de la marca" card + inline brand
+      // logo/country. Fetch /marketplace/brands/:slug for every unique
+      // marca (parallel, best-effort — missing marcas just skip the card).
+      // Skipped entirely for the simpler "total" cotización.
+      let brandByMarca: Record<string, PdfBrand | null> | undefined;
+      if (displayMode === "individual") {
+        const uniqueMarcas = Array.from(new Set(items.map((it) => it.marca)));
+        const results = await Promise.all(uniqueMarcas.map(async (marca): Promise<[string, PdfBrand | null]> => {
+          const slug = marca
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9\s-]/g, "")
+            .trim()
+            .replace(/\s+/g, "-");
+          if (!slug) return [marca, null];
+          try {
+            const r = await fetch(`${API_BASE}/marketplace/brands/${slug}`);
+            if (!r.ok) return [marca, null];
+            const b = await r.json();
+            return [marca, {
+              name:          b.name ?? marca,
+              logoUrl:       b.logoUrl ?? null,
+              tier:          b.tier ?? null,
+              tagline:       b.tagline ?? null,
+              description:   b.description ?? null,
+              country:       b.country ?? null,
+              headquarters:  b.headquarters ?? null,
+              foundedYear:   b.foundedYear ?? null,
+              parentCompany: b.parentCompany ?? null,
+              website:       b.website ?? null,
+            }];
+          } catch {
+            return [marca, null];
+          }
+        }));
+        brandByMarca = Object.fromEntries(results);
+      }
 
       const input: QuoteInput = {
         companyName:    companyCtx?.name ?? null,
@@ -173,43 +220,66 @@ export default function CotizacionPage() {
         priceMode,
         displayMode,
         includeFields: fichaFields,
+        brandByMarca,
         fetchViaProxy: proxyFetcher,
       };
 
-      const blob = await buildQuotePdf(input);
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href = url;
+      // "individual" → single-tire-style datasheet per cart item (rich);
+      // "total"      → compact cotización table with grand total.
+      const blob = displayMode === "individual"
+        ? await buildComparativePdf(input)
+        : await buildQuotePdf(input);
       const stamp = new Date().toISOString().slice(0, 10);
-      a.download = `cotizacion-${(companyCtx?.name ?? "TirePro").replace(/\s+/g, "-")}-${stamp}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const prefix = displayMode === "individual" ? "comparativo" : "cotizacion";
+      const filename = `${prefix}-${(companyCtx?.name ?? "TirePro").replace(/\s+/g, "-")}-${stamp}.pdf`;
+
+      // Share → native sheet on mobile; Download → anchor + object URL.
+      let shared = false;
+      if (action === "share") {
+        try {
+          shared = await sharePdf(blob, filename, `Cotización${clientName ? ` — ${clientName}` : ""}`);
+        } catch {
+          // Share sheet failed mid-call: fall back to a download so the
+          // user gets the file either way.
+          downloadPdf(blob, filename);
+        }
+      } else {
+        downloadPdf(blob, filename);
+      }
 
       // Log one track-download event per tire — the sales-manager stats
       // page already tallies per-SKU counts and a quote is effectively N
-      // downloads of N tires.
-      for (const it of items) {
-        authFetch(`${API_BASE}/catalog/dist/${it.catalogId}/track-download`, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            priceMode,
-            priceCop: it.unitPriceCop,
-            fieldsIncluded: {
-              quote: true,
-              displayMode,
-              quantity: Math.max(1, it.quantity || 1),
-            },
-          }),
-        }).catch(() => {});
+      // downloads of N tires. Skip if the user dismissed the share sheet.
+      const wasDelivered = action === "download" || shared;
+      if (wasDelivered) {
+        for (const it of items) {
+          authFetch(`${API_BASE}/catalog/dist/${it.catalogId}/track-download`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              priceMode,
+              priceCop: it.unitPriceCop,
+              fieldsIncluded: {
+                quote: true,
+                displayMode,
+                quantity: Math.max(1, it.quantity || 1),
+              },
+            }),
+          }).catch(() => {});
+        }
       }
 
-      setToast("Cotización descargada");
-      setTimeout(() => setToast(""), 3000);
+      if (action === "share" && !shared) {
+        // User dismissed the share sheet — stay quiet.
+      } else {
+        setToast(action === "share" ? "Cotización compartida" : "Cotización descargada");
+        setTimeout(() => setToast(""), 3000);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error generando la cotización");
     } finally {
       setGenerating(false);
+      setSharing(false);
     }
   }
 
@@ -320,8 +390,8 @@ export default function CotizacionPage() {
                         color: displayMode === "total" ? "white" : "#0A183A",
                         border: displayMode === "total" ? "1px solid #1E76B6" : "1px solid rgba(52,140,203,0.2)",
                       }}>
-                      <div>Compra</div>
-                      <div className="text-[9px] opacity-80 font-normal">Cantidad × precio, total al final</div>
+                      <div>Cotización</div>
+                      <div className="text-[9px] opacity-80 font-normal">Tabla simple, cantidad × precio, total al final</div>
                     </button>
                     <button onClick={() => setDisplayMode("individual")}
                       className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-left flex-1"
@@ -331,7 +401,7 @@ export default function CotizacionPage() {
                         border: displayMode === "individual" ? "1px solid #1E76B6" : "1px solid rgba(52,140,203,0.2)",
                       }}>
                       <div>Comparativo</div>
-                      <div className="text-[9px] opacity-80 font-normal">Precio unitario, sin total</div>
+                      <div className="text-[9px] opacity-80 font-normal">Ficha completa por llanta, precio unitario</div>
                     </button>
                   </div>
                 </div>
@@ -412,12 +482,25 @@ export default function CotizacionPage() {
                 </div>
               )}
 
-              <button onClick={onGenerate} disabled={generating || items.length === 0}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-40"
-                style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
-                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {generating ? "Generando…" : "Descargar cotización"}
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => onGenerate("download")}
+                  disabled={generating || sharing || items.length === 0}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+                  {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {generating ? "Generando…" : "Descargar cotización"}
+                </button>
+                {canShare && (
+                  <button onClick={() => onGenerate("share")}
+                    disabled={generating || sharing || items.length === 0}
+                    title="Compartir por WhatsApp, correo, etc."
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-black transition-all hover:opacity-90 disabled:opacity-40"
+                    style={{ background: "white", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.3)" }}>
+                    {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                    <span className="hidden sm:inline">{sharing ? "Preparando…" : "Compartir"}</span>
+                  </button>
+                )}
+              </div>
             </aside>
           </div>
         )}

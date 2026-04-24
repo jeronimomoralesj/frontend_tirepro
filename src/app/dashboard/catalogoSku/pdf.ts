@@ -690,15 +690,427 @@ export type QuoteInput = {
   clientNotes:    string | null;
   items:          QuoteItem[];
   priceMode:   "none" | "sin_iva" | "con_iva";
-  // "individual": comparative layout, per-unit prices, no grand total
-  // "total":      purchase layout, line totals + grand total row
+  // "individual": comparative layout — one full datasheet per tire, unit
+  //               prices, no grand total (used to compare products).
+  // "total":      cotización layout — compact table rows, qty × unit =
+  //               line total, with a grand total (used to close a sale).
   displayMode: "individual" | "total";
   // Which ficha fields to include under each row. When undefined the
   // renderer falls back to a minimal "dimension · categoria · terreno
   // · eje" line so old callers keep working.
   includeFields?: QuoteIncludeFields;
+  // Manufacturer brand info keyed by marca. Used by buildComparativePdf
+  // to draw the "Acerca de la marca" card + inline brand logo/country so
+  // each tire page looks identical to the single-tire PDF. Optional —
+  // missing marcas just render without the brand block.
+  brandByMarca?: Record<string, PdfBrand | null>;
   fetchViaProxy?: (url: string) => Promise<Blob | null>;
 };
+
+// =============================================================================
+// Comparative PDF — one full single-tire-style datasheet per cart item.
+// Reuses the same layout conventions as buildCatalogPdf (banner, brand
+// rail, hero, chips, specs table, price block, contact card, footer) so
+// each tire in the comparison is as readable as a solo product sheet.
+// Used when displayMode === "individual".
+// =============================================================================
+
+export async function buildComparativePdf(input: QuoteInput): Promise<Blob> {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const M = 42;
+
+  const brand     = parseHex(input.companyColor) ?? FALLBACK.primary;
+  const brandText = readableTextOn(brand);
+  const brandT08  = tint(brand, 0.08);
+  const brandT15  = tint(brand, 0.18);
+
+  const logoUrl = isDefaultPlaceholderLogo(input.companyLogoUrl) ? null : input.companyLogoUrl;
+  const proxy   = input.fetchViaProxy;
+  const brandByMarca = input.brandByMarca ?? {};
+
+  // Preload company logo + every tire hero + every unique marca's brand
+  // logo in parallel. Brand logos are deduped by marca since the cart can
+  // hold multiple tires of the same manufacturer.
+  const uniqueMarcas = Array.from(new Set(input.items.map((it) => it.marca)));
+  const brandLogoUrlByMarca = new Map<string, string | null>();
+  for (const marca of uniqueMarcas) {
+    brandLogoUrlByMarca.set(marca, brandByMarca[marca]?.logoUrl ?? null);
+  }
+  const [logoData, heroDataArr, brandLogoDataArr] = await Promise.all([
+    loadImageAsDataUrl(logoUrl, proxy),
+    Promise.all(input.items.map((it) => loadImageAsDataUrl(it.imageUrl, proxy))),
+    Promise.all(uniqueMarcas.map((m) => loadImageAsDataUrl(brandLogoUrlByMarca.get(m) ?? null, proxy))),
+  ]);
+  const heroDatas = heroDataArr;
+  const brandLogoDataByMarca = new Map<string, string | null>();
+  uniqueMarcas.forEach((m, idx) => brandLogoDataByMarca.set(m, brandLogoDataArr[idx]));
+
+  // Default ficha set — broader than the "total" mode default since a
+  // per-tire datasheet has room to breathe, and the user picked
+  // comparative specifically because they want the detail.
+  const fields: QuoteIncludeFields = input.includeFields ?? {
+    dimension: true, categoria: true, terreno: true, ejeTirePro: true,
+    indiceCarga: true, indiceVelocidad: true, rtdMm: true, psiRecomendado: true,
+    cinturones: true, pr: true, reencauchable: true, tipoBanda: true,
+  };
+
+  const ivaMul = input.priceMode === "con_iva" ? 1.19 : 1;
+
+  for (let i = 0; i < input.items.length; i++) {
+    if (i > 0) doc.addPage();
+    const it            = input.items[i];
+    const heroData      = heroDatas[i];
+    const b             = brandByMarca[it.marca] ?? null;
+    const brandLogoData = brandLogoDataByMarca.get(it.marca) ?? null;
+
+    // ─── HEADER BANNER ──────────────────────────────────────────────────
+    doc.setFillColor(...brand);
+    doc.rect(0, 0, pageW, 94, "F");
+    doc.setFillColor(...FALLBACK.ink);
+    doc.rect(0, 88, pageW, 6, "F");
+
+    if (logoData) {
+      const { w, h } = await imageDims(logoData);
+      const boxW = 160, boxH = 62;
+      const scale = Math.min(boxW / w, boxH / h);
+      const drawW = w * scale, drawH = h * scale;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(M - 8, 16, boxW + 16, 66, 8, 8, "F");
+      doc.addImage(
+        logoData, detectFormat(logoData),
+        M - 8 + (boxW + 16 - drawW) / 2,
+        16 + (66 - drawH) / 2,
+        drawW, drawH, undefined, "SLOW",
+      );
+    } else if (input.companyName) {
+      doc.setFillColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      const textW = doc.getTextWidth(input.companyName);
+      const pillW = Math.min(280, textW + 32);
+      doc.roundedRect(M - 8, 27, pillW, 40, 8, 8, "F");
+      doc.setTextColor(...brand);
+      doc.text(input.companyName, M - 8 + pillW / 2, 52, { align: "center", maxWidth: pillW - 32 });
+    }
+
+    // Match the single-tire header verbatim — "FICHA TÉCNICA" + categoría
+    // in the right slot. No page counter; the user wanted parity with the
+    // single-tire download.
+    doc.setTextColor(...brandText);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("FICHA TÉCNICA", pageW - M, 36, { align: "right" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(
+      it.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva",
+      pageW - M, 54, { align: "right" },
+    );
+
+    // Left-edge brand rail
+    doc.setFillColor(...brand);
+    doc.rect(0, 94, 4, pageH - 94, "F");
+
+    // ─── TITLE BLOCK ────────────────────────────────────────────────────
+    const HERO_TOP = 120;
+    const HERO_W = 240, HERO_H = 200;
+    let y = 132;
+
+    // Marca tagline: small brand logo (if available) + marca text + country.
+    let cursorX = M;
+    if (brandLogoData) {
+      const { w, h } = await imageDims(brandLogoData);
+      const boxW = 42, boxH = 22;
+      const scale = Math.min(boxW / w, boxH / h);
+      const drawW = w * scale, drawH = h * scale;
+      doc.addImage(
+        brandLogoData, detectFormat(brandLogoData),
+        cursorX, y - drawH + 2, drawW, drawH, undefined, "SLOW",
+      );
+      cursorX += drawW + 10;
+    }
+    const marcaText = it.marca.toUpperCase();
+    doc.setTextColor(...brand);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text(marcaText, cursorX, y);
+    if (b?.country) {
+      const mw = doc.getTextWidth(marcaText);
+      doc.setTextColor(...FALLBACK.muted);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`· ${b.country}`, cursorX + mw + 8, y);
+    }
+
+    y += 30;
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(26);
+    doc.text(it.modelo, M, y);
+
+    y += 20;
+    doc.setTextColor(...brand);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "normal");
+    doc.text(it.dimension, M, y);
+
+    // ─── CHIP ROW (left column only, wraps if needed) ───────────────────
+    const chips: Array<{ label: string; fill: [number, number, number]; text: [number, number, number] }> = [];
+    chips.push({
+      label: it.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva",
+      fill:  brand,
+      text:  brandText,
+    });
+    if (it.terreno)    chips.push({ label: it.terreno,   fill: brandT08, text: brand });
+    if (it.ejeTirePro) chips.push({ label: it.ejeTirePro.charAt(0).toUpperCase() + it.ejeTirePro.slice(1), fill: brandT08, text: brand });
+    if (it.reencauchable) chips.push({ label: "Reencauchable", fill: brandT15, text: brand });
+
+    y += 10;
+    const heroLeftX = pageW - M - HERO_W;
+    const chipMaxX  = heroData ? heroLeftX - 14 : pageW - M;
+    const chipH    = 22, chipGapX = 8, chipGapY = 8, chipPadX = 12, chipFont = 9, chipBaseY = 15;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(chipFont);
+    let chipX   = M;
+    let chipTop = y;
+    for (const chip of chips) {
+      const label = chip.label.toUpperCase();
+      const tw = doc.getTextWidth(label);
+      const w  = tw + chipPadX * 2;
+      if (chipX > M && chipX + w > chipMaxX) { chipX = M; chipTop += chipH + chipGapY; }
+      doc.setFillColor(...chip.fill);
+      doc.roundedRect(chipX, chipTop, w, chipH, chipH / 2, chipH / 2, "F");
+      doc.setTextColor(...chip.text);
+      doc.text(label, chipX + chipPadX, chipTop + chipBaseY);
+      chipX += w + chipGapX;
+    }
+    y = chipTop + chipH;
+
+    // ─── HERO IMAGE ─────────────────────────────────────────────────────
+    if (heroData) {
+      const { w, h } = await imageDims(heroData);
+      const scale = Math.min(HERO_W / w, HERO_H / h);
+      const drawW = w * scale, drawH = h * scale;
+      const x = pageW - M - HERO_W;
+      doc.setFillColor(...FALLBACK.page);
+      doc.roundedRect(x, HERO_TOP, HERO_W, HERO_H, 14, 14, "F");
+      doc.setDrawColor(...brandT15);
+      doc.setLineWidth(0.6);
+      doc.roundedRect(x, HERO_TOP, HERO_W, HERO_H, 14, 14, "S");
+      doc.addImage(
+        heroData, detectFormat(heroData),
+        x + (HERO_W - drawW) / 2,
+        HERO_TOP + (HERO_H - drawH) / 2,
+        drawW, drawH, undefined, "MEDIUM",
+      );
+    }
+
+    y = Math.max(y + 24, HERO_TOP + HERO_H + 18);
+
+    // ─── BRAND CARD (optional) — "Acerca de la marca" + facts ──────────
+    // Exact same layout as buildCatalogPdf: tagline (italic) + description
+    // + facts line (uppercase, country · founded · tier · casa matriz ·
+    // website). Rendered only when the marketplace has an entry for this
+    // marca (brandByMarca populated).
+    const hasBrandContent = !!b && (
+      b.tagline || b.description ||
+      b.country || b.foundedYear || b.parentCompany || b.tier || b.website
+    );
+    if (hasBrandContent && b) {
+      y = drawSectionHeader(doc, "Acerca de la marca", M, y, pageW - M, brand);
+      const cardTop = y + 4;
+      const innerW  = pageW - 2 * M - 24;
+
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(10);
+      const taglineLines = b.tagline
+        ? doc.splitTextToSize(b.tagline, innerW).slice(0, 2) as string[]
+        : [];
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      const descLines = b.description
+        ? doc.splitTextToSize(b.description, innerW).slice(0, 3) as string[]
+        : [];
+
+      const factsText = factLine(b);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      const factsLines = factsText
+        ? doc.splitTextToSize(factsText, innerW).slice(0, 2) as string[]
+        : [];
+
+      const cardH = 16
+        + taglineLines.length * 13
+        + (descLines.length ? descLines.length * 12 + 4 : 0)
+        + (factsLines.length ? factsLines.length * 11 + 4 : 0)
+        + 14;
+
+      doc.setFillColor(...FALLBACK.page);
+      doc.roundedRect(M, cardTop, pageW - 2 * M, cardH, 10, 10, "F");
+      doc.setDrawColor(...brandT15);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(M, cardTop, pageW - 2 * M, cardH, 10, 10, "S");
+
+      let ty = cardTop + 18;
+      if (taglineLines.length) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(10);
+        doc.setTextColor(...brand);
+        for (const ln of taglineLines) { doc.text(ln, M + 12, ty); ty += 13; }
+      }
+      if (descLines.length) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(...FALLBACK.ink);
+        for (const ln of descLines) { doc.text(ln, M + 12, ty); ty += 12; }
+        ty += 4;
+      }
+      if (factsLines.length) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...FALLBACK.muted);
+        for (const ln of factsLines) { doc.text(ln, M + 12, ty); ty += 11; }
+      }
+      y = cardTop + cardH + 14;
+    }
+
+    // ─── SPECS TABLE ────────────────────────────────────────────────────
+    const rows = buildSpecRows(it, fields);
+    if (rows.length > 0) {
+      y = drawSectionHeader(doc, "Especificaciones", M, y, pageW - M, brand);
+      const tableWidth = pageW - 2 * M;
+      autoTable(doc, {
+        startY: y + 4,
+        margin: { left: M, right: M },
+        head:   [["Característica", "Valor"]],
+        body:   rows.map((r) => [r.label, r.value]),
+        theme:  "plain",
+        tableWidth,
+        styles: {
+          font: "helvetica",
+          fontSize: 10,
+          cellPadding: { top: 7, right: 10, bottom: 7, left: 10 },
+          textColor: FALLBACK.ink,
+          lineColor: FALLBACK.line,
+          lineWidth: 0.5,
+        },
+        headStyles: {
+          fillColor: brandT08,
+          textColor: brand,
+          fontStyle: "bold",
+          fontSize: 9,
+        },
+        alternateRowStyles: { fillColor: [252, 253, 255] },
+        columnStyles: {
+          0: { cellWidth: Math.round(tableWidth * 0.42), fontStyle: "bold" },
+          1: { cellWidth: Math.round(tableWidth * 0.58) },
+        },
+      });
+      y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
+      y += 12;
+    }
+
+    // ─── PRICE BLOCK — identical to single-tire PDF ─────────────────────
+    if (input.priceMode !== "none" && it.unitPriceCop && it.unitPriceCop > 0) {
+      const unit = Math.round(it.unitPriceCop * ivaMul);
+      const ivaLabel = input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA";
+
+      const boxH = 64;
+      const boxY = y;
+      doc.setFillColor(...FALLBACK.ink);
+      doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 12, 12, "F");
+      doc.setFillColor(...brand);
+      doc.roundedRect(M, boxY, 8, boxH, 4, 4, "F");
+
+      doc.setTextColor(200, 215, 240);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text("Precio", M + 22, boxY + 24);
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.text(fmtCOP(unit), M + 22, boxY + 50);
+
+      doc.setTextColor(200, 215, 240);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(ivaLabel, pageW - M - 20, boxY + 50, { align: "right" });
+
+      y = boxY + boxH + 14;
+    }
+
+    // ─── CONTACT CARD (spills to a new page if needed; next tire will
+    //      still start on a fresh page of its own via addPage at the top
+    //      of the loop). ────────────────────────────────────────────────
+    const hasRep      = !!(input.repName || input.repPhone);
+    const hasSiteCity = !!(input.companyWebsite || input.companyCity);
+    if (hasRep || hasSiteCity) {
+      const contactNeed = 80;
+      if (y + contactNeed > pageH - 60) {
+        drawFooter(doc, pageW, pageH, M, brand, input.companyName);
+        doc.addPage();
+        doc.setFillColor(...brand);
+        doc.rect(0, 0, 4, pageH, "F");
+        y = 50;
+      }
+      y = drawSectionHeader(doc, "Contacto", M, y + 4, pageW - M, brand);
+      const boxH = 60;
+      const boxY = y + 4;
+      doc.setFillColor(...brandT08);
+      doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 10, 10, "F");
+
+      doc.setTextColor(...FALLBACK.ink);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(input.repName ?? input.companyName ?? "", M + 14, boxY + 24);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      const line2 = [input.repPhone, input.companyCity].filter(Boolean).join("  ·  ");
+      if (line2) doc.text(line2, M + 14, boxY + 42);
+
+      if (input.companyWebsite) {
+        doc.setTextColor(...brand);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text(input.companyWebsite, pageW - M - 14, boxY + 42, { align: "right" });
+      }
+    }
+
+    drawFooter(doc, pageW, pageH, M, brand, input.companyName);
+  }
+
+  return doc.output("blob");
+}
+
+// Map a QuoteItem + includeFields toggle set to spec-table rows. Same
+// label wording as the single-tire PDF's spec table so both renderings
+// feel like they belong to the same product sheet family.
+function buildSpecRows(it: QuoteItem, f: QuoteIncludeFields): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [];
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  if (f.dimension       && it.dimension)        rows.push({ label: "Dimensión",            value: it.dimension });
+  if (f.indiceCarga     && it.indiceCarga)      rows.push({ label: "Índice de carga",      value: it.indiceCarga });
+  if (f.indiceVelocidad && it.indiceVelocidad)  rows.push({ label: "Índice de velocidad",  value: it.indiceVelocidad });
+  if (f.rtdMm           && it.rtdMm != null)    rows.push({ label: "Profundidad inicial",  value: `${it.rtdMm} mm` });
+  if (f.psiRecomendado  && it.psiRecomendado != null) rows.push({ label: "Presión recomendada", value: `${it.psiRecomendado} PSI` });
+  if (f.pesoKg          && it.pesoKg != null)   rows.push({ label: "Peso",                 value: `${it.pesoKg} kg` });
+  if (f.cinturones      && it.cinturones)       rows.push({ label: "Cinturones",           value: it.cinturones });
+  if (f.pr              && it.pr)               rows.push({ label: "PR (ply rating)",      value: it.pr });
+  if (f.ejeTirePro      && it.ejeTirePro)       rows.push({ label: "Eje",                  value: cap(it.ejeTirePro) });
+  if (f.terreno         && it.terreno)          rows.push({ label: "Terreno",              value: it.terreno });
+  if (f.reencauchable   && it.reencauchable != null) rows.push({ label: "Reencauchabilidad", value: it.reencauchable ? "Sí" : "No" });
+  if (f.tipoBanda       && it.tipoBanda)        rows.push({ label: "Tipo de banda",        value: it.tipoBanda });
+  if (f.construccion    && it.construccion)     rows.push({ label: "Construcción",         value: it.construccion });
+  if (f.segmento        && it.segmento)         rows.push({ label: "Segmento",             value: it.segmento });
+  if (f.tipo            && it.tipo)             rows.push({ label: "Tipo",                 value: it.tipo });
+  if (f.categoria       && it.categoria)        rows.push({ label: "Categoría",            value: it.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva" });
+  return rows;
+}
 
 export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
   const doc = new jsPDF({ unit: "pt", format: "letter" });

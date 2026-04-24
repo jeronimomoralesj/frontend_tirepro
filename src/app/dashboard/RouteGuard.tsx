@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-// Which company plans can access which route prefixes
-const ROUTE_ACCESS: Record<string, { plans: string[]; roles?: string[] }> = {
+// Which company plans + roles can access which route prefixes. `roles`
+// is an allowlist (access only if user.role is in the list). `deniedRoles`
+// is a blocklist (used to carve catalog-only roles out of the general
+// distribuidor pages while still letting them hit /catalogoSku).
+const CATALOG_ROLES = ["catalogo", "catalogo_admin"] as const;
+
+const ROUTE_ACCESS: Record<string, { plans: string[]; roles?: string[]; deniedRoles?: string[] }> = {
   // Fleet pages — plus + pro tiers. Marketplace tier is intentionally
   // excluded (marketplace-only users have no fleet to manage — they
   // live on /marketplace). Admin-only destructive actions still gate
@@ -23,16 +28,22 @@ const ROUTE_ACCESS: Record<string, { plans: string[]; roles?: string[] }> = {
   "/dashboard/cupones":      { plans: ["pro"], roles: ["admin"] },
   "/dashboard/resumenMini":  { plans: ["plus", "pro"] },
 
-  // Distributor pages
-  "/dashboard/distribuidor":   { plans: ["distribuidor"] },
-  "/dashboard/analistaDist":   { plans: ["distribuidor"] },
-  "/dashboard/pedidosDist":    { plans: ["distribuidor"] },
-  "/dashboard/desechosDist":   { plans: ["distribuidor"] },
-  "/dashboard/clientes":       { plans: ["distribuidor"] },
-  "/dashboard/vehiculoDist":   { plans: ["distribuidor"] },
-  "/dashboard/buscarDist":     { plans: ["distribuidor"] },
-  "/dashboard/agregarDist":    { plans: ["distribuidor"] },
-  "/dashboard/catalogoDist":   { plans: ["distribuidor"] },
+  // Distributor pages — visible to everyone on a distribuidor plan EXCEPT
+  // catalog-scoped users (they only see /catalogoSku). Sidebar already
+  // hides these links for catalog roles; this is the URL-typing defense.
+  "/dashboard/distribuidor":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/analistaDist":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/pedidosDist":    { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/desechosDist":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/clientes":       { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/vehiculoDist":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/buscarDist":     { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/agregarDist":    { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/catalogoDist":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  "/dashboard/ventasDist":     { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+
+  // SKU catalog — the one distribuidor route catalog-roles can hit.
+  "/dashboard/catalogoSku":    { plans: ["distribuidor"] },
 };
 
 // These routes are open to any logged-in user with a company
@@ -64,7 +75,19 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
       .filter(([prefix]) => pathname.startsWith(prefix))
       .sort((a, b) => b[0].length - a[0].length)[0];
     if (!rule) {
-      // Unknown route under /dashboard — allow (could be a card/component route)
+      // Unknown route — allow for regular users (it's likely a shared
+      // component / dynamic path). But DENY for catalog-scoped users:
+      // they only have /catalogoSku plus OPEN_ROUTES, so an unknown path
+      // almost certainly means they typed the URL of a surface they
+      // shouldn't have access to. Bounce them back to catalogoSku.
+      try {
+        const stored = localStorage.getItem("user");
+        const user = stored ? JSON.parse(stored) : null;
+        if (user?.role === "catalogo" || user?.role === "catalogo_admin") {
+          router.replace("/dashboard/catalogoSku");
+          return;
+        }
+      } catch { /* fall through to optimistic allow */ }
       setAllowed(true);
       return;
     }
@@ -100,15 +123,24 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
         }
         const plan = company.plan ?? "pro";
 
-        // Check role if required — route to the user's home page for
-        // their plan rather than to /agregarConductor (old default).
+        // Role gates — route to the user's home page for their plan +
+        // role when they don't belong here. Two-sided check:
+        //   `roles`       → allowlist (must include user.role)
+        //   `deniedRoles` → blocklist (must NOT include user.role)
+        // deniedRoles is how we carve catalog-only roles out of the rest
+        // of the distribuidor surface without maintaining an allowlist
+        // that drifts every time we add a new distribuidor role.
         if (access.roles && !access.roles.includes(user.role)) {
-          redirectToHome(plan);
+          redirectToHome(plan, user.role);
+          return;
+        }
+        if (access.deniedRoles && access.deniedRoles.includes(user.role)) {
+          redirectToHome(plan, user.role);
           return;
         }
 
         if (!access.plans.includes(plan)) {
-          redirectToHome(plan);
+          redirectToHome(plan, user.role);
           return;
         }
 
@@ -118,7 +150,13 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
       }
     }
 
-    function redirectToHome(plan: string) {
+    function redirectToHome(plan: string, role?: string) {
+      // Catalog-scoped roles land on the SKU catalog no matter the plan —
+      // that's the only surface they have access to.
+      if (role === "catalogo" || role === "catalogo_admin") {
+        router.replace("/dashboard/catalogoSku");
+        return;
+      }
       if (plan === "distribuidor")      router.replace("/dashboard/distribuidor");
       else if (plan === "marketplace")  router.replace("/marketplace");
       else                              router.replace("/dashboard/resumen");
