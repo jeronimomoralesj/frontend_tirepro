@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Loader2, Upload, X, FileDown, Download, Plus,
   AlertCircle, Trash2, Image as ImageIcon, CheckCircle2, Film, Video,
+  Edit3, Save,
 } from "lucide-react";
 import { buildCatalogPdf, type PdfInput } from "../pdf";
 
@@ -59,7 +60,11 @@ type CatalogDetail = {
   construccion: string | null;
   pctPavimento: number;
   pctDestapado: number;
+  cinturones: string | null;
+  pr: string | null;
   notasColombia: string | null;
+  fuente: string | null;
+  url: string | null;
   images: CatalogImage[];
   video?: CatalogVideo | null;
 };
@@ -89,7 +94,8 @@ type BrandInfo = {
 
 type FieldKey =
   | "dimension" | "indiceCarga" | "indiceVelocidad" | "rtdMm" | "psiRecomendado"
-  | "pesoKg"    | "ejeTirePro"  | "terreno"         | "pctUso"
+  | "pesoKg"    | "cinturones"  | "pr"              | "ejeTirePro"
+  | "terreno"   | "pctUso"
   | "reencauchable" | "construccion" | "segmento" | "tipo" | "skuRef";
 
 type FieldDef = { key: FieldKey; label: string; defaultOn: boolean; render: (d: CatalogDetail) => string | null };
@@ -106,6 +112,8 @@ const FIELDS: FieldDef[] = [
   { key: "rtdMm",             label: "Profundidad inicial",     defaultOn: true,  render: (d) => d.rtdMm != null ? `${d.rtdMm} mm` : null },
   { key: "psiRecomendado",    label: "Presión recomendada",     defaultOn: true,  render: (d) => d.psiRecomendado != null ? `${d.psiRecomendado} PSI` : null },
   { key: "pesoKg",            label: "Peso",                    defaultOn: false, render: (d) => d.pesoKg != null ? `${d.pesoKg} kg` : null },
+  { key: "cinturones",        label: "Cinturones",              defaultOn: true,  render: (d) => d.cinturones },
+  { key: "pr",                label: "PR (ply rating)",         defaultOn: true,  render: (d) => d.pr },
   { key: "ejeTirePro",        label: "Eje",                     defaultOn: true,  render: (d) => d.ejeTirePro ?? d.posicion },
   { key: "terreno",           label: "Terreno",                 defaultOn: true,  render: (d) => d.terreno },
   { key: "pctUso",            label: "Pavimento / Destapado",   defaultOn: false, render: (d) => `${d.pctPavimento}% / ${d.pctDestapado}%` },
@@ -160,6 +168,13 @@ export default function CatalogoSkuDetailPage() {
   const [videoDeleting, setVideoDeleting] = useState(false);
   const [generating,    setGenerating]    = useState(false);
   const [toast,         setToast]         = useState<string>("");
+  // Admin-only edit modal — only `admin` role distribuidor users can
+  // mutate the master catalog row, since it's shared with every other
+  // distributor viewing the same SKU.
+  const [isAdmin,       setIsAdmin]       = useState(false);
+  const [editOpen,      setEditOpen]      = useState(false);
+  const [editDraft,     setEditDraft]     = useState<Record<string, any>>({});
+  const [saving,        setSaving]        = useState(false);
 
   const fileInput  = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
@@ -169,6 +184,7 @@ export default function CatalogoSkuDetailPage() {
     try {
       const userRaw = localStorage.getItem("user");
       const user = userRaw ? JSON.parse(userRaw) : null;
+      if (user?.role === "admin") setIsAdmin(true);
       if (user?.name && !repName) setRepName(user.name);
       if (user?.companyId) {
         authFetch(`${API_BASE}/companies/${user.companyId}`)
@@ -273,6 +289,60 @@ export default function CatalogoSkuDetailPage() {
     } finally {
       setVideoUploading(false);
       if (videoInput.current) videoInput.current.value = "";
+    }
+  }
+
+  // Prefill the edit draft from the current SKU and open the modal.
+  function openEdit() {
+    if (!sku) return;
+    setEditDraft({
+      marca: sku.marca, modelo: sku.modelo, dimension: sku.dimension,
+      skuRef: sku.skuRef,
+      anchoMm: sku.anchoMm, perfil: sku.perfil, rin: sku.rin,
+      ejeTirePro: sku.ejeTirePro, posicion: sku.posicion, terreno: sku.terreno,
+      pctPavimento: sku.pctPavimento, pctDestapado: sku.pctDestapado,
+      rtdMm: sku.rtdMm, indiceCarga: sku.indiceCarga, indiceVelocidad: sku.indiceVelocidad,
+      psiRecomendado: sku.psiRecomendado, pesoKg: sku.pesoKg,
+      cinturones: sku.cinturones, pr: sku.pr,
+      kmEstimadosReales: sku.kmEstimadosReales, kmEstimadosFabrica: sku.kmEstimadosFabrica,
+      reencauchable: sku.reencauchable, vidasReencauche: sku.vidasReencauche,
+      precioCop: sku.precioCop, cpkEstimado: sku.cpkEstimado,
+      categoria: sku.categoria, segmento: sku.segmento, tipo: sku.tipo,
+      construccion: sku.construccion, notasColombia: sku.notasColombia,
+      fuente: sku.fuente, url: sku.url,
+    });
+    setEditOpen(true);
+  }
+
+  async function onSaveEdit() {
+    if (!sku) return;
+    setSaving(true); setError("");
+    try {
+      // Normalize: blank strings → null so they clear the DB value.
+      // Numeric fields: coerce string inputs back to number, but keep
+      // null-or-undefined when the user cleared them.
+      const payload: Record<string, any> = {};
+      for (const [k, v] of Object.entries(editDraft)) {
+        if (v === "" || v === undefined) payload[k] = null;
+        else payload[k] = v;
+      }
+      const res = await authFetch(`${API_BASE}/catalog/dist/${sku.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(t || `HTTP ${res.status}`);
+      }
+      setEditOpen(false);
+      setToast("Ficha actualizada");
+      setTimeout(() => setToast(""), 3000);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -593,7 +663,17 @@ export default function CatalogoSkuDetailPage() {
           <section className="space-y-4">
             {/* Spec sheet */}
             <div className="rounded-2xl p-4 sm:p-5" style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)" }}>
-              <h2 className="text-sm font-black text-[#0A183A] mb-3">Ficha técnica</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-black text-[#0A183A]">Ficha técnica</h2>
+                {isAdmin && (
+                  <button onClick={openEdit}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all hover:opacity-90"
+                    style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.25)" }}>
+                    <Edit3 className="w-3 h-3" />
+                    Editar
+                  </button>
+                )}
+              </div>
               <div className="space-y-1.5">
                 {FIELDS.map((f) => {
                   const v = f.render(sku);
@@ -727,6 +807,207 @@ export default function CatalogoSkuDetailPage() {
           </section>
         </div>
       </div>
+
+      {/* Admin edit modal — only rendered when the user clicked Editar. */}
+      {editOpen && sku && (
+        <EditFichaModal
+          draft={editDraft}
+          setDraft={setEditDraft}
+          saving={saving}
+          onCancel={() => setEditOpen(false)}
+          onSave={onSaveEdit}
+        />
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Edit modal
+// =============================================================================
+
+function EditFichaModal({
+  draft, setDraft, saving, onCancel, onSave,
+}: {
+  draft: Record<string, any>;
+  setDraft: (d: Record<string, any>) => void;
+  saving: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  const set = (key: string, val: any) => setDraft({ ...draft, [key]: val });
+  const txt = (key: string, label: string, placeholder = "") => (
+    <FieldRow label={label}>
+      <input type="text" value={draft[key] ?? ""} placeholder={placeholder}
+        onChange={(e) => set(key, e.target.value)}
+        className="w-full px-2.5 py-1.5 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+        style={{ background: "white", border: "1px solid rgba(52,140,203,0.25)" }} />
+    </FieldRow>
+  );
+  const numF = (key: string, label: string, step = "1") => (
+    <FieldRow label={label}>
+      <input type="number" step={step} value={draft[key] ?? ""}
+        onChange={(e) => set(key, e.target.value === "" ? null : Number(e.target.value))}
+        className="w-full px-2.5 py-1.5 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+        style={{ background: "white", border: "1px solid rgba(52,140,203,0.25)" }} />
+    </FieldRow>
+  );
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,24,58,0.55)" }}>
+      <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-xl"
+        style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+        <div className="sticky top-0 flex items-center justify-between px-5 py-3 bg-white"
+          style={{ borderBottom: "1px solid rgba(52,140,203,0.1)" }}>
+          <div>
+            <p className="text-sm font-black text-[#0A183A]">Editar ficha del SKU</p>
+            <p className="text-[10px] text-gray-400">Los cambios impactan el catálogo compartido con todos los distribuidores</p>
+          </div>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-gray-100">
+            <X className="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <Fieldset title="Identidad">
+            <Grid2>
+              {txt("marca",     "Marca")}
+              {txt("modelo",    "Modelo")}
+              {txt("dimension", "Dimensión", "295/80R22.5")}
+              {txt("skuRef",    "SKU")}
+            </Grid2>
+          </Fieldset>
+
+          <Fieldset title="Medida">
+            <Grid2>
+              {numF("anchoMm", "Ancho (mm)")}
+              {txt("perfil",  "Perfil")}
+              {txt("rin",     "Rin")}
+            </Grid2>
+          </Fieldset>
+
+          <Fieldset title="Aplicación">
+            <Grid2>
+              <FieldRow label="Eje TirePro">
+                <select value={draft.ejeTirePro ?? ""}
+                  onChange={(e) => set("ejeTirePro", e.target.value || null)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs text-[#0A183A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                  style={{ border: "1px solid rgba(52,140,203,0.25)" }}>
+                  <option value="">—</option>
+                  <option value="direccion">direccion</option>
+                  <option value="traccion">traccion</option>
+                  <option value="libre">libre</option>
+                  <option value="remolque">remolque</option>
+                  <option value="repuesto">repuesto</option>
+                </select>
+              </FieldRow>
+              {txt("posicion", "Posición (D/T/AP/R)")}
+              {txt("terreno",  "Terreno", "Carretera / Mixto / …")}
+              {numF("pctPavimento", "% Pavimento")}
+              {numF("pctDestapado", "% Destapado")}
+              <FieldRow label="Categoría">
+                <select value={draft.categoria ?? ""}
+                  onChange={(e) => set("categoria", e.target.value || null)}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs text-[#0A183A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                  style={{ border: "1px solid rgba(52,140,203,0.25)" }}>
+                  <option value="">—</option>
+                  <option value="nueva">nueva</option>
+                  <option value="reencauche">reencauche</option>
+                </select>
+              </FieldRow>
+            </Grid2>
+          </Fieldset>
+
+          <Fieldset title="Desempeño">
+            <Grid2>
+              {numF("rtdMm", "RTD inicial (mm)", "0.1")}
+              {txt("indiceCarga",     "Índice de carga", "152/148")}
+              {txt("indiceVelocidad", "Índice de velocidad", "M")}
+              {numF("psiRecomendado", "PSI recomendado")}
+              {numF("pesoKg",         "Peso (kg)", "0.1")}
+              {txt("cinturones",      "Cinturones", "4B+2N")}
+              {txt("pr",              "PR (ply rating)", "16PR")}
+            </Grid2>
+          </Fieldset>
+
+          <Fieldset title="Vida útil & Reencauche">
+            <Grid2>
+              {numF("kmEstimadosReales",  "Km estimados reales")}
+              {numF("kmEstimadosFabrica", "Km estimados fábrica")}
+              <FieldRow label="Reencauchable">
+                <select value={draft.reencauchable === true ? "true" : draft.reencauchable === false ? "false" : ""}
+                  onChange={(e) => set("reencauchable", e.target.value === "true")}
+                  className="w-full px-2.5 py-1.5 rounded-lg text-xs text-[#0A183A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                  style={{ border: "1px solid rgba(52,140,203,0.25)" }}>
+                  <option value="true">Sí</option>
+                  <option value="false">No</option>
+                </select>
+              </FieldRow>
+              {numF("vidasReencauche", "Vidas de reencauche")}
+            </Grid2>
+          </Fieldset>
+
+          <Fieldset title="Comercial">
+            <Grid2>
+              {numF("precioCop",   "Precio COP")}
+              {numF("cpkEstimado", "CPK estimado", "0.01")}
+            </Grid2>
+          </Fieldset>
+
+          <Fieldset title="Clasificación">
+            <Grid2>
+              {txt("segmento",     "Segmento")}
+              {txt("tipo",         "Tipo", "Radial / Convencional")}
+              {txt("construccion", "Construcción", "Acero / Nylon")}
+              {txt("fuente",       "Fuente")}
+              {txt("url",          "URL")}
+            </Grid2>
+          </Fieldset>
+
+          <Fieldset title="Notas Colombia">
+            <textarea value={draft.notasColombia ?? ""}
+              rows={3}
+              onChange={(e) => set("notasColombia", e.target.value)}
+              className="w-full px-2.5 py-2 rounded-lg text-xs text-[#0A183A] bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+              style={{ border: "1px solid rgba(52,140,203,0.25)" }} />
+          </Fieldset>
+        </div>
+
+        <div className="sticky bottom-0 flex items-center justify-end gap-2 px-5 py-3 bg-white"
+          style={{ borderTop: "1px solid rgba(52,140,203,0.1)" }}>
+          <button onClick={onCancel} disabled={saving}
+            className="px-4 py-2 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40">
+            Cancelar
+          </button>
+          <button onClick={onSave} disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            {saving ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Fieldset({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-widest text-[#1E76B6] mb-2">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function Grid2({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{children}</div>;
+}
+
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-[9px] font-bold uppercase tracking-wide text-gray-500">{label}</label>
+      {children}
     </div>
   );
 }
