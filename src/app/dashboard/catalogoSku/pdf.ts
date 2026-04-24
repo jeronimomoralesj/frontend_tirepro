@@ -320,40 +320,43 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   if (input.ejeTirePro) chips.push({ label: input.ejeTirePro.charAt(0).toUpperCase() + input.ejeTirePro.slice(1), fill: brandT08, text: brand });
   if (input.reencauchable) chips.push({ label: "Reencauchable", fill: brandT15, text: brand });
 
-  y += 16;
-  // Right edge of the chip track. When the hero tile is present, stop the
-  // chips a bit before its left edge (14pt gutter). Otherwise use the full
-  // right margin.
+  y += 10;
+  // Chip geometry — worked through top-left coords (not baseline) so
+  // wrap math + centering is easier to reason about. Chip height 22pt
+  // with ~13pt baseline puts helvetica 9pt visually centered; 8pt
+  // row gap keeps wrapped rows breathing instead of glued together.
   const heroLeftX = pageW - M - HERO_W;
-  // productImages[0] is the first valid loaded tire image — stop chips
-  // a gutter before the hero tile so they never render behind it.
-  const chipMaxX = productImages[0] ? heroLeftX - 14 : pageW - M;
-  const chipRowH = 20;
-  let chipX = M;
-  let chipY = y;
+  const chipMaxX  = productImages[0] ? heroLeftX - 14 : pageW - M;
+  const chipH      = 22;
+  const chipGapX   = 8;
+  const chipGapY   = 8;
+  const chipPadX   = 12;
+  const chipFont   = 9;
+  const chipBaseY  = 15; // offset from chip top to text baseline
+
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
+  doc.setFontSize(chipFont);
+
+  let chipX   = M;
+  let chipTop = y;
   for (const chip of chips) {
     const label = chip.label.toUpperCase();
-    const tw = doc.getTextWidth(label);
-    const padX = 10;
-    const w = tw + padX * 2;
-    const h = 18;
-    // Wrap to a new row if this chip would blow past the hero/right margin.
-    // An empty row (chipX === M) still draws even if it overflows — better
-    // to clip than to silently drop.
+    const tw    = doc.getTextWidth(label);
+    const w     = tw + chipPadX * 2;
+    // Wrap to a new row if this chip would cross chipMaxX. Leave the
+    // very first chip on row 1 even if it overflows — that's always
+    // more readable than a stranded one-chip row above.
     if (chipX > M && chipX + w > chipMaxX) {
-      chipX = M;
-      chipY += chipRowH;
+      chipX   = M;
+      chipTop += chipH + chipGapY;
     }
     doc.setFillColor(...chip.fill);
-    doc.roundedRect(chipX, chipY - h + 2, w, h, 9, 9, "F");
+    doc.roundedRect(chipX, chipTop, w, chipH, chipH / 2, chipH / 2, "F");
     doc.setTextColor(...chip.text);
-    doc.text(label, chipX + padX, chipY - 2);
-    chipX += w + 6;
+    doc.text(label, chipX + chipPadX, chipTop + chipBaseY);
+    chipX += w + chipGapX;
   }
-  // Advance y past whatever row the chips ended on.
-  y = chipY;
+  y = chipTop + chipH;
 
   // ───────────────────────────────────────────────────────────────────────────
   // HERO IMAGE (right side of title block)
