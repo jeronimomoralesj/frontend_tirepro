@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen, Search, ChevronRight, Loader2, Package, Image as ImageIcon,
-  Filter, X, BarChart3, Plus, Lightbulb, Star, Sparkles, ShoppingCart,
+  Filter, X, BarChart3, Plus, Lightbulb, Star, Sparkles, ShoppingCart, Check,
 } from "lucide-react";
 import { useCatalogCart } from "./cart";
 
@@ -45,6 +45,14 @@ type CatalogRow = {
   rtdMm: number | null;
   indiceCarga: string | null;
   indiceVelocidad: string | null;
+  psiRecomendado: number | null;
+  pesoKg: number | null;
+  cinturones: string | null;
+  pr: string | null;
+  tipoBanda: string | null;
+  construccion: string | null;
+  segmento: string | null;
+  tipo: string | null;
   precioCop: number | null;
   kmEstimadosReales: number | null;
   reencauchable: boolean;
@@ -260,7 +268,7 @@ export default function CatalogoSkuPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {items.map((row) => <SkuCard key={row.id} row={row} />)}
+            {items.map((row) => <SkuCard key={row.id} row={row} cart={cart} />)}
           </div>
         )}
 
@@ -295,12 +303,49 @@ export default function CatalogoSkuPage() {
 // Sku card
 // =============================================================================
 
-function SkuCard({ row }: { row: CatalogRow }) {
+function SkuCard({ row, cart }: {
+  row: CatalogRow;
+  cart: ReturnType<typeof useCatalogCart>;
+}) {
   const cover = row.images[0]?.url;
   const price = row.precioCop;
+  const inCart = cart.has(row.id);
+  // Quick-add click: stop the outer Link's navigation, toggle the cart
+  // entry, and seed the line with qty=4 + catalog's precioCop as the
+  // default unit price so a rep can get to a quote without editing
+  // every field.
+  const onQuickAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (inCart) { cart.remove(row.id); return; }
+    cart.add({
+      catalogId: row.id,
+      marca:     row.marca,
+      modelo:    row.modelo,
+      dimension: row.dimension,
+      categoria: row.categoria,
+      terreno:   row.terreno,
+      ejeTirePro: row.ejeTirePro,
+      imageUrl:  row.images[0]?.url ?? null,
+      indiceCarga:     row.indiceCarga,
+      indiceVelocidad: row.indiceVelocidad,
+      rtdMm:           row.rtdMm,
+      psiRecomendado:  row.psiRecomendado,
+      pesoKg:          row.pesoKg,
+      cinturones:      row.cinturones,
+      pr:              row.pr,
+      reencauchable:   row.reencauchable,
+      tipoBanda:       row.tipoBanda,
+      construccion:    row.construccion,
+      segmento:        row.segmento,
+      tipo:            row.tipo,
+      quantity: 4,
+      unitPriceCop: row.precioCop ?? null,
+    });
+  };
   return (
     <Link href={`/dashboard/catalogoSku/${row.id}`}
-      className="group rounded-2xl overflow-hidden transition-all hover:shadow-md bg-white flex flex-col"
+      className="group rounded-2xl overflow-hidden transition-all hover:shadow-md bg-white flex flex-col relative"
       style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
       {/* Cover */}
       <div className="aspect-square relative flex items-center justify-center"
@@ -317,6 +362,19 @@ function SkuCard({ row }: { row: CatalogRow }) {
             REENC.
           </span>
         )}
+        {/* Quick-add — hover-reveal on desktop, always-on when the tire is
+            already in the cart (so the rep can scan which cards are
+            stacked). Mobile still has the detail-page "Agregar a
+            cotización" button; this one is a desktop accelerator. */}
+        <button onClick={onQuickAdd}
+          title={inCart ? "Quitar de la cotización" : "Agregar a cotización"}
+          className={`absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1.5 rounded-full text-[10px] font-bold text-white shadow-sm transition-opacity ${
+            inCart ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+          }`}
+          style={{ background: inCart ? "rgba(16,185,129,0.95)" : "rgba(30,118,182,0.95)" }}>
+          {inCart ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+          {inCart ? "En cotización" : "Cotización"}
+        </button>
       </div>
       {/* Body */}
       <div className="p-3 flex-1 flex flex-col">

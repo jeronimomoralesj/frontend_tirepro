@@ -982,6 +982,20 @@ export default function CatalogoSkuDetailPage() {
                     terreno:   sku.terreno,
                     ejeTirePro: sku.ejeTirePro,
                     imageUrl:  sku.images[0]?.url ?? null,
+                    // Full ficha snapshot — covers every field the quote
+                    // PDF's ficha-field toggles can render.
+                    indiceCarga:     sku.indiceCarga,
+                    indiceVelocidad: sku.indiceVelocidad,
+                    rtdMm:           sku.rtdMm,
+                    psiRecomendado:  sku.psiRecomendado,
+                    pesoKg:          sku.pesoKg,
+                    cinturones:      sku.cinturones,
+                    pr:              sku.pr,
+                    reencauchable:   sku.reencauchable,
+                    tipoBanda:       sku.tipoBanda,
+                    construccion:    sku.construccion,
+                    segmento:        sku.segmento,
+                    tipo:            sku.tipo,
                     quantity:  4,
                     unitPriceCop: Number(priceInput.replace(/[^0-9]/g, "")) || sku.precioCop || null,
                   });

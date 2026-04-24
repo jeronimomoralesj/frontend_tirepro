@@ -17,7 +17,35 @@ import {
   Image as ImageIcon, CheckCircle2, AlertCircle, X,
 } from "lucide-react";
 import { useCatalogCart, type CartItem } from "../cart";
-import { buildQuotePdf, type QuoteInput } from "../pdf";
+import { buildQuotePdf, type QuoteInput, type QuoteIncludeFields } from "../pdf";
+
+// Master list of toggleable ficha fields shown on the cotización page.
+// Ordering matches the order the PDF renders each segment — keeping
+// them lockstep so what the user sees in the checklist is what prints.
+const FICHA_FIELDS: Array<{ key: keyof QuoteIncludeFields; label: string; defaultOn?: boolean }> = [
+  { key: "dimension",       label: "Dimensión",        defaultOn: false }, // already in the title, optional to repeat
+  { key: "categoria",       label: "Nueva / Reencauche", defaultOn: true },
+  { key: "terreno",         label: "Terreno",          defaultOn: true },
+  { key: "ejeTirePro",      label: "Eje",              defaultOn: true },
+  { key: "indiceCarga",     label: "Índice de carga",  defaultOn: true },
+  { key: "indiceVelocidad", label: "Índice de velocidad" },
+  { key: "rtdMm",           label: "Profundidad inicial" },
+  { key: "psiRecomendado",  label: "PSI recomendado" },
+  { key: "pesoKg",          label: "Peso" },
+  { key: "cinturones",      label: "Cinturones" },
+  { key: "pr",              label: "PR (ply rating)" },
+  { key: "reencauchable",   label: "Reencauchabilidad", defaultOn: true },
+  { key: "tipoBanda",       label: "Tipo de banda",    defaultOn: true },
+  { key: "construccion",    label: "Construcción" },
+  { key: "segmento",        label: "Segmento" },
+  { key: "tipo",            label: "Tipo" },
+];
+function defaultFichaToggles(): QuoteIncludeFields {
+  return FICHA_FIELDS.reduce<QuoteIncludeFields>((acc, f) => {
+    if (f.defaultOn) acc[f.key] = true;
+    return acc;
+  }, {});
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
@@ -54,6 +82,10 @@ export default function CotizacionPage() {
   const [clientNotes, setClientNotes] = useState("");
   const [priceMode,  setPriceMode]   = useState<"none" | "sin_iva" | "con_iva">("sin_iva");
   const [displayMode, setDisplayMode] = useState<"individual" | "total">("total");
+  // What ficha fields to print under each tire in the PDF. Seeded with a
+  // sensible "scan-sheet" default; rep can flip extras on for a more
+  // detailed quote (indiceCarga, rtd, psi, cinturones, pr, …).
+  const [fichaFields, setFichaFields] = useState<QuoteIncludeFields>(defaultFichaToggles);
   const [generating, setGenerating]  = useState(false);
   const [toast,      setToast]       = useState("");
   const [error,      setError]       = useState("");
@@ -114,19 +146,33 @@ export default function CotizacionPage() {
         clientName:     clientName.trim() || null,
         clientNotes:    clientNotes.trim() || null,
         items: items.map((it) => ({
-          catalogId:    it.catalogId,
-          marca:        it.marca,
-          modelo:       it.modelo,
-          dimension:    it.dimension,
-          categoria:    it.categoria,
-          terreno:      it.terreno,
-          ejeTirePro:   it.ejeTirePro,
-          imageUrl:     it.imageUrl,
-          quantity:     Math.max(1, it.quantity || 1),
-          unitPriceCop: it.unitPriceCop,
+          catalogId:       it.catalogId,
+          marca:           it.marca,
+          modelo:          it.modelo,
+          dimension:       it.dimension,
+          categoria:       it.categoria,
+          terreno:         it.terreno,
+          ejeTirePro:      it.ejeTirePro,
+          imageUrl:        it.imageUrl,
+          // Full ficha snapshot — renderer only draws what fichaFields enables.
+          indiceCarga:     it.indiceCarga     ?? null,
+          indiceVelocidad: it.indiceVelocidad ?? null,
+          rtdMm:           it.rtdMm           ?? null,
+          psiRecomendado:  it.psiRecomendado  ?? null,
+          pesoKg:          it.pesoKg          ?? null,
+          cinturones:      it.cinturones      ?? null,
+          pr:              it.pr              ?? null,
+          reencauchable:   it.reencauchable   ?? null,
+          tipoBanda:       it.tipoBanda       ?? null,
+          construccion:    it.construccion    ?? null,
+          segmento:        it.segmento        ?? null,
+          tipo:            it.tipo            ?? null,
+          quantity:        Math.max(1, it.quantity || 1),
+          unitPriceCop:    it.unitPriceCop,
         })),
         priceMode,
         displayMode,
+        includeFields: fichaFields,
         fetchViaProxy: proxyFetcher,
       };
 
@@ -315,13 +361,41 @@ export default function CotizacionPage() {
                     style={{ background: "white", border: "1px solid rgba(52,140,203,0.2)" }} />
                 </div>
 
-                <div className="mb-1">
+                <div className="mb-3">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB] mb-1">Notas</p>
                   <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)}
                     placeholder="Ej: validez 15 días, entrega en bodega…"
                     rows={2}
                     className="w-full px-2.5 py-1.5 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6] resize-none"
                     style={{ background: "white", border: "1px solid rgba(52,140,203,0.2)" }} />
+                </div>
+
+                {/* Ficha fields — per-PDF picker for what each tire row
+                    shows below its name. Defaults match the previous
+                    compact layout; toggling extras on gives the PDF a
+                    richer specs line (wraps to multiple lines if needed). */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB] mb-1.5">
+                    Ficha técnica en el PDF
+                  </p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {FICHA_FIELDS.map((f) => {
+                      const on = !!fichaFields[f.key];
+                      return (
+                        <label key={f.key}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] cursor-pointer transition-colors"
+                          style={{
+                            background: on ? "rgba(30,118,182,0.08)" : "white",
+                            border: `1px solid ${on ? "rgba(30,118,182,0.25)" : "rgba(52,140,203,0.12)"}`,
+                          }}>
+                          <input type="checkbox" checked={on}
+                            onChange={(e) => setFichaFields((prev) => ({ ...prev, [f.key]: e.target.checked }))}
+                            className="accent-[#1E76B6]" />
+                          <span className="text-[#0A183A] truncate">{f.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

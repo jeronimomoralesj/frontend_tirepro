@@ -20,8 +20,24 @@ export type CartItem = {
   terreno:    string | null;
   ejeTirePro: string | null;
   imageUrl:   string | null;
-  // Per-line editable values — seed with catalog defaults, user tunes on
-  // the quote page.
+  // Full ficha snapshot — captured at add-time so the quote PDF can
+  // render any ficha-técnica field the rep toggles on without having
+  // to round-trip to the backend at generate time. Everything is
+  // optional; missing fields simply don't render.
+  indiceCarga?:     string | null;
+  indiceVelocidad?: string | null;
+  rtdMm?:           number | null;
+  psiRecomendado?:  number | null;
+  pesoKg?:          number | null;
+  cinturones?:      string | null;
+  pr?:              string | null;
+  reencauchable?:   boolean | null;
+  tipoBanda?:       string | null;
+  construccion?:    string | null;
+  segmento?:        string | null;
+  tipo?:            string | null;
+  // Per-line editable values — seed with catalog defaults, user tunes
+  // on the quote page.
   quantity:     number;
   unitPriceCop: number | null;
 };

@@ -652,9 +652,31 @@ export type QuoteItem = {
   terreno:   string | null;
   ejeTirePro:string | null;
   imageUrl:  string | null;
+  // Ficha snapshot — renders conditionally based on QuoteInput.includeFields.
+  indiceCarga?:     string | null;
+  indiceVelocidad?: string | null;
+  rtdMm?:           number | null;
+  psiRecomendado?:  number | null;
+  pesoKg?:          number | null;
+  cinturones?:      string | null;
+  pr?:              string | null;
+  reencauchable?:   boolean | null;
+  tipoBanda?:       string | null;
+  construccion?:    string | null;
+  segmento?:        string | null;
+  tipo?:            string | null;
   quantity:  number;
   unitPriceCop: number | null;
 };
+
+/** Which ficha-técnica fields to print on each quote row. */
+export type QuoteIncludeFields = Partial<Record<
+  | "categoria" | "terreno" | "ejeTirePro" | "dimension"
+  | "indiceCarga" | "indiceVelocidad" | "rtdMm" | "psiRecomendado"
+  | "pesoKg" | "cinturones" | "pr" | "reencauchable" | "tipoBanda"
+  | "construccion" | "segmento" | "tipo",
+  boolean
+>>;
 
 export type QuoteInput = {
   companyName:    string | null;
@@ -671,6 +693,10 @@ export type QuoteInput = {
   // "individual": comparative layout, per-unit prices, no grand total
   // "total":      purchase layout, line totals + grand total row
   displayMode: "individual" | "total";
+  // Which ficha fields to include under each row. When undefined the
+  // renderer falls back to a minimal "dimension · categoria · terreno
+  // · eje" line so old callers keep working.
+  includeFields?: QuoteIncludeFields;
   fetchViaProxy?: (url: string) => Promise<Blob | null>;
 };
 
@@ -783,8 +809,40 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
   const QTY_X      = pageW - M - 220;
   const UNIT_X     = pageW - M - 140;
   const TOTAL_X    = pageW - M - 4;
-  const ROW_H      = 70;
+  const ROW_MIN_H  = 70;
   const isTotal    = input.displayMode === "total";
+
+  // Default set when the caller didn't explicitly configure fields —
+  // matches the original compact subtitle so upgrading doesn't change
+  // output until the rep opts in to more.
+  const fields: QuoteIncludeFields = input.includeFields ?? {
+    categoria: true, terreno: true, ejeTirePro: true,
+  };
+  // Build the "specs line" for a given item. Each toggled field becomes
+  // one segment with a label-prefix so multi-value values like
+  // "16 PR / 4B+2N" stay readable when smushed together.
+  const buildSpecsLine = (it: QuoteItem): string => {
+    const bits: string[] = [];
+    if (fields.dimension       && it.dimension)       bits.push(it.dimension);
+    if (fields.categoria       && it.categoria)       bits.push(it.categoria);
+    if (fields.terreno         && it.terreno)         bits.push(it.terreno);
+    if (fields.ejeTirePro      && it.ejeTirePro)      bits.push(it.ejeTirePro);
+    if (fields.indiceCarga     && it.indiceCarga)     bits.push(`Carga ${it.indiceCarga}`);
+    if (fields.indiceVelocidad && it.indiceVelocidad) bits.push(`Vel. ${it.indiceVelocidad}`);
+    if (fields.rtdMm           && it.rtdMm != null)   bits.push(`${it.rtdMm} mm`);
+    if (fields.psiRecomendado  && it.psiRecomendado != null) bits.push(`${it.psiRecomendado} PSI`);
+    if (fields.pesoKg          && it.pesoKg != null)  bits.push(`${it.pesoKg} kg`);
+    if (fields.cinturones      && it.cinturones)      bits.push(`Cint. ${it.cinturones}`);
+    if (fields.pr              && it.pr)              bits.push(`${it.pr} PR`);
+    if (fields.reencauchable   && it.reencauchable != null) {
+      bits.push(it.reencauchable ? "Reencauchable" : "No reencauchable");
+    }
+    if (fields.tipoBanda       && it.tipoBanda)       bits.push(`Banda ${it.tipoBanda}`);
+    if (fields.construccion    && it.construccion)    bits.push(it.construccion);
+    if (fields.segmento        && it.segmento)        bits.push(it.segmento);
+    if (fields.tipo            && it.tipo)            bits.push(it.tipo);
+    return bits.join("  ·  ");
+  };
 
   const drawTableHeader = (y0: number): number => {
     doc.setFillColor(...brandT08);
@@ -803,9 +861,25 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
 
   // ─── ITEM ROWS ──────────────────────────────────────────────────────────
   for (let i = 0; i < input.items.length; i++) {
-    // Page break if the next row + footer would overflow.
-    if (y + ROW_H > pageH - 120) {
-      // Footer on the page we're leaving.
+    const it   = input.items[i];
+    const thumb = thumbDatas[i];
+
+    // Measure the specs line so we know how tall the row must be. Width
+    // budget is (everything to the left of the qty column, minus a pad).
+    const textX   = M + 10 + 54 + 14;
+    const specsW  = QTY_X - textX - 14;
+    const specsText = buildSpecsLine(it);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    const specsLines = specsText
+      ? (doc.splitTextToSize(specsText, specsW) as string[]).slice(0, 3)
+      : [];
+    // Base row = identity block (marca 8pt + modelo 12pt + dimension
+    // 10pt) plus one spec line; each extra spec line adds ~11pt.
+    const rowH = Math.max(ROW_MIN_H, 62 + specsLines.length * 11);
+
+    // Page break if the whole row + footer breathing room would overflow.
+    if (y + rowH > pageH - 120) {
       drawFooter(doc, pageW, pageH, M, brand, input.companyName);
       doc.addPage();
       doc.setFillColor(...brand);
@@ -814,20 +888,17 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
       y = drawTableHeader(y);
     }
 
-    const it   = input.items[i];
-    const thumb = thumbDatas[i];
-
     // Row backdrop
     doc.setFillColor(255, 255, 255);
-    doc.roundedRect(M, y, pageW - 2 * M, ROW_H, 8, 8, "F");
+    doc.roundedRect(M, y, pageW - 2 * M, rowH, 8, 8, "F");
     doc.setDrawColor(...FALLBACK.line);
     doc.setLineWidth(0.5);
-    doc.roundedRect(M, y, pageW - 2 * M, ROW_H, 8, 8, "S");
+    doc.roundedRect(M, y, pageW - 2 * M, rowH, 8, 8, "S");
 
     // Thumb (left)
     const thumbX = M + 10;
     const thumbY = y + 8;
-    const thumbW = 54, thumbH = ROW_H - 16;
+    const thumbW = 54, thumbH = rowH - 16;
     doc.setFillColor(...FALLBACK.page);
     doc.roundedRect(thumbX, thumbY, thumbW, thumbH, 6, 6, "F");
     if (thumb) {
@@ -843,7 +914,6 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     }
 
     // Identity column
-    const textX = thumbX + thumbW + 14;
     doc.setTextColor(...brand);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
@@ -856,37 +926,40 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     doc.setFontSize(10);
     doc.setTextColor(...brand);
     doc.text(it.dimension, textX, y + 48);
-    // Sub-specs line
-    const subBits = [it.categoria, it.terreno, it.ejeTirePro].filter(Boolean);
-    if (subBits.length > 0) {
-      doc.setFontSize(8);
+
+    // Specs line(s) — multi-line support
+    if (specsLines.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
       doc.setTextColor(...FALLBACK.muted);
-      doc.text(subBits.join("  ·  "), textX, y + 62);
+      let sy = y + 62;
+      for (const ln of specsLines) { doc.text(ln, textX, sy); sy += 11; }
     }
 
-    // Qty / unit / total columns
+    // Qty / unit / total columns — vertically centered to the row.
+    const moneyY = y + rowH / 2 + 4;
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text(String(it.quantity), QTY_X, y + 38, { align: "right" });
+    doc.text(String(it.quantity), QTY_X, moneyY, { align: "right" });
 
     doc.setFontSize(11);
     if (input.priceMode === "none" || it.unitPriceCop == null || it.unitPriceCop <= 0) {
       doc.setTextColor(...FALLBACK.muted);
-      doc.text("—", UNIT_X, y + 38, { align: "right" });
-      if (isTotal) doc.text("—", TOTAL_X, y + 38, { align: "right" });
+      doc.text("—", UNIT_X, moneyY, { align: "right" });
+      if (isTotal) doc.text("—", TOTAL_X, moneyY, { align: "right" });
     } else {
       const unit  = effectiveUnit(it.unitPriceCop);
       const line  = lineTotal(it);
-      doc.text(fmtCOP(unit), UNIT_X, y + 38, { align: "right" });
+      doc.text(fmtCOP(unit), UNIT_X, moneyY, { align: "right" });
       if (isTotal) {
         doc.setTextColor(...brand);
         doc.setFont("helvetica", "bold");
-        doc.text(fmtCOP(line), TOTAL_X, y + 38, { align: "right" });
+        doc.text(fmtCOP(line), TOTAL_X, moneyY, { align: "right" });
       }
     }
 
-    y += ROW_H + 8;
+    y += rowH + 8;
   }
 
   y += 4;
