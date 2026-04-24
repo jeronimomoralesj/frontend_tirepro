@@ -53,6 +53,7 @@ type CatalogDetail = {
   kmEstimadosFabrica: number | null;
   reencauchable: boolean;
   vidasReencauche: number;
+  tipoBanda: string | null;
   precioCop: number | null;
   cpkEstimado: number | null;
   segmento: string | null;
@@ -96,7 +97,7 @@ type FieldKey =
   | "dimension" | "indiceCarga" | "indiceVelocidad" | "rtdMm" | "psiRecomendado"
   | "pesoKg"    | "cinturones"  | "pr"              | "ejeTirePro"
   | "terreno"   | "pctUso"
-  | "reencauchable" | "construccion" | "segmento" | "tipo" | "skuRef";
+  | "reencauchable" | "tipoBanda" | "construccion" | "segmento" | "tipo" | "skuRef";
 
 type FieldDef = { key: FieldKey; label: string; defaultOn: boolean; render: (d: CatalogDetail) => string | null };
 
@@ -118,6 +119,7 @@ const FIELDS: FieldDef[] = [
   { key: "terreno",           label: "Terreno",                 defaultOn: true,  render: (d) => d.terreno },
   { key: "pctUso",            label: "Pavimento / Destapado",   defaultOn: false, render: (d) => `${d.pctPavimento}% / ${d.pctDestapado}%` },
   { key: "reencauchable",     label: "Reencauchabilidad",       defaultOn: true,  render: (d) => d.reencauchable ? `Sí · hasta ${d.vidasReencauche || 3} vidas` : "No" },
+  { key: "tipoBanda",         label: "Tipo de banda",           defaultOn: true,  render: (d) => d.tipoBanda },
   { key: "construccion",      label: "Construcción",            defaultOn: false, render: (d) => d.construccion },
   { key: "segmento",          label: "Segmento",                defaultOn: false, render: (d) => d.segmento },
   { key: "tipo",              label: "Tipo",                    defaultOn: false, render: (d) => d.tipo },
@@ -295,6 +297,10 @@ export default function CatalogoSkuDetailPage() {
   // Prefill the edit draft from the current SKU and open the modal.
   function openEdit() {
     if (!sku) return;
+    // Seed only fields the dist admin is allowed to mutate. Fleet-
+    // derived fields (vidasReencauche, kmEstimados*, precioCop,
+    // cpkEstimado) live on the row but aren't exposed here — TirePro
+    // computes them from real averages.
     setEditDraft({
       marca: sku.marca, modelo: sku.modelo, dimension: sku.dimension,
       skuRef: sku.skuRef,
@@ -304,9 +310,7 @@ export default function CatalogoSkuDetailPage() {
       rtdMm: sku.rtdMm, indiceCarga: sku.indiceCarga, indiceVelocidad: sku.indiceVelocidad,
       psiRecomendado: sku.psiRecomendado, pesoKg: sku.pesoKg,
       cinturones: sku.cinturones, pr: sku.pr,
-      kmEstimadosReales: sku.kmEstimadosReales, kmEstimadosFabrica: sku.kmEstimadosFabrica,
-      reencauchable: sku.reencauchable, vidasReencauche: sku.vidasReencauche,
-      precioCop: sku.precioCop, cpkEstimado: sku.cpkEstimado,
+      reencauchable: sku.reencauchable, tipoBanda: sku.tipoBanda,
       categoria: sku.categoria, segmento: sku.segmento, tipo: sku.tipo,
       construccion: sku.construccion, notasColombia: sku.notasColombia,
       fuente: sku.fuente, url: sku.url,
@@ -929,10 +933,8 @@ function EditFichaModal({
             </Grid2>
           </Fieldset>
 
-          <Fieldset title="Vida útil & Reencauche">
+          <Fieldset title="Reencauche">
             <Grid2>
-              {numF("kmEstimadosReales",  "Km estimados reales")}
-              {numF("kmEstimadosFabrica", "Km estimados fábrica")}
               <FieldRow label="Reencauchable">
                 <select value={draft.reencauchable === true ? "true" : draft.reencauchable === false ? "false" : ""}
                   onChange={(e) => set("reencauchable", e.target.value === "true")}
@@ -942,15 +944,11 @@ function EditFichaModal({
                   <option value="false">No</option>
                 </select>
               </FieldRow>
-              {numF("vidasReencauche", "Vidas de reencauche")}
+              {txt("tipoBanda", "Tipo de banda", "Ej: Bandag BDR-HT")}
             </Grid2>
-          </Fieldset>
-
-          <Fieldset title="Comercial">
-            <Grid2>
-              {numF("precioCop",   "Precio COP")}
-              {numF("cpkEstimado", "CPK estimado", "0.01")}
-            </Grid2>
+            <p className="text-[10px] text-gray-400 mt-2">
+              Las vidas de reencauche, los kilómetros estimados y el precio se calculan con promedios de toda la red de TirePro.
+            </p>
           </Fieldset>
 
           <Fieldset title="Clasificación">

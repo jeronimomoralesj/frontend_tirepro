@@ -28,6 +28,7 @@ interface SkuRow {
   kmEstimadosFabrica: number | null
   reencauchable: boolean
   vidasReencauche: number
+  tipoBanda: string | null
   precioCop: number | null
   cpkEstimado: number | null
   categoria: string | null
@@ -540,6 +541,14 @@ function SkuEditModal({
                   type="number"
                   value={sku.vidasReencauche ?? 0}
                   onChange={(v) => set('vidasReencauche', num(v) ?? 0)}
+                />
+              </Field>
+              <Field label="Tipo de banda">
+                <Input
+                  type="text"
+                  placeholder="Ej: Bandag BDR-HT"
+                  value={sku.tipoBanda ?? ''}
+                  onChange={(v) => set('tipoBanda', v)}
                 />
               </Field>
             </Grid>
