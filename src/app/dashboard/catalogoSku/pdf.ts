@@ -256,6 +256,11 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   doc.setFillColor(...brand);
   doc.rect(0, 94, 4, pageH - 94, "F");
 
+  // Hero tile dimensions — hoisted so the chip row can measure how wide
+  // it may grow before overlapping the image.
+  const HERO_TOP = 120;
+  const HERO_W = 240, HERO_H = 200;
+
   // ───────────────────────────────────────────────────────────────────────────
   // TITLE BLOCK
   // ───────────────────────────────────────────────────────────────────────────
@@ -301,7 +306,9 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   doc.text(input.dimension, M, y);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // CHIP ROW — at-a-glance attributes
+  // CHIP ROW — at-a-glance attributes. Constrained to the left column so
+  // chips never run UNDER the hero tile. Wraps to a second row when the
+  // first one fills up (common with long terreno / eje labels).
   // ───────────────────────────────────────────────────────────────────────────
   const chips: Array<{ label: string; fill: [number, number, number]; text: [number, number, number] }> = [];
   chips.push({
@@ -314,26 +321,43 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   if (input.reencauchable) chips.push({ label: "Reencauchable", fill: brandT15, text: brand });
 
   y += 16;
+  // Right edge of the chip track. When the hero tile is present, stop the
+  // chips a bit before its left edge (14pt gutter). Otherwise use the full
+  // right margin.
+  const heroLeftX = pageW - M - HERO_W;
+  // productImages[0] is the first valid loaded tire image — stop chips
+  // a gutter before the hero tile so they never render behind it.
+  const chipMaxX = productImages[0] ? heroLeftX - 14 : pageW - M;
+  const chipRowH = 20;
   let chipX = M;
+  let chipY = y;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
   for (const chip of chips) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    const tw = doc.getTextWidth(chip.label);
-    const padX = 10, padY = 5;
+    const label = chip.label.toUpperCase();
+    const tw = doc.getTextWidth(label);
+    const padX = 10;
     const w = tw + padX * 2;
     const h = 18;
+    // Wrap to a new row if this chip would blow past the hero/right margin.
+    // An empty row (chipX === M) still draws even if it overflows — better
+    // to clip than to silently drop.
+    if (chipX > M && chipX + w > chipMaxX) {
+      chipX = M;
+      chipY += chipRowH;
+    }
     doc.setFillColor(...chip.fill);
-    doc.roundedRect(chipX, y - h + 2, w, h, 9, 9, "F");
+    doc.roundedRect(chipX, chipY - h + 2, w, h, 9, 9, "F");
     doc.setTextColor(...chip.text);
-    doc.text(chip.label.toUpperCase(), chipX + padX, y - 2);
+    doc.text(label, chipX + padX, chipY - 2);
     chipX += w + 6;
   }
+  // Advance y past whatever row the chips ended on.
+  y = chipY;
 
   // ───────────────────────────────────────────────────────────────────────────
   // HERO IMAGE (right side of title block)
   // ───────────────────────────────────────────────────────────────────────────
-  const HERO_TOP = 120;
-  const HERO_W = 240, HERO_H = 200;
   const heroData = productImages[0];
   if (heroData) {
     const { w, h } = await imageDims(heroData);
@@ -367,26 +391,34 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   if (hasBrandContent && b) {
     y = drawSectionHeader(doc, "Acerca de la marca", M, y, pageW - M, brand);
     const cardTop = y + 4;
-    // Measure card height based on content.
-    const innerW = pageW - 2 * M - 24;
-    let cardH = 16; // top padding
+    const innerW  = pageW - 2 * M - 24;
 
+    // Pre-measure each chunk so we size the card exactly once. splitTextToSize
+    // handles all wrapping (including the facts line that used to overflow).
     doc.setFont("helvetica", "italic");
     doc.setFontSize(10);
-    if (b.tagline) {
-      const lines = doc.splitTextToSize(b.tagline, innerW);
-      cardH += Math.min(lines.length, 2) * 13;
-    }
+    const taglineLines = b.tagline
+      ? doc.splitTextToSize(b.tagline, innerW).slice(0, 2) as string[]
+      : [];
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
-    if (b.description) {
-      const lines = doc.splitTextToSize(b.description, innerW);
-      cardH += Math.min(lines.length, 3) * 12 + 4;
-    }
-    // Facts line — single row
-    const facts = factLine(b);
-    if (facts) cardH += 12;
-    cardH += 16; // bottom padding
+    const descLines = b.description
+      ? doc.splitTextToSize(b.description, innerW).slice(0, 3) as string[]
+      : [];
+
+    const factsText = factLine(b);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    const factsLines = factsText
+      ? doc.splitTextToSize(factsText, innerW).slice(0, 2) as string[]
+      : [];
+
+    let cardH = 16
+      + taglineLines.length * 13
+      + (descLines.length ? descLines.length * 12 + 4 : 0)
+      + (factsLines.length ? factsLines.length * 11 + 4 : 0)
+      + 14;
 
     doc.setFillColor(...FALLBACK.page);
     doc.roundedRect(M, cardTop, pageW - 2 * M, cardH, 10, 10, "F");
@@ -395,32 +427,24 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
     doc.roundedRect(M, cardTop, pageW - 2 * M, cardH, 10, 10, "S");
 
     let ty = cardTop + 18;
-    if (b.tagline) {
+    if (taglineLines.length) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(10);
       doc.setTextColor(...brand);
-      const lines = doc.splitTextToSize(b.tagline, innerW).slice(0, 2);
-      for (const ln of lines) {
-        doc.text(ln, M + 12, ty);
-        ty += 13;
-      }
+      for (const ln of taglineLines) { doc.text(ln, M + 12, ty); ty += 13; }
     }
-    if (b.description) {
+    if (descLines.length) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9.5);
       doc.setTextColor(...FALLBACK.ink);
-      const lines = doc.splitTextToSize(b.description, innerW).slice(0, 3);
-      for (const ln of lines) {
-        doc.text(ln, M + 12, ty);
-        ty += 12;
-      }
+      for (const ln of descLines) { doc.text(ln, M + 12, ty); ty += 12; }
+      ty += 4;
     }
-    if (facts) {
-      ty += 2;
+    if (factsLines.length) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
       doc.setTextColor(...FALLBACK.muted);
-      doc.text(facts, M + 12, ty);
+      for (const ln of factsLines) { doc.text(ln, M + 12, ty); ty += 11; }
     }
     y = cardTop + cardH + 14;
   }
@@ -523,34 +547,42 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // CONTACT CARD
+  // CONTACT CARD — guaranteed below all spec content. If there's no room
+  // left on page 1 (big spec table + big brand card push us past the
+  // footer line), start a fresh page and paint the rail there too so the
+  // brand anchor stays consistent.
   // ───────────────────────────────────────────────────────────────────────────
   const hasRep      = !!(input.repName || input.repPhone);
   const hasSiteCity = !!(input.companyWebsite || input.companyCity);
   if (hasRep || hasSiteCity) {
+    const contactNeed = 80;  // section header + card + breathing room
+    if (y + contactNeed > pageH - 60) {
+      doc.addPage();
+      doc.setFillColor(...brand);
+      doc.rect(0, 0, 4, pageH, "F");   // brand rail on page 2
+      y = 50;
+    }
     y = drawSectionHeader(doc, "Contacto", M, y + 4, pageW - M, brand);
     const boxH = 60;
     const boxY = y + 4;
-    // Keep the contact card on-page even if we're running long.
-    const safeTop = Math.min(boxY, pageH - 80 - boxH);
     doc.setFillColor(...brandT08);
-    doc.roundedRect(M, safeTop, pageW - 2 * M, boxH, 10, 10, "F");
+    doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 10, 10, "F");
 
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text(input.repName ?? input.companyName ?? "", M + 14, safeTop + 24);
+    doc.text(input.repName ?? input.companyName ?? "", M + 14, boxY + 24);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     const line2 = [input.repPhone, input.companyCity].filter(Boolean).join("  ·  ");
-    if (line2) doc.text(line2, M + 14, safeTop + 42);
+    if (line2) doc.text(line2, M + 14, boxY + 42);
 
     if (input.companyWebsite) {
       doc.setTextColor(...brand);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text(input.companyWebsite, pageW - M - 14, safeTop + 42, { align: "right" });
+      doc.text(input.companyWebsite, pageW - M - 14, boxY + 42, { align: "right" });
     }
   }
 
@@ -607,6 +639,13 @@ function factLine(b: PdfBrand): string | null {
   if (b.foundedYear)  parts.push(`Fundada en ${b.foundedYear}`);
   if (b.tier && TIER_LABEL[b.tier]) parts.push(TIER_LABEL[b.tier]);
   if (b.parentCompany) parts.push(`Casa matriz: ${b.parentCompany}`);
-  if (b.website)       parts.push(b.website);
+  // Strip protocol + trailing slash so "https://hankooktire.com/" lands
+  // as "hankooktire.com" — fits the line budget, reads cleaner in the
+  // uppercase fact line, and the brand page link in the web UI still
+  // carries the full URL if they want to click through.
+  if (b.website) {
+    const host = b.website.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+    parts.push(host);
+  }
   return parts.length ? parts.join("  ·  ").toUpperCase() : null;
 }
