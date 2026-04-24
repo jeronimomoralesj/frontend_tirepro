@@ -80,11 +80,17 @@ type CatalogVideo = {
 };
 
 type BrandInfo = {
-  name:    string;
-  slug:    string;
-  logoUrl: string | null;
-  country: string | null;
-  tier:    string | null;
+  name:          string;
+  slug:          string;
+  logoUrl:       string | null;
+  country:       string | null;
+  headquarters:  string | null;
+  foundedYear:   number | null;
+  website:       string | null;
+  description:   string | null;
+  parentCompany: string | null;
+  tier:          string | null;
+  tagline:       string | null;
 };
 
 // =============================================================================
@@ -178,6 +184,13 @@ export default function CatalogoSkuDetailPage() {
   const [editDraft,     setEditDraft]     = useState<Record<string, any>>({});
   const [saving,        setSaving]        = useState(false);
 
+  // Brand toggles for the PDF — each one maps to a piece of BrandInfo
+  // we pulled from /marketplace/brands/:slug. Two groups keeps the UI
+  // compact: editorial copy (tagline + description) vs. factual data
+  // (country, founded year, parent, tier, website).
+  const [brandIncludeAbout, setBrandIncludeAbout] = useState(true);
+  const [brandIncludeFacts, setBrandIncludeFacts] = useState(true);
+
   const fileInput  = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
 
@@ -257,11 +270,17 @@ export default function CatalogoSkuDetailPage() {
       .then((b) => {
         if (b && typeof b === "object") {
           setBrand({
-            name:    b.name    ?? sku.marca,
-            slug:    b.slug    ?? slug,
-            logoUrl: b.logoUrl ?? null,
-            country: b.country ?? null,
-            tier:    b.tier    ?? null,
+            name:          b.name    ?? sku.marca,
+            slug:          b.slug    ?? slug,
+            logoUrl:       b.logoUrl ?? null,
+            country:       b.country ?? null,
+            headquarters:  b.headquarters  ?? null,
+            foundedYear:   b.foundedYear   ?? null,
+            website:       b.website       ?? null,
+            description:   b.description   ?? null,
+            parentCompany: b.parentCompany ?? null,
+            tier:          b.tier    ?? null,
+            tagline:       b.tagline ?? null,
           });
         }
       })
@@ -432,6 +451,25 @@ export default function CatalogoSkuDetailPage() {
         return await r.blob();
       };
 
+      // Pack the brand block only with the toggles the user enabled.
+      // Passing null keeps the PDF layout decisions in pdf.ts where
+      // they belong — the renderer draws the brand card when it has
+      // anything worth showing.
+      const brandBlock = brand
+        ? {
+            name:          brand.name,
+            logoUrl:       brand.logoUrl,
+            tier:          brand.tier,
+            tagline:       brandIncludeAbout ? brand.tagline : null,
+            description:   brandIncludeAbout ? brand.description : null,
+            country:       brandIncludeFacts ? brand.country : null,
+            headquarters:  brandIncludeFacts ? brand.headquarters : null,
+            foundedYear:   brandIncludeFacts ? brand.foundedYear : null,
+            parentCompany: brandIncludeFacts ? brand.parentCompany : null,
+            website:       brandIncludeFacts ? brand.website : null,
+          }
+        : null;
+
       const pdfInput: PdfInput = {
         companyName:    companyCtx?.name ?? null,
         companyLogoUrl: companyCtx?.profileImage ?? null,
@@ -442,10 +480,14 @@ export default function CatalogoSkuDetailPage() {
         repPhone:       repPhone.trim() || companyCtx?.telefono || null,
         brandLogoUrl:   brand?.logoUrl ?? null,
         brandCountry:   brand?.country ?? null,
+        brand:          brandBlock,
         marca:     sku.marca,
         modelo:    sku.modelo,
         dimension: sku.dimension,
         categoria: sku.categoria,
+        terreno:   sku.terreno,
+        ejeTirePro: sku.ejeTirePro,
+        reencauchable: sku.reencauchable,
         imageUrls,
         rows:      enabledRows,
         priceMode,
@@ -768,6 +810,56 @@ export default function CatalogoSkuDetailPage() {
                   })}
                 </div>
               </div>
+
+              {/* Brand data — toggles render only when /marketplace/brands
+                  has an entry for this marca. Two groups keeps the UI tight. */}
+              {brand && (brand.tagline || brand.description || brand.country || brand.foundedYear || brand.parentCompany || brand.tier || brand.website) && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB] mb-1.5">
+                    Incluir datos de la marca
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {(brand.tagline || brand.description) && (
+                      <label
+                        className="flex items-start gap-1.5 px-2 py-1.5 rounded-lg text-xs cursor-pointer transition-colors"
+                        style={{
+                          background: brandIncludeAbout ? "rgba(30,118,182,0.08)" : "white",
+                          border: `1px solid ${brandIncludeAbout ? "rgba(30,118,182,0.25)" : "rgba(52,140,203,0.12)"}`,
+                        }}>
+                        <input type="checkbox" checked={brandIncludeAbout}
+                          onChange={(e) => setBrandIncludeAbout(e.target.checked)}
+                          className="accent-[#1E76B6] mt-0.5" />
+                        <div className="min-w-0">
+                          <span className="font-medium text-[#0A183A] block">Descripción y tagline</span>
+                          {brand.tagline && <span className="text-[9px] text-gray-400 truncate block">{brand.tagline}</span>}
+                        </div>
+                      </label>
+                    )}
+                    {(brand.country || brand.foundedYear || brand.parentCompany || brand.tier || brand.website || brand.headquarters) && (
+                      <label
+                        className="flex items-start gap-1.5 px-2 py-1.5 rounded-lg text-xs cursor-pointer transition-colors"
+                        style={{
+                          background: brandIncludeFacts ? "rgba(30,118,182,0.08)" : "white",
+                          border: `1px solid ${brandIncludeFacts ? "rgba(30,118,182,0.25)" : "rgba(52,140,203,0.12)"}`,
+                        }}>
+                        <input type="checkbox" checked={brandIncludeFacts}
+                          onChange={(e) => setBrandIncludeFacts(e.target.checked)}
+                          className="accent-[#1E76B6] mt-0.5" />
+                        <div className="min-w-0">
+                          <span className="font-medium text-[#0A183A] block">Datos de la marca</span>
+                          <span className="text-[9px] text-gray-400 truncate block">
+                            {[
+                              brand.country,
+                              brand.foundedYear ? `fundada ${brand.foundedYear}` : null,
+                              brand.tier ? `${brand.tier}` : null,
+                            ].filter(Boolean).join(" · ")}
+                          </span>
+                        </div>
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Contact block — printed in the footer of the PDF */}
               <div className="mb-4">
