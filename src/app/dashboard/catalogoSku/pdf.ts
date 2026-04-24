@@ -635,6 +635,374 @@ function drawSectionHeader(
   return y + 10;
 }
 
+// =============================================================================
+// Multi-tire quote PDF
+// Different layout from the single-product sheet — compact rows, one per
+// tire, qty + price column on the right, optional grand total. "Display
+// mode" picks between an individual-price comparative (no grand total)
+// and a total-price purchase (qty × unit + grand total).
+// =============================================================================
+
+export type QuoteItem = {
+  catalogId: string;
+  marca:     string;
+  modelo:    string;
+  dimension: string;
+  categoria: string | null;
+  terreno:   string | null;
+  ejeTirePro:string | null;
+  imageUrl:  string | null;
+  quantity:  number;
+  unitPriceCop: number | null;
+};
+
+export type QuoteInput = {
+  companyName:    string | null;
+  companyLogoUrl: string | null;
+  companyColor:   string | null;
+  companyWebsite: string | null;
+  companyCity:    string | null;
+  repName:        string | null;
+  repPhone:       string | null;
+  clientName:     string | null;
+  clientNotes:    string | null;
+  items:          QuoteItem[];
+  priceMode:   "none" | "sin_iva" | "con_iva";
+  // "individual": comparative layout, per-unit prices, no grand total
+  // "total":      purchase layout, line totals + grand total row
+  displayMode: "individual" | "total";
+  fetchViaProxy?: (url: string) => Promise<Blob | null>;
+};
+
+export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const M = 42;
+
+  const brand     = parseHex(input.companyColor) ?? FALLBACK.primary;
+  const brandText = readableTextOn(brand);
+  const brandT08  = tint(brand, 0.08);
+  const brandT15  = tint(brand, 0.18);
+
+  const logoUrl = isDefaultPlaceholderLogo(input.companyLogoUrl) ? null : input.companyLogoUrl;
+  const proxy   = input.fetchViaProxy;
+
+  // Pre-load logo + every tire thumbnail in parallel.
+  const [logoData, ...thumbDatas] = await Promise.all([
+    loadImageAsDataUrl(logoUrl, proxy),
+    ...input.items.map((it) => loadImageAsDataUrl(it.imageUrl, proxy)),
+  ]);
+
+  const ivaMul = input.priceMode === "con_iva" ? 1.19 : 1;
+  const effectiveUnit = (unit: number | null) =>
+    unit == null ? 0 : Math.round(unit * ivaMul);
+  const lineTotal = (it: QuoteItem) =>
+    effectiveUnit(it.unitPriceCop) * Math.max(1, it.quantity || 1);
+
+  const drawBanner = () => {
+    doc.setFillColor(...brand);
+    doc.rect(0, 0, pageW, 94, "F");
+    doc.setFillColor(...FALLBACK.ink);
+    doc.rect(0, 88, pageW, 6, "F");
+
+    if (logoData) {
+      // Measure + center in a white tile.
+      const boxW = 160, boxH = 62;
+      const scale = Math.min(boxW / 400, boxH / 200); // placeholder ratio; we'll re-measure below
+      void scale;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(M - 8, 16, boxW + 16, 66, 8, 8, "F");
+      // We need the actual image dimensions to scale correctly.
+      // imageDims is async — deferred to the caller; here we just place
+      // the logo centered with a generous box.
+    } else if (input.companyName) {
+      doc.setFillColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      const textW = doc.getTextWidth(input.companyName);
+      const pillW = Math.min(280, textW + 32);
+      doc.roundedRect(M - 8, 27, pillW, 40, 8, 8, "F");
+      doc.setTextColor(...brand);
+      doc.text(input.companyName, M - 8 + pillW / 2, 52, { align: "center", maxWidth: pillW - 32 });
+    }
+
+    doc.setTextColor(...brandText);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("COTIZACIÓN", pageW - M, 36, { align: "right" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
+    doc.text(today, pageW - M, 54, { align: "right" });
+
+    // Left-edge brand rail
+    doc.setFillColor(...brand);
+    doc.rect(0, 94, 4, pageH - 94, "F");
+  };
+
+  // Draw the banner (logo is async-sized below).
+  drawBanner();
+  if (logoData) {
+    const { w, h } = await imageDims(logoData);
+    const boxW = 160, boxH = 62;
+    const scale = Math.min(boxW / w, boxH / h);
+    const drawW = w * scale, drawH = h * scale;
+    doc.addImage(
+      logoData, detectFormat(logoData),
+      M - 8 + (boxW + 16 - drawW) / 2,
+      16 + (66 - drawH) / 2,
+      drawW, drawH, undefined, "SLOW",
+    );
+  }
+
+  let y = 124;
+
+  // Client name + notes (optional). Read as "this quote is for X".
+  if (input.clientName) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...brand);
+    doc.text("PARA", M, y);
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFontSize(13);
+    doc.text(input.clientName, M + 38, y);
+    y += 16;
+  }
+  if (input.clientNotes) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...FALLBACK.muted);
+    const lines = doc.splitTextToSize(input.clientNotes, pageW - 2 * M).slice(0, 2);
+    for (const ln of lines) { doc.text(ln, M, y); y += 11; }
+  }
+
+  y += 6;
+
+  // ─── ITEMS TABLE HEADER ──────────────────────────────────────────────────
+  const QTY_X      = pageW - M - 220;
+  const UNIT_X     = pageW - M - 140;
+  const TOTAL_X    = pageW - M - 4;
+  const ROW_H      = 70;
+  const isTotal    = input.displayMode === "total";
+
+  const drawTableHeader = (y0: number): number => {
+    doc.setFillColor(...brandT08);
+    doc.roundedRect(M, y0, pageW - 2 * M, 22, 6, 6, "F");
+    doc.setTextColor(...brand);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("LLANTA", M + 12, y0 + 15);
+    doc.text("CANT.", QTY_X, y0 + 15, { align: "right" });
+    doc.text(isTotal ? "UNIT." : "PRECIO", UNIT_X, y0 + 15, { align: "right" });
+    if (isTotal) doc.text("TOTAL", TOTAL_X, y0 + 15, { align: "right" });
+    return y0 + 28;
+  };
+
+  y = drawTableHeader(y);
+
+  // ─── ITEM ROWS ──────────────────────────────────────────────────────────
+  for (let i = 0; i < input.items.length; i++) {
+    // Page break if the next row + footer would overflow.
+    if (y + ROW_H > pageH - 120) {
+      // Footer on the page we're leaving.
+      drawFooter(doc, pageW, pageH, M, brand, input.companyName);
+      doc.addPage();
+      doc.setFillColor(...brand);
+      doc.rect(0, 0, 4, pageH, "F");
+      y = 50;
+      y = drawTableHeader(y);
+    }
+
+    const it   = input.items[i];
+    const thumb = thumbDatas[i];
+
+    // Row backdrop
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(M, y, pageW - 2 * M, ROW_H, 8, 8, "F");
+    doc.setDrawColor(...FALLBACK.line);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(M, y, pageW - 2 * M, ROW_H, 8, 8, "S");
+
+    // Thumb (left)
+    const thumbX = M + 10;
+    const thumbY = y + 8;
+    const thumbW = 54, thumbH = ROW_H - 16;
+    doc.setFillColor(...FALLBACK.page);
+    doc.roundedRect(thumbX, thumbY, thumbW, thumbH, 6, 6, "F");
+    if (thumb) {
+      const { w, h } = await imageDims(thumb);
+      const scale = Math.min(thumbW / w, thumbH / h);
+      const drawW = w * scale, drawH = h * scale;
+      doc.addImage(
+        thumb, detectFormat(thumb),
+        thumbX + (thumbW - drawW) / 2,
+        thumbY + (thumbH - drawH) / 2,
+        drawW, drawH, undefined, "MEDIUM",
+      );
+    }
+
+    // Identity column
+    const textX = thumbX + thumbW + 14;
+    doc.setTextColor(...brand);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(it.marca.toUpperCase(), textX, y + 18);
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(it.modelo, textX, y + 34);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(...brand);
+    doc.text(it.dimension, textX, y + 48);
+    // Sub-specs line
+    const subBits = [it.categoria, it.terreno, it.ejeTirePro].filter(Boolean);
+    if (subBits.length > 0) {
+      doc.setFontSize(8);
+      doc.setTextColor(...FALLBACK.muted);
+      doc.text(subBits.join("  ·  "), textX, y + 62);
+    }
+
+    // Qty / unit / total columns
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(String(it.quantity), QTY_X, y + 38, { align: "right" });
+
+    doc.setFontSize(11);
+    if (input.priceMode === "none" || it.unitPriceCop == null || it.unitPriceCop <= 0) {
+      doc.setTextColor(...FALLBACK.muted);
+      doc.text("—", UNIT_X, y + 38, { align: "right" });
+      if (isTotal) doc.text("—", TOTAL_X, y + 38, { align: "right" });
+    } else {
+      const unit  = effectiveUnit(it.unitPriceCop);
+      const line  = lineTotal(it);
+      doc.text(fmtCOP(unit), UNIT_X, y + 38, { align: "right" });
+      if (isTotal) {
+        doc.setTextColor(...brand);
+        doc.setFont("helvetica", "bold");
+        doc.text(fmtCOP(line), TOTAL_X, y + 38, { align: "right" });
+      }
+    }
+
+    y += ROW_H + 8;
+  }
+
+  y += 4;
+
+  // ─── GRAND TOTAL (only in "total" display mode) ──────────────────────────
+  if (isTotal && input.priceMode !== "none") {
+    const grand = input.items.reduce((s, it) => s + lineTotal(it), 0);
+    if (grand > 0) {
+      // Page break if there's no room for the total bar + contact card.
+      if (y + 54 > pageH - 120) {
+        drawFooter(doc, pageW, pageH, M, brand, input.companyName);
+        doc.addPage();
+        doc.setFillColor(...brand);
+        doc.rect(0, 0, 4, pageH, "F");
+        y = 50;
+      }
+      const boxH = 44;
+      doc.setFillColor(...FALLBACK.ink);
+      doc.roundedRect(M, y, pageW - 2 * M, boxH, 10, 10, "F");
+      doc.setFillColor(...brand);
+      doc.roundedRect(M, y, 6, boxH, 3, 3, "F");
+      doc.setTextColor(200, 215, 240);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(
+        input.priceMode === "con_iva" ? "Total (IVA incluido)" : "Total (sin IVA)",
+        M + 20, y + 18,
+      );
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text(fmtCOP(grand), pageW - M - 14, y + 30, { align: "right" });
+      y += boxH + 14;
+    }
+  } else if (input.priceMode !== "none") {
+    // Individual/comparative mode — short note reminding the reader
+    // prices are per-unit.
+    const note = input.priceMode === "con_iva"
+      ? "Precios por unidad, IVA 19% incluido"
+      : "Precios por unidad, no incluyen IVA";
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.setTextColor(...FALLBACK.muted);
+    doc.text(note, M, y + 6);
+    y += 18;
+  }
+
+  // ─── CONTACT CARD ────────────────────────────────────────────────────────
+  const hasRep      = !!(input.repName || input.repPhone);
+  const hasSiteCity = !!(input.companyWebsite || input.companyCity);
+  if (hasRep || hasSiteCity) {
+    const contactNeed = 80;
+    if (y + contactNeed > pageH - 60) {
+      drawFooter(doc, pageW, pageH, M, brand, input.companyName);
+      doc.addPage();
+      doc.setFillColor(...brand);
+      doc.rect(0, 0, 4, pageH, "F");
+      y = 50;
+    }
+    y = drawSectionHeader(doc, "Contacto", M, y + 4, pageW - M, brand);
+    const boxH = 60;
+    const boxY = y + 4;
+    doc.setFillColor(...brandT08);
+    doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 10, 10, "F");
+
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(input.repName ?? input.companyName ?? "", M + 14, boxY + 24);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const line2 = [input.repPhone, input.companyCity].filter(Boolean).join("  ·  ");
+    if (line2) doc.text(line2, M + 14, boxY + 42);
+
+    if (input.companyWebsite) {
+      doc.setTextColor(...brand);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(input.companyWebsite, pageW - M - 14, boxY + 42, { align: "right" });
+    }
+  }
+
+  drawFooter(doc, pageW, pageH, M, brand, input.companyName);
+
+  // Unused var guard — brandT15 is reserved for potential row accent styling.
+  void brandT15;
+
+  return doc.output("blob");
+}
+
+function drawFooter(
+  doc: jsPDF,
+  pageW: number,
+  pageH: number,
+  M: number,
+  brand: [number, number, number],
+  companyName: string | null,
+) {
+  doc.setDrawColor(...FALLBACK.line);
+  doc.setLineWidth(0.5);
+  doc.line(M, pageH - 48, pageW - M, pageH - 48);
+
+  doc.setTextColor(...FALLBACK.muted);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  if (companyName) doc.text(companyName, M, pageH - 30);
+  const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
+  doc.text(today, pageW - M, pageH - 30, { align: "right" });
+
+  doc.setTextColor(...brand);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text("tirepro.com.co", pageW / 2, pageH - 18, { align: "center" });
+}
+
 function factLine(b: PdfBrand): string | null {
   const parts: string[] = [];
   if (b.country)      parts.push(b.country);

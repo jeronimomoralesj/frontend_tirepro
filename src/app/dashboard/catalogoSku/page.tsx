@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen, Search, ChevronRight, Loader2, Package, Image as ImageIcon,
-  Filter, X, BarChart3, Plus, Lightbulb, Star, Sparkles,
+  Filter, X, BarChart3, Plus, Lightbulb, Star, Sparkles, ShoppingCart,
 } from "lucide-react";
+import { useCatalogCart } from "./cart";
 
 // =============================================================================
 // API base
@@ -71,6 +72,8 @@ export default function CatalogoSkuPage() {
   const [canCurate,  setCanCurate]  = useState(false);
   // Sales advisor modal (open to everyone — it's a selling tool).
   const [advisorOpen, setAdvisorOpen] = useState(false);
+  // Cart badge in the header links to the multi-tire quote builder.
+  const cart = useCatalogCart();
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem("user") ?? "{}");
@@ -128,6 +131,17 @@ export default function CatalogoSkuPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {cart.count > 0 && (
+            <Link href="/dashboard/catalogoSku/cotizacion"
+              className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+              style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.25)" }}>
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Cotización</span>
+              <span className="ml-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-full text-white" style={{ background: "#1E76B6" }}>
+                {cart.count}
+              </span>
+            </Link>
+          )}
           <button onClick={() => setAdvisorOpen(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
             style={{ background: "rgba(245,158,11,0.12)", color: "#b45309", border: "1px solid rgba(245,158,11,0.35)" }}>

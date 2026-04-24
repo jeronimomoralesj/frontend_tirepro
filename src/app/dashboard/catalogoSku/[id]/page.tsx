@@ -6,9 +6,10 @@ import Link from "next/link";
 import {
   ArrowLeft, Loader2, Upload, X, FileDown, Download, Plus,
   AlertCircle, Trash2, Image as ImageIcon, CheckCircle2, Film, Video,
-  Edit3, Save,
+  Edit3, Save, ShoppingCart, Check,
 } from "lucide-react";
 import { buildCatalogPdf, type PdfInput } from "../pdf";
+import { useCatalogCart } from "../cart";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
@@ -153,6 +154,7 @@ type CompanyCtx = {
 
 export default function CatalogoSkuDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const cart = useCatalogCart();
   const router  = useRouter();
   const [sku,      setSku]      = useState<CatalogDetail | null>(null);
   const [loading,  setLoading]  = useState(true);
@@ -957,12 +959,56 @@ export default function CatalogoSkuDetailPage() {
                 )}
               </div>
 
-              <button onClick={onGeneratePdf} disabled={generating}
+              <button onClick={onGeneratePdf} disabled={generating || sku.subscribed === false}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-40"
                 style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
                 {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 {generating ? "Generando…" : "Descargar PDF"}
               </button>
+
+              {/* Quote / cart add — lets the rep stack this tire with others
+                  and export ONE PDF with the full selection. Toggles: if
+                  already in the cart, the button offers to remove. */}
+              {sku.subscribed !== false && (() => {
+                const inCart = cart.has(sku.id);
+                const onAdd = () => {
+                  if (inCart) { cart.remove(sku.id); return; }
+                  cart.add({
+                    catalogId: sku.id,
+                    marca:     sku.marca,
+                    modelo:    sku.modelo,
+                    dimension: sku.dimension,
+                    categoria: sku.categoria,
+                    terreno:   sku.terreno,
+                    ejeTirePro: sku.ejeTirePro,
+                    imageUrl:  sku.images[0]?.url ?? null,
+                    quantity:  4,
+                    unitPriceCop: Number(priceInput.replace(/[^0-9]/g, "")) || sku.precioCop || null,
+                  });
+                };
+                return (
+                  <div className="mt-2 flex items-center gap-2">
+                    <button onClick={onAdd}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-90"
+                      style={{
+                        background: inCart ? "rgba(16,185,129,0.12)" : "white",
+                        color:      inCart ? "#059669" : "#1E76B6",
+                        border: `1px solid ${inCart ? "rgba(16,185,129,0.35)" : "rgba(30,118,182,0.25)"}`,
+                      }}>
+                      {inCart ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+                      {inCart ? "En cotización" : "Agregar a cotización"}
+                    </button>
+                    {cart.count > 0 && (
+                      <Link href="/dashboard/catalogoSku/cotizacion"
+                        className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+                        Ver ({cart.count})
+                      </Link>
+                    )}
+                  </div>
+                );
+              })()}
+
               <p className="text-[10px] text-gray-500 text-center mt-2">
                 Se registrará esta descarga en las estadísticas del equipo
               </p>
