@@ -16,6 +16,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
   : "https://api.tirepro.com.co/api";
 
+// Per-product media caps — mirrored on the backend (CatalogService).
+const MAX_IMAGES = 5;
+
 function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
   return fetch(url, {
@@ -430,9 +433,19 @@ export default function CatalogoSkuDetailPage() {
 
   async function onUpload(files: FileList | null) {
     if (!files || files.length === 0 || !sku) return;
+    // Client-side gate — the backend rejects past 5 too, but catching it
+    // here avoids N-1 pointless round-trips when a rep multi-selects.
+    const remaining = MAX_IMAGES - sku.images.length;
+    if (remaining <= 0) {
+      setError(`Máximo ${MAX_IMAGES} imágenes por producto. Elimina una antes de subir otra.`);
+      if (fileInput.current) fileInput.current.value = "";
+      return;
+    }
+    const batch = Array.from(files).slice(0, remaining);
+    const dropped = files.length - batch.length;
     setUploading(true); setError("");
     try {
-      for (const file of Array.from(files)) {
+      for (const file of batch) {
         const fd = new FormData();
         fd.append("image", file);
         const res = await authFetch(`${API_BASE}/catalog/dist/${sku.id}/images`, { method: "POST", body: fd });
@@ -440,6 +453,9 @@ export default function CatalogoSkuDetailPage() {
           const body = await res.text().catch(() => "");
           throw new Error(body || `HTTP ${res.status}`);
         }
+      }
+      if (dropped > 0) {
+        setError(`Se subieron ${batch.length} de ${files.length} imágenes — máximo ${MAX_IMAGES} por producto.`);
       }
       await load();
     } catch (e) {
@@ -679,21 +695,35 @@ export default function CatalogoSkuDetailPage() {
           {/* LEFT — Gallery + Upload */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-black text-[#0A183A]">Imágenes del producto</h2>
-              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", color: "white" }}>
-                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                {uploading ? "Subiendo…" : "Subir"}
-                <input ref={fileInput} type="file" accept="image/*" multiple hidden
-                  onChange={(e) => onUpload(e.target.files)} />
-              </label>
+              <div className="flex items-baseline gap-2 min-w-0">
+                <h2 className="text-sm font-black text-[#0A183A]">Imágenes del producto</h2>
+                <span className="text-[10px] text-gray-400 tabular-nums">
+                  {sku.images.length}/{MAX_IMAGES}
+                </span>
+              </div>
+              {sku.images.length >= MAX_IMAGES ? (
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+                  title="Elimina una imagen para poder subir otra"
+                  style={{ background: "#F0F7FF", color: "#94a3b8", border: "1px solid rgba(52,140,203,0.15)" }}>
+                  <Upload className="w-3.5 h-3.5" />
+                  Máximo {MAX_IMAGES}
+                </span>
+              ) : (
+                <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", color: "white" }}>
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  {uploading ? "Subiendo…" : "Subir"}
+                  <input ref={fileInput} type="file" accept="image/*" multiple hidden
+                    onChange={(e) => onUpload(e.target.files)} />
+                </label>
+              )}
             </div>
             {sku.images.length === 0 ? (
               <div className="rounded-2xl flex flex-col items-center justify-center py-16 text-gray-400 gap-2"
                 style={{ background: "#F0F7FF", border: "1px dashed rgba(52,140,203,0.3)" }}>
                 <ImageIcon className="w-10 h-10 opacity-40" />
                 <p className="text-xs">Sin imágenes todavía</p>
-                <p className="text-[10px] text-gray-400">Sube hasta 5 MB por imagen (JPG · PNG · WebP)</p>
+                <p className="text-[10px] text-gray-400">Hasta {MAX_IMAGES} imágenes · 5 MB cada una (JPG · PNG · WebP)</p>
               </div>
             ) : (
               <>
