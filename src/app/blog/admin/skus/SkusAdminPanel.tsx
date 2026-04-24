@@ -22,6 +22,8 @@ interface SkuRow {
   indiceVelocidad: string | null
   psiRecomendado: number | null
   pesoKg: number | null
+  cinturones: string | null
+  pr: string | null
   kmEstimadosReales: number | null
   kmEstimadosFabrica: number | null
   reencauchable: boolean
@@ -486,6 +488,22 @@ function SkuEditModal({
                   step="0.1"
                   value={sku.pesoKg ?? ''}
                   onChange={(v) => set('pesoKg', num(v))}
+                />
+              </Field>
+              <Field label="Cinturones">
+                <Input
+                  type="text"
+                  placeholder="Ej: 4B+2N"
+                  value={sku.cinturones ?? ''}
+                  onChange={(v) => set('cinturones', v)}
+                />
+              </Field>
+              <Field label="PR (ply rating)">
+                <Input
+                  type="text"
+                  placeholder="Ej: 16, 18PR"
+                  value={sku.pr ?? ''}
+                  onChange={(v) => set('pr', v)}
                 />
               </Field>
             </Grid>
