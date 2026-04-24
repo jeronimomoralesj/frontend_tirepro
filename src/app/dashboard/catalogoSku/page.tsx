@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen, Search, ChevronRight, Loader2, Package, Image as ImageIcon,
-  Filter, X, BarChart3, Plus,
+  Filter, X, BarChart3, Plus, Lightbulb, Star, Sparkles,
 } from "lucide-react";
 
 // =============================================================================
@@ -69,6 +69,8 @@ export default function CatalogoSkuPage() {
   // Curation (add / remove tires from the list) is a management task —
   // admins + sales managers. Plain catalogo reps don't see the button.
   const [canCurate,  setCanCurate]  = useState(false);
+  // Sales advisor modal (open to everyone — it's a selling tool).
+  const [advisorOpen, setAdvisorOpen] = useState(false);
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem("user") ?? "{}");
@@ -126,6 +128,13 @@ export default function CatalogoSkuPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setAdvisorOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+            style={{ background: "rgba(245,158,11,0.12)", color: "#b45309", border: "1px solid rgba(245,158,11,0.35)" }}>
+            <Lightbulb className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Asesor de ventas</span>
+            <span className="sm:hidden">Asesor</span>
+          </button>
           {canCurate && (
             <Link href="/dashboard/catalogoSku/explorar"
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
@@ -262,6 +271,8 @@ export default function CatalogoSkuPage() {
           </div>
         )}
       </div>
+
+      {advisorOpen && <AdvisorModal onClose={() => setAdvisorOpen(false)} />}
     </div>
   );
 }
@@ -312,5 +323,254 @@ function SkuCard({ row }: { row: CatalogRow }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+// =============================================================================
+// Sales advisor modal
+// Salesperson fills a prospect's profile (tier, dimension, eje, pavimento %,
+// reencauchable, terreno) and we POST /catalog/dist/recommend to get a
+// ranked shortlist from the dist's OWN catalog. Results show fit score +
+// match reasons + a link through to each tire's detail page.
+// =============================================================================
+
+type AdvisorResult = {
+  id: string;
+  marca: string;
+  modelo: string;
+  dimension: string;
+  terreno: string | null;
+  ejeTirePro: string | null;
+  pctPavimento: number;
+  reencauchable: boolean;
+  image: string | null;
+  brand: { tier: string | null; country: string | null; logoUrl: string | null } | null;
+  score: number;
+  reasons: string[];
+};
+
+function AdvisorModal({ onClose }: { onClose: () => void }) {
+  const [tier, setTier]                   = useState<string>("");
+  const [dimension, setDimension]         = useState<string>("");
+  const [eje, setEje]                     = useState<string>("");
+  const [categoria, setCategoria]         = useState<string>("");
+  const [reencauchable, setReencauchable] = useState<string>("any");  // "true" | "false" | "any"
+  const [pctPavimento, setPctPavimento]   = useState<string>("");     // string so we can tell "unset" from 0
+  const [terreno, setTerreno]             = useState<string>("");
+  const [loading, setLoading]             = useState(false);
+  const [results, setResults]             = useState<AdvisorResult[] | null>(null);
+  const [error, setError]                 = useState("");
+
+  async function onSubmit() {
+    setLoading(true); setError(""); setResults(null);
+    try {
+      const body: Record<string, unknown> = {};
+      if (tier)      body.tier = tier;
+      if (dimension.trim()) body.dimension = dimension.trim();
+      if (eje)       body.eje = eje;
+      if (categoria) body.categoria = categoria;
+      if (reencauchable !== "any") body.reencauchable = reencauchable === "true";
+      if (pctPavimento !== "") {
+        const n = Number(pctPavimento);
+        if (!Number.isNaN(n)) body.pctPavimento = Math.max(0, Math.min(100, n));
+      }
+      if (terreno) body.terreno = terreno;
+
+      const res = await authFetch(`${API_BASE}/catalog/dist/recommend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(t || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setResults(data.items ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo generar recomendaciones");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(10,24,58,0.55)" }}>
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col"
+        style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(52,140,203,0.1)", background: "linear-gradient(135deg, #fff7ed, #fef3c7)" }}>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl" style={{ background: "linear-gradient(135deg, #f59e0b, #fbbf24)" }}>
+              <Lightbulb className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-[#0A183A]">Asesor de ventas</p>
+              <p className="text-[10px] text-[#92400E]">Describe las necesidades del cliente y te sugerimos opciones de tu catálogo</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/60">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Two-pane layout: form + results */}
+        <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-5 gap-0">
+          {/* Form (col-span 2) */}
+          <div className="md:col-span-2 p-5 space-y-3 border-r" style={{ borderColor: "rgba(52,140,203,0.1)" }}>
+            <Select label="Tipo de llanta" value={tier} onChange={setTier} options={[
+              { v: "",        l: "Cualquiera" },
+              { v: "premium", l: "Premium" },
+              { v: "mid",     l: "Intermedia" },
+              { v: "value",   l: "Económica" },
+            ]} />
+            <Select label="Categoría" value={categoria} onChange={setCategoria} options={[
+              { v: "",           l: "Cualquiera" },
+              { v: "nueva",      l: "Nueva" },
+              { v: "reencauche", l: "Reencauche" },
+            ]} />
+            <TextInput label="Dimensión" value={dimension} onChange={setDimension} placeholder="Ej: 295/80R22.5" />
+            <Select label="Eje" value={eje} onChange={setEje} options={[
+              { v: "",          l: "Cualquiera" },
+              { v: "direccion", l: "Dirección" },
+              { v: "traccion",  l: "Tracción" },
+              { v: "libre",     l: "Libre / multi" },
+              { v: "remolque",  l: "Remolque" },
+            ]} />
+            <Select label="Terreno" value={terreno} onChange={setTerreno} options={[
+              { v: "",          l: "Cualquiera" },
+              { v: "Carretera", l: "Carretera" },
+              { v: "Mixto",     l: "Mixto" },
+              { v: "Urbano",    l: "Urbano" },
+              { v: "Regional",  l: "Regional" },
+              { v: "Off-Road",  l: "Off-Road" },
+            ]} />
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">% Pavimento</label>
+              <input type="range" min={0} max={100} step={5}
+                value={pctPavimento === "" ? 50 : Number(pctPavimento)}
+                onChange={(e) => setPctPavimento(e.target.value)}
+                className="w-full accent-[#1E76B6]" />
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                {pctPavimento === ""
+                  ? "No especificado"
+                  : `${pctPavimento}% pavimento · ${100 - Number(pctPavimento)}% destapado`}
+              </p>
+            </div>
+            <Select label="Reencauchable" value={reencauchable} onChange={setReencauchable} options={[
+              { v: "any",   l: "Cualquiera" },
+              { v: "true",  l: "Sí" },
+              { v: "false", l: "No" },
+            ]} />
+            <button onClick={onSubmit} disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-40 mt-2"
+              style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {loading ? "Buscando…" : "Generar recomendaciones"}
+            </button>
+          </div>
+
+          {/* Results (col-span 3) */}
+          <div className="md:col-span-3 p-5">
+            {error && (
+              <div className="mb-3 px-3 py-2 rounded-lg text-xs text-red-700"
+                style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                {error}
+              </div>
+            )}
+            {!results && !loading && (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2 py-10">
+                <Sparkles className="w-8 h-8 opacity-40" />
+                <p className="text-xs text-center max-w-xs">
+                  Completa los datos del cliente y te mostramos las mejores llantas de tu catálogo ordenadas por puntaje de afinidad.
+                </p>
+              </div>
+            )}
+            {results && results.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2 py-10">
+                <Package className="w-8 h-8 opacity-40" />
+                <p className="text-xs text-center">No hay opciones en tu catálogo que cumplan estos criterios.</p>
+              </div>
+            )}
+            {results && results.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">
+                  {results.length} recomendacion{results.length === 1 ? "" : "es"} · ordenadas por afinidad
+                </p>
+                {results.map((r, i) => (
+                  <Link key={r.id} href={`/dashboard/catalogoSku/${r.id}`}
+                    className="group flex items-center gap-3 rounded-xl p-3 transition-all hover:shadow-md bg-white"
+                    style={{ border: "1px solid rgba(52,140,203,0.15)" }}>
+                    <div className="w-14 h-14 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
+                      style={{ background: "radial-gradient(circle at 30% 20%, #ffffff 0%, #f0f7ff 60%, #dbeafe 100%)" }}>
+                      {r.image
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={r.image} alt="" className="w-full h-full object-contain p-0.5" />
+                        : <ImageIcon className="w-6 h-6 text-gray-300" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase text-[#348CCB]">{r.marca}</span>
+                        <span className="text-sm font-black text-[#0A183A] truncate">{r.modelo}</span>
+                        <span className="text-[11px] text-gray-500 font-mono">{r.dimension}</span>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-0.5 truncate">
+                        {r.reasons.length ? r.reasons.join(" · ") : "Match general"}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0 flex items-center gap-1.5">
+                      <div className="flex items-center gap-0.5 px-2 py-1 rounded-full"
+                        style={{ background: scoreTone(r.score).bg }}>
+                        <Star className="w-3 h-3" style={{ color: scoreTone(r.score).fg }} fill={scoreTone(r.score).fg} />
+                        <span className="text-[10px] font-black" style={{ color: scoreTone(r.score).fg }}>
+                          {r.score}
+                        </span>
+                      </div>
+                      <span className="text-[9px] text-gray-400 w-6 text-right">#{i + 1}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function scoreTone(score: number): { bg: string; fg: string } {
+  if (score >= 60) return { bg: "rgba(16,185,129,0.12)",  fg: "#059669" };
+  if (score >= 30) return { bg: "rgba(245,158,11,0.15)",  fg: "#b45309" };
+  return                 { bg: "rgba(100,116,139,0.1)",  fg: "#64748b" };
+}
+
+function Select({ label, value, onChange, options }: {
+  label: string; value: string; onChange: (v: string) => void;
+  options: Array<{ v: string; l: string }>;
+}) {
+  return (
+    <div>
+      <label className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)}
+        className="w-full mt-0.5 px-2.5 py-2 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+        style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}>
+        {options.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function TextInput({ label, value, onChange, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">{label}</label>
+      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        className="w-full mt-0.5 px-2.5 py-2 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+        style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }} />
+    </div>
   );
 }

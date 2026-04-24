@@ -104,7 +104,7 @@ type FieldKey =
   | "dimension" | "indiceCarga" | "indiceVelocidad" | "rtdMm" | "psiRecomendado"
   | "pesoKg"    | "cinturones"  | "pr"              | "ejeTirePro"
   | "terreno"   | "pctUso"
-  | "reencauchable" | "tipoBanda" | "construccion" | "segmento" | "tipo" | "skuRef";
+  | "reencauchable" | "tipoBanda" | "construccion" | "segmento" | "tipo";
 
 type FieldDef = { key: FieldKey; label: string; defaultOn: boolean; render: (d: CatalogDetail) => string | null };
 
@@ -125,12 +125,11 @@ const FIELDS: FieldDef[] = [
   { key: "ejeTirePro",        label: "Eje",                     defaultOn: true,  render: (d) => d.ejeTirePro ?? d.posicion },
   { key: "terreno",           label: "Terreno",                 defaultOn: true,  render: (d) => d.terreno },
   { key: "pctUso",            label: "Pavimento / Destapado",   defaultOn: false, render: (d) => `${d.pctPavimento}% / ${d.pctDestapado}%` },
-  { key: "reencauchable",     label: "Reencauchabilidad",       defaultOn: true,  render: (d) => d.reencauchable ? `Sí · hasta ${d.vidasReencauche || 3} vidas` : "No" },
+  { key: "reencauchable",     label: "Reencauchabilidad",       defaultOn: true,  render: (d) => d.reencauchable ? "Sí" : "No" },
   { key: "tipoBanda",         label: "Tipo de banda",           defaultOn: true,  render: (d) => d.tipoBanda },
   { key: "construccion",      label: "Construcción",            defaultOn: false, render: (d) => d.construccion },
   { key: "segmento",          label: "Segmento",                defaultOn: false, render: (d) => d.segmento },
   { key: "tipo",              label: "Tipo",                    defaultOn: false, render: (d) => d.tipo },
-  { key: "skuRef",            label: "SKU",                     defaultOn: false, render: (d) => d.skuRef },
 ];
 
 function defaultToggles(): Record<FieldKey, boolean> {
