@@ -68,6 +68,7 @@ type CatalogDetail = {
   url: string | null;
   images: CatalogImage[];
   video?: CatalogVideo | null;
+  subscribed?: boolean;
 };
 
 type CatalogVideo = {
@@ -180,9 +181,13 @@ export default function CatalogoSkuDetailPage() {
   // mutate the master catalog row, since it's shared with every other
   // distributor viewing the same SKU.
   const [isAdmin,       setIsAdmin]       = useState(false);
+  // Sales managers can curate the list too (add / remove) even when
+  // they can't mutate the shared SKU fields.
+  const [canCurate,     setCanCurate]     = useState(false);
   const [editOpen,      setEditOpen]      = useState(false);
   const [editDraft,     setEditDraft]     = useState<Record<string, any>>({});
   const [saving,        setSaving]        = useState(false);
+  const [subscribing,   setSubscribing]   = useState(false);
 
   // Brand toggles for the PDF — each one maps to a piece of BrandInfo
   // we pulled from /marketplace/brands/:slug. Two groups keeps the UI
@@ -200,6 +205,7 @@ export default function CatalogoSkuDetailPage() {
       const userRaw = localStorage.getItem("user");
       const user = userRaw ? JSON.parse(userRaw) : null;
       if (user?.role === "admin") setIsAdmin(true);
+      if (user?.role === "admin" || user?.role === "catalogo_admin") setCanCurate(true);
       if (user?.name && !repName) setRepName(user.name);
       if (user?.companyId) {
         authFetch(`${API_BASE}/companies/${user.companyId}`)
@@ -366,6 +372,35 @@ export default function CatalogoSkuDetailPage() {
       setError(e instanceof Error ? e.message : "No se pudo guardar");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onToggleSubscription() {
+    if (!sku) return;
+    const wasSubscribed = !!sku.subscribed;
+    if (wasSubscribed && !confirm("¿Quitar esta llanta de tu catálogo? Tus imágenes y video se conservan por si la vuelves a agregar.")) return;
+    setSubscribing(true); setError("");
+    try {
+      const method = wasSubscribed ? "DELETE" : "POST";
+      const res = await authFetch(`${API_BASE}/catalog/dist/${sku.id}/subscribe`, { method });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(t || `HTTP ${res.status}`);
+      }
+      setToast(wasSubscribed ? "Quitada de tu catálogo" : "Agregada a tu catálogo");
+      setTimeout(() => setToast(""), 3000);
+      if (wasSubscribed) {
+        // Leaving the page makes more sense than sticking around on a
+        // tire that's no longer in their list — they can re-add via
+        // /explorar.
+        router.push("/dashboard/catalogoSku");
+      } else {
+        await load();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo actualizar");
+    } finally {
+      setSubscribing(false);
     }
   }
 
@@ -560,7 +595,40 @@ export default function CatalogoSkuDetailPage() {
           <p className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">{sku.marca}</p>
           <p className="text-sm font-black text-[#0A183A] leading-tight truncate">{sku.modelo} · {sku.dimension}</p>
         </div>
+        {canCurate && (
+          sku.subscribed ? (
+            <button onClick={onToggleSubscription} disabled={subscribing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:bg-red-50 disabled:opacity-40"
+              style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}>
+              {subscribing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+              <span className="hidden sm:inline">Quitar</span>
+            </button>
+          ) : (
+            <button onClick={onToggleSubscription} disabled={subscribing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+              {subscribing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+              <span className="hidden sm:inline">Agregar al catálogo</span>
+              <span className="sm:hidden">Agregar</span>
+            </button>
+          )
+        )}
       </div>
+
+      {/* Non-subscribed banner — renders a read-only hint at the top so
+          sales reps (who can't curate) know why they can't edit, and
+          managers see a clear CTA to pull the tire into their list. */}
+      {sku && sku.subscribed === false && (
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-6 pt-4">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+            style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.25)" }}>
+            <AlertCircle className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+            <p className="text-xs text-[#0A183A] flex-1">
+              Esta llanta no está en tu catálogo. {canCurate ? "Agrégala para personalizarla y generar PDFs." : "Pide a un administrador que la agregue."}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
         {error && (

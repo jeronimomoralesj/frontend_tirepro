@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen, Search, ChevronRight, Loader2, Package, Image as ImageIcon,
-  Filter, X, BarChart3,
+  Filter, X, BarChart3, Plus,
 } from "lucide-react";
 
 // =============================================================================
@@ -66,10 +66,14 @@ export default function CatalogoSkuPage() {
   // Stats are manager-only — a plain `catalogo` sales rep shouldn't see
   // their teammates' numbers. The backend enforces this too.
   const [canSeeStats, setCanSeeStats] = useState(false);
+  // Curation (add / remove tires from the list) is a management task —
+  // admins + sales managers. Plain catalogo reps don't see the button.
+  const [canCurate,  setCanCurate]  = useState(false);
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem("user") ?? "{}");
       setCanSeeStats(u?.role === "admin" || u?.role === "catalogo_admin");
+      setCanCurate (u?.role === "admin" || u?.role === "catalogo_admin");
     } catch { /* leave as false */ }
   }, []);
 
@@ -121,14 +125,25 @@ export default function CatalogoSkuPage() {
             <p className="text-xs text-[#348CCB] mt-0.5">Fichas técnicas para tus clientes</p>
           </div>
         </div>
-        {canSeeStats && (
-          <Link href="/dashboard/catalogoSku/stats"
-            className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
-            style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(30,118,182,0.2)", color: "#1E76B6" }}>
-            <BarChart3 className="w-4 h-4" />
-            Estadísticas
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {canCurate && (
+            <Link href="/dashboard/catalogoSku/explorar"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Explorar catálogo</span>
+              <span className="sm:hidden">Agregar</span>
+            </Link>
+          )}
+          {canSeeStats && (
+            <Link href="/dashboard/catalogoSku/stats"
+              className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+              style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(30,118,182,0.2)", color: "#1E76B6" }}>
+              <BarChart3 className="w-4 h-4" />
+              Estadísticas
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -196,9 +211,29 @@ export default function CatalogoSkuPage() {
             <Loader2 className="w-5 h-5 animate-spin" />
           </div>
         ) : items.length === 0 ? (
+          // Two distinct empty states:
+          //   • search/filter active → just "sin resultados"
+          //   • catalog is empty (no subscriptions)  → onboarding CTA
           <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
             <Package className="w-10 h-10 opacity-40" />
-            <p className="text-sm">Sin resultados</p>
+            {hasFilter ? (
+              <p className="text-sm">Sin resultados en tu catálogo con estos filtros</p>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-[#0A183A]">Tu catálogo está vacío</p>
+                <p className="text-xs text-gray-500 max-w-xs text-center">
+                  Explora el catálogo completo y agrega las llantas que vendes. Sólo las que agregues aparecerán aquí.
+                </p>
+                {canCurate && (
+                  <Link href="/dashboard/catalogoSku/explorar"
+                    className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+                    style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
+                    <Plus className="w-3.5 h-3.5" />
+                    Explorar catálogo
+                  </Link>
+                )}
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
