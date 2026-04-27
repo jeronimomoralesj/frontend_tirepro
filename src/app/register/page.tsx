@@ -3,19 +3,22 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Loader2, AlertCircle, Eye, EyeOff, Mail } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  // Auto-login was removed — the backend now creates accounts as
+  // unverified, so the immediately-following login would fail with
+  // "Please verify your email." Instead we show a success card telling
+  // the user to check their inbox; they come back via the /verify link.
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +27,6 @@ export default function RegisterPage() {
     setLoading(true); setError("");
 
     try {
-      // Register
       const regRes = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -34,29 +36,46 @@ export default function RegisterPage() {
         const data = await regRes.json().catch(() => ({}));
         throw new Error(data.message ?? "Error al registrar");
       }
-
-      // Auto-login
-      const loginRes = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, password: form.password }),
-      });
-      if (!loginRes.ok) throw new Error("Registro exitoso. Por favor inicia sesion.");
-      const { access_token, user } = await loginRes.json();
-
-      localStorage.setItem("token", access_token);
-      localStorage.setItem("user", JSON.stringify(user));
-
-      // Redirect based on whether they have a company
-      if (user.companyId) {
-        router.push("/dashboard/resumen");
-      } else {
-        router.push("/marketplace");
-      }
+      setRegisteredEmail(form.email);
     } catch (err: any) {
       setError(err.message ?? "Error al registrar");
     }
     setLoading(false);
+  }
+
+  // Success state: account created, user must click the verification
+  // link in their email within 48h or the auth-cleanup cron deletes it.
+  if (registeredEmail) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          <Link href="/" className="flex justify-center mb-8">
+            <Image src="/logo_full.png" alt="TirePro" width={120} height={36} className="h-8 w-auto" />
+          </Link>
+
+          <div className="w-14 h-14 mx-auto mb-5 rounded-full flex items-center justify-center" style={{ background: "rgba(30,118,182,0.10)" }}>
+            <Mail className="w-7 h-7 text-[#1E76B6]" />
+          </div>
+
+          <h1 className="text-2xl font-black text-[#0A183A] mb-2">Revisa tu correo</h1>
+          <p className="text-sm text-gray-500 leading-relaxed mb-1">
+            Te enviamos un enlace de activación a
+          </p>
+          <p className="text-sm font-semibold text-[#0A183A] mb-6 break-all">{registeredEmail}</p>
+
+          <div className="text-xs text-gray-400 leading-relaxed mb-8">
+            Tienes <span className="font-semibold text-[#0A183A]">48 horas</span> para activar tu cuenta antes de que sea eliminada.
+            Si no encuentras el correo, revisa la carpeta de spam.
+          </div>
+
+          <Link href="/login"
+            className="block w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg"
+            style={{ background: "#1E76B6" }}>
+            Ir a inicio de sesión
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const inputCls = "w-full px-4 py-3 rounded-xl text-sm bg-[#f5f5f7] border border-transparent focus:border-[#1E76B6]/20 focus:bg-white focus:shadow-sm focus:outline-none text-[#0A183A] placeholder-gray-400 transition-all";

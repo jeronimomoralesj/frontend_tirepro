@@ -126,10 +126,10 @@ function RegisterForm() {
                 <Check size={28} style={{ color: "#10b981" }} />
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4" style={{ color: "#0A183A" }}>
-                ¡Registro Exitoso!
+                ¡Cuenta creada!
               </h1>
               <p className="text-gray-500 text-sm sm:text-base px-4">
-                Tu usuario ha sido registrado correctamente en TirePro.
+                Te enviamos un enlace de activación a <span className="font-semibold text-[#0A183A]">{email}</span>.
               </p>
             </div>
 
@@ -139,16 +139,16 @@ function RegisterForm() {
             >
               <div
                 className="p-4 rounded-xl border"
-                style={{ backgroundColor: "rgba(16,185,129,0.06)", borderColor: "rgba(16,185,129,0.2)" }}
+                style={{ backgroundColor: "rgba(30,118,182,0.06)", borderColor: "rgba(30,118,182,0.2)" }}
               >
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-5 h-5 bg-[#1E76B6] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Check size={12} className="text-white" />
                   </div>
                   <div>
-                    <h4 className="font-semibold mb-1" style={{ color: "#059669" }}>¡Perfecto!</h4>
-                    <p className="text-sm" style={{ color: "#047857" }}>
-                      Tu cuenta ha sido creada exitosamente. Ya puedes iniciar sesión.
+                    <h4 className="font-semibold mb-1" style={{ color: "#1E76B6" }}>Revisa tu correo</h4>
+                    <p className="text-sm" style={{ color: "#173D68" }}>
+                      Tienes <span className="font-semibold">48 horas</span> para activar tu cuenta antes de que sea eliminada. Si no lo encuentras, revisa la carpeta de spam.
                     </p>
                   </div>
                 </div>
