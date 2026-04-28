@@ -378,9 +378,19 @@ export default function ProductClient({
               )}
             </div>
             <h1 className="text-[26px] sm:text-[36px] font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight">{product.modelo}</h1>
-            <p className="text-sm text-gray-500 mt-2 font-medium">
-              <span className="font-bold text-[#0A183A]">{product.dimension}</span>
-              {product.eje ? <> · Eje {product.eje}</> : null}
+            <p className="text-sm text-gray-500 mt-2 font-medium flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="inline-flex items-baseline gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">
+                  {product.tipo === "reencauche" ? "Ancho" : "Dimensión"}
+                </span>
+                <span className="font-bold text-[#0A183A]">{product.dimension}</span>
+              </span>
+              {product.eje && (
+                <span className="inline-flex items-baseline gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">Eje</span>
+                  <span className="font-bold text-[#0A183A] capitalize">{product.eje}</span>
+                </span>
+              )}
             </p>
 
             {/* Stars */}
@@ -448,7 +458,8 @@ export default function ProductClient({
                 {product.tipo === "reencauche" ? "Reencauche" : "Llanta Nueva"}
               </span>
               {product.catalog?.terreno && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">{product.catalog.terreno}</span>}
-              {product.catalog?.reencauchable && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-purple-50 text-purple-600">Reencauchable</span>}
+              {/* "Reencauchable" attribute doesn't apply to retread products themselves. */}
+              {product.tipo !== "reencauche" && product.catalog?.reencauchable && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-purple-50 text-purple-600">Reencauchable</span>}
               {cpk != null && cpk > 0 && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600">CPK {fmtCOP(Math.round(cpk))}</span>}
               {product.tiempoEntrega && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">{product.tiempoEntrega}</span>}
             </div>
@@ -482,7 +493,11 @@ export default function ProductClient({
               if (c.segmento)             rows.push({ label: "Segmento", value: c.segmento });
               if (c.construccion)         rows.push({ label: "Construcción", value: c.construccion });
               if (c.tipo)                 rows.push({ label: "Tipo", value: c.tipo });
-              rows.push({ label: "Reencauchable", value: c.reencauchable ? `Sí${c.vidasReencauche ? ` · hasta ${c.vidasReencauche} vidas` : ""}` : "No" });
+              // Skip the "Reencauchable" row entirely for retread products —
+              // a band that's already a reencauche can't itself reencauche again.
+              if (product.tipo !== "reencauche") {
+                rows.push({ label: "Reencauchable", value: c.reencauchable ? `Sí${c.vidasReencauche ? ` · hasta ${c.vidasReencauche} vidas` : ""}` : "No" });
+              }
               if (c.skuRef)               rows.push({ label: "SKU TirePro", value: c.skuRef });
 
               return (
@@ -623,6 +638,9 @@ export default function ProductClient({
             </div>
 
             {/* ═══ RETREADABILITY INDEX ═══ */}
+            {/* Hidden for reencauche tires — a retread can't itself be retreaded
+                again for additional lives, so the index doesn't apply. */}
+            {product.tipo !== "reencauche" && (
             <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
               <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Reencauchabilidad</p>
               <p className="text-sm font-black text-[#0A183A] mb-3">Índice de reencauchabilidad</p>
@@ -661,6 +679,7 @@ export default function ProductClient({
                 );
               })()}
             </div>
+            )}
 
             {/* ═══ VEHICLE COMPATIBILITY ═══ */}
             <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
@@ -670,12 +689,16 @@ export default function ProductClient({
                 const dim = product.dimension;
                 const eje = product.eje;
                 const terreno = product.catalog?.terreno;
+                const isReencauche = product.tipo === "reencauche";
 
                 // Parse dimension to extract width, aspect ratio, and rim diameter
                 // Formats: "195/55R16", "295/80R22.5", "11R22.5", "7.50R16", "120/80-17"
                 const numericMatch = dim.match(/^(\d+(?:\.\d+)?)R(\d+(?:\.\d+)?)$/i);       // e.g. 11R22.5
                 const standardMatch = dim.match(/^(\d+)\/(\d+)\s*R?\s*(\d+(?:\.\d+)?)$/i);  // e.g. 195/55R16
                 const motoMatch = dim.match(/^(\d+)\/(\d+)\s*-\s*(\d+)$/);                  // e.g. 120/80-17
+                // Reencauche bands use a bare width (the "ancho") — e.g. "295" or
+                // "11.50". No rim, no aspect. Detect both raw integer and decimal.
+                const reencaucheMatch = dim.match(/^(\d+(?:\.\d+)?)$/);
 
                 const width = standardMatch ? parseInt(standardMatch[1]) : numericMatch ? parseFloat(numericMatch[1]) * 25.4 : 0;
                 const rim = standardMatch ? parseFloat(standardMatch[3]) : numericMatch ? parseFloat(numericMatch[2]) : motoMatch ? parseFloat(motoMatch[3]) : 0;
@@ -684,7 +707,46 @@ export default function ProductClient({
                 type VehicleCompat = { name: string; examples: string; positions: string };
                 let vehicles: VehicleCompat[] = [];
 
-                if (isMoto) {
+                // Reencauche-specific path: the dimension is just an ancho, so
+                // the standard rim/width parsing is meaningless. Map the ancho
+                // (in mm — inch values < 30 are converted) to the heavy-duty
+                // applications retread bands actually fit.
+                if (isReencauche && reencaucheMatch) {
+                  const ejePos = (() => {
+                    if (eje === "direccion") return "Eje direccional";
+                    if (eje === "traccion")  return "Ejes de tracción";
+                    if (eje === "remolque")  return "Eje de remolque";
+                    if (eje === "libre")     return "Cualquier eje";
+                    return "Consultar posición según diseño de banda";
+                  })();
+                  const raw = parseFloat(reencaucheMatch[1]);
+                  // Heuristic: anything below ~30 was almost certainly entered
+                  // in inches (e.g. 11.00, 12.00 R22.5 hosts). Convert to mm.
+                  const widthMm = raw < 30 ? raw * 25.4 : raw;
+
+                  if (widthMm >= 285) {
+                    vehicles = [
+                      { name: "Tractomula (cabezote)", examples: "Kenworth T680, Freightliner Cascadia, International LT", positions: ejePos },
+                      { name: "Volqueta / Mixer", examples: "Kenworth T800, International HX520, Mack Granite", positions: ejePos },
+                      { name: "Bus interurbano", examples: "Mercedes-Benz O500, Marcopolo Paradiso, Scania K360", positions: ejePos },
+                    ];
+                  } else if (widthMm >= 245) {
+                    vehicles = [
+                      { name: "Camión mediano", examples: "Chevrolet NQR, Hino FC, JAC X350, Isuzu FRR", positions: ejePos },
+                      { name: "Bus urbano", examples: "Chevrolet LV150, Hino AK, SITP Bogotá, Mio Cali", positions: ejePos },
+                      { name: "Trailer / Semirremolque", examples: "Trailer 2 y 3 ejes, cisterna, cama baja", positions: ejePos },
+                    ];
+                  } else if (widthMm >= 200) {
+                    vehicles = [
+                      { name: "Camión liviano", examples: "Chevrolet NHR, Hyundai HD65, JMC Carrying", positions: ejePos },
+                      { name: "Furgón de reparto", examples: "Chevrolet NLR, Hyundai HD45, Kia K2700", positions: ejePos },
+                    ];
+                  } else {
+                    vehicles = [
+                      { name: "Vehículo comercial liviano", examples: "Consulta el manual del vehículo", positions: ejePos },
+                    ];
+                  }
+                } else if (isMoto) {
                   vehicles = [
                     { name: "Motocicleta", examples: "Honda CB190, Yamaha FZ, Bajaj Pulsar, Suzuki Gixxer", positions: "Delantera o trasera segun medida" },
                   ];
@@ -800,7 +862,12 @@ export default function ProductClient({
                     )}
                     {eje && (
                       <p className="text-[10px] text-gray-400">
-                        Posicion recomendada: <span className="font-bold text-gray-600">Eje de {eje}</span>
+                        Posicion recomendada: <span className="font-bold text-gray-600 capitalize">Eje de {eje}</span>
+                      </p>
+                    )}
+                    {isReencauche && (
+                      <p className="text-[10px] text-gray-400 italic mt-1">
+                        Esta es una banda de reencauche — la compatibilidad final depende del casco al que se aplica.
                       </p>
                     )}
                   </div>
