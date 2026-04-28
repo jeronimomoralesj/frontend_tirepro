@@ -440,11 +440,11 @@ export default function CatalogoSkuExplorarPage() {
                     style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
                   />
                 </Field>
-                <Field label="Dimensión *">
+                <Field label={createForm.categoria === "reencauche" ? "Ancho *" : "Dimensión *"}>
                   <input
                     value={createForm.dimension}
                     onChange={(e) => setCreateForm({ ...createForm, dimension: e.target.value })}
-                    placeholder="295/80R22.5"
+                    placeholder={createForm.categoria === "reencauche" ? "Ej. 295" : "295/80R22.5"}
                     className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
                     style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
                   />
@@ -463,12 +463,14 @@ export default function CatalogoSkuExplorarPage() {
                     value={createForm.categoria}
                     onChange={(e) => {
                       const next = e.target.value;
-                      // A retread (reencauche) tire isn't itself "reencauchable" —
-                      // clear the flag so we don't accidentally send a stale true.
+                      // Retread (reencauche) tires aren't themselves reencauchable
+                      // and don't carry a load index — clear both fields so we
+                      // don't send misleading values for that category.
                       setCreateForm({
                         ...createForm,
                         categoria: next,
                         reencauchable: next === "reencauche" ? false : createForm.reencauchable,
+                        indiceCarga:  next === "reencauche" ? "" : createForm.indiceCarga,
                       });
                     }}
                     className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
@@ -493,15 +495,17 @@ export default function CatalogoSkuExplorarPage() {
                     <option value="remolque">Remolque</option>
                   </select>
                 </Field>
-                <Field label="Índice de carga">
-                  <input
-                    value={createForm.indiceCarga}
-                    onChange={(e) => setCreateForm({ ...createForm, indiceCarga: e.target.value })}
-                    placeholder="Ej. 152/148"
-                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
-                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
-                  />
-                </Field>
+                {createForm.categoria !== "reencauche" && (
+                  <Field label="Índice de carga">
+                    <input
+                      value={createForm.indiceCarga}
+                      onChange={(e) => setCreateForm({ ...createForm, indiceCarga: e.target.value })}
+                      placeholder="Ej. 152/148"
+                      className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                      style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                    />
+                  </Field>
+                )}
                 <Field label="Profundidad nueva (mm)">
                   <input
                     type="number" step="0.1" min="0"
