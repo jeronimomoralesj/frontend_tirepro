@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, Plus, Pencil, Trash2, Package, Search, X,
   Check, DollarSign, Calendar, Tag, Percent, AlertTriangle,
-  ChevronDown, ShoppingCart, Star, BarChart3,
+  ChevronDown, ShoppingCart, Star, BarChart3, BookOpen,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
@@ -98,6 +98,17 @@ export default function CatalogoDistPage() {
     descripcion: "", modelo: "", marca: "",
   });
 
+  // SKU picker — opens inside the Add modal so the dist can pre-fill the
+  // form from a tire that's already in their subscribed catalog instead
+  // of retyping marca/modelo/dimensión.
+  const [skuPickerOpen, setSkuPickerOpen] = useState(false);
+  const [skuPickerQ, setSkuPickerQ] = useState("");
+  const [skuPickerLoading, setSkuPickerLoading] = useState(false);
+  const [skuPickerItems, setSkuPickerItems] = useState<Array<{
+    id: string; marca: string; modelo: string; dimension: string;
+    categoria: string | null; ejeTirePro: string | null;
+  }>>([]);
+
   // Promotions
   const [showPromo, setShowPromo] = useState(false);
   const [promoType, setPromoType] = useState<"percent" | "fixed">("percent");
@@ -124,6 +135,47 @@ export default function CatalogoDistPage() {
     setCompanyId(user.companyId);
     fetchListings(user.companyId);
   }, [router, fetchListings]);
+
+  // -- SKU picker (inline inside the Add modal) ----------------------------
+  // Fetches the dist's subscribed SKUs (`/catalog/dist/search`) and lets
+  // them pick one to pre-fill the listing form. Debounced on query change.
+  const fetchSkuPickerItems = useCallback(async () => {
+    setSkuPickerLoading(true);
+    try {
+      const params = new URLSearchParams({ pageSize: "20" });
+      if (skuPickerQ.trim()) params.set("q", skuPickerQ.trim());
+      const res = await authFetch(`${API_BASE}/catalog/dist/search?${params.toString()}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setSkuPickerItems(data.items ?? []);
+    } catch {
+      setSkuPickerItems([]);
+    } finally {
+      setSkuPickerLoading(false);
+    }
+  }, [skuPickerQ]);
+
+  useEffect(() => {
+    if (!skuPickerOpen) return;
+    const t = setTimeout(() => fetchSkuPickerItems(), 200);
+    return () => clearTimeout(t);
+  }, [skuPickerOpen, fetchSkuPickerItems]);
+
+  function pickSkuRow(row: { id: string; marca: string; modelo: string; dimension: string; categoria: string | null; ejeTirePro: string | null }) {
+    setForm((f) => ({
+      ...f,
+      // Reuse the same canonical formatters used elsewhere on this page so
+      // the imported row matches what the user would have typed by hand.
+      marca:     fmtMarca(row.marca),
+      modelo:    fmtModelo(row.modelo),
+      dimension: fmtDimension(row.dimension),
+      eje:       row.ejeTirePro ?? f.eje,
+      tipo:      row.categoria === "reencauche" ? "reencauche" : "nueva",
+      catalogId: row.id, // links the listing to the master SKU
+    }));
+    setSkuPickerOpen(false);
+    setSkuPickerQ("");
+  }
 
   async function handleAdd() {
     if (!form.marca || !form.modelo || !form.dimension || form.precioCop <= 0) return;
@@ -324,6 +376,87 @@ export default function CatalogoDistPage() {
                 <button onClick={() => setShowAdd(false)} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
               </div>
               <div className="p-5 space-y-3 overflow-y-auto flex-1">
+                {/* Import-from-SKU shortcut. Lets the dist pre-fill marca /
+                    modelo / dimensión / eje / tipo from a tire that's
+                    already in their subscribed catalog instead of retyping. */}
+                <div className="rounded-xl p-3" style={{ background: "rgba(30,118,182,0.05)", border: "1px solid rgba(30,118,182,0.18)" }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <BookOpen className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />
+                      <p className="text-[11px] font-semibold text-[#0A183A]">
+                        {form.catalogId ? "Importado de tu catálogo" : "¿Ya tienes esta llanta en tu catálogo?"}
+                      </p>
+                    </div>
+                    {form.catalogId ? (
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, catalogId: "" }))}
+                        className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-gray-600"
+                        title="Quitar vínculo con SKU"
+                      >
+                        <X className="w-3 h-3" /> Desvincular
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSkuPickerOpen((v) => !v)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white"
+                        style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+                      >
+                        {skuPickerOpen ? <X className="w-3 h-3" /> : <BookOpen className="w-3 h-3" />}
+                        {skuPickerOpen ? "Cerrar" : "Importar de SKUs"}
+                      </button>
+                    )}
+                  </div>
+
+                  {skuPickerOpen && !form.catalogId && (
+                    <div className="mt-2 space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                        <input
+                          autoFocus
+                          type="text"
+                          value={skuPickerQ}
+                          onChange={(e) => setSkuPickerQ(e.target.value)}
+                          placeholder="Buscar marca, modelo, dimensión…"
+                          className="w-full pl-7 pr-2 py-1.5 rounded-lg text-xs bg-white border border-gray-200 focus:outline-none focus:border-[#1E76B6]"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto rounded-lg bg-white" style={{ border: "1px solid rgba(52,140,203,0.12)" }}>
+                        {skuPickerLoading ? (
+                          <div className="flex items-center justify-center py-4 text-[#1E76B6]">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          </div>
+                        ) : skuPickerItems.length === 0 ? (
+                          <p className="text-center text-[10px] text-gray-400 py-3">Sin resultados en tu catálogo</p>
+                        ) : (
+                          <ul className="divide-y divide-gray-100">
+                            {skuPickerItems.map((row) => (
+                              <li key={row.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => pickSkuRow(row)}
+                                  className="w-full text-left px-3 py-2 hover:bg-[#F0F7FF] transition-colors"
+                                >
+                                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                                    <span className="text-[9px] font-bold uppercase text-[#348CCB]">{row.marca}</span>
+                                    <span className="text-xs font-black text-[#0A183A] truncate">{row.modelo}</span>
+                                  </div>
+                                  <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                                    {row.dimension}
+                                    {row.ejeTirePro && ` · ${row.ejeTirePro}`}
+                                    {row.categoria && ` · ${row.categoria}`}
+                                  </p>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[9px] font-bold text-gray-400 uppercase block mb-1">Marca</label>

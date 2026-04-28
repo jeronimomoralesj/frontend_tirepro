@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Loader2, Upload, X, FileDown, Download, Plus,
   AlertCircle, Trash2, Image as ImageIcon, CheckCircle2, Film, Video,
-  Edit3, Save, ShoppingCart, Check, Share2,
+  Edit3, Save, ShoppingCart, Check, Share2, Store,
 } from "lucide-react";
 import { buildCatalogPdf, type PdfInput } from "../pdf";
 import { useCatalogCart } from "../cart";
@@ -199,6 +199,22 @@ export default function CatalogoSkuDetailPage() {
   const [saving,        setSaving]        = useState(false);
   const [subscribing,   setSubscribing]   = useState(false);
 
+  // Distributor's companyId — needed to POST a marketplace listing.
+  // Hydrated from the same localStorage["user"] payload other state reads.
+  const [distributorId, setDistributorId] = useState<string>("");
+
+  // "Vender en marketplace" modal — quick path to spawn a marketplace
+  // Listing for this SKU without retyping marca / modelo / dimensión.
+  // Backend auto-fills those from the catalogId we send.
+  const [sellOpen, setSellOpen] = useState(false);
+  const [sellSaving, setSellSaving] = useState(false);
+  const [sellError, setSellError] = useState("");
+  const [sellForm, setSellForm] = useState({
+    precioCop: 0,
+    cantidadDisponible: 0,
+    tiempoEntrega: "1-3 dias",
+  });
+
   // Brand toggles for the PDF — each one maps to a piece of BrandInfo
   // we pulled from /marketplace/brands/:slug. Two groups keeps the UI
   // compact: editorial copy (tagline + description) vs. factual data
@@ -219,6 +235,7 @@ export default function CatalogoSkuDetailPage() {
       if (user?.role === "admin") setIsAdmin(true);
       if (user?.role === "admin" || user?.role === "catalogo_admin") setCanCurate(true);
       if (user?.name && !repName) setRepName(user.name);
+      if (user?.companyId) setDistributorId(user.companyId);
       if (user?.companyId) {
         authFetch(`${API_BASE}/companies/${user.companyId}`)
           .then((r) => (r.ok ? r.json() : null))
@@ -413,6 +430,61 @@ export default function CatalogoSkuDetailPage() {
       setError(e instanceof Error ? e.message : "No se pudo actualizar");
     } finally {
       setSubscribing(false);
+    }
+  }
+
+  function openSellModal() {
+    setSellForm({
+      // Seed price from the catalog row's own COP if we have it. Sales managers
+      // typically tweak this anyway, but starting from a sensible number beats
+      // a 0 that could be submitted by accident.
+      precioCop:          sku?.precioCop ?? 0,
+      cantidadDisponible: 0,
+      tiempoEntrega:      "1-3 dias",
+    });
+    setSellError("");
+    setSellOpen(true);
+  }
+
+  async function submitSellListing(e: React.FormEvent) {
+    e.preventDefault();
+    setSellError("");
+    if (!sku || !distributorId) return;
+    if (sellForm.precioCop <= 0) {
+      setSellError("El precio debe ser mayor a 0.");
+      return;
+    }
+    setSellSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/listings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Backend enriches marca / modelo / dimensión from the SKU once a
+        // valid catalogId is provided, so we send the bare minimum.
+        body: JSON.stringify({
+          distributorId,
+          catalogId:          sku.id,
+          marca:              sku.marca,
+          modelo:             sku.modelo,
+          dimension:          sku.dimension,
+          tipo:               sku.categoria === "reencauche" ? "reencauche" : "nueva",
+          eje:                sku.ejeTirePro ?? undefined,
+          precioCop:          sellForm.precioCop,
+          cantidadDisponible: sellForm.cantidadDisponible,
+          tiempoEntrega:      sellForm.tiempoEntrega,
+        }),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(t || `HTTP ${res.status}`);
+      }
+      setSellOpen(false);
+      setToast("Producto publicado en tu catálogo de marketplace");
+      setTimeout(() => setToast(""), 3500);
+    } catch (e) {
+      setSellError(e instanceof Error ? e.message : "No se pudo crear la publicación");
+    } finally {
+      setSellSaving(false);
     }
   }
 
@@ -641,6 +713,18 @@ export default function CatalogoSkuDetailPage() {
           <p className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">{sku.marca}</p>
           <p className="text-sm font-black text-[#0A183A] leading-tight truncate">{sku.modelo} · {sku.dimension}</p>
         </div>
+        {canCurate && sku.subscribed && (
+          <button
+            onClick={openSellModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:bg-emerald-50"
+            style={{ color: "#059669", border: "1px solid rgba(16,185,129,0.35)" }}
+            title="Crear publicación en el marketplace para esta llanta"
+          >
+            <Store className="w-3 h-3" />
+            <span className="hidden sm:inline">Vender en marketplace</span>
+            <span className="sm:hidden">Vender</span>
+          </button>
+        )}
         {canCurate && (
           sku.subscribed ? (
             <button onClick={onToggleSubscription} disabled={subscribing}
@@ -1112,6 +1196,121 @@ export default function CatalogoSkuDetailPage() {
           onCancel={() => setEditOpen(false)}
           onSave={onSaveEdit}
         />
+      )}
+
+      {/* "Vender en marketplace" — quick listing-creation modal. */}
+      {sellOpen && sku && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 py-6"
+          style={{ background: "rgba(10,24,58,0.5)", backdropFilter: "blur(4px)" }}
+          onClick={() => !sellSaving && setSellOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+          >
+            <div
+              className="px-5 py-4 flex items-center justify-between text-white rounded-t-2xl"
+              style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+            >
+              <div className="flex items-center gap-2">
+                <Store className="w-4 h-4" />
+                <h2 className="text-sm font-black">Publicar en marketplace</h2>
+              </div>
+              <button
+                onClick={() => !sellSaving && setSellOpen(false)}
+                disabled={sellSaving}
+                className="p-1 rounded hover:bg-white/15 disabled:opacity-40"
+                aria-label="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={submitSellListing} className="p-5 space-y-3">
+              <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.18)" }}>
+                <p className="font-bold text-[#0A183A] truncate">{sku.marca} {sku.modelo}</p>
+                <p className="text-gray-500 font-mono mt-0.5">{sku.dimension}</p>
+              </div>
+
+              <label className="block">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Precio sin IVA (COP) *</span>
+                <input
+                  type="number" min={0}
+                  value={sellForm.precioCop || ""}
+                  onChange={(e) => setSellForm({ ...sellForm, precioCop: Number(e.target.value) })}
+                  placeholder="$"
+                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                  style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                />
+              </label>
+
+              <label className="block">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Cantidad disponible</span>
+                <input
+                  type="number" min={0}
+                  value={sellForm.cantidadDisponible || ""}
+                  onChange={(e) => setSellForm({ ...sellForm, cantidadDisponible: Number(e.target.value) })}
+                  placeholder="0"
+                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                  style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                />
+              </label>
+
+              <label className="block">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Tiempo de entrega</span>
+                <select
+                  value={sellForm.tiempoEntrega}
+                  onChange={(e) => setSellForm({ ...sellForm, tiempoEntrega: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                  style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                >
+                  <option value="Inmediato">Inmediato</option>
+                  <option value="1-3 dias">1-3 días</option>
+                  <option value="1 semana">1 semana</option>
+                  <option value="2 semanas">2 semanas</option>
+                </select>
+              </label>
+
+              {sellError && (
+                <div
+                  className="flex items-start gap-2 px-3 py-2 rounded-lg text-xs text-red-700"
+                  style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}
+                >
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  {sellError}
+                </div>
+              )}
+
+              <p className="text-[10px] text-gray-400">
+                Quedará vinculada a este SKU. Para cambiar precio, foto o stock más adelante,
+                edita la publicación desde el catálogo del marketplace.
+              </p>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSellOpen(false)}
+                  disabled={sellSaving}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-xs font-bold text-[#0A183A] transition-all hover:bg-gray-50 disabled:opacity-40"
+                  style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={sellSaving}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+                >
+                  {sellSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Store className="w-3.5 h-3.5" />}
+                  Publicar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
