@@ -1190,8 +1190,16 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
   if (tire.inspecciones.length === 0)
     return <p className="text-sm text-gray-400 py-6 text-center">Sin inspecciones registradas</p>;
 
+  // Most-recent-first, but future-dated inspections (likely data-entry
+  // mistakes) are pushed below all past ones so the actual latest real
+  // inspection lands at the top.
+  const now = Date.now();
+  const sortKey = (fecha: string) => {
+    const t = new Date(fecha).getTime();
+    return t <= now ? t : Number.NEGATIVE_INFINITY;
+  };
   const sorted = [...tire.inspecciones].sort(
-    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+    (a, b) => sortKey(b.fecha) - sortKey(a.fecha)
   );
 
   // Store the original fecha of the inspection being edited so save always
@@ -1955,14 +1963,23 @@ const BuscarPage: React.FC = () => {
         const raw: RawTire[] = await tRes.json();
         // Primary sort: most-recently-inspected first (date closest to today),
         // tiebreaker by posicion. `inspecciones` is ascending after normalise()
-        // so the last entry is the latest. 0 = never inspected → goes last.
+        // so the last entry is the latest. Future-dated inspections (data-entry
+        // mistakes) and "never inspected" both sort to the end.
+        const nowMs = Date.now();
+        const lastPastMs = (insps: { fecha: string }[]) => {
+          for (let i = insps.length - 1; i >= 0; i--) {
+            const t = new Date(insps[i].fecha).getTime();
+            if (t <= nowMs) return t;
+          }
+          return 0;
+        };
         setTires(
           raw
             .filter(t => t.companyId === companyId)
             .map(normalise)
             .sort((a, b) => {
-              const aLast = a.inspecciones.length ? new Date(a.inspecciones[a.inspecciones.length - 1].fecha).getTime() : 0;
-              const bLast = b.inspecciones.length ? new Date(b.inspecciones[b.inspecciones.length - 1].fecha).getTime() : 0;
+              const aLast = lastPastMs(a.inspecciones);
+              const bLast = lastPastMs(b.inspecciones);
               if (aLast !== bLast) return bLast - aLast;
               return a.posicion - b.posicion;
             })
@@ -1974,11 +1991,18 @@ const BuscarPage: React.FC = () => {
         if (!tRes.ok) throw new Error("Llanta no encontrada");
         const raw: RawTire[] = await tRes.json();
         const term = searchTerm.trim().toLowerCase();
-        // RawTire.inspecciones isn't pre-sorted — pick the max fecha each side.
-        const lastInspMs = (t: RawTire) =>
-          t.inspecciones.length === 0
-            ? 0
-            : Math.max(...t.inspecciones.map((i) => new Date(i.fecha).getTime()));
+        // RawTire.inspecciones isn't pre-sorted — pick the max past fecha each
+        // side. Future-dated inspections (data-entry mistakes) are ignored so
+        // they don't push a tire to the top.
+        const nowMs = Date.now();
+        const lastInspMs = (t: RawTire) => {
+          let best = 0;
+          for (const i of t.inspecciones) {
+            const ms = new Date(i.fecha).getTime();
+            if (ms <= nowMs && ms > best) best = ms;
+          }
+          return best;
+        };
         const matched = raw
           .filter(t => t.placa.toLowerCase() === term || t.placa.toLowerCase().includes(term))
           .sort((a, b) => {

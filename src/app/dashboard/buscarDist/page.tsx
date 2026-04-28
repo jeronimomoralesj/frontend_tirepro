@@ -862,8 +862,16 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
   if (tire.inspecciones.length === 0)
     return <p className="text-sm text-gray-400 py-6 text-center">Sin inspecciones registradas</p>;
 
+  // Most-recent-first, but future-dated inspections (likely data-entry
+  // mistakes) are pushed below all past ones so the actual latest real
+  // inspection lands at the top.
+  const now = Date.now();
+  const sortKey = (fecha: string) => {
+    const t = new Date(fecha).getTime();
+    return t <= now ? t : Number.NEGATIVE_INFINITY;
+  };
   const sorted = [...tire.inspecciones].sort(
-    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+    (a, b) => sortKey(b.fecha) - sortKey(a.fecha)
   );
 
   const [editOriginalFecha, setEditOriginalFecha] = useState<string>("");
@@ -1425,13 +1433,22 @@ const BuscarDist: React.FC = () => {
       const raw: RawTire[] = await tRes.json();
       // Primary sort: most-recently-inspected first (date closest to today),
       // tiebreaker by posicion. `inspecciones` is ascending after normalise()
-      // so the last entry is the latest. 0 = never inspected → goes last.
+      // so the last entry is the latest. Future-dated inspections (data-entry
+      // mistakes) and "never inspected" both sort to the end.
+      const nowMs = Date.now();
+      const lastPastMs = (insps: { fecha: string }[]) => {
+        for (let i = insps.length - 1; i >= 0; i--) {
+          const t = new Date(insps[i].fecha).getTime();
+          if (t <= nowMs) return t;
+        }
+        return 0;
+      };
       const valid = raw
         .filter((t) => t.companyId === selectedCompany.id)
         .map(normalise)
         .sort((a, b) => {
-          const aLast = a.inspecciones.length ? new Date(a.inspecciones[a.inspecciones.length - 1].fecha).getTime() : 0;
-          const bLast = b.inspecciones.length ? new Date(b.inspecciones[b.inspecciones.length - 1].fecha).getTime() : 0;
+          const aLast = lastPastMs(a.inspecciones);
+          const bLast = lastPastMs(b.inspecciones);
           if (aLast !== bLast) return bLast - aLast;
           return a.posicion - b.posicion;
         });
