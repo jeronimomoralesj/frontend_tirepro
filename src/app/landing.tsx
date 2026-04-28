@@ -1205,10 +1205,7 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
                   cursor: 'pointer',
                 }}
                 onClick={() => setActiveTestimonial(index)}
-                itemScope
-                itemType="https://schema.org/Review"
               >
-                {/* Metric badge */}
                 <div
                   className="inline-block px-3 py-1 rounded-full text-xs font-bold mb-4"
                   style={{ background: 'rgba(30,118,182,0.2)', color: '#62b8f0' }}
@@ -1219,18 +1216,16 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
                 <blockquote
                   className="text-sm leading-relaxed mb-5"
                   style={{ color: 'rgba(255,255,255,0.7)' }}
-                  itemProp="reviewBody"
                 >
                   &ldquo;{testimonial.quote}&rdquo;
                 </blockquote>
 
                 <footer>
-                  <div className="font-semibold text-sm text-white" itemProp="author" itemScope itemType="https://schema.org/Person">
-                    <span itemProp="name">{testimonial.author}</span>
+                  <div className="font-semibold text-sm text-white">
+                    <span>{testimonial.author}</span>
                   </div>
-                  <div className="text-xs mt-0.5" style={{ color: '#1E76B6' }} itemProp="jobTitle">{testimonial.role}</div>
-                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }} itemProp="organization">{testimonial.company}</div>
-                  <meta itemProp="ratingValue" content={testimonial.rating.toString()} />
+                  <div className="text-xs mt-0.5" style={{ color: '#1E76B6' }}>{testimonial.role}</div>
+                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{testimonial.company}</div>
                 </footer>
               </article>
             ))}
@@ -1441,8 +1436,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
         style={{ background: 'linear-gradient(180deg, #f7fafd 0%, #ffffff 100%)' }}
         aria-labelledby="faq-heading"
-        itemScope
-        itemType="https://schema.org/FAQPage"
       >
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-14">
@@ -1468,9 +1461,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
                   borderColor: activeQuestion === index ? 'rgba(30,118,182,0.3)' : 'rgba(10,24,58,0.07)',
                   boxShadow: activeQuestion === index ? '0 4px 20px rgba(30,118,182,0.08)' : 'none',
                 }}
-                itemScope
-                itemProp="mainEntity"
-                itemType="https://schema.org/Question"
               >
                 <button
                   className="w-full p-5 sm:p-6 text-left flex items-center justify-between transition-all"
@@ -1480,7 +1470,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
                   <span
                     className="font-semibold pr-6 text-sm sm:text-base"
                     style={{ color: '#0A183A' }}
-                    itemProp="name"
                   >
                     {faq.q}
                   </span>
@@ -1503,12 +1492,9 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
                 </button>
                 <div
                   className={`overflow-hidden transition-all duration-300 ${activeQuestion === index ? 'max-h-96' : 'max-h-0'}`}
-                  itemScope
-                  itemProp="acceptedAnswer"
-                  itemType="https://schema.org/Answer"
                 >
                   <div className="px-5 sm:px-6 pb-5 sm:pb-6">
-                    <p className="text-sm text-gray-600 leading-relaxed" itemProp="text">{faq.a}</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">{faq.a}</p>
                   </div>
                 </div>
               </article>

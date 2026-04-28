@@ -83,7 +83,7 @@ export const metadata: Metadata = {
 
   alternates: {
     canonical: 'https://www.tirepro.com.co',
-    languages: { 'es-CO': 'https://www.tirepro.com.co', en: 'https://www.tirepro.com.co/en' },
+    languages: { 'es-CO': 'https://www.tirepro.com.co' },
   },
 
   category: 'Technology',
@@ -182,41 +182,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           "target": "https://www.tirepro.com.co/marketplace?q={search_term_string}",
           "query-input": "required name=search_term_string",
         },
-      },
-      {
-        "@type": "FAQPage",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "Qué es TirePro?",
-            "acceptedAnswer": { "@type": "Answer", "text": "TirePro es una plataforma de gestión inteligente de llantas con IA para flotas de transporte en Colombia. Ayuda a reducir costos hasta 25% mediante análisis de CPK, predicción de fallas, y automatización de decisiones de reencauche y reemplazo." }
-          },
-          {
-            "@type": "Question",
-            "name": "Cómo reduce TirePro los costos de mi flota?",
-            "acceptedAnswer": { "@type": "Answer", "text": "TirePro reduce costos mediante: 1) Retiro óptimo a 3mm para preservar cascos de reencauche, 2) Detección de desalineación y baja presión, 3) Análisis CPK para elegir las mejores marcas, 4) Alertas automáticas a conductores, 5) Pedidos inteligentes a distribuidores." }
-          },
-          {
-            "@type": "Question",
-            "name": "Cuánto cuesta TirePro?",
-            "acceptedAnswer": { "@type": "Answer", "text": "TirePro ofrece Plan Inicio gratis (hasta 10 vehículos), Plan Crecimiento ($300,000/mes, 10-50 vehículos) y Plan Empresarial ($1,000,000/mes, vehículos ilimitados). Todos incluyen llantas ilimitadas." }
-          },
-          {
-            "@type": "Question",
-            "name": "¿Cómo comprar llantas en el marketplace de TirePro?",
-            "acceptedAnswer": { "@type": "Answer", "text": "En el marketplace de TirePro puedes buscar llantas por dimensión, marca o placa de tu vehículo. Comparas precios de distribuidores verificados en toda Colombia, agregas al carrito y pagas con tarjeta de crédito, débito, PSE o Nequi. El distribuidor envía directamente a tu ubicación." }
-          },
-          {
-            "@type": "Question",
-            "name": "¿Qué marcas de llantas puedo encontrar en TirePro?",
-            "acceptedAnswer": { "@type": "Answer", "text": "En TirePro encuentras llantas de las principales marcas: Michelin, Bridgestone, Continental, Goodyear, Firestone, Hankook, Yokohama, Pirelli y más. También llantas de reencauche de alta calidad. Todas vendidas por distribuidores verificados con garantía." }
-          },
-          {
-            "@type": "Question",
-            "name": "¿TirePro hace envíos a toda Colombia?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Sí, los distribuidores de TirePro hacen envíos a toda Colombia incluyendo Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Pereira, Cartagena y más. Los tiempos de entrega dependen del distribuidor y tu ubicación." }
-          },
-        ],
       },
     ],
   };
