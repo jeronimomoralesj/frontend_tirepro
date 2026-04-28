@@ -207,8 +207,8 @@ function normalise(raw: RawTire): Tire {
 type SemaforoCondition = "buenEstado" | "dias60" | "dias30" | "cambioInmediato";
 
 function getSemaforoCondition(tire: Tire): SemaforoCondition | null {
-  if (!tire.inspecciones.length) return null;
-  const last = tire.inspecciones[tire.inspecciones.length - 1];
+  const last = getLatestInsp(tire);
+  if (!last) return null;
   const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
   if (minDepth > 7) return "buenEstado";
   if (minDepth > 6) return "dias60";
@@ -244,8 +244,8 @@ const SEMAFORO_LEGEND: Array<{ color: string; label: string }> = [
 
 // Health = percentage of usable mm remaining (above 2mm legal minimum)
 function calcMmHealthScore(tire: Tire): number {
-  if (!tire.inspecciones.length) return 0;
-  const last = tire.inspecciones[tire.inspecciones.length - 1];
+  const last = getLatestInsp(tire);
+  if (!last) return 0;
   const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
   const initial = tire.profundidadInicial > 0 ? tire.profundidadInicial : 22;
   const usable = Math.max(initial - 2, 1);
@@ -253,8 +253,18 @@ function calcMmHealthScore(tire: Tire): number {
   return Math.round(Math.min((remaining / usable) * 100, 100));
 }
 
+// "Latest" = most recent inspection whose date is on or before today.
+// Future-dated inspections (typically data-entry mistakes) are skipped so
+// the semaforo color, health score and km projection all reflect reality.
+// `inspecciones` is ascending after normalise(), so iterate from the tail.
 function getLatestInsp(tire: Tire) {
-  return tire.inspecciones.length ? tire.inspecciones[tire.inspecciones.length - 1] : null;
+  if (!tire.inspecciones.length) return null;
+  const nowMs = Date.now();
+  for (let i = tire.inspecciones.length - 1; i >= 0; i--) {
+    const insp = tire.inspecciones[i];
+    if (new Date(insp.fecha).getTime() <= nowMs) return insp;
+  }
+  return null;
 }
 
 function getTotalCost(tire: Tire): number {
