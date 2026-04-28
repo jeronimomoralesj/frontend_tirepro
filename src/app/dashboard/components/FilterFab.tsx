@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { SlidersHorizontal, X, Search, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { SlidersHorizontal, X, Search, ChevronDown, Plus, Trash2, Calendar } from 'lucide-react';
 import {
   AdvancedCondition,
   FIELD_META,
@@ -32,6 +32,10 @@ interface FilterFabProps {
   /** Optional advanced (numeric comparison) conditions */
   advancedConditions?: AdvancedCondition[];
   onAdvancedChange?: (next: AdvancedCondition[]) => void;
+  /** Optional inspection-date filter (YYYY-MM-DD, "" = none) */
+  date?: string;
+  onDateChange?: (next: string) => void;
+  dateLabel?: string;
 }
 
 const ALL = 'Todos';
@@ -45,16 +49,21 @@ export default function FilterFab({
   searchPlaceholder = 'Buscar...',
   advancedConditions,
   onAdvancedChange,
+  date,
+  onDateChange,
+  dateLabel = 'Fecha de inspección',
 }: FilterFabProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const advEnabled = Array.isArray(advancedConditions) && !!onAdvancedChange;
   const adv = advancedConditions ?? [];
+  const dateEnabled = !!onDateChange;
 
   const activeCount =
     Object.values(values).filter((v) => v && v !== ALL).length
     + (search?.trim() ? 1 : 0)
-    + adv.length;
+    + adv.length
+    + (date ? 1 : 0);
 
   function updateAdv(next: AdvancedCondition[]) {
     onAdvancedChange?.(next);
@@ -85,6 +94,7 @@ export default function FilterFab({
     filters.forEach((f) => onChange(f.key, ALL));
     onSearchChange?.('');
     if (advEnabled) onAdvancedChange?.([]);
+    if (dateEnabled) onDateChange?.('');
   }
 
   return (
@@ -138,6 +148,21 @@ export default function FilterFab({
               &quot;{search}&quot;
               <button
                 onClick={(e) => { e.stopPropagation(); onSearchChange?.(''); }}
+                className="hover:opacity-70"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </span>
+          )}
+          {date && (
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white"
+              style={{ background: 'rgba(30,118,182,0.9)', backdropFilter: 'blur(8px)' }}
+            >
+              <Calendar className="w-2.5 h-2.5" />
+              {date}
+              <button
+                onClick={(e) => { e.stopPropagation(); onDateChange?.(''); }}
                 className="hover:opacity-70"
               >
                 <X className="w-2.5 h-2.5" />
@@ -210,6 +235,45 @@ export default function FilterFab({
                   placeholder={searchPlaceholder}
                   className="w-full pl-8 pr-3 py-2 rounded-xl text-xs bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#348CCB] focus:ring-1 focus:ring-[#348CCB]/30 transition-all"
                 />
+              </div>
+            )}
+
+            {/* Inspection date filter */}
+            {dateEnabled && (
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">
+                  {dateLabel}
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={date ?? ''}
+                    onChange={(e) => onDateChange?.(e.target.value)}
+                    className="w-full pl-8 pr-8 py-2 rounded-xl text-xs font-medium transition-all focus:outline-none focus:ring-1 focus:ring-[#348CCB]/30"
+                    style={{
+                      background: date ? 'rgba(30,118,182,0.06)' : '#f9fafb',
+                      border: date
+                        ? '1px solid rgba(30,118,182,0.3)'
+                        : '1px solid #e5e7eb',
+                      color: date ? '#1E76B6' : '#0A183A',
+                    }}
+                  />
+                  {date && (
+                    <button
+                      onClick={() => onDateChange?.('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-100"
+                      aria-label="Limpiar fecha"
+                    >
+                      <X className="w-3 h-3 text-gray-400" />
+                    </button>
+                  )}
+                </div>
+                {date && (
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Mostrando solo llantas inspeccionadas ese día con sus valores de ese día.
+                  </p>
+                )}
               </div>
             )}
 

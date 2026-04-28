@@ -617,6 +617,11 @@ export default function DistribuidorPage() {
   });
   const [filterSearch, setFilterSearch] = useState("");
   const [advancedConditions, setAdvancedConditions] = useState<AdvancedCondition[]>([]);
+  // Inspection-date filter (YYYY-MM-DD, "" = none). When set, only tires with
+  // an inspection on that local-calendar day are kept, and each tire's
+  // `inspecciones` is narrowed to that day so charts/cards that look at the
+  // "latest" inspection automatically render that day's values.
+  const [inspectionDate, setInspectionDate] = useState<string>("");
 
   // -- Auth user --------------------------------------------------------------
   useEffect(() => {
@@ -699,6 +704,7 @@ export default function DistribuidorPage() {
   setSelectedEje("");
   setFilterValues({ alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos" });
   setFilterSearch("");
+  setInspectionDate("");
   setLoadedTires(0); setStreaming(false);
 }, []);
 
@@ -880,6 +886,7 @@ export default function DistribuidorPage() {
   const deferredFilterValues = useDeferredValue(filterValues);
   const deferredFilterSearch = useDeferredValue(filterSearch);
   const deferredAdvanced     = useDeferredValue(advancedConditions);
+  const deferredInspectionDate = useDeferredValue(inspectionDate);
 
   const filteredTires: NormTire[] = useMemo(() => {
     // Filter the chartTires snapshot (NOT allTires). During streaming,
@@ -888,6 +895,26 @@ export default function DistribuidorPage() {
     // don't trigger a full filter recompute.
     const raw = chartTires as unknown as NormTire[];
     let result = raw;
+
+    // Inspection-date filter — applied first so downstream filters and
+    // charts that read the "latest" inspection see only that day's data.
+    // Compare in local time so a date like "2025-12-24" matches inspections
+    // recorded on Dec 24 in the user's timezone (UTC ISO converted).
+    if (deferredInspectionDate) {
+      const target = deferredInspectionDate;
+      const narrowed: NormTire[] = [];
+      for (const t of result) {
+        const dayInsps = t.inspecciones.filter((i) => {
+          const local = new Date(i.fecha).toLocaleDateString("en-CA"); // "YYYY-MM-DD"
+          return local === target;
+        });
+        if (dayInsps.length === 0) continue;
+        // `NormTire.inspecciones` collides with `RawTire.inspecciones`, making
+        // it an intersection type — cast through unknown so the override works.
+        narrowed.push({ ...t, inspecciones: dayInsps } as unknown as NormTire);
+      }
+      result = narrowed;
+    }
 
     // Vida filter (also hides "fin" by default like detalle)
     if (!deferredFilterValues.vida || deferredFilterValues.vida === "Todos") {
@@ -926,14 +953,15 @@ export default function DistribuidorPage() {
       result = result.filter((t) => passAllAdvanced(t, deferredAdvanced));
     }
     return result;
-  }, [chartTires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, vehicleMap]);
+  }, [chartTires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, deferredInspectionDate, vehicleMap]);
 
   // True while React is catching up a deferred filter change — used for a
   // subtle overlay hint so the user knows the charts are about to update.
   const filterPending =
     filterValues       !== deferredFilterValues
     || filterSearch    !== deferredFilterSearch
-    || advancedConditions !== deferredAdvanced;
+    || advancedConditions !== deferredAdvanced
+    || inspectionDate  !== deferredInspectionDate;
 
   // Filter dropdown options derived from the chart snapshot — same
   // rationale as filteredTires above: mid-stream chunks shouldn't rebuild
@@ -1286,6 +1314,9 @@ export default function DistribuidorPage() {
           searchPlaceholder="Buscar por placa..."
           advancedConditions={advancedConditions}
           onAdvancedChange={setAdvancedConditions}
+          date={inspectionDate}
+          onDateChange={setInspectionDate}
+          dateLabel="Fecha de inspección"
         />
       )}
     </div>
