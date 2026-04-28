@@ -161,11 +161,11 @@ export default function CatalogoDistPage() {
     return () => clearTimeout(t);
   }, [skuPickerOpen, fetchSkuPickerItems]);
 
-  function pickSkuRow(row: { id: string; marca: string; modelo: string; dimension: string; categoria: string | null; ejeTirePro: string | null }) {
+  async function pickSkuRow(row: { id: string; marca: string; modelo: string; dimension: string; categoria: string | null; ejeTirePro: string | null }) {
+    // Reuse the same canonical formatters used elsewhere on this page so
+    // the imported row matches what the user would have typed by hand.
     setForm((f) => ({
       ...f,
-      // Reuse the same canonical formatters used elsewhere on this page so
-      // the imported row matches what the user would have typed by hand.
       marca:     fmtMarca(row.marca),
       modelo:    fmtModelo(row.modelo),
       dimension: fmtDimension(row.dimension),
@@ -175,6 +175,35 @@ export default function CatalogoDistPage() {
     }));
     setSkuPickerOpen(false);
     setSkuPickerQ("");
+
+    // Pull the SKU's full image gallery (the search response only has one
+    // thumbnail per row) and import them into the listing form. Order the
+    // cover first so coverIndex stays 0 regardless of how the SKU was
+    // arranged. Capped at 5 to match the listing limit. The existing
+    // "Fotos" UI lets the dist X-out anything they don't want and pick a
+    // different cover before saving.
+    try {
+      const res = await authFetch(`${API_BASE}/catalog/dist/${row.id}`);
+      if (!res.ok) return;
+      const detail = await res.json() as {
+        images?: Array<{ id: string; url: string; coverIndex: number }>;
+      };
+      const imgs = (detail.images ?? []).slice();
+      if (imgs.length === 0) return;
+
+      // distGet returns images sorted by coverIndex ascending. The actual
+      // "cover" image carries the largest coverIndex (set on upload). Pull
+      // it to the front of the array.
+      const sortedByCover = [...imgs].sort((a, b) => b.coverIndex - a.coverIndex);
+      const ordered = sortedByCover.slice(0, 5);
+      const urls = ordered.map((i) => i.url);
+
+      setForm((f) => ({
+        ...f,
+        imageUrls: urls,
+        coverIndex: 0,
+      }));
+    } catch { /* silent — listing form still works without images */ }
   }
 
   async function handleAdd() {
