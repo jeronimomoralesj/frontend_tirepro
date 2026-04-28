@@ -323,7 +323,7 @@ export default function ProductClient({
               {imgs.length > 0 ? (
                 <img
                   src={imgs[selectedImg] ?? imgs[0]}
-                  alt={product.modelo}
+                  alt={`Llanta ${product.marca} ${product.modelo} ${product.dimension}${product.tipo === "reencauche" ? " reencauche" : ""} — Comprar en Colombia | TirePro`}
                   className="w-full h-full object-contain p-10 sm:p-14 transition-transform duration-500 group-hover:scale-[1.04]"
                 />
               ) : (

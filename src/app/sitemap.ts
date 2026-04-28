@@ -49,15 +49,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // -- Static pages ------------------------------------------------------------
   const staticPages: MetadataRoute.Sitemap = [
-    { url: BASE_URL, lastModified: new Date(), changeFrequency: 'weekly', priority: 1.0 },
+    {
+      url: BASE_URL,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 1.0,
+      images: [`${BASE_URL}/og-image.png`, `${BASE_URL}/logo_full.png`],
+    },
     { url: `${BASE_URL}/calculadora`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/signup`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/blog`, lastModified: mostRecentPostDate, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${BASE_URL}/contact`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.6 },
     { url: `${BASE_URL}/legal`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${BASE_URL}/equipo`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
   ]
 
   // -- Blog entries ------------------------------------------------------------
+  // Include the cover image so Google Image search treats blog illustrations
+  // as canonical and indexes them attached to the article URL (vs. floating
+  // unattached on Unsplash/Pexels CDN).
   const postEntries: MetadataRoute.Sitemap = sortedPosts
     .filter((p) => p.slug && p.slug.trim() !== '' && p.published !== false)
     .map((post) => ({
@@ -65,6 +75,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: safeDate(post.updatedAt || post.createdAt),
       changeFrequency: 'monthly' as const,
       priority: post.featured ? 0.85 : 0.75,
+      images: post.coverImage ? [post.coverImage] : undefined,
     }))
 
   // -- Marketplace index -------------------------------------------------------
@@ -101,13 +112,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const brands = await brandsRes.json()
       brandEntries = (Array.isArray(brands) ? brands : [])
         .filter((b: any) => b?.slug && b.published !== false)
-        .map((b: any) => ({
-          url: `${BASE_URL}/marketplace/brand/${b.slug}`,
-          lastModified: safeDate(b.updatedAt),
-          changeFrequency: 'weekly' as const,
-          // Brand pages with listings rank higher than empty ones.
-          priority: (b.listingCount ?? 0) > 0 ? 0.9 : 0.6,
-        }))
+        .map((b: any) => {
+          const imgs: string[] = []
+          if (b.heroImageUrl) imgs.push(b.heroImageUrl)
+          if (b.logoUrl) imgs.push(b.logoUrl)
+          return {
+            url: `${BASE_URL}/marketplace/brand/${b.slug}`,
+            lastModified: safeDate(b.updatedAt),
+            changeFrequency: 'weekly' as const,
+            // Brand pages with listings rank higher than empty ones.
+            priority: (b.listingCount ?? 0) > 0 ? 0.9 : 0.6,
+            images: imgs.length > 0 ? imgs : undefined,
+          }
+        })
     }
   } catch (error) {
     console.error('Sitemap brands fetch error:', error)
@@ -124,12 +141,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const data = await listingsRes.json()
       const listings = data.listings ?? []
 
-      productEntries = listings.map((l: any) => ({
-        url: `${BASE_URL}/marketplace/product/${l.id}`,
-        lastModified: safeDate(l.updatedAt),
-        changeFrequency: 'weekly' as const,
-        priority: 0.8,
-      }))
+      // Each product gets its image array attached so Google Image search
+      // treats /marketplace/product/<id> as the canonical landing page for
+      // those tire photos. Caps at 5 images per product to stay within the
+      // 1000-images-per-URL limit and keep the sitemap small.
+      productEntries = listings.map((l: any) => {
+        const imgs: string[] = Array.isArray(l.imageUrls) ? l.imageUrls.filter(Boolean) : []
+        const cover = imgs[l.coverIndex ?? 0] ?? imgs[0]
+        const ordered = cover ? [cover, ...imgs.filter((u: string) => u !== cover)] : imgs
+        return {
+          url: `${BASE_URL}/marketplace/product/${l.id}`,
+          lastModified: safeDate(l.updatedAt),
+          changeFrequency: 'weekly' as const,
+          priority: 0.8,
+          images: ordered.length > 0 ? ordered.slice(0, 5) : undefined,
+        }
+      })
 
       // Extract unique distributors
       const distIds = new Set<string>()
@@ -137,6 +164,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       for (const l of listings) {
         if (l.distributor?.id && !distIds.has(l.distributor.id)) {
           distIds.add(l.distributor.id)
+          const dImgs: string[] = []
+          if (l.distributor.bannerImage) dImgs.push(l.distributor.bannerImage)
+          if (l.distributor.profileImage) dImgs.push(l.distributor.profileImage)
           distEntries.push({
             url: `${BASE_URL}/marketplace/distributor/${l.distributor.id}`,
             lastModified: new Date(),
@@ -145,6 +175,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             // quickly and treats them as authoritative for the distributor's
             // brand queries.
             priority: 0.95,
+            images: dImgs.length > 0 ? dImgs : undefined,
           })
         }
       }

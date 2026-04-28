@@ -1316,7 +1316,7 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
         style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)", border: "1px solid rgba(30,118,182,0.06)" }}
       >
         {cover ? (
-          <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension}`} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500" />
+          <img src={cover} alt={`Llanta ${l.marca} ${l.modelo} ${l.dimension}${l.tipo === "reencauche" ? " reencauche" : ""} — Comprar en Colombia`} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500" />
         ) : (
           <Package className="w-10 h-10 text-gray-200" />
         )}
@@ -1994,7 +1994,7 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
       {/* Image */}
       <div className="relative aspect-square flex items-center justify-center overflow-hidden bg-[#fafafa]">
         {coverImg ? (
-          <img src={coverImg} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform duration-300" />
+          <img src={coverImg} alt={`Llanta ${l.marca} ${l.modelo} ${l.dimension}${l.tipo === "reencauche" ? " reencauche" : ""} — Comprar en Colombia`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform duration-300" />
         ) : (
           <div className="flex flex-col items-center gap-1">
             <Package className="w-10 h-10 text-gray-200" />
