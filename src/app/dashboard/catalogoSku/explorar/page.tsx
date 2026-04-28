@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Search, Loader2, Package, Filter, X, Plus, Check, AlertCircle,
+  PlusCircle,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -59,6 +60,19 @@ export default function CatalogoSkuExplorarPage() {
   // instead of flickering the whole list during the round-trip.
   const [pending,   setPending]   = useState<Set<string>>(new Set());
   const [toast,     setToast]     = useState("");
+
+  // -- Self-serve "create a new SKU" modal -------------------------------
+  // Distributors can hit this when their tire is missing from the master
+  // catalog. The new row lands in the global catalog AND is auto-
+  // subscribed to their company so it appears immediately.
+  const [createOpen,    setCreateOpen]    = useState(false);
+  const [createBusy,    setCreateBusy]    = useState(false);
+  const [createError,   setCreateError]   = useState("");
+  const [createForm,    setCreateForm]    = useState({
+    marca: "", modelo: "", dimension: "", skuRef: "",
+    categoria: "", ejeTirePro: "", indiceCarga: "",
+    rtdMm: "", reencauchable: false,
+  });
 
   // Gate the page on role — redirect plain catalogo users away. The
   // backend refuses the endpoint too, but avoiding the flash of a
@@ -126,6 +140,82 @@ export default function CatalogoSkuExplorarPage() {
     }
   }
 
+  // Open the create modal — pre-fill from the active search if it looks
+  // like a dimension, so the user doesn't have to retype it.
+  function openCreateModal() {
+    const trimmed = q.trim();
+    const looksLikeDimension = /\d{2,3}[\/\-]?\d{2,3}.*\d{2}/.test(trimmed);
+    setCreateForm({
+      marca: "",
+      modelo: "",
+      dimension: looksLikeDimension ? trimmed : "",
+      skuRef: "",
+      categoria: categoria || "",
+      ejeTirePro: eje || "",
+      indiceCarga: "",
+      rtdMm: "",
+      reencauchable: false,
+    });
+    setCreateError("");
+    setCreateOpen(true);
+  }
+
+  async function submitCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateError("");
+    const f = createForm;
+    if (!f.marca.trim() || !f.modelo.trim() || !f.dimension.trim() || !f.skuRef.trim()) {
+      setCreateError("Marca, modelo, dimensión y SKU son obligatorios.");
+      return;
+    }
+    setCreateBusy(true);
+    try {
+      const payload: Record<string, unknown> = {
+        marca:     f.marca.trim(),
+        modelo:    f.modelo.trim(),
+        dimension: f.dimension.trim(),
+        skuRef:    f.skuRef.trim(),
+        reencauchable: f.reencauchable,
+      };
+      if (f.categoria)   payload.categoria   = f.categoria;
+      if (f.ejeTirePro)  payload.ejeTirePro  = f.ejeTirePro;
+      if (f.indiceCarga) payload.indiceCarga = f.indiceCarga.trim();
+      if (f.rtdMm) {
+        const n = Number(f.rtdMm);
+        if (Number.isFinite(n) && n > 0) payload.rtdMm = n;
+      }
+
+      const res = await authFetch(`${API_BASE}/catalog/dist/skus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409 && data?.code === "SKU_REF_TAKEN") {
+        // Backend already added the existing SKU to our catalog — surface
+        // the friendly message and refresh the list so it shows up.
+        setToast(data.message ?? "SKU ya existía — agregada a tu catálogo");
+        setTimeout(() => setToast(""), 3500);
+        setCreateOpen(false);
+        fetchItems();
+        return;
+      }
+      if (!res.ok) {
+        throw new Error(data?.message ?? `HTTP ${res.status}`);
+      }
+
+      setToast(`Creada y agregada: ${f.marca} ${f.modelo}`);
+      setTimeout(() => setToast(""), 3500);
+      setCreateOpen(false);
+      fetchItems();
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : "No se pudo crear el SKU");
+    } finally {
+      setCreateBusy(false);
+    }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilter  = !!(q || eje || categoria);
 
@@ -141,6 +231,14 @@ export default function CatalogoSkuExplorarPage() {
           <h1 className="font-black text-[#0A183A] text-base sm:text-lg leading-none">Explorar catálogo</h1>
           <p className="text-xs text-[#348CCB] mt-0.5">Agrega las llantas que vendes a tu catálogo</p>
         </div>
+        <button
+          onClick={openCreateModal}
+          className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+        >
+          <PlusCircle className="w-3.5 h-3.5" />
+          Crear SKU
+        </button>
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4">
@@ -211,6 +309,17 @@ export default function CatalogoSkuExplorarPage() {
           <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
             <Package className="w-10 h-10 opacity-40" />
             <p className="text-sm">Sin resultados</p>
+            <button
+              onClick={openCreateModal}
+              className="mt-2 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              Crear nuevo SKU
+            </button>
+            <p className="text-[11px] text-gray-400 max-w-xs text-center">
+              ¿No encuentras la llanta? Créala y queda en el catálogo + en tu lista.
+            </p>
           </div>
         ) : (
           <div className="rounded-2xl overflow-hidden divide-y"
@@ -261,7 +370,191 @@ export default function CatalogoSkuExplorarPage() {
               style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6" }}>Siguiente</button>
           </div>
         )}
+
+        {/* Floating mobile-only "Crear SKU" — header button is hidden < sm */}
+        <button
+          onClick={openCreateModal}
+          className="sm:hidden fixed bottom-6 right-6 z-30 flex items-center gap-1.5 px-4 py-3 rounded-full text-xs font-bold text-white shadow-lg transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)", boxShadow: "0 8px 24px rgba(10,24,58,0.25)" }}
+        >
+          <PlusCircle className="w-4 h-4" />
+          Crear SKU
+        </button>
       </div>
+
+      {/* -- Create-SKU modal ------------------------------------------------ */}
+      {createOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 py-6"
+          style={{ background: "rgba(10,24,58,0.5)", backdropFilter: "blur(4px)" }}
+          onClick={() => !createBusy && setCreateOpen(false)}
+        >
+          <div
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+          >
+            <div
+              className="px-5 py-4 flex items-center justify-between text-white"
+              style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+            >
+              <div className="flex items-center gap-2">
+                <PlusCircle className="w-4 h-4" />
+                <h2 className="text-sm font-black">Crear SKU en el catálogo</h2>
+              </div>
+              <button
+                onClick={() => !createBusy && setCreateOpen(false)}
+                disabled={createBusy}
+                className="p-1 rounded hover:bg-white/15 disabled:opacity-40"
+                aria-label="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={submitCreate} className="p-5 space-y-3">
+              <p className="text-[11px] text-gray-500">
+                La llanta queda en el catálogo global y se agrega automáticamente a tu catálogo.
+                Los campos con * son obligatorios.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Marca *">
+                  <input
+                    value={createForm.marca}
+                    onChange={(e) => setCreateForm({ ...createForm, marca: e.target.value })}
+                    placeholder="Ej. Michelin"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                  />
+                </Field>
+                <Field label="Modelo *">
+                  <input
+                    value={createForm.modelo}
+                    onChange={(e) => setCreateForm({ ...createForm, modelo: e.target.value })}
+                    placeholder="Ej. X Multi D"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                  />
+                </Field>
+                <Field label="Dimensión *">
+                  <input
+                    value={createForm.dimension}
+                    onChange={(e) => setCreateForm({ ...createForm, dimension: e.target.value })}
+                    placeholder="295/80R22.5"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                  />
+                </Field>
+                <Field label="SKU / Referencia *">
+                  <input
+                    value={createForm.skuRef}
+                    onChange={(e) => setCreateForm({ ...createForm, skuRef: e.target.value })}
+                    placeholder="Único por SKU"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                  />
+                </Field>
+                <Field label="Categoría">
+                  <select
+                    value={createForm.categoria}
+                    onChange={(e) => setCreateForm({ ...createForm, categoria: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                  >
+                    <option value="">—</option>
+                    <option value="nueva">Nueva</option>
+                    <option value="reencauche">Reencauche</option>
+                  </select>
+                </Field>
+                <Field label="Eje">
+                  <select
+                    value={createForm.ejeTirePro}
+                    onChange={(e) => setCreateForm({ ...createForm, ejeTirePro: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                  >
+                    <option value="">—</option>
+                    <option value="direccion">Dirección</option>
+                    <option value="traccion">Tracción</option>
+                    <option value="libre">Libre / multi</option>
+                    <option value="remolque">Remolque</option>
+                  </select>
+                </Field>
+                <Field label="Índice de carga">
+                  <input
+                    value={createForm.indiceCarga}
+                    onChange={(e) => setCreateForm({ ...createForm, indiceCarga: e.target.value })}
+                    placeholder="Ej. 152/148"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                  />
+                </Field>
+                <Field label="Profundidad nueva (mm)">
+                  <input
+                    type="number" step="0.1" min="0"
+                    value={createForm.rtdMm}
+                    onChange={(e) => setCreateForm({ ...createForm, rtdMm: e.target.value })}
+                    placeholder="Ej. 16"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
+                    style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
+                  />
+                </Field>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs text-[#0A183A] cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={createForm.reencauchable}
+                  onChange={(e) => setCreateForm({ ...createForm, reencauchable: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                Reencauchable
+              </label>
+
+              {createError && (
+                <div
+                  className="flex items-start gap-2 px-3 py-2 rounded-lg text-xs text-red-700"
+                  style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}
+                >
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  {createError}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(false)}
+                  disabled={createBusy}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-xs font-bold text-[#0A183A] transition-all hover:bg-gray-50 disabled:opacity-40"
+                  style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={createBusy}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
+                >
+                  {createBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5" />}
+                  Crear y agregar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</span>
+      {children}
+    </label>
   );
 }
