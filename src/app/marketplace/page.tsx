@@ -21,18 +21,18 @@ export const metadata: Metadata = {
     'Compra llantas online en Colombia: Michelin, Bridgestone, Continental, Goodyear, Pirelli y más, ' +
     'directo de distribuidores verificados. Llantas para carro, camión, tractomula y bus en Bogotá, Medellín, Cali, ' +
     'Barranquilla y todo el país. Precios competitivos, instalación incluida y CPK garantizado.',
-  alternates: { canonical: 'https://tirepro.com.co/marketplace' },
+  alternates: { canonical: 'https://www.tirepro.com.co/marketplace' },
   openGraph: {
     type: 'website',
     locale: 'es_CO',
-    url: 'https://tirepro.com.co/marketplace',
+    url: 'https://www.tirepro.com.co/marketplace',
     siteName: 'TirePro',
     title: 'Marketplace de Llantas en Colombia | TirePro',
     description:
       'Marketplace con distribuidores verificados de llantas en toda Colombia. Compara precios, lee reseñas y compra llantas Michelin, Bridgestone, Continental y más.',
     images: [
       {
-        url: 'https://tirepro.com.co/og-image.png',
+        url: 'https://www.tirepro.com.co/og-image.png',
         width: 1200,
         height: 630,
         alt: 'Marketplace TirePro — Comprar llantas en Colombia',
@@ -47,10 +47,10 @@ export const metadata: Metadata = {
 const marketplaceLd = {
   '@context': 'https://schema.org',
   '@type': 'Store',
-  '@id': 'https://tirepro.com.co/marketplace#store',
+  '@id': 'https://www.tirepro.com.co/marketplace#store',
   name: 'Marketplace TirePro',
-  url: 'https://tirepro.com.co/marketplace',
-  image: 'https://tirepro.com.co/og-image.png',
+  url: 'https://www.tirepro.com.co/marketplace',
+  image: 'https://www.tirepro.com.co/og-image.png',
   description:
     'Marketplace de llantas en Colombia con distribuidores verificados. ' +
     'Llantas para automóvil, camión, tractomula y bus de marcas como Michelin, Bridgestone, ' +

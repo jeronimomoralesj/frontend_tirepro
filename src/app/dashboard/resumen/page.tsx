@@ -9,6 +9,7 @@ import {
   Calendar,
   AlertCircle,
   X,
+  HelpCircle,
 } from "lucide-react";
 import {
   Chart as ChartJS,
@@ -138,20 +139,16 @@ function CardWrap({
       <div
         className="relative z-10 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full"
       >
-        <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between">
-          <h2 className="text-base sm:text-lg font-bold">{title}</h2>
-          <div className="flex items-center gap-2 shrink-0">
-            {description && (
-              <div className="relative cursor-pointer" title={description}>
-                <svg className="peer w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
-                </svg>
-                <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 peer-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
-                  <p>{description}</p>
-                </div>
+        <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between gap-2">
+          <h2 className="text-base sm:text-lg font-bold truncate">{title}</h2>
+          {description && (
+            <div className="group relative cursor-pointer shrink-0 print:hidden">
+              <HelpCircle className="text-white hover:text-gray-200 transition-colors" size={20} />
+              <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-52 pointer-events-none shadow-xl">
+                <p>{description}</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         <div className="p-4 sm:p-6">
           <div className="h-64 sm:h-72">{children}</div>
@@ -832,14 +829,12 @@ export default function ResumenPage() {
 
               {/* Inversion por Categoria este mes */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
-                <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between">
-                  <h2 className="text-base sm:text-lg font-bold">Inversión del Mes por Categoría</h2>
-                  <div className="group relative cursor-pointer shrink-0 ml-2" title="Desglose de costos registrados este mes agrupados por etapa de vida de la llanta (nueva, reencauche 1-3, fin de vida).">
-                    <svg className="w-5 h-5 text-white/70 hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" />
-                    </svg>
-                    <div className="absolute z-20 -top-2 right-full mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-48 sm:w-56 pointer-events-none shadow-xl">
-                      <p>Desglose de costos registrados este mes agrupados por etapa de vida de la llanta.</p>
+                <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between gap-2">
+                  <h2 className="text-base sm:text-lg font-bold truncate">Inversión del Mes por Categoría</h2>
+                  <div className="group relative cursor-pointer shrink-0 print:hidden">
+                    <HelpCircle className="text-white hover:text-gray-200 transition-colors" size={20} />
+                    <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-52 pointer-events-none shadow-xl">
+                      <p>Desglose de costos registrados este mes agrupados por etapa de vida de la llanta (nueva, reencauche 1-3, fin de vida).</p>
                     </div>
                   </div>
                 </div>

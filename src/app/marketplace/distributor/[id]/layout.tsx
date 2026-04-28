@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const cityTag = d.ciudad ? ` en ${d.ciudad}` : "";
   const title = `${d.name} — Distribuidor Oficial de Llantas${cityTag} | TirePro`;
   const description = `${d.name} es un distribuidor verificado de llantas${cityTag}. ${d._count?.listings ?? 0} productos disponibles en TirePro Marketplace. ${d.descripcion?.substring(0, 110) ?? "Llantas nuevas y reencauche con envío a toda Colombia."}`;
-  const image = d.bannerImage || d.profileImage || "https://tirepro.com.co/og-image.png";
+  const image = d.bannerImage || d.profileImage || "https://www.tirepro.com.co/og-image.png";
   const cobertura = Array.isArray(d.cobertura) ? d.cobertura : [];
   const cobCities = cobertura.map((c: any) => typeof c === "string" ? c : c.ciudad).filter(Boolean);
 
@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     openGraph: {
       title: `${d.name} — Llantas en ${d.ciudad ?? "Colombia"} | TirePro`,
       description,
-      url: `https://tirepro.com.co/marketplace/distributor/${id}`,
+      url: `https://www.tirepro.com.co/marketplace/distributor/${id}`,
       siteName: "TirePro Marketplace",
       locale: "es_CO",
       type: "website",
@@ -73,7 +73,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       description,
       images: [image],
     },
-    alternates: { canonical: `https://tirepro.com.co/marketplace/distributor/${id}` },
+    alternates: { canonical: `https://www.tirepro.com.co/marketplace/distributor/${id}` },
     robots: {
       index: true,
       follow: true,
@@ -106,11 +106,11 @@ export default async function DistributorLayout({ children, params }: { children
   const structuredData = d ? {
     "@context": "https://schema.org",
     "@type": ["Store", "LocalBusiness", "AutoPartsStore"],
-    "@id": `https://tirepro.com.co/marketplace/distributor/${id}#org`,
+    "@id": `https://www.tirepro.com.co/marketplace/distributor/${id}#org`,
     name: d.name,
     alternateName: [d.name, `${d.name} Llantas`, `${d.name} ${d.ciudad ?? ""}`].filter(Boolean),
     description: d.descripcion || `${d.name} es un distribuidor verificado de llantas en ${d.ciudad ?? "Colombia"}, con catálogo completo en TirePro Marketplace.`,
-    url: `https://tirepro.com.co/marketplace/distributor/${id}`,
+    url: `https://www.tirepro.com.co/marketplace/distributor/${id}`,
     image: d.bannerImage || d.profileImage || undefined,
     logo: d.profileImage || undefined,
     telephone: d.telefono || undefined,
@@ -153,14 +153,14 @@ export default async function DistributorLayout({ children, params }: { children
     priceRange: "$$",
     currenciesAccepted: "COP",
     paymentAccepted: "Credit Card, Debit Card, PSE, Nequi",
-    isPartOf: { "@type": "WebSite", name: "TirePro", url: "https://tirepro.com.co" },
+    isPartOf: { "@type": "WebSite", name: "TirePro", url: "https://www.tirepro.com.co" },
   } : null;
 
   const breadcrumbData = d ? {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Marketplace", item: "https://tirepro.com.co/marketplace" },
+      { "@type": "ListItem", position: 1, name: "Marketplace", item: "https://www.tirepro.com.co/marketplace" },
       { "@type": "ListItem", position: 2, name: d.name },
     ],
   } : null;

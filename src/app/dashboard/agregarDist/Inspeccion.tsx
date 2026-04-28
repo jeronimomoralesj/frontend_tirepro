@@ -25,7 +25,9 @@ import {
   Building2,
   Check,
 } from "lucide-react";
-import jsPDF from "jspdf";
+// jsPDF is dynamic-imported inside generatePDF() — see below. Static import
+// pulled the ~150 kB lib into the initial bundle even though only the
+// "Generar PDF" button uses it.
 import FastMode from "./FastMode";
 import { AGENTS } from "../../../lib/agents";
 import { useAuth } from "../../context/AuthProvider";
@@ -1176,6 +1178,20 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [showStructureModal, setShowStructureModal] = useState(false);
   const [savingStructure,    setSavingStructure]    = useState(false);
 
+  // Position → tire lookup memoized once per `tires` change. The two
+  // wheel-picker dialogs render `positions.map(...)` and previously called
+  // `tires.find(t => t.posicion === p)` inside each iteration — that's
+  // O(positions × tires) per re-render and re-fires on every parent
+  // re-render (e.g., a keystroke in the inspector field). A Map lookup
+  // makes each iteration O(1).
+  const tireByPosition = useMemo(() => {
+    const m = new Map<number, Tire>();
+    for (const t of tires) {
+      if (t.posicion > 0) m.set(t.posicion, t);
+    }
+    return m;
+  }, [tires]);
+
   // -- Position rotation / free-tire pool ------------------------------------
   // Track each tire's original position so we can persist the diff on submit.
   const originalPositions = useRef<Record<string, number>>({});
@@ -1547,13 +1563,17 @@ export default function InspeccionPage({ language }: { language?: string }) {
         }
       }
 
-      for (const tire of allTires) {
-        // Skip tires already persisted via the modal's optimistic PATCH
-        // so we don't create duplicate inspection rows here.
-        if (inspectedIds.has(tire.id)) continue;
+      // Filter, encode images, and PATCH in parallel. The previous serial
+      // loop encoded each photo and waited on the network round-trip
+      // before moving to the next tire — for a 10-tire vehicle on slow
+      // mobile data that's tens of seconds of dead UI. Both phases now
+      // fan out via Promise.all.
+      const inspectorNombre = inspectorName.trim();
+      const inspectorIdMatch = !!(user?.id && inspectorNombre === (user.name ?? "").trim());
+      const tiresToSubmit = allTires.filter((t) => !inspectedIds.has(t.id));
+      const payloads = await Promise.all(tiresToSubmit.map(async (tire) => {
         const upd      = tireUpdates[tire.id];
         const imageUrl = upd.image ? await convertFileToBase64(upd.image) : "";
-
         const payload: Record<string, unknown> = {
           profundidadInt: Number(upd.profundidadInt),
           profundidadCen: Number(upd.profundidadCen),
@@ -1562,20 +1582,15 @@ export default function InspeccionPage({ language }: { language?: string }) {
           kmDelta:        kmDiff,
           imageUrl,
         };
-
-        // Only include pressure when the technician actually typed a value
         if (upd.presionPsi !== "" && upd.presionPsi !== 0) {
           payload.presionPsi = Number(upd.presionPsi);
         }
+        if (inspectorNombre) payload.inspeccionadoPorNombre = inspectorNombre;
+        if (inspectorIdMatch) payload.inspeccionadoPorId = user!.id;
+        return { tire, payload };
+      }));
 
-        // Inspector — name + id so KPIs can aggregate per user account.
-        if (inspectorName.trim()) {
-          payload.inspeccionadoPorNombre = inspectorName.trim();
-        }
-        if (user?.id && inspectorName.trim() === (user.name ?? "").trim()) {
-          payload.inspeccionadoPorId = user.id;
-        }
-
+      await Promise.all(payloads.map(async ({ tire, payload }) => {
         const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
           method:  "PATCH",
           headers: authHeaders(),
@@ -1585,7 +1600,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.message ?? `Error al actualizar llanta ${tire.placa}`);
         }
-      }
+      }));
 
       // Build PDF data
       const iData: InspectionData = {
@@ -1649,6 +1664,10 @@ export default function InspeccionPage({ language }: { language?: string }) {
     if (!inspectionData || !vehicle) return;
     setPdfLoading(true);
     try {
+      // Lazy-load jsPDF only when the user actually requests a PDF. The
+      // first click pays the ~150 kB download once; subsequent clicks
+      // reuse the cached module.
+      const { default: jsPDF } = await import("jspdf");
       const doc  = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const navy = [10,  24,  58]  as [number, number, number];
       const blue = [30,  118, 182] as [number, number, number];
@@ -2120,7 +2139,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {otherPositions.map((p) => {
-                              const occupant = tires.find((t) => t.posicion === p);
+                              const occupant = tireByPosition.get(p);
                               return (
                                 <button
                                   key={p}
@@ -2340,7 +2359,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
                   <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">Posiciones</p>
                   <div className="flex flex-wrap gap-1.5">
                     {allKnownPositions.map((p) => {
-                      const occupant = tires.find((t) => t.posicion === p);
+                      const occupant = tireByPosition.get(p);
                       const isOcc = occupiedPositions.has(p);
                       return (
                         <button

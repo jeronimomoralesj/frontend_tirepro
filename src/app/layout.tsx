@@ -11,7 +11,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!;
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://tirepro.com.co'),
+  metadataBase: new URL('https://www.tirepro.com.co'),
 
   title: {
     default: 'TirePro — Software de Seguimiento y Control de Llantas con IA para Flotas | Marketplace',
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     'comprar llantas para tractomula', 'tienda llantas online',
   ],
 
-  authors: [{ name: 'TirePro', url: 'https://tirepro.com.co' }],
+  authors: [{ name: 'TirePro', url: 'https://www.tirepro.com.co' }],
   creator: 'TirePro',
   publisher: 'TirePro',
 
@@ -56,18 +56,18 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'es_CO',
-    url: 'https://tirepro.com.co',
+    url: 'https://www.tirepro.com.co',
     siteName: 'TirePro',
     title: 'TirePro — Software de Control de Llantas con IA | Marketplace de Llantas Colombia',
     description: 'TirePro es el software de seguimiento y control de llantas con IA para flotas. Analisis de datos, CPK, prediccion de reemplazo. Marketplace con distribuidores verificados.',
-    images: [{ url: 'https://tirepro.com.co/og-image.png', width: 1200, height: 630, alt: 'TirePro — Analisis de Datos para Llantas de Flotas' }],
+    images: [{ url: 'https://www.tirepro.com.co/og-image.png', width: 1200, height: 630, alt: 'TirePro — Analisis de Datos para Llantas de Flotas' }],
   },
 
   twitter: {
     card: 'summary_large_image',
     title: 'TirePro — Software de Control de Llantas con IA para Flotas Colombia',
     description: 'Analisis de datos para llantas de flotas. Reduce costos hasta 25%. Marketplace con distribuidores verificados en Colombia.',
-    images: ['https://tirepro.com.co/og-image.png'],
+    images: ['https://www.tirepro.com.co/og-image.png'],
     creator: '@TireProCO',
   },
 
@@ -82,8 +82,8 @@ export const metadata: Metadata = {
   },
 
   alternates: {
-    canonical: 'https://tirepro.com.co',
-    languages: { 'es-CO': 'https://tirepro.com.co', en: 'https://tirepro.com.co/en' },
+    canonical: 'https://www.tirepro.com.co',
+    languages: { 'es-CO': 'https://www.tirepro.com.co', en: 'https://www.tirepro.com.co/en' },
   },
 
   category: 'Technology',
@@ -103,26 +103,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://tirepro.com.co/#organization",
+        "@id": "https://www.tirepro.com.co/#organization",
         "name": "TirePro",
-        "url": "https://tirepro.com.co",
-        "logo": { "@type": "ImageObject", "url": "https://tirepro.com.co/logo.png", "width": 600, "height": 200 },
+        "url": "https://www.tirepro.com.co",
+        "logo": { "@type": "ImageObject", "url": "https://www.tirepro.com.co/logo.png", "width": 600, "height": 200 },
         "description": "TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas y el marketplace de llantas más grande de Colombia. Compra llantas online y gestiona tu flota con IA.",
         "address": { "@type": "PostalAddress", "addressLocality": "Bogotá", "addressRegion": "Bogotá D.C.", "addressCountry": "CO" },
-        "contactPoint": { "@type": "ContactPoint", "email": "soporte@tirepro.com.co", "contactType": "customer support", "availableLanguage": ["Spanish", "English"] },
+        "contactPoint": { "@type": "ContactPoint", "email": "info@tirepro.com.co", "contactType": "customer support", "availableLanguage": ["Spanish", "English"] },
         "sameAs": ["https://linkedin.com/company/tirepro"],
         "foundingDate": "2024",
       },
       {
         "@type": "OnlineStore",
-        "@id": "https://tirepro.com.co/#store",
+        "@id": "https://www.tirepro.com.co/#store",
         "name": "TirePro Marketplace",
-        "url": "https://tirepro.com.co/marketplace",
+        "url": "https://www.tirepro.com.co/marketplace",
         "description": "Marketplace de llantas en Colombia. Compra llantas nuevas y reencauche para camiones, tractomulas, buses, camionetas y automóviles de distribuidores verificados a precios directos con envío a todo el país.",
-        "brand": { "@id": "https://tirepro.com.co/#organization" },
+        "brand": { "@id": "https://www.tirepro.com.co/#organization" },
         "potentialAction": {
           "@type": "SearchAction",
-          "target": "https://tirepro.com.co/marketplace?q={search_term_string}",
+          "target": "https://www.tirepro.com.co/marketplace?q={search_term_string}",
           "query-input": "required name=search_term_string",
         },
         "areaServed": { "@type": "Country", "name": "Colombia" },
@@ -143,14 +143,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       },
       {
         "@type": "SoftwareApplication",
-        "@id": "https://tirepro.com.co/#software",
+        "@id": "https://www.tirepro.com.co/#software",
         "name": "TirePro",
         "applicationCategory": "BusinessApplication",
         "applicationSubCategory": "Fleet Management Software",
         "operatingSystem": "Web",
         "description": "TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas de transporte en Colombia",
-        "url": "https://tirepro.com.co",
-        "author": { "@id": "https://tirepro.com.co/#organization" },
+        "url": "https://www.tirepro.com.co",
+        "author": { "@id": "https://www.tirepro.com.co/#organization" },
         "offers": [
           { "@type": "Offer", "name": "Plan Inicio", "price": "0", "priceCurrency": "COP", "description": "Gratis - Hasta 10 vehículos" },
           { "@type": "Offer", "name": "Plan Crecimiento", "price": "300000", "priceCurrency": "COP", "description": "10-50 vehículos" },
@@ -167,19 +167,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           "Catálogo de 2,500+ referencias de llantas",
           "Modo rápido para inspecciones en campo",
         ],
-        "screenshot": "https://tirepro.com.co/og-image.png",
+        "screenshot": "https://www.tirepro.com.co/og-image.png",
         "availableLanguage": ["es", "en"],
       },
       {
         "@type": "WebSite",
-        "@id": "https://tirepro.com.co/#website",
-        "url": "https://tirepro.com.co",
+        "@id": "https://www.tirepro.com.co/#website",
+        "url": "https://www.tirepro.com.co",
         "name": "TirePro",
-        "publisher": { "@id": "https://tirepro.com.co/#organization" },
+        "publisher": { "@id": "https://www.tirepro.com.co/#organization" },
         "inLanguage": "es-CO",
         "potentialAction": {
           "@type": "SearchAction",
-          "target": "https://tirepro.com.co/marketplace?q={search_term_string}",
+          "target": "https://www.tirepro.com.co/marketplace?q={search_term_string}",
           "query-input": "required name=search_term_string",
         },
       },

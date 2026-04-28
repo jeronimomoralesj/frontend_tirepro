@@ -34,18 +34,18 @@ export const metadata: Metadata = {
   description:
     'Compra llantas para carro, camión, tractomula o flota directo de distribuidores verificados en Bogotá, Medellín, Cali y toda Colombia. ' +
     'Marketplace TirePro: precios competitivos, distribuidores con calificación, instalación incluida y software gratuito de gestión de llantas con IA.',
-  alternates: { canonical: 'https://tirepro.com.co' },
+  alternates: { canonical: 'https://www.tirepro.com.co' },
   openGraph: {
     type: 'website',
     locale: 'es_CO',
-    url: 'https://tirepro.com.co',
+    url: 'https://www.tirepro.com.co',
     siteName: 'TirePro',
     title: 'Comprar Llantas en Colombia | Marketplace TirePro',
     description:
       'Marketplace de llantas con distribuidores verificados en toda Colombia. Software de gestión de llantas con IA para flotas. CPK, predicción de reemplazo, alertas.',
     images: [
       {
-        url: 'https://tirepro.com.co/og-image.png',
+        url: 'https://www.tirepro.com.co/og-image.png',
         width: 1200,
         height: 630,
         alt: 'TirePro — Comprar y gestionar llantas en Colombia',
@@ -61,11 +61,11 @@ export const metadata: Metadata = {
 const localBusinessLd = {
   '@context': 'https://schema.org',
   '@type': 'LocalBusiness',
-  '@id': 'https://tirepro.com.co/#localbusiness',
+  '@id': 'https://www.tirepro.com.co/#localbusiness',
   name: 'TirePro',
-  url: 'https://tirepro.com.co',
-  logo: 'https://tirepro.com.co/logo_full.png',
-  image: 'https://tirepro.com.co/og-image.png',
+  url: 'https://www.tirepro.com.co',
+  logo: 'https://www.tirepro.com.co/logo_full.png',
+  image: 'https://www.tirepro.com.co/og-image.png',
   description:
     'Marketplace de llantas y software de gestión de llantas para flotas en Colombia. ' +
     'Compra llantas a distribuidores verificados con instalación incluida.',

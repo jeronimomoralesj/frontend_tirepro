@@ -1,4 +1,5 @@
 import React from "react";
+import type { Metadata } from "next";
 import ProductClient from "./ProductClient";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -59,6 +60,72 @@ async function fetchBrandInfo(marca: string | null | undefined) {
   }
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const product = await fetchProduct(id);
+  if (!product) return { title: "Producto — TirePro Marketplace" };
+
+  const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+  const cover = imgs.length > 0 ? imgs[product.coverIndex ?? 0] ?? imgs[0] : null;
+  const hasPromo = product.precioPromo != null && product.promoHasta && new Date(product.promoHasta) > new Date();
+  const price = hasPromo ? product.precioPromo : product.precioCop;
+  const tipoLabel = product.tipo === "reencauche" ? "Reencauche" : "Nueva";
+  const sellerCity = product.distributor?.ciudad ? ` en ${product.distributor.ciudad}` : "";
+  const sellerName = product.distributor?.name ?? "TirePro";
+
+  // Title leads with brand+modelo+dimension — these are the highest-intent
+  // keywords for product queries (e.g. "Michelin XZE2+ 295/80R22.5 precio").
+  const title = `${product.marca} ${product.modelo} ${product.dimension} — ${fmtCOP(price)} | ${tipoLabel} | TirePro`;
+  const description = `Compra ${product.marca} ${product.modelo} ${product.dimension} (${tipoLabel.toLowerCase()}) por ${fmtCOP(price)} COP de ${sellerName}${sellerCity}. Envio en Colombia. ${product.descripcion?.substring(0, 100) ?? "Distribuidor verificado en TirePro Marketplace."}`.slice(0, 300);
+  const url = `https://www.tirepro.com.co/marketplace/product/${id}`;
+  const ogImage = cover || "https://www.tirepro.com.co/og-image.png";
+
+  return {
+    title,
+    description,
+    keywords: [
+      `${product.marca} ${product.modelo}`,
+      `${product.marca} ${product.modelo} ${product.dimension}`,
+      `${product.marca} ${product.dimension}`,
+      `llanta ${product.marca}`,
+      `comprar ${product.marca} ${product.modelo}`,
+      `precio ${product.marca} ${product.dimension}`,
+      `llanta ${product.dimension}`,
+      `llanta ${product.dimension} colombia`,
+      `${product.marca} ${product.dimension} ${product.distributor?.ciudad ?? "colombia"}`,
+      product.tipo === "reencauche" ? `reencauche ${product.dimension}` : `llanta nueva ${product.dimension}`,
+    ].filter(Boolean),
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "TirePro Marketplace",
+      locale: "es_CO",
+      type: "website",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: `${product.marca} ${product.modelo} ${product.dimension}` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${product.marca} ${product.modelo} ${product.dimension} | TirePro`,
+      description,
+      images: [ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
+    },
+    other: {
+      "product:price:amount": String(price),
+      "product:price:currency": "COP",
+      "product:availability": product.cantidadDisponible > 0 ? "in stock" : "preorder",
+      "product:condition": product.tipo === "reencauche" ? "refurbished" : "new",
+      "product:brand": product.marca,
+    },
+  };
+}
+
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const product = await fetchProduct(id);
@@ -98,7 +165,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     size: product.dimension,
     offers: {
       "@type": "Offer",
-      url: `https://tirepro.com.co/marketplace/product/${id}`,
+      url: `https://www.tirepro.com.co/marketplace/product/${id}`,
       priceCurrency: "COP",
       price: price,
       priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -165,8 +232,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Marketplace", item: "https://tirepro.com.co/marketplace" },
-      { "@type": "ListItem", position: 2, name: product.distributor?.name, item: `https://tirepro.com.co/marketplace/distributor/${product.distributor?.id}` },
+      { "@type": "ListItem", position: 1, name: "Marketplace", item: "https://www.tirepro.com.co/marketplace" },
+      { "@type": "ListItem", position: 2, name: product.distributor?.name, item: `https://www.tirepro.com.co/marketplace/distributor/${product.distributor?.id}` },
       { "@type": "ListItem", position: 3, name: `${product.marca} ${product.modelo}` },
     ],
   };

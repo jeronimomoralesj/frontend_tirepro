@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     }
 
     const imgs = Array.isArray(p.imageUrls) ? p.imageUrls : [];
-    const cover = imgs.length > 0 ? imgs[p.coverIndex ?? 0] ?? imgs[0] : "https://tirepro.com.co/og-image.png";
+    const cover = imgs.length > 0 ? imgs[p.coverIndex ?? 0] ?? imgs[0] : "https://www.tirepro.com.co/og-image.png";
     const price = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(p.precioCop);
 
     // Tab title — brand, model, dimension first, then site name. Buyers
@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       openGraph: {
         title: `${p.marca} ${p.modelo} ${p.dimension} — ${price}`,
         description,
-        url: `https://tirepro.com.co/marketplace/product/${id}`,
+        url: `https://www.tirepro.com.co/marketplace/product/${id}`,
         siteName: "TirePro Marketplace",
         locale: "es_CO",
         type: "website",
@@ -68,7 +68,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         description: `${p.marca} ${p.modelo} ${p.dimension} por ${price}. ${p.distributor?.name ?? "TirePro Marketplace"}`,
         images: [{ url: cover, alt: `${p.marca} ${p.modelo}` }],
       },
-      alternates: { canonical: `https://tirepro.com.co/marketplace/product/${id}` },
+      alternates: { canonical: `https://www.tirepro.com.co/marketplace/product/${id}` },
       other: {
         "product:price:amount": String(p.precioCop),
         "product:price:currency": "COP",

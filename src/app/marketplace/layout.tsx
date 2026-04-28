@@ -59,20 +59,20 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Marketplace de Llantas en Colombia — TirePro",
     description: "Compra llantas nuevas y reencauche. Compara precios de distribuidores verificados en toda Colombia. Envio a todo el pais.",
-    url: "https://tirepro.com.co/marketplace",
+    url: "https://www.tirepro.com.co/marketplace",
     siteName: "TirePro",
     locale: "es_CO",
     type: "website",
-    images: [{ url: "https://tirepro.com.co/og-image.png", width: 1200, height: 630, alt: "TirePro Marketplace — Compra llantas online en Colombia" }],
+    images: [{ url: "https://www.tirepro.com.co/og-image.png", width: 1200, height: 630, alt: "TirePro Marketplace — Compra llantas online en Colombia" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Marketplace de Llantas — TirePro Colombia",
     description: "Compra llantas para tu flota o vehiculo. Distribuidores verificados, precios directos, envio nacional.",
-    images: ["https://tirepro.com.co/og-image.png"],
+    images: ["https://www.tirepro.com.co/og-image.png"],
   },
   alternates: {
-    canonical: "https://tirepro.com.co/marketplace",
+    canonical: "https://www.tirepro.com.co/marketplace",
   },
   robots: {
     index: true,
@@ -87,9 +87,9 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
     "@type": "CollectionPage",
     name: "Marketplace de Llantas — TirePro",
     description: "Compra llantas nuevas y reencauche para todo tipo de vehiculo en Colombia. Distribuidores verificados con envio a todo el pais.",
-    url: "https://tirepro.com.co/marketplace",
-    isPartOf: { "@type": "WebSite", name: "TirePro", url: "https://tirepro.com.co" },
-    provider: { "@type": "Organization", name: "TirePro", url: "https://tirepro.com.co" },
+    url: "https://www.tirepro.com.co/marketplace",
+    isPartOf: { "@type": "WebSite", name: "TirePro", url: "https://www.tirepro.com.co" },
+    provider: { "@type": "Organization", name: "TirePro", url: "https://www.tirepro.com.co" },
     about: {
       "@type": "Product",
       name: "Llantas para vehiculos",
@@ -97,7 +97,7 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
     },
     potentialAction: {
       "@type": "SearchAction",
-      target: "https://tirepro.com.co/marketplace?q={search_term_string}",
+      target: "https://www.tirepro.com.co/marketplace?q={search_term_string}",
       "query-input": "required name=search_term_string",
     },
   };
@@ -140,32 +140,41 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
     "@type": "ItemList",
     name: "Categorías de llantas en TirePro Marketplace",
     itemListElement: [
-      { "@type": "ListItem", position: 1,  name: "Llantas para tractomula", url: "https://tirepro.com.co/marketplace?q=tractomula" },
-      { "@type": "ListItem", position: 2,  name: "Llantas para camión",     url: "https://tirepro.com.co/marketplace?q=camion" },
-      { "@type": "ListItem", position: 3,  name: "Llantas para bus",        url: "https://tirepro.com.co/marketplace?q=bus" },
-      { "@type": "ListItem", position: 4,  name: "Llantas para camioneta",  url: "https://tirepro.com.co/marketplace?q=camioneta" },
-      { "@type": "ListItem", position: 5,  name: "Reencauche",              url: "https://tirepro.com.co/marketplace?q=reencauche" },
-      { "@type": "ListItem", position: 6,  name: "Michelin",                url: "https://tirepro.com.co/marketplace?q=Michelin" },
-      { "@type": "ListItem", position: 7,  name: "Bridgestone",             url: "https://tirepro.com.co/marketplace?q=Bridgestone" },
-      { "@type": "ListItem", position: 8,  name: "Continental",             url: "https://tirepro.com.co/marketplace?q=Continental" },
-      { "@type": "ListItem", position: 9,  name: "Goodyear",                url: "https://tirepro.com.co/marketplace?q=Goodyear" },
-      { "@type": "ListItem", position: 10, name: "Pirelli",                 url: "https://tirepro.com.co/marketplace?q=Pirelli" },
-      { "@type": "ListItem", position: 11, name: "Hankook",                 url: "https://tirepro.com.co/marketplace?q=Hankook" },
-      { "@type": "ListItem", position: 12, name: "Llantas 295/80R22.5",     url: "https://tirepro.com.co/marketplace?q=295/80R22.5" },
-      { "@type": "ListItem", position: 13, name: "Llantas 11R22.5",         url: "https://tirepro.com.co/marketplace?q=11R22.5" },
-      { "@type": "ListItem", position: 14, name: "Llantas 315/80R22.5",     url: "https://tirepro.com.co/marketplace?q=315/80R22.5" },
-      { "@type": "ListItem", position: 15, name: "Llantas 265/70R16",       url: "https://tirepro.com.co/marketplace?q=265/70R16" },
+      { "@type": "ListItem", position: 1,  name: "Llantas para tractomula", url: "https://www.tirepro.com.co/marketplace?q=tractomula" },
+      { "@type": "ListItem", position: 2,  name: "Llantas para camión",     url: "https://www.tirepro.com.co/marketplace?q=camion" },
+      { "@type": "ListItem", position: 3,  name: "Llantas para bus",        url: "https://www.tirepro.com.co/marketplace?q=bus" },
+      { "@type": "ListItem", position: 4,  name: "Llantas para camioneta",  url: "https://www.tirepro.com.co/marketplace?q=camioneta" },
+      { "@type": "ListItem", position: 5,  name: "Reencauche",              url: "https://www.tirepro.com.co/marketplace?q=reencauche" },
+      { "@type": "ListItem", position: 6,  name: "Michelin",                url: "https://www.tirepro.com.co/marketplace?q=Michelin" },
+      { "@type": "ListItem", position: 7,  name: "Bridgestone",             url: "https://www.tirepro.com.co/marketplace?q=Bridgestone" },
+      { "@type": "ListItem", position: 8,  name: "Continental",             url: "https://www.tirepro.com.co/marketplace?q=Continental" },
+      { "@type": "ListItem", position: 9,  name: "Goodyear",                url: "https://www.tirepro.com.co/marketplace?q=Goodyear" },
+      { "@type": "ListItem", position: 10, name: "Pirelli",                 url: "https://www.tirepro.com.co/marketplace?q=Pirelli" },
+      { "@type": "ListItem", position: 11, name: "Hankook",                 url: "https://www.tirepro.com.co/marketplace?q=Hankook" },
+      { "@type": "ListItem", position: 12, name: "Llantas 295/80R22.5",     url: "https://www.tirepro.com.co/marketplace?q=295/80R22.5" },
+      { "@type": "ListItem", position: 13, name: "Llantas 11R22.5",         url: "https://www.tirepro.com.co/marketplace?q=11R22.5" },
+      { "@type": "ListItem", position: 14, name: "Llantas 315/80R22.5",     url: "https://www.tirepro.com.co/marketplace?q=315/80R22.5" },
+      { "@type": "ListItem", position: 15, name: "Llantas 265/70R16",       url: "https://www.tirepro.com.co/marketplace?q=265/70R16" },
+    ],
+  };
+
+  const breadcrumbData = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "TirePro", item: "https://www.tirepro.com.co" },
+      { "@type": "ListItem", position: 2, name: "Marketplace", item: "https://www.tirepro.com.co/marketplace" },
     ],
   };
 
   const orgData = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "@id": "https://tirepro.com.co/#org",
+    "@id": "https://www.tirepro.com.co/#org",
     name: "TirePro",
     alternateName: ["TirePro Marketplace", "TirePro Colombia"],
-    url: "https://tirepro.com.co",
-    logo: "https://tirepro.com.co/logo_full.png",
+    url: "https://www.tirepro.com.co",
+    logo: "https://www.tirepro.com.co/logo_full.png",
     description: "Marketplace y plataforma de gestión inteligente de llantas con IA para flotas de transporte en Colombia.",
     foundingLocation: { "@type": "Place", address: { "@type": "PostalAddress", addressCountry: "CO", addressLocality: "Bogotá" } },
     areaServed: { "@type": "Country", name: "Colombia" },
@@ -198,6 +207,8 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListData) }} />
       <Script id="marketplace-org" type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(orgData) }} />
+      <Script id="marketplace-breadcrumb" type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
 
       <div aria-hidden="true" style={SR_ONLY_STYLE}>
         <h1>TirePro Marketplace — Comprar llantas online en Colombia</h1>

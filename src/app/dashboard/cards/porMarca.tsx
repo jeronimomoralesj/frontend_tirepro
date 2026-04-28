@@ -78,10 +78,10 @@ const PorMarca: React.FC<PorMarcaProps> = ({ groupData }) => {
           </div>
           <h2 className="text-sm sm:text-base lg:text-lg font-bold truncate">{t.title}</h2>
         </div>
-        <div className="group relative cursor-pointer flex-shrink-0">
-          <HelpCircle className="text-white/80 hover:text-white transition-colors" size={18} />
-          <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity w-56 pointer-events-none shadow-xl">
-            {t.tooltip}
+        <div className="group relative cursor-pointer shrink-0 print:hidden">
+          <HelpCircle className="text-white hover:text-gray-200 transition-colors" size={20} />
+          <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-52 pointer-events-none shadow-xl">
+            <p>{t.tooltip}</p>
           </div>
         </div>
       </div>

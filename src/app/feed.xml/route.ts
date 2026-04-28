@@ -4,7 +4,7 @@
  *
  * Submit this URL in:
  *   - Google Merchant Center → Products → Feeds → "Scheduled fetches" →
- *     https://tirepro.com.co/feed.xml (refresh: daily)
+ *     https://www.tirepro.com.co/feed.xml (refresh: daily)
  *   - Bing Merchant Center → Catalog feed → same URL
  *
  * Once Merchant Center accepts the feed, opt into "Free product listings"
@@ -20,7 +20,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
 
-const SITE = "https://tirepro.com.co";
+const SITE = "https://www.tirepro.com.co";
 
 // Secret token gating the feed. Set FEED_TOKEN in the environment (Vercel
 // → Settings → Environment Variables → FEED_TOKEN). Then configure Google

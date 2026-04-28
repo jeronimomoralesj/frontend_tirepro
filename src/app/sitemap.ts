@@ -5,7 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : 'https://api.tirepro.com.co/api'
 
-const BASE_URL = 'https://tirepro.com.co'
+const BASE_URL = 'https://www.tirepro.com.co'
 
 // Popular tire dimensions searched in Colombia — these become indexable landing pages
 const POPULAR_DIMENSIONS = [
@@ -89,6 +89,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.85,
   }))
 
+  // -- Fetch brands --------------------------------------------------------
+  // Brand pages (/marketplace/brand/<slug>) are the canonical landing pages
+  // for brand-name queries like "Michelin Colombia" or "comprar Bridgestone".
+  // Previously omitted from the sitemap, which forced Google to discover them
+  // only through internal linking — slower and incomplete.
+  let brandEntries: MetadataRoute.Sitemap = []
+  try {
+    const brandsRes = await fetch(`${API_URL}/marketplace/brands`, { next: { revalidate: 7200 } })
+    if (brandsRes.ok) {
+      const brands = await brandsRes.json()
+      brandEntries = (Array.isArray(brands) ? brands : [])
+        .filter((b: any) => b?.slug && b.published !== false)
+        .map((b: any) => ({
+          url: `${BASE_URL}/marketplace/brand/${b.slug}`,
+          lastModified: safeDate(b.updatedAt),
+          changeFrequency: 'weekly' as const,
+          // Brand pages with listings rank higher than empty ones.
+          priority: (b.listingCount ?? 0) > 0 ? 0.9 : 0.6,
+        }))
+    }
+  } catch (error) {
+    console.error('Sitemap brands fetch error:', error)
+  }
+
   // -- Fetch marketplace listings for product + distributor pages ---------------
   let productEntries: MetadataRoute.Sitemap = []
   let distributorEntries: MetadataRoute.Sitemap = []
@@ -135,6 +159,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...marketplaceStatic,
     ...dimensionPages,
     ...searchPages,
+    ...brandEntries,
     ...distributorEntries,
     ...productEntries,
     ...postEntries,

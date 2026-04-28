@@ -103,17 +103,45 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!brand) return { title: "Marca no encontrada · TirePro" };
   const title = `Llantas ${brand.name} en Colombia — Precios, modelos e historia | TirePro`;
   const desc = `Compra llantas ${brand.name} en Colombia. ${brand.description ?? ""} Compara precios de distribuidores verificados, modelos disponibles y CPK estimado en TirePro Marketplace.`.slice(0, 300);
+  const url = `https://www.tirepro.com.co/marketplace/brand/${slug}`;
+  const ogImage = brand.heroImageUrl || brand.logoUrl || "https://www.tirepro.com.co/og-image.png";
   return {
     title,
     description: desc,
-    alternates: { canonical: `https://tirepro.com.co/marketplace/brand/${slug}` },
+    keywords: [
+      brand.name,
+      `llantas ${brand.name}`,
+      `llantas ${brand.name} colombia`,
+      `comprar llantas ${brand.name}`,
+      `precio llantas ${brand.name}`,
+      `distribuidor ${brand.name}`,
+      `distribuidor ${brand.name} colombia`,
+      `${brand.name} colombia`,
+      `${brand.name} ${brand.country ?? ""}`,
+      `catalogo ${brand.name}`,
+      `modelos ${brand.name}`,
+      `${brand.name} tractomula`, `${brand.name} camion`, `${brand.name} bus`, `${brand.name} camioneta`,
+    ].filter(Boolean),
+    alternates: { canonical: url },
     openGraph: {
       title,
       description: desc,
-      url: `https://tirepro.com.co/marketplace/brand/${slug}`,
-      type: "website",
+      url,
+      siteName: "TirePro Marketplace",
       locale: "es_CO",
-      images: brand.logoUrl ? [{ url: brand.logoUrl, alt: `${brand.name} logo` }] : undefined,
+      type: "website",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: `Llantas ${brand.name}` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `Llantas ${brand.name} | TirePro`,
+      description: desc,
+      images: [ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
     },
   };
 }
@@ -162,22 +190,92 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   if (brand.headquarters)  facts.push({ icon: Building2, label: "Sede",           value: brand.headquarters });
   if (brand.parentCompany) facts.push({ icon: Factory,   label: "Empresa matriz", value: brand.parentCompany });
 
-  const structuredData = {
+  const brandUrl = `https://www.tirepro.com.co/marketplace/brand/${brand.slug}`;
+
+  // Price summary for AggregateOffer — drives "from $X" rich snippets on SERPs.
+  const priceList = brand.listings
+    .map((l) => (l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date() ? l.precioPromo! : l.precioCop))
+    .filter((p) => p > 0);
+  const lowPrice = priceList.length > 0 ? Math.min(...priceList) : null;
+  const highPrice = priceList.length > 0 ? Math.max(...priceList) : null;
+
+  // Wikipedia link — lets Google's Knowledge Graph connect the brand entity.
+  const wikiSameAs = brand.website ? [brand.website] : [];
+  if (brand.name) wikiSameAs.push(`https://es.wikipedia.org/wiki/${encodeURIComponent(brand.name)}`);
+
+  const brandSchema = {
     "@context": "https://schema.org",
     "@type": "Brand",
+    "@id": `${brandUrl}#brand`,
     name: brand.name,
-    description: brand.description,
-    logo: brand.logoUrl,
-    url: `https://tirepro.com.co/marketplace/brand/${brand.slug}`,
-    ...(brand.website && { sameAs: [brand.website] }),
+    alternateName: [`Llantas ${brand.name}`, `${brand.name} Colombia`],
+    description: brand.description || `${brand.name} es una marca de llantas disponible en TirePro Marketplace Colombia.`,
+    logo: brand.logoUrl || undefined,
+    image: brand.heroImageUrl || brand.logoUrl || undefined,
+    url: brandUrl,
+    slogan: brand.tagline || undefined,
+    sameAs: wikiSameAs,
     ...(brand.foundedYear && { foundingDate: String(brand.foundedYear) }),
+    ...(brand.headquarters && {
+      address: { "@type": "PostalAddress", addressLocality: brand.headquarters, addressCountry: brand.country || undefined },
+    }),
+    ...(brand.parentCompany && {
+      parentOrganization: { "@type": "Organization", name: brand.parentCompany },
+    }),
+  };
+
+  // CollectionPage with AggregateOffer — tells Google "this page lists N
+  // products of brand X with prices from A to B", enabling price-range
+  // rich snippets for brand queries.
+  const collectionSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": brandUrl,
+    name: `Llantas ${brand.name} en Colombia`,
+    description: `Catálogo de llantas ${brand.name} en TirePro Marketplace con ${brand.total} producto${brand.total !== 1 ? "s" : ""} de distribuidores verificados en Colombia.`,
+    url: brandUrl,
+    inLanguage: "es-CO",
+    isPartOf: { "@type": "WebSite", name: "TirePro", url: "https://www.tirepro.com.co" },
+    about: { "@id": `${brandUrl}#brand` },
+    ...(lowPrice != null && highPrice != null && {
+      offers: {
+        "@type": "AggregateOffer",
+        priceCurrency: "COP",
+        lowPrice: String(lowPrice),
+        highPrice: String(highPrice),
+        offerCount: brand.total,
+        availability: "https://schema.org/InStock",
+      },
+    }),
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: brand.listings.length,
+      itemListElement: brand.listings.slice(0, 20).map((l, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        url: `https://www.tirepro.com.co/marketplace/product/${l.id}`,
+        name: `${l.marca} ${l.modelo} ${l.dimension}`,
+      })),
+    },
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "TirePro", item: "https://www.tirepro.com.co" },
+      { "@type": "ListItem", position: 2, name: "Marketplace", item: "https://www.tirepro.com.co/marketplace" },
+      { "@type": "ListItem", position: 3, name: brand.name, item: brandUrl },
+    ],
   };
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       <MarketplaceNav />
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(brandSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
 
       {/* Hero */}
       <div className="relative overflow-hidden" style={{ background: heroBackground }}>

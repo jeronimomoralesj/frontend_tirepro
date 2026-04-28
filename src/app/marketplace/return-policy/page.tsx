@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Política de devoluciones · TirePro Marketplace",
   description:
     "Política de devoluciones del Marketplace de TirePro: cómo solicitar, plazos, casos aceptados y proceso de reembolso para llantas compradas a distribuidores verificados en Colombia.",
-  alternates: { canonical: "https://tirepro.com.co/marketplace/return-policy" },
+  alternates: { canonical: "https://www.tirepro.com.co/marketplace/return-policy" },
 };
 
 export default function ReturnPolicyPage() {
@@ -196,8 +196,8 @@ export default function ReturnPolicyPage() {
               <p className="text-sm font-black text-[#0A183A]">¿Tienes problemas con tu devolución?</p>
               <p className="text-xs text-gray-600 mt-0.5">
                 Escríbenos a{" "}
-                <a href="mailto:hola@tirepro.com.co" className="font-bold text-[#1E76B6] hover:underline">
-                  hola@tirepro.com.co
+                <a href="mailto:info@tirepro.com.co" className="font-bold text-[#1E76B6] hover:underline">
+                  info@tirepro.com.co
                 </a>{" "}
                 y nuestro equipo intermediará con el distribuidor.
               </p>
