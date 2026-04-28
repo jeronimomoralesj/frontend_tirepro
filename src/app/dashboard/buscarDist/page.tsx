@@ -1423,10 +1423,18 @@ const BuscarDist: React.FC = () => {
       const tRes = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${v.id}`);
       if (!tRes.ok) throw new Error("Error al obtener las llantas.");
       const raw: RawTire[] = await tRes.json();
+      // Primary sort: most-recently-inspected first (date closest to today),
+      // tiebreaker by posicion. `inspecciones` is ascending after normalise()
+      // so the last entry is the latest. 0 = never inspected → goes last.
       const valid = raw
         .filter((t) => t.companyId === selectedCompany.id)
         .map(normalise)
-        .sort((a, b) => a.posicion - b.posicion);
+        .sort((a, b) => {
+          const aLast = a.inspecciones.length ? new Date(a.inspecciones[a.inspecciones.length - 1].fecha).getTime() : 0;
+          const bLast = b.inspecciones.length ? new Date(b.inspecciones[b.inspecciones.length - 1].fecha).getTime() : 0;
+          if (aLast !== bLast) return bLast - aLast;
+          return a.posicion - b.posicion;
+        });
       setTires(valid);
       if (!valid.length) setError("No se encontraron llantas para este vehículo.");
     } catch (err) {

@@ -1953,7 +1953,20 @@ const BuscarPage: React.FC = () => {
         const tRes = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${v.id}`);
         if (!tRes.ok) throw new Error("Error al obtener las llantas");
         const raw: RawTire[] = await tRes.json();
-        setTires(raw.filter(t => t.companyId === companyId).map(normalise).sort((a, b) => a.posicion - b.posicion));
+        // Primary sort: most-recently-inspected first (date closest to today),
+        // tiebreaker by posicion. `inspecciones` is ascending after normalise()
+        // so the last entry is the latest. 0 = never inspected → goes last.
+        setTires(
+          raw
+            .filter(t => t.companyId === companyId)
+            .map(normalise)
+            .sort((a, b) => {
+              const aLast = a.inspecciones.length ? new Date(a.inspecciones[a.inspecciones.length - 1].fecha).getTime() : 0;
+              const bLast = b.inspecciones.length ? new Date(b.inspecciones[b.inspecciones.length - 1].fecha).getTime() : 0;
+              if (aLast !== bLast) return bLast - aLast;
+              return a.posicion - b.posicion;
+            })
+        );
       } else {
         const tRes = await authFetch(
           `${API_BASE}/tires?companyId=${companyId}&slim=true`
@@ -1961,6 +1974,11 @@ const BuscarPage: React.FC = () => {
         if (!tRes.ok) throw new Error("Llanta no encontrada");
         const raw: RawTire[] = await tRes.json();
         const term = searchTerm.trim().toLowerCase();
+        // RawTire.inspecciones isn't pre-sorted — pick the max fecha each side.
+        const lastInspMs = (t: RawTire) =>
+          t.inspecciones.length === 0
+            ? 0
+            : Math.max(...t.inspecciones.map((i) => new Date(i.fecha).getTime()));
         const matched = raw
           .filter(t => t.placa.toLowerCase() === term || t.placa.toLowerCase().includes(term))
           .sort((a, b) => {
@@ -1972,6 +1990,10 @@ const BuscarPage: React.FC = () => {
             const aStarts = a.placa.toLowerCase().startsWith(term) ? 0 : 1;
             const bStarts = b.placa.toLowerCase().startsWith(term) ? 0 : 1;
             if (aStarts !== bStarts) return aStarts - bStarts;
+            // Then by most-recently-inspected first (date closest to today)
+            const aLast = lastInspMs(a);
+            const bLast = lastInspMs(b);
+            if (aLast !== bLast) return bLast - aLast;
             return a.posicion - b.posicion;
           });
         if (matched.length === 0) throw new Error(`No se encontró la llanta "${searchTerm.trim()}"`);
