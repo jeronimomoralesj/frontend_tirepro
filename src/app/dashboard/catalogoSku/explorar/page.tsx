@@ -175,8 +175,11 @@ export default function CatalogoSkuExplorarPage() {
         modelo:    f.modelo.trim(),
         dimension: f.dimension.trim(),
         skuRef:    f.skuRef.trim(),
-        reencauchable: f.reencauchable,
       };
+      // Reencauchabilidad doesn't apply to retread tires (they aren't
+      // themselves reencauchable). Only send the flag for "nueva" or
+      // when the user didn't pick a category.
+      if (f.categoria !== "reencauche") payload.reencauchable = f.reencauchable;
       if (f.categoria)   payload.categoria   = f.categoria;
       if (f.ejeTirePro)  payload.ejeTirePro  = f.ejeTirePro;
       if (f.indiceCarga) payload.indiceCarga = f.indiceCarga.trim();
@@ -458,7 +461,16 @@ export default function CatalogoSkuExplorarPage() {
                 <Field label="Categoría">
                   <select
                     value={createForm.categoria}
-                    onChange={(e) => setCreateForm({ ...createForm, categoria: e.target.value })}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      // A retread (reencauche) tire isn't itself "reencauchable" —
+                      // clear the flag so we don't accidentally send a stale true.
+                      setCreateForm({
+                        ...createForm,
+                        categoria: next,
+                        reencauchable: next === "reencauche" ? false : createForm.reencauchable,
+                      });
+                    }}
                     className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
                     style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}
                   >
@@ -502,15 +514,17 @@ export default function CatalogoSkuExplorarPage() {
                 </Field>
               </div>
 
-              <label className="flex items-center gap-2 text-xs text-[#0A183A] cursor-pointer pt-1">
-                <input
-                  type="checkbox"
-                  checked={createForm.reencauchable}
-                  onChange={(e) => setCreateForm({ ...createForm, reencauchable: e.target.checked })}
-                  className="w-4 h-4"
-                />
-                Reencauchable
-              </label>
+              {createForm.categoria !== "reencauche" && (
+                <label className="flex items-center gap-2 text-xs text-[#0A183A] cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={createForm.reencauchable}
+                    onChange={(e) => setCreateForm({ ...createForm, reencauchable: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  Reencauchable
+                </label>
+              )}
 
               {createError && (
                 <div
