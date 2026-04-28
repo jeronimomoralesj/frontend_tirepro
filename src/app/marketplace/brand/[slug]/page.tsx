@@ -108,8 +108,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const fromPrice = prices.length > 0 ? Math.min(...prices) : null;
   const fromStr = fromPrice ? ` desde ${fmtCOP(fromPrice)}` : "";
 
-  const title = `Llantas ${brand.name} en Colombia${fromStr} — Comprar Online | TirePro`;
-  const desc = `Compra llantas ${brand.name}${fromStr} en Bogotá, Medellín, Cali, Barranquilla y toda Colombia. ${brand.total} producto${brand.total !== 1 ? "s" : ""} de distribuidores verificados${brand.country ? ` — marca ${brand.country.toLowerCase()}` : ""}. Compara precios y CPK en TirePro Marketplace.`.slice(0, 300);
+  const nuevaCnt    = brand.listings.filter((l) => (l.tipo || "").toLowerCase() === "nueva").length;
+  const retreadCnt  = brand.listings.filter((l) => (l.tipo || "").toLowerCase() === "reencauche").length;
+  const focusLabel =
+    nuevaCnt > 0 && retreadCnt === 0    ? "Nuevas"
+    : retreadCnt > 0 && nuevaCnt === 0   ? "Reencauchadas"
+    : nuevaCnt > 0 && retreadCnt > 0     ? "Nuevas y Reencauche"
+    : null;
+  const focusDesc =
+    nuevaCnt > 0 && retreadCnt === 0    ? "llantas nuevas"
+    : retreadCnt > 0 && nuevaCnt === 0   ? "llantas reencauchadas"
+    : nuevaCnt > 0 && retreadCnt > 0     ? "llantas nuevas y de reencauche"
+    : "llantas";
+
+  const titleFocus = focusLabel ? ` ${focusLabel}` : "";
+  const title = `Llantas ${brand.name}${titleFocus} en Colombia${fromStr} — Comprar Online | TirePro`;
+  const desc = `Compra ${focusDesc} ${brand.name}${fromStr} en Bogotá, Medellín, Cali, Barranquilla y toda Colombia. ${brand.total} producto${brand.total !== 1 ? "s" : ""} de distribuidores verificados${brand.country ? ` — marca ${brand.country.toLowerCase()}` : ""}. Compara precios y CPK en TirePro Marketplace.`.slice(0, 300);
   const url = `https://www.tirepro.com.co/marketplace/brand/${slug}`;
   const ogImage = brand.heroImageUrl || brand.logoUrl || "https://www.tirepro.com.co/og-image.png";
   return {
@@ -162,6 +176,22 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   const tier = brand.tier && TIER_META[brand.tier] ? TIER_META[brand.tier] : null;
   const flag = flagFor(brand.country);
   const yearsActive = brand.foundedYear ? new Date().getFullYear() - brand.foundedYear : null;
+
+  // Detect brand product focus from current listings. Drives copy in title,
+  // description, FAQ and SEO content so e.g. Hankook (new-tire-only) is never
+  // described as a retread brand. Brands without listings get null and fall
+  // back to generic copy.
+  const nuevaCount    = brand.listings.filter((l) => (l.tipo || "").toLowerCase() === "nueva").length;
+  const reencaucheCount = brand.listings.filter((l) => (l.tipo || "").toLowerCase() === "reencauche").length;
+  type ProductFocus = "new" | "retread" | "both" | null;
+  const productFocus: ProductFocus =
+    nuevaCount > 0 && reencaucheCount === 0
+      ? "new"
+      : reencaucheCount > 0 && nuevaCount === 0
+      ? "retread"
+      : nuevaCount > 0 && reencaucheCount > 0
+      ? "both"
+      : null;
 
   // ─── Brand palette ────────────────────────────────────────────────────────
   // Every accent color on this page derives from the brand's own colors so
@@ -278,28 +308,55 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
 
   const fromPriceStr = lowPrice != null ? fmtCOP(lowPrice) : null;
 
-  const faqEntries = [
+  // Product-focus aware copy. Every reference to "nueva o reencauche" only
+  // shows up when the brand actually offers both. A new-tire-only brand like
+  // Hankook never gets retread mentions, and vice versa for retread houses.
+  const productNoun =
+    productFocus === "new"     ? "llantas nuevas"
+    : productFocus === "retread" ? "llantas reencauchadas"
+    : productFocus === "both"    ? "llantas nuevas y de reencauche"
+    : "llantas";
+
+  const priceFactors =
+    productFocus === "new"
+      ? "El precio depende de la dimensión, modelo y eje (dirección, tracción, remolque)."
+      : productFocus === "retread"
+      ? "El precio depende de la dimensión, banda de rodamiento y vida del casco."
+      : "El precio depende de la dimensión, modelo, eje y si es nueva o de reencauche.";
+
+  const faqEntries: Array<{ q: string; a: string }> = [
     {
-      q: `¿Dónde puedo comprar llantas ${brand.name} en Colombia?`,
-      a: `Puedes comprar llantas ${brand.name} en TirePro Marketplace, donde distribuidores verificados ofrecen modelos disponibles para envío a Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Cartagena y todo el país.`,
+      q: `¿Dónde puedo comprar ${productNoun} ${brand.name} en Colombia?`,
+      a: `Puedes comprar ${productNoun} ${brand.name} en TirePro Marketplace, donde distribuidores verificados ofrecen modelos disponibles para envío a Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Cartagena y todo el país.`,
     },
     {
       q: `¿Cuánto cuesta una llanta ${brand.name}?`,
       a: fromPriceStr
-        ? `Las llantas ${brand.name} en TirePro Marketplace empiezan ${fromPriceStr}. El precio depende de la dimensión, modelo, eje (dirección, tracción, remolque) y si es nueva o de reencauche.`
-        : `El precio de las llantas ${brand.name} depende de la dimensión, modelo, eje y si es nueva o de reencauche. Compara opciones en TirePro Marketplace.`,
+        ? `Las ${productNoun} ${brand.name} en TirePro Marketplace empiezan ${fromPriceStr}. ${priceFactors}`
+        : `${priceFactors} Compara opciones en TirePro Marketplace.`,
     },
     {
-      q: `¿Las llantas ${brand.name} son buenas para tractomula y camión?`,
+      q: `¿${brand.name} fabrica llantas nuevas, de reencauche, o ambas?`,
+      a:
+        productFocus === "new"
+          ? `${brand.name} se especializa en llantas nuevas — no produce reencauche. En TirePro Marketplace encuentras únicamente versiones nuevas originales con garantía del fabricante.`
+          : productFocus === "retread"
+          ? `${brand.name} se especializa en reencauche y bandas de rodamiento — el catálogo en TirePro Marketplace está enfocado en llantas reencauchadas y soluciones para extender la vida útil de tus cascos.`
+          : productFocus === "both"
+          ? `${brand.name} ofrece tanto llantas nuevas como soluciones de reencauche. En TirePro Marketplace encuentras ambas categorías para que elijas según presupuesto y aplicación.`
+          : `Consulta el catálogo de ${brand.name} en TirePro Marketplace para ver las opciones disponibles.`,
+    },
+    {
+      q: `¿Las ${productNoun} ${brand.name} son buenas para tractomula y camión?`,
       a: `${brand.name}${tier ? ` es una marca ${tier.label.toLowerCase()}` : ""} con modelos diseñados para servicio pesado en carretera, regional y urbano. En el catálogo de TirePro encuentras versiones para ejes de dirección, tracción y remolque.`,
     },
     {
-      q: `¿TirePro vende llantas ${brand.name} originales?`,
-      a: `Sí. Todos los distribuidores en TirePro Marketplace son verificados y venden llantas ${brand.name} originales con la garantía oficial del fabricante.`,
+      q: `¿TirePro vende ${productNoun} ${brand.name} originales?`,
+      a: `Sí. Todos los distribuidores en TirePro Marketplace son verificados y venden ${productNoun} ${brand.name} originales con la garantía oficial del fabricante.`,
     },
     {
-      q: `¿Hacen envíos de llantas ${brand.name} a toda Colombia?`,
-      a: `Sí. Los distribuidores aliados en TirePro envían llantas ${brand.name} a toda Colombia. Tiempos de entrega típicos: 1-3 días en ciudades principales, 3-7 días en zonas rurales.`,
+      q: `¿Hacen envíos de ${productNoun} ${brand.name} a toda Colombia?`,
+      a: `Sí. Los distribuidores aliados en TirePro envían ${productNoun} ${brand.name} a toda Colombia. Tiempos de entrega típicos: 1-3 días en ciudades principales, 3-7 días en zonas rurales.`,
     },
   ];
 
@@ -362,6 +419,13 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-white bg-white/10 border border-white/15">
                     <span className="text-sm leading-none">{flag}</span>
                     {brand.country}
+                  </span>
+                )}
+                {productFocus && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white bg-white/10 border border-white/15">
+                    {productFocus === "new" && "Llantas nuevas"}
+                    {productFocus === "retread" && "Reencauche"}
+                    {productFocus === "both" && "Nuevas + Reencauche"}
                   </span>
                 )}
               </div>
@@ -582,24 +646,46 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
             id="brand-seo-overview"
             className="text-xl sm:text-2xl font-black text-[#0A183A] mb-4"
           >
-            Comprar llantas {brand.name} en Colombia
+            Comprar {productNoun} {brand.name} en Colombia
           </h2>
           <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed space-y-3">
             <p>
-              <strong>Llantas {brand.name}</strong>
+              <strong>{productNoun.charAt(0).toUpperCase() + productNoun.slice(1)} {brand.name}</strong>
               {fromPriceStr && <> desde <strong>{fromPriceStr}</strong></>}
               {" "}en TirePro Marketplace. {brand.total} producto{brand.total !== 1 ? "s" : ""} disponible
               {brand.total !== 1 ? "s" : ""} de distribuidores verificados con envío a{" "}
               <strong>Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Cartagena, Pereira</strong>{" "}
               y todo el país. Compara precios, dimensiones y CPK estimado en una sola plataforma.
             </p>
+            {productFocus === "new" && (
+              <p>
+                <strong>{brand.name} se especializa en llantas nuevas</strong> — no
+                produce reencauche bajo su marca. Si buscas opciones de reencauche,
+                explora otras marcas en el marketplace de TirePro o consulta nuestras
+                guías sobre reencauche certificado.
+              </p>
+            )}
+            {productFocus === "retread" && (
+              <p>
+                <strong>{brand.name} se especializa en reencauche y bandas de
+                rodamiento</strong> — su catálogo está enfocado en extender la vida
+                útil de tus cascos. Para llantas nuevas, explora otras marcas en el
+                marketplace de TirePro.
+              </p>
+            )}
+            {productFocus === "both" && (
+              <p>
+                <strong>{brand.name} ofrece tanto llantas nuevas como soluciones
+                de reencauche</strong> — eliges según presupuesto, aplicación y vida
+                útil esperada del casco.
+              </p>
+            )}
             <p>
-              Encuentra llantas {brand.name} para <strong>tractomula y camión</strong>{" "}
+              Encuentra {productNoun} {brand.name} para <strong>tractomula y camión</strong>{" "}
               (medidas comunes 295/80R22.5, 11R22.5, 315/80R22.5),{" "}
               <strong>SUV y camioneta</strong> (265/70R16, 285/60R18),{" "}
-              <strong>bus</strong> y <strong>automóvil</strong> (195/65R15, 205/55R16).
-              Distribuidores ofrecen llantas nuevas y opciones de reencauche cuando
-              aplica, con instalación disponible en servitecas aliadas.
+              <strong>bus</strong> y <strong>automóvil</strong> (195/65R15, 205/55R16),
+              con instalación disponible en servitecas aliadas.
             </p>
             {brand.country && (
               <p>
@@ -616,14 +702,15 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <h3 className="text-sm font-black text-[#0A183A] mb-2">
-                Llantas {brand.name} por uso
+                {productNoun.charAt(0).toUpperCase() + productNoun.slice(1)} {brand.name} por uso
               </h3>
               <ul className="grid grid-cols-1 gap-1.5 text-xs text-gray-600">
-                <li>Llantas {brand.name} para tractomula y camión</li>
-                <li>Llantas {brand.name} para bus y transporte de pasajeros</li>
-                <li>Llantas {brand.name} para SUV y camioneta 4x4</li>
-                <li>Llantas {brand.name} para automóvil y carro familiar</li>
-                <li>Llantas {brand.name} reencauchadas (cuando disponibles)</li>
+                <li>{brand.name} para tractomula y camión</li>
+                <li>{brand.name} para bus y transporte de pasajeros</li>
+                <li>{brand.name} para SUV y camioneta 4x4</li>
+                <li>{brand.name} para automóvil y carro familiar</li>
+                {productFocus === "both" && <li>{brand.name} reencauchadas</li>}
+                {productFocus === "retread" && <li>{brand.name} bandas de rodamiento</li>}
               </ul>
             </div>
             <div>
