@@ -214,6 +214,12 @@ export default function CatalogoSkuDetailPage() {
     cantidadDisponible: 0,
     tiempoEntrega: "1-3 dias",
   });
+  // Image selection state for the publish modal. Set of CatalogImage.id —
+  // every uploaded SKU image is selected by default so the listing inherits
+  // the full set the dist already curated. They can untick any they don't
+  // want to expose on the marketplace and pick which one is the cover.
+  const [sellSelectedImgs, setSellSelectedImgs] = useState<Set<string>>(new Set());
+  const [sellCoverImgId,   setSellCoverImgId]   = useState<string>("");
 
   // Brand toggles for the PDF — each one maps to a piece of BrandInfo
   // we pulled from /marketplace/brands/:slug. Two groups keeps the UI
@@ -442,6 +448,13 @@ export default function CatalogoSkuDetailPage() {
       cantidadDisponible: 0,
       tiempoEntrega:      "1-3 dias",
     });
+    // Seed image selection — every uploaded SKU image is on by default. The
+    // SKU's own coverIndex points at one specific image; pre-select it as
+    // the listing cover too so the rep doesn't reset their preference.
+    const allIds = (sku?.images ?? []).map((img) => img.id);
+    setSellSelectedImgs(new Set(allIds));
+    const skuCover = sku?.images?.find((img) => img.coverIndex > 0) ?? sku?.images?.[0];
+    setSellCoverImgId(skuCover?.id ?? "");
     setSellError("");
     setSellOpen(true);
   }
@@ -456,6 +469,20 @@ export default function CatalogoSkuDetailPage() {
     }
     setSellSaving(true);
     try {
+      // Build the listing's image set from the SKU's selected images. Order
+      // is preserved from sku.images; the cover lands at coverIndex 0 by
+      // moving the chosen cover to the front so the listing carousel and
+      // marketplace card share the same hero image.
+      const orderedImgs = (sku.images ?? []).filter((img) => sellSelectedImgs.has(img.id));
+      if (sellCoverImgId) {
+        const ci = orderedImgs.findIndex((img) => img.id === sellCoverImgId);
+        if (ci > 0) {
+          const [cover] = orderedImgs.splice(ci, 1);
+          orderedImgs.unshift(cover);
+        }
+      }
+      const imageUrls = orderedImgs.map((img) => img.url);
+
       const res = await authFetch(`${API_BASE}/marketplace/listings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -472,6 +499,7 @@ export default function CatalogoSkuDetailPage() {
           precioCop:          sellForm.precioCop,
           cantidadDisponible: sellForm.cantidadDisponible,
           tiempoEntrega:      sellForm.tiempoEntrega,
+          ...(imageUrls.length > 0 && { imageUrls, coverIndex: 0 }),
         }),
       });
       if (!res.ok) {
@@ -1233,6 +1261,87 @@ export default function CatalogoSkuDetailPage() {
                 <p className="font-bold text-[#0A183A] truncate">{sku.marca} {sku.modelo}</p>
                 <p className="text-gray-500 font-mono mt-0.5">{sku.dimension}</p>
               </div>
+
+              {/* Image picker — every uploaded SKU image is selected by
+                  default; tap a thumbnail to toggle it off, click "Cubierta"
+                  to switch the hero image. The marketplace listing inherits
+                  whatever the rep settles on here. */}
+              {(sku.images?.length ?? 0) > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                      Imágenes
+                    </span>
+                    <span className="text-[10px] text-gray-400 tabular-nums">
+                      {sellSelectedImgs.size}/{sku.images!.length} seleccionadas
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {sku.images!.map((img) => {
+                      const selected = sellSelectedImgs.has(img.id);
+                      const isCover  = sellCoverImgId === img.id && selected;
+                      return (
+                        <div key={img.id} className="relative">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSellSelectedImgs((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(img.id)) {
+                                  next.delete(img.id);
+                                  // If we just deselected the cover, fall back
+                                  // to the next still-selected image.
+                                  if (sellCoverImgId === img.id) {
+                                    const fallback = sku.images!.find(
+                                      (i) => i.id !== img.id && next.has(i.id),
+                                    );
+                                    setSellCoverImgId(fallback?.id ?? "");
+                                  }
+                                } else {
+                                  next.add(img.id);
+                                  if (!sellCoverImgId) setSellCoverImgId(img.id);
+                                }
+                                return next;
+                              });
+                            }}
+                            className="block w-full aspect-square rounded-lg overflow-hidden transition-all"
+                            style={{
+                              border: selected
+                                ? "2px solid #1E76B6"
+                                : "1px solid rgba(52,140,203,0.2)",
+                              opacity: selected ? 1 : 0.45,
+                              background: "#F0F7FF",
+                            }}
+                            aria-pressed={selected}
+                            title={selected ? "Quitar de la publicación" : "Incluir en la publicación"}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={img.url} alt="" className="w-full h-full object-contain" />
+                          </button>
+                          {selected && (
+                            <button
+                              type="button"
+                              onClick={() => setSellCoverImgId(img.id)}
+                              disabled={isCover}
+                              className="absolute bottom-0 left-0 right-0 text-[8px] font-bold text-white text-center py-0.5 transition-opacity disabled:opacity-100"
+                              style={{
+                                background: isCover ? "#1E76B6" : "rgba(0,0,0,0.45)",
+                              }}
+                            >
+                              {isCover ? "Cubierta" : "Hacer cubierta"}
+                            </button>
+                          )}
+                          {!selected && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <X className="w-5 h-5 text-red-500" strokeWidth={3} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <label className="block">
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Precio sin IVA (COP) *</span>
