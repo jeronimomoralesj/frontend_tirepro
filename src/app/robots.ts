@@ -30,6 +30,10 @@ export default function robots(): MetadataRoute.Robots {
     ],
     sitemap: [
       'https://www.tirepro.com.co/sitemap.xml',
+      // Image sitemap with explicit per-image titles and captions so each
+      // tire photo is associated with its product (not the page title of
+      // whichever URL Googlebot first encountered it on).
+      'https://www.tirepro.com.co/sitemap-images.xml',
       // Google Merchant Center / Bing Merchant Center product feed.
       // Listed here so other crawlers and AI engines can also discover it.
       'https://www.tirepro.com.co/feed.xml',
