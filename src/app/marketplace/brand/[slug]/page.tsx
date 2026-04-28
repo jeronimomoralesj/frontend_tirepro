@@ -101,8 +101,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const brand = await fetchBrand(slug);
   if (!brand) return { title: "Marca no encontrada · TirePro" };
-  const title = `Llantas ${brand.name} en Colombia — Precios, modelos e historia | TirePro`;
-  const desc = `Compra llantas ${brand.name} en Colombia. ${brand.description ?? ""} Compara precios de distribuidores verificados, modelos disponibles y CPK estimado en TirePro Marketplace.`.slice(0, 300);
+
+  const prices = brand.listings
+    .map((l) => (l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date() ? l.precioPromo! : l.precioCop))
+    .filter((p) => p > 0);
+  const fromPrice = prices.length > 0 ? Math.min(...prices) : null;
+  const fromStr = fromPrice ? ` desde ${fmtCOP(fromPrice)}` : "";
+
+  const title = `Llantas ${brand.name} en Colombia${fromStr} — Comprar Online | TirePro`;
+  const desc = `Compra llantas ${brand.name}${fromStr} en Bogotá, Medellín, Cali, Barranquilla y toda Colombia. ${brand.total} producto${brand.total !== 1 ? "s" : ""} de distribuidores verificados${brand.country ? ` — marca ${brand.country.toLowerCase()}` : ""}. Compara precios y CPK en TirePro Marketplace.`.slice(0, 300);
   const url = `https://www.tirepro.com.co/marketplace/brand/${slug}`;
   const ogImage = brand.heroImageUrl || brand.logoUrl || "https://www.tirepro.com.co/og-image.png";
   return {
@@ -269,6 +276,43 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
     ],
   };
 
+  const fromPriceStr = lowPrice != null ? fmtCOP(lowPrice) : null;
+
+  const faqEntries = [
+    {
+      q: `¿Dónde puedo comprar llantas ${brand.name} en Colombia?`,
+      a: `Puedes comprar llantas ${brand.name} en TirePro Marketplace, donde distribuidores verificados ofrecen modelos disponibles para envío a Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Cartagena y todo el país.`,
+    },
+    {
+      q: `¿Cuánto cuesta una llanta ${brand.name}?`,
+      a: fromPriceStr
+        ? `Las llantas ${brand.name} en TirePro Marketplace empiezan ${fromPriceStr}. El precio depende de la dimensión, modelo, eje (dirección, tracción, remolque) y si es nueva o de reencauche.`
+        : `El precio de las llantas ${brand.name} depende de la dimensión, modelo, eje y si es nueva o de reencauche. Compara opciones en TirePro Marketplace.`,
+    },
+    {
+      q: `¿Las llantas ${brand.name} son buenas para tractomula y camión?`,
+      a: `${brand.name}${tier ? ` es una marca ${tier.label.toLowerCase()}` : ""} con modelos diseñados para servicio pesado en carretera, regional y urbano. En el catálogo de TirePro encuentras versiones para ejes de dirección, tracción y remolque.`,
+    },
+    {
+      q: `¿TirePro vende llantas ${brand.name} originales?`,
+      a: `Sí. Todos los distribuidores en TirePro Marketplace son verificados y venden llantas ${brand.name} originales con la garantía oficial del fabricante.`,
+    },
+    {
+      q: `¿Hacen envíos de llantas ${brand.name} a toda Colombia?`,
+      a: `Sí. Los distribuidores aliados en TirePro envían llantas ${brand.name} a toda Colombia. Tiempos de entrega típicos: 1-3 días en ciudades principales, 3-7 días en zonas rurales.`,
+    },
+  ];
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqEntries.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
       <MarketplaceNav />
@@ -276,6 +320,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(brandSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
 
       {/* Hero */}
       <div className="relative overflow-hidden" style={{ background: heroBackground }}>
@@ -523,6 +568,105 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
               })}
             </div>
           )}
+        </section>
+
+        {/* SEO content — server-rendered Spanish copy crawlers can read on first
+            request. Targets long-tail queries like "comprar llantas {brand}
+            bogotá", "{brand} precio colombia", "{brand} para tractomula". */}
+        <section
+          aria-labelledby="brand-seo-overview"
+          className="bg-white rounded-3xl p-6 sm:p-8"
+          style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+        >
+          <h2
+            id="brand-seo-overview"
+            className="text-xl sm:text-2xl font-black text-[#0A183A] mb-4"
+          >
+            Comprar llantas {brand.name} en Colombia
+          </h2>
+          <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed space-y-3">
+            <p>
+              <strong>Llantas {brand.name}</strong>
+              {fromPriceStr && <> desde <strong>{fromPriceStr}</strong></>}
+              {" "}en TirePro Marketplace. {brand.total} producto{brand.total !== 1 ? "s" : ""} disponible
+              {brand.total !== 1 ? "s" : ""} de distribuidores verificados con envío a{" "}
+              <strong>Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Cartagena, Pereira</strong>{" "}
+              y todo el país. Compara precios, dimensiones y CPK estimado en una sola plataforma.
+            </p>
+            <p>
+              Encuentra llantas {brand.name} para <strong>tractomula y camión</strong>{" "}
+              (medidas comunes 295/80R22.5, 11R22.5, 315/80R22.5),{" "}
+              <strong>SUV y camioneta</strong> (265/70R16, 285/60R18),{" "}
+              <strong>bus</strong> y <strong>automóvil</strong> (195/65R15, 205/55R16).
+              Distribuidores ofrecen llantas nuevas y opciones de reencauche cuando
+              aplica, con instalación disponible en servitecas aliadas.
+            </p>
+            {brand.country && (
+              <p>
+                {brand.name} es una marca{tier ? ` ${tier.label.toLowerCase()}` : ""} de origen{" "}
+                <strong>{brand.country}</strong>
+                {brand.foundedYear && <> fundada en {brand.foundedYear}</>}
+                {brand.parentCompany && <>, parte de {brand.parentCompany}</>}.
+                {" "}En TirePro encuentras los modelos más vendidos en Colombia con
+                garantía oficial del fabricante.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <h3 className="text-sm font-black text-[#0A183A] mb-2">
+                Llantas {brand.name} por uso
+              </h3>
+              <ul className="grid grid-cols-1 gap-1.5 text-xs text-gray-600">
+                <li>Llantas {brand.name} para tractomula y camión</li>
+                <li>Llantas {brand.name} para bus y transporte de pasajeros</li>
+                <li>Llantas {brand.name} para SUV y camioneta 4x4</li>
+                <li>Llantas {brand.name} para automóvil y carro familiar</li>
+                <li>Llantas {brand.name} reencauchadas (cuando disponibles)</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-[#0A183A] mb-2">
+                Ciudades con envío
+              </h3>
+              <ul className="grid grid-cols-2 gap-1.5 text-xs text-gray-600">
+                <li>Bogotá D.C.</li>
+                <li>Medellín</li>
+                <li>Cali</li>
+                <li>Barranquilla</li>
+                <li>Bucaramanga</li>
+                <li>Cartagena</li>
+                <li>Pereira</li>
+                <li>Cúcuta</li>
+                <li>Ibagué</li>
+                <li>Manizales</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Brand-specific FAQ — drives featured snippets for queries like
+            "cuánto cuesta una llanta {brand}" or "dónde comprar {brand}". */}
+        <section
+          aria-labelledby="brand-faq"
+          className="bg-white rounded-3xl p-6 sm:p-8"
+          style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+        >
+          <h2
+            id="brand-faq"
+            className="text-xl sm:text-2xl font-black text-[#0A183A] mb-5"
+          >
+            Preguntas frecuentes sobre {brand.name}
+          </h2>
+          <div className="space-y-4">
+            {faqEntries.map((f, i) => (
+              <div key={i}>
+                <h3 className="text-sm font-black text-[#0A183A] mb-1.5">{f.q}</h3>
+                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">{f.a}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         {brand.sourceUrl && (
