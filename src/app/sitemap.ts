@@ -30,6 +30,27 @@ function safeDate(value: string | null | undefined): Date {
   return isNaN(d.getTime()) ? new Date() : d
 }
 
+// Next.js's MetadataRoute.Sitemap emits the `images` array as raw text — it
+// does NOT XML-escape ampersands, so any URL like
+// `https://encrypted-tbn0.gstatic.com/images?q=tbn:...&s` ends up producing
+// invalid XML (the `&s` is read as a malformed entity reference). We pre-
+// escape `&` to `&amp;` and reject anything else that would break the parser.
+function safeImageUrl(url: string | null | undefined): string | null {
+  if (typeof url !== 'string' || url.length === 0) return null
+  if (!/^https?:\/\//i.test(url)) return null
+  // Bail on any other XML-special chars that shouldn't ever appear in a
+  // real image URL anyway.
+  if (/[<>"]/.test(url)) return null
+  return url.replace(/&/g, '&amp;')
+}
+
+function safeImages(urls: (string | null | undefined)[]): string[] | undefined {
+  const cleaned = urls
+    .map(safeImageUrl)
+    .filter((u): u is string => u !== null)
+  return cleaned.length > 0 ? cleaned : undefined
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // -- Fetch blog posts --------------------------------------------------------
   let posts: any[] = []
@@ -54,7 +75,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1.0,
-      images: [`${BASE_URL}/og-image.png`, `${BASE_URL}/logo_full.png`],
+      images: safeImages([`${BASE_URL}/og-image.png`, `${BASE_URL}/logo_full.png`]),
     },
     { url: `${BASE_URL}/calculadora`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
     { url: `${BASE_URL}/signup`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
@@ -75,7 +96,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: safeDate(post.updatedAt || post.createdAt),
       changeFrequency: 'monthly' as const,
       priority: post.featured ? 0.85 : 0.75,
-      images: post.coverImage ? [post.coverImage] : undefined,
+      images: safeImages([post.coverImage]),
     }))
 
   // -- Marketplace index -------------------------------------------------------
@@ -113,16 +134,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       brandEntries = (Array.isArray(brands) ? brands : [])
         .filter((b: any) => b?.slug && b.published !== false)
         .map((b: any) => {
-          const imgs: string[] = []
-          if (b.heroImageUrl) imgs.push(b.heroImageUrl)
-          if (b.logoUrl) imgs.push(b.logoUrl)
           return {
             url: `${BASE_URL}/marketplace/brand/${b.slug}`,
             lastModified: safeDate(b.updatedAt),
             changeFrequency: 'weekly' as const,
             // Brand pages with listings rank higher than empty ones.
             priority: (b.listingCount ?? 0) > 0 ? 0.9 : 0.6,
-            images: imgs.length > 0 ? imgs : undefined,
+            images: safeImages([b.heroImageUrl, b.logoUrl]),
           }
         })
     }
@@ -154,7 +172,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           lastModified: safeDate(l.updatedAt),
           changeFrequency: 'weekly' as const,
           priority: 0.8,
-          images: ordered.length > 0 ? ordered.slice(0, 5) : undefined,
+          images: safeImages(ordered.slice(0, 5)),
         }
       })
 
@@ -164,9 +182,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       for (const l of listings) {
         if (l.distributor?.id && !distIds.has(l.distributor.id)) {
           distIds.add(l.distributor.id)
-          const dImgs: string[] = []
-          if (l.distributor.bannerImage) dImgs.push(l.distributor.bannerImage)
-          if (l.distributor.profileImage) dImgs.push(l.distributor.profileImage)
           distEntries.push({
             url: `${BASE_URL}/marketplace/distributor/${l.distributor.id}`,
             lastModified: new Date(),
@@ -175,7 +190,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             // quickly and treats them as authoritative for the distributor's
             // brand queries.
             priority: 0.95,
-            images: dImgs.length > 0 ? dImgs : undefined,
+            images: safeImages([l.distributor.bannerImage, l.distributor.profileImage]),
           })
         }
       }
