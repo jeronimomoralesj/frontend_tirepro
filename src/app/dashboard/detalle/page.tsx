@@ -13,6 +13,7 @@ import SemaforoTabla from "../cards/semaforoTabla";
 import TablaCpk from "../cards/tablaCpk";
 import PorMarca from "../cards/porMarca";
 import PorBanda from "../cards/porBanda";
+import PorDimension from "../cards/porDimension";
 import PorVida from "../cards/porVida";
 import PromedioEje from "../cards/promedioEje";
 import TipoVehiculo from "../cards/tipoVehiculo";
@@ -255,7 +256,7 @@ export default function DetallePage() {
   const [loadedTires, setLoadedTires]     = useState(0);
   const [expectedTires, setExpectedTires] = useState(0);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({
-    alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos",
+    alert: "Todos", marca: "Todos", dimension: "Todos", eje: "Todos", vida: "Todos",
   });
   const [filterSearch, setFilterSearch] = useState("");
   const [advancedConditions, setAdvancedConditions] = useState<AdvancedCondition[]>([]);
@@ -353,6 +354,7 @@ export default function DetallePage() {
   const filterOptions: FilterOption[] = useMemo(() => [
     { key: "alert", label: "Estado", options: ALERT_OPTIONS.map((a) => a === "Todos" ? "Todos" : ALERT_META[a]?.label ?? a) },
     { key: "marca", label: "Marca", options: ["Todos", ...Array.from(new Set(tires.map((t) => t.marca))).sort()] },
+    { key: "dimension", label: "Dimensión", options: ["Todos", ...Array.from(new Set(tires.map((t) => t.dimension).filter(Boolean))).sort()] },
     { key: "eje", label: "Eje", options: ["Todos", ...Array.from(new Set(tires.map((t) => t.eje))).sort()] },
     { key: "vida", label: "Vida", options: ["Todos", "nueva", "reencauche1", "reencauche2", "reencauche3", "fin"] },
   ], [tires]);
@@ -388,6 +390,8 @@ export default function DetallePage() {
 
     if (deferredFilterValues.marca && deferredFilterValues.marca !== "Todos")
       result = result.filter((t) => t.marca === deferredFilterValues.marca);
+    if (deferredFilterValues.dimension && deferredFilterValues.dimension !== "Todos")
+      result = result.filter((t) => t.dimension === deferredFilterValues.dimension);
     if (deferredFilterValues.eje && deferredFilterValues.eje !== "Todos")
       result = result.filter((t) => t.eje === deferredFilterValues.eje);
 
@@ -427,6 +431,15 @@ export default function DetallePage() {
   const bandaData = useMemo(() => {
     const m: Record<string, number> = {};
     filtered.forEach((t) => { m[t.diseno] = (m[t.diseno] ?? 0) + 1; });
+    return m;
+  }, [filtered]);
+
+  const dimensionData = useMemo(() => {
+    const m: Record<string, number> = {};
+    filtered.forEach((t) => {
+      const d = t.dimension?.trim();
+      if (d) m[d] = (m[d] ?? 0) + 1;
+    });
     return m;
   }, [filtered]);
 
@@ -564,6 +577,7 @@ export default function DetallePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   <PorMarca groupData={marcaData} />
                   <PorBanda groupData={bandaData} />
+                  <PorDimension groupData={dimensionData} />
                   <PorVida tires={filtered} />
                 </div>
               </section>

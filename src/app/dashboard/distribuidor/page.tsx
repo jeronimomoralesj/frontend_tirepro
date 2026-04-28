@@ -14,6 +14,7 @@ import SemaforoTabla   from "../cards/semaforoTabla";
 import type { Vehicle, Tire as SemaforoTire } from "../cards/semaforoTabla";
 import PorMarca        from "../cards/porMarca";
 import PorBanda        from "../cards/porBanda";
+import PorDimension    from "../cards/porDimension";
 import PorVida         from "../cards/porVida";
 import PromedioEje     from "../cards/promedioEje";
 import TipoVehiculo    from "../cards/tipoVehiculo";
@@ -613,7 +614,7 @@ export default function DistribuidorPage() {
 
   // -- Per-client filters (mirrors detalle's FilterFab) ---------------------
   const [filterValues, setFilterValues] = useState<Record<string, string>>({
-    alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos",
+    alert: "Todos", marca: "Todos", dimension: "Todos", eje: "Todos", vida: "Todos",
   });
   const [filterSearch, setFilterSearch] = useState("");
   const [advancedConditions, setAdvancedConditions] = useState<AdvancedCondition[]>([]);
@@ -702,7 +703,7 @@ export default function DistribuidorPage() {
   setMarcaData({}); setBandaData({});
   setVidaStats({ nueva: 0, reencauche1: 0, reencauche2: 0, reencauche3: 0, total: 0 });
   setSelectedEje("");
-  setFilterValues({ alert: "Todos", marca: "Todos", eje: "Todos", vida: "Todos" });
+  setFilterValues({ alert: "Todos", marca: "Todos", dimension: "Todos", eje: "Todos", vida: "Todos" });
   setFilterSearch("");
   setInspectionDate("");
   setLoadedTires(0); setStreaming(false);
@@ -937,6 +938,9 @@ export default function DistribuidorPage() {
     if (deferredFilterValues.marca && deferredFilterValues.marca !== "Todos") {
       result = result.filter((t) => t.marca === deferredFilterValues.marca);
     }
+    if (deferredFilterValues.dimension && deferredFilterValues.dimension !== "Todos") {
+      result = result.filter((t) => t.dimension === deferredFilterValues.dimension);
+    }
     if (deferredFilterValues.eje && deferredFilterValues.eje !== "Todos") {
       result = result.filter((t) => t.eje === deferredFilterValues.eje);
     }
@@ -970,10 +974,11 @@ export default function DistribuidorPage() {
     const raw = chartTires as unknown as NormTire[];
     const ALERT_OPTIONS = ["Todos", ...Object.values(ALERT_META).map((m) => m.label)];
     return [
-      { key: "alert", label: "Estado", options: ALERT_OPTIONS },
-      { key: "marca", label: "Marca",  options: ["Todos", ...Array.from(new Set(raw.map((t) => t.marca).filter(Boolean))).sort()] },
-      { key: "eje",   label: "Eje",    options: ["Todos", ...Array.from(new Set(raw.map((t) => t.eje).filter(Boolean))).sort()] },
-      { key: "vida",  label: "Vida",   options: ["Todos", "nueva", "reencauche1", "reencauche2", "reencauche3", "fin"] },
+      { key: "alert",     label: "Estado",    options: ALERT_OPTIONS },
+      { key: "marca",     label: "Marca",     options: ["Todos", ...Array.from(new Set(raw.map((t) => t.marca).filter(Boolean))).sort()] },
+      { key: "dimension", label: "Dimensión", options: ["Todos", ...Array.from(new Set(raw.map((t) => t.dimension).filter(Boolean))).sort()] },
+      { key: "eje",       label: "Eje",       options: ["Todos", ...Array.from(new Set(raw.map((t) => t.eje).filter(Boolean))).sort()] },
+      { key: "vida",      label: "Vida",      options: ["Todos", "nueva", "reencauche1", "reencauche2", "reencauche3", "fin"] },
     ];
   }, [chartTires]);
 
@@ -987,6 +992,12 @@ export default function DistribuidorPage() {
   const filteredBandaData = useMemo(() => {
     const m: Record<string, number> = {};
     filteredTires.forEach((t) => { if (t.diseno?.trim()) m[t.diseno.trim()] = (m[t.diseno.trim()] || 0) + 1; });
+    return m;
+  }, [filteredTires]);
+
+  const filteredDimensionData = useMemo(() => {
+    const m: Record<string, number> = {};
+    filteredTires.forEach((t) => { if (t.dimension?.trim()) m[t.dimension.trim()] = (m[t.dimension.trim()] || 0) + 1; });
     return m;
   }, [filteredTires]);
 
@@ -1236,6 +1247,9 @@ export default function DistribuidorPage() {
                     {Object.keys(filteredBandaData).length > 0
                       ? <PorBanda groupData={filteredBandaData} />
                       : <SkeletonCard label="Sin datos de bandas" />}
+                    {Object.keys(filteredDimensionData).length > 0
+                      ? <PorDimension groupData={filteredDimensionData} />
+                      : <SkeletonCard label="Sin datos de dimensiones" />}
                     <PorVida tires={filteredTires as any} />
                   </div>
                 </section>
