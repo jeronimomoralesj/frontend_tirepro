@@ -1209,7 +1209,7 @@ function DistributorProfileSection() {
     cobertura: [] as CoberturaItem[], tipoEntrega: "ambos", colorMarca: "#1E76B6",
   });
   const [addressQuery, setAddressQuery] = useState("");
-  const [addressResults, setAddressResults] = useState<{ display: string; city: string; address: string; lat: number; lng: number }[]>([]);
+  const [addressResults, setAddressResults] = useState<{ display: string; city: string; address: string; lat: number; lng: number; exact: boolean; context: string }[]>([]);
   const [addressSearching, setAddressSearching] = useState(false);
   const addressDebounce = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -1251,32 +1251,320 @@ function DistributorProfileSection() {
       .finally(() => setLoading(false));
   }, [router]);
 
+  // Geocoding for Colombian addresses — Nominatim alone with the raw
+  // query ("Calle 110 #12F-29 Barranquilla") fails most of the time
+  // because:
+  //   1. The "#" character triggers URL-fragment-style parsing.
+  //   2. Latin-American abbreviations (Cl/Cra/Av) aren't in OSM's
+  //      English-leaning street index.
+  //   3. The single combined query forces the geocoder to match street
+  //      AND city as one phrase, so a typo in either kills the result.
+  //
+  // Fix: normalize the input, then fan out a small number of search
+  // strategies in parallel and merge unique results. Each strategy
+  // attacks the problem from a different angle so at least one tends
+  // to return something useful.
+  function normalizeAddress(raw: string): string {
+    return raw
+      // Drop "#" entirely — it's a Colombian convention for "número"
+      // that Nominatim doesn't understand. The number after it stays.
+      .replace(/#/g, " ")
+      // Common abbreviations → full words
+      .replace(/\b(cra|cr)\.?\b/gi, "Carrera")
+      .replace(/\b(cll|cl)\.?\b/gi, "Calle")
+      .replace(/\b(av|avda)\.?\b/gi, "Avenida")
+      .replace(/\b(diag)\.?\b/gi, "Diagonal")
+      .replace(/\b(trans|transv)\.?\b/gi, "Transversal")
+      // Collapse whitespace
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // Strip city aliases that OSM doesn't recognize.
+  // "Cartagena de Indias" → "Cartagena", "Bogotá D.C." → "Bogotá", etc.
+  function cleanCityName(c: string): string {
+    return c
+      .replace(/\bde\s+Indias\b/gi, "")
+      .replace(/\bD\.?\s*C\.?\b/gi, "")
+      .replace(/\bDistrito\s+\w+\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // Drop the unusual Colombian "1-364" / "12F-29" house number format
+  // from the street string. OSM almost never has that exact number, but
+  // dropping it lets us still find the street.
+  function streetWithoutHouseNumber(s: string): string {
+    // Remove trailing patterns like "12F-29", "1 - 364", "1-28"
+    return s
+      .replace(/\s*\d+\s*[A-Z]?\s*-\s*\d+\s*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // Parse a comma-separated address into structured parts.
+  // "Cra. 56 #1-364, Albornoz, Cartagena de Indias, Bolívar" →
+  //   { street: "Carrera 56 1-364", neighborhood: "Albornoz",
+  //     city: "Cartagena", state: "Bolívar" }
+  function parseStructuredAddress(raw: string): {
+    street: string; neighborhood?: string; city?: string; state?: string;
+  } {
+    const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+    const street = normalizeAddress(parts[0] || raw);
+    if (parts.length >= 4) {
+      return { street, neighborhood: parts[1], city: cleanCityName(parts[2]), state: parts[3] };
+    }
+    if (parts.length === 3) {
+      // Could be (street, neighborhood, city) OR (street, city, state).
+      // If part[2] looks like a known department, treat part[1] as city.
+      const COLOMBIAN_STATES = ["bolívar", "atlántico", "antioquia", "cundinamarca", "valle", "santander", "norte de santander", "boyacá", "caldas", "tolima", "huila", "magdalena", "cesar", "córdoba", "sucre", "la guajira", "risaralda", "quindío", "nariño", "cauca", "meta", "casanare"];
+      if (COLOMBIAN_STATES.some((s) => parts[2].toLowerCase().includes(s))) {
+        return { street, city: cleanCityName(parts[1]), state: parts[2] };
+      }
+      return { street, neighborhood: parts[1], city: cleanCityName(parts[2]) };
+    }
+    if (parts.length === 2) return { street, city: cleanCityName(parts[1]) };
+    // Single segment — try to detect a trailing city by token match.
+    const fallback = splitStreetAndCity(normalizeAddress(raw));
+    return { street: fallback.street, city: fallback.city || undefined };
+  }
+
+  // Attempt to split "<street stuff> <city>" into ["<street stuff>", "<city>"]
+  // when the trailing word matches a known Colombian city.
+  function splitStreetAndCity(q: string): { street: string; city: string } {
+    const tokens = q.split(/\s+/);
+    for (let i = tokens.length - 1; i >= 1; i--) {
+      const tail = tokens.slice(i).join(" ");
+      const head = tokens.slice(0, i).join(" ");
+      if (COLOMBIAN_CITIES.some((c) => c.toLowerCase() === tail.toLowerCase())) {
+        return { street: head, city: tail };
+      }
+    }
+    return { street: q, city: "" };
+  }
+
+  // Parse a Google Maps URL OR raw "lat, lng" string and return
+  // coordinates. Returns null if no coords can be extracted.
+  // Supported shapes:
+  //   https://www.google.com/maps/place/...@10.9684,-74.7813,17z/...
+  //   https://www.google.com/maps?q=10.9684,-74.7813
+  //   https://maps.google.com/?ll=10.9684,-74.7813
+  //   "10.9684, -74.7813" / "10.9684,-74.7813" (raw paste)
+  function parseCoords(input: string): { lat: number; lng: number; label?: string } | null {
+    const text = input.trim();
+    // 1. Google Maps "@lat,lng" segment (place URLs)
+    const at = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (at) {
+      const lat = parseFloat(at[1]); const lng = parseFloat(at[2]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng, label: "Pin desde enlace de Google Maps" };
+    }
+    // 2. ?q=lat,lng OR ?ll=lat,lng (search/share URLs)
+    const qparam = text.match(/[?&](?:q|ll|center)=(-?\d+\.\d+)%2C(-?\d+\.\d+)|[?&](?:q|ll|center)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (qparam) {
+      const lat = parseFloat(qparam[1] ?? qparam[3]); const lng = parseFloat(qparam[2] ?? qparam[4]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng, label: "Pin desde enlace de Google Maps" };
+    }
+    // 3. Raw "lat, lng" paste — last so it doesn't accidentally match
+    //    digits inside an address string. Both numbers must be in the
+    //    coordinate range and the input must look like JUST coords.
+    const raw = text.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+    if (raw) {
+      const lat = parseFloat(raw[1]); const lng = parseFloat(raw[2]);
+      if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+        return { lat, lng, label: "Pin desde coordenadas pegadas" };
+      }
+    }
+    return null;
+  }
+
   function handleAddressSearch(query: string) {
     setAddressQuery(query);
     setAddressResults([]);
     if (addressDebounce.current) clearTimeout(addressDebounce.current);
     if (query.length < 3) return;
+
+    // Short-circuit: user pasted a Google Maps URL or raw coords.
+    // Surface a single "pin here" result instantly without geocoding.
+    const direct = parseCoords(query);
+    if (direct) {
+      setAddressResults([{
+        display: direct.label ?? `${direct.lat.toFixed(5)}, ${direct.lng.toFixed(5)}`,
+        city: direct.label ?? "Pin manual",
+        address: `${direct.lat.toFixed(5)}, ${direct.lng.toFixed(5)}`,
+        context: "",
+        exact: true,
+        lat: direct.lat,
+        lng: direct.lng,
+      }]);
+      return;
+    }
+
     addressDebounce.current = setTimeout(async () => {
       setAddressSearching(true);
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", Colombia")}&format=json&limit=5&countrycodes=co&accept-language=es`);
-        if (res.ok) {
-          const data = await res.json();
-          setAddressResults(data.map((r: any) => {
-            const parts = (r.display_name ?? "").split(",").map((s: string) => s.trim());
-            const city = parts.find((p: string) => COLOMBIAN_CITIES.some((c) => p.toLowerCase().includes(c.toLowerCase()))) ?? parts[1] ?? "";
-            return {
-              display: r.display_name ?? query,
-              city: city.replace("Bogotá D.C.", "Bogota").replace("Bogotá", "Bogota").replace("Medellín", "Medellin"),
-              address: parts.slice(0, 2).join(", "),
-              lat: parseFloat(r.lat),
-              lng: parseFloat(r.lon),
-            };
-          }));
+        const normalized = normalizeAddress(query);
+        const structured = parseStructuredAddress(query);
+        const street = structured.street;
+        const city = structured.city || splitStreetAndCity(normalized).city;
+        const streetNoNum = streetWithoutHouseNumber(street);
+
+        // Run two free geocoders in parallel: Nominatim and Photon.
+        // Photon is built on the same OSM dataset but with much better
+        // fuzzy matching and ranking, so it tends to find Colombian
+        // street-level matches that pure Nominatim misses.
+        const nominatimBase = "https://nominatim.openstreetmap.org/search";
+        const photonBase = "https://photon.komoot.io/api";
+        const common = "format=json&limit=5&countrycodes=co&accept-language=es&addressdetails=1";
+        const urls: string[] = [];
+
+        // Structured Nominatim — most precise when we have city
+        if (city) {
+          urls.push(`${nominatimBase}?street=${encodeURIComponent(street)}&city=${encodeURIComponent(city)}&country=Colombia&${common}`);
+          urls.push(`${nominatimBase}?q=${encodeURIComponent(`${street}, ${city}, Colombia`)}&${common}`);
+          // Drop the unusual house number format — OSM rarely has it
+          if (streetNoNum && streetNoNum !== street) {
+            urls.push(`${nominatimBase}?street=${encodeURIComponent(streetNoNum)}&city=${encodeURIComponent(city)}&country=Colombia&${common}`);
+            urls.push(`${nominatimBase}?q=${encodeURIComponent(`${streetNoNum}, ${city}, Colombia`)}&${common}`);
+          }
+          // Try with neighborhood instead of full address — often Albornoz
+          // alone in Cartagena returns better results than the full string
+          if (structured.neighborhood) {
+            urls.push(`${nominatimBase}?q=${encodeURIComponent(`${structured.neighborhood}, ${city}, Colombia`)}&${common}`);
+          }
         }
+        urls.push(`${nominatimBase}?q=${encodeURIComponent(`${normalized}, Colombia`)}&${common}`);
+        if (query !== normalized) {
+          urls.push(`${nominatimBase}?q=${encodeURIComponent(`${query}, Colombia`)}&${common}`);
+        }
+        // Photon: full query + structured (street + city) + street-only.
+        // Photon returns GeoJSON, parsing differs.
+        const photonBbox = "&bbox=-79,-4.3,-66.8,12.5&limit=5&lang=es";
+        urls.push(`${photonBase}/?q=${encodeURIComponent(`${normalized}, Colombia`)}${photonBbox}`);
+        if (city) {
+          urls.push(`${photonBase}/?q=${encodeURIComponent(`${street}, ${city}, Colombia`)}${photonBbox}`);
+          if (streetNoNum && streetNoNum !== street) {
+            urls.push(`${photonBase}/?q=${encodeURIComponent(`${streetNoNum}, ${city}, Colombia`)}${photonBbox}`);
+          }
+          if (structured.neighborhood) {
+            urls.push(`${photonBase}/?q=${encodeURIComponent(`${structured.neighborhood}, ${city}, Colombia`)}${photonBbox}`);
+          }
+        }
+        if (query !== normalized) {
+          urls.push(`${photonBase}/?q=${encodeURIComponent(`${query}, Colombia`)}${photonBbox}`);
+        }
+
+        const responses = await Promise.allSettled(urls.map((u) => fetch(u).then((r) => (r.ok ? r.json() : null))));
+
+        // Normalize Photon GeoJSON features to the Nominatim-shaped
+        // object we already render below, so the merge logic stays
+        // single-shaped.
+        const flat: any[] = [];
+        for (const res of responses) {
+          if (res.status !== "fulfilled" || !res.value) continue;
+          if (Array.isArray(res.value)) {
+            // Nominatim
+            flat.push(...res.value);
+          } else if (res.value.features) {
+            // Photon GeoJSON FeatureCollection
+            for (const f of res.value.features) {
+              const c = f.geometry?.coordinates;
+              const p = f.properties ?? {};
+              if (!c || c.length !== 2) continue;
+              const houseNumber = p.housenumber ?? "";
+              const street = p.street ?? p.name ?? "";
+              const cityP = p.city ?? p.county ?? "";
+              const display = [street && houseNumber ? `${street} ${houseNumber}` : street || p.name, cityP, "Colombia"].filter(Boolean).join(", ");
+              flat.push({
+                lat: String(c[1]),
+                lon: String(c[0]),
+                display_name: display,
+                address: {
+                  road: street, house_number: houseNumber, city: cityP,
+                  suburb: p.district ?? p.suburb,
+                  neighbourhood: p.neighbourhood,
+                },
+              });
+            }
+          }
+        }
+
+        const seen = new Set<string>();
+        const merged: any[] = [];
+        for (const r of flat) {
+          const lat = parseFloat(r.lat); const lon = parseFloat(r.lon);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+          const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          merged.push(r);
+          if (merged.length >= 8) break;
+        }
+
+        const mapped = merged.map((r: any) => {
+          const addr = r.address ?? {};
+          const cityRaw = addr.city || addr.town || addr.village || addr.municipality
+            || (r.display_name ?? "").split(",").map((s: string) => s.trim())
+              .find((p: string) => COLOMBIAN_CITIES.some((c) => p.toLowerCase().includes(c.toLowerCase())))
+            || city || "";
+          const cityClean = cityRaw
+            .replace(/^Perímetro Urbano\s+/i, "")
+            .replace("Bogotá D.C.", "Bogota")
+            .replace("Bogotá", "Bogota")
+            .replace("Medellín", "Medellin");
+          const houseNumber = addr.house_number || "";
+          const streetLine = [addr.road, houseNumber].filter(Boolean).join(" ").trim()
+            || (r.display_name ?? "").split(",").slice(0, 2).map((s: string) => s.trim()).join(", ");
+          const suburb = addr.suburb || addr.neighbourhood || "";
+          // Build a longer "context" line so the user can tell apart
+          // multiple street-level matches with the same name.
+          const contextParts = [
+            suburb,
+            (r.display_name ?? "").split(",").map((s: string) => s.trim())
+              .filter((p: string) => p && p !== suburb && p !== cityRaw && p !== cityClean
+                && !p.toLowerCase().includes("colombia")
+                && !p.match(/^\d+$/))
+              .slice(0, 2)
+              .join(" · "),
+          ].filter(Boolean);
+          return {
+            display: r.display_name ?? query,
+            city: cityClean || "Colombia",
+            address: streetLine,
+            context: contextParts.join(" · "),
+            exact: Boolean(houseNumber),
+            lat: parseFloat(r.lat),
+            lng: parseFloat(r.lon),
+          };
+        });
+        // Exact matches (house number found) first, street-level after.
+        mapped.sort((a, b) => Number(b.exact) - Number(a.exact));
+        setAddressResults(mapped);
       } catch { /* */ }
       setAddressSearching(false);
     }, 400);
+  }
+
+  // Manual fallback — when Nominatim returns nothing, let the user
+  // save what they typed as a coverage point WITHOUT coordinates.
+  // The map won't render a pin for it but the city tag still appears.
+  function addManualCoverage() {
+    const text = addressQuery.trim();
+    if (!text) return;
+    const { street, city } = splitStreetAndCity(normalizeAddress(text));
+    setForm((f) => ({
+      ...f,
+      cobertura: [
+        ...f.cobertura,
+        {
+          ciudad: city || text,
+          direccion: city ? street : "",
+          lat: null,
+          lng: null,
+        },
+      ],
+    }));
+    setAddressQuery("");
+    setAddressResults([]);
   }
 
   function addCoveragePoint(result: { city: string; address: string; lat: number; lng: number }) {
@@ -1425,8 +1713,13 @@ function DistributorProfileSection() {
           <div className="relative">
             <div className="flex items-center gap-2">
               <div className="flex-1 relative">
-                <input type="text" value={addressQuery} onChange={(e) => handleAddressSearch(e.target.value)}
-                  placeholder="Buscar direccion, barrio o ciudad..." className={inputCls} />
+                <input
+                  type="text"
+                  value={addressQuery}
+                  onChange={(e) => handleAddressSearch(e.target.value)}
+                  placeholder='Ej: "Calle 110 #12F-29 Barranquilla" o "Bogota"'
+                  className={inputCls}
+                />
                 {addressSearching && (
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-[#348CCB]" />
                 )}
@@ -1434,14 +1727,76 @@ function DistributorProfileSection() {
             </div>
 
             {addressResults.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+              <div className="absolute z-20 mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden max-h-96 overflow-y-auto">
+                {addressResults.some((r) => !r.exact) && (
+                  <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
+                    <p className="text-[10px] text-amber-700 leading-snug">
+                      <strong>Tip:</strong> usa “Ver en Maps” para confirmar antes de guardar. OSM no tiene todas las direcciones de Colombia con número exacto.
+                    </p>
+                  </div>
+                )}
                 {addressResults.map((r, i) => (
-                  <button key={i} onClick={() => addCoveragePoint(r)}
-                    className="w-full text-left px-4 py-3 hover:bg-[#F0F7FF] transition-colors border-b border-gray-50 last:border-0">
-                    <p className="text-xs font-bold text-[#0A183A]">{r.city || "Colombia"}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{r.display}</p>
-                  </button>
+                  <div key={i} className="px-4 py-3 hover:bg-[#F0F7FF] transition-colors border-b border-gray-50 last:border-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${r.exact ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                        {r.exact ? "Dirección exacta" : "Calle (sin número)"}
+                      </span>
+                      <a
+                        href={`https://www.google.com/maps?q=${r.lat},${r.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] font-medium text-[#1E76B6] hover:underline shrink-0"
+                      >
+                        Ver en Maps ↗
+                      </a>
+                    </div>
+                    <button
+                      onClick={() => addCoveragePoint(r)}
+                      className="w-full text-left"
+                    >
+                      <p className="text-xs font-bold text-[#0A183A]">{r.address || r.city}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{r.city}{r.context ? ` · ${r.context}` : ""}</p>
+                      <p className="text-[9px] text-gray-400 font-mono mt-1">{r.lat.toFixed(5)}, {r.lng.toFixed(5)}</p>
+                    </button>
+                  </div>
                 ))}
+              </div>
+            )}
+
+            {/* No-results fallback — geocoding sometimes can't find very
+                specific Colombian addresses. Let the user save the raw
+                text as a coverage point so the work isn't lost; the map
+                pin won't render but the city tag still does. */}
+            {!addressSearching && addressQuery.length >= 3 && addressResults.length === 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-white rounded-xl shadow-xl border border-gray-200 p-3 space-y-2">
+                <p className="text-xs text-gray-500">
+                  No encontramos coordenadas para esa dirección.
+                </p>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressQuery + ", Colombia")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-left px-3 py-2 rounded-lg bg-[#1E76B6] hover:bg-[#0A183A] text-white transition-colors"
+                >
+                  <p className="text-xs font-bold">
+                    Buscar en Google Maps ↗
+                  </p>
+                  <p className="text-[10px] opacity-90 mt-0.5">
+                    Encuentra el lugar, copia la URL completa y pégala aquí.
+                  </p>
+                </a>
+                <button
+                  onClick={addManualCoverage}
+                  className="w-full text-left px-3 py-2 rounded-lg bg-[#F0F7FF] hover:bg-[#1E76B6]/10 transition-colors"
+                >
+                  <p className="text-xs font-bold text-[#1E76B6]">
+                    Guardar sin pin en el mapa
+                  </p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    Solo aparecerá la ciudad. Editas coordenadas después.
+                  </p>
+                </button>
               </div>
             )}
 

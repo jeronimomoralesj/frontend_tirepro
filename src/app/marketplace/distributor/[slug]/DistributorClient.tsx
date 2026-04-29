@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Search, Loader2, Package, Truck, X, ArrowLeft, Phone, Mail,
-  MapPin, Globe, ShoppingCart, Clock, CheckCircle, ChevronLeft, ChevronRight,
-  Store, Star, Shield, Recycle, Building2,
+  Search, Loader2, Package, Truck, ArrowLeft, Phone, Mail,
+  MapPin, Globe, ChevronLeft, ChevronRight,
+  Store, Shield, Recycle, Building2, ShieldCheck, Layers, Send, MessageCircle,
 } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import { trackDistributorView } from "../../../../lib/marketplaceAnalytics";
@@ -54,6 +54,21 @@ export default function DistributorStorefront() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tipo, setTipo] = useState("");
+  // Catalog filters local to this distributor's storefront. The brand
+  // chips above the catalog and the use-case chips inside the filter
+  // bar both write into these and re-fetch.
+  const [marcaFilter, setMarcaFilter] = useState("");
+  // Use cases map to rim-diameter sets extracted from the dimension
+  // string. "retread" filters by tipo, not rim — kept separate from
+  // the explicit tipo dropdown so the two can be combined.
+  type UseCase = "" | "auto" | "truck" | "bus";
+  const [useCase, setUseCase] = useState<UseCase>("");
+  const USE_CASES: Array<{ key: UseCase; label: string; rims?: number[] }> = [
+    { key: "",      label: "Todas" },
+    { key: "auto",  label: "Auto y camioneta", rims: [13, 14, 15, 16, 17, 18, 19, 20, 21] },
+    { key: "truck", label: "Camión y tractomula", rims: [17.5, 19.5, 22.5, 24.5] },
+    { key: "bus",   label: "Bus", rims: [17.5, 19.5, 22.5] },
+  ];
 
   useEffect(() => {
     if (!handle) return;
@@ -71,24 +86,103 @@ export default function DistributorStorefront() {
     p.set("distributorId", profile.id);
     if (search) p.set("search", search);
     if (tipo) p.set("tipo", tipo);
+    if (marcaFilter) p.set("marca", marcaFilter);
+    // Compute rims once so we both send them as a query param AND keep
+    // a client-side rim-regex fallback (defensive — works even if the
+    // backend ignores rimSizes).
+    const useCaseCfg = USE_CASES.find((u) => u.key === useCase);
+    const rimSizes = useCaseCfg?.rims ?? [];
+    if (rimSizes.length > 0) p.set("rimSizes", rimSizes.join(","));
     p.set("page", String(page));
-    p.set("limit", "24");
+    // Bigger page when a use-case filter is active so the client-side
+    // rim filter has enough rows to work with.
+    p.set("limit", rimSizes.length > 0 ? "60" : "24");
     p.set("sortBy", "price_asc");
     try {
       const res = await fetch(`${API_BASE}/marketplace/listings?${p}`);
-      if (res.ok) { const d = await res.json(); setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1); }
+      if (res.ok) {
+        const d = await res.json();
+        let next: any[] = d.listings ?? [];
+        let nextTotal: number = d.total ?? 0;
+        let nextPages: number = d.pages ?? 1;
+        // Defensive client-side rim filter — applies even when the
+        // backend returns the full set without honoring rimSizes.
+        if (rimSizes.length > 0) {
+          const rimRegexes = rimSizes.map(
+            (r) => new RegExp(`R\\s*${String(r).replace(".", "\\.")}\\b`, "i"),
+          );
+          next = next.filter((l) =>
+            rimRegexes.some((rx) => rx.test(l.dimension ?? "")),
+          );
+          nextTotal = next.length;
+          nextPages = 1;
+        }
+        setListings(next);
+        setTotal(nextTotal);
+        setPages(nextPages);
+      }
     } catch { /* */ }
     setLoading(false);
-  }, [profile?.id, search, tipo, page]);
+  }, [profile?.id, search, tipo, marcaFilter, useCase, page]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
-  useEffect(() => { setPage(1); }, [search, tipo]);
+  useEffect(() => { setPage(1); }, [search, tipo, marcaFilter, useCase]);
 
   const rawCobertura = Array.isArray(profile?.cobertura) ? profile!.cobertura : [];
   const cobertura = rawCobertura.map((c: any) => typeof c === "string" ? { ciudad: c, direccion: "", lat: null, lng: null } : c);
   const cobWithCoords = cobertura.filter((c: any) => c.lat && c.lng);
   const entrega = profile?.tipoEntrega;
   const brandColor = profile?.colorMarca ?? "#1E76B6";
+
+  // ─── Aggregates derived from the WHOLE catalog (not the filtered
+  // page) so the brand chips and SEO column links stay consistent
+  // even when a user filters the grid down. Loaded once on profile
+  // load via a single high-limit query.
+  const [stockedBrands, setStockedBrands] = useState<string[]>([]);
+  const [stockedDimensions, setStockedDimensions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!profile?.id) return;
+    const p = new URLSearchParams();
+    p.set("distributorId", profile.id);
+    p.set("limit", "200");
+    p.set("sortBy", "newest");
+    fetch(`${API_BASE}/marketplace/listings?${p}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const items: any[] = d?.listings ?? [];
+        const brandCounts = new Map<string, number>();
+        const dimCounts = new Map<string, number>();
+        for (const l of items) {
+          const m = (l.marca || "").trim();
+          if (m) brandCounts.set(m, (brandCounts.get(m) ?? 0) + 1);
+          const dim = (l.dimension || "").trim();
+          if (dim) dimCounts.set(dim, (dimCounts.get(dim) ?? 0) + 1);
+        }
+        setStockedBrands(
+          [...brandCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([n]) => n),
+        );
+        setStockedDimensions(
+          [...dimCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([d]) => d),
+        );
+      })
+      .catch(() => {});
+  }, [profile?.id]);
+
+  // WhatsApp link — Colombia phone numbers in TirePro come in many shapes
+  // ("+57 315 134 9122", "315 134 9122", "+573151349122"). Strip every
+  // non-digit and prepend 57 if it's missing so wa.me works regardless.
+  const whatsappHref = useMemo(() => {
+    if (!profile?.telefono) return null;
+    const raw = profile.telefono.replace(/\D+/g, "");
+    if (!raw) return null;
+    const e164 = raw.startsWith("57") ? raw : `57${raw}`;
+    const msg = `Hola ${profile.name}, vengo desde TirePro Marketplace y quisiera más información sobre sus llantas.`;
+    return `https://wa.me/${e164}?text=${encodeURIComponent(msg)}`;
+  }, [profile?.telefono, profile?.name]);
+
+  const slugify = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -272,32 +366,141 @@ export default function DistributorStorefront() {
         </div>
       </div>
 
-      {/* Map */}
-      {cobWithCoords.length > 0 && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Presencia</p>
-              <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Dónde nos encuentras</h2>
-            </div>
-            <span className="text-[11px] text-gray-500 font-medium flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: brandColor }} />
-              {cobWithCoords.length} punto{cobWithCoords.length !== 1 ? "s" : ""}
-            </span>
+      {/* STATS STRIP — at-a-glance trust metrics. Sits visually anchored
+          on the profile card. Pulls only data the API already returns
+          (productos, ciudades, marcas en stock, tipo entrega) so it
+          never renders stale or made-up numbers. */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+        <section
+          aria-labelledby="dist-stats"
+          className="bg-white rounded-3xl p-4 sm:p-5"
+          style={{ boxShadow: "0 24px 60px -24px rgba(10,24,58,0.18)", border: `1px solid ${brandColor}1f` }}
+        >
+          <h2 id="dist-stats" className="sr-only">{profile?.name} en cifras</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {[
+              { icon: Package,    label: "Productos",     value: String(profile?._count.listings ?? 0), sub: "en catálogo" },
+              { icon: MapPin,     label: "Cobertura",     value: cobertura.length > 0 ? `${cobertura.length} ciudades` : "Nacional", sub: cobertura[0]?.ciudad ? `incluye ${cobertura[0].ciudad}` : "envío en Colombia" },
+              { icon: Layers,     label: "Marcas",        value: stockedBrands.length > 0 ? `${stockedBrands.length}+` : "Premium", sub: stockedBrands.slice(0, 2).join(" · ") || "marcas verificadas" },
+              { icon: Truck,      label: "Entrega",       value: entrega === "domicilio" ? "Domicilio" : entrega === "recogida" ? "Recogida" : "Domicilio", sub: profile?.ciudad ? `desde ${profile.ciudad}` : "envío en Colombia" },
+            ].map((s) => {
+              const Icon = s.icon;
+              return (
+                <div key={s.label} className="flex items-start gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${brandColor}15`, border: `1px solid ${brandColor}25` }}
+                  >
+                    <Icon className="w-4 h-4" style={{ color: brandColor }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: brandColor }}>
+                      {s.label}
+                    </p>
+                    <p className="text-[15px] font-black text-[#0A183A] leading-tight truncate">{s.value}</p>
+                    <p className="text-[10px] text-gray-500 leading-snug truncate">{s.sub}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div ref={mapRef} className="h-64 sm:h-72 rounded-3xl overflow-hidden border border-gray-100" style={{ zIndex: 0, boxShadow: "0 12px 40px -16px rgba(10,24,58,0.18)" }} />
+        </section>
+      </div>
+
+      {/* BRANDS STRIP — chips act as catalog filters (not external
+          links). Clicking a chip filters the catalog below by that
+          marca; clicking the same chip again clears the filter.
+          Auto-scrolls to the catalog so the user sees the result. */}
+      {stockedBrands.length > 0 && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+          <section aria-labelledby="dist-brands">
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: brandColor }}>
+                  Filtra por marca
+                </p>
+                <h2 id="dist-brands" className="text-lg sm:text-xl font-black text-[#0A183A]">
+                  Marcas que vende {profile?.name}
+                </h2>
+              </div>
+              {marcaFilter && (
+                <button
+                  onClick={() => setMarcaFilter("")}
+                  className="text-[10px] font-black hover:underline"
+                  style={{ color: brandColor }}
+                >
+                  Limpiar marca
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+              {stockedBrands.map((b) => {
+                const active = marcaFilter === b;
+                return (
+                  <button
+                    key={b}
+                    onClick={() => {
+                      setMarcaFilter(active ? "" : b);
+                      if (typeof window !== "undefined") {
+                        // Defer so React re-renders the active state
+                        // before we scroll.
+                        setTimeout(() => {
+                          document.getElementById("catalogo-distribuidor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 80);
+                      }
+                    }}
+                    className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-full transition-all"
+                    style={{
+                      background: active ? `linear-gradient(135deg,#0A183A,${brandColor})` : "white",
+                      color: active ? "white" : "#0A183A",
+                      border: active ? "1px solid transparent" : "1px solid rgba(10,24,58,0.08)",
+                      boxShadow: active ? `0 6px 16px -6px ${brandColor}80` : "none",
+                    }}
+                  >
+                    <span className="text-xs font-black">{b}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         </div>
       )}
 
       {/* Search + Filters */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10">
-        <div className="flex items-end justify-between mb-3">
+      <div id="catalogo-distribuidor" className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 scroll-mt-24">
+        <div className="flex items-end justify-between mb-3 gap-3">
           <div>
             <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Catálogo</p>
             <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Productos del distribuidor</h2>
           </div>
-          <span className="text-[11px] text-gray-500 font-medium">{total} producto{total !== 1 ? "s" : ""}</span>
+          <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">
+            {total} producto{total !== 1 ? "s" : ""}
+          </span>
         </div>
+
+        {/* Use-case chips — first row, mirrors the brand-page filter
+            language so users get the same shortcuts everywhere. */}
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {USE_CASES.map((u) => {
+            const active = useCase === u.key;
+            return (
+              <button
+                key={u.key || "all"}
+                onClick={() => setUseCase(u.key)}
+                className="px-3 py-1.5 rounded-full text-[11px] font-black transition-all"
+                style={{
+                  background: active ? `linear-gradient(135deg,#0A183A,${brandColor})` : "white",
+                  color: active ? "white" : "#0A183A",
+                  border: active ? "1px solid transparent" : "1px solid rgba(10,24,58,0.08)",
+                  boxShadow: active ? `0 4px 12px -4px ${brandColor}80` : "none",
+                }}
+              >
+                {u.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div
           className="flex items-center gap-2 p-2 rounded-2xl bg-white"
           style={{ boxShadow: "0 8px 24px -12px rgba(10,24,58,0.15), 0 0 0 1px rgba(30,118,182,0.08)" }}
@@ -334,6 +537,46 @@ export default function DistributorStorefront() {
             </button>
           ))}
         </div>
+
+        {/* Active-filter summary + reset — only renders when any of the
+            three (marca / use case / tipo) is active. Search has its
+            own visible input. */}
+        {(marcaFilter || useCase || tipo) && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mr-1">Filtros:</span>
+            {marcaFilter && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                style={{ background: brandColor }}
+              >
+                {marcaFilter}
+              </span>
+            )}
+            {useCase && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                style={{ background: brandColor }}
+              >
+                {USE_CASES.find((u) => u.key === useCase)?.label}
+              </span>
+            )}
+            {tipo && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                style={{ background: brandColor }}
+              >
+                {tipo === "nueva" ? "Nuevas" : "Reencauche"}
+              </span>
+            )}
+            <button
+              onClick={() => { setMarcaFilter(""); setUseCase(""); setTipo(""); }}
+              className="text-[10px] font-black hover:underline ml-1"
+              style={{ color: brandColor }}
+            >
+              Limpiar todos
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Products */}
@@ -356,7 +599,6 @@ export default function DistributorStorefront() {
                 const coverImg = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
                 const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
                 const price = hasPromo ? l.precioPromo! : l.precioCop;
-                const cpk = l.catalog?.crowdAvgCpk ?? l.catalog?.cpkEstimado;
                 const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
 
                 return (
@@ -397,7 +639,6 @@ export default function DistributorStorefront() {
                         {hasPromo && <span className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</span>}
                       </div>
                       <div className="flex flex-wrap gap-1 mt-1.5">
-                        {cpk != null && cpk > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">CPK {fmtCOP(Math.round(cpk))}</span>}
                         {l.tiempoEntrega && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">{l.tiempoEntrega}</span>}
                       </div>
                     </div>
@@ -423,8 +664,304 @@ export default function DistributorStorefront() {
         )}
       </main>
 
+      {/* WHY BUY — value prop cards. Moved here (after the catalog,
+          before the map) so the page reads: identity → stats → brands
+          → catalog → reasons to trust → coverage map → B2B → SEO.
+          Title trimmed to a single eyebrow line so it doesn't repeat
+          "{name}, distribuidor verificado" right under the H1. */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10">
+        <section aria-labelledby="dist-why" className="space-y-3">
+          <p
+            id="dist-why"
+            className="text-[10px] font-black uppercase tracking-widest mb-1"
+            style={{ color: brandColor }}
+          >
+            Por qué comprar aquí
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { icon: ShieldCheck, title: "Distribuidor verificado", sub: "Pasó nuestro proceso de validación de TirePro Marketplace." },
+              { icon: Package,     title: "Amplio inventario",       sub: `${profile?._count.listings ?? 0} producto${profile?._count.listings === 1 ? "" : "s"} disponibles entre marcas y dimensiones.` },
+              { icon: Truck,       title: "Envío en Colombia",       sub: cobertura.length > 0 ? `Cobertura activa en ${cobertura.slice(0, 3).map((c: any) => c.ciudad).filter(Boolean).join(", ")}${cobertura.length > 3 ? " y más" : ""}.` : "Despacho a las principales ciudades del país." },
+              { icon: Building2,   title: "Atendemos flotas",        sub: "Compras al por mayor con asesoría directa y precios para empresas." },
+            ].map((b) => {
+              const Icon = b.icon;
+              return (
+                <div
+                  key={b.title}
+                  className="bg-white rounded-2xl p-4 flex items-start gap-3"
+                  style={{ boxShadow: "0 6px 18px -10px rgba(10,24,58,0.12)", border: "1px solid rgba(10,24,58,0.05)" }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${brandColor}12`, border: `1px solid ${brandColor}22` }}
+                  >
+                    <Icon className="w-4 h-4" style={{ color: brandColor }} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-black text-[#0A183A] leading-tight">{b.title}</p>
+                    <p className="text-[10px] text-gray-500 leading-snug mt-0.5">{b.sub}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      {/* MAP — moved to the end (after the catalog + Por qué) so the
+          tires breathe right under the hero and the user only meets
+          the geo presence once they're already engaged. Same content
+          as before; just relocated. */}
+      {cobWithCoords.length > 0 && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          <div className="flex items-end justify-between mb-3">
+            <div>
+              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Presencia</p>
+              <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Dónde nos encuentras</h2>
+            </div>
+            <span className="text-[11px] text-gray-500 font-medium flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: brandColor }} />
+              {cobWithCoords.length} punto{cobWithCoords.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <div ref={mapRef} className="h-64 sm:h-72 rounded-3xl overflow-hidden border border-gray-100" style={{ zIndex: 0, boxShadow: "0 12px 40px -16px rgba(10,24,58,0.18)" }} />
+        </div>
+      )}
+
+      {/* B2B / FLOTAS — explicit "we sell to fleets" block. Pre-fills
+          the email/WhatsApp body with a quote-request template so
+          buyers don't have to think. Most retread-volume conversions
+          start as a phone or WhatsApp ping, not a checkout. */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10">
+        <section
+          aria-labelledby="dist-b2b"
+          className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, #0A183A 0%, ${brandColor} 100%)`,
+            boxShadow: "0 24px 60px -24px rgba(10,24,58,0.45)",
+          }}
+        >
+          <div
+            className="absolute inset-0 opacity-15 pointer-events-none"
+            aria-hidden
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 15% 20%, rgba(255,255,255,0.5), transparent 40%), radial-gradient(circle at 85% 100%, rgba(255,255,255,0.3), transparent 40%)",
+            }}
+          />
+          <div className="relative grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6 items-center">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/70 mb-2">
+                Compras para flotas y empresas
+              </p>
+              <h2 id="dist-b2b" className="text-xl sm:text-2xl lg:text-3xl font-black leading-tight">
+                Cotiza al por mayor con {profile?.name}
+              </h2>
+              <p className="text-sm text-white/85 mt-2 max-w-xl leading-relaxed">
+                Atendemos transportadores, talleres y operadores logísticos. Pídenos un
+                presupuesto para tu flota — descuentos por volumen y asesoría directa
+                con un comercial.
+              </p>
+              <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px] text-white/85 max-w-xl">
+                <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/70" /> Precios por volumen</li>
+                <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/70" /> Asesoría comercial directa</li>
+                <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/70" /> Facturación a empresa</li>
+                <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/70" /> Despacho coordinado</li>
+              </ul>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {whatsappHref && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-black bg-white text-[#0A183A] hover:bg-gray-50 transition-colors"
+                  style={{ boxShadow: "0 12px 28px -10px rgba(0,0,0,0.45)" }}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp para cotizar
+                </a>
+              )}
+              {profile?.emailAtencion && (
+                <a
+                  href={`mailto:${profile.emailAtencion}?subject=${encodeURIComponent(`Cotización flota — ${profile.name}`)}&body=${encodeURIComponent(`Hola,\n\nVengo desde TirePro Marketplace y me gustaría una cotización para una flota.\n\n• Cantidad estimada: \n• Dimensiones: \n• Tipo (nueva / reencauche): \n• Ciudad de entrega: \n\nGracias.`)}`}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-bold text-white border border-white/30 hover:bg-white/10 transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                  Enviar correo
+                </a>
+              )}
+              {profile?.telefono && (
+                <a
+                  href={`tel:${profile.telefono}`}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-bold text-white border border-white/30 hover:bg-white/10 transition-colors"
+                >
+                  <Phone className="w-4 h-4" />
+                  Llamar a {profile.telefono}
+                </a>
+              )}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* SEO CONTENT BLOCK — H2 with target keyword "Comprar llantas
+          con {distributor} en Colombia". Server-rendered Spanish copy
+          for crawlers + 3 internal-link columns (brands stocked /
+          dimensions in stock / cities served). Stocked* lists are
+          empty-safe (the column drops out gracefully). */}
+      {profile && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10">
+          <section
+            aria-labelledby="dist-seo"
+            className="bg-white rounded-3xl p-6 sm:p-8"
+            style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+          >
+            <h2 id="dist-seo" className="text-xl sm:text-2xl font-black text-[#0A183A] mb-4">
+              Comprar llantas con {profile.name} en Colombia
+            </h2>
+            <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed space-y-3">
+              <p>
+                <strong>{profile.name}</strong> es un distribuidor verificado en TirePro
+                Marketplace{profile.ciudad ? <>, con base en <strong>{profile.ciudad}</strong></> : ""}.
+                Compras llantas en línea con respaldo, asesoría directa y envío
+                {cobertura.length > 0 ? <> a las ciudades de su cobertura activa</> : <> a toda Colombia</>}.
+              </p>
+              <p>
+                {stockedBrands.length > 0 ? (
+                  <>
+                    Su catálogo en TirePro incluye marcas como{" "}
+                    <strong>{stockedBrands.slice(0, 5).join(", ")}</strong>
+                    {stockedBrands.length > 5 ? ", entre otras" : ""}, en dimensiones
+                    populares para tractomula, camión, bus, camioneta y automóvil.
+                  </>
+                ) : (
+                  <>
+                    Atiende compradores particulares, talleres y flotas de transporte en
+                    Colombia, ofreciendo llantas para tractomula, camión, bus, camioneta
+                    y automóvil.
+                  </>
+                )}
+              </p>
+              <p>
+                Compra en línea desde Bogotá, Medellín, Cali, Barranquilla, Bucaramanga,
+                Cartagena y resto del país. Compara precios, lee reseñas y coordina la
+                entrega directamente con el distribuidor — sin intermediarios.
+              </p>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+              {stockedBrands.length > 0 && (
+                <div>
+                  <h3 className="text-[11px] font-black uppercase tracking-widest mb-2" style={{ color: brandColor }}>
+                    Marcas que vende
+                  </h3>
+                  <ul className="space-y-1.5 text-xs text-gray-600">
+                    {stockedBrands.slice(0, 8).map((b) => (
+                      <li key={b}>
+                        <Link href={`/marketplace/brand/${slugify(b)}`} className="hover:text-[#1E76B6] hover:underline">
+                          Llantas {b}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {stockedDimensions.length > 0 && (
+                <div>
+                  <h3 className="text-[11px] font-black uppercase tracking-widest mb-2" style={{ color: brandColor }}>
+                    Medidas en catálogo
+                  </h3>
+                  <ul className="space-y-1.5 text-xs text-gray-600">
+                    {stockedDimensions.map((d) => (
+                      <li key={d}>
+                        <Link href={`/marketplace?q=${encodeURIComponent(d)}`} className="hover:text-[#1E76B6] hover:underline">
+                          Llantas {d}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div>
+                <h3 className="text-[11px] font-black uppercase tracking-widest mb-2" style={{ color: brandColor }}>
+                  Ciudades servidas
+                </h3>
+                <ul className="space-y-1.5 text-xs text-gray-600">
+                  {(cobertura.length > 0
+                    ? cobertura.slice(0, 8).map((c: any) => c.ciudad).filter(Boolean)
+                    : ["Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga", "Cartagena", "Pereira", "Cúcuta"]
+                  ).map((c: string) => (
+                    <li key={c}>
+                      <Link
+                        href={`/marketplace?q=${encodeURIComponent(`${profile.name} ${c}`)}`}
+                        className="hover:text-[#1E76B6] hover:underline"
+                      >
+                        {profile.name} en {c}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Footer */}
       <MarketplaceFooter />
+
+      {/* STICKY MOBILE CTA — phone / WhatsApp / email always within
+          thumb's reach. Hidden on desktop where the profile-card
+          contact buttons are persistently visible. */}
+      {(profile?.telefono || profile?.emailAtencion) && (
+        <>
+          <div className="lg:hidden h-20" aria-hidden />
+          <div
+            className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md"
+            style={{ borderTop: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 -8px 24px -12px rgba(10,24,58,0.18)" }}
+          >
+            <div className="px-3 py-2.5 flex items-center gap-2">
+              <div className="min-w-0 flex-1 truncate">
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">Contacta</p>
+                <p className="text-[12px] font-black text-[#0A183A] leading-tight truncate">{profile.name}</p>
+              </div>
+              {whatsappHref && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="WhatsApp"
+                  className="w-11 h-11 rounded-full flex items-center justify-center text-white"
+                  style={{ background: "#22c55e", boxShadow: "0 6px 16px -4px rgba(34,197,94,0.55)" }}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                </a>
+              )}
+              {profile.telefono && (
+                <a
+                  href={`tel:${profile.telefono}`}
+                  aria-label="Llamar"
+                  className="w-11 h-11 rounded-full flex items-center justify-center text-white"
+                  style={{ background: `linear-gradient(135deg,#0A183A,${brandColor})`, boxShadow: `0 6px 16px -4px ${brandColor}99` }}
+                >
+                  <Phone className="w-4 h-4" />
+                </a>
+              )}
+              {profile.emailAtencion && (
+                <a
+                  href={`mailto:${profile.emailAtencion}`}
+                  aria-label="Email"
+                  className="w-11 h-11 rounded-full flex items-center justify-center text-[#0A183A] border border-gray-200 bg-white"
+                >
+                  <Mail className="w-4 h-4" />
+                </a>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
     </div>
   );
