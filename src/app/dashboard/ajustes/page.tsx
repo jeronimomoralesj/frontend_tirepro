@@ -574,6 +574,14 @@ const AjustesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [toasts,  setToasts]  = useState<Toast[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("profile");
+
+  // Catálogo / Catálogo Admin should never see anything but Profile —
+  // even if the user/handlers somehow flip activeTab. Force it back.
+  useEffect(() => {
+    if ((user?.role === "catalogo" || user?.role === "catalogo_admin") && activeTab !== "profile") {
+      setActiveTab("profile");
+    }
+  }, [user?.role, activeTab]);
   const [showChange,   setShowChange]   = useState(false);
   const [logoPreview,  setLogoPreview]  = useState<string | null>(null);
 
@@ -896,11 +904,17 @@ const AjustesPage: React.FC = () => {
 
   // -- Tab definitions -------------------------------------------------------
   const hasCompanyId = !!user?.companyId;
-  const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean; requiresCompany?: boolean }[] = [
+  // Catálogo (sales rep) and Catálogo Admin (sales manager) only get the
+  // Profile tab — Mis Pedidos, Planes, Empresa, Usuarios, Distribuidores
+  // are all fleet-admin / company-owner concerns. They land here from the
+  // sidebar to update their own password and personal data.
+  const isCatalogoOnly =
+    user?.role === "catalogo" || user?.role === "catalogo_admin";
+  const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean; requiresCompany?: boolean; hideForCatalogo?: boolean }[] = [
     { id: "profile",      label: "Perfil",          icon: User                             },
-    { id: "orders",       label: "Mis Pedidos",     icon: ShoppingCart                     },
-    { id: "planes",       label: "Planes",          icon: Tag                              },
-    { id: "company",      label: "Empresa",         icon: Building,    requiresCompany: true },
+    { id: "orders",       label: "Mis Pedidos",     icon: ShoppingCart, hideForCatalogo: true },
+    { id: "planes",       label: "Planes",          icon: Tag,         hideForCatalogo: true },
+    { id: "company",      label: "Empresa",         icon: Building,    requiresCompany: true, hideForCatalogo: true },
     { id: "users",        label: "Usuarios",        icon: Users,    adminOnly: true, requiresCompany: true },
     { id: "addUser",      label: "Nuevo Usuario",   icon: UserPlus, adminOnly: true, requiresCompany: true },
     { id: "distributors", label: "Distribuidores",  icon: Link2,    adminOnly: true, hideForDistributor: true, requiresCompany: true },
@@ -963,9 +977,9 @@ const AjustesPage: React.FC = () => {
 
         {/* -- Tab nav -- */}
         <Card className="p-1.5">
-          <nav className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor") && (!t.requiresCompany || hasCompanyId)).length}, minmax(0,1fr))` }}>
+          <nav className="grid gap-1" style={{ gridTemplateColumns: `repeat(${tabs.filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor") && (!t.requiresCompany || hasCompanyId) && (!t.hideForCatalogo || !isCatalogoOnly)).length}, minmax(0,1fr))` }}>
             {tabs
-              .filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor") && (!t.requiresCompany || hasCompanyId))
+              .filter((t) => (!t.adminOnly || user?.role === "admin") && (!t.hideForDistributor || company?.plan !== "distribuidor") && (!t.requiresCompany || hasCompanyId) && (!t.hideForCatalogo || !isCatalogoOnly))
               .map((tab) => {
                 const active = activeTab === tab.id;
                 return (
@@ -1000,13 +1014,30 @@ const AjustesPage: React.FC = () => {
                 <div className="min-w-0">
                   <p className="font-black text-[#0A183A] text-lg leading-tight truncate">{user.name}</p>
                   <p className="text-sm text-gray-500 truncate">{user.email}</p>
-                  <span
-                    className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                    style={{ background: !user.companyId ? "#6b7280" : user.role === "admin" ? "#0A183A" : "#1E76B6" }}
-                  >
-                    <Shield className="w-2.5 h-2.5" />
-                    {!user.companyId ? "Solo Marketplace" : user.role === "admin" ? "Administrador" : "Usuario Regular"}
-                  </span>
+                  {(() => {
+                    if (!user.companyId) {
+                      return (
+                        <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: "#6b7280" }}>
+                          <Shield className="w-2.5 h-2.5" />
+                          Solo Marketplace
+                        </span>
+                      );
+                    }
+                    const meta: Record<string, { label: string; bg: string }> = {
+                      admin:          { label: "Administrador",     bg: "#0A183A" },
+                      catalogo_admin: { label: "Catálogo Admin",    bg: "#7c3aed" },
+                      catalogo:       { label: "Catálogo",          bg: "#a855f7" },
+                      viewer:         { label: "Usuario Regular",   bg: "#1E76B6" },
+                      regular:        { label: "Usuario Regular",   bg: "#1E76B6" },
+                    };
+                    const m = meta[user.role] ?? meta.regular;
+                    return (
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: m.bg }}>
+                        <Shield className="w-2.5 h-2.5" />
+                        {m.label}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1881,9 +1912,30 @@ const AjustesPage: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: u.role === "admin" ? "#0A183A" : "#1E76B6" }}>
-                        <Shield className="w-2.5 h-2.5" />{u.role === "admin" ? "Admin" : "Regular"}
-                      </span>
+                      {(() => {
+                        // Four-role badge: regular fleet user, fleet admin,
+                        // catálogo sales rep, catálogo sales manager. The
+                        // two catálogo roles are distribuidor-only — they
+                        // appear here only when the company hires sales
+                        // people through TirePro.
+                        const meta: Record<string, { label: string; bg: string }> = {
+                          admin:           { label: "Admin",            bg: "#0A183A" },
+                          catalogo_admin:  { label: "Catálogo Admin",   bg: "#7c3aed" },
+                          catalogo:        { label: "Catálogo",         bg: "#a855f7" },
+                          viewer:          { label: "Regular",          bg: "#1E76B6" },
+                          regular:         { label: "Regular",          bg: "#1E76B6" },
+                        };
+                        const m = meta[u.role] ?? meta.regular;
+                        return (
+                          <span
+                            className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                            style={{ background: m.bg }}
+                          >
+                            <Shield className="w-2.5 h-2.5" />
+                            {m.label}
+                          </span>
+                        );
+                      })()}
                       <button
                         onClick={() => handleDeleteUser(u.id)}
                         className="p-2 rounded-xl transition-all hover:bg-red-50"

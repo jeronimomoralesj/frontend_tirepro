@@ -334,6 +334,11 @@ export default function Sidebar({
   if (!user || !company) return null;
 
   const isAdmin = user.role === "admin";
+  // Catálogo (sales rep) and Catálogo Admin (sales manager) need the
+  // Ajustes link too — they get a single Profile tab inside, but need
+  // somewhere to update their password and personal data.
+  const canSeeSettings =
+    isAdmin || user.role === "catalogo" || user.role === "catalogo_admin";
   const links   = buildLinks(company.plan, isAdmin, user.role);
 
   function handleLogout() {
@@ -482,7 +487,7 @@ export default function Sidebar({
           className="px-3 pb-4 pt-3 space-y-1"
           style={{ borderTop: "1px solid rgba(52,140,203,0.1)" }}
         >
-          {company.plan !== "mini" && isAdmin && (
+          {company.plan !== "mini" && canSeeSettings && (
             <Link
               href="/settings"
               onClick={closeMobile}
@@ -628,7 +633,7 @@ export default function Sidebar({
             </div>
             {!collapsed && <span className="truncate">Marketplace</span>}
           </a>
-          {company.plan !== "mini" && isAdmin && (
+          {company.plan !== "mini" && canSeeSettings && (
             <Link
               href="/settings"
               className="group flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-[#173D68] transition-all hover:bg-[rgba(30,118,182,0.08)]"

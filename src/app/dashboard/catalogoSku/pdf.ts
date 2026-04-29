@@ -85,6 +85,47 @@ const FALLBACK = {
   line:    [225, 232, 245] as [number, number, number],
 };
 
+// Design tokens — premium-feel type scale and spacing for both PDFs.
+// Inspired by Michelin / Pirelli / Bridgestone product sheets: heavy
+// hierarchy (one big number per section, the rest small) and hairline
+// rules instead of filled blocks.
+const TYPE = {
+  /** Document type label — small caps tracker. */
+  eyebrow:   { size: 8.5, gap: 4 },
+  /** Brand / "PARA" caps label. */
+  micro:     { size: 8 },
+  /** Section heading body. */
+  section:   { size: 10 },
+  /** Body text. */
+  body:      { size: 10 },
+  /** Small body for facts. */
+  bodySm:    { size: 9 },
+  /** Hero subhead (dimension etc.). */
+  subhead:   { size: 13 },
+  /** H1 hero (modelo). */
+  hero:      { size: 32 },
+  /** Hero line height multiplier. */
+  heroLh:    1.05,
+  /** Big money number (totals / hero price). */
+  bigMoney:  { size: 28 },
+  /** Money in tables. */
+  rowMoney:  { size: 11 },
+};
+const SPACE = {
+  /** Margin all-around on Letter pages. */
+  M:           48,
+  /** Default vertical gap between sections. */
+  sectionGap:  22,
+  /** Compact gap between H2 + its content. */
+  blockGap:    10,
+  /** Gap between row groups in tables. */
+  rowGap:      0,
+};
+const TRACK = {
+  /** Letter-spacing applied to small-caps eyebrows (jspdf charSpace). */
+  eyebrow: 0.6,
+};
+
 // =============================================================================
 // Color helpers
 // =============================================================================
@@ -187,10 +228,13 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const M = 42;
+  const M = SPACE.M;
 
   const brand       = parseHex(input.companyColor) ?? FALLBACK.primary;
-  const brandText   = readableTextOn(brand);
+  // Tints used for very subtle backgrounds (chips, table headers, price block).
+  // The header itself stays white — a colored band makes any PDF read
+  // template-grade no matter how good the typography is.
+  void readableTextOn;
   const brandT08    = tint(brand, 0.08);
   const brandT15    = tint(brand, 0.18);
 
@@ -205,157 +249,163 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   const productImages = productDatas.filter((d): d is string => !!d);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // HEADER BANNER
+  // HEADER — minimalist. Logo (or company name) at left, document
+  // type + category eyebrow at right, separated from content by a
+  // single hairline. No filled banner, no contrasting block — every
+  // premium product sheet (Michelin XZE, Pirelli Truck, Bridgestone
+  // Ecopia) leads with whitespace and type.
   // ───────────────────────────────────────────────────────────────────────────
-  doc.setFillColor(...brand);
-  doc.rect(0, 0, pageW, 94, "F");
-  // Ink strip along the bottom edge of the banner for depth.
-  doc.setFillColor(...FALLBACK.ink);
-  doc.rect(0, 88, pageW, 6, "F");
+  const HEADER_TOP = 36;
+  const HEADER_LOGO_H = 38;
 
   if (logoData) {
     const { w, h } = await imageDims(logoData);
-    const boxW = 160, boxH = 62;
-    const scale = Math.min(boxW / w, boxH / h);
+    const boxH = HEADER_LOGO_H;
+    const scale = Math.min(180 / w, boxH / h);
     const drawW = w * scale, drawH = h * scale;
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(M - 8, 16, boxW + 16, 66, 8, 8, "F");
     doc.addImage(
       logoData, detectFormat(logoData),
-      M - 8 + (boxW + 16 - drawW) / 2,
-      16 + (66 - drawH) / 2,
-      drawW, drawH, undefined, "SLOW",
+      M, HEADER_TOP, drawW, drawH, undefined, "SLOW",
     );
   } else if (input.companyName) {
-    doc.setFillColor(255, 255, 255);
-    const pillH = 40;
+    doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    const textW = doc.getTextWidth(input.companyName);
-    const pillW = Math.min(280, textW + 32);
-    doc.roundedRect(M - 8, 27, pillW, pillH, 8, 8, "F");
-    doc.setTextColor(...brand);
-    doc.text(input.companyName, M - 8 + pillW / 2, 27 + pillH / 2 + 5, {
-      align: "center",
-      maxWidth: pillW - 32,
-    });
+    doc.setFontSize(16);
+    doc.text(input.companyName, M, HEADER_TOP + 24);
   }
 
-  doc.setTextColor(...brandText);
+  // Right side: tracker eyebrow + bold category label.
+  doc.setTextColor(...FALLBACK.muted);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text("FICHA TÉCNICA", pageW - M, 36, { align: "right" });
+  doc.setFontSize(TYPE.eyebrow.size);
+  doc.setCharSpace(TRACK.eyebrow);
+  doc.text("FICHA TÉCNICA", pageW - M, HEADER_TOP + 14, { align: "right" });
+  doc.setCharSpace(0);
+  doc.setTextColor(...brand);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.text(
     input.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva",
-    pageW - M, 54, { align: "right" },
+    pageW - M, HEADER_TOP + 32, { align: "right" },
   );
 
-  // Left-edge brand rail — thin vertical accent running down the page.
-  doc.setFillColor(...brand);
-  doc.rect(0, 94, 4, pageH - 94, "F");
+  // Hairline separator running the full content width — replaces the
+  // colored banner as the header's bottom edge.
+  doc.setDrawColor(...FALLBACK.line);
+  doc.setLineWidth(0.5);
+  doc.line(M, HEADER_TOP + HEADER_LOGO_H + 14, pageW - M, HEADER_TOP + HEADER_LOGO_H + 14);
 
   // Hero tile dimensions — hoisted so the chip row can measure how wide
   // it may grow before overlapping the image.
-  const HERO_TOP = 120;
-  const HERO_W = 240, HERO_H = 200;
+  const HERO_TOP = 116;
+  const HERO_W = 248, HERO_H = 220;
 
   // ───────────────────────────────────────────────────────────────────────────
-  // TITLE BLOCK
+  // TITLE BLOCK — premium product hierarchy. Brand eyebrow (with logo
+  // if present) sits above an oversized model name; dimension renders
+  // as a refined subhead. The H1 is the visual anchor of the whole page.
   // ───────────────────────────────────────────────────────────────────────────
-  let y = 132;
+  let y = HEADER_TOP + HEADER_LOGO_H + 38;
 
-  // Marca tagline: small brand logo + marca text + country.
+  // Marca eyebrow: small brand logo + marca text + country, all in
+  // the muted brand color so it reads as a category label, not a title.
   let cursorX = M;
   if (brandLogoData) {
     const { w, h } = await imageDims(brandLogoData);
-    const boxW = 42, boxH = 22;
+    const boxW = 38, boxH = 20;
     const scale = Math.min(boxW / w, boxH / h);
     const drawW = w * scale, drawH = h * scale;
     doc.addImage(
       brandLogoData, detectFormat(brandLogoData),
-      cursorX, y - drawH + 2, drawW, drawH, undefined, "SLOW",
+      cursorX, y - drawH + 1, drawW, drawH, undefined, "SLOW",
     );
     cursorX += drawW + 10;
   }
   const marcaText = input.marca.toUpperCase();
   doc.setTextColor(...brand);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(TYPE.micro.size);
+  doc.setCharSpace(TRACK.eyebrow);
   doc.text(marcaText, cursorX, y);
+  doc.setCharSpace(0);
   if (input.brandCountry || input.brand?.country) {
     const country = input.brand?.country ?? input.brandCountry;
-    const mw = doc.getTextWidth(marcaText);
+    const mw = doc.getTextWidth(marcaText) + TRACK.eyebrow * (marcaText.length - 1);
     doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(TYPE.bodySm.size);
     doc.text(`· ${country}`, cursorX + mw + 8, y);
   }
 
-  y += 30;
+  y += 26;
+  // Hero H1 — the modelo. Big, dark, tight. This is the single biggest
+  // type element on the page and should anchor the eye.
   doc.setTextColor(...FALLBACK.ink);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(26);   // big headline
-  doc.text(input.modelo, M, y);
+  doc.setFontSize(TYPE.hero.size);
+  // splitTextToSize wraps long model names across two lines instead of
+  // bleeding past the hero image margin.
+  const heroMaxW = pageW - M - HERO_W - M - 18;
+  const heroLines = doc.splitTextToSize(input.modelo, heroMaxW).slice(0, 2) as string[];
+  for (const ln of heroLines) {
+    doc.text(ln, M, y);
+    y += TYPE.hero.size * TYPE.heroLh;
+  }
 
-  y += 20;
+  y += 4;
+  // Dimension — refined subhead, brand color, regular weight (not bold)
+  // so it reads "label" rather than "title".
   doc.setTextColor(...brand);
-  doc.setFontSize(14);
+  doc.setFontSize(TYPE.subhead.size);
   doc.setFont("helvetica", "normal");
   doc.text(input.dimension, M, y);
 
   // ───────────────────────────────────────────────────────────────────────────
-  // CHIP ROW — at-a-glance attributes. Constrained to the left column so
-  // chips never run UNDER the hero tile. Wraps to a second row when the
-  // first one fills up (common with long terreno / eje labels).
+  // CHIP ROW — at-a-glance attributes. All chips share one subtle visual
+  // language (1-pt brand-tinted border + brand text on white) so the
+  // category badge doesn't read like a button while the others read like
+  // labels. Smaller, lower-contrast = more premium.
   // ───────────────────────────────────────────────────────────────────────────
-  const chips: Array<{ label: string; fill: [number, number, number]; text: [number, number, number] }> = [];
-  chips.push({
-    label: input.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva",
-    fill:  brand,
-    text:  brandText,
-  });
-  if (input.terreno)    chips.push({ label: input.terreno,   fill: brandT08, text: brand });
-  if (input.ejeTirePro) chips.push({ label: input.ejeTirePro.charAt(0).toUpperCase() + input.ejeTirePro.slice(1), fill: brandT08, text: brand });
-  if (input.reencauchable) chips.push({ label: "Reencauchable", fill: brandT15, text: brand });
+  const chips: Array<{ label: string }> = [];
+  chips.push({ label: input.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva" });
+  if (input.terreno)    chips.push({ label: input.terreno });
+  if (input.ejeTirePro) chips.push({ label: input.ejeTirePro.charAt(0).toUpperCase() + input.ejeTirePro.slice(1) });
+  if (input.reencauchable) chips.push({ label: "Reencauchable" });
 
-  y += 10;
-  // Chip geometry — worked through top-left coords (not baseline) so
-  // wrap math + centering is easier to reason about. Chip height 22pt
-  // with ~13pt baseline puts helvetica 9pt visually centered; 8pt
-  // row gap keeps wrapped rows breathing instead of glued together.
+  y += 16;
   const heroLeftX = pageW - M - HERO_W;
   const chipMaxX  = productImages[0] ? heroLeftX - 14 : pageW - M;
-  const chipH      = 22;
-  const chipGapX   = 8;
-  const chipGapY   = 8;
-  const chipPadX   = 12;
-  const chipFont   = 9;
-  const chipBaseY  = 15; // offset from chip top to text baseline
+  const chipH      = 20;
+  const chipGapX   = 6;
+  const chipGapY   = 6;
+  const chipPadX   = 10;
+  const chipFont   = 8.5;
+  const chipBaseY  = 13;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(chipFont);
+  doc.setCharSpace(0.4);
 
   let chipX   = M;
   let chipTop = y;
   for (const chip of chips) {
     const label = chip.label.toUpperCase();
-    const tw    = doc.getTextWidth(label);
+    const tw    = doc.getTextWidth(label) + 0.4 * (label.length - 1);
     const w     = tw + chipPadX * 2;
-    // Wrap to a new row if this chip would cross chipMaxX. Leave the
-    // very first chip on row 1 even if it overflows — that's always
-    // more readable than a stranded one-chip row above.
     if (chipX > M && chipX + w > chipMaxX) {
       chipX   = M;
       chipTop += chipH + chipGapY;
     }
-    doc.setFillColor(...chip.fill);
-    doc.roundedRect(chipX, chipTop, w, chipH, chipH / 2, chipH / 2, "F");
-    doc.setTextColor(...chip.text);
+    // Hairline outline only — fills are reserved for stronger
+    // statements (price block, totals).
+    doc.setDrawColor(...brandT15);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(chipX, chipTop, w, chipH, chipH / 2, chipH / 2, "S");
+    doc.setTextColor(...brand);
     doc.text(label, chipX + chipPadX, chipTop + chipBaseY);
     chipX += w + chipGapX;
   }
+  doc.setCharSpace(0);
   y = chipTop + chipH;
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -453,7 +503,8 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // SPECS TABLE (full width)
+  // SPECS TABLE — full width, hairline horizontal rules only, no zebra.
+  // Reads like a printed product datasheet rather than a web table.
   // ───────────────────────────────────────────────────────────────────────────
   y = drawSectionHeader(doc, "Especificaciones", M, y, pageW - M, brand);
   const tableWidth = pageW - 2 * M;
@@ -466,26 +517,44 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
     tableWidth,
     styles: {
       font: "helvetica",
-      fontSize: 10,
-      cellPadding: { top: 7, right: 10, bottom: 7, left: 10 },
+      fontSize: TYPE.body.size,
+      cellPadding: { top: 9, right: 10, bottom: 9, left: 0 },
       textColor: FALLBACK.ink,
       lineColor: FALLBACK.line,
-      lineWidth: 0.5,
+      // Bottom rule only on each cell, drawn via didDrawCell below so
+      // we can control direction (no vertical lines).
+      lineWidth: 0,
     },
     headStyles: {
-      fillColor: brandT08,
-      textColor: brand,
+      fillColor: [255, 255, 255],
+      textColor: FALLBACK.muted,
       fontStyle: "bold",
-      fontSize: 9,
+      fontSize: TYPE.eyebrow.size,
+      cellPadding: { top: 0, right: 10, bottom: 8, left: 0 },
     },
-    alternateRowStyles: { fillColor: [252, 253, 255] },
     columnStyles: {
-      0: { cellWidth: Math.round(tableWidth * 0.42), fontStyle: "bold" },
-      1: { cellWidth: Math.round(tableWidth * 0.58) },
+      0: { cellWidth: Math.round(tableWidth * 0.40), fontStyle: "normal", textColor: FALLBACK.muted },
+      1: { cellWidth: Math.round(tableWidth * 0.60), fontStyle: "bold" },
+    },
+    didDrawCell: (data) => {
+      // Draw a hairline rule under every body row (and under the head).
+      // Skipping the very last row keeps the table from looking
+      // bordered at the bottom; the next section's eyebrow rule does
+      // that job.
+      if (data.section === "head" || data.section === "body") {
+        const isLastBody =
+          data.section === "body" &&
+          data.row.index === (input.rows.length - 1);
+        if (isLastBody) return;
+        doc.setDrawColor(...FALLBACK.line);
+        doc.setLineWidth(0.4);
+        const yLine = data.cell.y + data.cell.height;
+        doc.line(M, yLine, pageW - M, yLine);
+      }
     },
   });
   y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
-  y += 12;
+  y += 18;
 
   // ───────────────────────────────────────────────────────────────────────────
   // THUMBNAILS (images 2..N)
@@ -516,7 +585,9 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // PRICE BLOCK (optional)
+  // PRICE — minimalist treatment. Eyebrow + oversized brand-tinted
+  // number on white, hairline rule above and below. Reads like a
+  // showroom price tag rather than a marketing CTA.
   // ───────────────────────────────────────────────────────────────────────────
   if (input.priceMode !== "none" && input.priceCop && input.priceCop > 0) {
     const base = input.priceCop;
@@ -524,29 +595,38 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
     const shown = input.priceMode === "con_iva" ? withIva : base;
     const ivaLabel = input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA";
 
-    const boxH = 64;
     const boxY = y;
-    doc.setFillColor(...FALLBACK.ink);
-    doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 12, 12, "F");
-    doc.setFillColor(...brand);
-    doc.roundedRect(M, boxY, 8, boxH, 4, 4, "F");
+    const boxH = 70;
 
-    doc.setTextColor(200, 215, 240);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text("Precio", M + 22, boxY + 24);
+    // Top hairline.
+    doc.setDrawColor(...FALLBACK.line);
+    doc.setLineWidth(0.5);
+    doc.line(M, boxY, pageW - M, boxY);
 
-    doc.setTextColor(255, 255, 255);
+    // Eyebrow.
+    doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text(fmtCOP(shown), M + 22, boxY + 50);
+    doc.setFontSize(TYPE.eyebrow.size);
+    doc.setCharSpace(TRACK.eyebrow);
+    doc.text("PRECIO", M, boxY + 18);
+    doc.setCharSpace(0);
 
-    doc.setTextColor(200, 215, 240);
+    // The big number — brand color, oversized, anchors the page.
+    doc.setTextColor(...brand);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(TYPE.bigMoney.size);
+    doc.text(fmtCOP(shown), M, boxY + 54);
+
+    // IVA label, right-aligned, low-contrast.
+    doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(ivaLabel, pageW - M - 20, boxY + 50, { align: "right" });
+    doc.setFontSize(TYPE.bodySm.size);
+    doc.text(ivaLabel, pageW - M, boxY + 54, { align: "right" });
 
-    y = boxY + boxH + 14;
+    // Bottom hairline.
+    doc.line(M, boxY + boxH, pageW - M, boxY + boxH);
+
+    y = boxY + boxH + 18;
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -566,47 +646,47 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
       y = 50;
     }
     y = drawSectionHeader(doc, "Contacto", M, y + 4, pageW - M, brand);
-    const boxH = 60;
-    const boxY = y + 4;
-    doc.setFillColor(...brandT08);
-    doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 10, 10, "F");
-
+    // Plain layout — name big, supporting line muted, website on the
+    // right. No filled card; the section eyebrow already carries the
+    // visual bracket.
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(input.repName ?? input.companyName ?? "", M + 14, boxY + 24);
+    doc.setFontSize(13);
+    doc.text(input.repName ?? input.companyName ?? "", M, y + 18);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(TYPE.bodySm.size);
+    doc.setTextColor(...FALLBACK.muted);
     const line2 = [input.repPhone, input.companyCity].filter(Boolean).join("  ·  ");
-    if (line2) doc.text(line2, M + 14, boxY + 42);
+    if (line2) doc.text(line2, M, y + 34);
 
     if (input.companyWebsite) {
       doc.setTextColor(...brand);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text(input.companyWebsite, pageW - M - 14, boxY + 42, { align: "right" });
+      doc.setFontSize(TYPE.bodySm.size);
+      doc.text(input.companyWebsite, pageW - M, y + 34, { align: "right" });
     }
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // FOOTER — watermark
+  // FOOTER — refined watermark. Hairline + 3 small spans (company /
+  // date / TirePro signature) on a single line.
   // ───────────────────────────────────────────────────────────────────────────
   doc.setDrawColor(...FALLBACK.line);
-  doc.setLineWidth(0.5);
-  doc.line(M, pageH - 48, pageW - M, pageH - 48);
+  doc.setLineWidth(0.4);
+  doc.line(M, pageH - 42, pageW - M, pageH - 42);
 
   doc.setTextColor(...FALLBACK.muted);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  if (input.companyName) doc.text(input.companyName, M, pageH - 30);
+  doc.setFontSize(TYPE.eyebrow.size);
+  doc.setCharSpace(TRACK.eyebrow);
+  if (input.companyName) doc.text(input.companyName.toUpperCase(), M, pageH - 26);
   const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
-  doc.text(today, pageW - M, pageH - 30, { align: "right" });
-
+  doc.text(today, pageW / 2, pageH - 26, { align: "center" });
   doc.setTextColor(...brand);
-  doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.text("tirepro.com.co", pageW / 2, pageH - 18, { align: "center" });
+  doc.text("POWERED BY TIREPRO.COM.CO", pageW - M, pageH - 26, { align: "right" });
+  doc.setCharSpace(0);
 
   return doc.output("blob");
 }
@@ -623,16 +703,26 @@ function drawSectionHeader(
   right: number,
   brand: [number, number, number],
 ): number {
+  // Premium-grade section header. Small-caps tracker over a hairline
+  // rule that runs the full content width — like a product sheet's
+  // chapter divider. Heavy filled bars are the #1 reason a generated
+  // PDF reads "templated"; this avoids them entirely.
+  const upper = title.toUpperCase();
   doc.setTextColor(...brand);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text(title.toUpperCase(), x, y);
-  const textW = doc.getTextWidth(title.toUpperCase());
-  // thin accent rule after the text
+  doc.setFontSize(TYPE.eyebrow.size);
+  // jspdf has charSpace for tracking — a touch of letter-spacing on
+  // the eyebrow makes it read editorial rather than brutal.
+  doc.setCharSpace(TRACK.eyebrow);
+  doc.text(upper, x, y);
+  doc.setCharSpace(0);
+  const textW = doc.getTextWidth(upper) + TRACK.eyebrow * (upper.length - 1);
+  // Thin rule the full width, sitting just below the cap line so the
+  // header feels grounded rather than floating.
   doc.setDrawColor(...FALLBACK.line);
-  doc.setLineWidth(0.5);
-  doc.line(x + textW + 10, y - 3, right, y - 3);
-  return y + 10;
+  doc.setLineWidth(0.4);
+  doc.line(x + textW + 12, y - 3, right, y - 3);
+  return y + 12;
 }
 
 // =============================================================================
@@ -1116,12 +1206,12 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const M = 42;
+  const M = SPACE.M;
 
   const brand     = parseHex(input.companyColor) ?? FALLBACK.primary;
-  const brandText = readableTextOn(brand);
   const brandT08  = tint(brand, 0.08);
   const brandT15  = tint(brand, 0.18);
+  void brandT08;
 
   const logoUrl = isDefaultPlaceholderLogo(input.companyLogoUrl) ? null : input.companyLogoUrl;
   const proxy   = input.fetchViaProxy;
@@ -1138,84 +1228,70 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
   const lineTotal = (it: QuoteItem) =>
     effectiveUnit(it.unitPriceCop) * Math.max(1, it.quantity || 1);
 
-  const drawBanner = () => {
-    doc.setFillColor(...brand);
-    doc.rect(0, 0, pageW, 94, "F");
-    doc.setFillColor(...FALLBACK.ink);
-    doc.rect(0, 88, pageW, 6, "F");
-
-    if (logoData) {
-      // Measure + center in a white tile.
-      const boxW = 160, boxH = 62;
-      const scale = Math.min(boxW / 400, boxH / 200); // placeholder ratio; we'll re-measure below
-      void scale;
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(M - 8, 16, boxW + 16, 66, 8, 8, "F");
-      // We need the actual image dimensions to scale correctly.
-      // imageDims is async — deferred to the caller; here we just place
-      // the logo centered with a generous box.
-    } else if (input.companyName) {
-      doc.setFillColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
-      const textW = doc.getTextWidth(input.companyName);
-      const pillW = Math.min(280, textW + 32);
-      doc.roundedRect(M - 8, 27, pillW, 40, 8, 8, "F");
-      doc.setTextColor(...brand);
-      doc.text(input.companyName, M - 8 + pillW / 2, 52, { align: "center", maxWidth: pillW - 32 });
-    }
-
-    doc.setTextColor(...brandText);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text("COTIZACIÓN", pageW - M, 36, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
-    doc.text(today, pageW - M, 54, { align: "right" });
-
-    // Left-edge brand rail
-    doc.setFillColor(...brand);
-    doc.rect(0, 94, 4, pageH - 94, "F");
-  };
-
-  // Draw the banner (logo is async-sized below).
-  drawBanner();
+  // ───────────────────────────────────────────────────────────────────────────
+  // HEADER — same minimalist treatment as the catalog sheet so the two
+  // documents feel like a system. Logo at left, COTIZACIÓN eyebrow +
+  // date at right, hairline below, no colored banner.
+  // ───────────────────────────────────────────────────────────────────────────
+  const HEADER_TOP = 36;
+  const HEADER_LOGO_H = 38;
   if (logoData) {
     const { w, h } = await imageDims(logoData);
-    const boxW = 160, boxH = 62;
-    const scale = Math.min(boxW / w, boxH / h);
+    const scale = Math.min(180 / w, HEADER_LOGO_H / h);
     const drawW = w * scale, drawH = h * scale;
     doc.addImage(
       logoData, detectFormat(logoData),
-      M - 8 + (boxW + 16 - drawW) / 2,
-      16 + (66 - drawH) / 2,
-      drawW, drawH, undefined, "SLOW",
+      M, HEADER_TOP, drawW, drawH, undefined, "SLOW",
     );
+  } else if (input.companyName) {
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(input.companyName, M, HEADER_TOP + 24);
   }
 
-  let y = 124;
+  doc.setTextColor(...FALLBACK.muted);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(TYPE.eyebrow.size);
+  doc.setCharSpace(TRACK.eyebrow);
+  doc.text("COTIZACIÓN", pageW - M, HEADER_TOP + 14, { align: "right" });
+  doc.setCharSpace(0);
+  const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
+  doc.setTextColor(...FALLBACK.ink);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(today, pageW - M, HEADER_TOP + 32, { align: "right" });
 
-  // Client name + notes (optional). Read as "this quote is for X".
+  doc.setDrawColor(...FALLBACK.line);
+  doc.setLineWidth(0.5);
+  doc.line(M, HEADER_TOP + HEADER_LOGO_H + 14, pageW - M, HEADER_TOP + HEADER_LOGO_H + 14);
+
+  let y = HEADER_TOP + HEADER_LOGO_H + 38;
+
+  // Client block — eyebrow + name styled like the recipient line of a
+  // formal quote (PARA: NAME). The notes paragraph hangs below.
   if (input.clientName) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(...brand);
+    doc.setFontSize(TYPE.eyebrow.size);
+    doc.setTextColor(...FALLBACK.muted);
+    doc.setCharSpace(TRACK.eyebrow);
     doc.text("PARA", M, y);
+    doc.setCharSpace(0);
     doc.setTextColor(...FALLBACK.ink);
-    doc.setFontSize(13);
-    doc.text(input.clientName, M + 38, y);
-    y += 16;
+    doc.setFontSize(16);
+    doc.text(input.clientName, M, y + 18);
+    y += 30;
   }
   if (input.clientNotes) {
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(TYPE.bodySm.size);
     doc.setTextColor(...FALLBACK.muted);
-    const lines = doc.splitTextToSize(input.clientNotes, pageW - 2 * M).slice(0, 2);
-    for (const ln of lines) { doc.text(ln, M, y); y += 11; }
+    const lines = doc.splitTextToSize(input.clientNotes, pageW - 2 * M).slice(0, 3);
+    for (const ln of lines) { doc.text(ln, M, y); y += 12; }
+    y += 4;
   }
 
-  y += 6;
+  y += 10;
 
   // ─── ITEMS TABLE HEADER ──────────────────────────────────────────────────
   const QTY_X      = pageW - M - 220;
@@ -1256,17 +1332,22 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     return bits.join("  ·  ");
   };
 
+  // Header for the items table — eyebrow column labels + a single
+  // hairline rule. No filled bar; the type itself does the work.
   const drawTableHeader = (y0: number): number => {
-    doc.setFillColor(...brandT08);
-    doc.roundedRect(M, y0, pageW - 2 * M, 22, 6, 6, "F");
-    doc.setTextColor(...brand);
+    doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("LLANTA", M + 12, y0 + 15);
-    doc.text("CANT.", QTY_X, y0 + 15, { align: "right" });
-    doc.text(isTotal ? "UNIT." : "PRECIO", UNIT_X, y0 + 15, { align: "right" });
-    if (isTotal) doc.text("TOTAL", TOTAL_X, y0 + 15, { align: "right" });
-    return y0 + 28;
+    doc.setFontSize(TYPE.eyebrow.size);
+    doc.setCharSpace(TRACK.eyebrow);
+    doc.text("LLANTA", M, y0);
+    doc.text("CANT.", QTY_X, y0, { align: "right" });
+    doc.text(isTotal ? "UNIT." : "PRECIO", UNIT_X, y0, { align: "right" });
+    if (isTotal) doc.text("TOTAL", TOTAL_X, y0, { align: "right" });
+    doc.setCharSpace(0);
+    doc.setDrawColor(...FALLBACK.line);
+    doc.setLineWidth(0.5);
+    doc.line(M, y0 + 6, pageW - M, y0 + 6);
+    return y0 + 18;
   };
 
   y = drawTableHeader(y);
@@ -1278,7 +1359,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
 
     // Measure the specs line so we know how tall the row must be. Width
     // budget is (everything to the left of the qty column, minus a pad).
-    const textX   = M + 10 + 54 + 14;
+    const textX   = M + 54 + 16;
     const specsW  = QTY_X - textX - 14;
     const specsText = buildSpecsLine(it);
     doc.setFont("helvetica", "normal");
@@ -1294,21 +1375,18 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     if (y + rowH > pageH - 120) {
       drawFooter(doc, pageW, pageH, M, brand, input.companyName);
       doc.addPage();
-      doc.setFillColor(...brand);
-      doc.rect(0, 0, 4, pageH, "F");
-      y = 50;
+      // No brand rail on follow-on pages either — the whole document
+      // commits to the minimalist treatment.
+      y = HEADER_TOP;
       y = drawTableHeader(y);
     }
 
-    // Row backdrop
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(M, y, pageW - 2 * M, rowH, 8, 8, "F");
-    doc.setDrawColor(...FALLBACK.line);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(M, y, pageW - 2 * M, rowH, 8, 8, "S");
+    // No row backdrop — flat rows separated by hairlines feel premium
+    // and let the eye scan price columns vertically. The rule is drawn
+    // at the BOTTOM of every row.
 
     // Thumb (left)
-    const thumbX = M + 10;
+    const thumbX = M;
     const thumbY = y + 8;
     const thumbW = 54, thumbH = rowH - 16;
     doc.setFillColor(...FALLBACK.page);
@@ -1352,10 +1430,10 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     const moneyY = y + rowH / 2 + 4;
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
+    doc.setFontSize(14);
     doc.text(String(it.quantity), QTY_X, moneyY, { align: "right" });
 
-    doc.setFontSize(11);
+    doc.setFontSize(TYPE.rowMoney.size);
     if (input.priceMode === "none" || it.unitPriceCop == null || it.unitPriceCop <= 0) {
       doc.setTextColor(...FALLBACK.muted);
       doc.text("—", UNIT_X, moneyY, { align: "right" });
@@ -1365,46 +1443,72 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
       const line  = lineTotal(it);
       doc.text(fmtCOP(unit), UNIT_X, moneyY, { align: "right" });
       if (isTotal) {
+        // Line total — slightly heavier weight + brand color so the eye
+        // lands on the column the customer cares about.
         doc.setTextColor(...brand);
         doc.setFont("helvetica", "bold");
+        doc.setFontSize(TYPE.rowMoney.size + 1);
         doc.text(fmtCOP(line), TOTAL_X, moneyY, { align: "right" });
       }
     }
 
-    y += rowH + 8;
+    // Hairline rule under every row separates them without the visual
+    // weight of a card border. Last row's rule is suppressed by the
+    // total/notes block below absorbing it.
+    doc.setDrawColor(...FALLBACK.line);
+    doc.setLineWidth(0.4);
+    doc.line(M, y + rowH, pageW - M, y + rowH);
+
+    y += rowH;
   }
 
-  y += 4;
+  y += 12;
 
-  // ─── GRAND TOTAL (only in "total" display mode) ──────────────────────────
+  // ─── GRAND TOTAL — premium minimalist treatment.
+  // Eyebrow label on the left, oversized brand-colored number on the
+  // right. No filled bar; the type itself is the statement. This is
+  // the moment the customer is supposed to see the number — make it
+  // unambiguously the biggest thing on the page after the H1.
   if (isTotal && input.priceMode !== "none") {
     const grand = input.items.reduce((s, it) => s + lineTotal(it), 0);
     if (grand > 0) {
-      // Page break if there's no room for the total bar + contact card.
-      if (y + 54 > pageH - 120) {
+      const need = 70;
+      if (y + need > pageH - 120) {
         drawFooter(doc, pageW, pageH, M, brand, input.companyName);
         doc.addPage();
-        doc.setFillColor(...brand);
-        doc.rect(0, 0, 4, pageH, "F");
-        y = 50;
+        y = HEADER_TOP;
       }
-      const boxH = 44;
-      doc.setFillColor(...FALLBACK.ink);
-      doc.roundedRect(M, y, pageW - 2 * M, boxH, 10, 10, "F");
-      doc.setFillColor(...brand);
-      doc.roundedRect(M, y, 6, boxH, 3, 3, "F");
-      doc.setTextColor(200, 215, 240);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(
-        input.priceMode === "con_iva" ? "Total (IVA incluido)" : "Total (sin IVA)",
-        M + 20, y + 18,
-      );
-      doc.setTextColor(255, 255, 255);
+      // Top hairline.
+      doc.setDrawColor(...FALLBACK.ink);
+      doc.setLineWidth(1.2);
+      doc.line(M, y, pageW - M, y);
+
+      // Eyebrow.
+      doc.setTextColor(...FALLBACK.muted);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.text(fmtCOP(grand), pageW - M - 14, y + 30, { align: "right" });
-      y += boxH + 14;
+      doc.setFontSize(TYPE.eyebrow.size);
+      doc.setCharSpace(TRACK.eyebrow);
+      doc.text("TOTAL", M, y + 22);
+      doc.setCharSpace(0);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(TYPE.bodySm.size);
+      doc.setTextColor(...FALLBACK.muted);
+      doc.text(
+        input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA",
+        M, y + 40,
+      );
+
+      // The big number.
+      doc.setTextColor(...brand);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(TYPE.bigMoney.size);
+      doc.text(fmtCOP(grand), pageW - M, y + 38, { align: "right" });
+
+      y += 60;
+      doc.setDrawColor(...FALLBACK.line);
+      doc.setLineWidth(0.4);
+      doc.line(M, y, pageW - M, y);
+      y += 18;
     }
   } else if (input.priceMode !== "none") {
     // Individual/comparative mode — short note reminding the reader
@@ -1419,7 +1523,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     y += 18;
   }
 
-  // ─── CONTACT CARD ────────────────────────────────────────────────────────
+  // ─── CONTACT — minimalist layout matching the catalog sheet ──────────────
   const hasRep      = !!(input.repName || input.repPhone);
   const hasSiteCity = !!(input.companyWebsite || input.companyCity);
   if (hasRep || hasSiteCity) {
@@ -1427,37 +1531,30 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     if (y + contactNeed > pageH - 60) {
       drawFooter(doc, pageW, pageH, M, brand, input.companyName);
       doc.addPage();
-      doc.setFillColor(...brand);
-      doc.rect(0, 0, 4, pageH, "F");
-      y = 50;
+      y = HEADER_TOP;
     }
     y = drawSectionHeader(doc, "Contacto", M, y + 4, pageW - M, brand);
-    const boxH = 60;
-    const boxY = y + 4;
-    doc.setFillColor(...brandT08);
-    doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 10, 10, "F");
-
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(input.repName ?? input.companyName ?? "", M + 14, boxY + 24);
+    doc.setFontSize(13);
+    doc.text(input.repName ?? input.companyName ?? "", M, y + 18);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(TYPE.bodySm.size);
+    doc.setTextColor(...FALLBACK.muted);
     const line2 = [input.repPhone, input.companyCity].filter(Boolean).join("  ·  ");
-    if (line2) doc.text(line2, M + 14, boxY + 42);
+    if (line2) doc.text(line2, M, y + 34);
 
     if (input.companyWebsite) {
       doc.setTextColor(...brand);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text(input.companyWebsite, pageW - M - 14, boxY + 42, { align: "right" });
+      doc.setFontSize(TYPE.bodySm.size);
+      doc.text(input.companyWebsite, pageW - M, y + 34, { align: "right" });
     }
   }
 
   drawFooter(doc, pageW, pageH, M, brand, input.companyName);
 
-  // Unused var guard — brandT15 is reserved for potential row accent styling.
   void brandT15;
 
   return doc.output("blob");
@@ -1472,20 +1569,19 @@ function drawFooter(
   companyName: string | null,
 ) {
   doc.setDrawColor(...FALLBACK.line);
-  doc.setLineWidth(0.5);
-  doc.line(M, pageH - 48, pageW - M, pageH - 48);
+  doc.setLineWidth(0.4);
+  doc.line(M, pageH - 42, pageW - M, pageH - 42);
 
   doc.setTextColor(...FALLBACK.muted);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  if (companyName) doc.text(companyName, M, pageH - 30);
-  const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
-  doc.text(today, pageW - M, pageH - 30, { align: "right" });
-
-  doc.setTextColor(...brand);
-  doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.text("tirepro.com.co", pageW / 2, pageH - 18, { align: "center" });
+  doc.setFontSize(TYPE.eyebrow.size);
+  doc.setCharSpace(TRACK.eyebrow);
+  if (companyName) doc.text(companyName.toUpperCase(), M, pageH - 26);
+  const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
+  doc.text(today, pageW / 2, pageH - 26, { align: "center" });
+  doc.setTextColor(...brand);
+  doc.text("POWERED BY TIREPRO.COM.CO", pageW - M, pageH - 26, { align: "right" });
+  doc.setCharSpace(0);
 }
 
 function factLine(b: PdfBrand): string | null {
