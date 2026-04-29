@@ -26,6 +26,14 @@ interface Suggestion {
   distributor: { id: string; name: string };
 }
 
+interface DistributorOption {
+  id: string;
+  slug?: string | null;
+  name: string;
+  profileImage?: string | null;
+  ciudad?: string | null;
+}
+
 // =============================================================================
 // NAVBAR — Amazon/MercadoLibre style
 // =============================================================================
@@ -37,7 +45,27 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
   const [mobileMenu, setMobileMenu] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [allDistributors, setAllDistributors] = useState<DistributorOption[]>([]);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Lightweight one-shot fetch of distributors for typeahead matching.
+  // Endpoint is cached (5 min) and ~kilobyte-size.
+  useEffect(() => {
+    fetch(`${API_BASE}/marketplace/listings/filters`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.distributors) setAllDistributors(d.distributors); })
+      .catch(() => { /* silently degrade to product-only suggestions */ });
+  }, []);
+
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const distributorMatches: DistributorOption[] = (() => {
+    if (q.trim().length < 2) return [];
+    const nq = norm(q);
+    return allDistributors
+      .filter((d) => norm(d.name).includes(nq) || (d.ciudad && norm(d.ciudad).includes(nq)))
+      .slice(0, 4);
+  })();
 
   // Auth state
   const [userName, setUserName] = useState<string | null>(null);
@@ -98,6 +126,12 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
     router.push(`/marketplace/product/${s.id}`);
   }
 
+  function selectDistributor(d: DistributorOption) {
+    setShowSuggestions(false);
+    setMobileSearch(false);
+    router.push(`/marketplace/distributor/${d.slug || d.id}`);
+  }
+
   const [mobileSearch, setMobileSearch] = useState(false);
 
   return (
@@ -134,25 +168,51 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               </form>
 
               {/* Suggestions */}
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-black/5 overflow-hidden z-[60]">
-                  {suggestions.map((s) => {
-                    const imgs = Array.isArray(s.imageUrls) ? s.imageUrls : [];
-                    const cover = imgs.length > 0 ? imgs[s.coverIndex ?? 0] ?? imgs[0] : null;
-                    return (
-                      <button key={s.id} onClick={() => selectSuggestion(s)}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f5f5f7] transition-colors text-left">
-                        <div className="w-11 h-11 rounded-xl bg-[#f5f5f7] flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1.5" /> : <Package className="w-4 h-4 text-gray-300" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] text-[#0A183A] truncate"><span className="font-semibold">{s.marca}</span> {s.modelo}</p>
-                          <p className="text-[11px] text-gray-400">{s.dimension} · {s.distributor.name}</p>
-                        </div>
-                        <span className="text-[13px] font-semibold text-[#0A183A] flex-shrink-0">{fmtCOPShort(s.precioCop)}</span>
-                      </button>
-                    );
-                  })}
+              {showSuggestions && (suggestions.length > 0 || distributorMatches.length > 0) && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-black/5 overflow-hidden z-[60] max-h-[28rem] overflow-y-auto">
+                  {distributorMatches.length > 0 && (
+                    <>
+                      <p className="px-4 pt-3 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Distribuidores</p>
+                      {distributorMatches.map((d) => (
+                        <button key={d.id} onClick={() => selectDistributor(d)}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#f5f5f7] transition-colors text-left">
+                          <div className="w-11 h-11 rounded-xl bg-[#f5f5f7] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {d.profileImage
+                              ? <img src={d.profileImage} alt="" className="w-full h-full object-cover" />
+                              : <Store className="w-4 h-4 text-gray-300" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-semibold text-[#0A183A] truncate">{d.name}</p>
+                            <p className="text-[11px] text-gray-400">{d.ciudad || "Distribuidor"}</p>
+                          </div>
+                          <span className="text-[10px] font-semibold text-[#1E76B6] flex-shrink-0">Ver perfil →</span>
+                        </button>
+                      ))}
+                      {suggestions.length > 0 && <div className="h-px bg-black/[0.04] my-1" />}
+                    </>
+                  )}
+                  {suggestions.length > 0 && (
+                    <>
+                      <p className="px-4 pt-3 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Productos</p>
+                      {suggestions.map((s) => {
+                        const imgs = Array.isArray(s.imageUrls) ? s.imageUrls : [];
+                        const cover = imgs.length > 0 ? imgs[s.coverIndex ?? 0] ?? imgs[0] : null;
+                        return (
+                          <button key={s.id} onClick={() => selectSuggestion(s)}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f5f5f7] transition-colors text-left">
+                            <div className="w-11 h-11 rounded-xl bg-[#f5f5f7] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1.5" /> : <Package className="w-4 h-4 text-gray-300" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] text-[#0A183A] truncate"><span className="font-semibold">{s.marca}</span> {s.modelo}</p>
+                              <p className="text-[11px] text-gray-400">{s.dimension} · {s.distributor.name}</p>
+                            </div>
+                            <span className="text-[13px] font-semibold text-[#0A183A] flex-shrink-0">{fmtCOPShort(s.precioCop)}</span>
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
                   <button onClick={(e) => { handleSubmit(e as any); }}
                     className="w-full px-4 py-3 text-[12px] font-semibold text-[#1E76B6] hover:bg-[#f5f5f7] transition-colors text-center" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
                     Ver todos los resultados para &quot;{q}&quot;
@@ -219,8 +279,28 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                 placeholder="Buscar llantas..."
                 className="w-full pl-10 pr-4 py-2.5 rounded-full text-sm bg-[#f5f5f7] border-0 focus:outline-none text-[#0A183A] placeholder-gray-400" />
             </form>
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="mt-2 bg-white rounded-xl shadow-xl border border-black/5 overflow-hidden">
+            {showSuggestions && (suggestions.length > 0 || distributorMatches.length > 0) && (
+              <div className="mt-2 bg-white rounded-xl shadow-xl border border-black/5 overflow-hidden max-h-[60vh] overflow-y-auto">
+                {distributorMatches.length > 0 && (
+                  <>
+                    <p className="px-3.5 pt-2.5 pb-1 text-[9px] font-bold text-gray-400 uppercase tracking-wider">Distribuidores</p>
+                    {distributorMatches.map((d) => (
+                      <button key={d.id} onClick={() => selectDistributor(d)}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-[#f5f5f7] text-left transition-colors">
+                        <div className="w-9 h-9 rounded-lg bg-[#f5f5f7] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {d.profileImage
+                            ? <img src={d.profileImage} alt="" className="w-full h-full object-cover" />
+                            : <Store className="w-4 h-4 text-gray-300" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-[#0A183A] truncate">{d.name}</p>
+                          <p className="text-[10px] text-gray-400">{d.ciudad || "Distribuidor"}</p>
+                        </div>
+                      </button>
+                    ))}
+                    {suggestions.length > 0 && <div className="h-px bg-black/[0.04] my-1" />}
+                  </>
+                )}
                 {suggestions.slice(0, 4).map((s) => (
                   <button key={s.id} onClick={() => { selectSuggestion(s); setMobileSearch(false); }}
                     className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-[#f5f5f7] text-left transition-colors">
