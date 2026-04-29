@@ -332,47 +332,60 @@ function PublicMarketplace() {
   // We always top up to MIN_FEATURED with random listings so the strip
   // looks full even on a fresh marketplace with very few sales — better
   // than seeing a half-empty "Más vendidas" row.
+  //
+  // We split bestsellers into two scrollers: nuevas (tipo !== reencauche)
+  // and reencauche, so each category gets its own visual identity instead
+  // of being mixed together. Each is independently topped up.
   const MIN_FEATURED = 12;
-  const featuredListings = useMemo(() => {
-    const recs = recommendations.listings;
-    if (recs.length >= MIN_FEATURED) return recs;
+  const buildFeatured = useCallback((wantReencauche: boolean) => {
+    const matchTipo = (l: Listing) =>
+      wantReencauche ? l.tipo === "reencauche" : l.tipo !== "reencauche";
+    const recs = recommendations.listings.filter(matchTipo);
     const haveIds = new Set(recs.map((r) => r.id));
-    // Pool is the rest of the catalog. Shuffle so home reloads vary.
-    // Safe to use Math.random in useMemo here because both `listings`
-    // and `recommendations.listings` start empty on SSR and only
-    // populate after client-side fetches, so no hydration mismatch.
-    const pool = listings.filter((l) => !haveIds.has(l.id));
+    // Pool is the rest of the catalog filtered by tipo. Shuffle so home
+    // reloads vary. Safe to use Math.random here because both arrays
+    // start empty on SSR and only populate after client-side fetches.
+    const pool = listings.filter((l) => !haveIds.has(l.id) && matchTipo(l));
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
     return [...recs, ...shuffled].slice(0, Math.max(MIN_FEATURED, recs.length));
   }, [recommendations.listings, listings]);
-  const featuredTitle = recommendations.listings.length >= MIN_FEATURED
+
+  const featuredNuevas = useMemo(() => buildFeatured(false), [buildFeatured]);
+  const featuredReencauche = useMemo(() => buildFeatured(true), [buildFeatured]);
+
+  const nuevasTitle = recommendations.listings.some((l) => l.tipo !== "reencauche") && recommendations.listings.length >= MIN_FEATURED
     ? (recommendations.type === "personalized" || recommendations.type === "user_history"
         ? "Recomendado para ti"
         : "Llantas más vendidas")
-    : recommendations.listings.length > 0
-      ? "Llantas más vendidas"
-      : "Llantas destacadas";
+    : "Llantas más vendidas";
 
   // ─── Brands with actual inventory ──────────────────────────────────────
-  // BrandsStrip should never link to an empty brand page. We compute the
-  // set of brand slugs that appear in the loaded listings — if the
-  // recommender returned empty we reuse listings (same fallback).
+  // BrandsStrip should never link to an empty brand page. The authoritative
+  // list of brands with stock is `filters.marcas` (the backend's distinct
+  // aggregate over active listings). The recommender / paginated listings
+  // would only reflect what's loaded into the current page, which collapses
+  // the strip to a single brand on a fresh marketplace.
   const stockedBrandSlugs = useMemo(() => {
     const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     const slugs = new Set<string>();
-    const source = recommendations.listings.length > 0 ? recommendations.listings : listings;
-    for (const l of source) {
-      const meta = brandsMap.get(l.marca);
+    const sourceMarcas = filters.marcas.length > 0
+      ? filters.marcas
+      : Array.from(new Set([
+          ...recommendations.listings.map((l) => l.marca),
+          ...listings.map((l) => l.marca),
+        ]));
+    for (const marca of sourceMarcas) {
+      const meta = brandsMap.get(marca);
       if (meta?.slug) slugs.add(meta.slug);
       else {
         // Fallback: derive a slug from the marca name when no BrandInfo row
         // exists. Matches what the brand-page route expects.
-        const candidate = norm(l.marca).replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+        const candidate = norm(marca).replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
         if (candidate) slugs.add(candidate);
       }
     }
     return slugs;
-  }, [recommendations.listings, listings, brandsMap]);
+  }, [filters.marcas, recommendations.listings, listings, brandsMap]);
 
   const matchingBrands = useMemo(() => {
     const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -520,15 +533,26 @@ function PublicMarketplace() {
         <BrandsStrip brandsMap={brandsMap} stockedSlugs={stockedBrandSlugs} />
       )}
 
-      {/* ═══ DESTACADAS / RECOMENDADAS — fallback a listings cuando no hay
-            recomendaciones (al inicio sin ventas el endpoint devuelve vacío) */}
-      {homeView && featuredListings.length > 0 && (
-        <BestSellersScroller listings={featuredListings} brandsMap={brandsMap} title={featuredTitle} />
+      {/* ═══ LLANTAS MÁS VENDIDAS (nuevas) ═══
+            Always topped up to MIN_FEATURED — never half-empty. */}
+      {homeView && featuredNuevas.length > 0 && (
+        <BestSellersScroller listings={featuredNuevas} brandsMap={brandsMap} title={nuevasTitle} />
+      )}
+
+      {/* ═══ REENCAUCHE MÁS VENDIDO — separate scroller so the category
+            gets its own visual identity instead of being mixed in. */}
+      {homeView && featuredReencauche.length > 0 && (
+        <BestSellersScroller
+          listings={featuredReencauche}
+          brandsMap={brandsMap}
+          title="Reencauche más vendido"
+          subtitle="Renueva tus llantas con la mitad del costo"
+        />
       )}
 
       {/* ═══ OFERTAS DESTACADAS — solo listados con promo activa ═══ */}
-      {homeView && featuredListings.length > 0 && (
-        <DealsStrip listings={featuredListings} brandsMap={brandsMap} />
+      {homeView && (featuredNuevas.length > 0 || featuredReencauche.length > 0) && (
+        <DealsStrip listings={[...featuredNuevas, ...featuredReencauche]} brandsMap={brandsMap} />
       )}
 
       {/* ═══ CÓMO FUNCIONA ═══ */}
@@ -2224,7 +2248,7 @@ function SeoLinkBlock({ brandsMap }: { brandsMap: BrandsMap }) {
 // Llantas más vendidas — horizontal scroller
 // =============================================================================
 
-function BestSellersScroller({ listings, brandsMap, title }: { listings: Listing[]; brandsMap?: BrandsMap; title?: string }) {
+function BestSellersScroller({ listings, brandsMap, title, subtitle }: { listings: Listing[]; brandsMap?: BrandsMap; title?: string; subtitle?: string }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
   function scroll(dir: 1 | -1) {
     const el = ref.current;
@@ -2236,7 +2260,7 @@ function BestSellersScroller({ listings, brandsMap, title }: { listings: Listing
       <div className="flex items-end justify-between mb-3">
         <div>
           <h2 className="text-base sm:text-xl font-black text-[#0A183A]">{title ?? "Llantas más vendidas"}</h2>
-          <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Las favoritas de las flotas en Colombia</p>
+          <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">{subtitle ?? "Las favoritas de las flotas en Colombia"}</p>
         </div>
         <div className="hidden sm:flex gap-1.5">
           <button onClick={() => scroll(-1)} aria-label="Anterior"
