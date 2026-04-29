@@ -22,9 +22,11 @@ export async function generateStaticParams() {
     const data = await res.json();
     const slugs = new Set<string>();
     for (const l of data.listings ?? []) {
-      // Prefer slug; fall back to id for any distributor not yet backfilled.
-      const handle = l.distributor?.slug ?? l.distributor?.id;
-      if (handle) slugs.add(handle);
+      // Only pre-render real slug URLs. If a distributor is missing a slug
+      // (or the backend hasn't deployed yet) we fall back to dynamic SSR for
+      // its UUID URL — which lets page.tsx emit a 308 redirect to the slug
+      // canonical instead of statically rendering the UUID page.
+      if (l.distributor?.slug) slugs.add(l.distributor.slug);
     }
     return [...slugs].map((slug) => ({ slug }));
   } catch { return []; }
