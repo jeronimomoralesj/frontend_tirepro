@@ -118,90 +118,15 @@ const marketplaceLd = {
 }
 
 export default function MarketplacePage() {
+  // The visible SEO essay that used to live below MarketplaceClient was
+  // rendering AFTER the marketplace footer (because the footer is inside
+  // MarketplaceClient), which looked broken. The marketplace home now has
+  // dense crawler-visible content of its own (hero h1, trust band,
+  // categories, brands strip, deals, how-it-works, SeoLinkBlock), so the
+  // essay is redundant — we keep only the JSON-LD here.
   return (
     <>
       <MarketplaceClient />
-
-      {/*
-        Server-rendered SEO content. Visible to users when they scroll past
-        the marketplace search/grid (real content, not hidden text — Google
-        penalizes cloaked text). Crawlers see this in the initial HTML
-        response, which the client-rendered <MarketplaceClient> doesn't
-        provide.
-      */}
-      <section
-        aria-labelledby="marketplace-seo-overview"
-        className="bg-gray-50 py-16 px-6 lg:px-8 border-t border-gray-100"
-      >
-        <div className="max-w-4xl mx-auto">
-          <h2
-            id="marketplace-seo-overview"
-            className="text-3xl font-black text-[#0A183A] mb-6 tracking-tight"
-          >
-            Marketplace de llantas en Colombia
-          </h2>
-
-          <div className="prose prose-lg max-w-none text-gray-600 leading-relaxed space-y-4">
-            <p>
-              El <strong>marketplace de TirePro</strong> conecta a compradores con{' '}
-              <strong>distribuidores verificados de llantas en Colombia</strong>.
-              Comparas precios, lees reseñas reales y compras en línea con la
-              tranquilidad de que cada distribuidor pasó por nuestro proceso de
-              verificación. Operamos en <strong>Bogotá, Medellín, Cali, Barranquilla,
-              Cartagena, Bucaramanga</strong> y el resto del país.
-            </p>
-            <p>
-              Encuentra <strong>llantas para automóvil</strong> en medidas comunes
-              (195/65R15, 205/55R16, 215/55R17, 225/45R17), <strong>llantas para
-              camión y tractomula</strong> (295/80R22.5, 11R22.5, 12R22.5, 315/80R22.5)
-              y <strong>llantas para SUV</strong> (265/70R16, 285/60R18). Marcas
-              disponibles: Michelin, Bridgestone, Continental, Goodyear, Pirelli,
-              Hankook, Yokohama, Cooper, Maxxis y opciones nacionales.
-            </p>
-            <p>
-              Muchos distribuidores ofrecen <strong>instalación gratuita</strong> en
-              servitecas aliadas, además de servicios de alineación, balanceo y cambio
-              de válvulas. Para flotas, integra el marketplace con el software TirePro
-              de gestión y control de llantas con IA — calcula CPK en tiempo real,
-              proyecta reemplazos y compra cuando lo necesites.
-            </p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-bold text-[#0A183A] mb-3">
-                Marcas en el marketplace
-              </h3>
-              <ul className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                <li>Michelin</li>
-                <li>Bridgestone</li>
-                <li>Continental</li>
-                <li>Goodyear</li>
-                <li>Pirelli</li>
-                <li>Hankook</li>
-                <li>Yokohama</li>
-                <li>Cooper</li>
-                <li>Maxxis</li>
-                <li>Roadlux</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-[#0A183A] mb-3">
-                Tipos de llanta disponibles
-              </h3>
-              <ul className="grid grid-cols-1 gap-2 text-sm text-gray-600">
-                <li>Llantas para automóvil</li>
-                <li>Llantas para SUV / 4x4</li>
-                <li>Llantas para camión</li>
-                <li>Llantas para tractomula</li>
-                <li>Llantas para bus</li>
-                <li>Llantas reencauchadas</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(marketplaceLd) }}

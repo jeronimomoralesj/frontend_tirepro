@@ -7,7 +7,7 @@ import {
   Loader2, Package, Truck, X, Store, MapPin,
   ChevronLeft, ChevronRight, Star,
   Recycle, Clock, Search, MessageCircle, Send, ArrowRight,
-  Car, Factory,
+  Car, Factory, Shield, CreditCard, Wrench, Sparkles, Tag,
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
@@ -321,6 +321,47 @@ function PublicMarketplace() {
   // Ranking: starts-with > word-boundary > substring. Also normalizes
   // diacritics so "bfg" / "BFGOODRICH" / "bf goodrich" all find
   // BFGoodrich. Kept at 12 max so the strip stays scannable on mobile.
+  // ─── Home-vs-results gating ────────────────────────────────────────────
+  // ?todos=1 explicitly bypasses the curated home view so users who clicked
+  // "Todo" in the nav see the actual product grid, not categories again.
+  const showAll = searchParams.get("todos") === "1";
+  const homeView = !search && !activeFilters && !showAll;
+
+  // ─── Featured strip data ───────────────────────────────────────────────
+  // recommendations.listings is empty until we accumulate sales/orders.
+  // Fall back to the default-ordered listings so the "destacadas" slot
+  // never goes blank. When the recommender has signal we also personalize
+  // the title so logged-in returning users feel addressed.
+  const featuredListings = recommendations.listings.length > 0
+    ? recommendations.listings
+    : listings;
+  const featuredTitle = recommendations.listings.length > 0
+    ? (recommendations.type === "personalized" || recommendations.type === "user_history"
+        ? "Recomendado para ti"
+        : "Llantas más vendidas")
+    : "Llantas destacadas";
+
+  // ─── Brands with actual inventory ──────────────────────────────────────
+  // BrandsStrip should never link to an empty brand page. We compute the
+  // set of brand slugs that appear in the loaded listings — if the
+  // recommender returned empty we reuse listings (same fallback).
+  const stockedBrandSlugs = useMemo(() => {
+    const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const slugs = new Set<string>();
+    const source = recommendations.listings.length > 0 ? recommendations.listings : listings;
+    for (const l of source) {
+      const meta = brandsMap.get(l.marca);
+      if (meta?.slug) slugs.add(meta.slug);
+      else {
+        // Fallback: derive a slug from the marca name when no BrandInfo row
+        // exists. Matches what the brand-page route expects.
+        const candidate = norm(l.marca).replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+        if (candidate) slugs.add(candidate);
+      }
+    }
+    return slugs;
+  }, [recommendations.listings, listings, brandsMap]);
+
   const matchingBrands = useMemo(() => {
     const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     const q = norm(search);
@@ -432,35 +473,54 @@ function PublicMarketplace() {
         </div>
       )}
 
-      {/* ═══ NEW HERO — full-bleed background + SEO + buscar por medida ═══ */}
-      {!search && !activeFilters && (
+      {/* When the user clicks "Todo" in the nav we land here with ?todos=1.
+          That bypasses the curated home view (hero / categories / etc.) and
+          drops the user straight into the full product grid. Counts as
+          "browsing all" — different from a real search/filter. */}
+      {/* ═══ HERO — dual-mode search (medida o texto) + trust signals ═══ */}
+      {homeView && (
         <MarketplaceHero
           dimensions={filters.dimensions}
           onSearchDimension={(d) => setDimension(d)}
+          onSearchText={(q) => setSearch(q)}
         />
       )}
 
+      {/* ═══ TRUST BAND — verificados, envío, pago ═══ */}
+      {homeView && <TrustBand />}
+
       {/* ═══ CATEGORÍAS ═══ */}
-      {!search && !activeFilters && (
+      {homeView && (
         <CategoriesSection
           availableDimensions={filters.dimensions}
           onPick={(rims, label) => {
             setRimSizes(rims);
             setCategoryLabel(label);
             if (typeof window !== "undefined") {
-              setTimeout(() => window.scrollTo({ top: 600, behavior: "smooth" }), 50);
+              setTimeout(() => window.scrollTo({ top: 540, behavior: "smooth" }), 50);
             }
           }}
         />
       )}
 
-      {/* ═══ LLANTAS MÁS VENDIDAS — horizontal scroll ═══ */}
-      {recommendations.listings.length > 0 && !search && !activeFilters && (
-        <BestSellersScroller listings={recommendations.listings} brandsMap={brandsMap} />
+      {/* ═══ MARCAS MÁS VENDIDAS — solo marcas con tires en inventario ═══ */}
+      {homeView && brandsMap.size > 0 && stockedBrandSlugs.size > 0 && (
+        <BrandsStrip brandsMap={brandsMap} stockedSlugs={stockedBrandSlugs} />
       )}
 
-      {/* ═══ MAPA DE DISTRIBUIDORES ═══ */}
-      {!search && !activeFilters && <DistributorsMap />}
+      {/* ═══ DESTACADAS / RECOMENDADAS — fallback a listings cuando no hay
+            recomendaciones (al inicio sin ventas el endpoint devuelve vacío) */}
+      {homeView && featuredListings.length > 0 && (
+        <BestSellersScroller listings={featuredListings} brandsMap={brandsMap} title={featuredTitle} />
+      )}
+
+      {/* ═══ OFERTAS DESTACADAS — solo listados con promo activa ═══ */}
+      {homeView && featuredListings.length > 0 && (
+        <DealsStrip listings={featuredListings} brandsMap={brandsMap} />
+      )}
+
+      {/* ═══ CÓMO FUNCIONA ═══ */}
+      {homeView && <HowItWorks />}
 
       {/* ═══ RECENT PURCHASES (personalized) ═══ */}
       {recentOrders.length > 0 && !search && !activeFilters && (
@@ -489,7 +549,7 @@ function PublicMarketplace() {
       )}
 
       {/* ═══ RESULTS ═══ */}
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6" style={{ display: !search && !activeFilters ? "none" : undefined }}>
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6" style={{ display: homeView ? "none" : undefined }}>
         {rimSizes.length > 0 && categoryLabel && (
           <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold text-white"
             style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
@@ -673,6 +733,11 @@ function PublicMarketplace() {
           </Link>
         </div>
       </div>
+      )}
+
+      {/* ═══ SEO LINK BLOCK — densely linked landing zone for crawlers ═══ */}
+      {!search && !activeFilters && brandsMap.size > 0 && (
+        <SeoLinkBlock brandsMap={brandsMap} />
       )}
 
       <MarketplaceFooter />
@@ -1508,134 +1573,168 @@ function SearchablePicker({
   );
 }
 
+// Tighter, conversion-focused hero. Two-mode search (Medida vs. Marca/Modelo)
+// keeps cognitive load low while covering both high-intent paths. Height
+// clamped at 360–420px so the user sees Categories/Best Sellers without
+// scrolling past the fold on mid-size screens.
 function MarketplaceHero({
   dimensions,
   onSearchDimension,
+  onSearchText,
 }: {
   dimensions: string[];
   onSearchDimension: (d: string) => void;
+  onSearchText: (q: string) => void;
 }) {
+  const [mode, setMode] = useState<"medida" | "texto">("medida");
   const [ancho, setAncho]   = useState("");
   const [perfil, setPerfil] = useState("");
   const [rin, setRin]       = useState("");
+  const [text, setText]     = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "texto") {
+      const q = text.trim();
+      if (!q) return;
+      onSearchText(q);
+      if (typeof window !== "undefined") window.scrollTo({ top: 540, behavior: "smooth" });
+      return;
+    }
     const a = ancho.trim().replace(",", ".");
     const p = perfil.trim().replace(",", ".");
     const r = rin.trim().replace(",", ".").replace(/^r/i, "");
     if (!a && !p && !r) return;
-    // Build a canonical dimension string. Falls back gracefully if any field
-    // is missing — the backend search is fuzzy on dimension.
-    // Canonical TirePro format is "225/60 R18" (note the space before R).
     const built = a && p && r ? `${a}/${p} R${r}` : [a, p, r].filter(Boolean).join(" ");
     onSearchDimension(built);
-    if (typeof window !== "undefined") window.scrollTo({ top: 600, behavior: "smooth" });
+    if (typeof window !== "undefined") window.scrollTo({ top: 540, behavior: "smooth" });
   }
 
   return (
     <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4">
       <section
-        className="relative rounded-2xl sm:rounded-3xl overflow-hidden min-h-[440px] sm:min-h-0"
-        style={{ height: "clamp(440px, 52vw, 520px)" }}
+        className="relative rounded-2xl sm:rounded-3xl overflow-hidden"
+        style={{ minHeight: "clamp(360px, 42vw, 420px)" }}
       >
         <img
           src={HERO_BG_SM}
           srcSet={`${HERO_BG_SM} 1x, ${HERO_BG} 2x`}
-          alt="Llantas para flotas y vehículos en Colombia — Marketplace TirePro"
+          alt="Marketplace de llantas en Colombia — TirePro"
+          fetchPriority="high"
+          decoding="async"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(135deg, rgba(10,24,58,0.92) 0%, rgba(23,61,104,0.78) 45%, rgba(30,118,182,0.45) 100%)",
+              "linear-gradient(135deg, rgba(10,24,58,0.92) 0%, rgba(23,61,104,0.82) 45%, rgba(30,118,182,0.55) 100%)",
           }}
         />
 
-        <div className="relative h-full flex flex-col justify-center px-5 py-5 sm:px-12 sm:py-0 lg:px-16 max-w-3xl">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-[9px] sm:text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-3 sm:mb-4">
+        <div className="relative flex flex-col justify-center gap-4 px-5 py-7 sm:px-10 sm:py-8 lg:px-16 max-w-3xl">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-[9px] sm:text-[10px] font-bold text-white uppercase tracking-widest w-fit">
             <Star className="w-3 h-3 text-yellow-300" />
             <span className="hidden xs:inline">Marketplace #1 de llantas en Colombia</span>
             <span className="xs:hidden">#1 en Colombia</span>
           </span>
-          <h1 className="text-[26px] leading-[1.05] sm:text-5xl lg:text-6xl font-black text-white tracking-tight">
-            Las mejores llantas
-            <br />
+
+          <h1 className="text-[28px] leading-[1.05] sm:text-5xl lg:text-[56px] font-black text-white tracking-tight">
+            Compra llantas{" "}
             <span style={{ background: "linear-gradient(90deg,#f59e0b,#fbbf24)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               al mejor precio
-            </span>
+            </span>{" "}
+            de Colombia
           </h1>
-          <p className="text-[12px] sm:text-base text-white/80 mt-2 sm:mt-3 max-w-xl leading-snug">
-            Compara llantas nuevas, reencauche e industriales de los distribuidores verificados de Colombia.
+          <p className="text-[13px] sm:text-base text-white/80 max-w-xl leading-snug -mt-1">
+            Distribuidores verificados, envío a todo el país, instalación incluida.
           </p>
 
-          {/* Buscar por medida — campo a campo */}
-          <form onSubmit={handleSubmit} className="mt-6 max-w-2xl">
-            <label className="block text-[11px] font-bold text-white/80 uppercase tracking-wider mb-1.5">
-              Buscar por medida
-            </label>
+          {/* Tab switcher — Medida (default, more common for fleet buyers) vs. Texto */}
+          <form onSubmit={handleSubmit} className="max-w-2xl">
+            <div role="tablist" aria-label="Modo de búsqueda" className="flex gap-1 mb-2">
+              {[
+                { k: "medida", label: "Por medida" },
+                { k: "texto",  label: "Por marca o modelo" },
+              ].map((t) => {
+                const active = mode === (t.k as typeof mode);
+                return (
+                  <button
+                    key={t.k}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setMode(t.k as typeof mode)}
+                    className="px-3 py-1.5 rounded-full text-[11px] font-bold transition-all"
+                    style={{
+                      background: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.10)",
+                      color: active ? "#0A183A" : "rgba(255,255,255,0.85)",
+                      border: active ? "1px solid transparent" : "1px solid rgba(255,255,255,0.20)",
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-2 p-2 rounded-2xl bg-white/95 backdrop-blur-sm shadow-2xl">
-              <div className="grid grid-cols-3 gap-2 flex-1">
-                <div className="flex flex-col px-2">
-                  <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Ancho</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={ancho}
-                    onChange={(e) => setAncho(e.target.value)}
-                    placeholder="295"
-                    className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5"
-                  />
+              {mode === "medida" ? (
+                <div className="grid grid-cols-3 gap-2 flex-1">
+                  <div className="flex flex-col px-2">
+                    <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Ancho</span>
+                    <input type="text" inputMode="numeric" value={ancho} onChange={(e) => setAncho(e.target.value)}
+                      placeholder="295" aria-label="Ancho"
+                      className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5" />
+                  </div>
+                  <div className="flex flex-col px-2 border-l border-gray-200">
+                    <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Perfil</span>
+                    <input type="text" inputMode="numeric" value={perfil} onChange={(e) => setPerfil(e.target.value)}
+                      placeholder="80" aria-label="Perfil"
+                      className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5" />
+                  </div>
+                  <div className="flex flex-col px-2 border-l border-gray-200">
+                    <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Rin</span>
+                    <input type="text" inputMode="decimal" value={rin} onChange={(e) => setRin(e.target.value)}
+                      placeholder="22.5" aria-label="Rin"
+                      className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5" />
+                  </div>
                 </div>
-                <div className="flex flex-col px-2 border-l border-gray-200">
-                  <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Perfil</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={perfil}
-                    onChange={(e) => setPerfil(e.target.value)}
-                    placeholder="80"
-                    className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5"
-                  />
+              ) : (
+                <div className="flex items-center flex-1 px-3">
+                  <Search className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+                  <input type="text" value={text} onChange={(e) => setText(e.target.value)}
+                    placeholder="Hankook DM04, Michelin XZE2..." aria-label="Buscar por marca o modelo"
+                    className="w-full bg-transparent outline-none text-sm sm:text-base font-medium text-[#0A183A] placeholder-gray-400 px-2 py-2.5" />
                 </div>
-                <div className="flex flex-col px-2 border-l border-gray-200">
-                  <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Rin</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={rin}
-                    onChange={(e) => setRin(e.target.value)}
-                    placeholder="22.5"
-                    className="w-full bg-transparent outline-none text-base font-bold text-[#0A183A] placeholder-gray-300 pb-1.5"
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
+              )}
+              <button type="submit"
                 className="px-5 sm:px-6 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 active:scale-[0.98] flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
-              >
+                style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
                 <Search className="w-4 h-4" />
                 Buscar
               </button>
             </div>
-            {dimensions.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
+
+            {mode === "medida" && dimensions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
                 <span className="text-[10px] text-white/60 self-center mr-1">Populares:</span>
                 {dimensions.slice(0, 5).map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => onSearchDimension(d)}
-                    className="px-2.5 py-1 rounded-full text-[10px] font-bold text-white bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
-                  >
+                  <button key={d} type="button" onClick={() => onSearchDimension(d)}
+                    className="px-2.5 py-1 rounded-full text-[10px] font-bold text-white bg-white/10 border border-white/20 hover:bg-white/20 transition-all">
                     {d}
                   </button>
                 ))}
               </div>
             )}
           </form>
+
+          {/* Inline trust pills — visible on first paint */}
+          <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-white/75">
+            <li className="inline-flex items-center gap-1"><Shield className="w-3 h-3 text-[#62b8f0]" /> Distribuidores verificados</li>
+            <li className="inline-flex items-center gap-1"><Truck className="w-3 h-3 text-[#62b8f0]" /> Envío nacional</li>
+            <li className="inline-flex items-center gap-1"><CreditCard className="w-3 h-3 text-[#62b8f0]" /> Pago seguro</li>
+          </ul>
         </div>
       </section>
     </div>
@@ -1767,10 +1866,362 @@ function CategoriesSection({
 }
 
 // =============================================================================
+// Trust band — 4 micro-cards establishing credibility right after the hero.
+// Conversion role: addresses the "is this real?" concern in <2 seconds before
+// the user has to think about it. Mobile collapses to a 2x2 grid.
+// =============================================================================
+
+const TRUST_ITEMS: Array<{ icon: React.ComponentType<{ className?: string }>; title: string; sub: string }> = [
+  { icon: Shield,     title: "Distribuidores verificados", sub: "Cada vendedor pasa nuestro filtro de calidad." },
+  { icon: Truck,      title: "Envío a toda Colombia",      sub: "Bogotá, Medellín, Cali, Barranquilla y más." },
+  { icon: CreditCard, title: "Pago 100% seguro",            sub: "Tarjeta, PSE, Nequi. Compra protegida." },
+];
+
+function TrustBand() {
+  return (
+    <section
+      aria-labelledby="trust-band-heading"
+      className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-6 sm:pt-8"
+    >
+      <h2 id="trust-band-heading" className="sr-only">Por qué comprar llantas en TirePro</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        {TRUST_ITEMS.map((t) => {
+          const Icon = t.icon;
+          return (
+            <div key={t.title}
+              className="flex items-start gap-3 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100"
+              style={{ boxShadow: "0 4px 14px -8px rgba(10,24,58,0.12)" }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "linear-gradient(135deg,rgba(30,118,182,0.10),rgba(52,140,203,0.05))", border: "1px solid rgba(30,118,182,0.15)" }}>
+                <Icon className="w-4 h-4 text-[#1E76B6]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[12px] sm:text-sm font-black text-[#0A183A] leading-tight">{t.title}</p>
+                <p className="text-[10px] sm:text-[11px] text-gray-500 leading-snug mt-0.5 hidden sm:block">{t.sub}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// =============================================================================
+// Top-brands strip — visual entry points to the highest-intent brand pages.
+// Drives both internal-link SEO ("Hankook Colombia", "Michelin tractomula")
+// and one-click navigation for users who already know the brand they want.
+// =============================================================================
+
+function BrandsStrip({ brandsMap, stockedSlugs }: { brandsMap: BrandsMap; stockedSlugs: Set<string> }) {
+  // Curated preference list — ordered by typical Colombian fleet preference.
+  // We only render brands that are BOTH on the curated list AND have actual
+  // inventory (in stockedSlugs), so clicking a tile never lands on an empty
+  // brand page. If fewer than 8 curated brands have stock we top up with
+  // any other stocked brand so the strip stays full.
+  const PREFERRED = [
+    "Michelin", "Bridgestone", "Continental", "Goodyear",
+    "Hankook", "Pirelli", "Yokohama", "Firestone",
+  ];
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  const curated = PREFERRED
+    .map((name) => {
+      for (const meta of brandsMap.values()) {
+        if (norm(meta.name) === norm(name) && stockedSlugs.has(meta.slug)) return meta;
+      }
+      return null;
+    })
+    .filter((b): b is BrandMeta => b !== null);
+
+  // Top up with other stocked brands if curated covers <8.
+  const topUp: BrandMeta[] = [];
+  if (curated.length < 8) {
+    const have = new Set(curated.map((b) => b.slug));
+    for (const meta of brandsMap.values()) {
+      if (topUp.length + curated.length >= 8) break;
+      if (!have.has(meta.slug) && stockedSlugs.has(meta.slug)) topUp.push(meta);
+    }
+  }
+  const items = [...curated, ...topUp];
+
+  if (items.length === 0) return null;
+
+  return (
+    <section
+      aria-labelledby="brands-heading"
+      className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-7 sm:pt-8"
+    >
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          <h2 id="brands-heading" className="text-base sm:text-xl font-black text-[#0A183A]">
+            Marcas más vendidas
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5 hidden sm:block">
+            Las preferidas por flotas y conductores en Colombia.
+          </p>
+        </div>
+        <Link href="/marketplace?todos=1" className="text-[11px] font-bold text-[#1E76B6] hover:underline whitespace-nowrap">
+          Ver todas →
+        </Link>
+      </div>
+      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-3">
+        {items.map((b) => (
+          <Link key={b.slug} href={`/marketplace/brand/${b.slug}`}
+            className="group flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100 hover:border-[#1E76B6]/40 hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-[#fafafa] flex items-center justify-center overflow-hidden p-1">
+              {b.logoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={b.logoUrl} alt={`Llantas ${b.name} en Colombia`} className="max-w-full max-h-full object-contain" />
+              ) : (
+                <span className="text-base font-black text-[#0A183A]">{b.name.charAt(0)}</span>
+              )}
+            </div>
+            <span className="text-[10px] sm:text-[11px] font-bold text-[#0A183A] text-center leading-tight truncate w-full">{b.name}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// =============================================================================
+// Deals strip — only listings with an active promo. High-conversion zone:
+// urgency cue + visible discount in COP.
+// =============================================================================
+
+function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: BrandsMap }) {
+  const fmtCOP = (n: number) =>
+    new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+
+  const deals = listings.filter((l) =>
+    l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date()
+  );
+
+  if (deals.length === 0) return null;
+
+  return (
+    <section
+      aria-labelledby="deals-heading"
+      className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-7 sm:pt-8"
+    >
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          <h2 id="deals-heading" className="text-base sm:text-xl font-black text-[#0A183A] inline-flex items-center gap-2">
+            <Tag className="w-4 h-4 text-[#1E76B6]" />
+            Ofertas destacadas
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5 hidden sm:block">
+            Promociones por tiempo limitado de distribuidores verificados.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        {deals.slice(0, 8).map((l) => {
+          const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+          const cover = imgs[l.coverIndex ?? 0] ?? imgs[0];
+          const discount = Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100);
+          const meta = brandsMap?.get(l.marca);
+          return (
+            <Link key={l.id} href={`/marketplace/product/${l.id}`}
+              className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-[#1E76B6]/30 hover:shadow-lg hover:-translate-y-0.5 transition-all group block">
+              <div className="relative aspect-square flex items-center justify-center overflow-hidden bg-[#fafafa]">
+                {cover ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={cover}
+                    alt={`Llanta ${l.marca} ${l.modelo} ${l.dimension} con descuento — Comprar en Colombia`}
+                    className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300" />
+                ) : (
+                  <Package className="w-10 h-10 text-gray-200" />
+                )}
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black text-white bg-red-500 shadow-sm">
+                  -{discount}%
+                </span>
+                {meta?.logoUrl && (
+                  <div className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white shadow-sm p-1 overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={meta.logoUrl} alt="" className="w-full h-full object-contain" />
+                  </div>
+                )}
+              </div>
+              <div className="p-3">
+                <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest truncate">{l.marca}</p>
+                <p className="text-sm font-black text-[#0A183A] leading-snug truncate">{l.modelo}</p>
+                <p className="text-[10px] text-gray-400">{l.dimension}</p>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="text-base font-black text-[#0A183A]">{fmtCOP(l.precioPromo!)}</span>
+                  <span className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</span>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// =============================================================================
+// How it works — 3-step strip. Sets buyer expectations and answers "what
+// happens after I click?" before the user has to ask.
+// =============================================================================
+
+function HowItWorks() {
+  const steps = [
+    { n: "01", icon: Search,       title: "Busca tu llanta",     sub: "Por medida, marca, modelo o vehículo." },
+    { n: "02", icon: Sparkles,     title: "Compara y elige",     sub: "Precios y CPK de distribuidores verificados." },
+    { n: "03", icon: ShoppingCartIcon, title: "Compra y recibe",  sub: "Pago seguro. Envío e instalación incluidos." },
+  ];
+  return (
+    <section
+      aria-labelledby="howitworks-heading"
+      className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-10"
+    >
+      <h2 id="howitworks-heading" className="text-base sm:text-xl font-black text-[#0A183A] mb-3">
+        Cómo funciona
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        {steps.map((s) => {
+          const Icon = s.icon;
+          return (
+            <div key={s.n} className="relative p-4 sm:p-5 rounded-2xl bg-white border border-gray-100 overflow-hidden"
+              style={{ boxShadow: "0 4px 14px -8px rgba(10,24,58,0.10)" }}>
+              <div className="absolute -top-4 -right-2 text-[64px] leading-none font-black text-[#0A183A]/[0.04] select-none">{s.n}</div>
+              <div className="relative flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-[#0A183A]">{s.title}</p>
+                  <p className="text-xs text-gray-500 leading-snug mt-0.5">{s.sub}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// Local cart icon — keeps imports minimal (HowItWorks needs it).
+function ShoppingCartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="21" r="1" />
+      <circle cx="19" cy="21" r="1" />
+      <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+    </svg>
+  );
+}
+
+// =============================================================================
+// SEO link block — dense internal-linking section. Boosts keyword coverage
+// for high-volume queries like "llantas Bogotá", "llantas 295/80R22.5",
+// "comprar llantas Hankook", and feeds Googlebot a discovery surface for
+// brand + dimension + city pages.
+// =============================================================================
+
+const SEO_CITIES = [
+  "Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga",
+  "Cartagena", "Pereira", "Cúcuta", "Ibagué", "Manizales",
+];
+const SEO_DIMENSIONS = [
+  "295/80R22.5", "11R22.5", "315/80R22.5", "12R22.5",
+  "265/70R16", "285/60R18", "205/55R16", "195/65R15",
+];
+const SEO_USES = [
+  { q: "tractomula",   label: "Llantas para tractomula" },
+  { q: "camion",       label: "Llantas para camión" },
+  { q: "bus",          label: "Llantas para bus" },
+  { q: "camioneta",    label: "Llantas para camioneta" },
+  { q: "reencauche",   label: "Llantas reencauchadas" },
+];
+
+function SeoLinkBlock({ brandsMap }: { brandsMap: BrandsMap }) {
+  const PREFERRED = ["Michelin", "Bridgestone", "Continental", "Goodyear", "Hankook", "Pirelli", "Yokohama", "Firestone"];
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const brandLinks = PREFERRED
+    .map((name) => {
+      for (const meta of brandsMap.values()) if (norm(meta.name) === norm(name)) return meta;
+      return null;
+    })
+    .filter((b): b is BrandMeta => b !== null);
+
+  return (
+    <section
+      aria-labelledby="seo-links-heading"
+      className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-10 pb-4"
+    >
+      <div className="rounded-2xl bg-white border border-gray-100 p-5 sm:p-7"
+        style={{ boxShadow: "0 4px 14px -8px rgba(10,24,58,0.10)" }}>
+        <h2 id="seo-links-heading" className="text-base sm:text-lg font-black text-[#0A183A] mb-4">
+          Compra llantas en Colombia
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {brandLinks.length > 0 && (
+            <div>
+              <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">Por marca</h3>
+              <ul className="space-y-1.5">
+                {brandLinks.map((b) => (
+                  <li key={b.slug}>
+                    <Link href={`/marketplace/brand/${b.slug}`} className="text-xs text-gray-600 hover:text-[#1E76B6] hover:underline">
+                      Llantas {b.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div>
+            <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">Por uso</h3>
+            <ul className="space-y-1.5">
+              {SEO_USES.map((u) => (
+                <li key={u.q}>
+                  <Link href={`/marketplace?q=${encodeURIComponent(u.q)}`} className="text-xs text-gray-600 hover:text-[#1E76B6] hover:underline">
+                    {u.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">Por medida</h3>
+            <ul className="space-y-1.5">
+              {SEO_DIMENSIONS.map((d) => (
+                <li key={d}>
+                  <Link href={`/marketplace?q=${encodeURIComponent(d)}`} className="text-xs text-gray-600 hover:text-[#1E76B6] hover:underline">
+                    Llantas {d}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">Por ciudad</h3>
+            <ul className="space-y-1.5">
+              {SEO_CITIES.map((c) => (
+                <li key={c}>
+                  <Link href={`/marketplace?q=${encodeURIComponent(c)}`} className="text-xs text-gray-600 hover:text-[#1E76B6] hover:underline">
+                    Llantas en {c}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// =============================================================================
 // Llantas más vendidas — horizontal scroller
 // =============================================================================
 
-function BestSellersScroller({ listings, brandsMap }: { listings: Listing[]; brandsMap?: BrandsMap }) {
+function BestSellersScroller({ listings, brandsMap, title }: { listings: Listing[]; brandsMap?: BrandsMap; title?: string }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
   function scroll(dir: 1 | -1) {
     const el = ref.current;
@@ -1781,7 +2232,7 @@ function BestSellersScroller({ listings, brandsMap }: { listings: Listing[]; bra
     <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-10">
       <div className="flex items-end justify-between mb-3">
         <div>
-          <h2 className="text-base sm:text-xl font-black text-[#0A183A]">Llantas más vendidas</h2>
+          <h2 className="text-base sm:text-xl font-black text-[#0A183A]">{title ?? "Llantas más vendidas"}</h2>
           <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Las favoritas de las flotas en Colombia</p>
         </div>
         <div className="hidden sm:flex gap-1.5">
@@ -1809,274 +2260,6 @@ function BestSellersScroller({ listings, brandsMap }: { listings: Listing[]; bra
   );
 }
 
-// =============================================================================
-// Mapa de distribuidores — Leaflet with one pin per cobertura point
-// =============================================================================
-
-interface MapDistributor {
-  id: string;
-  slug?: string | null;
-  name: string;
-  profileImage: string | null;
-  ciudad: string | null;
-  telefono: string | null;
-  cobertura: Array<{ lat: number; lng: number; ciudad?: string; nombre?: string }>;
-  _count?: { listings: number };
-  categories?: string[];
-}
-
-// Category metadata for the map filter chips. Order = display order on the
-// chip row. Keys must match what the backend categorizer emits.
-const MAP_CATEGORIES: Array<{ key: string; label: string; emoji: string }> = [
-  { key: "tractomula", label: "Tractomula y camión", emoji: "🚛" },
-  { key: "bus",        label: "Bus",                 emoji: "🚌" },
-  { key: "suv",        label: "SUV y camioneta",     emoji: "🚙" },
-  { key: "automovil",  label: "Automóvil",           emoji: "🚗" },
-  { key: "reencauche", label: "Reencauche",          emoji: "♻️" },
-];
-
-function DistributorsMap() {
-  const [data, setData] = useState<MapDistributor[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const mapRef = React.useRef<any>(null);
-
-  // Fetch distributor map data
-  useEffect(() => {
-    fetch(`${API_BASE}/marketplace/distributors/map`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d: MapDistributor[]) => setData(Array.isArray(d) ? d : []))
-      .catch(() => setData([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  // Filtered view based on the selected category chip. Empty/null = show all.
-  const visible = activeCategory
-    ? data.filter((d) => (d.categories ?? []).includes(activeCategory))
-    : data;
-
-  // Only show category chips that at least one distributor covers — avoids
-  // a "Reencauche" chip when no distributor sells reencauche, etc.
-  const availableCats = new Set<string>();
-  for (const d of data) for (const c of d.categories ?? []) availableCats.add(c);
-
-  // Lazy-load Leaflet from CDN once and render the map. We re-run on filter
-  // change so pins update without needing a custom Leaflet diff layer.
-  useEffect(() => {
-    if (typeof window === "undefined" || visible.length === 0 || !containerRef.current) return;
-
-    const ensureLeaflet = (): Promise<any> =>
-      new Promise((resolve) => {
-        const w = window as any;
-        if (w.L) return resolve(w.L);
-        // CSS
-        if (!document.getElementById("leaflet-css")) {
-          const link = document.createElement("link");
-          link.id = "leaflet-css";
-          link.rel = "stylesheet";
-          link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-          document.head.appendChild(link);
-        }
-        // JS
-        const existing = document.getElementById("leaflet-js") as HTMLScriptElement | null;
-        if (existing) {
-          existing.addEventListener("load", () => resolve((window as any).L));
-          return;
-        }
-        const script = document.createElement("script");
-        script.id = "leaflet-js";
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-        script.async = true;
-        script.onload = () => resolve((window as any).L);
-        document.body.appendChild(script);
-      });
-
-    let cancelled = false;
-    ensureLeaflet().then((L) => {
-      if (cancelled || !containerRef.current) return;
-
-      // Reset any previous map instance (HMR or re-render)
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-
-      const map = L.map(containerRef.current, {
-        scrollWheelZoom: false,
-        zoomControl: true,
-      }).setView([4.5709, -74.2973], 6); // Colombia center
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap",
-        maxZoom: 18,
-      }).addTo(map);
-
-      const allPoints: [number, number][] = [];
-      visible.forEach((d) => {
-        (d.cobertura || []).forEach((p) => {
-          if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
-          allPoints.push([p.lat, p.lng]);
-          const marker = L.marker([p.lat, p.lng]).addTo(map);
-          const cityLine = p.ciudad || p.nombre || d.ciudad || "";
-          // Compact category chips for the popup. Limited to 3 so the popup
-          // doesn't grow unbounded for distributors that cover everything.
-          const cats = (d.categories ?? [])
-            .map((k) => MAP_CATEGORIES.find((m) => m.key === k))
-            .filter(Boolean)
-            .slice(0, 3) as Array<{ label: string; emoji: string }>;
-          const catLine = cats.length
-            ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${cats
-                .map((c) => `<span style="font-size:10px;font-weight:700;color:#1E76B6;background:rgba(30,118,182,0.08);padding:2px 6px;border-radius:9999px">${c.emoji} ${escapeHtml(c.label)}</span>`)
-                .join("")}</div>`
-            : "";
-          marker.bindPopup(
-            `<div style="min-width:180px">
-              <div style="font-weight:800;color:#0A183A;font-size:13px">${escapeHtml(d.name)}</div>
-              ${cityLine ? `<div style="color:#666;font-size:11px;margin-top:2px">${escapeHtml(cityLine)}</div>` : ""}
-              ${catLine}
-              <a href="/marketplace/distributor/${d.slug ?? d.id}" style="display:inline-block;margin-top:8px;color:#1E76B6;font-size:11px;font-weight:700">Ver catálogo →</a>
-            </div>`
-          );
-        });
-      });
-
-      if (allPoints.length > 0) {
-        map.fitBounds(allPoints, { padding: [40, 40], maxZoom: 11 });
-      }
-
-      mapRef.current = map;
-    });
-
-    return () => {
-      cancelled = true;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, [visible]);
-
-  const visiblePoints = visible.reduce((acc, d) => acc + (d.cobertura?.length || 0), 0);
-  const activeMeta = activeCategory
-    ? MAP_CATEGORIES.find((m) => m.key === activeCategory)
-    : null;
-
-  return (
-    <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-10">
-      <div className="flex items-end justify-between mb-3">
-        <div>
-          <h2 className="text-base sm:text-xl font-black text-[#0A183A]">Distribuidores en Colombia</h2>
-          <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
-            {loading
-              ? "Cargando…"
-              : `${visible.length} distribuidor${visible.length !== 1 ? "es" : ""} · ${visiblePoints} punto${visiblePoints !== 1 ? "s" : ""} de cobertura${activeMeta ? ` · ${activeMeta.label}` : ""}`}
-          </p>
-        </div>
-      </div>
-
-      {/* Category filter chips — drives both the map pins and the
-          distributor strip below. "Todos" resets to the unfiltered view. */}
-      {data.length > 0 && availableCats.size > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-2 mb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
-          <button
-            onClick={() => setActiveCategory(null)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black transition-all"
-            style={{
-              background: activeCategory === null
-                ? "linear-gradient(135deg,#0A183A,#1E76B6)"
-                : "white",
-              color: activeCategory === null ? "white" : "#0A183A",
-              border: activeCategory === null
-                ? "1px solid transparent"
-                : "1px solid rgba(10,24,58,0.1)",
-              boxShadow: activeCategory === null
-                ? "0 6px 14px rgba(30,118,182,0.25)"
-                : "none",
-            }}
-          >
-            Todos
-          </button>
-          {MAP_CATEGORIES.filter((c) => availableCats.has(c.key)).map((c) => {
-            const active = activeCategory === c.key;
-            const count = data.filter((d) => (d.categories ?? []).includes(c.key)).length;
-            return (
-              <button
-                key={c.key}
-                onClick={() => setActiveCategory(active ? null : c.key)}
-                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black transition-all"
-                style={{
-                  background: active
-                    ? "linear-gradient(135deg,#0A183A,#1E76B6)"
-                    : "white",
-                  color: active ? "white" : "#0A183A",
-                  border: active
-                    ? "1px solid transparent"
-                    : "1px solid rgba(10,24,58,0.1)",
-                  boxShadow: active
-                    ? "0 6px 14px rgba(30,118,182,0.25)"
-                    : "none",
-                }}
-              >
-                <span aria-hidden>{c.emoji}</span>
-                {c.label}
-                <span
-                  className="text-[9px] px-1.5 py-0.5 rounded-full"
-                  style={{
-                    background: active ? "rgba(255,255,255,0.2)" : "rgba(10,24,58,0.06)",
-                    color: active ? "white" : "#1E76B6",
-                  }}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Small distributor strip — horizontal scroll above the map */}
-      {visible.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-3 -mx-3 px-3 sm:mx-0 sm:px-0">
-          {visible.map((d) => (
-            <Link
-              key={d.id}
-              href={`/marketplace/distributor/${d.slug ?? d.id}`}
-              className="flex-shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white border border-gray-100 hover:border-[#1E76B6]/40 hover:shadow-md transition-all"
-              style={{ maxWidth: 200 }}
-            >
-              <div className="w-7 h-7 rounded-full bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {d.profileImage && d.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
-                  <img src={d.profileImage} alt={d.name} className="w-full h-full object-contain p-0.5" />
-                ) : (
-                  <Store className="w-3.5 h-3.5 text-gray-400" />
-                )}
-              </div>
-              <span className="text-[11px] font-bold text-[#0A183A] truncate">{d.name}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm relative">
-        <div ref={containerRef} className="w-full h-[320px] sm:h-[460px]" />
-        {!loading && visible.length === 0 && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none bg-white/85 backdrop-blur-[2px]">
-            <Package className="w-8 h-8 text-gray-300 mb-2" />
-            <p className="text-xs font-bold text-[#0A183A]">Sin distribuidores en esta categoría</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">Prueba otra categoría o muestra todos.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 
 // =============================================================================
 // Product Card

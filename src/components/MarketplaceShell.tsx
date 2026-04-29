@@ -241,7 +241,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
           <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-0.5 py-2 overflow-x-auto scrollbar-hide">
               {[
-                { href: "/marketplace", label: "Todo" },
+                { href: "/marketplace?todos=1", label: "Todo" },
                 { href: "/marketplace?tipo=nueva", label: "Nuevas" },
                 { href: "/marketplace?tipo=reencauche", label: "Reencauche" },
                 { href: "/marketplace", label: "Distribuidores", icon: true },
@@ -301,7 +301,7 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
                 </>
               )}
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">Categorias</p>
-              <a href="/marketplace" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Todo</a>
+              <a href="/marketplace?todos=1" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Todo</a>
               <a href="/marketplace?tipo=nueva" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas Nuevas</a>
               <a href="/marketplace?tipo=reencauche" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Reencauche</a>
               <div className="h-px bg-gray-100 my-2" />

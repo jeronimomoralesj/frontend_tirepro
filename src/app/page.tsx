@@ -177,12 +177,63 @@ async function getBestSellers() {
   return []
 }
 
+// Distributor cards on the landing page need real names + cities + listing
+// counts so the new "Distribuidores verificados" section is more than just a
+// brand wall. Cached for 6h since distributors don't churn often. Fallback
+// to [] keeps render server-side even if the API is down.
+async function getDistributors() {
+  for (const base of API_BASES) {
+    try {
+      const res = await fetch(`${base}/marketplace/distributors/map`, {
+        next: { revalidate: 21600 }, // 6 hours
+      })
+      if (!res.ok) continue
+      const data = await res.json()
+      return Array.isArray(data) ? data : []
+    } catch {
+      continue
+    }
+  }
+  return []
+}
+
+// Brand strip — used in the marketplace too. Caching at 12h since brand
+// rosters move on the order of weeks. We only need name + slug + logoUrl.
+async function getBrands() {
+  for (const base of API_BASES) {
+    try {
+      const res = await fetch(`${base}/marketplace/brands`, {
+        next: { revalidate: 43200 }, // 12 hours
+      })
+      if (!res.ok) continue
+      const data = await res.json()
+      return Array.isArray(data) ? data : []
+    } catch {
+      continue
+    }
+  }
+  return []
+}
+
 export default async function Page() {
-  const [articles, bestSellers] = await Promise.all([getArticles(), getBestSellers()])
+  const [articles, bestSellers, distributors, brands] = await Promise.all([
+    getArticles(),
+    getBestSellers(),
+    getDistributors(),
+    getBrands(),
+  ])
+  // The redesigned landing only consumes bestSellers / distributors / brands.
+  // articles still fetched so we can lift them back into a future blog strip
+  // without needing another revalidation pass.
+  void articles
 
   return (
     <>
-      <TireProLanding initialArticles={articles} bestSellers={bestSellers} />
+      <TireProLanding
+        bestSellers={bestSellers}
+        distributors={distributors}
+        brands={brands}
+      />
 
       {/*
         Server-rendered SEO content. Visible to users when they scroll past
