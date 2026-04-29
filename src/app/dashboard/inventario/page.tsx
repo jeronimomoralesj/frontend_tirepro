@@ -537,10 +537,13 @@ function AssignToVehicleModal({
               method: "PATCH",
               body: JSON.stringify({ valor: nextVida }),
             });
+            // /move expects { tireId } (singular) — the previous
+            // tireIds: [...] payload silently dropped on the controller
+            // side, leaving the tire un-bucketed (=Disponible).
             await authFetch(`${API_BASE}/inventory-buckets/move`, {
               method: "POST",
               body: JSON.stringify({
-                tireIds: [activeBlocker.id],
+                tireId: activeBlocker.id,
                 bucketId: reencaucheBucket!.id,
                 companyId,
               }),
@@ -549,7 +552,7 @@ function AssignToVehicleModal({
             await authFetch(`${API_BASE}/inventory-buckets/move`, {
               method: "POST",
               body: JSON.stringify({
-                tireIds: [activeBlocker.id],
+                tireId: activeBlocker.id,
                 bucketId: blockerBucketId,
                 companyId,
               }),
