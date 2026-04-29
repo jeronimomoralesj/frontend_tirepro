@@ -64,6 +64,10 @@ interface OccupiedTire {
   posicion: number;
   marca?: string;
   diseno?: string;
+  // Used to compute the next reencauche cycle when the user picks the
+  // "Reencauchar" blocker action. Falls back to "nueva" when the API
+  // omits it so the advance still works.
+  vidaActual?: string;
 }
 
 interface InventoryTire {
@@ -398,6 +402,53 @@ function AssignToVehicleModal({
   const [finCausales, setFinCausales] = useState("");
   const [finMm, setFinMm] = useState("");
 
+  // Reencauche-cycle inputs. Mirror the /agregar Vida tab's reencauche
+  // payload — banda + bandaMarca + proveedor (typeahead over real
+  // distribuidores) + profundidad + costo — so the data the operations
+  // team relies on lands in the same shape regardless of the surface.
+  const [reBanda, setReBanda] = useState("");
+  const [reBandaMarca, setReBandaMarca] = useState("");
+  const [reProfundidad, setReProfundidad] = useState("");
+  const [reCosto, setReCosto] = useState("");
+  // Proveedor typeahead — searches /companies/search/by-name with
+  // distributorsOnly=true. Allows a free-text fallback when the
+  // distribuidor isn't registered in TirePro yet.
+  const [proveedorQuery, setProveedorQuery] = useState("");
+  const [proveedorResults, setProveedorResults] = useState<Array<{ id: string | null; name: string }>>([]);
+  const [proveedorLoading, setProveedorLoading] = useState(false);
+  const [showProveedorDropdown, setShowProveedorDropdown] = useState(false);
+  const [selectedProveedor, setSelectedProveedor] = useState<{ id: string | null; name: string } | null>(null);
+  const [successMsg, setSuccessMsg] = useState("");
+
+  // Debounced distribuidor search.
+  useEffect(() => {
+    const q = proveedorQuery.trim();
+    if (!q || selectedProveedor?.name === q) { setProveedorResults([]); return; }
+    let cancelled = false;
+    setProveedorLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await authFetch(
+          `${API_BASE}/companies/search/by-name?q=${encodeURIComponent(q)}&distributorsOnly=true${companyId ? `&exclude=${companyId}` : ""}`,
+        );
+        if (!res.ok) throw new Error();
+        const data: Array<{ id: string; name: string }> = await res.json();
+        if (!cancelled) {
+          setProveedorResults(data);
+          setShowProveedorDropdown(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setProveedorResults([]);
+          setShowProveedorDropdown(true);
+        }
+      } finally {
+        if (!cancelled) setProveedorLoading(false);
+      }
+    }, 220);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [proveedorQuery, companyId, selectedProveedor]);
+
   // Reencauche bucket (system-managed). Identified by tipo first, then by
   // name — both fall back to null when no such bucket exists.
   const reencaucheBucket = useMemo(
@@ -460,10 +511,21 @@ function AssignToVehicleModal({
       const occupied: any[] = await res.json();
       // The same tire is allowed to keep its own slot (no-op assignment).
       const blockerHit = (Array.isArray(occupied) ? occupied : [])
-        .map((t) => ({ id: t.id, posicion: Number(t.posicion), marca: t.marca, diseno: t.diseno }))
+        .map((t) => ({
+          id: t.id,
+          posicion: Number(t.posicion),
+          marca: t.marca,
+          diseno: t.diseno,
+          // Capture vida so the Reencauche path can advance to the
+          // correct next cycle for THIS tire (not the assignee).
+          vidaActual: typeof t.vidaActual === "string" ? t.vidaActual : undefined,
+        }))
         .find((t) => t.posicion === pos && t.id !== tire.id);
       if (blockerHit) {
         setBlocker(blockerHit);
+        // Pre-fill the reencauche form with the blocker's current diseño
+        // as banda — most users keep the same banda; they can override.
+        if (blockerHit.diseno) setReBanda(blockerHit.diseno);
         setStep("blocker");
       } else {
         await submit(null);
@@ -487,9 +549,31 @@ function AssignToVehicleModal({
       if (blockerAction === "fin") {
         if (!finCausales.trim()) { setErr("Ingresa la causa del fin de vida"); return; }
         if (!finMm.trim() || isNaN(parseFloat(finMm))) { setErr("Ingresa los milímetros desechados"); return; }
-      } else if (blockerAction === "reencauche" && !reencaucheBucket) {
-        setErr("No hay un bucket de Reencauche configurado en tu empresa");
-        return;
+      } else if (blockerAction === "reencauche") {
+        if (!reencaucheBucket) {
+          setErr("No hay un bucket de Reencauche configurado en tu empresa");
+          return;
+        }
+        if (!reBanda.trim()) { setErr("Ingresa el diseño de la nueva banda"); return; }
+        if (!selectedProveedor) { setErr("Selecciona el proveedor del reencauche"); return; }
+        if (!reProfundidad.trim() || isNaN(parseFloat(reProfundidad)) || parseFloat(reProfundidad) <= 0) {
+          setErr("Ingresa la profundidad inicial (mm) del reencauche");
+          return;
+        }
+        if (!reCosto.trim() || isNaN(parseFloat(reCosto)) || parseFloat(reCosto) <= 0) {
+          setErr("Ingresa el costo del reencauche");
+          return;
+        }
+        // Reencauche only makes sense if the tire still has a viable next
+        // cycle. Block users from sending a tire on its 4th life back to
+        // reencauche — the backend would reject anyway, fail-fast here.
+        const VIDA_ORDER = ["nueva", "reencauche1", "reencauche2", "reencauche3"];
+        const cur = (activeBlocker.vidaActual ?? "nueva").toLowerCase();
+        const idx = VIDA_ORDER.indexOf(cur);
+        if (idx >= VIDA_ORDER.length - 1) {
+          setErr("Esta llanta ya completó sus reencauches disponibles");
+          return;
+        }
       }
     }
 
@@ -522,24 +606,34 @@ function AssignToVehicleModal({
           });
 
           if (blockerAction === "reencauche") {
-            // Advance vida to next reencauche cycle, then drop into the
-            // reencauche bucket. We don't have proveedor / costo from this
-            // surface, so we only bump the vida value — keeps parity with
-            // analista/pedidos minimal-input behavior.
+            // Advance the BLOCKER's vida (not the assignee's) to the next
+            // reencauche cycle and persist the full reencauche payload —
+            // banda, proveedor, profundidad inicial and (optional) costo.
+            // Mirrors the /agregar Vida tab so downstream analytics see
+            // the same shape regardless of where the action came from.
             const VIDA_ORDER = ["nueva", "reencauche1", "reencauche2", "reencauche3"];
-            const cur = (tire.vidaActual ?? "nueva").toLowerCase();
-            // We're advancing the BLOCKER, not the assignee tire, but we
-            // don't have the blocker's vidaActual on this surface — fall
-            // back to "reencauche1" if cur is unrecognized.
+            const cur = (activeBlocker.vidaActual ?? "nueva").toLowerCase();
             const idx = VIDA_ORDER.indexOf(cur);
             const nextVida = idx >= 0 && idx < VIDA_ORDER.length - 1 ? VIDA_ORDER[idx + 1] : "reencauche1";
-            await authFetch(`${API_BASE}/tires/${activeBlocker.id}/vida`, {
+            const r = await authFetch(`${API_BASE}/tires/${activeBlocker.id}/vida`, {
               method: "PATCH",
-              body: JSON.stringify({ valor: nextVida }),
+              body: JSON.stringify({
+                valor:              nextVida,
+                banda:              reBanda.trim(),
+                // Only send bandaMarca when filled — backend treats omission
+                // as "keep using banda as the brand" (mirrors Vida tab).
+                ...(reBandaMarca.trim() ? { bandaMarca: reBandaMarca.trim() } : {}),
+                proveedor:          selectedProveedor!.name,
+                profundidadInicial: parseFloat(reProfundidad),
+                costo:              parseFloat(reCosto),
+              }),
             });
-            // /move expects { tireId } (singular) — the previous
-            // tireIds: [...] payload silently dropped on the controller
-            // side, leaving the tire un-bucketed (=Disponible).
+            if (!r.ok) {
+              const body = await r.json().catch(() => ({}));
+              throw new Error(body?.message ?? "Error al avanzar reencauche");
+            }
+            // /move expects { tireId } (singular) — the bulk endpoint is
+            // /bulk-move, which we explicitly don't want here.
             await authFetch(`${API_BASE}/inventory-buckets/move`, {
               method: "POST",
               body: JSON.stringify({
@@ -577,7 +671,28 @@ function AssignToVehicleModal({
         throw new Error(body?.message ?? "Error al asignar la llanta");
       }
 
-      onDone();
+      // Build a precise success line so the user sees what actually
+      // happened to the displaced tire.
+      const blockerName = activeBlocker
+        ? `${activeBlocker.marca ?? "La llanta anterior"}${activeBlocker.diseno ? ` ${activeBlocker.diseno}` : ""}`
+        : null;
+      let msg = `Llanta asignada a ${vehiclePlaca} P${pos}.`;
+      if (blockerName) {
+        if (blockerAction === "reencauche") {
+          msg += ` ${blockerName} enviada al bucket de Reencauche con su nueva banda.`;
+        } else if (blockerAction === "fin") {
+          msg += ` ${blockerName} marcada como fin de vida.`;
+        } else if (blockerBucketId === "__disponible__") {
+          msg += ` ${blockerName} movida a Disponible.`;
+        } else {
+          const bName = buckets.find((b) => b.id === blockerBucketId)?.nombre ?? "inventario";
+          msg += ` ${blockerName} movida a "${bName}".`;
+        }
+      }
+      setSuccessMsg(msg);
+      // Hold the modal open briefly so the user can read the
+      // confirmation, then close + refresh the parent.
+      setTimeout(() => onDone(), 1800);
     } catch (e: any) {
       setErr(e?.message ?? "Error inesperado");
     } finally {
@@ -602,7 +717,17 @@ function AssignToVehicleModal({
         </div>
 
         <div className="p-5 space-y-4">
-          {step === "pick" && (
+          {/* Persistent success banner — surfaces what happened to BOTH
+              the assignee tire and the displaced blocker. Closes on its
+              own via the setTimeout in submit(). */}
+          {successMsg && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <p className="text-[12px] text-emerald-900 leading-snug font-medium">{successMsg}</p>
+            </div>
+          )}
+
+          {!successMsg && step === "pick" && (
             <>
               {/* Vehicle picker */}
               <div className="relative">
@@ -689,7 +814,7 @@ function AssignToVehicleModal({
             </>
           )}
 
-          {step === "blocker" && blocker && (
+          {!successMsg && step === "blocker" && blocker && (
             <>
               <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
                 <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -740,7 +865,7 @@ function AssignToVehicleModal({
                     !reencaucheBucket
                       ? "border-gray-200 opacity-50 cursor-not-allowed"
                       : blockerAction === "reencauche"
-                        ? "border-[#1E76B6] bg-[#F0F7FF] cursor-pointer"
+                        ? "border-purple-400 bg-purple-50 cursor-pointer"
                         : "border-gray-200 hover:bg-gray-50 cursor-pointer"
                   }`}
                 >
@@ -756,6 +881,114 @@ function AssignToVehicleModal({
                           ? "Avanza la vida y envía al bucket de Reencauche."
                           : "Tu empresa no tiene un bucket de Reencauche configurado."}
                       </p>
+                      {blockerAction === "reencauche" && reencaucheBucket && (
+                        <div className="mt-2 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-[#0A183A] mb-1">Marca de la banda</label>
+                              <input type="text" value={reBandaMarca} onChange={(e) => setReBandaMarca(e.target.value)}
+                                placeholder="Ej. Bandag"
+                                className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-[#0A183A] bg-white focus:border-purple-400 outline-none" />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-[#0A183A] mb-1">Banda / diseño <span className="text-purple-500">*</span></label>
+                              <input type="text" value={reBanda} onChange={(e) => setReBanda(e.target.value)}
+                                placeholder="Ej. BDR HG"
+                                className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-[#0A183A] bg-white focus:border-purple-400 outline-none" />
+                            </div>
+                          </div>
+
+                          {/* Proveedor — typeahead over real distribuidores
+                              registered in TirePro, plus a free-text fallback
+                              for unregistered proveedores. Mirrors the
+                              /agregar Vida tab UX exactly. */}
+                          <div className="relative" data-proveedor-field>
+                            <label className="block text-[10px] font-bold text-[#0A183A] mb-1">Proveedor del reencauche <span className="text-purple-500">*</span></label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={proveedorQuery}
+                                onChange={(e) => {
+                                  setProveedorQuery(e.target.value);
+                                  setSelectedProveedor(null);
+                                }}
+                                onFocus={() => proveedorQuery && setShowProveedorDropdown(true)}
+                                placeholder="Buscar distribuidor en TirePro o escribir nombre..."
+                                autoComplete="off"
+                                className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-[#0A183A] bg-white focus:border-purple-400 outline-none"
+                              />
+                              {proveedorLoading && (
+                                <Loader2 className="absolute right-2 top-2 w-3.5 h-3.5 text-purple-500 animate-spin" />
+                              )}
+                            </div>
+
+                            {selectedProveedor && (
+                              <div className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+                                <CheckCircle2 className="w-3 h-3" />
+                                {selectedProveedor.name}{selectedProveedor.id === null ? " (personalizado)" : ""}
+                                <button type="button"
+                                  onClick={(e) => { e.preventDefault(); setSelectedProveedor(null); setProveedorQuery(""); }}>
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            {showProveedorDropdown && !selectedProveedor && proveedorQuery.trim() && (
+                              <div className="absolute z-50 w-full mt-1 rounded-lg overflow-hidden shadow-lg bg-white border border-purple-200">
+                                {proveedorResults.map((r) => (
+                                  <button
+                                    key={r.id ?? r.name}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 text-[11px] text-[#0A183A] hover:bg-purple-50 transition-colors"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setSelectedProveedor({ id: r.id, name: r.name });
+                                      setProveedorQuery(r.name);
+                                      setShowProveedorDropdown(false);
+                                    }}
+                                  >
+                                    {r.name}
+                                  </button>
+                                ))}
+                                {/* Custom-name fallback — keeps the action
+                                    available even when the distribuidor
+                                    isn't in TirePro yet. */}
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 text-[11px] font-bold border-t border-purple-100 text-purple-700 hover:bg-purple-50 transition-colors"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setSelectedProveedor({ id: null, name: proveedorQuery.trim() });
+                                    setShowProveedorDropdown(false);
+                                  }}
+                                >
+                                  + Usar &quot;{proveedorQuery.trim()}&quot; como proveedor
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-[#0A183A] mb-1">Profundidad inicial (mm) <span className="text-purple-500">*</span></label>
+                              <input type="number" inputMode="decimal" step="0.1" min={0} value={reProfundidad}
+                                onChange={(e) => setReProfundidad(e.target.value)} placeholder="Ej. 18"
+                                className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-[#0A183A] bg-white focus:border-purple-400 outline-none" />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-[#0A183A] mb-1">Costo (COP) <span className="text-purple-500">*</span></label>
+                              <input type="number" inputMode="decimal" min={0} value={reCosto}
+                                onChange={(e) => setReCosto(e.target.value)} placeholder="Ej. 480000"
+                                className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-[#0A183A] bg-white focus:border-purple-400 outline-none" />
+                            </div>
+                          </div>
+                          {blocker?.vidaActual && (
+                            <p className="text-[10px] text-gray-500">
+                              Vida actual: <strong className="text-[#0A183A]">{blocker.vidaActual}</strong>. Pasará al siguiente ciclo de reencauche.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </label>
