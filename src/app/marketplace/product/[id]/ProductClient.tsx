@@ -1690,126 +1690,154 @@ export default function ProductClient({
       {/* STICKY CTA — visible at every breakpoint. Comprar should never
           be more than a glance away, even on a long page on a wide
           monitor. Pads the main scroll area so the last block isn't
-          hidden behind the bar. */}
-      <div className="h-20" aria-hidden />
+          hidden behind the bar. The spacer also accounts for the
+          iPhone home-indicator safe area. */}
+      <div
+        aria-hidden
+        style={{ height: "calc(5rem + env(safe-area-inset-bottom))" }}
+      />
       <div
         className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md"
-        style={{ borderTop: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 -8px 24px -12px rgba(10,24,58,0.18)" }}
+        style={{
+          borderTop: "1px solid rgba(10,24,58,0.08)",
+          boxShadow: "0 -8px 24px -12px rgba(10,24,58,0.18)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
       >
-        {/* Right-anchored layout. The whole price + stepper + Comprar
-            cluster sits flush against the right edge of the page; the
-            optional thumb + identity float at the left only on >= sm.
-            `justify-end` does the heavy lifting. */}
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-3 sm:gap-4">
-          {/* LEFT — thumb + identity. Hidden on mobile so the action
-              cluster gets full width on phones. */}
-          <div className="hidden sm:flex items-center gap-3 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-[#fafafa] flex-shrink-0 flex items-center justify-center overflow-hidden">
-              {imgs.length > 0 ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={imgs[product.coverIndex ?? 0] ?? imgs[0]}
-                  alt={`${product.marca} ${product.modelo}`}
-                  className="max-w-full max-h-full object-contain p-1"
-                />
-              ) : (
-                <Package className="w-5 h-5 text-gray-300" />
+        {/* Two-tier layout:
+            - mobile: price as a compact eyebrow row, then stepper + Comprar
+              filling the full width below it. This avoids cramming three
+              elements on a 360px screen and lets Comprar grow.
+            - sm+: single row with thumb + identity at left, price + stepper
+              + Comprar right-anchored. */}
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5">
+          {/* Mobile-only price strip */}
+          <div className="sm:hidden flex items-baseline justify-between gap-2 pb-1.5">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="text-[16px] font-black text-[#0A183A] leading-none truncate">{fmtCOP(price)}</span>
+              {hasPromo && (
+                <>
+                  <span className="text-[11px] text-gray-400 line-through leading-none">{fmtCOP(product.precioCop)}</span>
+                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider leading-none">-{discount}%</span>
+                </>
               )}
             </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{product.marca}</p>
-              <p className="text-[13px] font-black text-[#0A183A] leading-tight truncate">{product.modelo}</p>
-              <p className="text-[10px] text-gray-400 leading-none">{product.dimension}</p>
-            </div>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none flex-shrink-0">
+              {product.marca} {product.dimension}
+            </span>
           </div>
 
-          {/* RIGHT cluster — pushed to the right via `ml-auto`. Holds
-              price, quantity stepper, and the Comprar button as a
-              single visual unit. */}
-          <div className="ml-auto flex items-center gap-3 sm:gap-4">
-            {/* Price block */}
-            <div className="text-right">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">
-                {hasPromo ? `-${discount}% · Promoción` : "Precio"}
-              </p>
-              <p className="text-[16px] sm:text-[18px] font-black text-[#0A183A] leading-tight">{fmtCOP(price)}</p>
-              {hasPromo && (
-                <p className="text-[10px] text-gray-400 line-through leading-none">{fmtCOP(product.precioCop)}</p>
-              )}
+          {/* Action row */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* LEFT — thumb + identity. Hidden on mobile so the action
+                cluster gets full width on phones. */}
+            <div className="hidden sm:flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-xl bg-[#fafafa] flex-shrink-0 flex items-center justify-center overflow-hidden">
+                {imgs.length > 0 ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={imgs[product.coverIndex ?? 0] ?? imgs[0]}
+                    alt={`${product.marca} ${product.modelo}`}
+                    className="max-w-full max-h-full object-contain p-1"
+                  />
+                ) : (
+                  <Package className="w-5 h-5 text-gray-300" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{product.marca}</p>
+                <p className="text-[13px] font-black text-[#0A183A] leading-tight truncate">{product.modelo}</p>
+                <p className="text-[10px] text-gray-400 leading-none">{product.dimension}</p>
+              </div>
             </div>
 
-            {/* Stepper. Shares the `qty` state with the right-column
-                buy box so the two surfaces stay in sync. Bulk buyers
-                can also type "12" directly into the input. */}
-            <div
-              className="flex items-center rounded-full overflow-hidden bg-white"
-              style={{ border: "1px solid rgba(10,24,58,0.12)" }}
-            >
-              <button
-                type="button"
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-                disabled={qty <= 1 || product.cantidadDisponible === 0}
-                aria-label="Restar uno"
-                className="w-9 h-9 flex items-center justify-center text-[#0A183A] disabled:opacity-30 hover:bg-gray-50 transition-colors"
+            {/* RIGHT cluster — full-width on mobile (so Comprar can stretch),
+                right-anchored on sm+. */}
+            <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto sm:ml-auto">
+              {/* Price block — desktop only; mobile uses the strip above */}
+              <div className="hidden sm:block text-right">
+                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">
+                  {hasPromo ? `-${discount}% · Promoción` : "Precio"}
+                </p>
+                <p className="text-[16px] sm:text-[18px] font-black text-[#0A183A] leading-tight">{fmtCOP(price)}</p>
+                {hasPromo && (
+                  <p className="text-[10px] text-gray-400 line-through leading-none">{fmtCOP(product.precioCop)}</p>
+                )}
+              </div>
+
+              {/* Stepper. Compact on mobile so the bar fits 360px screens. */}
+              <div
+                className="flex items-center rounded-full overflow-hidden bg-white flex-shrink-0"
+                style={{ border: "1px solid rgba(10,24,58,0.12)" }}
               >
-                <Minus className="w-3.5 h-3.5" />
-              </button>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={Math.max(1, product.cantidadDisponible || 1)}
-                value={qty}
-                onChange={(e) => {
-                  const n = parseInt(e.target.value, 10);
-                  if (Number.isFinite(n) && n > 0) {
-                    setQty(Math.min(n, product.cantidadDisponible || n));
-                  } else if (e.target.value === "") {
-                    setQty(1);
+                <button
+                  type="button"
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  disabled={qty <= 1 || product.cantidadDisponible === 0}
+                  aria-label="Restar uno"
+                  className="w-8 sm:w-9 h-9 flex items-center justify-center text-[#0A183A] disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={Math.max(1, product.cantidadDisponible || 1)}
+                  value={qty}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (Number.isFinite(n) && n > 0) {
+                      setQty(Math.min(n, product.cantidadDisponible || n));
+                    } else if (e.target.value === "") {
+                      setQty(1);
+                    }
+                  }}
+                  aria-label="Cantidad"
+                  className="w-9 sm:w-12 h-9 text-center text-sm font-black text-[#0A183A] bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQty((q) =>
+                      product.cantidadDisponible > 0
+                        ? Math.min(q + 1, product.cantidadDisponible)
+                        : q + 1,
+                    )
                   }
-                }}
-                aria-label="Cantidad"
-                className="w-10 sm:w-12 h-9 text-center text-sm font-black text-[#0A183A] bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
+                  disabled={
+                    product.cantidadDisponible === 0 ||
+                    (product.cantidadDisponible > 0 && qty >= product.cantidadDisponible)
+                  }
+                  aria-label="Sumar uno"
+                  className="w-8 sm:w-9 h-9 flex items-center justify-center text-[#0A183A] disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Comprar — fills remaining width on mobile, fixed on sm+. */}
               <button
-                type="button"
-                onClick={() =>
-                  setQty((q) =>
-                    product.cantidadDisponible > 0
-                      ? Math.min(q + 1, product.cantidadDisponible)
-                      : q + 1,
-                  )
-                }
-                disabled={
-                  product.cantidadDisponible === 0 ||
-                  (product.cantidadDisponible > 0 && qty >= product.cantidadDisponible)
-                }
-                aria-label="Sumar uno"
-                className="w-9 h-9 flex items-center justify-center text-[#0A183A] disabled:opacity-30 hover:bg-gray-50 transition-colors"
+                onClick={handleAddToCart}
+                disabled={product.cantidadDisponible === 0}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2.5 sm:py-3 rounded-full text-sm font-black text-white transition-all disabled:opacity-50 whitespace-nowrap min-w-0"
+                style={{
+                  background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+                  boxShadow: "0 8px 22px -6px rgba(30,118,182,0.5)",
+                }}
               >
-                <Plus className="w-3.5 h-3.5" />
+                <ShoppingCart className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">
+                  {product.cantidadDisponible === 0
+                    ? "Agotada"
+                    : addedToCart
+                      ? "Agregada"
+                      : qty > 1
+                        ? `Comprar ${qty}`
+                        : "Comprar"}
+                </span>
               </button>
             </div>
-
-            {/* Comprar — anchors the right edge of the bar */}
-            <button
-              onClick={handleAddToCart}
-              disabled={product.cantidadDisponible === 0}
-              className="inline-flex items-center gap-1.5 px-5 py-3 rounded-full text-sm font-black text-white transition-all disabled:opacity-50 flex-shrink-0"
-              style={{
-                background: "linear-gradient(135deg,#0A183A,#1E76B6)",
-                boxShadow: "0 8px 22px -6px rgba(30,118,182,0.5)",
-              }}
-            >
-              <ShoppingCart className="w-4 h-4" />
-              {product.cantidadDisponible === 0
-                ? "Agotada"
-                : addedToCart
-                  ? "Agregada"
-                  : qty > 1
-                    ? `Comprar ${qty}`
-                    : "Comprar"}
-            </button>
           </div>
         </div>
       </div>
