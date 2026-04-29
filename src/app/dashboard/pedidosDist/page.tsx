@@ -54,6 +54,11 @@ interface OrderItem {
   // Snapshot of the tire the item references — attached server-side via
   // ORDER_INCLUDE so the UI can show placa / posicion / vehicle without
   // a second round-trip.
+  // Scalar tireId is kept alongside the relation so we can still surface
+  // an identifier when the live tire was deleted (ON DELETE SET NULL
+  // wipes the FK; the relation goes to null but downstream UIs still
+  // need to show *which* tire this item was for).
+  tireId?: string | null;
   tire?: {
     id: string;
     placa?: string | null;
@@ -2122,11 +2127,13 @@ function ReencaucheReviewSection({
                   <p className="font-semibold text-[#0A183A]">
                     {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
                   </p>
-                  {it.tire?.placa && (
-                    <p className="text-[10px] text-gray-400">
-                      ID tire: <span className="font-mono font-semibold text-[#0A183A]">{it.tire.placa}</span>
-                    </p>
-                  )}
+                  <p className="text-[10px] text-gray-400">
+                    {it.tire?.placa
+                      ? <>ID llanta: <span className="font-mono font-semibold text-[#0A183A]">{it.tire.placa}</span></>
+                      : it.tireId
+                        ? <>UUID: <span className="font-mono">{it.tireId.slice(0, 8)}…</span></>
+                        : <span className="font-bold text-amber-700">Sin llanta vinculada</span>}
+                  </p>
                   <p className="text-[10px] text-gray-400">
                     {placa} · {pos} · vida actual: <span className="font-mono">{vidaIn}</span>
                     {it.precioUnitario ? ` · ${fmtCOP(it.precioUnitario)}` : ""}
@@ -2360,7 +2367,11 @@ function RecogerModal({
                     {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
                   </p>
                   <p className="text-[10px] text-gray-500">
-                    {it.tire?.placa ? <>ID <span className="font-mono">{it.tire.placa}</span> · </> : ""}
+                    {it.tire?.placa
+                      ? <>ID <span className="font-mono font-semibold text-[#0A183A]">{it.tire.placa}</span> · </>
+                      : it.tireId
+                        ? <>UUID <span className="font-mono">{it.tireId.slice(0, 8)}…</span> · </>
+                        : <span className="text-amber-700 font-bold">Sin llanta · </span>}
                     {it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "—"}
                     {it.tire?.posicion != null ? ` · P${it.tire.posicion}` : ""}
                     {it.bandaOfrecidaMarca || it.bandaOfrecidaModelo
@@ -2428,8 +2439,12 @@ function PickupModal({
   const [rows, setRows] = useState<Record<string, Row>>(() => {
     const init: Record<string, Row> = {};
     for (const it of reencaucheItems) {
+      // Default to "reencauchar" only when the tire link is intact —
+      // otherwise the user can't pick that option anyway, so default to
+      // "devolver" so they don't have to re-select before filling motivo.
+      const noTire = !it.tireId;
       init[it.id] = {
-        decision:          "reencauchar",
+        decision:          noTire ? "devolver" : "reencauchar",
         estimatedDelivery: defaultEta,
         motivo:            "",
         causales:          "",
@@ -2530,6 +2545,13 @@ function PickupModal({
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {reencaucheItems.map((it) => {
             const r = rows[it.id];
+            // Resolve a stable tire identifier the user can confirm against:
+            //   1. tire.placa (the company's friendly identifier)
+            //   2. scalar tireId (the tire's UUID — survives tire deletion)
+            //   3. null  → the item was never linked OR the tire was wiped
+            const tirePlaca = it.tire?.placa ?? null;
+            const tireUuidShort = it.tireId ? `${it.tireId.slice(0, 8)}…` : null;
+            const tireMissing = !it.tireId;
             return (
               <div key={it.id} className="rounded-xl p-3" style={{ border: "1px solid rgba(124,58,237,0.15)" }}>
                 <div className="flex items-start justify-between mb-3 gap-2 flex-wrap">
@@ -2537,17 +2559,38 @@ function PickupModal({
                     <p className="text-sm font-bold text-[#0A183A]">
                       {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
                     </p>
-                    {(it as any).tire?.placa && (
-                      <p className="text-[10px] text-gray-400">
-                        ID tire: <span className="font-mono font-semibold text-[#0A183A]">{(it as any).tire.placa}</span>
-                      </p>
-                    )}
-                    <p className="text-[10px] text-gray-500">
-                      {it.vehiclePlaca ?? "—"}
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {tirePlaca && (
+                        <span className="text-[10px] text-gray-500">
+                          Llanta: <span className="font-mono font-semibold text-[#0A183A]">{tirePlaca}</span>
+                        </span>
+                      )}
+                      {it.tireId && (
+                        <span className="text-[10px] text-gray-400" title={it.tireId}>
+                          UUID: <span className="font-mono">{tireUuidShort}</span>
+                        </span>
+                      )}
+                      {tireMissing && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                          Sin llanta vinculada
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      Item: <span className="font-mono">{it.id.slice(0, 8)}…</span>
+                      {it.vehiclePlaca ? ` · ${it.vehiclePlaca}` : ""}
                       {it.bandaOfrecidaMarca ? ` · banda: ${it.bandaOfrecidaMarca} ${it.bandaOfrecidaModelo ?? ""}` : ""}
                     </p>
                   </div>
                 </div>
+
+                {tireMissing && (
+                  <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200">
+                    <p className="text-[10px] text-amber-800 leading-snug">
+                      Esta llanta fue eliminada en el sistema del cliente. Solo puedes <strong>devolver</strong> o marcar <strong>fin de vida</strong>.
+                    </p>
+                  </div>
+                )}
 
                 {/* Decision radios */}
                 <div className="flex gap-1.5 mb-2 flex-wrap">
@@ -2557,11 +2600,14 @@ function PickupModal({
                     { k: "fin_de_vida" as const, label: "Fin de vida", color: "#dc2626", bg: "rgba(239,68,68,0.1)" },
                   ]).map(({ k, label, color, bg }) => {
                     const active = r.decision === k;
+                    const disabled = k === "reencauchar" && tireMissing;
                     return (
                       <button
                         key={k}
-                        onClick={() => patch(it.id, { decision: k })}
-                        className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
+                        onClick={() => { if (!disabled) patch(it.id, { decision: k }); }}
+                        disabled={disabled}
+                        title={disabled ? "Sin llanta vinculada — no se puede reencauchar" : undefined}
+                        className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         style={{
                           background: active ? bg : "transparent",
                           color:      active ? color : "#64748b",
@@ -2767,11 +2813,13 @@ function EntregarModal({
                     <p className="text-sm font-bold text-[#0A183A]">
                       {it.marca}{it.modelo ? ` · ${it.modelo}` : ""} · {it.dimension}
                     </p>
-                    {it.tire?.placa && (
-                      <p className="text-[10px] text-gray-400">
-                        ID tire: <span className="font-mono font-semibold text-[#0A183A]">{it.tire.placa}</span>
-                      </p>
-                    )}
+                    <p className="text-[10px] text-gray-400">
+                      {it.tire?.placa
+                        ? <>ID llanta: <span className="font-mono font-semibold text-[#0A183A]">{it.tire.placa}</span></>
+                        : it.tireId
+                          ? <>UUID: <span className="font-mono">{it.tireId.slice(0, 8)}…</span></>
+                          : <span className="font-bold text-amber-700">Sin llanta vinculada</span>}
+                    </p>
                     <p className="text-[10px] text-gray-500">
                       {it._clientName} · {it.tire?.vehicle?.placa ?? it.vehiclePlaca ?? "—"}
                       {it.tire?.posicion != null ? ` · P${it.tire.posicion}` : ""}

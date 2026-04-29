@@ -525,6 +525,15 @@ function OfertasPrelude({
                                 ? ` — ${it.tire.vehicle.placa}·P${it.tire.posicion ?? "?"}`
                                 : ""}
                             </p>
+                            {it.tipo === "reencauche" && (
+                              <p className="text-[10px] text-gray-500">
+                                {it.tire?.placa
+                                  ? <>ID llanta: <span className="font-mono font-semibold text-[#0A183A]">{it.tire.placa}</span></>
+                                  : it.tireId
+                                    ? <>UUID: <span className="font-mono">{String(it.tireId).slice(0, 8)}…</span></>
+                                    : <span className="font-bold text-amber-700">Sin llanta vinculada</span>}
+                              </p>
+                            )}
                             {it.tipo === "reencauche" && (it.bandaOfrecidaMarca || it.bandaOfrecidaModelo || it.bandaOfrecidaProfundidad) && (
                               <p className="text-[10px] text-[#7c3aed] font-semibold mt-0.5">
                                 Banda ofrecida: {it.bandaOfrecidaMarca}
