@@ -508,11 +508,19 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   // ───────────────────────────────────────────────────────────────────────────
   y = drawSectionHeader(doc, "Especificaciones", M, y, pageW - M, brand);
   const tableWidth = pageW - 2 * M;
+  // Banda values are SKU-style codes (HDC1, BDR HG, M725...) — always
+  // render in upper case regardless of how the catalog editor stored
+  // them. "hdc1" becomes "HDC1" so quotes look uniform across vendors.
+  const upperBandaRows = input.rows.map((r) =>
+    r.label.toLowerCase().includes("banda")
+      ? [r.label, r.value.toUpperCase()]
+      : [r.label, r.value],
+  );
   autoTable(doc, {
     startY: y + 4,
     margin: { left: M, right: M },
     head:   [["Característica", "Valor"]],
-    body:   input.rows.map((r) => [r.label, r.value]),
+    body:   upperBandaRows,
     theme:  "plain",
     tableWidth,
     styles: {
@@ -1194,7 +1202,7 @@ function buildSpecRows(it: QuoteItem, f: QuoteIncludeFields): Array<{ label: str
   if (f.ejeTirePro      && it.ejeTirePro)       rows.push({ label: "Eje",                  value: cap(it.ejeTirePro) });
   if (f.terreno         && it.terreno)          rows.push({ label: "Terreno",              value: it.terreno });
   if (f.reencauchable   && it.reencauchable != null) rows.push({ label: "Reencauchabilidad", value: it.reencauchable ? "Sí" : "No" });
-  if (f.tipoBanda       && it.tipoBanda)        rows.push({ label: "Tipo de banda",        value: it.tipoBanda });
+  if (f.tipoBanda       && it.tipoBanda)        rows.push({ label: "Tipo de banda",        value: it.tipoBanda.toUpperCase() });
   if (f.construccion    && it.construccion)     rows.push({ label: "Construcción",         value: it.construccion });
   if (f.segmento        && it.segmento)         rows.push({ label: "Segmento",             value: it.segmento });
   if (f.tipo            && it.tipo)             rows.push({ label: "Tipo",                 value: it.tipo });
@@ -1325,7 +1333,7 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     if (fields.reencauchable   && it.reencauchable != null) {
       bits.push(it.reencauchable ? "Reencauchable" : "No reencauchable");
     }
-    if (fields.tipoBanda       && it.tipoBanda)       bits.push(`Banda ${it.tipoBanda}`);
+    if (fields.tipoBanda       && it.tipoBanda)       bits.push(`Banda ${it.tipoBanda.toUpperCase()}`);
     if (fields.construccion    && it.construccion)    bits.push(it.construccion);
     if (fields.segmento        && it.segmento)        bits.push(it.segmento);
     if (fields.tipo            && it.tipo)            bits.push(it.tipo);

@@ -7,7 +7,6 @@ import {
   BarChart3,
   Clock,
   MapPin,
-  Menu,
   X,
   Download,
   ArrowRight,
@@ -1920,4 +1919,4 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
   )
 }
 
-export default TireProLanding
+export default TireProLanding;

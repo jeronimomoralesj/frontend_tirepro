@@ -126,6 +126,9 @@ export default function ProductClient({
   const [reviewSuccess, setReviewSuccess] = useState(false);
   // Notas TirePro collapsible
   const [notasOpen, setNotasOpen] = useState(false);
+  // Distributor description "Ver más / menos" toggle. Long copy (Hankook
+  // RA33 etc.) used to push the buy box far down on mobile.
+  const [descExpanded, setDescExpanded] = useState(false);
   // Per-placa analysis
   const [vrPlaca, setVrPlaca] = useState("");
   const [vrLoading, setVrLoading] = useState(false);
@@ -259,54 +262,61 @@ export default function ProductClient({
         </div>
       )}
 
-      {/* Hero band */}
+      {/* HEADER — minimal nav strip with TirePro blue accents.
+          - Thin brand-gradient bar at the very top anchors the page
+            with the TirePro identity (replaces the old heavy navy
+            banner without eating vertical space).
+          - Header background a faint brand tint instead of pure white
+            so the page doesn't feel sterile.
+          - Bottom border in brand blue at low alpha. */}
       <div
-        className="relative overflow-hidden"
+        className="h-1"
+        style={{ background: "linear-gradient(90deg,#0A183A 0%,#1E76B6 50%,#348CCB 100%)" }}
+        aria-hidden
+      />
+      <div
         style={{
-          background:
-            "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)",
+          background: "linear-gradient(180deg, rgba(30,118,182,0.05), rgba(30,118,182,0))",
+          borderBottom: "1px solid rgba(30,118,182,0.15)",
         }}
       >
-        <div className="absolute inset-0 opacity-10" aria-hidden style={{
-          backgroundImage: "radial-gradient(circle at 20% 0%, rgba(52,140,203,0.6), transparent 40%), radial-gradient(circle at 80% 100%, rgba(245,158,11,0.4), transparent 40%)",
-        }} />
-        <div className="relative max-w-6xl mx-auto px-3 sm:px-6 pt-5 pb-7">
-          <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/70 hover:text-white transition-colors mb-3">
-            <ArrowLeft className="w-3 h-3" />
-            Volver al marketplace
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#1E76B6] hover:text-[#0A183A] transition-colors flex-shrink-0"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Volver al marketplace</span>
+            <span className="sm:hidden">Volver</span>
           </Link>
-          <div className="flex items-center gap-1.5 text-[11px] text-white/60">
-            <Link href="/marketplace" className="hover:text-white transition-colors">Marketplace</Link>
-            <span className="text-white/30">/</span>
-            <Link href={`/marketplace/distributor/${product.distributor.slug ?? product.distributor.id}`} className="hover:text-white transition-colors truncate max-w-[160px]">{product.distributor.name}</Link>
-            <span className="text-white/30">/</span>
-            <span className="text-white truncate max-w-[200px]">{product.modelo}</span>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-[10px] font-black text-white uppercase tracking-widest">
-              {product.tipo === "reencauche" ? <Recycle className="w-3 h-3" /> : <Shield className="w-3 h-3 text-[#fbbf24]" />}
-              {product.tipo === "reencauche" ? "Reencauche" : "Llanta nueva"}
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-1.5 text-[11px] text-gray-500 min-w-0"
+          >
+            <Link href="/marketplace" className="hover:text-[#1E76B6] transition-colors hidden sm:inline">
+              Marketplace
+            </Link>
+            <span className="text-[#1E76B6]/40 hidden sm:inline">/</span>
+            <Link
+              href={`/marketplace/distributor/${product.distributor.slug ?? product.distributor.id}`}
+              className="hover:text-[#1E76B6] transition-colors truncate max-w-[120px] sm:max-w-[180px]"
+            >
+              {product.distributor.name}
+            </Link>
+            <span className="text-[#1E76B6]/40">/</span>
+            <span className="text-[#0A183A] font-bold truncate max-w-[140px] sm:max-w-[220px]">
+              {product.modelo}
             </span>
-            {hasPromo && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black text-white" style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)" }}>
-                -{discount}% OFF
-              </span>
-            )}
-            {cpk != null && cpk > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/10 text-white border border-white/20">
-                CPK {fmtCOP(Math.round(cpk))}/km
-              </span>
-            )}
-          </div>
+          </nav>
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-3 sm:px-6 pb-10 -mt-6 relative">
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-6 pb-10 relative">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16">
           {/* LEFT — Images */}
           <div className="lg:sticky lg:top-20 lg:self-start">
             <div
-              className="relative aspect-square rounded-3xl overflow-hidden flex items-center justify-center mb-4 group"
+              className="relative aspect-[5/4] sm:aspect-square rounded-3xl overflow-hidden flex items-center justify-center mb-4 group max-h-[50vh] sm:max-h-none mx-auto w-full"
               style={{
                 background: "radial-gradient(circle at 30% 20%, #ffffff 0%, #f0f7ff 60%, #dbeafe 100%)",
                 boxShadow: "0 20px 60px -20px rgba(10,24,58,0.25), 0 0 0 1px rgba(30,118,182,0.08)",
@@ -460,14 +470,146 @@ export default function ProductClient({
               {product.catalog?.terreno && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">{product.catalog.terreno}</span>}
               {/* "Reencauchable" attribute doesn't apply to retread products themselves. */}
               {product.tipo !== "reencauche" && product.catalog?.reencauchable && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-purple-50 text-purple-600">Reencauchable</span>}
-              {cpk != null && cpk > 0 && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600">CPK {fmtCOP(Math.round(cpk))}</span>}
               {product.tiempoEntrega && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">{product.tiempoEntrega}</span>}
             </div>
 
-            {/* Description (from distributor) */}
-            {product.descripcion && (
-              <p className="text-sm text-gray-600 mt-4 leading-relaxed whitespace-pre-line">{product.descripcion}</p>
-            )}
+            {/* DECISION STRIP — translates raw spec fields into buyer
+                language ("Ideal para" + "Por qué elegir"). Sits ABOVE
+                the technical Notas TirePro block so users decide before
+                drilling into specs. Heuristic: derives from eje, terreno,
+                rim size, brand tier, reencauchable, cpk. */}
+            {(() => {
+              const c = product.catalog;
+              const eje = (product.eje ?? c?.ejeTirePro ?? "").toLowerCase();
+              const terr = (c?.terreno ?? "").toLowerCase();
+              const rim = parseFloat((product.dimension.match(/R\s*(\d{2}(?:\.\d)?)/i) ?? [, ""])[1]);
+              const tier = brandInfo?.tier;
+              const isReenc = product.tipo === "reencauche";
+
+              const idealFor: string[] = [];
+              if (rim >= 22) idealFor.push("Tractomulas y camiones pesados");
+              else if (rim >= 17.5) idealFor.push("Camiones y buses");
+              else if (rim >= 16) idealFor.push("Camionetas y SUV");
+              else if (rim >= 13) idealFor.push("Automóvil");
+              if (eje.includes("tracc")) idealFor.push("Eje motriz / tracción");
+              else if (eje.includes("dirección") || eje.includes("direccion")) idealFor.push("Eje delantero / dirección");
+              else if (eje.includes("remol") || eje.includes("trailer")) idealFor.push("Trailer / remolque");
+              if (terr.includes("carretera")) idealFor.push("Larga distancia en carretera");
+              else if (terr.includes("mixto")) idealFor.push("Servicio mixto on/off-road");
+              else if (terr.includes("urbano") || terr.includes("ciudad")) idealFor.push("Servicio urbano");
+              else if (terr.includes("destap") || terr.includes("off")) idealFor.push("Terrenos destapados");
+              if (isReenc) idealFor.push("Flotas con cascos reencauchables");
+
+              const reasons: Array<{ title: string; sub: string }> = [];
+              if (tier === "premium") {
+                reasons.push({ title: "Calidad premium", sub: "Carcasa y compuestos de gama alta · ingeniería para cargas exigentes." });
+              } else if (tier === "mid") {
+                reasons.push({ title: "Equilibrio precio-rendimiento", sub: "Buena durabilidad con precio inicial competitivo." });
+              } else if (tier === "value") {
+                reasons.push({ title: "Costo-efectiva", sub: "Pensada para flotas de alta rotación con presupuesto ajustado." });
+              }
+              if (!isReenc && c?.reencauchable) {
+                reasons.push({
+                  title: c.vidasReencauche
+                    ? `Reencauchable hasta ${c.vidasReencauche} vidas`
+                    : "Reencauchable",
+                  sub: "Extiende su vida útil reduciendo el costo total de tus llantas.",
+                });
+              }
+              if (isReenc) {
+                reasons.push({
+                  title: "Aprovecha tus cascos",
+                  sub: "El reencauche reduce el costo por kilómetro frente a una llanta nueva equivalente.",
+                });
+              }
+              if (c?.kmEstimadosReales && c.kmEstimadosReales >= 100000) {
+                reasons.push({
+                  title: `~${(c.kmEstimadosReales / 1000).toFixed(0)}K km estimados`,
+                  sub: "Vida útil proyectada en condiciones colombianas reales.",
+                });
+              }
+
+              if (idealFor.length === 0 && reasons.length === 0) return null;
+
+              return (
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {idealFor.length > 0 && (
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{
+                        background: "linear-gradient(135deg,rgba(30,118,182,0.06),rgba(52,140,203,0.02))",
+                        border: "1px solid rgba(30,118,182,0.12)",
+                      }}
+                    >
+                      <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
+                        Ideal para
+                      </p>
+                      <ul className="space-y-1.5">
+                        {idealFor.slice(0, 5).map((it) => (
+                          <li key={it} className="flex items-start gap-2 text-[12px] text-[#0A183A]">
+                            <Check className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0 mt-0.5" />
+                            <span>{it}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {reasons.length > 0 && (
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{
+                        background: "linear-gradient(135deg,rgba(34,197,94,0.05),rgba(16,185,129,0.02))",
+                        border: "1px solid rgba(34,197,94,0.16)",
+                      }}
+                    >
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-2 text-emerald-700">
+                        Por qué elegirla
+                      </p>
+                      <ul className="space-y-2">
+                        {reasons.slice(0, 4).map((r) => (
+                          <li key={r.title}>
+                            <p className="text-[12px] font-black text-[#0A183A]">{r.title}</p>
+                            <p className="text-[10px] text-gray-600 leading-snug">{r.sub}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Description (from distributor) — clamped to 280 chars by
+                default. Long distributor copy (full spec dumps, marketing
+                pitches) pushed the buy box and decision strip far below
+                the fold; the toggle lets users opt in to the full text
+                without forcing it on everyone. */}
+            {product.descripcion && (() => {
+              const DESC_MAX = 280;
+              const full = product.descripcion;
+              const isLong = full.length > DESC_MAX;
+              // Trim at the nearest space so we don't break a word.
+              const cut = isLong
+                ? full.slice(0, DESC_MAX).replace(/\s+\S*$/, "") + "…"
+                : full;
+              const shown = !isLong || descExpanded ? full : cut;
+              return (
+                <div className="mt-4">
+                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{shown}</p>
+                  {isLong && (
+                    <button
+                      onClick={() => setDescExpanded((v) => !v)}
+                      className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-bold text-[#1E76B6] hover:underline"
+                    >
+                      {descExpanded ? "Ver menos" : "Ver más"}
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform ${descExpanded ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Notas TirePro — collapsible technical sheet */}
             {product.catalog && (() => {
@@ -486,7 +628,6 @@ export default function ProductClient({
               if (c.pesoKg != null)       rows.push({ label: "Peso de la llanta", value: `${c.pesoKg} kg` });
               if (c.kmEstimadosReales != null) rows.push({ label: "Km estimados (Colombia)", value: `${(c.kmEstimadosReales / 1000).toFixed(0)}K km` });
               if (c.kmEstimadosFabrica != null && c.kmEstimadosFabrica !== c.kmEstimadosReales) rows.push({ label: "Km estimados (fábrica)", value: `${(c.kmEstimadosFabrica / 1000).toFixed(0)}K km` });
-              if (c.cpkEstimado != null)  rows.push({ label: "CPK estimado", value: `${fmtCOP(Math.round(c.cpkEstimado))}/km` });
               if (c.terreno)              rows.push({ label: "Terreno", value: c.terreno });
               if (c.pctPavimento != null && c.pctDestapado != null) rows.push({ label: "Uso pavimento / destapado", value: `${c.pctPavimento}% / ${c.pctDestapado}%` });
               if (c.ejeTirePro || c.posicion) rows.push({ label: "Posición de eje", value: c.ejeTirePro ?? c.posicion ?? "—" });
@@ -536,7 +677,6 @@ export default function ProductClient({
                           <div className="grid grid-cols-2 gap-2 text-[10px]">
                             {c.crowdAvgPrice != null && <div><span className="text-gray-500">Precio típico: </span><span className="font-bold text-[#0A183A]">{fmtCOP(Math.round(c.crowdAvgPrice))}</span></div>}
                             {c.crowdAvgKm != null && <div><span className="text-gray-500">Km reales: </span><span className="font-bold text-[#0A183A]">{(c.crowdAvgKm / 1000).toFixed(0)}K</span></div>}
-                            {c.crowdAvgCpk != null && <div><span className="text-gray-500">CPK real: </span><span className="font-bold text-[#0A183A]">{fmtCOP(Math.round(c.crowdAvgCpk))}/km</span></div>}
                             {c.crowdConfidence != null && <div><span className="text-gray-500">Confianza: </span><span className="font-bold text-[#0A183A]">{Math.round(c.crowdConfidence * 100)}%</span></div>}
                           </div>
                           <p className="text-[9px] text-gray-400 mt-1.5">Basado en {c.crowdCompanyCount} empresas de la red TirePro</p>
@@ -554,7 +694,6 @@ export default function ProductClient({
                 {product.catalog.rtdMm != null && <div className="px-4 py-3 rounded-2xl bg-[#f5f5f7]"><p className="text-[10px] text-gray-400 font-medium">Prof. inicial</p><p className="text-[15px] font-semibold text-[#0A183A] mt-0.5">{product.catalog.rtdMm} mm</p></div>}
                 {product.catalog.kmEstimadosReales != null && <div className="px-4 py-3 rounded-2xl bg-[#f5f5f7]"><p className="text-[10px] text-gray-400 font-medium">Km estimados</p><p className="text-[15px] font-semibold text-[#0A183A] mt-0.5">{(product.catalog.kmEstimadosReales / 1000).toFixed(0)}K km</p></div>}
                 {product.catalog.psiRecomendado != null && <div className="px-4 py-3 rounded-2xl bg-[#f5f5f7]"><p className="text-[10px] text-gray-400 font-medium">Presion rec.</p><p className="text-[15px] font-semibold text-[#0A183A] mt-0.5">{product.catalog.psiRecomendado} PSI</p></div>}
-                {cpk != null && cpk > 0 && <div className="px-4 py-3 rounded-2xl bg-[#f0f7ff]"><p className="text-[10px] text-[#1E76B6] font-medium">CPK estimado</p><p className="text-[15px] font-semibold text-[#1E76B6] mt-0.5">{fmtCOP(Math.round(cpk))}/km</p><p className="text-[9px] text-gray-400 mt-0.5">{fmtCOP(price)} / {(kmEstimados / 1000).toFixed(0)}K km</p></div>}
               </div>
             )}
 
@@ -1057,20 +1196,9 @@ export default function ProductClient({
                         });
                       }
 
-                      // Historic CPK comparison
-                      const mountedCpks = tires.map((t: any) => t.currentCpk ?? t.lifetimeCpk ?? 0).filter((v: number) => v > 0);
-                      const fleetAvgCpk = mountedCpks.length ? mountedCpks.reduce((a: number, b: number) => a + b, 0) / mountedCpks.length : null;
-                      const productCpk = product.catalog?.cpkEstimado ?? (kmEstimados > 0 ? price / kmEstimados : null);
-                      if (fleetAvgCpk && productCpk) {
-                        const better = productCpk < fleetAvgCpk;
-                        const diffPct = Math.abs(((productCpk - fleetAvgCpk) / fleetAvgCpk) * 100);
-                        insights.push({
-                          kind: "cpk",
-                          ok: better,
-                          title: better ? "CPK proyectado mejor que tu flota" : "CPK proyectado mayor que tu flota",
-                          detail: `Este producto: ${fmtCOP(Math.round(productCpk))}/km · Promedio flota: ${fmtCOP(Math.round(fleetAvgCpk))}/km (${diffPct.toFixed(0)}% ${better ? "mejor" : "peor"})`,
-                        });
-                      }
+                      // CPK comparison was removed — proyected CPK isn't a
+                      // claim we want to show buyers since it depends on
+                      // factors outside the product (route, load, driver).
 
                       // Reencauchabilidad
                       const reencauchable = product.catalog?.reencauchable ?? false;
@@ -1089,7 +1217,7 @@ export default function ProductClient({
                           kind: "reencauche",
                           ok: false,
                           title: "No reencauchable",
-                          detail: "El costo se amortiza en una sola vida; evalúa CPK con más cuidado",
+                          detail: "El costo se amortiza en una sola vida.",
                         });
                       }
 
@@ -1101,9 +1229,11 @@ export default function ProductClient({
                     } catch { setVrError("Error al analizar el vehículo"); }
                     setVrLoading(false);
                   }}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-40 transition-all hover:opacity-90 flex-shrink-0"
+                  aria-label="Analizar placa"
+                  title="Analizar placa"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white disabled:opacity-40 transition-all hover:opacity-90 flex-shrink-0"
                   style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-                  {vrLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Zap className="w-3.5 h-3.5 inline mr-1" />Analizar</>}
+                  {vrLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 </button>
               </div>
 
@@ -1379,6 +1509,135 @@ export default function ProductClient({
           </section>
         )}
 
+        {/* SEO CONTENT BLOCK — H2 with target keyword "Comprar llanta
+            {brand} {modelo} en Colombia". Renders Spanish copy crawlers
+            can read on first request, plus three columns of internal
+            links (brand, dimension, city). Avoids manufacturer-warranty
+            claims since those are seller-dependent.
+            Hidden when the product is missing core identifying data so
+            we don't render generic copy without anchors. */}
+        {(() => {
+          const slugify = (s: string) =>
+            s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+              .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const brandSlug = brandInfo?.slug ?? slugify(product.marca);
+          const dimEnc = encodeURIComponent(product.dimension);
+          const c = product.catalog;
+          const eje = (product.eje ?? c?.ejeTirePro ?? "").toLowerCase();
+          const terr = (c?.terreno ?? "").toLowerCase();
+          // Use case sentence — short, plain Spanish.
+          const useCase =
+            terr.includes("carretera") ? "rutas de larga distancia"
+            : terr.includes("urbano") || terr.includes("ciudad") ? "operación urbana"
+            : terr.includes("mixto") ? "servicio mixto on/off-road"
+            : eje.includes("tracc") ? "ejes de tracción"
+            : eje.includes("dirección") || eje.includes("direccion") ? "ejes de dirección"
+            : "operación de flota en Colombia";
+          return (
+            <section
+              aria-labelledby="product-seo"
+              className="mt-14 bg-white rounded-3xl p-6 sm:p-8"
+              style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+            >
+              <h2
+                id="product-seo"
+                className="text-xl sm:text-2xl font-black text-[#0A183A] mb-4"
+              >
+                Comprar llanta {product.marca} {product.modelo} en Colombia
+              </h2>
+              <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed space-y-3">
+                <p>
+                  La <strong>{product.marca} {product.modelo} {product.dimension}</strong>
+                  {product.tipo === "reencauche" ? " (reencauche)" : ""} está pensada para{" "}
+                  <strong>{useCase}</strong>. En TirePro Marketplace la compras a través de{" "}
+                  distribuidores verificados con envío a todo el país y pago seguro.
+                </p>
+                {c?.kmEstimadosReales && c.kmEstimadosReales >= 50000 && (
+                  <p>
+                    A <strong>{fmtCOP(price)}</strong>, esta llanta está dimensionada para flotas
+                    que miden el rendimiento real. Vida útil estimada:{" "}
+                    <strong>{(c.kmEstimadosReales / 1000).toFixed(0)}K km</strong> en condiciones colombianas.
+                  </p>
+                )}
+                <p>
+                  Compra en línea desde Bogotá, Medellín, Cali, Barranquilla, Bucaramanga,
+                  Cartagena y todo el país. Compara precios entre distribuidores y elige
+                  el modelo correcto para tu vehículo sin moverte del computador.
+                </p>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div>
+                  <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
+                    Más {product.marca}
+                  </h3>
+                  <ul className="space-y-1.5 text-xs text-gray-600">
+                    <li>
+                      <Link href={`/marketplace/brand/${brandSlug}`} className="hover:text-[#1E76B6] hover:underline">
+                        Catálogo {product.marca}
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href={`/marketplace?q=${encodeURIComponent(product.marca)}+tractomula`} className="hover:text-[#1E76B6] hover:underline">
+                        {product.marca} para tractomula
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href={`/marketplace?q=${encodeURIComponent(product.marca)}+camion`} className="hover:text-[#1E76B6] hover:underline">
+                        {product.marca} para camión
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href={`/marketplace?q=${encodeURIComponent(product.marca)}+camioneta`} className="hover:text-[#1E76B6] hover:underline">
+                        {product.marca} para camioneta
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
+                    Misma medida
+                  </h3>
+                  <ul className="space-y-1.5 text-xs text-gray-600">
+                    <li>
+                      <Link href={`/marketplace?q=${dimEnc}`} className="hover:text-[#1E76B6] hover:underline">
+                        Llantas {product.dimension}
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href={`/marketplace?q=${dimEnc}+nueva`} className="hover:text-[#1E76B6] hover:underline">
+                        {product.dimension} nuevas
+                      </Link>
+                    </li>
+                    <li>
+                      <Link href={`/marketplace?q=${dimEnc}+reencauche`} className="hover:text-[#1E76B6] hover:underline">
+                        {product.dimension} reencauche
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
+                    En tu ciudad
+                  </h3>
+                  <ul className="space-y-1.5 text-xs text-gray-600">
+                    {["Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga", "Cartagena"].map((c) => (
+                      <li key={c}>
+                        <Link
+                          href={`/marketplace?q=${encodeURIComponent(`${product.marca} ${c}`)}`}
+                          className="hover:text-[#1E76B6] hover:underline"
+                        >
+                          {product.marca} en {c}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </section>
+          );
+        })()}
+
         {/* Similar products */}
         {similar.length > 0 && (
           <section className="mt-14">
@@ -1427,6 +1686,133 @@ export default function ProductClient({
       </main>
 
       <MarketplaceFooter />
+
+      {/* STICKY CTA — visible at every breakpoint. Comprar should never
+          be more than a glance away, even on a long page on a wide
+          monitor. Pads the main scroll area so the last block isn't
+          hidden behind the bar. */}
+      <div className="h-20" aria-hidden />
+      <div
+        className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md"
+        style={{ borderTop: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 -8px 24px -12px rgba(10,24,58,0.18)" }}
+      >
+        {/* Right-anchored layout. The whole price + stepper + Comprar
+            cluster sits flush against the right edge of the page; the
+            optional thumb + identity float at the left only on >= sm.
+            `justify-end` does the heavy lifting. */}
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-3 sm:gap-4">
+          {/* LEFT — thumb + identity. Hidden on mobile so the action
+              cluster gets full width on phones. */}
+          <div className="hidden sm:flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 rounded-xl bg-[#fafafa] flex-shrink-0 flex items-center justify-center overflow-hidden">
+              {imgs.length > 0 ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={imgs[product.coverIndex ?? 0] ?? imgs[0]}
+                  alt={`${product.marca} ${product.modelo}`}
+                  className="max-w-full max-h-full object-contain p-1"
+                />
+              ) : (
+                <Package className="w-5 h-5 text-gray-300" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{product.marca}</p>
+              <p className="text-[13px] font-black text-[#0A183A] leading-tight truncate">{product.modelo}</p>
+              <p className="text-[10px] text-gray-400 leading-none">{product.dimension}</p>
+            </div>
+          </div>
+
+          {/* RIGHT cluster — pushed to the right via `ml-auto`. Holds
+              price, quantity stepper, and the Comprar button as a
+              single visual unit. */}
+          <div className="ml-auto flex items-center gap-3 sm:gap-4">
+            {/* Price block */}
+            <div className="text-right">
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">
+                {hasPromo ? `-${discount}% · Promoción` : "Precio"}
+              </p>
+              <p className="text-[16px] sm:text-[18px] font-black text-[#0A183A] leading-tight">{fmtCOP(price)}</p>
+              {hasPromo && (
+                <p className="text-[10px] text-gray-400 line-through leading-none">{fmtCOP(product.precioCop)}</p>
+              )}
+            </div>
+
+            {/* Stepper. Shares the `qty` state with the right-column
+                buy box so the two surfaces stay in sync. Bulk buyers
+                can also type "12" directly into the input. */}
+            <div
+              className="flex items-center rounded-full overflow-hidden bg-white"
+              style={{ border: "1px solid rgba(10,24,58,0.12)" }}
+            >
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                disabled={qty <= 1 || product.cantidadDisponible === 0}
+                aria-label="Restar uno"
+                className="w-9 h-9 flex items-center justify-center text-[#0A183A] disabled:opacity-30 hover:bg-gray-50 transition-colors"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={Math.max(1, product.cantidadDisponible || 1)}
+                value={qty}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  if (Number.isFinite(n) && n > 0) {
+                    setQty(Math.min(n, product.cantidadDisponible || n));
+                  } else if (e.target.value === "") {
+                    setQty(1);
+                  }
+                }}
+                aria-label="Cantidad"
+                className="w-10 sm:w-12 h-9 text-center text-sm font-black text-[#0A183A] bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setQty((q) =>
+                    product.cantidadDisponible > 0
+                      ? Math.min(q + 1, product.cantidadDisponible)
+                      : q + 1,
+                  )
+                }
+                disabled={
+                  product.cantidadDisponible === 0 ||
+                  (product.cantidadDisponible > 0 && qty >= product.cantidadDisponible)
+                }
+                aria-label="Sumar uno"
+                className="w-9 h-9 flex items-center justify-center text-[#0A183A] disabled:opacity-30 hover:bg-gray-50 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Comprar — anchors the right edge of the bar */}
+            <button
+              onClick={handleAddToCart}
+              disabled={product.cantidadDisponible === 0}
+              className="inline-flex items-center gap-1.5 px-5 py-3 rounded-full text-sm font-black text-white transition-all disabled:opacity-50 flex-shrink-0"
+              style={{
+                background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+                boxShadow: "0 8px 22px -6px rgba(30,118,182,0.5)",
+              }}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              {product.cantidadDisponible === 0
+                ? "Agotada"
+                : addedToCart
+                  ? "Agregada"
+                  : qty > 1
+                    ? `Comprar ${qty}`
+                    : "Comprar"}
+            </button>
+          </div>
+        </div>
+      </div>
 
     </div>
   );

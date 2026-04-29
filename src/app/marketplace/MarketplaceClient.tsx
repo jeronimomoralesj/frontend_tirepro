@@ -725,7 +725,7 @@ function PublicMarketplace() {
         <div className="rounded-xl overflow-hidden relative flex items-center justify-between gap-4 px-5 sm:px-8 py-4" style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
           <div className="min-w-0">
             <p className="text-xs sm:text-sm font-bold text-white leading-snug">¿Quieres llevar el detalle de tus llantas?</p>
-            <p className="text-[10px] text-white/50 mt-0.5">TirePro 100% gratis — Desgaste, CPK, inventario.</p>
+            <p className="text-[10px] text-white/50 mt-0.5">TirePro 100% gratis — Desgaste, inventario, alertas.</p>
           </div>
           <Link href="/companyregister"
             className="px-4 py-2 rounded-full text-[11px] font-bold text-[#0A183A] bg-white hover:bg-gray-100 transition-colors flex-shrink-0">
@@ -1426,11 +1426,6 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
                 ({reviewCount})
               </span>
             )}
-            {cpk != null && cpk > 0 && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
-                CPK {fmtCOP(Math.round(cpk))}/km
-              </span>
-            )}
             {l.tiempoEntrega && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 flex items-center gap-1">
                 <Clock className="w-2.5 h-2.5" />
@@ -2070,7 +2065,7 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
 function HowItWorks() {
   const steps = [
     { n: "01", icon: Search,       title: "Busca tu llanta",     sub: "Por medida, marca, modelo o vehículo." },
-    { n: "02", icon: Sparkles,     title: "Compara y elige",     sub: "Precios y CPK de distribuidores verificados." },
+    { n: "02", icon: Sparkles,     title: "Compara y elige",     sub: "Precios y opciones de distribuidores verificados." },
     { n: "03", icon: ShoppingCartIcon, title: "Compra y recibe",  sub: "Pago seguro. Envío e instalación incluidos." },
   ];
   return (
@@ -2344,9 +2339,6 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
         <div className="flex flex-wrap gap-1 mt-2">
           {l.catalog?.terreno && (
             <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{l.catalog.terreno}</span>
-          )}
-          {cpk != null && cpk > 0 && (
-            <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">CPK {fmtCOP(Math.round(cpk))}</span>
           )}
           {l.catalog?.reencauchable && !isReencauche && (
             <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600">Reencauchable</span>
