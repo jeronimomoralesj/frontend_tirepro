@@ -329,17 +329,29 @@ function PublicMarketplace() {
 
   // ─── Featured strip data ───────────────────────────────────────────────
   // recommendations.listings is empty until we accumulate sales/orders.
-  // Fall back to the default-ordered listings so the "destacadas" slot
-  // never goes blank. When the recommender has signal we also personalize
-  // the title so logged-in returning users feel addressed.
-  const featuredListings = recommendations.listings.length > 0
-    ? recommendations.listings
-    : listings;
-  const featuredTitle = recommendations.listings.length > 0
+  // We always top up to MIN_FEATURED with random listings so the strip
+  // looks full even on a fresh marketplace with very few sales — better
+  // than seeing a half-empty "Más vendidas" row.
+  const MIN_FEATURED = 12;
+  const featuredListings = useMemo(() => {
+    const recs = recommendations.listings;
+    if (recs.length >= MIN_FEATURED) return recs;
+    const haveIds = new Set(recs.map((r) => r.id));
+    // Pool is the rest of the catalog. Shuffle so home reloads vary.
+    // Safe to use Math.random in useMemo here because both `listings`
+    // and `recommendations.listings` start empty on SSR and only
+    // populate after client-side fetches, so no hydration mismatch.
+    const pool = listings.filter((l) => !haveIds.has(l.id));
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    return [...recs, ...shuffled].slice(0, Math.max(MIN_FEATURED, recs.length));
+  }, [recommendations.listings, listings]);
+  const featuredTitle = recommendations.listings.length >= MIN_FEATURED
     ? (recommendations.type === "personalized" || recommendations.type === "user_history"
         ? "Recomendado para ti"
         : "Llantas más vendidas")
-    : "Llantas destacadas";
+    : recommendations.listings.length > 0
+      ? "Llantas más vendidas"
+      : "Llantas destacadas";
 
   // ─── Brands with actual inventory ──────────────────────────────────────
   // BrandsStrip should never link to an empty brand page. We compute the
@@ -1909,11 +1921,10 @@ function TrustBand() {
 // =============================================================================
 
 function BrandsStrip({ brandsMap, stockedSlugs }: { brandsMap: BrandsMap; stockedSlugs: Set<string> }) {
-  // Curated preference list — ordered by typical Colombian fleet preference.
-  // We only render brands that are BOTH on the curated list AND have actual
-  // inventory (in stockedSlugs), so clicking a tile never lands on an empty
-  // brand page. If fewer than 8 curated brands have stock we top up with
-  // any other stocked brand so the strip stays full.
+  // Show EVERY stocked brand. Curated preferences float to the front so
+  // the major Colombian fleet brands (Michelin, Bridgestone, etc.) are
+  // immediately visible; the rest are appended alphabetically so the
+  // strip is exhaustive without losing visual hierarchy.
   const PREFERRED = [
     "Michelin", "Bridgestone", "Continental", "Goodyear",
     "Hankook", "Pirelli", "Yokohama", "Firestone",
@@ -1930,16 +1941,13 @@ function BrandsStrip({ brandsMap, stockedSlugs }: { brandsMap: BrandsMap; stocke
     })
     .filter((b): b is BrandMeta => b !== null);
 
-  // Top up with other stocked brands if curated covers <8.
-  const topUp: BrandMeta[] = [];
-  if (curated.length < 8) {
-    const have = new Set(curated.map((b) => b.slug));
-    for (const meta of brandsMap.values()) {
-      if (topUp.length + curated.length >= 8) break;
-      if (!have.has(meta.slug) && stockedSlugs.has(meta.slug)) topUp.push(meta);
-    }
+  const haveSlug = new Set(curated.map((b) => b.slug));
+  const rest: BrandMeta[] = [];
+  for (const meta of brandsMap.values()) {
+    if (!haveSlug.has(meta.slug) && stockedSlugs.has(meta.slug)) rest.push(meta);
   }
-  const items = [...curated, ...topUp];
+  rest.sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
+  const items = [...curated, ...rest];
 
   if (items.length === 0) return null;
 
