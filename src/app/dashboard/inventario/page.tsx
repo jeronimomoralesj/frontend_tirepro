@@ -44,9 +44,26 @@ interface InventoryBucket {
   nombre: string;
   color: string;
   icono: string;
+  // System-managed buckets carry tipo. Only "reencauche" is system-special
+  // today; everything else is user-created and tipo is null.
+  tipo?: string | null;
   excluirDeFlota: boolean;
   orden: number;
   tireCount: number;
+}
+
+interface VehicleOption {
+  id: string;
+  placa: string;
+  tipovhc?: string | null;
+  tireCount?: number;
+}
+
+interface OccupiedTire {
+  id: string;
+  posicion: number;
+  marca?: string;
+  diseno?: string;
 }
 
 interface InventoryTire {
@@ -339,6 +356,471 @@ function DeleteModal({
 // Page
 // =============================================================================
 
+// =============================================================================
+// Assign-to-vehicle modal
+// -----------------------------------------------------------------------------
+// Two-step flow:
+//   1. User picks a vehicle (placa search) and a position number.
+//   2. We fetch the vehicle's current tires; if the position is occupied
+//      we surface a "blocker" panel with three resolutions for the
+//      displaced tire — move to a regular bucket, send to reencauche
+//      (advances vida → reencauche bucket), or mark fin de vida (with
+//      causales + mm desechados, mirroring the /agregar Vida tab).
+//
+// Single-tire focused on purpose: per-tire vehicle/position pairs make
+// multi-select awkward and the bulk bucket flow already covers the rest.
+// =============================================================================
+
+function AssignToVehicleModal({
+  tire, buckets, companyId, onClose, onDone,
+}: {
+  tire: InventoryTire;
+  buckets: InventoryBucket[];
+  companyId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [vehicleQuery, setVehicleQuery] = useState(tire.lastVehiclePlaca ?? "");
+  const [vehicleResults, setVehicleResults] = useState<VehicleOption[]>([]);
+  const [vehicleId, setVehicleId] = useState<string | null>(tire.lastVehicleId);
+  const [vehiclePlaca, setVehiclePlaca] = useState<string>(tire.lastVehiclePlaca ?? "");
+  const [posicion, setPosicion] = useState<string>(tire.lastPosicion ? String(tire.lastPosicion) : "");
+  const [searching, setSearching] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [blocker, setBlocker] = useState<OccupiedTire | null>(null);
+  const [step, setStep] = useState<"pick" | "blocker">("pick");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState("");
+
+  type BlockerAction = "move_bucket" | "reencauche" | "fin";
+  const [blockerAction, setBlockerAction] = useState<BlockerAction>("move_bucket");
+  const [blockerBucketId, setBlockerBucketId] = useState<string>("__disponible__");
+  const [finCausales, setFinCausales] = useState("");
+  const [finMm, setFinMm] = useState("");
+
+  // Reencauche bucket (system-managed). Identified by tipo first, then by
+  // name — both fall back to null when no such bucket exists.
+  const reencaucheBucket = useMemo(
+    () =>
+      buckets.find((b) => (b.tipo ?? "").toLowerCase() === "reencauche") ??
+      buckets.find((b) => b.nombre.trim().toLowerCase() === "reencauche") ??
+      null,
+    [buckets],
+  );
+
+  // Move-bucket dropdown excludes the reencauche bucket per spec — that
+  // path is the dedicated "Reencauchear" action.
+  const moveBuckets = useMemo(
+    () => buckets.filter((b) => b.id !== reencaucheBucket?.id),
+    [buckets, reencaucheBucket],
+  );
+
+  // Debounced vehicle search by placa.
+  useEffect(() => {
+    if (!companyId) return;
+    const q = vehicleQuery.trim();
+    if (!q) { setVehicleResults([]); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await authFetch(`${API_BASE}/vehicles?companyId=${companyId}`);
+        if (!res.ok) return;
+        const all: any[] = await res.json();
+        const lc = q.toLowerCase();
+        const matches = (Array.isArray(all) ? all : [])
+          .filter((v) => v.placa && v.placa.toLowerCase().includes(lc))
+          .slice(0, 8)
+          .map((v) => ({ id: v.id, placa: v.placa, tipovhc: v.tipovhc, tireCount: v.tireCount }));
+        if (!cancelled) setVehicleResults(matches);
+      } catch { /* */ }
+      finally { if (!cancelled) setSearching(false); }
+    }, 200);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [vehicleQuery, companyId]);
+
+  function pickVehicle(v: VehicleOption) {
+    setVehicleId(v.id);
+    setVehiclePlaca(v.placa);
+    setVehicleQuery(v.placa);
+    setVehicleResults([]);
+  }
+
+  // Check if the chosen position is already occupied. Drives whether we
+  // continue to a direct submit or branch into the blocker panel.
+  async function verifyPosition() {
+    setErr("");
+    if (!vehicleId) { setErr("Selecciona un vehículo"); return; }
+    const pos = parseInt(posicion, 10);
+    if (!Number.isFinite(pos) || pos < 1) { setErr("Posición inválida"); return; }
+    setChecking(true);
+    try {
+      const res = await authFetch(`${API_BASE}/tires/vehicle?vehicleId=${vehicleId}`);
+      if (!res.ok) { setErr("No se pudieron leer las llantas del vehículo"); return; }
+      const occupied: any[] = await res.json();
+      // The same tire is allowed to keep its own slot (no-op assignment).
+      const blockerHit = (Array.isArray(occupied) ? occupied : [])
+        .map((t) => ({ id: t.id, posicion: Number(t.posicion), marca: t.marca, diseno: t.diseno }))
+        .find((t) => t.posicion === pos && t.id !== tire.id);
+      if (blockerHit) {
+        setBlocker(blockerHit);
+        setStep("blocker");
+      } else {
+        await submit(null);
+      }
+    } catch {
+      setErr("Error al verificar la posición");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  // Final submit. Runs blocker resolution first (in the right order) then
+  // assigns the current tire via batch-return.
+  async function submit(activeBlocker: OccupiedTire | null) {
+    setErr("");
+    if (!vehicleId) { setErr("Selecciona un vehículo"); return; }
+    const pos = parseInt(posicion, 10);
+    if (!Number.isFinite(pos) || pos < 1) { setErr("Posición inválida"); return; }
+
+    if (activeBlocker) {
+      if (blockerAction === "fin") {
+        if (!finCausales.trim()) { setErr("Ingresa la causa del fin de vida"); return; }
+        if (!finMm.trim() || isNaN(parseFloat(finMm))) { setErr("Ingresa los milímetros desechados"); return; }
+      } else if (blockerAction === "reencauche" && !reencaucheBucket) {
+        setErr("No hay un bucket de Reencauche configurado en tu empresa");
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    try {
+      // 1. Resolve blocker (if any) BEFORE assigning so the position is
+      //    physically free in the backend when batch-return runs.
+      if (activeBlocker) {
+        if (blockerAction === "fin") {
+          const r = await authFetch(`${API_BASE}/tires/${activeBlocker.id}/vida`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              valor: "fin",
+              desechoData: {
+                causales: finCausales.trim(),
+                milimetrosDesechados: parseFloat(finMm),
+              },
+            }),
+          });
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            throw new Error(body?.message ?? "Error al marcar fin de vida");
+          }
+        } else {
+          // Both "move_bucket" and "reencauche" need the blocker off the
+          // vehicle first.
+          await authFetch(`${API_BASE}/tires/unassign-vehicle`, {
+            method: "POST",
+            body: JSON.stringify({ tireIds: [activeBlocker.id] }),
+          });
+
+          if (blockerAction === "reencauche") {
+            // Advance vida to next reencauche cycle, then drop into the
+            // reencauche bucket. We don't have proveedor / costo from this
+            // surface, so we only bump the vida value — keeps parity with
+            // analista/pedidos minimal-input behavior.
+            const VIDA_ORDER = ["nueva", "reencauche1", "reencauche2", "reencauche3"];
+            const cur = (tire.vidaActual ?? "nueva").toLowerCase();
+            // We're advancing the BLOCKER, not the assignee tire, but we
+            // don't have the blocker's vidaActual on this surface — fall
+            // back to "reencauche1" if cur is unrecognized.
+            const idx = VIDA_ORDER.indexOf(cur);
+            const nextVida = idx >= 0 && idx < VIDA_ORDER.length - 1 ? VIDA_ORDER[idx + 1] : "reencauche1";
+            await authFetch(`${API_BASE}/tires/${activeBlocker.id}/vida`, {
+              method: "PATCH",
+              body: JSON.stringify({ valor: nextVida }),
+            });
+            await authFetch(`${API_BASE}/inventory-buckets/move`, {
+              method: "POST",
+              body: JSON.stringify({
+                tireIds: [activeBlocker.id],
+                bucketId: reencaucheBucket!.id,
+                companyId,
+              }),
+            });
+          } else if (blockerAction === "move_bucket" && blockerBucketId !== "__disponible__") {
+            await authFetch(`${API_BASE}/inventory-buckets/move`, {
+              method: "POST",
+              body: JSON.stringify({
+                tireIds: [activeBlocker.id],
+                bucketId: blockerBucketId,
+                companyId,
+              }),
+            });
+          }
+          // "move_bucket" + "__disponible__" needs no extra step — the
+          // unassign above leaves the tire bucket-less, which IS Disponible.
+        }
+      }
+
+      // 2. Assign current tire to the position.
+      const r2 = await authFetch(`${API_BASE}/inventory-buckets/batch-return`, {
+        method: "POST",
+        body: JSON.stringify({
+          returns: [{ tireId: tire.id, vehicleId, posicion: pos }],
+          fallbackTireIds: [],
+          companyId,
+        }),
+      });
+      if (!r2.ok) {
+        const body = await r2.json().catch(() => ({}));
+        throw new Error(body?.message ?? "Error al asignar la llanta");
+      }
+
+      onDone();
+    } catch (e: any) {
+      setErr(e?.message ?? "Error inesperado");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50">
+      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#1E76B6]">Mover a vehículo</p>
+            <p className="text-sm font-black text-[#0A183A] mt-0.5 truncate max-w-[260px]">
+              {tire.placa} — {tire.marca} {tire.diseno}
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar"
+            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {step === "pick" && (
+            <>
+              {/* Vehicle picker */}
+              <div className="relative">
+                <label className="block text-[11px] font-bold text-[#0A183A] mb-1.5">
+                  Placa del vehículo
+                </label>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 focus-within:border-[#1E76B6] focus-within:ring-2 focus-within:ring-[#1E76B6]/15 bg-white">
+                  <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <input
+                    autoFocus
+                    type="text"
+                    value={vehicleQuery}
+                    onChange={(e) => { setVehicleQuery(e.target.value); setVehicleId(null); }}
+                    placeholder="Ej. ABC-123"
+                    className="flex-1 outline-none bg-transparent text-sm text-[#0A183A] placeholder-gray-400"
+                  />
+                  {searching && <Loader2 className="w-4 h-4 animate-spin text-[#1E76B6]" />}
+                </div>
+                {vehicleResults.length > 0 && !vehicleId && (
+                  <div className="absolute z-10 mt-1 w-full bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
+                    {vehicleResults.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => pickVehicle(v)}
+                        className="w-full text-left px-3 py-2 hover:bg-[#F0F7FF] transition-colors flex items-center gap-2"
+                      >
+                        <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-[#0A183A]">{v.placa}</p>
+                          {v.tipovhc && <p className="text-[10px] text-gray-500">{v.tipovhc}</p>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {vehicleId && (
+                  <div className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold text-[#1E76B6] bg-[#1E76B6]/10">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {vehiclePlaca}
+                  </div>
+                )}
+              </div>
+
+              {/* Posición */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#0A183A] mb-1.5">
+                  Posición en el vehículo
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  value={posicion}
+                  onChange={(e) => setPosicion(e.target.value)}
+                  placeholder="1, 2, 3..."
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/15 outline-none text-sm font-bold text-[#0A183A]"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  P1 dirección izq · P2 dirección der · P3+ tracción / remolque
+                </p>
+              </div>
+
+              {err && (
+                <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">
+                  {err}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={onClose}
+                  className="flex-1 px-4 py-2 rounded-lg text-xs font-bold text-gray-600 border border-gray-200 hover:bg-gray-50">
+                  Cancelar
+                </button>
+                <button
+                  onClick={verifyPosition}
+                  disabled={!vehicleId || !posicion.trim() || checking}
+                  className="flex-1 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                  style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                >
+                  {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
+                  {checking ? "Verificando..." : "Verificar y asignar"}
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === "blocker" && blocker && (
+            <>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[12px] font-black text-amber-900">Ya hay una llanta ahí</p>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    P{posicion} está ocupada por <strong>{blocker.marca ?? "Otra llanta"}{blocker.diseno ? ` ${blocker.diseno}` : ""}</strong> en {vehiclePlaca}. ¿Qué quieres hacer con esa llanta?
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {/* Option 1: Move to bucket */}
+                <label
+                  className={`block p-3 rounded-lg border cursor-pointer transition-all ${
+                    blockerAction === "move_bucket"
+                      ? "border-[#1E76B6] bg-[#F0F7FF]"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <input type="radio" checked={blockerAction === "move_bucket"}
+                      onChange={() => setBlockerAction("move_bucket")} className="mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-black text-[#0A183A]">Mover a inventario</p>
+                      <p className="text-[10px] text-gray-500">A un bucket existente o a Disponible.</p>
+                      {blockerAction === "move_bucket" && (
+                        <select
+                          value={blockerBucketId}
+                          onChange={(e) => setBlockerBucketId(e.target.value)}
+                          className="mt-2 w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] font-bold text-[#0A183A] bg-white focus:border-[#1E76B6] outline-none"
+                        >
+                          <option value="__disponible__">📦 Disponible</option>
+                          {moveBuckets.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.icono} {b.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                </label>
+
+                {/* Option 2: Reencauchar */}
+                <label
+                  className={`block p-3 rounded-lg border transition-all ${
+                    !reencaucheBucket
+                      ? "border-gray-200 opacity-50 cursor-not-allowed"
+                      : blockerAction === "reencauche"
+                        ? "border-[#1E76B6] bg-[#F0F7FF] cursor-pointer"
+                        : "border-gray-200 hover:bg-gray-50 cursor-pointer"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <input type="radio" checked={blockerAction === "reencauche"}
+                      onChange={() => setBlockerAction("reencauche")}
+                      disabled={!reencaucheBucket}
+                      className="mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-[12px] font-black text-[#0A183A]">♻️ Reencauchar</p>
+                      <p className="text-[10px] text-gray-500">
+                        {reencaucheBucket
+                          ? "Avanza la vida y envía al bucket de Reencauche."
+                          : "Tu empresa no tiene un bucket de Reencauche configurado."}
+                      </p>
+                    </div>
+                  </div>
+                </label>
+
+                {/* Option 3: Fin de vida */}
+                <label
+                  className={`block p-3 rounded-lg border cursor-pointer transition-all ${
+                    blockerAction === "fin"
+                      ? "border-red-400 bg-red-50"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <input type="radio" checked={blockerAction === "fin"}
+                      onChange={() => setBlockerAction("fin")} className="mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-[12px] font-black text-[#0A183A]">Fin de vida</p>
+                      <p className="text-[10px] text-gray-500">Marca la llanta como retirada.</p>
+                      {blockerAction === "fin" && (
+                        <div className="mt-2 space-y-2">
+                          <div>
+                            <label className="block text-[10px] font-bold text-[#0A183A] mb-1">Causa</label>
+                            <input type="text" value={finCausales} onChange={(e) => setFinCausales(e.target.value)}
+                              placeholder="Ej. desgaste irregular, falla estructural"
+                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-[#0A183A] bg-white focus:border-red-400 outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-[#0A183A] mb-1">Milímetros restantes</label>
+                            <input type="number" inputMode="decimal" step="0.1" min={0} value={finMm}
+                              onChange={(e) => setFinMm(e.target.value)} placeholder="Ej. 2.5"
+                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] text-[#0A183A] bg-white focus:border-red-400 outline-none" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {err && (
+                <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">
+                  {err}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => { setStep("pick"); setBlocker(null); setErr(""); }}
+                  className="flex-1 px-4 py-2 rounded-lg text-xs font-bold text-gray-600 border border-gray-200 hover:bg-gray-50">
+                  ← Volver
+                </button>
+                <button
+                  onClick={() => submit(blocker)}
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                  style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                >
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  {submitting ? "Procesando..." : "Confirmar"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InventarioPage() {
   const router = useRouter();
   const [companyId, setCompanyId] = useState("");
@@ -364,6 +846,9 @@ export default function InventarioPage() {
   // Move dropdown
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [moving, setMoving] = useState(false);
+
+  // Assign-to-vehicle modal — only opens with exactly 1 selected tire.
+  const [assignTire, setAssignTire] = useState<InventoryTire | null>(null);
 
   // -- Auth --------------------------------------------------------------------
 
@@ -611,21 +1096,31 @@ export default function InventarioPage() {
                     {b.tireCount}
                   </p>
 
-                  {/* Edit/delete on hover */}
-                  <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditBucket(b); }}
-                      className="p-1 rounded-md bg-white shadow-sm hover:bg-gray-50"
-                    >
-                      <Pencil className="w-3 h-3 text-[#348CCB]" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteBucket(b); }}
-                      className="p-1 rounded-md bg-white shadow-sm hover:bg-red-50"
-                    >
-                      <Trash2 className="w-3 h-3 text-red-400" />
-                    </button>
-                  </div>
+                  {/* Edit/delete on hover — hidden on the system-managed
+                      Reencauche bucket so users can't even attempt to
+                      remove or rename it. The lock badge below substitutes
+                      so the constraint is visible. */}
+                  {b.tipo !== "reencauche" && (
+                    <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditBucket(b); }}
+                        className="p-1 rounded-md bg-white shadow-sm hover:bg-gray-50"
+                      >
+                        <Pencil className="w-3 h-3 text-[#348CCB]" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteBucket(b); }}
+                        className="p-1 rounded-md bg-white shadow-sm hover:bg-red-50"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-400" />
+                      </button>
+                    </div>
+                  )}
+                  {b.tipo === "reencauche" && (
+                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest bg-[#0A183A]/5 text-[#0A183A]/60">
+                      Sistema
+                    </div>
+                  )}
                 </button>
               ))}
 
@@ -705,12 +1200,35 @@ export default function InventarioPage() {
 
                       {showMoveMenu && (
                         <div
-                          className="absolute right-0 mt-1 w-48 rounded-xl py-1 z-20 shadow-sm"
+                          className="absolute right-0 mt-1 w-56 rounded-xl py-1 z-20 shadow-sm"
                           style={{
                             background: "white",
                             border: "1px solid rgba(52,140,203,0.2)",
                           }}
                         >
+                          {/* Move-to-vehicle option — only enabled when exactly
+                              one tire is selected, since vehicle/position pairs
+                              are inherently per-tire. */}
+                          <button
+                            onClick={() => {
+                              if (selectedIds.size !== 1) return;
+                              const id = Array.from(selectedIds)[0];
+                              const t = tires.find((x) => x.id === id);
+                              if (!t) return;
+                              setShowMoveMenu(false);
+                              setAssignTire(t);
+                            }}
+                            disabled={selectedIds.size !== 1}
+                            title={selectedIds.size !== 1 ? "Selecciona una sola llanta" : ""}
+                            className="w-full text-left px-4 py-2 text-xs font-bold hover:bg-[#F0F7FF] text-[#1E76B6] disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            A un vehículo
+                            {selectedIds.size > 1 && (
+                              <span className="ml-auto text-[9px] text-gray-400">una a la vez</span>
+                            )}
+                          </button>
+                          <div className="my-1 h-px bg-gray-100" />
                           {activeBucket !== "disponible" && (
                             <button
                               onClick={() => handleMove(null)}
@@ -907,6 +1425,21 @@ export default function InventarioPage() {
           loading={deleteLoading}
           onConfirm={handleDelete}
           onCancel={() => setDeleteBucket(null)}
+        />
+      )}
+
+      {assignTire && (
+        <AssignToVehicleModal
+          tire={assignTire}
+          buckets={buckets}
+          companyId={companyId}
+          onClose={() => setAssignTire(null)}
+          onDone={() => {
+            setAssignTire(null);
+            setSelectedIds(new Set());
+            fetchBuckets();
+            fetchTires();
+          }}
         />
       )}
     </div>
