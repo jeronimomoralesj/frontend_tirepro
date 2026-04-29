@@ -1822,11 +1822,23 @@ interface MapDistributor {
   telefono: string | null;
   cobertura: Array<{ lat: number; lng: number; ciudad?: string; nombre?: string }>;
   _count?: { listings: number };
+  categories?: string[];
 }
+
+// Category metadata for the map filter chips. Order = display order on the
+// chip row. Keys must match what the backend categorizer emits.
+const MAP_CATEGORIES: Array<{ key: string; label: string; emoji: string }> = [
+  { key: "tractomula", label: "Tractomula y camión", emoji: "🚛" },
+  { key: "bus",        label: "Bus",                 emoji: "🚌" },
+  { key: "suv",        label: "SUV y camioneta",     emoji: "🚙" },
+  { key: "automovil",  label: "Automóvil",           emoji: "🚗" },
+  { key: "reencauche", label: "Reencauche",          emoji: "♻️" },
+];
 
 function DistributorsMap() {
   const [data, setData] = useState<MapDistributor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const mapRef = React.useRef<any>(null);
 
@@ -1839,9 +1851,20 @@ function DistributorsMap() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Lazy-load Leaflet from CDN once and render the map
+  // Filtered view based on the selected category chip. Empty/null = show all.
+  const visible = activeCategory
+    ? data.filter((d) => (d.categories ?? []).includes(activeCategory))
+    : data;
+
+  // Only show category chips that at least one distributor covers — avoids
+  // a "Reencauche" chip when no distributor sells reencauche, etc.
+  const availableCats = new Set<string>();
+  for (const d of data) for (const c of d.categories ?? []) availableCats.add(c);
+
+  // Lazy-load Leaflet from CDN once and render the map. We re-run on filter
+  // change so pins update without needing a custom Leaflet diff layer.
   useEffect(() => {
-    if (typeof window === "undefined" || data.length === 0 || !containerRef.current) return;
+    if (typeof window === "undefined" || visible.length === 0 || !containerRef.current) return;
 
     const ensureLeaflet = (): Promise<any> =>
       new Promise((resolve) => {
@@ -1890,17 +1913,29 @@ function DistributorsMap() {
       }).addTo(map);
 
       const allPoints: [number, number][] = [];
-      data.forEach((d) => {
+      visible.forEach((d) => {
         (d.cobertura || []).forEach((p) => {
           if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
           allPoints.push([p.lat, p.lng]);
           const marker = L.marker([p.lat, p.lng]).addTo(map);
           const cityLine = p.ciudad || p.nombre || d.ciudad || "";
+          // Compact category chips for the popup. Limited to 3 so the popup
+          // doesn't grow unbounded for distributors that cover everything.
+          const cats = (d.categories ?? [])
+            .map((k) => MAP_CATEGORIES.find((m) => m.key === k))
+            .filter(Boolean)
+            .slice(0, 3) as Array<{ label: string; emoji: string }>;
+          const catLine = cats.length
+            ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${cats
+                .map((c) => `<span style="font-size:10px;font-weight:700;color:#1E76B6;background:rgba(30,118,182,0.08);padding:2px 6px;border-radius:9999px">${c.emoji} ${escapeHtml(c.label)}</span>`)
+                .join("")}</div>`
+            : "";
           marker.bindPopup(
-            `<div style="min-width:160px">
+            `<div style="min-width:180px">
               <div style="font-weight:800;color:#0A183A;font-size:13px">${escapeHtml(d.name)}</div>
               ${cityLine ? `<div style="color:#666;font-size:11px;margin-top:2px">${escapeHtml(cityLine)}</div>` : ""}
-              <a href="/marketplace/distributor/${d.slug ?? d.id}" style="display:inline-block;margin-top:6px;color:#1E76B6;font-size:11px;font-weight:700">Ver catálogo →</a>
+              ${catLine}
+              <a href="/marketplace/distributor/${d.slug ?? d.id}" style="display:inline-block;margin-top:8px;color:#1E76B6;font-size:11px;font-weight:700">Ver catálogo →</a>
             </div>`
           );
         });
@@ -1920,9 +1955,12 @@ function DistributorsMap() {
         mapRef.current = null;
       }
     };
-  }, [data]);
+  }, [visible]);
 
-  const totalPoints = data.reduce((acc, d) => acc + (d.cobertura?.length || 0), 0);
+  const visiblePoints = visible.reduce((acc, d) => acc + (d.cobertura?.length || 0), 0);
+  const activeMeta = activeCategory
+    ? MAP_CATEGORIES.find((m) => m.key === activeCategory)
+    : null;
 
   return (
     <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-10">
@@ -1930,15 +1968,77 @@ function DistributorsMap() {
         <div>
           <h2 className="text-base sm:text-xl font-black text-[#0A183A]">Distribuidores en Colombia</h2>
           <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
-            {loading ? "Cargando…" : `${data.length} distribuidores · ${totalPoints} puntos de cobertura`}
+            {loading
+              ? "Cargando…"
+              : `${visible.length} distribuidor${visible.length !== 1 ? "es" : ""} · ${visiblePoints} punto${visiblePoints !== 1 ? "s" : ""} de cobertura${activeMeta ? ` · ${activeMeta.label}` : ""}`}
           </p>
         </div>
       </div>
 
+      {/* Category filter chips — drives both the map pins and the
+          distributor strip below. "Todos" resets to the unfiltered view. */}
+      {data.length > 0 && availableCats.size > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-2 mb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
+          <button
+            onClick={() => setActiveCategory(null)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black transition-all"
+            style={{
+              background: activeCategory === null
+                ? "linear-gradient(135deg,#0A183A,#1E76B6)"
+                : "white",
+              color: activeCategory === null ? "white" : "#0A183A",
+              border: activeCategory === null
+                ? "1px solid transparent"
+                : "1px solid rgba(10,24,58,0.1)",
+              boxShadow: activeCategory === null
+                ? "0 6px 14px rgba(30,118,182,0.25)"
+                : "none",
+            }}
+          >
+            Todos
+          </button>
+          {MAP_CATEGORIES.filter((c) => availableCats.has(c.key)).map((c) => {
+            const active = activeCategory === c.key;
+            const count = data.filter((d) => (d.categories ?? []).includes(c.key)).length;
+            return (
+              <button
+                key={c.key}
+                onClick={() => setActiveCategory(active ? null : c.key)}
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black transition-all"
+                style={{
+                  background: active
+                    ? "linear-gradient(135deg,#0A183A,#1E76B6)"
+                    : "white",
+                  color: active ? "white" : "#0A183A",
+                  border: active
+                    ? "1px solid transparent"
+                    : "1px solid rgba(10,24,58,0.1)",
+                  boxShadow: active
+                    ? "0 6px 14px rgba(30,118,182,0.25)"
+                    : "none",
+                }}
+              >
+                <span aria-hidden>{c.emoji}</span>
+                {c.label}
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: active ? "rgba(255,255,255,0.2)" : "rgba(10,24,58,0.06)",
+                    color: active ? "white" : "#1E76B6",
+                  }}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Small distributor strip — horizontal scroll above the map */}
-      {data.length > 0 && (
+      {visible.length > 0 && (
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-3 -mx-3 px-3 sm:mx-0 sm:px-0">
-          {data.map((d) => (
+          {visible.map((d) => (
             <Link
               key={d.id}
               href={`/marketplace/distributor/${d.slug ?? d.id}`}
@@ -1958,8 +2058,15 @@ function DistributorsMap() {
         </div>
       )}
 
-      <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
+      <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm relative">
         <div ref={containerRef} className="w-full h-[320px] sm:h-[460px]" />
+        {!loading && visible.length === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none bg-white/85 backdrop-blur-[2px]">
+            <Package className="w-8 h-8 text-gray-300 mb-2" />
+            <p className="text-xs font-bold text-[#0A183A]">Sin distribuidores en esta categoría</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Prueba otra categoría o muestra todos.</p>
+          </div>
+        )}
       </div>
     </div>
   );
