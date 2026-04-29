@@ -233,7 +233,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Marketplace", item: "https://www.tirepro.com.co/marketplace" },
-      { "@type": "ListItem", position: 2, name: product.distributor?.name, item: `https://www.tirepro.com.co/marketplace/distributor/${product.distributor?.id}` },
+      { "@type": "ListItem", position: 2, name: product.distributor?.name, item: `https://www.tirepro.com.co/marketplace/distributor/${product.distributor?.slug ?? product.distributor?.id}` },
       { "@type": "ListItem", position: 3, name: `${product.marca} ${product.modelo}` },
     ],
   };

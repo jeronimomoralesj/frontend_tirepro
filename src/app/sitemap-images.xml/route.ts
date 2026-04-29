@@ -131,7 +131,8 @@ export async function GET() {
     const d = l?.distributor;
     if (!d?.id || seenDist.has(d.id)) continue;
     seenDist.add(d.id);
-    const pageUrl = `${SITE}/marketplace/distributor/${d.id}`;
+    const distHandle = d.slug ?? d.id;
+    const pageUrl = `${SITE}/marketplace/distributor/${distHandle}`;
     if (d.bannerImage) {
       entries.push({
         pageUrl,

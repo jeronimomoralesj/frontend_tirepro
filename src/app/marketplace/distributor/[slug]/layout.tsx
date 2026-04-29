@@ -5,9 +5,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
 
-async function fetchProfile(id: string) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function fetchProfile(idOrSlug: string) {
   try {
-    const res = await fetch(`${API_BASE}/marketplace/distributor/${id}/profile`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_BASE}/marketplace/distributor/${idOrSlug}/profile`, { next: { revalidate: 3600 } });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
@@ -18,18 +20,26 @@ export async function generateStaticParams() {
     const res = await fetch(`${API_BASE}/marketplace/listings?limit=500&sortBy=newest`);
     if (!res.ok) return [];
     const data = await res.json();
-    const ids = new Set<string>();
+    const slugs = new Set<string>();
     for (const l of data.listings ?? []) {
-      if (l.distributor?.id) ids.add(l.distributor.id);
+      // Prefer slug; fall back to id for any distributor not yet backfilled.
+      const handle = l.distributor?.slug ?? l.distributor?.id;
+      if (handle) slugs.add(handle);
     }
-    return [...ids].map((id) => ({ id }));
+    return [...slugs].map((slug) => ({ slug }));
   } catch { return []; }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
-  const d = await fetchProfile(id);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const d = await fetchProfile(slug);
   if (!d) return { title: "Distribuidor — TirePro Marketplace" };
+
+  // Canonical always points to the slug URL — never the UUID — even if the
+  // crawler arrived via UUID. Google then attributes all link equity to the
+  // single canonical slug page instead of splitting it.
+  const canonicalHandle = d.slug ?? slug;
+  const canonical = `https://www.tirepro.com.co/marketplace/distributor/${canonicalHandle}`;
 
   // Lead the title with the brand name verbatim — search engines weight the
   // very first words heavily for brand-name queries.
@@ -44,7 +54,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     title,
     description,
     keywords: [
-      // Brand-first: these are the highest-intent queries we want to rank for.
       d.name,
       `${d.name} llantas`,
       `${d.name} ${d.ciudad ?? "Colombia"}`,
@@ -61,7 +70,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     openGraph: {
       title: `${d.name} — Llantas en ${d.ciudad ?? "Colombia"} | TirePro`,
       description,
-      url: `https://www.tirepro.com.co/marketplace/distributor/${id}`,
+      url: canonical,
       siteName: "TirePro Marketplace",
       locale: "es_CO",
       type: "website",
@@ -73,7 +82,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       description,
       images: [image],
     },
-    alternates: { canonical: `https://www.tirepro.com.co/marketplace/distributor/${id}` },
+    alternates: { canonical },
     robots: {
       index: true,
       follow: true,
@@ -85,15 +94,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       },
     },
     other: {
-      // Helps brand-name SERPs surface these as "official" results.
       "og:see_also": d.sitioWeb || "",
     },
   };
 }
 
-export default async function DistributorLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const d = await fetchProfile(id);
+export default async function DistributorLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const d = await fetchProfile(slug);
+
+  // All structured data points at the canonical slug URL, never a UUID.
+  const canonicalHandle = d?.slug ?? slug;
+  const canonical = `https://www.tirepro.com.co/marketplace/distributor/${canonicalHandle}`;
 
   const sameAs = [
     d?.sitioWeb,
@@ -106,11 +118,11 @@ export default async function DistributorLayout({ children, params }: { children
   const structuredData = d ? {
     "@context": "https://schema.org",
     "@type": ["Store", "LocalBusiness", "AutoPartsStore"],
-    "@id": `https://www.tirepro.com.co/marketplace/distributor/${id}#org`,
+    "@id": `${canonical}#org`,
     name: d.name,
     alternateName: [d.name, `${d.name} Llantas`, `${d.name} ${d.ciudad ?? ""}`].filter(Boolean),
     description: d.descripcion || `${d.name} es un distribuidor verificado de llantas en ${d.ciudad ?? "Colombia"}, con catálogo completo en TirePro Marketplace.`,
-    url: `https://www.tirepro.com.co/marketplace/distributor/${id}`,
+    url: canonical,
     image: d.bannerImage || d.profileImage || undefined,
     logo: d.profileImage || undefined,
     telephone: d.telefono || undefined,
@@ -161,15 +173,10 @@ export default async function DistributorLayout({ children, params }: { children
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Marketplace", item: "https://www.tirepro.com.co/marketplace" },
-      { "@type": "ListItem", position: 2, name: d.name },
+      { "@type": "ListItem", position: 2, name: d.name, item: canonical },
     ],
   } : null;
 
-  // Crawler-visible SEO block. The actual page is client-rendered, so
-  // without this Googlebot would only see "Distribuidor" (the loading
-  // fallback) on first crawl. We render a hidden but indexable hero with
-  // the brand name, city, listings count, description, and coverage cities
-  // from the server so bots index brand-name queries.
   const cityList = d && Array.isArray(d.cobertura)
     ? d.cobertura.map((c: any) => (typeof c === "string" ? c : c.ciudad)).filter(Boolean)
     : [];

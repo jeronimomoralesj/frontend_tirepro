@@ -19,7 +19,7 @@ const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 interface Profile {
-  id: string; name: string; profileImage: string; plan: string;
+  id: string; slug: string | null; name: string; profileImage: string; plan: string;
   emailAtencion: string | null; telefono: string | null;
   descripcion: string | null; bannerImage: string | null;
   direccion: string | null; ciudad: string | null; sitioWeb: string | null;
@@ -39,7 +39,12 @@ interface Listing {
 }
 
 export default function DistributorStorefront() {
-  const { id } = useParams<{ id: string }>();
+  // The route param can be either the new slug (preferred) or a legacy UUID.
+  // The backend resolves either form, so we just pass it through to /profile.
+  // For listings we wait until profile loads so we can filter by the canonical
+  // UUID — the listings endpoint expects distributorId as a UUID.
+  const { slug } = useParams<{ slug: string }>();
+  const handle = slug;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [total, setTotal] = useState(0);
@@ -51,19 +56,19 @@ export default function DistributorStorefront() {
   const [tipo, setTipo] = useState("");
 
   useEffect(() => {
-    if (!id) return;
-    fetch(`${API_BASE}/marketplace/distributor/${id}/profile`)
+    if (!handle) return;
+    fetch(`${API_BASE}/marketplace/distributor/${handle}/profile`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { setProfile(d); if (d) trackDistributorView({ id: d.id, name: d.name }); })
       .catch(() => {})
       .finally(() => setProfileLoading(false));
-  }, [id]);
+  }, [handle]);
 
   const fetchListings = useCallback(async () => {
-    if (!id) return;
+    if (!profile?.id) return;
     setLoading(true);
     const p = new URLSearchParams();
-    p.set("distributorId", id);
+    p.set("distributorId", profile.id);
     if (search) p.set("search", search);
     if (tipo) p.set("tipo", tipo);
     p.set("page", String(page));
@@ -74,7 +79,7 @@ export default function DistributorStorefront() {
       if (res.ok) { const d = await res.json(); setListings(d.listings ?? []); setTotal(d.total ?? 0); setPages(d.pages ?? 1); }
     } catch { /* */ }
     setLoading(false);
-  }, [id, search, tipo, page]);
+  }, [profile?.id, search, tipo, page]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
   useEffect(() => { setPage(1); }, [search, tipo]);

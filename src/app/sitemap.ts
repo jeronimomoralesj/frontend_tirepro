@@ -176,14 +176,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }
       })
 
-      // Extract unique distributors
+      // Extract unique distributors. Prefer the slug for keyword-rich URLs
+      // (/marketplace/distributor/merquellantas); fall back to the UUID for
+      // any rare distributor that hasn't been backfilled yet.
       const distIds = new Set<string>()
       const distEntries: MetadataRoute.Sitemap = []
       for (const l of listings) {
         if (l.distributor?.id && !distIds.has(l.distributor.id)) {
           distIds.add(l.distributor.id)
+          const distHandle = l.distributor.slug ?? l.distributor.id
           distEntries.push({
-            url: `${BASE_URL}/marketplace/distributor/${l.distributor.id}`,
+            url: `${BASE_URL}/marketplace/distributor/${distHandle}`,
             lastModified: new Date(),
             changeFrequency: 'daily' as const,
             // Brand-name landing pages — push high so Google reindexes them

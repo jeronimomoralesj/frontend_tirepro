@@ -27,7 +27,7 @@ interface Product {
   tipo: string; precioCop: number; precioPromo: number | null; promoHasta: string | null;
   incluyeIva: boolean; cantidadDisponible: number; tiempoEntrega: string | null;
   descripcion: string | null; imageUrls: string[] | null; coverIndex: number;
-  distributor: { id: string; name: string; profileImage: string; ciudad: string | null; telefono: string | null; emailAtencion: string | null; tipoEntrega: string | null; cobertura: any[] | null };
+  distributor: { id: string; slug?: string | null; name: string; profileImage: string; ciudad: string | null; telefono: string | null; emailAtencion: string | null; tipoEntrega: string | null; cobertura: any[] | null };
   catalog: {
     id?: string; skuRef?: string;
     terreno: string | null; reencauchable: boolean;
@@ -278,7 +278,7 @@ export default function ProductClient({
           <div className="flex items-center gap-1.5 text-[11px] text-white/60">
             <Link href="/marketplace" className="hover:text-white transition-colors">Marketplace</Link>
             <span className="text-white/30">/</span>
-            <Link href={`/marketplace/distributor/${product.distributor.id}`} className="hover:text-white transition-colors truncate max-w-[160px]">{product.distributor.name}</Link>
+            <Link href={`/marketplace/distributor/${product.distributor.slug ?? product.distributor.id}`} className="hover:text-white transition-colors truncate max-w-[160px]">{product.distributor.name}</Link>
             <span className="text-white/30">/</span>
             <span className="text-white truncate max-w-[200px]">{product.modelo}</span>
           </div>
@@ -613,7 +613,7 @@ export default function ProductClient({
 
             {/* Distributor info */}
             <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
-              <Link href={`/marketplace/distributor/${product.distributor.id}`} className="flex items-center gap-3 group">
+              <Link href={`/marketplace/distributor/${product.distributor.slug ?? product.distributor.id}`} className="flex items-center gap-3 group">
                 <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
                   {product.distributor.profileImage && product.distributor.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png"
                     ? <img src={product.distributor.profileImage} alt={`Logo de ${product.distributor.name} — distribuidor de llantas`} className="max-w-full max-h-full object-contain" />

@@ -27,7 +27,7 @@ interface Listing {
   incluyeIva: boolean; cantidadDisponible: number;
   tiempoEntrega: string | null; descripcion: string | null;
   imageUrls: string[] | null; coverIndex: number;
-  distributor: { id: string; name: string; profileImage: string };
+  distributor: { id: string; slug?: string | null; name: string; profileImage: string };
   catalog: {
     terreno: string | null; reencauchable: boolean;
     kmEstimadosReales: number | null; cpkEstimado: number | null;
@@ -1815,6 +1815,7 @@ function BestSellersScroller({ listings, brandsMap }: { listings: Listing[]; bra
 
 interface MapDistributor {
   id: string;
+  slug?: string | null;
   name: string;
   profileImage: string | null;
   ciudad: string | null;
@@ -1899,7 +1900,7 @@ function DistributorsMap() {
             `<div style="min-width:160px">
               <div style="font-weight:800;color:#0A183A;font-size:13px">${escapeHtml(d.name)}</div>
               ${cityLine ? `<div style="color:#666;font-size:11px;margin-top:2px">${escapeHtml(cityLine)}</div>` : ""}
-              <a href="/marketplace/distributor/${d.id}" style="display:inline-block;margin-top:6px;color:#1E76B6;font-size:11px;font-weight:700">Ver catálogo →</a>
+              <a href="/marketplace/distributor/${d.slug ?? d.id}" style="display:inline-block;margin-top:6px;color:#1E76B6;font-size:11px;font-weight:700">Ver catálogo →</a>
             </div>`
           );
         });
@@ -1940,7 +1941,7 @@ function DistributorsMap() {
           {data.map((d) => (
             <Link
               key={d.id}
-              href={`/marketplace/distributor/${d.id}`}
+              href={`/marketplace/distributor/${d.slug ?? d.id}`}
               className="flex-shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white border border-gray-100 hover:border-[#1E76B6]/40 hover:shadow-md transition-all"
               style={{ maxWidth: 200 }}
             >
