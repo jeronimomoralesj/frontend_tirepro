@@ -155,15 +155,48 @@ export default function ProductClient({
     } catch { /* */ }
   }, []);
 
+  const [fetchFailed, setFetchFailed] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+
   useEffect(() => {
     if (!id || initialProduct) return;
+    let cancelled = false;
     setLoading(true);
-    fetch(`${API_BASE}/marketplace/product/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { setProduct(d); if (d) setSelectedImg(d.coverIndex ?? 0); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [id]);
+    setFetchFailed(false);
+
+    async function load() {
+      const url = `${API_BASE}/marketplace/product/${id}`;
+      // Try up to 2 times — first hit, then a single retry after a short
+      // delay if the first attempt failed (covers transient backend / RDS
+      // pool blips). A definitive 404 stops the loop without flagging
+      // a fetch failure (that's a real "not found", not a connectivity
+      // issue, so the user shouldn't see the Reintentar button).
+      let is404 = false;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const r = await fetch(url, { cache: "no-store" });
+          if (r.ok) {
+            const d = await r.json();
+            if (!cancelled) {
+              setProduct(d);
+              if (d) setSelectedImg(d.coverIndex ?? 0);
+              setLoading(false);
+            }
+            return;
+          }
+          if (r.status === 404) { is404 = true; break; }
+        } catch { /* network error, fall through to retry */ }
+        if (attempt === 0) await new Promise((res) => setTimeout(res, 700));
+      }
+      if (!cancelled) {
+        setFetchFailed(!is404);
+        setLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [id, initialProduct, retryNonce]);
 
   // Track product view + dwell time
   useEffect(() => {
@@ -225,12 +258,29 @@ export default function ProductClient({
   );
 
   if (!product) return (
-    <div className="min-h-screen bg-[#f5f5f7] flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-[#f5f5f7] flex flex-col items-center justify-center px-6">
       <Package className="w-12 h-12 text-gray-300 mb-3" />
-      <p className="text-lg font-bold text-[#0A183A]">Producto no encontrado</p>
-      <Link href="/marketplace" className="mt-4 text-sm font-bold text-[#1E76B6] hover:underline flex items-center gap-1">
-        <ArrowLeft className="w-4 h-4" /> Volver al marketplace
-      </Link>
+      <p className="text-lg font-bold text-[#0A183A]">
+        {fetchFailed ? "No pudimos cargar el producto" : "Producto no encontrado"}
+      </p>
+      {fetchFailed && (
+        <p className="text-sm text-gray-500 mt-1 text-center max-w-sm">
+          Hubo un problema al consultar el servidor. Vuelve a intentarlo en unos segundos.
+        </p>
+      )}
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        {fetchFailed && (
+          <button
+            onClick={() => setRetryNonce((n) => n + 1)}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-sm font-bold text-white bg-[#1E76B6] hover:bg-[#0A183A] transition-colors"
+          >
+            Reintentar
+          </button>
+        )}
+        <Link href="/marketplace" className="inline-flex items-center gap-1 text-sm font-bold text-[#1E76B6] hover:underline">
+          <ArrowLeft className="w-4 h-4" /> Volver al marketplace
+        </Link>
+      </div>
     </div>
   );
 

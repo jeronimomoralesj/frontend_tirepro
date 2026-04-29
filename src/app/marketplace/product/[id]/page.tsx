@@ -27,9 +27,23 @@ async function fetchProduct(id: string) {
     const res = await fetch(`${API_BASE}/marketplace/product/${id}`, {
       next: { revalidate: 1800 },
     });
-    if (!res.ok) return null;
-    return await res.json();
+    if (res.ok) return await res.json();
+    // Don't poison the 30-min ISR cache with a transient 5xx — retry once
+    // with no-store so a temporary backend hiccup doesn't make the page
+    // unreachable for half an hour. Real 404s fall through to null below.
+    if (res.status >= 500) {
+      try {
+        const retry = await fetch(`${API_BASE}/marketplace/product/${id}`, { cache: "no-store" });
+        if (retry.ok) return await retry.json();
+      } catch { /* fall through */ }
+    }
+    return null;
   } catch {
+    // Network error — try once more uncached before giving up.
+    try {
+      const retry = await fetch(`${API_BASE}/marketplace/product/${id}`, { cache: "no-store" });
+      if (retry.ok) return await retry.json();
+    } catch { /* */ }
     return null;
   }
 }
