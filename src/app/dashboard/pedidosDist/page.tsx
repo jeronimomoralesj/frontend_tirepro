@@ -50,7 +50,6 @@ type ItemStatus =
 
 interface OrderItem {
   id: string;
-  tireId?: string | null;
   // Snapshot of the tire the item references — attached server-side via
   // ORDER_INCLUDE so the UI can show placa / posicion / vehicle without
   // a second round-trip.
@@ -2439,12 +2438,11 @@ function PickupModal({
   const [rows, setRows] = useState<Record<string, Row>>(() => {
     const init: Record<string, Row> = {};
     for (const it of reencaucheItems) {
-      // Default to "reencauchar" only when the tire link is intact —
-      // otherwise the user can't pick that option anyway, so default to
-      // "devolver" so they don't have to re-select before filling motivo.
-      const noTire = !it.tireId;
+      // Default everything to "reencauchar" — that's the typical happy
+      // path. Items missing a tire link still default here because the
+      // backend creates a placeholder tire entry on the fly.
       init[it.id] = {
-        decision:          noTire ? "devolver" : "reencauchar",
+        decision:          "reencauchar",
         estimatedDelivery: defaultEta,
         motivo:            "",
         causales:          "",
@@ -2587,7 +2585,7 @@ function PickupModal({
                 {tireMissing && (
                   <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200">
                     <p className="text-[10px] text-amber-800 leading-snug">
-                      Esta llanta fue eliminada en el sistema del cliente. Solo puedes <strong>devolver</strong> o marcar <strong>fin de vida</strong>.
+                      La llanta original fue eliminada en el sistema del cliente. Si reencauchas, crearemos automáticamente un registro nuevo en el bucket de reencauche con la marca y dimensión del pedido.
                     </p>
                   </div>
                 )}
@@ -2600,14 +2598,11 @@ function PickupModal({
                     { k: "fin_de_vida" as const, label: "Fin de vida", color: "#dc2626", bg: "rgba(239,68,68,0.1)" },
                   ]).map(({ k, label, color, bg }) => {
                     const active = r.decision === k;
-                    const disabled = k === "reencauchar" && tireMissing;
                     return (
                       <button
                         key={k}
-                        onClick={() => { if (!disabled) patch(it.id, { decision: k }); }}
-                        disabled={disabled}
-                        title={disabled ? "Sin llanta vinculada — no se puede reencauchar" : undefined}
-                        className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => patch(it.id, { decision: k })}
+                        className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors"
                         style={{
                           background: active ? bg : "transparent",
                           color:      active ? color : "#64748b",
