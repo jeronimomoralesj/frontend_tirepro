@@ -612,42 +612,41 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
     const shownOriginal = hasDiscount
       ? (input.priceMode === "con_iva" ? Math.round(original * 1.19) : original)
       : null;
+    const savings = hasDiscount && shownOriginal != null ? shownOriginal - shown : 0;
     const discountPct = hasDiscount
       ? Math.round(((original! - base) / original!) * 100)
       : 0;
 
     const boxY = y;
-    const boxH = hasDiscount ? 86 : 70;
+    const boxH = hasDiscount ? 96 : 70;
 
     // Top hairline.
     doc.setDrawColor(...FALLBACK.line);
     doc.setLineWidth(0.5);
     doc.line(M, boxY, pageW - M, boxY);
 
-    // Eyebrow row — "PRECIO" on the left + optional "-X% DESCUENTO" pill on the right.
+    // Eyebrow — left side. Always lowercase-tracked, never overlaps the pill.
     doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(TYPE.eyebrow.size);
     doc.setCharSpace(TRACK.eyebrow);
-    doc.text(hasDiscount ? "PRECIO CON DESCUENTO" : "PRECIO", M, boxY + 18);
+    doc.text(hasDiscount ? "PRECIO · OFERTA" : "PRECIO", M, boxY + 18);
     doc.setCharSpace(0);
 
+    // Discount pill — top-right, eyebrow line. Bigger and a bit more
+    // prominent than before so the savings register at a glance.
     if (hasDiscount) {
-      // Emerald pill — "-X%". Uses raw RGB instead of the brand color so
-      // the discount reads as a savings cue regardless of company palette.
       const pillText  = `-${discountPct}%`;
-      doc.setFontSize(TYPE.eyebrow.size);
-      const pillW = doc.getTextWidth(pillText) + 16;
-      const pillH = 16;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      const pillW = doc.getTextWidth(pillText) + 22;
+      const pillH = 22;
       const pillX = pageW - M - pillW;
       const pillY = boxY + 6;
-      doc.setFillColor(220, 252, 231);   // emerald-50
-      doc.setDrawColor(34, 197, 94);     // emerald-500
-      doc.setLineWidth(0.6);
-      doc.roundedRect(pillX, pillY, pillW, pillH, 8, 8, "FD");
-      doc.setTextColor(21, 128, 61);     // emerald-700
-      doc.setFont("helvetica", "bold");
-      doc.text(pillText, pillX + pillW / 2, pillY + 11, { align: "center" });
+      doc.setFillColor(34, 197, 94);     // solid emerald-500
+      doc.roundedRect(pillX, pillY, pillW, pillH, 11, 11, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(pillText, pillX + pillW / 2, pillY + 14.5, { align: "center" });
     }
 
     // The big number — final price, brand color, oversized.
@@ -656,23 +655,29 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
     doc.setFontSize(TYPE.bigMoney.size);
     doc.text(fmtCOP(shown), M, boxY + 54);
 
-    // Original (struck-through) MSRP just below the final price.
+    // Discount detail — struck MSRP + green savings amount on the same line.
+    // Reads like a price-tag: "Antes $1.500.000  ·  Ahorras $500.000".
     if (hasDiscount && shownOriginal != null) {
-      doc.setTextColor(...FALLBACK.muted);
+      const msrpY = boxY + 76;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(TYPE.bodySm.size);
+      doc.setTextColor(...FALLBACK.muted);
       const msrpLabel = `Antes ${fmtCOP(shownOriginal)}`;
-      const msrpY = boxY + 70;
       doc.text(msrpLabel, M, msrpY);
-      // Strike-through line — measure the text width and draw a hairline
-      // through the middle of the cap-height.
       const w = doc.getTextWidth(msrpLabel);
+      // Strike line — through the middle of the text for visibility.
       doc.setDrawColor(...FALLBACK.muted);
-      doc.setLineWidth(0.5);
+      doc.setLineWidth(0.6);
       doc.line(M, msrpY - 3, M + w, msrpY - 3);
+
+      // Savings amount, emerald, after a small bullet.
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(21, 128, 61);
+      doc.text(`  ·  Ahorras ${fmtCOP(savings)}`, M + w, msrpY);
     }
 
-    // IVA label, right-aligned, low-contrast.
+    // IVA label, right-aligned alongside the big price (single horizontal
+    // line) — keeps the right column clean for the pill above it.
     doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(TYPE.bodySm.size);
@@ -1168,57 +1173,64 @@ export async function buildComparativePdf(input: QuoteInput): Promise<Blob> {
 
       // Discount detection — both prices set and original > final.
       const original = it.originalPriceCop ?? null;
-      const hasDisc = original != null && original > it.unitPriceCop;
+      const hasDisc  = original != null && original > it.unitPriceCop;
       const origUnit = hasDisc ? Math.round(original! * ivaMul) : 0;
-      const discPct = hasDisc ? Math.round(((original! - it.unitPriceCop) / original!) * 100) : 0;
+      const savings  = hasDisc ? origUnit - unit : 0;
+      const discPct  = hasDisc ? Math.round(((original! - it.unitPriceCop) / original!) * 100) : 0;
 
-      const boxH = hasDisc ? 80 : 64;
+      const boxH = hasDisc ? 92 : 64;
       const boxY = y;
       doc.setFillColor(...FALLBACK.ink);
       doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 12, 12, "F");
       doc.setFillColor(...brand);
       doc.roundedRect(M, boxY, 8, boxH, 4, 4, "F");
 
+      // Eyebrow — left side, top.
       doc.setTextColor(200, 215, 240);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text(hasDisc ? "Precio con descuento" : "Precio", M + 22, boxY + 24);
+      doc.text(hasDisc ? "PRECIO · OFERTA" : "Precio", M + 22, boxY + 24);
 
+      // Discount pill — top-right of the box, raised so it doesn't fight
+      // the IVA label vertical slot below.
+      if (hasDisc) {
+        const pillText = `-${discPct}%`;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        const pillW = doc.getTextWidth(pillText) + 22;
+        const pillH = 22;
+        const pillX = pageW - M - 18 - pillW;
+        const pillY = boxY + 14;
+        doc.setFillColor(34, 197, 94);
+        doc.roundedRect(pillX, pillY, pillW, pillH, 11, 11, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.text(pillText, pillX + pillW / 2, pillY + 14.5, { align: "center" });
+      }
+
+      // Final price — big, white.
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(22);
       doc.text(fmtCOP(unit), M + 22, boxY + 50);
 
-      // Struck-through MSRP under the final price.
+      // Struck MSRP + emerald savings on a single line under the price.
       if (hasDisc) {
-        doc.setTextColor(200, 215, 240);
+        const msrpY = boxY + 72;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
+        doc.setTextColor(170, 190, 220);
         const msrpLabel = `Antes ${fmtCOP(origUnit)}`;
-        const msrpY = boxY + 68;
         doc.text(msrpLabel, M + 22, msrpY);
         const w = doc.getTextWidth(msrpLabel);
-        doc.setDrawColor(200, 215, 240);
+        doc.setDrawColor(170, 190, 220);
         doc.setLineWidth(0.6);
         doc.line(M + 22, msrpY - 3, M + 22 + w, msrpY - 3);
-      }
-
-      // Discount pill, top-right of the price box, replacing the IVA
-      // label slot when a discount is present.
-      if (hasDisc) {
-        const pillText = `-${discPct}%`;
-        doc.setFontSize(10);
-        const pillW = doc.getTextWidth(pillText) + 16;
-        const pillH = 18;
-        const pillX = pageW - M - 14 - pillW;
-        const pillY = boxY + 16;
-        doc.setFillColor(34, 197, 94);
-        doc.roundedRect(pillX, pillY, pillW, pillH, 9, 9, "F");
-        doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
-        doc.text(pillText, pillX + pillW / 2, pillY + 12, { align: "center" });
+        doc.setTextColor(74, 222, 128);   // emerald-400 — pops on dark
+        doc.text(`  ·  Ahorras ${fmtCOP(savings)}`, M + 22 + w, msrpY);
       }
 
+      // IVA label — right-aligned at the price line.
       doc.setTextColor(200, 215, 240);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
@@ -1535,29 +1547,36 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     } else {
       const unit  = effectiveUnit(it.unitPriceCop);
       const line  = lineTotal(it);
-      // Discount detection — render struck MSRP in a smaller line above
-      // the unit price when the rep entered a pre-discount value.
+      // Discount detection — render struck MSRP + emerald "-X%" tag on
+      // ONE right-aligned line above the unit price. Both kept inside
+      // the unit column so they never overlap the total column.
       const original = it.originalPriceCop ?? null;
-      const hasDisc = original != null && original > it.unitPriceCop;
+      const hasDisc  = original != null && original > it.unitPriceCop;
       if (hasDisc) {
-        const origUnit = effectiveUnit(original!);
-        const discPct = Math.round(((original! - it.unitPriceCop) / original!) * 100);
-        // Struck-through MSRP just above the unit price.
+        const origUnit  = effectiveUnit(original!);
+        const discPct   = Math.round(((original! - it.unitPriceCop) / original!) * 100);
+        const msrpStr   = fmtCOP(origUnit);
+        const tagStr    = ` −${discPct}%`;
+        const msrpY     = moneyY - 12;
+        // Render the "-X%" tag first (rightmost), then the struck MSRP
+        // anchored to its left edge — so the whole thing right-aligns
+        // cleanly to UNIT_X.
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(21, 128, 61);
+        doc.text(tagStr, UNIT_X, msrpY, { align: "right" });
+        const tagW = doc.getTextWidth(tagStr);
+        // MSRP — to the left of the tag, struck through.
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         doc.setTextColor(...FALLBACK.muted);
-        const msrp = fmtCOP(origUnit);
-        const msrpY = moneyY - 12;
-        doc.text(msrp, UNIT_X, msrpY, { align: "right" });
-        const w = doc.getTextWidth(msrp);
+        const msrpRightX = UNIT_X - tagW;
+        doc.text(msrpStr, msrpRightX, msrpY, { align: "right" });
+        const msrpW = doc.getTextWidth(msrpStr);
         doc.setDrawColor(...FALLBACK.muted);
         doc.setLineWidth(0.4);
-        doc.line(UNIT_X - w, msrpY - 2, UNIT_X, msrpY - 2);
-        // Tiny "-X%" tag, right of MSRP, in emerald.
-        doc.setTextColor(21, 128, 61);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.5);
-        doc.text(`-${discPct}%`, UNIT_X + 2, msrpY, { align: "left" });
+        doc.line(msrpRightX - msrpW, msrpY - 2, msrpRightX, msrpY - 2);
+        // Reset for the unit price line.
         doc.setTextColor(...FALLBACK.ink);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(TYPE.rowMoney.size);
