@@ -20,6 +20,11 @@ export type CartItem = {
   terreno:    string | null;
   ejeTirePro: string | null;
   imageUrl:   string | null;
+  // Full gallery for the SKU — captured at add-time so the cotización
+  // editor can let the rep pick which image goes into the PDF for THIS
+  // client without round-tripping. `imageUrl` (above) is the active
+  // selection; this list is the chooser source.
+  imageUrls?: string[];
   // Full ficha snapshot — captured at add-time so the quote PDF can
   // render any ficha-técnica field the rep toggles on without having
   // to round-trip to the backend at generate time. Everything is

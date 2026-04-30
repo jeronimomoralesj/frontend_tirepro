@@ -350,6 +350,7 @@ export default function CotizacionPage() {
                   onQty={(q) => update(it.catalogId, { quantity: q })}
                   onPrice={(p) => update(it.catalogId, { unitPriceCop: p })}
                   onOriginalPrice={(p) => update(it.catalogId, { originalPriceCop: p })}
+                  onImage={(url) => update(it.catalogId, { imageUrl: url })}
                   onRemove={() => remove(it.catalogId)}
                 />
               ))}
@@ -515,15 +516,24 @@ export default function CotizacionPage() {
 // Row — single cart item with qty stepper + unit price input
 // =============================================================================
 
-function CartRow({ item, lineTotal, priceMode, onQty, onPrice, onOriginalPrice, onRemove }: {
+function CartRow({ item, lineTotal, priceMode, onQty, onPrice, onOriginalPrice, onImage, onRemove }: {
   item: CartItem;
   lineTotal: number;
   priceMode: "none" | "sin_iva" | "con_iva";
   onQty:   (q: number) => void;
   onPrice: (p: number | null) => void;
   onOriginalPrice: (p: number | null) => void;
+  onImage: (url: string | null) => void;
   onRemove: () => void;
 }) {
+  // Image picker state — open/closed per row. The dropdown shows every
+  // gallery image the SKU had at add-time so the rep can swap which
+  // photo lands in the PDF for THIS client without leaving the page.
+  const [imgPickerOpen, setImgPickerOpen] = useState(false);
+  const galleryUrls: string[] = (item.imageUrls && item.imageUrls.length > 0)
+    ? item.imageUrls
+    : (item.imageUrl ? [item.imageUrl] : []);
+  const hasMultipleImages = galleryUrls.length > 1;
   // Discount % only shown when both prices are set and the original is
   // strictly greater than the final — that's the only case where calling
   // the line "discounted" makes sense.
@@ -538,12 +548,26 @@ function CartRow({ item, lineTotal, priceMode, onQty, onPrice, onOriginalPrice, 
     <div className="rounded-xl p-3"
       style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)" }}>
       <div className="flex items-center gap-3">
-        <div className="w-14 h-14 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
+        <div className="relative w-14 h-14 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
           style={{ background: "radial-gradient(circle at 30% 20%, #ffffff 0%, #f0f7ff 60%, #dbeafe 100%)" }}>
           {item.imageUrl
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={item.imageUrl} alt="" className="w-full h-full object-contain p-0.5" />
             : <ImageIcon className="w-6 h-6 text-gray-300" />}
+          {/* Per-line image picker — only renders when the SKU snapshot
+              carried more than one image. Click swaps which photo gets
+              embedded in the PDF for this client. The dropdown anchors
+              to the thumb so it doesn't shift the row layout. */}
+          {hasMultipleImages && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setImgPickerOpen((v) => !v); }}
+              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shadow-md ring-2 ring-white"
+              style={{ background: "#1E76B6" }}
+              title="Cambiar imagen para este cliente"
+            >
+              {galleryUrls.length}
+            </button>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
@@ -631,6 +655,44 @@ function CartRow({ item, lineTotal, priceMode, onQty, onPrice, onOriginalPrice, 
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Image picker — opens when the user clicks the small badge on the
+          thumb. A horizontal strip of every gallery photo from the SKU,
+          with the active one outlined. Picking instantly updates the cart
+          + the eventual PDF embed. */}
+      {imgPickerOpen && hasMultipleImages && (
+        <div className="mt-2 ml-[68px] rounded-lg p-2 bg-[#F0F7FF] border border-[#1E76B6]/20">
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#1E76B6]">
+              Imagen para este cliente
+            </p>
+            <button onClick={() => setImgPickerOpen(false)} className="text-[#1E76B6]/60 hover:text-[#1E76B6]">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {galleryUrls.map((url) => {
+              const active = url === item.imageUrl;
+              return (
+                <button
+                  key={url}
+                  onClick={() => { onImage(url); }}
+                  className="w-12 h-12 rounded-md flex-shrink-0 overflow-hidden transition-all"
+                  style={{
+                    background: "white",
+                    border: active ? "2px solid #1E76B6" : "2px solid transparent",
+                    boxShadow: active ? "0 0 0 2px rgba(30,118,182,0.18)" : "none",
+                    opacity: active ? 1 : 0.7,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="w-full h-full object-contain p-0.5" />
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

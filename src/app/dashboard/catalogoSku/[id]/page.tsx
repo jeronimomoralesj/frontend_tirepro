@@ -654,7 +654,11 @@ export default function CatalogoSkuDetailPage() {
         brand:          brandBlock,
         marca:     sku.marca,
         modelo:    sku.modelo,
-        tipo:      sku.tipo,
+        // The PDF expects "nueva" | "reencauche" — that lives on
+        // sku.categoria, NOT sku.tipo (which is "Radial" / "Convencional").
+        // Without this remap every reencauche tire was labelled "Llanta
+        // Nueva" and rendered with mixed-case banda codes.
+        tipo:      sku.categoria === "reencauche" ? "reencauche" : "nueva",
         dimension: sku.dimension,
         categoria: sku.categoria,
         terreno:   sku.terreno,
@@ -1208,6 +1212,10 @@ export default function CatalogoSkuDetailPage() {
                     terreno:   sku.terreno,
                     ejeTirePro: sku.ejeTirePro,
                     imageUrl:  sku.images[0]?.url ?? null,
+                    // Snapshot the full gallery so the cotización editor
+                    // can offer a per-line image picker without re-fetching
+                    // the SKU.
+                    imageUrls: sku.images.map((im) => im.url),
                     // Full ficha snapshot — covers every field the quote
                     // PDF's ficha-field toggles can render.
                     indiceCarga:     sku.indiceCarga,
@@ -1221,7 +1229,11 @@ export default function CatalogoSkuDetailPage() {
                     tipoBanda:       sku.tipoBanda,
                     construccion:    sku.construccion,
                     segmento:        sku.segmento,
-                    tipo:            sku.tipo,
+                    // CartItem.tipo drives the PDF's "Llanta Nueva" vs
+                    // "Reencauche" label and the modelo upper-case rule.
+                    // sku.categoria is the right source ("nueva" | "reencauche");
+                    // sku.tipo on the catalog is "Radial" / "Convencional".
+                    tipo:            sku.categoria === "reencauche" ? "reencauche" : "nueva",
                     quantity:  4,
                     unitPriceCop: Number(priceInput.replace(/[^0-9]/g, "")) || sku.precioCop || null,
                     originalPriceCop: Number(originalPriceInput.replace(/[^0-9]/g, "")) || null,
