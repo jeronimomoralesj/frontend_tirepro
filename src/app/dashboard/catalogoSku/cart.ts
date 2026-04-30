@@ -40,6 +40,11 @@ export type CartItem = {
   // on the quote page.
   quantity:     number;
   unitPriceCop: number | null;
+  // Optional "MSRP / pre-discount" price. When present AND larger than
+  // unitPriceCop, the PDF renders unitPriceCop as the final price and
+  // strikes through originalPriceCop alongside a percentage discount
+  // badge. When null / equal / smaller it's ignored.
+  originalPriceCop?: number | null;
 };
 
 const STORAGE_KEY = "catalogoSku:cart";

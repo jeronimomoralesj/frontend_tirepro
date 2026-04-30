@@ -170,6 +170,9 @@ export default function CatalogoSkuDetailPage() {
   const [toggles,       setToggles]       = useState<Record<FieldKey, boolean>>(defaultToggles());
   const [priceMode,     setPriceMode]     = useState<"none" | "sin_iva" | "con_iva">("none");
   const [priceInput,    setPriceInput]    = useState("");
+  // Optional MSRP / pre-discount price. When > priceInput, the PDF +
+  // "agregar a cotización" both surface the discount.
+  const [originalPriceInput, setOriginalPriceInput] = useState("");
   // Which images go in the PDF. Initialized to the full set on first load
   // so the default "generate" gives them everything; user unchecks to
   // remove. Kept as a Set of image IDs.
@@ -593,6 +596,13 @@ export default function CatalogoSkuDetailPage() {
       const price = priceMode === "none"
         ? null
         : Number(priceInput.replace(/[^0-9]/g, "")) || 0;
+      // Pre-discount MSRP for the PDF — only forwarded when the rep
+      // entered both inputs AND the original is strictly larger than
+      // the final, otherwise it's noise.
+      const originalNum = Number(originalPriceInput.replace(/[^0-9]/g, "")) || 0;
+      const originalPrice = priceMode === "none"
+        ? null
+        : (originalNum > 0 && price != null && originalNum > price ? originalNum : null);
 
       // Preserve gallery order (by coverIndex) for the subset the user
       // picked — keeps the PDF layout deterministic regardless of click
@@ -653,6 +663,7 @@ export default function CatalogoSkuDetailPage() {
         rows:      enabledRows,
         priceMode,
         priceCop:  price,
+        originalPriceCop: originalPrice,
         notes:     sku.notasColombia,
         fetchViaProxy: proxyFetcher,
       };
@@ -1010,23 +1021,53 @@ export default function CatalogoSkuDetailPage() {
                     );
                   })}
                 </div>
-                {priceMode !== "none" && (
-                  <div className="mt-2">
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                      <input type="text" inputMode="numeric" value={priceInput}
-                        onChange={(e) => setPriceInput(e.target.value.replace(/[^0-9]/g, ""))}
-                        placeholder={priceMode === "con_iva" ? "Precio base (sin IVA)" : "Precio"}
-                        className="w-full pl-7 pr-3 py-2 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A]"
-                        style={{ border: "1px solid rgba(52,140,203,0.2)" }} />
+                {priceMode !== "none" && (() => {
+                  // Compute discount badge inline so the user gets immediate
+                  // visual feedback while typing both prices.
+                  const originalNum = Number(originalPriceInput.replace(/[^0-9]/g, "")) || 0;
+                  const hasDiscount = originalNum > 0 && priceNumber > 0 && originalNum > priceNumber;
+                  const discountPct = hasDiscount ? Math.round(((originalNum - priceNumber) / originalNum) * 100) : 0;
+                  return (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {/* Precio antes (MSRP) — optional */}
+                      <div>
+                        <label className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                          Precio antes <span className="font-normal opacity-70">(opcional)</span>
+                        </label>
+                        <div className="relative mt-0.5">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                          <input type="text" inputMode="numeric" value={originalPriceInput}
+                            onChange={(e) => setOriginalPriceInput(e.target.value.replace(/[^0-9]/g, ""))}
+                            placeholder="MSRP"
+                            className="w-full pl-7 pr-3 py-2 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-gray-500"
+                            style={{
+                              border: "1px solid rgba(52,140,203,0.18)",
+                              textDecoration: hasDiscount ? "line-through" : "none",
+                            }} />
+                        </div>
+                      </div>
+                      {/* Precio final */}
+                      <div>
+                        <label className="text-[9px] font-bold uppercase tracking-wider" style={{ color: hasDiscount ? "#059669" : "#1E76B6" }}>
+                          {hasDiscount ? `Precio final · −${discountPct}%` : "Precio"}
+                        </label>
+                        <div className="relative mt-0.5">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                          <input type="text" inputMode="numeric" value={priceInput}
+                            onChange={(e) => setPriceInput(e.target.value.replace(/[^0-9]/g, ""))}
+                            placeholder={priceMode === "con_iva" ? "Sin IVA" : "Precio"}
+                            className="w-full pl-7 pr-3 py-2 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1E76B6] text-[#0A183A] font-bold"
+                            style={{ border: `1px solid ${hasDiscount ? "rgba(16,185,129,0.45)" : "rgba(52,140,203,0.25)"}` }} />
+                        </div>
+                      </div>
+                      {priceMode === "con_iva" && priceNumber > 0 && (
+                        <p className="text-[10px] text-gray-500 mt-1 col-span-2">
+                          Se mostrará ${effectivePrice.toLocaleString("es-CO")} (IVA 19% incluido)
+                        </p>
+                      )}
                     </div>
-                    {priceMode === "con_iva" && priceNumber > 0 && (
-                      <p className="text-[10px] text-gray-500 mt-1">
-                        Se mostrará ${effectivePrice.toLocaleString("es-CO")} (IVA 19% incluido)
-                      </p>
-                    )}
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Field toggles */}
@@ -1182,6 +1223,7 @@ export default function CatalogoSkuDetailPage() {
                     tipo:            sku.tipo,
                     quantity:  4,
                     unitPriceCop: Number(priceInput.replace(/[^0-9]/g, "")) || sku.precioCop || null,
+                    originalPriceCop: Number(originalPriceInput.replace(/[^0-9]/g, "")) || null,
                   });
                 };
                 return (

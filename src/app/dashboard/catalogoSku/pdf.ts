@@ -73,6 +73,9 @@ export type PdfInput = {
   rows:         Array<{ label: string; value: string }>;
   priceMode: "none" | "sin_iva" | "con_iva";
   priceCop:  number | null;
+  // Optional pre-discount MSRP. When > priceCop the PDF prints both,
+  // strikes through originalPriceCop, and shows a "−X%" badge.
+  originalPriceCop?: number | null;
   notes: string | null;
   fetchViaProxy?: (url: string) => Promise<Blob | null>;
 };
@@ -603,27 +606,71 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
     const shown = input.priceMode === "con_iva" ? withIva : base;
     const ivaLabel = input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA";
 
+    // Discount detection — print both prices when MSRP > final.
+    const original   = input.originalPriceCop ?? null;
+    const hasDiscount = original != null && original > base;
+    const shownOriginal = hasDiscount
+      ? (input.priceMode === "con_iva" ? Math.round(original * 1.19) : original)
+      : null;
+    const discountPct = hasDiscount
+      ? Math.round(((original! - base) / original!) * 100)
+      : 0;
+
     const boxY = y;
-    const boxH = 70;
+    const boxH = hasDiscount ? 86 : 70;
 
     // Top hairline.
     doc.setDrawColor(...FALLBACK.line);
     doc.setLineWidth(0.5);
     doc.line(M, boxY, pageW - M, boxY);
 
-    // Eyebrow.
+    // Eyebrow row — "PRECIO" on the left + optional "-X% DESCUENTO" pill on the right.
     doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(TYPE.eyebrow.size);
     doc.setCharSpace(TRACK.eyebrow);
-    doc.text("PRECIO", M, boxY + 18);
+    doc.text(hasDiscount ? "PRECIO CON DESCUENTO" : "PRECIO", M, boxY + 18);
     doc.setCharSpace(0);
 
-    // The big number — brand color, oversized, anchors the page.
+    if (hasDiscount) {
+      // Emerald pill — "-X%". Uses raw RGB instead of the brand color so
+      // the discount reads as a savings cue regardless of company palette.
+      const pillText  = `-${discountPct}%`;
+      doc.setFontSize(TYPE.eyebrow.size);
+      const pillW = doc.getTextWidth(pillText) + 16;
+      const pillH = 16;
+      const pillX = pageW - M - pillW;
+      const pillY = boxY + 6;
+      doc.setFillColor(220, 252, 231);   // emerald-50
+      doc.setDrawColor(34, 197, 94);     // emerald-500
+      doc.setLineWidth(0.6);
+      doc.roundedRect(pillX, pillY, pillW, pillH, 8, 8, "FD");
+      doc.setTextColor(21, 128, 61);     // emerald-700
+      doc.setFont("helvetica", "bold");
+      doc.text(pillText, pillX + pillW / 2, pillY + 11, { align: "center" });
+    }
+
+    // The big number — final price, brand color, oversized.
     doc.setTextColor(...brand);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(TYPE.bigMoney.size);
     doc.text(fmtCOP(shown), M, boxY + 54);
+
+    // Original (struck-through) MSRP just below the final price.
+    if (hasDiscount && shownOriginal != null) {
+      doc.setTextColor(...FALLBACK.muted);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(TYPE.bodySm.size);
+      const msrpLabel = `Antes ${fmtCOP(shownOriginal)}`;
+      const msrpY = boxY + 70;
+      doc.text(msrpLabel, M, msrpY);
+      // Strike-through line — measure the text width and draw a hairline
+      // through the middle of the cap-height.
+      const w = doc.getTextWidth(msrpLabel);
+      doc.setDrawColor(...FALLBACK.muted);
+      doc.setLineWidth(0.5);
+      doc.line(M, msrpY - 3, M + w, msrpY - 3);
+    }
 
     // IVA label, right-aligned, low-contrast.
     doc.setTextColor(...FALLBACK.muted);
@@ -765,6 +812,9 @@ export type QuoteItem = {
   tipo?:            string | null;
   quantity:  number;
   unitPriceCop: number | null;
+  // Optional pre-discount MSRP. When > unitPriceCop the renderer strikes
+  // through this value and shows a small "−X%" badge next to the final.
+  originalPriceCop?: number | null;
 };
 
 /** Which ficha-técnica fields to print on each quote row. */
@@ -1116,7 +1166,13 @@ export async function buildComparativePdf(input: QuoteInput): Promise<Blob> {
       const unit = Math.round(it.unitPriceCop * ivaMul);
       const ivaLabel = input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA";
 
-      const boxH = 64;
+      // Discount detection — both prices set and original > final.
+      const original = it.originalPriceCop ?? null;
+      const hasDisc = original != null && original > it.unitPriceCop;
+      const origUnit = hasDisc ? Math.round(original! * ivaMul) : 0;
+      const discPct = hasDisc ? Math.round(((original! - it.unitPriceCop) / original!) * 100) : 0;
+
+      const boxH = hasDisc ? 80 : 64;
       const boxY = y;
       doc.setFillColor(...FALLBACK.ink);
       doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 12, 12, "F");
@@ -1126,12 +1182,42 @@ export async function buildComparativePdf(input: QuoteInput): Promise<Blob> {
       doc.setTextColor(200, 215, 240);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text("Precio", M + 22, boxY + 24);
+      doc.text(hasDisc ? "Precio con descuento" : "Precio", M + 22, boxY + 24);
 
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(22);
       doc.text(fmtCOP(unit), M + 22, boxY + 50);
+
+      // Struck-through MSRP under the final price.
+      if (hasDisc) {
+        doc.setTextColor(200, 215, 240);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const msrpLabel = `Antes ${fmtCOP(origUnit)}`;
+        const msrpY = boxY + 68;
+        doc.text(msrpLabel, M + 22, msrpY);
+        const w = doc.getTextWidth(msrpLabel);
+        doc.setDrawColor(200, 215, 240);
+        doc.setLineWidth(0.6);
+        doc.line(M + 22, msrpY - 3, M + 22 + w, msrpY - 3);
+      }
+
+      // Discount pill, top-right of the price box, replacing the IVA
+      // label slot when a discount is present.
+      if (hasDisc) {
+        const pillText = `-${discPct}%`;
+        doc.setFontSize(10);
+        const pillW = doc.getTextWidth(pillText) + 16;
+        const pillH = 18;
+        const pillX = pageW - M - 14 - pillW;
+        const pillY = boxY + 16;
+        doc.setFillColor(34, 197, 94);
+        doc.roundedRect(pillX, pillY, pillW, pillH, 9, 9, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.text(pillText, pillX + pillW / 2, pillY + 12, { align: "center" });
+      }
 
       doc.setTextColor(200, 215, 240);
       doc.setFont("helvetica", "normal");
@@ -1449,6 +1535,33 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     } else {
       const unit  = effectiveUnit(it.unitPriceCop);
       const line  = lineTotal(it);
+      // Discount detection — render struck MSRP in a smaller line above
+      // the unit price when the rep entered a pre-discount value.
+      const original = it.originalPriceCop ?? null;
+      const hasDisc = original != null && original > it.unitPriceCop;
+      if (hasDisc) {
+        const origUnit = effectiveUnit(original!);
+        const discPct = Math.round(((original! - it.unitPriceCop) / original!) * 100);
+        // Struck-through MSRP just above the unit price.
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...FALLBACK.muted);
+        const msrp = fmtCOP(origUnit);
+        const msrpY = moneyY - 12;
+        doc.text(msrp, UNIT_X, msrpY, { align: "right" });
+        const w = doc.getTextWidth(msrp);
+        doc.setDrawColor(...FALLBACK.muted);
+        doc.setLineWidth(0.4);
+        doc.line(UNIT_X - w, msrpY - 2, UNIT_X, msrpY - 2);
+        // Tiny "-X%" tag, right of MSRP, in emerald.
+        doc.setTextColor(21, 128, 61);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.text(`-${discPct}%`, UNIT_X + 2, msrpY, { align: "left" });
+        doc.setTextColor(...FALLBACK.ink);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(TYPE.rowMoney.size);
+      }
       doc.text(fmtCOP(unit), UNIT_X, moneyY, { align: "right" });
       if (isTotal) {
         // Line total — slightly heavier weight + brand color so the eye

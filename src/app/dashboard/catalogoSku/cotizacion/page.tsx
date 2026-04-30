@@ -216,6 +216,7 @@ export default function CotizacionPage() {
           tipo:            it.tipo            ?? null,
           quantity:        Math.max(1, it.quantity || 1),
           unitPriceCop:    it.unitPriceCop,
+          originalPriceCop: it.originalPriceCop ?? null,
         })),
         priceMode,
         displayMode,
@@ -348,6 +349,7 @@ export default function CotizacionPage() {
                   priceMode={priceMode}
                   onQty={(q) => update(it.catalogId, { quantity: q })}
                   onPrice={(p) => update(it.catalogId, { unitPriceCop: p })}
+                  onOriginalPrice={(p) => update(it.catalogId, { originalPriceCop: p })}
                   onRemove={() => remove(it.catalogId)}
                 />
               ))}
@@ -513,73 +515,124 @@ export default function CotizacionPage() {
 // Row — single cart item with qty stepper + unit price input
 // =============================================================================
 
-function CartRow({ item, lineTotal, priceMode, onQty, onPrice, onRemove }: {
+function CartRow({ item, lineTotal, priceMode, onQty, onPrice, onOriginalPrice, onRemove }: {
   item: CartItem;
   lineTotal: number;
   priceMode: "none" | "sin_iva" | "con_iva";
   onQty:   (q: number) => void;
   onPrice: (p: number | null) => void;
+  onOriginalPrice: (p: number | null) => void;
   onRemove: () => void;
 }) {
+  // Discount % only shown when both prices are set and the original is
+  // strictly greater than the final — that's the only case where calling
+  // the line "discounted" makes sense.
+  const original = item.originalPriceCop ?? null;
+  const final    = item.unitPriceCop ?? null;
+  const hasDiscount = original != null && final != null && original > final && final > 0;
+  const discountPct = hasDiscount
+    ? Math.round(((original! - final!) / original!) * 100)
+    : 0;
+
   return (
-    <div className="flex items-center gap-3 rounded-xl p-3"
+    <div className="rounded-xl p-3"
       style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)" }}>
-      <div className="w-14 h-14 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
-        style={{ background: "radial-gradient(circle at 30% 20%, #ffffff 0%, #f0f7ff 60%, #dbeafe 100%)" }}>
-        {item.imageUrl
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={item.imageUrl} alt="" className="w-full h-full object-contain p-0.5" />
-          : <ImageIcon className="w-6 h-6 text-gray-300" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="text-[10px] font-bold uppercase text-[#348CCB]">{item.marca}</span>
-          <span className="text-sm font-black text-[#0A183A] truncate">{item.modelo}</span>
-          <span className="text-[11px] text-gray-500 font-mono">{item.dimension}</span>
+      <div className="flex items-center gap-3">
+        <div className="w-14 h-14 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0"
+          style={{ background: "radial-gradient(circle at 30% 20%, #ffffff 0%, #f0f7ff 60%, #dbeafe 100%)" }}>
+          {item.imageUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={item.imageUrl} alt="" className="w-full h-full object-contain p-0.5" />
+            : <ImageIcon className="w-6 h-6 text-gray-300" />}
         </div>
-        <p className="text-[10px] text-gray-400 mt-0.5 truncate">
-          {[item.categoria, item.terreno, item.ejeTirePro].filter(Boolean).join(" · ")}
-        </p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-[10px] font-bold uppercase text-[#348CCB]">{item.marca}</span>
+            <span className="text-sm font-black text-[#0A183A] truncate">{item.modelo}</span>
+            <span className="text-[11px] text-gray-500 font-mono">{item.dimension}</span>
+            {hasDiscount && (
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md text-emerald-700 bg-emerald-50 border border-emerald-200">
+                −{discountPct}%
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+            {[item.categoria, item.terreno, item.ejeTirePro].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+
+        {/* Qty stepper */}
+        <div className="flex items-center rounded-lg flex-shrink-0" style={{ border: "1px solid rgba(52,140,203,0.25)" }}>
+          <button onClick={() => onQty(Math.max(1, item.quantity - 1))}
+            className="p-1.5 hover:bg-[#F0F7FF]"><Minus className="w-3 h-3 text-[#0A183A]" /></button>
+          <input type="number" min="1" value={item.quantity}
+            onChange={(e) => onQty(Math.max(1, Number(e.target.value) || 1))}
+            className="w-10 text-center text-sm font-bold text-[#0A183A] bg-transparent focus:outline-none" />
+          <button onClick={() => onQty(item.quantity + 1)}
+            className="p-1.5 hover:bg-[#F0F7FF]"><Plus className="w-3 h-3 text-[#0A183A]" /></button>
+        </div>
+
+        <button onClick={onRemove}
+          className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0">
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      {/* Qty stepper */}
-      <div className="flex items-center rounded-lg" style={{ border: "1px solid rgba(52,140,203,0.25)" }}>
-        <button onClick={() => onQty(Math.max(1, item.quantity - 1))}
-          className="p-1.5 hover:bg-[#F0F7FF]"><Minus className="w-3 h-3 text-[#0A183A]" /></button>
-        <input type="number" min="1" value={item.quantity}
-          onChange={(e) => onQty(Math.max(1, Number(e.target.value) || 1))}
-          className="w-10 text-center text-sm font-bold text-[#0A183A] bg-transparent focus:outline-none" />
-        <button onClick={() => onQty(item.quantity + 1)}
-          className="p-1.5 hover:bg-[#F0F7FF]"><Plus className="w-3 h-3 text-[#0A183A]" /></button>
-      </div>
-
-      {/* Unit price (hidden when priceMode=none) */}
+      {/* Price row — two side-by-side inputs (Antes / Final) so the rep can
+          enter a discount and the PDF prints both numbers + the % off. */}
       {priceMode !== "none" && (
-        <div className="w-32">
-          <div className="relative">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
-            <input type="text" inputMode="numeric"
-              value={item.unitPriceCop ?? ""}
-              onChange={(e) => {
-                const n = Number(e.target.value.replace(/[^0-9]/g, ""));
-                onPrice(Number.isFinite(n) && n > 0 ? n : null);
-              }}
-              placeholder="Precio unit."
-              className="w-full pl-6 pr-2 py-1.5 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
-              style={{ background: "white", border: "1px solid rgba(52,140,203,0.25)" }} />
+        <div className="mt-2 ml-[68px] flex items-end gap-2 flex-wrap">
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+              Precio antes <span className="font-normal opacity-70">(opcional)</span>
+            </label>
+            <div className="relative mt-0.5">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+              <input type="text" inputMode="numeric"
+                value={item.originalPriceCop ?? ""}
+                onChange={(e) => {
+                  const n = Number(e.target.value.replace(/[^0-9]/g, ""));
+                  onOriginalPrice(Number.isFinite(n) && n > 0 ? n : null);
+                }}
+                placeholder="MSRP"
+                className="w-full pl-6 pr-2 py-1.5 rounded-lg text-xs text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                style={{
+                  background: "white",
+                  border: "1px solid rgba(52,140,203,0.20)",
+                  textDecoration: hasDiscount ? "line-through" : "none",
+                }} />
+            </div>
+          </div>
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-[9px] font-bold uppercase tracking-wider" style={{ color: hasDiscount ? "#059669" : "#1E76B6" }}>
+              {hasDiscount ? "Precio final" : "Precio unitario"}
+            </label>
+            <div className="relative mt-0.5">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+              <input type="text" inputMode="numeric"
+                value={item.unitPriceCop ?? ""}
+                onChange={(e) => {
+                  const n = Number(e.target.value.replace(/[^0-9]/g, ""));
+                  onPrice(Number.isFinite(n) && n > 0 ? n : null);
+                }}
+                placeholder="Precio"
+                className="w-full pl-6 pr-2 py-1.5 rounded-lg text-xs font-bold text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                style={{
+                  background: "white",
+                  border: `1px solid ${hasDiscount ? "rgba(16,185,129,0.45)" : "rgba(52,140,203,0.25)"}`,
+                }} />
+            </div>
           </div>
           {lineTotal > 0 && (
-            <p className="text-[9px] text-gray-400 text-right mt-0.5 tabular-nums">
-              Total: {fmtCOP(lineTotal)}
-            </p>
+            <div className="text-right min-w-[100px]">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Total</p>
+              <p className="text-sm font-black text-[#0A183A] tabular-nums">
+                {fmtCOP(lineTotal)}
+              </p>
+            </div>
           )}
         </div>
       )}
-
-      <button onClick={onRemove}
-        className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
-        <X className="w-3.5 h-3.5" />
-      </button>
     </div>
   );
 }
