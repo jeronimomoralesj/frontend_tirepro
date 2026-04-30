@@ -1302,20 +1302,43 @@ function buildSpecRows(it: QuoteItem, f: QuoteIncludeFields): Array<{ label: str
 }
 
 export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
+  // ────────────────────────────────────────────────────────────────────────
+  // Letter-size cotización built to match the Merquellantas reference:
+  //   1. Hero header  (logo + name | COTIZACIÓN N.º COT-YYYY-MMDD + date)
+  //   2. Brand accent bar over a navy hairline
+  //   3. 3-column meta card (asesor / ciudad / forma de pago)
+  //   4. Section header tab "DETALLE DE LA COTIZACIÓN"
+  //   5. Items table — dark navy header row, product rows with thumb +
+  //      brand + modelo + dimension + attribute pills + qty in a circle +
+  //      strike MSRP / final / -X% chip + line subtotal
+  //   6. Two-card pair below: "Tu ahorro" (light cream, brand left bar)
+  //      next to a dark navy totals card with brand accent
+  //   7. Contact card (asesor | teléfono | sitio web)
+  //   8. Footer (company | date | POWERED BY TIREPRO)
+  // Everything brand-colored is driven by input.companyColor so every
+  // cotización feels like the company that issued it.
+  // ────────────────────────────────────────────────────────────────────────
+
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const M = SPACE.M;
 
-  const brand     = parseHex(input.companyColor) ?? FALLBACK.primary;
-  const brandT08  = tint(brand, 0.08);
-  const brandT15  = tint(brand, 0.18);
-  void brandT08;
+  const brand    = parseHex(input.companyColor) ?? FALLBACK.primary;
+  const brandT08 = tint(brand, 0.08);
+  const brandT15 = tint(brand, 0.18);
+  void brandT08; void brandT15;
+  // Brand-tinted cream for the "Tu ahorro" card. Softer than tint(0.08)
+  // so it reads as a backdrop, not a chip.
+  const cream: [number, number, number] = [
+    Math.round(brand[0] * 0.06 + 255 * 0.94),
+    Math.round(brand[1] * 0.06 + 255 * 0.94),
+    Math.round(brand[2] * 0.06 + 255 * 0.94),
+  ];
 
   const logoUrl = isDefaultPlaceholderLogo(input.companyLogoUrl) ? null : input.companyLogoUrl;
   const proxy   = input.fetchViaProxy;
 
-  // Pre-load logo + every tire thumbnail in parallel.
   const [logoData, ...thumbDatas] = await Promise.all([
     loadImageAsDataUrl(logoUrl, proxy),
     ...input.items.map((it) => loadImageAsDataUrl(it.imageUrl, proxy)),
@@ -1326,327 +1349,466 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     unit == null ? 0 : Math.round(unit * ivaMul);
   const lineTotal = (it: QuoteItem) =>
     effectiveUnit(it.unitPriceCop) * Math.max(1, it.quantity || 1);
+  const lineMSRP = (it: QuoteItem) => {
+    const o = it.originalPriceCop ?? null;
+    if (o == null || o <= (it.unitPriceCop ?? 0)) return 0;
+    return Math.round(o * ivaMul) * Math.max(1, it.quantity || 1);
+  };
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // HEADER — same minimalist treatment as the catalog sheet so the two
-  // documents feel like a system. Logo at left, COTIZACIÓN eyebrow +
-  // date at right, hairline below, no colored banner.
-  // ───────────────────────────────────────────────────────────────────────────
-  const HEADER_TOP = 36;
-  const HEADER_LOGO_H = 38;
+  // Cotización number — same shape as the reference: COT-YYYY-MMDD.
+  const now = new Date();
+  const cotNum = `COT-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+  const todayLong = now.toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // 1. HERO HEADER
+  // ──────────────────────────────────────────────────────────────────────
+  const HEADER_TOP = 40;
+  let y = HEADER_TOP;
+
+  // Logo box (rounded square, light gray bg) — left.
+  const LOGO_BOX = 56;
+  doc.setFillColor(248, 249, 251);
+  doc.roundedRect(M, y, LOGO_BOX, LOGO_BOX, 28, 28, "F");
   if (logoData) {
     const { w, h } = await imageDims(logoData);
-    const scale = Math.min(180 / w, HEADER_LOGO_H / h);
+    const scale = Math.min((LOGO_BOX - 14) / w, (LOGO_BOX - 14) / h);
     const drawW = w * scale, drawH = h * scale;
     doc.addImage(
       logoData, detectFormat(logoData),
-      M, HEADER_TOP, drawW, drawH, undefined, "SLOW",
+      M + (LOGO_BOX - drawW) / 2,
+      y + (LOGO_BOX - drawH) / 2,
+      drawW, drawH, undefined, "SLOW",
     );
-  } else if (input.companyName) {
-    doc.setTextColor(...FALLBACK.ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(input.companyName, M, HEADER_TOP + 24);
   }
 
+  // Company name — big, bold italic-style display weight.
+  if (input.companyName) {
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bolditalic");
+    doc.setFontSize(28);
+    doc.text(input.companyName.toUpperCase(), M + LOGO_BOX + 16, y + 30);
+    // Optional tagline subhead — small caps, muted.
+    if (input.companyCity) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setCharSpace(TRACK.eyebrow);
+      doc.setTextColor(...FALLBACK.muted);
+      doc.text(`MARKETPLACE Y SERVICIOS DE LLANTAS`, M + LOGO_BOX + 16, y + 46);
+      doc.setCharSpace(0);
+    }
+  }
+
+  // Right side — COTIZACIÓN eyebrow / N.º / date. (No "Válida por X días".)
   doc.setTextColor(...FALLBACK.muted);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(TYPE.eyebrow.size);
   doc.setCharSpace(TRACK.eyebrow);
-  doc.text("COTIZACIÓN", pageW - M, HEADER_TOP + 14, { align: "right" });
+  doc.text("COTIZACIÓN", pageW - M, y + 12, { align: "right" });
   doc.setCharSpace(0);
-  const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
   doc.setTextColor(...FALLBACK.ink);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text(today, pageW - M, HEADER_TOP + 32, { align: "right" });
+  doc.text(`N.º ${cotNum}`, pageW - M, y + 28, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(todayLong, pageW - M, y + 42, { align: "right" });
 
-  doc.setDrawColor(...FALLBACK.line);
+  y += LOGO_BOX + 14;
+
+  // Brand accent bar + thin navy hairline.
+  doc.setFillColor(...brand);
+  doc.rect(M, y, 110, 3, "F");
+  doc.setDrawColor(...FALLBACK.ink);
+  doc.setLineWidth(0.6);
+  doc.line(M + 110, y + 1.5, pageW - M, y + 1.5);
+  y += 18;
+
+  // ──────────────────────────────────────────────────────────────────────
+  // 2. META ROW — 3-column light gray card
+  // ──────────────────────────────────────────────────────────────────────
+  const META_H = 50;
+  doc.setFillColor(248, 249, 251);
+  doc.setDrawColor(231, 234, 240);
   doc.setLineWidth(0.5);
-  doc.line(M, HEADER_TOP + HEADER_LOGO_H + 14, pageW - M, HEADER_TOP + HEADER_LOGO_H + 14);
+  doc.roundedRect(M, y, pageW - 2 * M, META_H, 8, 8, "FD");
 
-  let y = HEADER_TOP + HEADER_LOGO_H + 38;
-
-  // Client block — eyebrow + name styled like the recipient line of a
-  // formal quote (PARA: NAME). The notes paragraph hangs below.
-  if (input.clientName) {
+  const metaCol = (pageW - 2 * M) / 3;
+  const metaCells: { eyebrow: string; value: string; valueColor?: [number, number, number] }[] = [
+    { eyebrow: "ASESOR COMERCIAL", value: input.repName ?? input.companyName ?? "—" },
+    { eyebrow: "CIUDAD",           value: input.companyCity ?? "—" },
+    { eyebrow: "FORMA DE PAGO",    value: "A convenir", valueColor: brand },
+  ];
+  metaCells.forEach((cell, i) => {
+    const cx = M + 14 + i * metaCol;
+    doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(TYPE.eyebrow.size);
-    doc.setTextColor(...FALLBACK.muted);
+    doc.setFontSize(7.5);
     doc.setCharSpace(TRACK.eyebrow);
-    doc.text("PARA", M, y);
+    doc.text(cell.eyebrow, cx, y + 18);
     doc.setCharSpace(0);
-    doc.setTextColor(...FALLBACK.ink);
-    doc.setFontSize(16);
-    doc.text(input.clientName, M, y + 18);
-    y += 30;
-  }
-  if (input.clientNotes) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(TYPE.bodySm.size);
-    doc.setTextColor(...FALLBACK.muted);
-    const lines = doc.splitTextToSize(input.clientNotes, pageW - 2 * M).slice(0, 3);
-    for (const ln of lines) { doc.text(ln, M, y); y += 12; }
-    y += 4;
-  }
+    doc.setTextColor(...(cell.valueColor ?? FALLBACK.ink));
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text(cell.value, cx, y + 36);
+  });
+  y += META_H + 18;
 
-  y += 10;
+  // ──────────────────────────────────────────────────────────────────────
+  // 3. SECTION HEADER — brand tab + label
+  // ──────────────────────────────────────────────────────────────────────
+  doc.setFillColor(...brand);
+  doc.rect(M, y - 9, 3, 14, "F");
+  doc.setTextColor(...FALLBACK.ink);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setCharSpace(TRACK.eyebrow);
+  doc.text("DETALLE DE LA COTIZACIÓN", M + 12, y + 2);
+  doc.setCharSpace(0);
+  y += 14;
 
-  // ─── ITEMS TABLE HEADER ──────────────────────────────────────────────────
-  const QTY_X      = pageW - M - 220;
-  const UNIT_X     = pageW - M - 140;
-  const TOTAL_X    = pageW - M - 4;
-  const ROW_MIN_H  = 70;
-  const isTotal    = input.displayMode === "total";
+  // ──────────────────────────────────────────────────────────────────────
+  // 4. ITEMS TABLE — dark header row + product rows
+  // ──────────────────────────────────────────────────────────────────────
+  const TABLE_W = pageW - 2 * M;
+  const COL_QTY      = M + TABLE_W * 0.48;
+  const COL_UNIT_R   = M + TABLE_W * 0.78;
+  const COL_TOTAL_R  = pageW - M - 14;
+  const isTotal = input.displayMode === "total";
 
-  // Default set when the caller didn't explicitly configure fields —
-  // matches the original compact subtitle so upgrading doesn't change
-  // output until the rep opts in to more.
+  // Header row — dark navy, white text.
+  const HEAD_H = 32;
+  doc.setFillColor(...FALLBACK.ink);
+  doc.roundedRect(M, y, TABLE_W, HEAD_H, 6, 6, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setCharSpace(TRACK.eyebrow);
+  doc.text("PRODUCTO",        M + 14,        y + 20);
+  doc.text("CANT.",           COL_QTY,       y + 20, { align: "center" });
+  doc.text("VALOR UNITARIO",  COL_UNIT_R,    y + 20, { align: "right" });
+  if (isTotal) doc.text("SUBTOTAL", COL_TOTAL_R, y + 20, { align: "right" });
+  doc.setCharSpace(0);
+  y += HEAD_H + 6;
+
+  // Defaults — same as before.
   const fields: QuoteIncludeFields = input.includeFields ?? {
     categoria: true, terreno: true, ejeTirePro: true,
   };
-  // Build the "specs line" for a given item. Each toggled field becomes
-  // one segment with a label-prefix so multi-value values like
-  // "16 PR / 4B+2N" stay readable when smushed together.
-  const buildSpecsLine = (it: QuoteItem): string => {
-    const bits: string[] = [];
-    if (fields.dimension       && it.dimension)       bits.push(it.dimension);
-    if (fields.categoria       && it.categoria)       bits.push(it.categoria);
-    if (fields.terreno         && it.terreno)         bits.push(it.terreno);
-    if (fields.ejeTirePro      && it.ejeTirePro)      bits.push(it.ejeTirePro);
-    if (fields.indiceCarga     && it.indiceCarga)     bits.push(`Carga ${it.indiceCarga}`);
-    if (fields.indiceVelocidad && it.indiceVelocidad) bits.push(`Vel. ${it.indiceVelocidad}`);
-    if (fields.rtdMm           && it.rtdMm != null)   bits.push(`${it.rtdMm} mm`);
-    if (fields.psiRecomendado  && it.psiRecomendado != null) bits.push(`${it.psiRecomendado} PSI`);
-    if (fields.pesoKg          && it.pesoKg != null)  bits.push(`${it.pesoKg} kg`);
-    if (fields.cinturones      && it.cinturones)      bits.push(`Cint. ${it.cinturones}`);
-    if (fields.pr              && it.pr)              bits.push(`${it.pr} PR`);
-    if (fields.reencauchable   && it.reencauchable != null) {
-      bits.push(it.reencauchable ? "Reencauchable" : "No reencauchable");
-    }
-    if (fields.tipoBanda       && it.tipoBanda)       bits.push(`Banda ${it.tipoBanda.toUpperCase()}`);
-    if (fields.construccion    && it.construccion)    bits.push(it.construccion);
-    if (fields.segmento        && it.segmento)        bits.push(it.segmento);
-    if (fields.tipo            && it.tipo)            bits.push(it.tipo);
-    return bits.join("  ·  ");
+
+  // Build attribute pills (Nueva / Tracción / Carga 152/148 / Reencauchable).
+  const buildPills = (it: QuoteItem): string[] => {
+    const pills: string[] = [];
+    if (fields.tipo            && it.tipo)            pills.push(it.tipo === "nueva" ? "Nueva" : it.tipo === "reencauche" ? "Reencauche" : it.tipo);
+    if (fields.categoria       && it.categoria && it.categoria !== it.tipo) pills.push(it.categoria);
+    if (fields.terreno         && it.terreno)         pills.push(it.terreno);
+    if (fields.ejeTirePro      && it.ejeTirePro)      pills.push(it.ejeTirePro.charAt(0).toUpperCase() + it.ejeTirePro.slice(1));
+    if (fields.indiceCarga     && it.indiceCarga)     pills.push(`Carga ${it.indiceCarga}`);
+    if (fields.indiceVelocidad && it.indiceVelocidad) pills.push(`Vel. ${it.indiceVelocidad}`);
+    if (fields.rtdMm           && it.rtdMm != null)   pills.push(`${it.rtdMm} mm`);
+    if (fields.psiRecomendado  && it.psiRecomendado != null) pills.push(`${it.psiRecomendado} PSI`);
+    if (fields.cinturones      && it.cinturones)      pills.push(`Cint. ${it.cinturones}`);
+    if (fields.pr              && it.pr)              pills.push(`${it.pr} PR`);
+    if (fields.tipoBanda       && it.tipoBanda)       pills.push(`Banda ${it.tipoBanda.toUpperCase()}`);
+    if (fields.reencauchable   && it.reencauchable)   pills.push("Reencauchable");
+    if (fields.construccion    && it.construccion)    pills.push(it.construccion);
+    if (fields.segmento        && it.segmento)        pills.push(it.segmento);
+    return pills;
   };
 
-  // Header for the items table — eyebrow column labels + a single
-  // hairline rule. No filled bar; the type itself does the work.
-  const drawTableHeader = (y0: number): number => {
-    doc.setTextColor(...FALLBACK.muted);
+  // Render the pill row, return the y where the row ended.
+  const drawPills = (pills: string[], pillX: number, pillY: number, maxW: number): number => {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(TYPE.eyebrow.size);
-    doc.setCharSpace(TRACK.eyebrow);
-    doc.text("LLANTA", M, y0);
-    doc.text("CANT.", QTY_X, y0, { align: "right" });
-    doc.text(isTotal ? "UNIT." : "PRECIO", UNIT_X, y0, { align: "right" });
-    if (isTotal) doc.text("TOTAL", TOTAL_X, y0, { align: "right" });
-    doc.setCharSpace(0);
-    doc.setDrawColor(...FALLBACK.line);
-    doc.setLineWidth(0.5);
-    doc.line(M, y0 + 6, pageW - M, y0 + 6);
-    return y0 + 18;
+    doc.setFontSize(7.5);
+    let cx = pillX, cy = pillY;
+    const PH = 14, PAD_X = 7, GAP = 5;
+    for (const p of pills) {
+      const w = doc.getTextWidth(p) + PAD_X * 2;
+      if (cx - pillX + w > maxW) { cx = pillX; cy += PH + 4; }
+      // First "Nueva"/"Reencauche" pill takes the brand color so the
+      // category jumps; the rest are neutral outlined chips.
+      const isFirst = p === pills[0];
+      if (isFirst) {
+        doc.setFillColor(...brand);
+        doc.roundedRect(cx, cy, w, PH, 7, 7, "F");
+        doc.setTextColor(255, 255, 255);
+      } else {
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(225, 230, 238);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(cx, cy, w, PH, 7, 7, "FD");
+        doc.setTextColor(...FALLBACK.ink);
+      }
+      doc.text(p, cx + w / 2, cy + 9.5, { align: "center" });
+      cx += w + GAP;
+    }
+    return cy + PH;
   };
 
-  y = drawTableHeader(y);
-
-  // ─── ITEM ROWS ──────────────────────────────────────────────────────────
+  // ─── Product rows ───────────────────────────────────────────────────────
   for (let i = 0; i < input.items.length; i++) {
-    const it   = input.items[i];
+    const it    = input.items[i];
     const thumb = thumbDatas[i];
+    const pills = buildPills(it);
 
-    // Measure the specs line so we know how tall the row must be. Width
-    // budget is (everything to the left of the qty column, minus a pad).
-    const textX   = M + 54 + 16;
-    const specsW  = QTY_X - textX - 14;
-    const specsText = buildSpecsLine(it);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    const specsLines = specsText
-      ? (doc.splitTextToSize(specsText, specsW) as string[]).slice(0, 3)
-      : [];
-    // Base row = identity block (marca 8pt + modelo 12pt + dimension
-    // 10pt) plus one spec line; each extra spec line adds ~11pt.
-    const rowH = Math.max(ROW_MIN_H, 62 + specsLines.length * 11);
+    // Estimate row height: identity (54pt) + pills (1 or 2 rows).
+    const textX  = M + 14 + 64 + 14;
+    const pillsMaxW = COL_QTY - textX - 20;
+    // Quick measure to know if pills wrap.
+    let pillsRows = 1;
+    {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      let cx = 0;
+      for (const p of pills) {
+        const w = doc.getTextWidth(p) + 14;
+        if (cx + w > pillsMaxW) { pillsRows++; cx = 0; }
+        cx += w + 5;
+      }
+    }
+    const rowH = Math.max(76, 50 + pillsRows * 18);
 
-    // Page break if the whole row + footer breathing room would overflow.
-    if (y + rowH > pageH - 120) {
+    if (y + rowH > pageH - 240) {
       drawFooter(doc, pageW, pageH, M, brand, input.companyName);
       doc.addPage();
-      // No brand rail on follow-on pages either — the whole document
-      // commits to the minimalist treatment.
       y = HEADER_TOP;
-      y = drawTableHeader(y);
     }
 
-    // No row backdrop — flat rows separated by hairlines feel premium
-    // and let the eye scan price columns vertically. The rule is drawn
-    // at the BOTTOM of every row.
+    // Subtle row separator only — no fills, keeps the table elegant.
+    if (i > 0) {
+      doc.setDrawColor(...FALLBACK.line);
+      doc.setLineWidth(0.4);
+      doc.line(M + 14, y - 4, pageW - M - 14, y - 4);
+    }
 
-    // Thumb (left)
-    const thumbX = M;
-    const thumbY = y + 8;
-    const thumbW = 54, thumbH = rowH - 16;
-    doc.setFillColor(...FALLBACK.page);
-    doc.roundedRect(thumbX, thumbY, thumbW, thumbH, 6, 6, "F");
+    // Thumb — light gray rounded square.
+    const thumbW = 64, thumbH = 64;
+    const thumbY = y + 6;
+    doc.setFillColor(248, 249, 251);
+    doc.roundedRect(M + 14, thumbY, thumbW, thumbH, 8, 8, "F");
     if (thumb) {
       const { w, h } = await imageDims(thumb);
-      const scale = Math.min(thumbW / w, thumbH / h);
+      const scale = Math.min((thumbW - 8) / w, (thumbH - 8) / h);
       const drawW = w * scale, drawH = h * scale;
       doc.addImage(
         thumb, detectFormat(thumb),
-        thumbX + (thumbW - drawW) / 2,
+        M + 14 + (thumbW - drawW) / 2,
         thumbY + (thumbH - drawH) / 2,
         drawW, drawH, undefined, "MEDIUM",
       );
     }
 
-    // Identity column
+    // Identity column.
     doc.setTextColor(...brand);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.text(it.marca.toUpperCase(), textX, y + 18);
-    doc.setTextColor(...FALLBACK.ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    // Reencauche modelos = banda codes → always upper-case.
-    doc.text(it.tipo === "reencauche" ? it.modelo.toUpperCase() : it.modelo, textX, y + 34);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(...brand);
-    doc.text(it.dimension, textX, y + 48);
-
-    // Specs line(s) — multi-line support
-    if (specsLines.length > 0) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(...FALLBACK.muted);
-      let sy = y + 62;
-      for (const ln of specsLines) { doc.text(ln, textX, sy); sy += 11; }
-    }
-
-    // Qty / unit / total columns — vertically centered to the row.
-    const moneyY = y + rowH / 2 + 4;
+    doc.setCharSpace(TRACK.eyebrow);
+    doc.text(it.marca.toUpperCase(), textX, y + 14);
+    doc.setCharSpace(0);
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text(String(it.quantity), QTY_X, moneyY, { align: "right" });
+    doc.text(it.tipo === "reencauche" ? it.modelo.toUpperCase() : it.modelo, textX, y + 30);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...brand);
+    doc.text(it.dimension, textX, y + 44);
 
-    doc.setFontSize(TYPE.rowMoney.size);
+    // Pills row(s).
+    if (pills.length > 0) drawPills(pills, textX, y + 50, pillsMaxW);
+
+    // Quantity — circle outline with number inside.
+    const qtyCY = y + rowH / 2;
+    doc.setDrawColor(...FALLBACK.ink);
+    doc.setLineWidth(1);
+    doc.circle(COL_QTY, qtyCY, 14, "S");
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(String(it.quantity), COL_QTY, qtyCY + 4, { align: "center" });
+
+    // Valor unitario column — strike MSRP / final / -X% chip stacked.
+    const moneyY = qtyCY;
     if (input.priceMode === "none" || it.unitPriceCop == null || it.unitPriceCop <= 0) {
       doc.setTextColor(...FALLBACK.muted);
-      doc.text("—", UNIT_X, moneyY, { align: "right" });
-      if (isTotal) doc.text("—", TOTAL_X, moneyY, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("—", COL_UNIT_R, moneyY + 4, { align: "right" });
+      if (isTotal) doc.text("—", COL_TOTAL_R, moneyY + 4, { align: "right" });
     } else {
-      const unit  = effectiveUnit(it.unitPriceCop);
-      const line  = lineTotal(it);
-      // Discount detection — render struck MSRP + emerald "-X%" tag on
-      // ONE right-aligned line above the unit price. Both kept inside
-      // the unit column so they never overlap the total column.
+      const unit     = effectiveUnit(it.unitPriceCop);
       const original = it.originalPriceCop ?? null;
       const hasDisc  = original != null && original > it.unitPriceCop;
+
       if (hasDisc) {
-        const origUnit  = effectiveUnit(original!);
-        const discPct   = Math.round(((original! - it.unitPriceCop) / original!) * 100);
-        const msrpStr   = fmtCOP(origUnit);
-        const tagStr    = ` −${discPct}%`;
-        const msrpY     = moneyY - 12;
-        // Render the "-X%" tag first (rightmost), then the struck MSRP
-        // anchored to its left edge — so the whole thing right-aligns
-        // cleanly to UNIT_X.
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.5);
-        doc.setTextColor(21, 128, 61);
-        doc.text(tagStr, UNIT_X, msrpY, { align: "right" });
-        const tagW = doc.getTextWidth(tagStr);
-        // MSRP — to the left of the tag, struck through.
+        const origUnit = effectiveUnit(original!);
+        const discPct  = Math.round(((original! - it.unitPriceCop) / original!) * 100);
+        // 1. Strike-through MSRP, smaller, muted, on top.
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
+        doc.setFontSize(8.5);
         doc.setTextColor(...FALLBACK.muted);
-        const msrpRightX = UNIT_X - tagW;
-        doc.text(msrpStr, msrpRightX, msrpY, { align: "right" });
+        const msrpStr = fmtCOP(origUnit);
+        doc.text(msrpStr, COL_UNIT_R, moneyY - 8, { align: "right" });
         const msrpW = doc.getTextWidth(msrpStr);
         doc.setDrawColor(...FALLBACK.muted);
-        doc.setLineWidth(0.4);
-        doc.line(msrpRightX - msrpW, msrpY - 2, msrpRightX, msrpY - 2);
-        // Reset for the unit price line.
+        doc.setLineWidth(0.55);
+        doc.line(COL_UNIT_R - msrpW, moneyY - 11, COL_UNIT_R, moneyY - 11);
+        // 2. Final price — bold, larger.
         doc.setTextColor(...FALLBACK.ink);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(TYPE.rowMoney.size);
+        doc.setFontSize(12);
+        doc.text(fmtCOP(unit), COL_UNIT_R, moneyY + 6, { align: "right" });
+        // 3. Emerald "-X%" chip below the final price.
+        const pct = `−${discPct}%`;
+        doc.setFontSize(7.5);
+        const pillW = doc.getTextWidth(pct) + 12;
+        const pillH = 12;
+        const pillX = COL_UNIT_R - pillW;
+        const pillY = moneyY + 10;
+        doc.setFillColor(220, 252, 231);
+        doc.roundedRect(pillX, pillY, pillW, pillH, 6, 6, "F");
+        doc.setTextColor(21, 128, 61);
+        doc.setFont("helvetica", "bold");
+        doc.text(pct, pillX + pillW / 2, pillY + 8.5, { align: "center" });
+      } else {
+        // No discount — just the unit price.
+        doc.setTextColor(...FALLBACK.ink);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text(fmtCOP(unit), COL_UNIT_R, moneyY + 4, { align: "right" });
       }
-      doc.text(fmtCOP(unit), UNIT_X, moneyY, { align: "right" });
+
+      // Subtotal column — line total in brand color.
       if (isTotal) {
-        // Line total — slightly heavier weight + brand color so the eye
-        // lands on the column the customer cares about.
         doc.setTextColor(...brand);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(TYPE.rowMoney.size + 1);
-        doc.text(fmtCOP(line), TOTAL_X, moneyY, { align: "right" });
+        doc.setFontSize(12);
+        doc.text(fmtCOP(lineTotal(it)), COL_TOTAL_R, moneyY + 4, { align: "right" });
       }
     }
-
-    // Hairline rule under every row separates them without the visual
-    // weight of a card border. Last row's rule is suppressed by the
-    // total/notes block below absorbing it.
-    doc.setDrawColor(...FALLBACK.line);
-    doc.setLineWidth(0.4);
-    doc.line(M, y + rowH, pageW - M, y + rowH);
 
     y += rowH;
   }
 
-  y += 12;
+  y += 14;
 
-  // ─── GRAND TOTAL — premium minimalist treatment.
-  // Eyebrow label on the left, oversized brand-colored number on the
-  // right. No filled bar; the type itself is the statement. This is
-  // the moment the customer is supposed to see the number — make it
-  // unambiguously the biggest thing on the page after the H1.
+  // ──────────────────────────────────────────────────────────────────────
+  // 5. AHORRO + TOTALS — twin cards
+  // ──────────────────────────────────────────────────────────────────────
   if (isTotal && input.priceMode !== "none") {
-    const grand = input.items.reduce((s, it) => s + lineTotal(it), 0);
-    if (grand > 0) {
-      const need = 70;
-      if (y + need > pageH - 120) {
-        drawFooter(doc, pageW, pageH, M, brand, input.companyName);
-        doc.addPage();
-        y = HEADER_TOP;
-      }
-      // Top hairline.
-      doc.setDrawColor(...FALLBACK.ink);
-      doc.setLineWidth(1.2);
-      doc.line(M, y, pageW - M, y);
+    const subtotal = input.items.reduce((s, it) => s + lineTotal(it), 0);
+    const msrpSum  = input.items.reduce((s, it) => s + lineMSRP(it), 0);
+    const savings  = msrpSum > 0 ? msrpSum - subtotal : 0;
+    const grandPct = msrpSum > 0 ? Math.round((savings / msrpSum) * 100) : 0;
 
-      // Eyebrow.
-      doc.setTextColor(...FALLBACK.muted);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(TYPE.eyebrow.size);
-      doc.setCharSpace(TRACK.eyebrow);
-      doc.text("TOTAL", M, y + 22);
-      doc.setCharSpace(0);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(TYPE.bodySm.size);
-      doc.setTextColor(...FALLBACK.muted);
-      doc.text(
-        input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA",
-        M, y + 40,
-      );
+    const need = 130;
+    if (y + need > pageH - 100) {
+      drawFooter(doc, pageW, pageH, M, brand, input.companyName);
+      doc.addPage();
+      y = HEADER_TOP;
+    }
 
-      // The big number.
+    const cardW = (pageW - 2 * M - 14) / 2;
+    const cardH = 110;
+
+    // ── LEFT — TU AHORRO (only renders if there's an actual saving) ────
+    if (savings > 0) {
+      // Cream bg + brand-color left bar.
+      doc.setFillColor(...cream);
+      doc.roundedRect(M, y, cardW, cardH, 10, 10, "F");
+      doc.setFillColor(...brand);
+      doc.rect(M, y + 6, 5, cardH - 12, "F");
+
       doc.setTextColor(...brand);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(TYPE.bigMoney.size);
-      doc.text(fmtCOP(grand), pageW - M, y + 38, { align: "right" });
+      doc.setFontSize(8);
+      doc.setCharSpace(TRACK.eyebrow);
+      doc.text("TU AHORRO EN ESTA COTIZACIÓN", M + 18, y + 28);
+      doc.setCharSpace(0);
 
-      y += 60;
-      doc.setDrawColor(...FALLBACK.line);
-      doc.setLineWidth(0.4);
-      doc.line(M, y, pageW - M, y);
-      y += 18;
+      doc.setTextColor(...FALLBACK.ink);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(26);
+      doc.text(fmtCOP(savings), M + 18, y + 60);
+
+      doc.setTextColor(...FALLBACK.muted);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const totalUnits = input.items.reduce((s, it) => s + Math.max(1, it.quantity || 1), 0);
+      const caption = `Descuento del ${grandPct}% aplicado al precio de lista por compra de ${totalUnits} unidad${totalUnits !== 1 ? "es" : ""}.`;
+      const lines = doc.splitTextToSize(caption, cardW - 28).slice(0, 2);
+      let cy = y + 78;
+      for (const ln of lines) { doc.text(ln, M + 18, cy); cy += 12; }
+    } else {
+      // No savings → render an info card on the left so the layout doesn't
+      // collapse asymmetrically.
+      doc.setFillColor(248, 249, 251);
+      doc.roundedRect(M, y, cardW, cardH, 10, 10, "F");
+      doc.setTextColor(...FALLBACK.muted);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setCharSpace(TRACK.eyebrow);
+      doc.text("RESUMEN DE LA COTIZACIÓN", M + 18, y + 28);
+      doc.setCharSpace(0);
+      doc.setTextColor(...FALLBACK.ink);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`${input.items.length} referencia${input.items.length !== 1 ? "s" : ""} cotizada${input.items.length !== 1 ? "s" : ""}.`, M + 18, y + 50);
+      doc.text(`Precios válidos sujetos a confirmación con el asesor.`, M + 18, y + 66);
     }
+
+    // ── RIGHT — TOTALS card (dark navy with brand corner accent) ───────
+    const rightX = M + cardW + 14;
+    doc.setFillColor(...FALLBACK.ink);
+    doc.roundedRect(rightX, y, cardW, cardH, 10, 10, "F");
+    // Brand accent — top-right corner stripe.
+    doc.setFillColor(...brand);
+    doc.rect(rightX + cardW - 70, y, 70, 4, "F");
+
+    doc.setTextColor(200, 215, 240);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Subtotal", rightX + 18, y + 28);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text(fmtCOP(subtotal), rightX + cardW - 18, y + 28, { align: "right" });
+
+    if (savings > 0) {
+      doc.setTextColor(200, 215, 240);
+      doc.setFont("helvetica", "normal");
+      doc.text("Descuento aplicado", rightX + 18, y + 46);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text(`−${fmtCOP(savings)}`, rightX + cardW - 18, y + 46, { align: "right" });
+    }
+
+    // Divider above TOTAL.
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.4);
+    doc.line(rightX + 18, y + 60, rightX + cardW - 18, y + 60);
+
+    // TOTAL row.
+    doc.setTextColor(200, 215, 240);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setCharSpace(TRACK.eyebrow);
+    doc.text("TOTAL", rightX + 18, y + 84);
+    doc.setCharSpace(0);
+    doc.setTextColor(...brand);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text(fmtCOP(subtotal), rightX + cardW - 18, y + 88, { align: "right" });
+
+    doc.setTextColor(170, 190, 220);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(
+      input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA",
+      rightX + cardW - 18, y + cardH - 8, { align: "right" },
+    );
+
+    y += cardH + 18;
   } else if (input.priceMode !== "none") {
-    // Individual/comparative mode — short note reminding the reader
-    // prices are per-unit.
     const note = input.priceMode === "con_iva"
       ? "Precios por unidad, IVA 19% incluido"
       : "Precios por unidad, no incluyen IVA";
@@ -1657,7 +1819,9 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     y += 18;
   }
 
-  // ─── CONTACT — minimalist layout matching the catalog sheet ──────────────
+  // ──────────────────────────────────────────────────────────────────────
+  // 6. CONTACT card — 3 cols asesor / teléfono / sitio web
+  // ──────────────────────────────────────────────────────────────────────
   const hasRep      = !!(input.repName || input.repPhone);
   const hasSiteCity = !!(input.companyWebsite || input.companyCity);
   if (hasRep || hasSiteCity) {
@@ -1667,29 +1831,56 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
       doc.addPage();
       y = HEADER_TOP;
     }
-    y = drawSectionHeader(doc, "Contacto", M, y + 4, pageW - M, brand);
-    doc.setTextColor(...FALLBACK.ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text(input.repName ?? input.companyName ?? "", M, y + 18);
+    const CONTACT_H = 64;
+    doc.setFillColor(248, 249, 251);
+    doc.setDrawColor(231, 234, 240);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(M, y, pageW - 2 * M, CONTACT_H, 8, 8, "FD");
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(TYPE.bodySm.size);
-    doc.setTextColor(...FALLBACK.muted);
-    const line2 = [input.repPhone, input.companyCity].filter(Boolean).join("  ·  ");
-    if (line2) doc.text(line2, M, y + 34);
-
-    if (input.companyWebsite) {
-      doc.setTextColor(...brand);
+    const contactCol = (pageW - 2 * M) / 3;
+    const contactCells: { eyebrow: string; line1: string; line2?: string; line1Color?: [number, number, number] }[] = [
+      {
+        eyebrow: "ASESOR",
+        line1: input.repName ?? input.companyName ?? "—",
+        line2: "Asesor Comercial",
+      },
+      {
+        eyebrow: "TELÉFONO",
+        line1: input.repPhone ?? "—",
+        line2: "Lun a Vie · 8:00 a 18:00",
+      },
+      {
+        eyebrow: "SITIO WEB",
+        line1: input.companyWebsite
+          ? input.companyWebsite.replace(/^https?:\/\//i, "").replace(/\/$/, "")
+          : "—",
+        line2: "Cotización en línea",
+        line1Color: brand,
+      },
+    ];
+    contactCells.forEach((cell, i) => {
+      const cx = M + 14 + i * contactCol;
+      doc.setTextColor(...FALLBACK.muted);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(TYPE.bodySm.size);
-      doc.text(input.companyWebsite, pageW - M, y + 34, { align: "right" });
-    }
+      doc.setFontSize(7.5);
+      doc.setCharSpace(TRACK.eyebrow);
+      doc.text(cell.eyebrow, cx, y + 18);
+      doc.setCharSpace(0);
+      doc.setTextColor(...(cell.line1Color ?? FALLBACK.ink));
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(cell.line1, cx, y + 36);
+      if (cell.line2) {
+        doc.setTextColor(...FALLBACK.muted);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.text(cell.line2, cx, y + 50);
+      }
+    });
+    y += CONTACT_H + 12;
   }
 
   drawFooter(doc, pageW, pageH, M, brand, input.companyName);
-
-  void brandT15;
 
   return doc.output("blob");
 }
