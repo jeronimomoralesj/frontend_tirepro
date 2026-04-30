@@ -18,6 +18,11 @@ export interface CartItem {
 }
 
 const CART_KEY = "tirepro_cart";
+// Custom DOM event so every useCart() instance in the same tab refreshes
+// when ANY one of them mutates the cart. Without this the navbar count
+// and the floating cart button stay stale after add-to-cart on the
+// product page.
+const CART_EVENT = "tirepro_cart_changed";
 
 function readCart(): CartItem[] {
   if (typeof window === "undefined") return [];
@@ -26,12 +31,32 @@ function readCart(): CartItem[] {
 
 function writeCart(items: CartItem[]) {
   localStorage.setItem(CART_KEY, JSON.stringify(items));
+  if (typeof window !== "undefined") {
+    // Fire after the current microtask so callers' setState completes
+    // before observers re-read.
+    queueMicrotask(() => window.dispatchEvent(new Event(CART_EVENT)));
+  }
 }
 
 export function useCart() {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  useEffect(() => { setItems(readCart()); }, []);
+  useEffect(() => {
+    setItems(readCart());
+    // Same-tab sync — broadcast from writeCart in any component.
+    const onLocal = () => setItems(readCart());
+    // Cross-tab sync — browser fires this when localStorage changes
+    // in another tab on the same origin.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === CART_KEY) setItems(readCart());
+    };
+    window.addEventListener(CART_EVENT, onLocal);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(CART_EVENT, onLocal);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   const sync = useCallback((next: CartItem[]) => { setItems(next); writeCart(next); }, []);
 
