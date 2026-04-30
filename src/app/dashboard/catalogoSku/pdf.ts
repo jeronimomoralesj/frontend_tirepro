@@ -59,6 +59,9 @@ export type PdfInput = {
   repPhone: string | null;
   marca:      string;
   modelo:     string;
+  // For reencauche items, modelo is the banda code (e.g. "D801", "VRL1") —
+  // the renderer force-uppercases it. Pass "reencauche" here when it is.
+  tipo?:      string | null;
   dimension:  string;
   categoria:  string | null;
   terreno:    string | null;
@@ -347,9 +350,12 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(TYPE.hero.size);
   // splitTextToSize wraps long model names across two lines instead of
-  // bleeding past the hero image margin.
+  // bleeding past the hero image margin. For reencauche the modelo IS
+  // the banda code, so force-uppercase it (matches the per-row uppercase
+  // we already do for tipoBanda elsewhere).
   const heroMaxW = pageW - M - HERO_W - M - 18;
-  const heroLines = doc.splitTextToSize(input.modelo, heroMaxW).slice(0, 2) as string[];
+  const heroModelo = input.tipo === "reencauche" ? input.modelo.toUpperCase() : input.modelo;
+  const heroLines = doc.splitTextToSize(heroModelo, heroMaxW).slice(0, 2) as string[];
   for (const ln of heroLines) {
     doc.text(ln, M, y);
     y += TYPE.hero.size * TYPE.heroLh;
@@ -606,82 +612,79 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
     const shown = input.priceMode === "con_iva" ? withIva : base;
     const ivaLabel = input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA";
 
-    // Discount detection — print both prices when MSRP > final.
-    const original   = input.originalPriceCop ?? null;
+    const original    = input.originalPriceCop ?? null;
     const hasDiscount = original != null && original > base;
     const shownOriginal = hasDiscount
       ? (input.priceMode === "con_iva" ? Math.round(original * 1.19) : original)
       : null;
-    const savings = hasDiscount && shownOriginal != null ? shownOriginal - shown : 0;
-    const discountPct = hasDiscount
-      ? Math.round(((original! - base) / original!) * 100)
-      : 0;
+    const savings     = hasDiscount && shownOriginal != null ? shownOriginal - shown : 0;
+    const discountPct = hasDiscount ? Math.round(((original! - base) / original!) * 100) : 0;
 
+    // Single clean treatment whether discounted or not. Everything aligns
+    // on the same horizontal grid: hairline / eyebrow / big number /
+    // (struck MSRP + savings) / hairline.  No loud pill, no boxes.
     const boxY = y;
-    const boxH = hasDiscount ? 96 : 70;
+    const boxH = hasDiscount ? 88 : 70;
 
     // Top hairline.
     doc.setDrawColor(...FALLBACK.line);
     doc.setLineWidth(0.5);
     doc.line(M, boxY, pageW - M, boxY);
 
-    // Eyebrow — left side. Always lowercase-tracked, never overlaps the pill.
+    // Eyebrow — left.
     doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(TYPE.eyebrow.size);
     doc.setCharSpace(TRACK.eyebrow);
-    doc.text(hasDiscount ? "PRECIO · OFERTA" : "PRECIO", M, boxY + 18);
+    doc.text("PRECIO", M, boxY + 18);
     doc.setCharSpace(0);
 
-    // Discount pill — top-right, eyebrow line. Bigger and a bit more
-    // prominent than before so the savings register at a glance.
-    if (hasDiscount) {
-      const pillText  = `-${discountPct}%`;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      const pillW = doc.getTextWidth(pillText) + 22;
-      const pillH = 22;
-      const pillX = pageW - M - pillW;
-      const pillY = boxY + 6;
-      doc.setFillColor(34, 197, 94);     // solid emerald-500
-      doc.roundedRect(pillX, pillY, pillW, pillH, 11, 11, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.text(pillText, pillX + pillW / 2, pillY + 14.5, { align: "center" });
-    }
-
-    // The big number — final price, brand color, oversized.
-    doc.setTextColor(...brand);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(TYPE.bigMoney.size);
-    doc.text(fmtCOP(shown), M, boxY + 54);
-
-    // Discount detail — struck MSRP + green savings amount on the same line.
-    // Reads like a price-tag: "Antes $1.500.000  ·  Ahorras $500.000".
-    if (hasDiscount && shownOriginal != null) {
-      const msrpY = boxY + 76;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(TYPE.bodySm.size);
-      doc.setTextColor(...FALLBACK.muted);
-      const msrpLabel = `Antes ${fmtCOP(shownOriginal)}`;
-      doc.text(msrpLabel, M, msrpY);
-      const w = doc.getTextWidth(msrpLabel);
-      // Strike line — through the middle of the text for visibility.
-      doc.setDrawColor(...FALLBACK.muted);
-      doc.setLineWidth(0.6);
-      doc.line(M, msrpY - 3, M + w, msrpY - 3);
-
-      // Savings amount, emerald, after a small bullet.
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(21, 128, 61);
-      doc.text(`  ·  Ahorras ${fmtCOP(savings)}`, M + w, msrpY);
-    }
-
-    // IVA label, right-aligned alongside the big price (single horizontal
-    // line) — keeps the right column clean for the pill above it.
+    // IVA label — right, same line as eyebrow.
     doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(TYPE.bodySm.size);
-    doc.text(ivaLabel, pageW - M, boxY + 54, { align: "right" });
+    doc.text(ivaLabel, pageW - M, boxY + 18, { align: "right" });
+
+    // Final price — brand color, oversized. Anchors everything below.
+    doc.setTextColor(...brand);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(TYPE.bigMoney.size);
+    doc.text(fmtCOP(shown), M, boxY + 50);
+
+    // Discount detail row — a single inline caption under the big price:
+    // ~~$1.500.000~~   −25%   ahorras $500.000
+    //   muted strike    emerald      emerald
+    //
+    // Same baseline, all tabular-numeric, never wraps. Reads like a
+    // restrained luxury price tag — no shouting pills.
+    if (hasDiscount && shownOriginal != null) {
+      const lineY = boxY + 72;
+
+      // 1. Struck-through MSRP.
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(TYPE.bodySm.size);
+      doc.setTextColor(...FALLBACK.muted);
+      const msrpStr = fmtCOP(shownOriginal);
+      doc.text(msrpStr, M, lineY);
+      const msrpW = doc.getTextWidth(msrpStr);
+      doc.setDrawColor(...FALLBACK.muted);
+      doc.setLineWidth(0.55);
+      doc.line(M, lineY - 3, M + msrpW, lineY - 3);
+
+      // 2. Discount %.
+      const gap = 12;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(21, 128, 61);   // emerald-700
+      doc.setFontSize(TYPE.bodySm.size);
+      const pctStr = `−${discountPct}%`;
+      doc.text(pctStr, M + msrpW + gap, lineY);
+      const pctW = doc.getTextWidth(pctStr);
+
+      // 3. Savings amount.
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...FALLBACK.muted);
+      doc.text(`ahorras ${fmtCOP(savings)}`, M + msrpW + gap + pctW + gap, lineY);
+    }
 
     // Bottom hairline.
     doc.line(M, boxY + boxH, pageW - M, boxY + boxH);
@@ -1001,7 +1004,8 @@ export async function buildComparativePdf(input: QuoteInput): Promise<Blob> {
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(26);
-    doc.text(it.modelo, M, y);
+    // For reencauche, modelo IS the banda code → always upper-case.
+    doc.text(it.tipo === "reencauche" ? it.modelo.toUpperCase() : it.modelo, M, y);
 
     y += 20;
     doc.setTextColor(...brand);
@@ -1166,75 +1170,64 @@ export async function buildComparativePdf(input: QuoteInput): Promise<Blob> {
       y += 12;
     }
 
-    // ─── PRICE BLOCK — identical to single-tire PDF ─────────────────────
+    // ─── PRICE BLOCK — clean dark card, no pills ────────────────────────
     if (input.priceMode !== "none" && it.unitPriceCop && it.unitPriceCop > 0) {
       const unit = Math.round(it.unitPriceCop * ivaMul);
       const ivaLabel = input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA";
 
-      // Discount detection — both prices set and original > final.
       const original = it.originalPriceCop ?? null;
       const hasDisc  = original != null && original > it.unitPriceCop;
       const origUnit = hasDisc ? Math.round(original! * ivaMul) : 0;
       const savings  = hasDisc ? origUnit - unit : 0;
       const discPct  = hasDisc ? Math.round(((original! - it.unitPriceCop) / original!) * 100) : 0;
 
-      const boxH = hasDisc ? 92 : 64;
+      const boxH = hasDisc ? 86 : 64;
       const boxY = y;
       doc.setFillColor(...FALLBACK.ink);
       doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 12, 12, "F");
       doc.setFillColor(...brand);
       doc.roundedRect(M, boxY, 8, boxH, 4, 4, "F");
 
-      // Eyebrow — left side, top.
+      // Eyebrow — left.
       doc.setTextColor(200, 215, 240);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text(hasDisc ? "PRECIO · OFERTA" : "Precio", M + 22, boxY + 24);
+      doc.text("Precio", M + 22, boxY + 22);
 
-      // Discount pill — top-right of the box, raised so it doesn't fight
-      // the IVA label vertical slot below.
-      if (hasDisc) {
-        const pillText = `-${discPct}%`;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        const pillW = doc.getTextWidth(pillText) + 22;
-        const pillH = 22;
-        const pillX = pageW - M - 18 - pillW;
-        const pillY = boxY + 14;
-        doc.setFillColor(34, 197, 94);
-        doc.roundedRect(pillX, pillY, pillW, pillH, 11, 11, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.text(pillText, pillX + pillW / 2, pillY + 14.5, { align: "center" });
-      }
+      // IVA — right, same baseline as eyebrow.
+      doc.text(ivaLabel, pageW - M - 18, boxY + 22, { align: "right" });
 
-      // Final price — big, white.
+      // Big white final price.
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(22);
       doc.text(fmtCOP(unit), M + 22, boxY + 50);
 
-      // Struck MSRP + emerald savings on a single line under the price.
+      // Inline discount caption: ~~MSRP~~  −X%  ahorras $Y
+      // All on the same baseline, beneath the big price.
       if (hasDisc) {
-        const msrpY = boxY + 72;
+        const lineY = boxY + 70;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(170, 190, 220);
-        const msrpLabel = `Antes ${fmtCOP(origUnit)}`;
-        doc.text(msrpLabel, M + 22, msrpY);
-        const w = doc.getTextWidth(msrpLabel);
+        const msrpStr = fmtCOP(origUnit);
+        doc.text(msrpStr, M + 22, lineY);
+        const msrpW = doc.getTextWidth(msrpStr);
         doc.setDrawColor(170, 190, 220);
-        doc.setLineWidth(0.6);
-        doc.line(M + 22, msrpY - 3, M + 22 + w, msrpY - 3);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(74, 222, 128);   // emerald-400 — pops on dark
-        doc.text(`  ·  Ahorras ${fmtCOP(savings)}`, M + 22 + w, msrpY);
-      }
+        doc.setLineWidth(0.55);
+        doc.line(M + 22, lineY - 3, M + 22 + msrpW, lineY - 3);
 
-      // IVA label — right-aligned at the price line.
-      doc.setTextColor(200, 215, 240);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(ivaLabel, pageW - M - 20, boxY + 50, { align: "right" });
+        const gap = 12;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(74, 222, 128);  // emerald-400 on dark
+        const pctStr = `−${discPct}%`;
+        doc.text(pctStr, M + 22 + msrpW + gap, lineY);
+        const pctW = doc.getTextWidth(pctStr);
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(170, 190, 220);
+        doc.text(`ahorras ${fmtCOP(savings)}`, M + 22 + msrpW + gap + pctW + gap, lineY);
+      }
 
       y = boxY + boxH + 14;
     }
@@ -1517,7 +1510,8 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text(it.modelo, textX, y + 34);
+    // Reencauche modelos = banda codes → always upper-case.
+    doc.text(it.tipo === "reencauche" ? it.modelo.toUpperCase() : it.modelo, textX, y + 34);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(...brand);

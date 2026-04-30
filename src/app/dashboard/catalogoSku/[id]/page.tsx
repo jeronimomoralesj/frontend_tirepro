@@ -654,6 +654,7 @@ export default function CatalogoSkuDetailPage() {
         brand:          brandBlock,
         marca:     sku.marca,
         modelo:    sku.modelo,
+        tipo:      sku.tipo,
         dimension: sku.dimension,
         categoria: sku.categoria,
         terreno:   sku.terreno,
