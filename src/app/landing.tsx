@@ -1,7 +1,6 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
-import { AGENT_LIST } from '../lib/agents'
-import { trackPlateSearch, trackPlateVehicleSelect, trackSearch } from '../lib/marketplaceAnalytics'
+import { trackPlateSearch, trackPlateVehicleSelect } from '../lib/marketplaceAnalytics'
 import {
   Calendar,
   BarChart3,
@@ -26,10 +25,7 @@ import {
   AlertTriangle,
   CheckCircle2,
 } from 'lucide-react'
-import landing from '../../public/landing.png'
 import Image from 'next/image'
-import pcImage from '../../public/pc.png'
-import logo from '../../public/logo_full.png'
 import PublicNav from '../components/PublicNav'
 import phoneImage from '../../public/phoneImg.png'
 import feature1 from '../../public/feat1.png'
