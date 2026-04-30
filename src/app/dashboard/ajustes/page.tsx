@@ -575,10 +575,15 @@ const AjustesPage: React.FC = () => {
   const [toasts,  setToasts]  = useState<Toast[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("profile");
 
-  // Catálogo / Catálogo Admin should never see anything but Profile —
-  // even if the user/handlers somehow flip activeTab. Force it back.
+  // Catálogo / Catálogo Admin / Marketplace Tracker should never see
+  // anything but Profile — even if the user/handlers somehow flip
+  // activeTab. Force it back.
   useEffect(() => {
-    if ((user?.role === "catalogo" || user?.role === "catalogo_admin") && activeTab !== "profile") {
+    const restrictedRole =
+      user?.role === "catalogo" ||
+      user?.role === "catalogo_admin" ||
+      user?.role === "marketplace_tracker";
+    if (restrictedRole && activeTab !== "profile") {
       setActiveTab("profile");
     }
   }, [user?.role, activeTab]);
@@ -904,12 +909,15 @@ const AjustesPage: React.FC = () => {
 
   // -- Tab definitions -------------------------------------------------------
   const hasCompanyId = !!user?.companyId;
-  // Catálogo (sales rep) and Catálogo Admin (sales manager) only get the
-  // Profile tab — Mis Pedidos, Planes, Empresa, Usuarios, Distribuidores
-  // are all fleet-admin / company-owner concerns. They land here from the
-  // sidebar to update their own password and personal data.
+  // Catálogo, Catálogo Admin, and Marketplace Tracker all get the
+  // Profile tab only — Mis Pedidos, Planes, Empresa, Usuarios,
+  // Distribuidores are all fleet-admin / company-owner concerns. They
+  // land here from the sidebar to update their own password and
+  // personal data.
   const isCatalogoOnly =
-    user?.role === "catalogo" || user?.role === "catalogo_admin";
+    user?.role === "catalogo" ||
+    user?.role === "catalogo_admin" ||
+    user?.role === "marketplace_tracker";
   const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean; requiresCompany?: boolean; hideForCatalogo?: boolean }[] = [
     { id: "profile",      label: "Perfil",          icon: User                             },
     { id: "orders",       label: "Mis Pedidos",     icon: ShoppingCart, hideForCatalogo: true },
@@ -1024,11 +1032,12 @@ const AjustesPage: React.FC = () => {
                       );
                     }
                     const meta: Record<string, { label: string; bg: string }> = {
-                      admin:          { label: "Administrador",     bg: "#0A183A" },
-                      catalogo_admin: { label: "Catálogo Admin",    bg: "#7c3aed" },
-                      catalogo:       { label: "Catálogo",          bg: "#a855f7" },
-                      viewer:         { label: "Usuario Regular",   bg: "#1E76B6" },
-                      regular:        { label: "Usuario Regular",   bg: "#1E76B6" },
+                      admin:               { label: "Administrador",       bg: "#0A183A" },
+                      catalogo_admin:      { label: "Catálogo Admin",      bg: "#7c3aed" },
+                      catalogo:            { label: "Catálogo",            bg: "#a855f7" },
+                      marketplace_tracker: { label: "Marketplace Tracker", bg: "#f97316" },
+                      viewer:              { label: "Usuario Regular",     bg: "#1E76B6" },
+                      regular:             { label: "Usuario Regular",     bg: "#1E76B6" },
                     };
                     const m = meta[user.role] ?? meta.regular;
                     return (
@@ -1919,11 +1928,12 @@ const AjustesPage: React.FC = () => {
                         // appear here only when the company hires sales
                         // people through TirePro.
                         const meta: Record<string, { label: string; bg: string }> = {
-                          admin:           { label: "Admin",            bg: "#0A183A" },
-                          catalogo_admin:  { label: "Catálogo Admin",   bg: "#7c3aed" },
-                          catalogo:        { label: "Catálogo",         bg: "#a855f7" },
-                          viewer:          { label: "Regular",          bg: "#1E76B6" },
-                          regular:         { label: "Regular",          bg: "#1E76B6" },
+                          admin:               { label: "Admin",                bg: "#0A183A" },
+                          catalogo_admin:      { label: "Catálogo Admin",       bg: "#7c3aed" },
+                          catalogo:            { label: "Catálogo",             bg: "#a855f7" },
+                          marketplace_tracker: { label: "Marketplace Tracker",  bg: "#f97316" },
+                          viewer:              { label: "Regular",              bg: "#1E76B6" },
+                          regular:             { label: "Regular",              bg: "#1E76B6" },
                         };
                         const m = meta[u.role] ?? meta.regular;
                         return (
@@ -2041,6 +2051,7 @@ const AjustesPage: React.FC = () => {
                     <>
                       <option value="catalogo">Catálogo (ventas)</option>
                       <option value="catalogo_admin">Catálogo Admin (ventas + stats)</option>
+                      <option value="marketplace_tracker">Marketplace Tracker (catálogo + pedidos)</option>
                     </>
                   )}
                 </select>

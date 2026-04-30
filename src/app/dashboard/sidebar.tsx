@@ -44,6 +44,16 @@ function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
         { name: "Catálogo", path: "/dashboard/catalogoSku", icon: BookOpen },
       ];
     }
+    // marketplace_tracker — distribuidor-only role, sees the catalog at
+    // the sales-rep level (NOT admin) plus a dedicated marketplace view
+    // for orders / tracking. Excluded from Pedidos / Desechos / Gestión
+    // / Vehículos like the catalogo roles.
+    if (role === "marketplace_tracker") {
+      return [
+        { name: "Catálogo",    path: "/dashboard/catalogoSku",  icon: BookOpen     },
+        { name: "Marketplace", path: "/dashboard/marketplace",  icon: ShoppingCart },
+      ];
+    }
     return [
       { name: "Resumen",   path: "/dashboard/distribuidor", icon: LayoutDashboard },
       { name: "Pedidos",   path: "/dashboard/pedidosDist",  icon: ShoppingCart    },
@@ -334,11 +344,15 @@ export default function Sidebar({
   if (!user || !company) return null;
 
   const isAdmin = user.role === "admin";
-  // Catálogo (sales rep) and Catálogo Admin (sales manager) need the
-  // Ajustes link too — they get a single Profile tab inside, but need
-  // somewhere to update their password and personal data.
+  // Catálogo (sales rep), Catálogo Admin (sales manager), and
+  // Marketplace Tracker need the Ajustes link too — they each get a
+  // single Profile tab inside, but need somewhere to update their
+  // password and personal data.
   const canSeeSettings =
-    isAdmin || user.role === "catalogo" || user.role === "catalogo_admin";
+    isAdmin ||
+    user.role === "catalogo" ||
+    user.role === "catalogo_admin" ||
+    user.role === "marketplace_tracker";
   const links   = buildLinks(company.plan, isAdmin, user.role);
 
   function handleLogout() {
