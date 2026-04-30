@@ -231,510 +231,586 @@ const TIER_LABEL: Record<string, string> = {
 // =============================================================================
 
 export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
+  // Single-page ficha técnica. See drawFichaPage for the actual layout —
+  // both this function and buildComparativePdf (multi-tire) reuse that
+  // helper so the design stays in sync.
   const doc = new jsPDF({ unit: "pt", format: "letter" });
+  await drawFichaPage(doc, input);
+  return doc.output("blob");
+}
+
+// =============================================================================
+// drawFichaPage — single-tire ficha técnica layout, drawn onto an existing
+// `doc`. Shared by buildCatalogPdf (one item) and buildComparativePdf
+// (multiple items, separated by addPage). Each call paints the full page.
+//
+// Layout (top → bottom):
+//   1. Header: rounded logo box + company name (display caps) + tagline |
+//      FICHA TÉCNICA eyebrow + tipo (brand color) + actualizada short date.
+//   2. Brand-color accent bar over a thin navy hairline.
+//   3. Hero card (cream bg, brand left bar): two-column with identity
+//      (brand pill, modelo, dimension, tipo/eje pills, 3 stat cards) on
+//      the left + tire image with floating "EJE X" pill on the right.
+//   4. Two-column section: ACERCA DE LA MARCA + ESPECIFICACIONES TÉCNICAS.
+//   5. Full-width dark price card (PRECIO PÚBLICO).
+//   6. 3-column contact card.
+//   7. Footer.
+//
+// Brand color drives every accent so the document feels like the company
+// that issued it.
+// =============================================================================
+async function drawFichaPage(doc: jsPDF, input: PdfInput): Promise<void> {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const M = SPACE.M;
 
-  const brand       = parseHex(input.companyColor) ?? FALLBACK.primary;
-  // Tints used for very subtle backgrounds (chips, table headers, price block).
-  // The header itself stays white — a colored band makes any PDF read
-  // template-grade no matter how good the typography is.
-  void readableTextOn;
-  const brandT08    = tint(brand, 0.08);
-  const brandT15    = tint(brand, 0.18);
+  const brand = parseHex(input.companyColor) ?? FALLBACK.primary;
+  // Cream backdrop — brand-tinted at ~6% so it reads as the company's color
+  // without being chip-loud.
+  const cream: [number, number, number] = [
+    Math.round(brand[0] * 0.06 + 255 * 0.94),
+    Math.round(brand[1] * 0.06 + 255 * 0.94),
+    Math.round(brand[2] * 0.06 + 255 * 0.94),
+  ];
 
-  const logoUrl  = isDefaultPlaceholderLogo(input.companyLogoUrl) ? null : input.companyLogoUrl;
-  const proxy    = input.fetchViaProxy;
-  const hero4    = input.imageUrls.slice(0, 4);
-  const [logoData, brandLogoData, ...productDatas] = await Promise.all([
+  const logoUrl = isDefaultPlaceholderLogo(input.companyLogoUrl) ? null : input.companyLogoUrl;
+  const proxy = input.fetchViaProxy;
+
+  // Pre-load company logo + the first tire image only (this layout uses
+  // a single hero shot — no thumbnail strip).
+  const [logoData, ...tireImgs] = await Promise.all([
     loadImageAsDataUrl(logoUrl, proxy),
-    loadImageAsDataUrl(input.brand?.logoUrl ?? input.brandLogoUrl, proxy),
-    ...hero4.map((u) => loadImageAsDataUrl(u, proxy)),
+    ...input.imageUrls.slice(0, 1).map((u) => loadImageAsDataUrl(u, proxy)),
   ]);
-  const productImages = productDatas.filter((d): d is string => !!d);
+  const tireImg = tireImgs[0] ?? null;
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // HEADER — minimalist. Logo (or company name) at left, document
-  // type + category eyebrow at right, separated from content by a
-  // single hairline. No filled banner, no contrasting block — every
-  // premium product sheet (Michelin XZE, Pirelli Truck, Bridgestone
-  // Ecopia) leads with whitespace and type.
-  // ───────────────────────────────────────────────────────────────────────────
-  const HEADER_TOP = 36;
-  const HEADER_LOGO_H = 38;
+  const isReencauche = input.tipo === "reencauche";
+  const tipoLabel = isReencauche ? "Reencauche" : "Llanta Nueva";
+  const fichaDateShort = new Date().toLocaleDateString("es-CO", {
+    day: "numeric", month: "short", year: "numeric",
+  });
 
+  // ─────────────────────────────────────────────────────────────────────
+  // 1. HEADER
+  // ─────────────────────────────────────────────────────────────────────
+  let y = 40;
+  const LOGO_BOX = 56;
+  doc.setFillColor(248, 249, 251);
+  doc.roundedRect(M, y, LOGO_BOX, LOGO_BOX, 28, 28, "F");
   if (logoData) {
     const { w, h } = await imageDims(logoData);
-    const boxH = HEADER_LOGO_H;
-    const scale = Math.min(180 / w, boxH / h);
+    const scale = Math.min((LOGO_BOX - 14) / w, (LOGO_BOX - 14) / h);
     const drawW = w * scale, drawH = h * scale;
     doc.addImage(
       logoData, detectFormat(logoData),
-      M, HEADER_TOP, drawW, drawH, undefined, "SLOW",
+      M + (LOGO_BOX - drawW) / 2,
+      y + (LOGO_BOX - drawH) / 2,
+      drawW, drawH, undefined, "SLOW",
     );
-  } else if (input.companyName) {
+  }
+  if (input.companyName) {
     doc.setTextColor(...FALLBACK.ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(input.companyName, M, HEADER_TOP + 24);
+    doc.setFont("helvetica", "bolditalic");
+    doc.setFontSize(28);
+    doc.text(input.companyName.toUpperCase(), M + LOGO_BOX + 16, y + 30);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setCharSpace(TRACK.eyebrow);
+    doc.setTextColor(...FALLBACK.muted);
+    doc.text("LLANTAS PARA TODO TIPO DE VEHÍCULO", M + LOGO_BOX + 16, y + 46);
+    doc.setCharSpace(0);
   }
 
-  // Right side: tracker eyebrow + bold category label.
   doc.setTextColor(...FALLBACK.muted);
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(TYPE.eyebrow.size);
   doc.setCharSpace(TRACK.eyebrow);
-  doc.text("FICHA TÉCNICA", pageW - M, HEADER_TOP + 14, { align: "right" });
+  doc.text("FICHA TÉCNICA", pageW - M, y + 12, { align: "right" });
   doc.setCharSpace(0);
   doc.setTextColor(...brand);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text(
-    input.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva",
-    pageW - M, HEADER_TOP + 32, { align: "right" },
-  );
+  doc.setFontSize(13);
+  doc.text(tipoLabel, pageW - M, y + 30, { align: "right" });
+  doc.setTextColor(...FALLBACK.muted);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(`Actualizada: ${fichaDateShort}`, pageW - M, y + 44, { align: "right" });
 
-  // Hairline separator running the full content width — replaces the
-  // colored banner as the header's bottom edge.
-  doc.setDrawColor(...FALLBACK.line);
-  doc.setLineWidth(0.5);
-  doc.line(M, HEADER_TOP + HEADER_LOGO_H + 14, pageW - M, HEADER_TOP + HEADER_LOGO_H + 14);
+  y += LOGO_BOX + 14;
 
-  // Hero tile dimensions — hoisted so the chip row can measure how wide
-  // it may grow before overlapping the image.
-  const HERO_TOP = 116;
-  const HERO_W = 248, HERO_H = 220;
+  // Brand bar + thin navy hairline.
+  doc.setFillColor(...brand);
+  doc.rect(M, y, 110, 3, "F");
+  doc.setDrawColor(...FALLBACK.ink);
+  doc.setLineWidth(0.6);
+  doc.line(M + 110, y + 1.5, pageW - M, y + 1.5);
+  y += 18;
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // TITLE BLOCK — premium product hierarchy. Brand eyebrow (with logo
-  // if present) sits above an oversized model name; dimension renders
-  // as a refined subhead. The H1 is the visual anchor of the whole page.
-  // ───────────────────────────────────────────────────────────────────────────
-  let y = HEADER_TOP + HEADER_LOGO_H + 38;
+  // ─────────────────────────────────────────────────────────────────────
+  // 2. HERO CARD
+  // ─────────────────────────────────────────────────────────────────────
+  const HERO_H = 220;
+  doc.setFillColor(...cream);
+  doc.roundedRect(M, y, pageW - 2 * M, HERO_H, 12, 12, "F");
+  doc.setFillColor(...brand);
+  doc.rect(M, y + 14, 5, HERO_H - 28, "F");
 
-  // Marca eyebrow: small brand logo + marca text + country, all in
-  // the muted brand color so it reads as a category label, not a title.
-  let cursorX = M;
-  if (brandLogoData) {
-    const { w, h } = await imageDims(brandLogoData);
-    const boxW = 38, boxH = 20;
-    const scale = Math.min(boxW / w, boxH / h);
-    const drawW = w * scale, drawH = h * scale;
-    doc.addImage(
-      brandLogoData, detectFormat(brandLogoData),
-      cursorX, y - drawH + 1, drawW, drawH, undefined, "SLOW",
-    );
-    cursorX += drawW + 10;
-  }
-  const marcaText = input.marca.toUpperCase();
-  doc.setTextColor(...brand);
+  const heroLeftX = M + 16;
+  const heroRightX = pageW / 2 + 12;
+  const heroRightW = pageW - M - heroRightX;
+
+  // ─ Brand pill (solid brand color) + country
+  const brandPillText = input.marca.toUpperCase();
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(TYPE.micro.size);
-  doc.setCharSpace(TRACK.eyebrow);
-  doc.text(marcaText, cursorX, y);
-  doc.setCharSpace(0);
-  if (input.brandCountry || input.brand?.country) {
-    const country = input.brand?.country ?? input.brandCountry;
-    const mw = doc.getTextWidth(marcaText) + TRACK.eyebrow * (marcaText.length - 1);
+  doc.setFontSize(9);
+  const brandPillW = doc.getTextWidth(brandPillText) + 16;
+  const brandPillH = 18;
+  doc.setFillColor(...brand);
+  doc.roundedRect(heroLeftX, y + 18, brandPillW, brandPillH, 4, 4, "F");
+  doc.setTextColor(...readableTextOn(brand));
+  doc.text(brandPillText, heroLeftX + brandPillW / 2, y + 30.5, { align: "center" });
+  if (input.brand?.country) {
     doc.setTextColor(...FALLBACK.muted);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(TYPE.bodySm.size);
-    doc.text(`· ${country}`, cursorX + mw + 8, y);
+    doc.setFontSize(10);
+    doc.text(`· ${input.brand.country}`, heroLeftX + brandPillW + 6, y + 31);
   }
 
-  y += 26;
-  // Hero H1 — the modelo. Big, dark, tight. This is the single biggest
-  // type element on the page and should anchor the eye.
+  // ─ Modelo (force-uppercase for reencauche) + dimension
   doc.setTextColor(...FALLBACK.ink);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(TYPE.hero.size);
-  // splitTextToSize wraps long model names across two lines instead of
-  // bleeding past the hero image margin. For reencauche the modelo IS
-  // the banda code, so force-uppercase it (matches the per-row uppercase
-  // we already do for tipoBanda elsewhere).
-  const heroMaxW = pageW - M - HERO_W - M - 18;
-  const heroModelo = input.tipo === "reencauche" ? input.modelo.toUpperCase() : input.modelo;
-  const heroLines = doc.splitTextToSize(heroModelo, heroMaxW).slice(0, 2) as string[];
-  for (const ln of heroLines) {
-    doc.text(ln, M, y);
-    y += TYPE.hero.size * TYPE.heroLh;
-  }
-
-  y += 4;
-  // Dimension — refined subhead, brand color, regular weight (not bold)
-  // so it reads "label" rather than "title".
+  doc.setFontSize(36);
+  const heroModelo = isReencauche ? input.modelo.toUpperCase() : input.modelo;
+  doc.text(heroModelo, heroLeftX, y + 72);
   doc.setTextColor(...brand);
-  doc.setFontSize(TYPE.subhead.size);
-  doc.setFont("helvetica", "normal");
-  doc.text(input.dimension, M, y);
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // CHIP ROW — at-a-glance attributes. All chips share one subtle visual
-  // language (1-pt brand-tinted border + brand text on white) so the
-  // category badge doesn't read like a button while the others read like
-  // labels. Smaller, lower-contrast = more premium.
-  // ───────────────────────────────────────────────────────────────────────────
-  const chips: Array<{ label: string }> = [];
-  chips.push({ label: input.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva" });
-  if (input.terreno)    chips.push({ label: input.terreno });
-  if (input.ejeTirePro) chips.push({ label: input.ejeTirePro.charAt(0).toUpperCase() + input.ejeTirePro.slice(1) });
-  if (input.reencauchable) chips.push({ label: "Reencauchable" });
-
-  y += 16;
-  const heroLeftX = pageW - M - HERO_W;
-  const chipMaxX  = productImages[0] ? heroLeftX - 14 : pageW - M;
-  const chipH      = 20;
-  const chipGapX   = 6;
-  const chipGapY   = 6;
-  const chipPadX   = 10;
-  const chipFont   = 8.5;
-  const chipBaseY  = 13;
-
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(chipFont);
-  doc.setCharSpace(0.4);
+  doc.setFontSize(14);
+  doc.text(input.dimension, heroLeftX, y + 92);
 
-  let chipX   = M;
-  let chipTop = y;
-  for (const chip of chips) {
-    const label = chip.label.toUpperCase();
-    const tw    = doc.getTextWidth(label) + 0.4 * (label.length - 1);
-    const w     = tw + chipPadX * 2;
-    if (chipX > M && chipX + w > chipMaxX) {
-      chipX   = M;
-      chipTop += chipH + chipGapY;
+  // ─ Identity pills row: tipo, eje, reencauchable
+  const heroPills: string[] = [tipoLabel];
+  if (input.ejeTirePro) heroPills.push(input.ejeTirePro.charAt(0).toUpperCase() + input.ejeTirePro.slice(1));
+  if (input.reencauchable) heroPills.push("Reencauchable");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  let pillX = heroLeftX, pillY = y + 108;
+  const HP_H = 22, HP_PAD = 10, HP_GAP = 6;
+  for (let i = 0; i < heroPills.length; i++) {
+    const p = heroPills[i];
+    const w = doc.getTextWidth(p) + HP_PAD * 2;
+    if (i === 0) {
+      doc.setFillColor(...FALLBACK.ink);
+      doc.roundedRect(pillX, pillY, w, HP_H, 11, 11, "F");
+      doc.setTextColor(255, 255, 255);
+    } else {
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(225, 230, 238);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(pillX, pillY, w, HP_H, 11, 11, "FD");
+      doc.setTextColor(...FALLBACK.ink);
     }
-    // Hairline outline only — fills are reserved for stronger
-    // statements (price block, totals).
-    doc.setDrawColor(...brandT15);
-    doc.setLineWidth(0.6);
-    doc.roundedRect(chipX, chipTop, w, chipH, chipH / 2, chipH / 2, "S");
-    doc.setTextColor(...brand);
-    doc.text(label, chipX + chipPadX, chipTop + chipBaseY);
-    chipX += w + chipGapX;
+    doc.text(p, pillX + w / 2, pillY + 14.5, { align: "center" });
+    pillX += w + HP_GAP;
   }
-  doc.setCharSpace(0);
-  y = chipTop + chipH;
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // HERO IMAGE (right side of title block)
-  // ───────────────────────────────────────────────────────────────────────────
-  const heroData = productImages[0];
-  if (heroData) {
-    const { w, h } = await imageDims(heroData);
-    const scale = Math.min(HERO_W / w, HERO_H / h);
+  // ─ 3 mini stat cards (CARGA / PROFUNDIDAD / PRESIÓN)
+  const findRow = (...keywords: string[]): string | null => {
+    for (const r of input.rows) {
+      const lab = r.label.toLowerCase();
+      if (keywords.some((k) => lab.includes(k))) return r.value;
+    }
+    return null;
+  };
+  const stats: { label: string; value: string }[] = [];
+  const cargaVal = findRow("carga");
+  const profVal  = findRow("prof");
+  const presVal  = findRow("presión", "psi");
+  if (cargaVal) stats.push({ label: "CARGA",        value: cargaVal });
+  if (profVal)  stats.push({ label: "PROFUNDIDAD",  value: profVal });
+  if (presVal)  stats.push({ label: "PRESIÓN",      value: presVal });
+
+  const STAT_W = 92, STAT_H = 44, STAT_GAP = 8;
+  let statsX = heroLeftX;
+  const statsY = y + 144;
+  for (const stat of stats) {
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(...FALLBACK.line);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(statsX, statsY, STAT_W, STAT_H, 6, 6, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setCharSpace(TRACK.eyebrow);
+    doc.setTextColor(...FALLBACK.muted);
+    doc.text(stat.label, statsX + 8, statsY + 14);
+    doc.setCharSpace(0);
+    // Split "12 mm" into number + unit so the unit reads small / muted.
+    const m = stat.value.match(/^(\S+)\s+(.+)$/);
+    if (m) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(...FALLBACK.ink);
+      doc.text(m[1], statsX + 8, statsY + 32);
+      const numW = doc.getTextWidth(m[1]);
+      doc.setFontSize(9);
+      doc.setTextColor(...FALLBACK.muted);
+      doc.text(m[2], statsX + 8 + numW + 4, statsY + 32);
+    } else {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(...FALLBACK.ink);
+      doc.text(stat.value, statsX + 8, statsY + 32);
+    }
+    statsX += STAT_W + STAT_GAP;
+  }
+
+  // ─ Right side: tire image inside a white rounded card
+  const heroImgX = heroRightX + 8;
+  const heroImgY = y + 22;
+  const heroImgW = heroRightW - 16;
+  const heroImgH = HERO_H - 44;
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(heroImgX, heroImgY, heroImgW, heroImgH, 12, 12, "F");
+  if (tireImg) {
+    const { w, h } = await imageDims(tireImg);
+    const scale = Math.min((heroImgW - 32) / w, (heroImgH - 32) / h);
     const drawW = w * scale, drawH = h * scale;
-    const x = pageW - M - HERO_W;
-    doc.setFillColor(...FALLBACK.page);
-    doc.roundedRect(x, HERO_TOP, HERO_W, HERO_H, 14, 14, "F");
-    doc.setDrawColor(...brandT15);
-    doc.setLineWidth(0.6);
-    doc.roundedRect(x, HERO_TOP, HERO_W, HERO_H, 14, 14, "S");
     doc.addImage(
-      heroData, detectFormat(heroData),
-      x + (HERO_W - drawW) / 2,
-      HERO_TOP + (HERO_H - drawH) / 2,
+      tireImg, detectFormat(tireImg),
+      heroImgX + (heroImgW - drawW) / 2,
+      heroImgY + (heroImgH - drawH) / 2,
       drawW, drawH, undefined, "MEDIUM",
     );
   }
-
-  // Drop `y` so the next section starts below the hero bottom.
-  y = Math.max(y + 24, HERO_TOP + HERO_H + 18);
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // BRAND CARD (optional) — "Acerca de la marca" + facts
-  // ───────────────────────────────────────────────────────────────────────────
-  const b = input.brand;
-  const hasBrandContent = !!b && (
-    b.tagline || b.description ||
-    b.country || b.foundedYear || b.parentCompany || b.tier || b.website
-  );
-  if (hasBrandContent && b) {
-    y = drawSectionHeader(doc, "Acerca de la marca", M, y, pageW - M, brand);
-    const cardTop = y + 4;
-    const innerW  = pageW - 2 * M - 24;
-
-    // Pre-measure each chunk so we size the card exactly once. splitTextToSize
-    // handles all wrapping (including the facts line that used to overflow).
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(10);
-    const taglineLines = b.tagline
-      ? doc.splitTextToSize(b.tagline, innerW).slice(0, 2) as string[]
-      : [];
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
-    const descLines = b.description
-      ? doc.splitTextToSize(b.description, innerW).slice(0, 3) as string[]
-      : [];
-
-    const factsText = factLine(b);
+  // EJE pill — top-right of the tire card
+  if (input.ejeTirePro) {
+    const ejeText = `EJE ${input.ejeTirePro.toUpperCase()}`;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    const factsLines = factsText
-      ? doc.splitTextToSize(factsText, innerW).slice(0, 2) as string[]
-      : [];
-
-    let cardH = 16
-      + taglineLines.length * 13
-      + (descLines.length ? descLines.length * 12 + 4 : 0)
-      + (factsLines.length ? factsLines.length * 11 + 4 : 0)
-      + 14;
-
-    doc.setFillColor(...FALLBACK.page);
-    doc.roundedRect(M, cardTop, pageW - 2 * M, cardH, 10, 10, "F");
-    doc.setDrawColor(...brandT15);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(M, cardTop, pageW - 2 * M, cardH, 10, 10, "S");
-
-    let ty = cardTop + 18;
-    if (taglineLines.length) {
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(10);
-      doc.setTextColor(...brand);
-      for (const ln of taglineLines) { doc.text(ln, M + 12, ty); ty += 13; }
-    }
-    if (descLines.length) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      doc.setTextColor(...FALLBACK.ink);
-      for (const ln of descLines) { doc.text(ln, M + 12, ty); ty += 12; }
-      ty += 4;
-    }
-    if (factsLines.length) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(...FALLBACK.muted);
-      for (const ln of factsLines) { doc.text(ln, M + 12, ty); ty += 11; }
-    }
-    y = cardTop + cardH + 14;
+    doc.setFontSize(8);
+    doc.setCharSpace(TRACK.eyebrow);
+    const ejePillW = doc.getTextWidth(ejeText) + 14;
+    const ejePillH = 18;
+    const ejePillX = heroImgX + heroImgW - 12 - ejePillW;
+    const ejePillY = heroImgY + 12;
+    doc.setFillColor(...FALLBACK.ink);
+    doc.roundedRect(ejePillX, ejePillY, ejePillW, ejePillH, 9, 9, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.text(ejeText, ejePillX + ejePillW / 2, ejePillY + 12, { align: "center" });
+    doc.setCharSpace(0);
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // SPECS TABLE — full width, hairline horizontal rules only, no zebra.
-  // Reads like a printed product datasheet rather than a web table.
-  // ───────────────────────────────────────────────────────────────────────────
-  y = drawSectionHeader(doc, "Especificaciones", M, y, pageW - M, brand);
-  const tableWidth = pageW - 2 * M;
-  // Banda values are SKU-style codes (HDC1, BDR HG, M725...) — always
-  // render in upper case regardless of how the catalog editor stored
-  // them. "hdc1" becomes "HDC1" so quotes look uniform across vendors.
+  y += HERO_H + 18;
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 3. TWO-COLUMN: ABOUT THE BRAND  +  TECHNICAL SPECS
+  // ─────────────────────────────────────────────────────────────────────
+  const colW = (pageW - 2 * M - 16) / 2;
+  const leftColX = M;
+  const rightColX = M + colW + 16;
+
+  // Section header tabs (brand-color tab + caps title)
+  const drawColHeader = (title: string, x: number, ty: number) => {
+    doc.setFillColor(...brand);
+    doc.rect(x, ty - 9, 3, 14, "F");
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setCharSpace(TRACK.eyebrow);
+    doc.text(title, x + 12, ty + 2);
+    doc.setCharSpace(0);
+  };
+  drawColHeader("ACERCA DE LA MARCA", leftColX, y);
+  drawColHeader("ESPECIFICACIONES TÉCNICAS", rightColX, y);
+  y += 14;
+
+  // Brand facts list (left card)
+  const b = input.brand;
+  const facts: { label: string; value: string; icon: string }[] = [];
+  if (b?.country) {
+    const v = b.headquarters && b.headquarters !== b.country
+      ? `${b.country} · ${b.headquarters}`
+      : b.country;
+    facts.push({ label: "Origen", value: v, icon: "⌂" });
+  }
+  if (b?.foundedYear) facts.push({ label: "Fundada",     value: String(b.foundedYear), icon: "★" });
+  if (b?.tier && TIER_LABEL[b.tier]) facts.push({ label: "Segmento", value: TIER_LABEL[b.tier], icon: "$" });
+  if (b?.parentCompany) facts.push({ label: "Casa matriz", value: b.parentCompany, icon: "▣" });
+  if (b?.website) {
+    const host = b.website.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+    facts.push({ label: "Sitio web", value: host, icon: "↗" });
+  }
+
+  // Compute card heights — same height for both cards via Math.max.
+  const ABOUT_PAD = 16;
+  const FACT_H = 22;
+  const aboutBaseH = ABOUT_PAD * 2
+    + (b?.name ? 24 : 0)
+    + (b?.tagline ? 18 : 0)
+    + (b?.description ? 38 : 0)
+    + (facts.length > 0 ? 8 + facts.length * FACT_H : 0);
+
+  // Banda values force-upper-case across rows (rule shared with old layout).
   const upperBandaRows = input.rows.map((r) =>
     r.label.toLowerCase().includes("banda")
-      ? [r.label, r.value.toUpperCase()]
-      : [r.label, r.value],
+      ? { label: r.label, value: r.value.toUpperCase() }
+      : r,
   );
-  autoTable(doc, {
-    startY: y + 4,
-    margin: { left: M, right: M },
-    head:   [["Característica", "Valor"]],
-    body:   upperBandaRows,
-    theme:  "plain",
-    tableWidth,
-    styles: {
-      font: "helvetica",
-      fontSize: TYPE.body.size,
-      cellPadding: { top: 9, right: 10, bottom: 9, left: 0 },
-      textColor: FALLBACK.ink,
-      lineColor: FALLBACK.line,
-      // Bottom rule only on each cell, drawn via didDrawCell below so
-      // we can control direction (no vertical lines).
-      lineWidth: 0,
-    },
-    headStyles: {
-      fillColor: [255, 255, 255],
-      textColor: FALLBACK.muted,
-      fontStyle: "bold",
-      fontSize: TYPE.eyebrow.size,
-      cellPadding: { top: 0, right: 10, bottom: 8, left: 0 },
-    },
-    columnStyles: {
-      0: { cellWidth: Math.round(tableWidth * 0.40), fontStyle: "normal", textColor: FALLBACK.muted },
-      1: { cellWidth: Math.round(tableWidth * 0.60), fontStyle: "bold" },
-    },
-    didDrawCell: (data) => {
-      // Draw a hairline rule under every body row (and under the head).
-      // Skipping the very last row keeps the table from looking
-      // bordered at the bottom; the next section's eyebrow rule does
-      // that job.
-      if (data.section === "head" || data.section === "body") {
-        const isLastBody =
-          data.section === "body" &&
-          data.row.index === (input.rows.length - 1);
-        if (isLastBody) return;
-        doc.setDrawColor(...FALLBACK.line);
-        doc.setLineWidth(0.4);
-        const yLine = data.cell.y + data.cell.height;
-        doc.line(M, yLine, pageW - M, yLine);
-      }
-    },
-  });
-  y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
-  y += 18;
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // THUMBNAILS (images 2..N)
-  // ───────────────────────────────────────────────────────────────────────────
-  const extras = productImages.slice(1);
-  if (extras.length > 0) {
-    const n = Math.min(extras.length, 3);
-    const gap = 10;
-    const w = Math.floor((pageW - 2 * M - gap * (n - 1)) / n);
-    const h = Math.min(95, w);
-    for (let i = 0; i < n; i++) {
-      const data = extras[i];
-      const { w: iw, h: ih } = await imageDims(data);
-      const scale = Math.min(w / iw, h / ih);
-      const drawW = iw * scale, drawH = ih * scale;
-      const x = M + i * (w + gap);
-      doc.setFillColor(...FALLBACK.page);
-      doc.roundedRect(x, y, w, h, 8, 8, "F");
-      doc.setDrawColor(...brandT15);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(x, y, w, h, 8, 8, "S");
-      doc.addImage(
-        data, detectFormat(data),
-        x + (w - drawW) / 2, y + (h - drawH) / 2, drawW, drawH, undefined, "MEDIUM",
-      );
-    }
-    y += h + 14;
+  const SPEC_ROW_H = 32;
+  const specsBaseH = ABOUT_PAD + upperBandaRows.length * SPEC_ROW_H + ABOUT_PAD;
+  const cardH = Math.max(aboutBaseH, specsBaseH, 200);
+
+  // Page-break safety — if both cards + price + contact won't fit on the
+  // current page, drop a footer + start fresh. Rare, but prevents
+  // chopped specs.
+  if (y + cardH + 80 + 80 > pageH - 60) {
+    drawCatalogFooter(doc, pageW, pageH, M, brand, input.companyName);
+    doc.addPage();
+    y = 60;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // PRICE — minimalist treatment. Eyebrow + oversized brand-tinted
-  // number on white, hairline rule above and below. Reads like a
-  // showroom price tag rather than a marketing CTA.
-  // ───────────────────────────────────────────────────────────────────────────
+  // ─ LEFT: ABOUT card
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...FALLBACK.line);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(leftColX, y, colW, cardH, 10, 10, "FD");
+  let by = y + ABOUT_PAD;
+  if (b?.name) {
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(b.name, leftColX + ABOUT_PAD, by + 12);
+    by += 22;
+  }
+  if (b?.tagline) {
+    doc.setTextColor(...brand);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(b.tagline, leftColX + ABOUT_PAD, by);
+    by += 16;
+  }
+  if (b?.description) {
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    const descLines = (doc.splitTextToSize(b.description, colW - ABOUT_PAD * 2) as string[]).slice(0, 3);
+    for (const ln of descLines) {
+      doc.text(ln, leftColX + ABOUT_PAD, by);
+      by += 12;
+    }
+    by += 6;
+  }
+  if (facts.length > 0) {
+    doc.setDrawColor(...FALLBACK.line);
+    doc.setLineWidth(0.4);
+    doc.line(leftColX + ABOUT_PAD, by, leftColX + colW - ABOUT_PAD, by);
+    by += 8;
+    for (const f of facts) {
+      // Icon disc
+      doc.setFillColor(...cream);
+      doc.circle(leftColX + ABOUT_PAD + 8, by + 6, 7, "F");
+      doc.setTextColor(...brand);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text(f.icon, leftColX + ABOUT_PAD + 8, by + 9, { align: "center" });
+      // Label
+      doc.setTextColor(...FALLBACK.muted);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(f.label, leftColX + ABOUT_PAD + 22, by + 9);
+      // Value (right-aligned, bold)
+      doc.setTextColor(...FALLBACK.ink);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text(f.value, leftColX + colW - ABOUT_PAD, by + 9, { align: "right" });
+      by += FACT_H;
+    }
+  }
+
+  // ─ RIGHT: SPECS card
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...FALLBACK.line);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(rightColX, y, colW, cardH, 10, 10, "FD");
+  let sy = y + ABOUT_PAD;
+  for (let i = 0; i < upperBandaRows.length; i++) {
+    const s = upperBandaRows[i];
+    // Icon square (light bg)
+    doc.setFillColor(248, 249, 251);
+    doc.roundedRect(rightColX + ABOUT_PAD, sy, 18, 18, 3, 3, "F");
+    doc.setTextColor(...brand);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("≡", rightColX + ABOUT_PAD + 9, sy + 12.5, { align: "center" });
+    // Label
+    doc.setTextColor(...FALLBACK.ink);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(s.label, rightColX + ABOUT_PAD + 28, sy + 12);
+    // Value — green pill for "SÍ" reencauchabilidad, otherwise bold + unit muted
+    const isReencauchSi = s.label.toLowerCase().includes("reencauch") && /^s[ií]$/i.test(s.value.trim());
+    if (isReencauchSi) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      const pw = doc.getTextWidth(s.value) + 14;
+      const ph = 14;
+      const px = rightColX + colW - ABOUT_PAD - pw;
+      const py = sy + 1;
+      doc.setFillColor(220, 252, 231);
+      doc.roundedRect(px, py, pw, ph, 7, 7, "F");
+      doc.setTextColor(21, 128, 61);
+      doc.text(s.value, px + pw / 2, py + 10, { align: "center" });
+    } else {
+      const m = s.value.match(/^(.+?)\s+(mm|psi|kg|cm|km|PSI|MM)$/i);
+      if (m) {
+        const num = m[1], unit = m[2];
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(...FALLBACK.muted);
+        doc.text(unit, rightColX + colW - ABOUT_PAD, sy + 12, { align: "right" });
+        const unitW = doc.getTextWidth(unit);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...FALLBACK.ink);
+        doc.text(num, rightColX + colW - ABOUT_PAD - unitW - 4, sy + 12, { align: "right" });
+      } else {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...FALLBACK.ink);
+        doc.text(s.value, rightColX + colW - ABOUT_PAD, sy + 12, { align: "right" });
+      }
+    }
+    // Separator hairline (not after last row)
+    if (i < upperBandaRows.length - 1) {
+      doc.setDrawColor(...FALLBACK.line);
+      doc.setLineWidth(0.3);
+      doc.line(rightColX + ABOUT_PAD, sy + 24, rightColX + colW - ABOUT_PAD, sy + 24);
+    }
+    sy += SPEC_ROW_H;
+  }
+
+  y += cardH + 18;
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 4. PRICE CARD (full-width dark)
+  // ─────────────────────────────────────────────────────────────────────
   if (input.priceMode !== "none" && input.priceCop && input.priceCop > 0) {
     const base = input.priceCop;
     const withIva = Math.round(base * 1.19);
     const shown = input.priceMode === "con_iva" ? withIva : base;
-    const ivaLabel = input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA";
+    const ivaLabel = input.priceMode === "con_iva"
+      ? "IVA 19% incluido · Precio por unidad"
+      : "Precio por unidad · No incluye IVA";
 
-    const original    = input.originalPriceCop ?? null;
-    const hasDiscount = original != null && original > base;
-    const shownOriginal = hasDiscount
-      ? (input.priceMode === "con_iva" ? Math.round(original * 1.19) : original)
-      : null;
-    const savings     = hasDiscount && shownOriginal != null ? shownOriginal - shown : 0;
-    const discountPct = hasDiscount ? Math.round(((original! - base) / original!) * 100) : 0;
+    const PRICE_H = 70;
+    if (y + PRICE_H + 90 > pageH - 60) {
+      drawCatalogFooter(doc, pageW, pageH, M, brand, input.companyName);
+      doc.addPage();
+      y = 60;
+    }
+    doc.setFillColor(...FALLBACK.ink);
+    doc.roundedRect(M, y, pageW - 2 * M, PRICE_H, 10, 10, "F");
+    doc.setFillColor(...brand);
+    doc.rect(M + 8, y, 100, 3, "F");
 
-    // Single clean treatment whether discounted or not. Everything aligns
-    // on the same horizontal grid: hairline / eyebrow / big number /
-    // (struck MSRP + savings) / hairline.  No loud pill, no boxes.
-    const boxY = y;
-    const boxH = hasDiscount ? 88 : 70;
-
-    // Top hairline.
-    doc.setDrawColor(...FALLBACK.line);
-    doc.setLineWidth(0.5);
-    doc.line(M, boxY, pageW - M, boxY);
-
-    // Eyebrow — left.
-    doc.setTextColor(...FALLBACK.muted);
+    doc.setTextColor(200, 215, 240);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(TYPE.eyebrow.size);
+    doc.setFontSize(7.5);
     doc.setCharSpace(TRACK.eyebrow);
-    doc.text("PRECIO", M, boxY + 18);
+    doc.text("PRECIO PÚBLICO", M + 18, y + 24);
     doc.setCharSpace(0);
 
-    // IVA label — right, same line as eyebrow.
-    doc.setTextColor(...FALLBACK.muted);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(TYPE.bodySm.size);
-    doc.text(ivaLabel, pageW - M, boxY + 18, { align: "right" });
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    const productLine = `${input.marca.toUpperCase()} ${heroModelo} · ${input.dimension}`;
+    doc.text(productLine, M + 18, y + 44);
 
-    // Final price — brand color, oversized. Anchors everything below.
     doc.setTextColor(...brand);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(TYPE.bigMoney.size);
-    doc.text(fmtCOP(shown), M, boxY + 50);
+    doc.setFontSize(28);
+    doc.text(fmtCOP(shown), pageW - M - 18, y + 38, { align: "right" });
+    doc.setTextColor(170, 190, 220);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.text(ivaLabel, pageW - M - 18, y + 56, { align: "right" });
 
-    // Discount detail row — a single inline caption under the big price:
-    // ~~$1.500.000~~   −25%   ahorras $500.000
-    //   muted strike    emerald      emerald
-    //
-    // Same baseline, all tabular-numeric, never wraps. Reads like a
-    // restrained luxury price tag — no shouting pills.
-    if (hasDiscount && shownOriginal != null) {
-      const lineY = boxY + 72;
-
-      // 1. Struck-through MSRP.
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(TYPE.bodySm.size);
-      doc.setTextColor(...FALLBACK.muted);
-      const msrpStr = fmtCOP(shownOriginal);
-      doc.text(msrpStr, M, lineY);
-      const msrpW = doc.getTextWidth(msrpStr);
-      doc.setDrawColor(...FALLBACK.muted);
-      doc.setLineWidth(0.55);
-      doc.line(M, lineY - 3, M + msrpW, lineY - 3);
-
-      // 2. Discount %.
-      const gap = 12;
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(21, 128, 61);   // emerald-700
-      doc.setFontSize(TYPE.bodySm.size);
-      const pctStr = `−${discountPct}%`;
-      doc.text(pctStr, M + msrpW + gap, lineY);
-      const pctW = doc.getTextWidth(pctStr);
-
-      // 3. Savings amount.
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...FALLBACK.muted);
-      doc.text(`ahorras ${fmtCOP(savings)}`, M + msrpW + gap + pctW + gap, lineY);
-    }
-
-    // Bottom hairline.
-    doc.line(M, boxY + boxH, pageW - M, boxY + boxH);
-
-    y = boxY + boxH + 18;
+    y += PRICE_H + 18;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // CONTACT CARD — guaranteed below all spec content. If there's no room
-  // left on page 1 (big spec table + big brand card push us past the
-  // footer line), start a fresh page and paint the rail there too so the
-  // brand anchor stays consistent.
-  // ───────────────────────────────────────────────────────────────────────────
-  const hasRep      = !!(input.repName || input.repPhone);
+  // ─────────────────────────────────────────────────────────────────────
+  // 5. CONTACT card (3 cols)
+  // ─────────────────────────────────────────────────────────────────────
+  const hasRep = !!(input.repName || input.repPhone);
   const hasSiteCity = !!(input.companyWebsite || input.companyCity);
   if (hasRep || hasSiteCity) {
-    const contactNeed = 80;  // section header + card + breathing room
-    if (y + contactNeed > pageH - 60) {
+    const CONTACT_H = 64;
+    if (y + CONTACT_H + 60 > pageH) {
+      drawCatalogFooter(doc, pageW, pageH, M, brand, input.companyName);
       doc.addPage();
-      doc.setFillColor(...brand);
-      doc.rect(0, 0, 4, pageH, "F");   // brand rail on page 2
-      y = 50;
+      y = 60;
     }
-    y = drawSectionHeader(doc, "Contacto", M, y + 4, pageW - M, brand);
-    // Plain layout — name big, supporting line muted, website on the
-    // right. No filled card; the section eyebrow already carries the
-    // visual bracket.
-    doc.setTextColor(...FALLBACK.ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text(input.repName ?? input.companyName ?? "", M, y + 18);
+    doc.setFillColor(248, 249, 251);
+    doc.setDrawColor(231, 234, 240);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(M, y, pageW - 2 * M, CONTACT_H, 8, 8, "FD");
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(TYPE.bodySm.size);
-    doc.setTextColor(...FALLBACK.muted);
-    const line2 = [input.repPhone, input.companyCity].filter(Boolean).join("  ·  ");
-    if (line2) doc.text(line2, M, y + 34);
-
-    if (input.companyWebsite) {
-      doc.setTextColor(...brand);
+    const cells: { eyebrow: string; line1: string; line2?: string; line1Color?: [number, number, number] }[] = [
+      {
+        eyebrow: "ASESOR",
+        line1: input.repName ?? input.companyName ?? "—",
+        line2: "Asesor Comercial",
+      },
+      {
+        eyebrow: "TELÉFONO",
+        line1: input.repPhone ?? "—",
+        line2: input.companyCity ?? undefined,
+      },
+      {
+        eyebrow: "SITIO WEB",
+        line1: input.companyWebsite
+          ? input.companyWebsite.replace(/^https?:\/\//i, "").replace(/\/$/, "")
+          : "—",
+        line2: "Catálogo en línea",
+        line1Color: brand,
+      },
+    ];
+    const colWidth = (pageW - 2 * M) / 3;
+    cells.forEach((cell, i) => {
+      const cx = M + 14 + i * colWidth;
+      doc.setTextColor(...FALLBACK.muted);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(TYPE.bodySm.size);
-      doc.text(input.companyWebsite, pageW - M, y + 34, { align: "right" });
-    }
+      doc.setFontSize(7.5);
+      doc.setCharSpace(TRACK.eyebrow);
+      doc.text(cell.eyebrow, cx, y + 18);
+      doc.setCharSpace(0);
+      doc.setTextColor(...(cell.line1Color ?? FALLBACK.ink));
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(cell.line1, cx, y + 36);
+      if (cell.line2) {
+        doc.setTextColor(...FALLBACK.muted);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.text(cell.line2, cx, y + 50);
+      }
+    });
+    y += CONTACT_H + 12;
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // FOOTER — refined watermark. Hairline + 3 small spans (company /
-  // date / TirePro signature) on a single line.
-  // ───────────────────────────────────────────────────────────────────────────
+  drawCatalogFooter(doc, pageW, pageH, M, brand, input.companyName);
+}
+
+// Footer used by the ficha-técnica layout. Same shape as the cotización
+// drawFooter, but kept local so this module's two layouts can drift
+// independently.
+function drawCatalogFooter(
+  doc: jsPDF,
+  pageW: number,
+  pageH: number,
+  M: number,
+  brand: [number, number, number],
+  companyName: string | null,
+) {
   doc.setDrawColor(...FALLBACK.line);
   doc.setLineWidth(0.4);
   doc.line(M, pageH - 42, pageW - M, pageH - 42);
@@ -743,15 +819,13 @@ export async function buildCatalogPdf(input: PdfInput): Promise<Blob> {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(TYPE.eyebrow.size);
   doc.setCharSpace(TRACK.eyebrow);
-  if (input.companyName) doc.text(input.companyName.toUpperCase(), M, pageH - 26);
+  if (companyName) doc.text(companyName.toUpperCase(), M, pageH - 26);
   const today = new Date().toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" });
   doc.text(today, pageW / 2, pageH - 26, { align: "center" });
   doc.setTextColor(...brand);
   doc.setFont("helvetica", "bold");
   doc.text("POWERED BY TIREPRO.COM.CO", pageW - M, pageH - 26, { align: "right" });
   doc.setCharSpace(0);
-
-  return doc.output("blob");
 }
 
 // =============================================================================
@@ -872,405 +946,58 @@ export type QuoteInput = {
 // =============================================================================
 
 export async function buildComparativePdf(input: QuoteInput): Promise<Blob> {
+  // Multi-tire ficha técnica: one full-page ficha per item, separated by
+  // addPage(). Reuses drawFichaPage so both this and buildCatalogPdf stay
+  // visually identical — same hero card, brand pills, two-col specs/marca,
+  // dark price band, contact card, and footer.
+
   const doc = new jsPDF({ unit: "pt", format: "letter" });
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const M = 42;
 
-  const brand     = parseHex(input.companyColor) ?? FALLBACK.primary;
-  const brandText = readableTextOn(brand);
-  const brandT08  = tint(brand, 0.08);
-  const brandT15  = tint(brand, 0.18);
-
-  const logoUrl = isDefaultPlaceholderLogo(input.companyLogoUrl) ? null : input.companyLogoUrl;
-  const proxy   = input.fetchViaProxy;
-  const brandByMarca = input.brandByMarca ?? {};
-
-  // Preload company logo + every tire hero + every unique marca's brand
-  // logo in parallel. Brand logos are deduped by marca since the cart can
-  // hold multiple tires of the same manufacturer.
-  const uniqueMarcas = Array.from(new Set(input.items.map((it) => it.marca)));
-  const brandLogoUrlByMarca = new Map<string, string | null>();
-  for (const marca of uniqueMarcas) {
-    brandLogoUrlByMarca.set(marca, brandByMarca[marca]?.logoUrl ?? null);
-  }
-  const [logoData, heroDataArr, brandLogoDataArr] = await Promise.all([
-    loadImageAsDataUrl(logoUrl, proxy),
-    Promise.all(input.items.map((it) => loadImageAsDataUrl(it.imageUrl, proxy))),
-    Promise.all(uniqueMarcas.map((m) => loadImageAsDataUrl(brandLogoUrlByMarca.get(m) ?? null, proxy))),
-  ]);
-  const heroDatas = heroDataArr;
-  const brandLogoDataByMarca = new Map<string, string | null>();
-  uniqueMarcas.forEach((m, idx) => brandLogoDataByMarca.set(m, brandLogoDataArr[idx]));
-
-  // Default ficha set — broader than the "total" mode default since a
-  // per-tire datasheet has room to breathe, and the user picked
-  // comparative specifically because they want the detail.
   const fields: QuoteIncludeFields = input.includeFields ?? {
     dimension: true, categoria: true, terreno: true, ejeTirePro: true,
     indiceCarga: true, indiceVelocidad: true, rtdMm: true, psiRecomendado: true,
     cinturones: true, pr: true, reencauchable: true, tipoBanda: true,
   };
-
-  const ivaMul = input.priceMode === "con_iva" ? 1.19 : 1;
+  const brandByMarca = input.brandByMarca ?? {};
 
   for (let i = 0; i < input.items.length; i++) {
     if (i > 0) doc.addPage();
-    const it            = input.items[i];
-    const heroData      = heroDatas[i];
-    const b             = brandByMarca[it.marca] ?? null;
-    const brandLogoData = brandLogoDataByMarca.get(it.marca) ?? null;
+    const it = input.items[i];
+    const brandMeta = brandByMarca[it.marca] ?? null;
 
-    // ─── HEADER BANNER ──────────────────────────────────────────────────
-    doc.setFillColor(...brand);
-    doc.rect(0, 0, pageW, 94, "F");
-    doc.setFillColor(...FALLBACK.ink);
-    doc.rect(0, 88, pageW, 6, "F");
+    // Map this QuoteItem onto the PdfInput shape drawFichaPage expects.
+    // Brand-block, hero pills and spec rows are all derived from the
+    // same QuoteIncludeFields toggle set the user chose, so the user's
+    // "what to include" preferences carry over.
+    const pseudo: PdfInput = {
+      companyName:    input.companyName,
+      companyLogoUrl: input.companyLogoUrl,
+      companyColor:   input.companyColor,
+      companyWebsite: input.companyWebsite,
+      companyCity:    input.companyCity,
+      repName:        input.repName,
+      repPhone:       input.repPhone,
+      marca:          it.marca,
+      modelo:         it.modelo,
+      tipo:           it.tipo,
+      dimension:      it.dimension,
+      categoria:      it.categoria,
+      terreno:        it.terreno,
+      ejeTirePro:     it.ejeTirePro,
+      reencauchable:  !!it.reencauchable,
+      brandLogoUrl:   brandMeta?.logoUrl ?? null,
+      brandCountry:   brandMeta?.country ?? null,
+      brand:          brandMeta,
+      imageUrls:      it.imageUrl ? [it.imageUrl] : [],
+      rows:           buildSpecRows(it, fields),
+      priceMode:      input.priceMode,
+      priceCop:       it.unitPriceCop,
+      originalPriceCop: it.originalPriceCop ?? null,
+      notes:          null,
+      fetchViaProxy:  input.fetchViaProxy,
+    };
 
-    if (logoData) {
-      const { w, h } = await imageDims(logoData);
-      const boxW = 160, boxH = 62;
-      const scale = Math.min(boxW / w, boxH / h);
-      const drawW = w * scale, drawH = h * scale;
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(M - 8, 16, boxW + 16, 66, 8, 8, "F");
-      doc.addImage(
-        logoData, detectFormat(logoData),
-        M - 8 + (boxW + 16 - drawW) / 2,
-        16 + (66 - drawH) / 2,
-        drawW, drawH, undefined, "SLOW",
-      );
-    } else if (input.companyName) {
-      doc.setFillColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(15);
-      const textW = doc.getTextWidth(input.companyName);
-      const pillW = Math.min(280, textW + 32);
-      doc.roundedRect(M - 8, 27, pillW, 40, 8, 8, "F");
-      doc.setTextColor(...brand);
-      doc.text(input.companyName, M - 8 + pillW / 2, 52, { align: "center", maxWidth: pillW - 32 });
-    }
-
-    // Match the single-tire header verbatim — "FICHA TÉCNICA" + categoría
-    // in the right slot. No page counter; the user wanted parity with the
-    // single-tire download.
-    doc.setTextColor(...brandText);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text("FICHA TÉCNICA", pageW - M, 36, { align: "right" });
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(
-      it.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva",
-      pageW - M, 54, { align: "right" },
-    );
-
-    // Left-edge brand rail
-    doc.setFillColor(...brand);
-    doc.rect(0, 94, 4, pageH - 94, "F");
-
-    // ─── TITLE BLOCK ────────────────────────────────────────────────────
-    const HERO_TOP = 120;
-    const HERO_W = 240, HERO_H = 200;
-    let y = 132;
-
-    // Marca tagline: small brand logo (if available) + marca text + country.
-    let cursorX = M;
-    if (brandLogoData) {
-      const { w, h } = await imageDims(brandLogoData);
-      const boxW = 42, boxH = 22;
-      const scale = Math.min(boxW / w, boxH / h);
-      const drawW = w * scale, drawH = h * scale;
-      doc.addImage(
-        brandLogoData, detectFormat(brandLogoData),
-        cursorX, y - drawH + 2, drawW, drawH, undefined, "SLOW",
-      );
-      cursorX += drawW + 10;
-    }
-    const marcaText = it.marca.toUpperCase();
-    doc.setTextColor(...brand);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text(marcaText, cursorX, y);
-    if (b?.country) {
-      const mw = doc.getTextWidth(marcaText);
-      doc.setTextColor(...FALLBACK.muted);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`· ${b.country}`, cursorX + mw + 8, y);
-    }
-
-    y += 30;
-    doc.setTextColor(...FALLBACK.ink);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(26);
-    // For reencauche, modelo IS the banda code → always upper-case.
-    doc.text(it.tipo === "reencauche" ? it.modelo.toUpperCase() : it.modelo, M, y);
-
-    y += 20;
-    doc.setTextColor(...brand);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "normal");
-    doc.text(it.dimension, M, y);
-
-    // ─── CHIP ROW (left column only, wraps if needed) ───────────────────
-    const chips: Array<{ label: string; fill: [number, number, number]; text: [number, number, number] }> = [];
-    chips.push({
-      label: it.categoria === "reencauche" ? "Reencauche" : "Llanta Nueva",
-      fill:  brand,
-      text:  brandText,
-    });
-    if (it.terreno)    chips.push({ label: it.terreno,   fill: brandT08, text: brand });
-    if (it.ejeTirePro) chips.push({ label: it.ejeTirePro.charAt(0).toUpperCase() + it.ejeTirePro.slice(1), fill: brandT08, text: brand });
-    if (it.reencauchable) chips.push({ label: "Reencauchable", fill: brandT15, text: brand });
-
-    y += 10;
-    const heroLeftX = pageW - M - HERO_W;
-    const chipMaxX  = heroData ? heroLeftX - 14 : pageW - M;
-    const chipH    = 22, chipGapX = 8, chipGapY = 8, chipPadX = 12, chipFont = 9, chipBaseY = 15;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(chipFont);
-    let chipX   = M;
-    let chipTop = y;
-    for (const chip of chips) {
-      const label = chip.label.toUpperCase();
-      const tw = doc.getTextWidth(label);
-      const w  = tw + chipPadX * 2;
-      if (chipX > M && chipX + w > chipMaxX) { chipX = M; chipTop += chipH + chipGapY; }
-      doc.setFillColor(...chip.fill);
-      doc.roundedRect(chipX, chipTop, w, chipH, chipH / 2, chipH / 2, "F");
-      doc.setTextColor(...chip.text);
-      doc.text(label, chipX + chipPadX, chipTop + chipBaseY);
-      chipX += w + chipGapX;
-    }
-    y = chipTop + chipH;
-
-    // ─── HERO IMAGE ─────────────────────────────────────────────────────
-    if (heroData) {
-      const { w, h } = await imageDims(heroData);
-      const scale = Math.min(HERO_W / w, HERO_H / h);
-      const drawW = w * scale, drawH = h * scale;
-      const x = pageW - M - HERO_W;
-      doc.setFillColor(...FALLBACK.page);
-      doc.roundedRect(x, HERO_TOP, HERO_W, HERO_H, 14, 14, "F");
-      doc.setDrawColor(...brandT15);
-      doc.setLineWidth(0.6);
-      doc.roundedRect(x, HERO_TOP, HERO_W, HERO_H, 14, 14, "S");
-      doc.addImage(
-        heroData, detectFormat(heroData),
-        x + (HERO_W - drawW) / 2,
-        HERO_TOP + (HERO_H - drawH) / 2,
-        drawW, drawH, undefined, "MEDIUM",
-      );
-    }
-
-    y = Math.max(y + 24, HERO_TOP + HERO_H + 18);
-
-    // ─── BRAND CARD (optional) — "Acerca de la marca" + facts ──────────
-    // Exact same layout as buildCatalogPdf: tagline (italic) + description
-    // + facts line (uppercase, country · founded · tier · casa matriz ·
-    // website). Rendered only when the marketplace has an entry for this
-    // marca (brandByMarca populated).
-    const hasBrandContent = !!b && (
-      b.tagline || b.description ||
-      b.country || b.foundedYear || b.parentCompany || b.tier || b.website
-    );
-    if (hasBrandContent && b) {
-      y = drawSectionHeader(doc, "Acerca de la marca", M, y, pageW - M, brand);
-      const cardTop = y + 4;
-      const innerW  = pageW - 2 * M - 24;
-
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(10);
-      const taglineLines = b.tagline
-        ? doc.splitTextToSize(b.tagline, innerW).slice(0, 2) as string[]
-        : [];
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      const descLines = b.description
-        ? doc.splitTextToSize(b.description, innerW).slice(0, 3) as string[]
-        : [];
-
-      const factsText = factLine(b);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      const factsLines = factsText
-        ? doc.splitTextToSize(factsText, innerW).slice(0, 2) as string[]
-        : [];
-
-      const cardH = 16
-        + taglineLines.length * 13
-        + (descLines.length ? descLines.length * 12 + 4 : 0)
-        + (factsLines.length ? factsLines.length * 11 + 4 : 0)
-        + 14;
-
-      doc.setFillColor(...FALLBACK.page);
-      doc.roundedRect(M, cardTop, pageW - 2 * M, cardH, 10, 10, "F");
-      doc.setDrawColor(...brandT15);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(M, cardTop, pageW - 2 * M, cardH, 10, 10, "S");
-
-      let ty = cardTop + 18;
-      if (taglineLines.length) {
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(10);
-        doc.setTextColor(...brand);
-        for (const ln of taglineLines) { doc.text(ln, M + 12, ty); ty += 13; }
-      }
-      if (descLines.length) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9.5);
-        doc.setTextColor(...FALLBACK.ink);
-        for (const ln of descLines) { doc.text(ln, M + 12, ty); ty += 12; }
-        ty += 4;
-      }
-      if (factsLines.length) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8.5);
-        doc.setTextColor(...FALLBACK.muted);
-        for (const ln of factsLines) { doc.text(ln, M + 12, ty); ty += 11; }
-      }
-      y = cardTop + cardH + 14;
-    }
-
-    // ─── SPECS TABLE ────────────────────────────────────────────────────
-    const rows = buildSpecRows(it, fields);
-    if (rows.length > 0) {
-      y = drawSectionHeader(doc, "Especificaciones", M, y, pageW - M, brand);
-      const tableWidth = pageW - 2 * M;
-      autoTable(doc, {
-        startY: y + 4,
-        margin: { left: M, right: M },
-        head:   [["Característica", "Valor"]],
-        body:   rows.map((r) => [r.label, r.value]),
-        theme:  "plain",
-        tableWidth,
-        styles: {
-          font: "helvetica",
-          fontSize: 10,
-          cellPadding: { top: 7, right: 10, bottom: 7, left: 10 },
-          textColor: FALLBACK.ink,
-          lineColor: FALLBACK.line,
-          lineWidth: 0.5,
-        },
-        headStyles: {
-          fillColor: brandT08,
-          textColor: brand,
-          fontStyle: "bold",
-          fontSize: 9,
-        },
-        alternateRowStyles: { fillColor: [252, 253, 255] },
-        columnStyles: {
-          0: { cellWidth: Math.round(tableWidth * 0.42), fontStyle: "bold" },
-          1: { cellWidth: Math.round(tableWidth * 0.58) },
-        },
-      });
-      y = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
-      y += 12;
-    }
-
-    // ─── PRICE BLOCK — clean dark card, no pills ────────────────────────
-    if (input.priceMode !== "none" && it.unitPriceCop && it.unitPriceCop > 0) {
-      const unit = Math.round(it.unitPriceCop * ivaMul);
-      const ivaLabel = input.priceMode === "con_iva" ? "IVA 19% incluido" : "No incluye IVA";
-
-      const original = it.originalPriceCop ?? null;
-      const hasDisc  = original != null && original > it.unitPriceCop;
-      const origUnit = hasDisc ? Math.round(original! * ivaMul) : 0;
-      const savings  = hasDisc ? origUnit - unit : 0;
-      const discPct  = hasDisc ? Math.round(((original! - it.unitPriceCop) / original!) * 100) : 0;
-
-      const boxH = hasDisc ? 86 : 64;
-      const boxY = y;
-      doc.setFillColor(...FALLBACK.ink);
-      doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 12, 12, "F");
-      doc.setFillColor(...brand);
-      doc.roundedRect(M, boxY, 8, boxH, 4, 4, "F");
-
-      // Eyebrow — left.
-      doc.setTextColor(200, 215, 240);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text("Precio", M + 22, boxY + 22);
-
-      // IVA — right, same baseline as eyebrow.
-      doc.text(ivaLabel, pageW - M - 18, boxY + 22, { align: "right" });
-
-      // Big white final price.
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(22);
-      doc.text(fmtCOP(unit), M + 22, boxY + 50);
-
-      // Inline discount caption: ~~MSRP~~  −X%  ahorras $Y
-      // All on the same baseline, beneath the big price.
-      if (hasDisc) {
-        const lineY = boxY + 70;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(170, 190, 220);
-        const msrpStr = fmtCOP(origUnit);
-        doc.text(msrpStr, M + 22, lineY);
-        const msrpW = doc.getTextWidth(msrpStr);
-        doc.setDrawColor(170, 190, 220);
-        doc.setLineWidth(0.55);
-        doc.line(M + 22, lineY - 3, M + 22 + msrpW, lineY - 3);
-
-        const gap = 12;
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(74, 222, 128);  // emerald-400 on dark
-        const pctStr = `−${discPct}%`;
-        doc.text(pctStr, M + 22 + msrpW + gap, lineY);
-        const pctW = doc.getTextWidth(pctStr);
-
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(170, 190, 220);
-        doc.text(`ahorras ${fmtCOP(savings)}`, M + 22 + msrpW + gap + pctW + gap, lineY);
-      }
-
-      y = boxY + boxH + 14;
-    }
-
-    // ─── CONTACT CARD (spills to a new page if needed; next tire will
-    //      still start on a fresh page of its own via addPage at the top
-    //      of the loop). ────────────────────────────────────────────────
-    const hasRep      = !!(input.repName || input.repPhone);
-    const hasSiteCity = !!(input.companyWebsite || input.companyCity);
-    if (hasRep || hasSiteCity) {
-      const contactNeed = 80;
-      if (y + contactNeed > pageH - 60) {
-        drawFooter(doc, pageW, pageH, M, brand, input.companyName);
-        doc.addPage();
-        doc.setFillColor(...brand);
-        doc.rect(0, 0, 4, pageH, "F");
-        y = 50;
-      }
-      y = drawSectionHeader(doc, "Contacto", M, y + 4, pageW - M, brand);
-      const boxH = 60;
-      const boxY = y + 4;
-      doc.setFillColor(...brandT08);
-      doc.roundedRect(M, boxY, pageW - 2 * M, boxH, 10, 10, "F");
-
-      doc.setTextColor(...FALLBACK.ink);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text(input.repName ?? input.companyName ?? "", M + 14, boxY + 24);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      const line2 = [input.repPhone, input.companyCity].filter(Boolean).join("  ·  ");
-      if (line2) doc.text(line2, M + 14, boxY + 42);
-
-      if (input.companyWebsite) {
-        doc.setTextColor(...brand);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text(input.companyWebsite, pageW - M - 14, boxY + 42, { align: "right" });
-      }
-    }
-
-    drawFooter(doc, pageW, pageH, M, brand, input.companyName);
+    await drawFichaPage(doc, pseudo);
   }
 
   return doc.output("blob");
