@@ -380,7 +380,16 @@ async function drawFichaPage(doc: jsPDF, input: PdfInput): Promise<void> {
   doc.setTextColor(...FALLBACK.ink);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(36);
-  const heroModelo = isReencauche ? input.modelo.toUpperCase() : input.modelo;
+  // Modelo upper-case rule:
+  //   1. Reencauche modelos ARE the banda code (D801, VRL1, etc.).
+  //   2. Code-style nueva modelos (no spaces, all alphanumeric) are also
+  //      banda/SKU codes that look wrong lower-cased ("d801" → "D801")
+  //      while real model names with spaces ("Energy Saver", "Primacy 4")
+  //      stay sentence case.
+  const looksLikeBandaCode = /^[A-Za-z0-9+]+$/.test(input.modelo) && !input.modelo.includes(" ");
+  const heroModelo = (isReencauche || looksLikeBandaCode)
+    ? input.modelo.toUpperCase()
+    : input.modelo;
   doc.text(heroModelo, heroLeftX, y + 72);
   doc.setTextColor(...brand);
   doc.setFont("helvetica", "bold");
@@ -481,21 +490,22 @@ async function drawFichaPage(doc: jsPDF, input: PdfInput): Promise<void> {
       drawW, drawH, undefined, "MEDIUM",
     );
   }
-  // EJE pill — top-right of the tire card
+  // EJE pill — top-right of the tire card. No charSpace tracking here so
+  // the pill width measurement matches the rendered width (charSpace
+  // adds horizontal pixels jsPDF's getTextWidth() doesn't account for,
+  // which is why the pill was getting clipped).
   if (input.ejeTirePro) {
     const ejeText = `EJE ${input.ejeTirePro.toUpperCase()}`;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setCharSpace(TRACK.eyebrow);
-    const ejePillW = doc.getTextWidth(ejeText) + 14;
+    const ejePillW = doc.getTextWidth(ejeText) + 18;
     const ejePillH = 18;
-    const ejePillX = heroImgX + heroImgW - 12 - ejePillW;
-    const ejePillY = heroImgY + 12;
+    const ejePillX = heroImgX + heroImgW - 14 - ejePillW;
+    const ejePillY = heroImgY + 14;
     doc.setFillColor(...FALLBACK.ink);
     doc.roundedRect(ejePillX, ejePillY, ejePillW, ejePillH, 9, 9, "F");
     doc.setTextColor(255, 255, 255);
     doc.text(ejeText, ejePillX + ejePillW / 2, ejePillY + 12, { align: "center" });
-    doc.setCharSpace(0);
   }
 
   y += HERO_H + 18;
@@ -507,7 +517,85 @@ async function drawFichaPage(doc: jsPDF, input: PdfInput): Promise<void> {
   const leftColX = M;
   const rightColX = M + colW + 16;
 
-  // Section header tabs (brand-color tab + caps title)
+  // Brand facts (left card). Each fact has a label + value. Long values
+  // (long company HQ addresses, long parent-company names) are NOT
+  // right-aligned here because they would crash into the label — they
+  // wrap onto a second line below. We also drop the unicode icon glyphs
+  // entirely (jsPDF's default helvetica doesn't include ⌂ ★ ▣ ↗ etc.,
+  // which is why they rendered as garbage like `"a` in the previous PDF).
+  // A simple brand-color disc is plenty visually.
+  const b = input.brand;
+  const facts: { label: string; value: string }[] = [];
+  if (b?.country) {
+    const v = b.headquarters && b.headquarters !== b.country
+      ? `${b.country} · ${b.headquarters}`
+      : b.country;
+    facts.push({ label: "Origen", value: v });
+  }
+  if (b?.foundedYear) facts.push({ label: "Fundada",     value: String(b.foundedYear) });
+  if (b?.tier && TIER_LABEL[b.tier]) facts.push({ label: "Segmento", value: TIER_LABEL[b.tier] });
+  if (b?.parentCompany) facts.push({ label: "Casa matriz", value: b.parentCompany });
+  if (b?.website) {
+    const host = b.website.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+    facts.push({ label: "Sitio web", value: host });
+  }
+
+  // Banda values force-upper-case across rows (rule shared with old layout).
+  const upperBandaRows = input.rows.map((r) =>
+    r.label.toLowerCase().includes("banda")
+      ? { label: r.label, value: r.value.toUpperCase() }
+      : r,
+  );
+
+  const ABOUT_PAD = 16;
+  const FACT_H_BASE = 22;
+  // Pre-measure each fact's value width so we can decide whether it fits
+  // on the same row as the label, or needs to wrap onto its own line.
+  // Set the font upfront so getTextWidth measures with the right metrics.
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  const factHeights = facts.map((f) => {
+    const labelW = (() => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      return doc.getTextWidth(f.label);
+    })();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    const valueW = doc.getTextWidth(f.value);
+    const inline = labelW + valueW + 12 + 22; // 22 = icon disc + gap, 12 = gap
+    const colInner = colW - ABOUT_PAD * 2;
+    return inline <= colInner ? FACT_H_BASE : FACT_H_BASE + 12; // wrap row
+  });
+  const factsBlockH = facts.length > 0
+    ? 8 + factHeights.reduce((a, b) => a + b, 0)
+    : 0;
+
+  const aboutBaseH = ABOUT_PAD * 2
+    + (b?.name ? 24 : 0)
+    + (b?.tagline ? 18 : 0)
+    + (b?.description ? 38 : 0)
+    + factsBlockH;
+
+  const SPEC_ROW_H = 32;
+  const specsBaseH = ABOUT_PAD + upperBandaRows.length * SPEC_ROW_H + ABOUT_PAD;
+  const cardH = Math.max(aboutBaseH, specsBaseH, 200);
+
+  // Page-break safety — runs BEFORE drawing section headers so the
+  // headers + cards never get split across pages. Earlier the headers
+  // were drawn first, then if the cards didn't fit we'd page-break the
+  // CARDS leaving the headers stranded with empty space underneath.
+  const SECTION_HEADER_H = 14;
+  const PRICE_H_RESERVE = 90;
+  const CONTACT_H_RESERVE = 80;
+  if (y + SECTION_HEADER_H + cardH + PRICE_H_RESERVE + CONTACT_H_RESERVE > pageH - 60) {
+    drawCatalogFooter(doc, pageW, pageH, M, brand, input.companyName);
+    doc.addPage();
+    y = 60;
+  }
+
+  // Section header tabs (brand-color tab + caps title) — drawn AFTER the
+  // page-break decision so they always sit immediately above their cards.
   const drawColHeader = (title: string, x: number, ty: number) => {
     doc.setFillColor(...brand);
     doc.rect(x, ty - 9, 3, 14, "F");
@@ -521,52 +609,6 @@ async function drawFichaPage(doc: jsPDF, input: PdfInput): Promise<void> {
   drawColHeader("ACERCA DE LA MARCA", leftColX, y);
   drawColHeader("ESPECIFICACIONES TÉCNICAS", rightColX, y);
   y += 14;
-
-  // Brand facts list (left card)
-  const b = input.brand;
-  const facts: { label: string; value: string; icon: string }[] = [];
-  if (b?.country) {
-    const v = b.headquarters && b.headquarters !== b.country
-      ? `${b.country} · ${b.headquarters}`
-      : b.country;
-    facts.push({ label: "Origen", value: v, icon: "⌂" });
-  }
-  if (b?.foundedYear) facts.push({ label: "Fundada",     value: String(b.foundedYear), icon: "★" });
-  if (b?.tier && TIER_LABEL[b.tier]) facts.push({ label: "Segmento", value: TIER_LABEL[b.tier], icon: "$" });
-  if (b?.parentCompany) facts.push({ label: "Casa matriz", value: b.parentCompany, icon: "▣" });
-  if (b?.website) {
-    const host = b.website.replace(/^https?:\/\//i, "").replace(/\/$/, "");
-    facts.push({ label: "Sitio web", value: host, icon: "↗" });
-  }
-
-  // Compute card heights — same height for both cards via Math.max.
-  const ABOUT_PAD = 16;
-  const FACT_H = 22;
-  const aboutBaseH = ABOUT_PAD * 2
-    + (b?.name ? 24 : 0)
-    + (b?.tagline ? 18 : 0)
-    + (b?.description ? 38 : 0)
-    + (facts.length > 0 ? 8 + facts.length * FACT_H : 0);
-
-  // Banda values force-upper-case across rows (rule shared with old layout).
-  const upperBandaRows = input.rows.map((r) =>
-    r.label.toLowerCase().includes("banda")
-      ? { label: r.label, value: r.value.toUpperCase() }
-      : r,
-  );
-
-  const SPEC_ROW_H = 32;
-  const specsBaseH = ABOUT_PAD + upperBandaRows.length * SPEC_ROW_H + ABOUT_PAD;
-  const cardH = Math.max(aboutBaseH, specsBaseH, 200);
-
-  // Page-break safety — if both cards + price + contact won't fit on the
-  // current page, drop a footer + start fresh. Rare, but prevents
-  // chopped specs.
-  if (y + cardH + 80 + 80 > pageH - 60) {
-    drawCatalogFooter(doc, pageW, pageH, M, brand, input.companyName);
-    doc.addPage();
-    y = 60;
-  }
 
   // ─ LEFT: ABOUT card
   doc.setFillColor(255, 255, 255);
@@ -603,27 +645,38 @@ async function drawFichaPage(doc: jsPDF, input: PdfInput): Promise<void> {
     doc.setDrawColor(...FALLBACK.line);
     doc.setLineWidth(0.4);
     doc.line(leftColX + ABOUT_PAD, by, leftColX + colW - ABOUT_PAD, by);
-    by += 8;
-    for (const f of facts) {
-      // Icon disc
-      doc.setFillColor(...cream);
-      doc.circle(leftColX + ABOUT_PAD + 8, by + 6, 7, "F");
-      doc.setTextColor(...brand);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.text(f.icon, leftColX + ABOUT_PAD + 8, by + 9, { align: "center" });
+    by += 10;
+    facts.forEach((f, i) => {
+      const wrapped = factHeights[i] !== FACT_H_BASE;
+      // Brand-color disc — no glyph inside (the previous unicode icons
+      // didn't render in jsPDF's default font, looked like "a/&/$/etc.).
+      doc.setFillColor(...brand);
+      doc.circle(leftColX + ABOUT_PAD + 4, by + 6, 3, "F");
       // Label
       doc.setTextColor(...FALLBACK.muted);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text(f.label, leftColX + ABOUT_PAD + 22, by + 9);
-      // Value (right-aligned, bold)
+      doc.text(f.label, leftColX + ABOUT_PAD + 14, by + 9);
+      // Value — right-aligned on the same line if it fits, else wrapped
+      // onto its own line below the label so long Origen / parent-company
+      // strings can't crash into the label.
       doc.setTextColor(...FALLBACK.ink);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9.5);
-      doc.text(f.value, leftColX + colW - ABOUT_PAD, by + 9, { align: "right" });
-      by += FACT_H;
-    }
+      if (!wrapped) {
+        doc.text(f.value, leftColX + colW - ABOUT_PAD, by + 9, { align: "right" });
+      } else {
+        // Wrap to fit; show up to 2 lines so the card height stays sane.
+        const wrapW = colW - ABOUT_PAD * 2 - 14;
+        const lines = (doc.splitTextToSize(f.value, wrapW) as string[]).slice(0, 2);
+        let ly = by + 9 + 12;
+        for (const ln of lines) {
+          doc.text(ln, leftColX + ABOUT_PAD + 14, ly);
+          ly += 11;
+        }
+      }
+      by += factHeights[i];
+    });
   }
 
   // ─ RIGHT: SPECS card
@@ -634,18 +687,16 @@ async function drawFichaPage(doc: jsPDF, input: PdfInput): Promise<void> {
   let sy = y + ABOUT_PAD;
   for (let i = 0; i < upperBandaRows.length; i++) {
     const s = upperBandaRows[i];
-    // Icon square (light bg)
-    doc.setFillColor(248, 249, 251);
-    doc.roundedRect(rightColX + ABOUT_PAD, sy, 18, 18, 3, 3, "F");
-    doc.setTextColor(...brand);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("≡", rightColX + ABOUT_PAD + 9, sy + 12.5, { align: "center" });
+    // Icon square — solid brand color, no glyph (same reason the brand
+    // facts dropped their unicode glyphs above: jsPDF's default font
+    // doesn't carry the symbols, they came through as garbage).
+    doc.setFillColor(...brand);
+    doc.roundedRect(rightColX + ABOUT_PAD, sy + 1, 4, 16, 2, 2, "F");
     // Label
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(s.label, rightColX + ABOUT_PAD + 28, sy + 12);
+    doc.text(s.label, rightColX + ABOUT_PAD + 14, sy + 12);
     // Value — green pill for "SÍ" reencauchabilidad, otherwise bold + unit muted
     const isReencauchSi = s.label.toLowerCase().includes("reencauch") && /^s[ií]$/i.test(s.value.trim());
     if (isReencauchSi) {
@@ -1335,7 +1386,15 @@ export async function buildQuotePdf(input: QuoteInput): Promise<Blob> {
     doc.setTextColor(...FALLBACK.ink);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text(it.tipo === "reencauche" ? it.modelo.toUpperCase() : it.modelo, textX, y + 30);
+    {
+      // Same rule as drawFichaPage: reencauche modelos OR banda-code-shaped
+      // nueva modelos (no spaces, all alphanumeric) → upper-case.
+      const looksLikeCode = /^[A-Za-z0-9+]+$/.test(it.modelo) && !it.modelo.includes(" ");
+      const renderedModelo = (it.tipo === "reencauche" || looksLikeCode)
+        ? it.modelo.toUpperCase()
+        : it.modelo;
+      doc.text(renderedModelo, textX, y + 30);
+    }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.setTextColor(...brand);
