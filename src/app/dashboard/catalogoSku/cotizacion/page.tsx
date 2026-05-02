@@ -17,7 +17,9 @@ import {
   Image as ImageIcon, CheckCircle2, AlertCircle, X, Share2,
 } from "lucide-react";
 import { useCatalogCart, type CartItem } from "../cart";
-import { buildQuotePdf, buildComparativePdf, type QuoteInput, type QuoteIncludeFields, type PdfBrand } from "../pdf";
+// `pdf.ts` is dynamic-imported inside the generate handler — see the
+// matching note in [id]/page.tsx for why (jspdf-autotable + Turbopack).
+import type { QuoteInput, QuoteIncludeFields, PdfBrand } from "../pdf";
 import { canSharePdf, sharePdf, downloadPdf } from "../share";
 
 // Master list of toggleable ficha fields shown on the cotización page.
@@ -227,6 +229,7 @@ export default function CotizacionPage() {
 
       // "individual" → single-tire-style datasheet per cart item (rich);
       // "total"      → compact cotización table with grand total.
+      const { buildComparativePdf, buildQuotePdf } = await import("../pdf");
       const blob = displayMode === "individual"
         ? await buildComparativePdf(input)
         : await buildQuotePdf(input);

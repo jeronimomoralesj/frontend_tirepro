@@ -5,11 +5,23 @@ import { usePathname, useRouter } from "next/navigation";
 
 // Which company plans + roles can access which route prefixes. `roles`
 // is an allowlist (access only if user.role is in the list). `deniedRoles`
-// is a blocklist (used to carve catalog-only roles out of the general
-// distribuidor pages while still letting them hit /catalogoSku).
+// is a blocklist (used to carve scoped roles out of broad sections while
+// still letting them hit the few pages they belong on).
 const CATALOG_ROLES = ["catalogo", "catalogo_admin"] as const;
+// marketplace_tracker is distribuidor-scoped like CATALOG_ROLES but with
+// a different home set: catalogoSku + the 3 /dashboard/marketplace/*
+// operations pages. Same exclusion shape across the fleet/distribuidor
+// surfaces (it has no business on Pedidos/Desechos/Gestión/Vehículos
+// either).
+const SCOPED_DIST_ROLES = [...CATALOG_ROLES, "marketplace_tracker"] as const;
 
-const ROUTE_ACCESS: Record<string, { plans: string[]; roles?: string[]; deniedRoles?: string[] }> = {
+interface RouteRule {
+  plans: string[];
+  roles?: string[];
+  deniedRoles?: string[];
+}
+
+const ROUTE_ACCESS: Record<string, RouteRule> = {
   // Fleet pages — plus + pro tiers. Marketplace tier is intentionally
   // excluded (marketplace-only users have no fleet to manage — they
   // live on /marketplace). Admin-only destructive actions still gate
@@ -29,29 +41,64 @@ const ROUTE_ACCESS: Record<string, { plans: string[]; roles?: string[]; deniedRo
   "/dashboard/resumenMini":  { plans: ["plus", "pro"] },
 
   // Distributor pages — visible to everyone on a distribuidor plan EXCEPT
-  // catalog-scoped users (they only see /catalogoSku). Sidebar already
-  // hides these links for catalog roles; this is the URL-typing defense.
-  "/dashboard/distribuidor":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/analistaDist":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/pedidosDist":    { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/desechosDist":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/clientes":       { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/vehiculoDist":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/buscarDist":     { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/agregarDist":    { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/catalogoDist":   { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
-  "/dashboard/ventasDist":     { plans: ["distribuidor"], deniedRoles: [...CATALOG_ROLES] },
+  // catalog/marketplace-tracker scoped users (they live on /catalogoSku
+  // and /dashboard/marketplace/*). Sidebar already hides these links;
+  // this is the URL-typing defense.
+  "/dashboard/distribuidor":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/analistaDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/pedidosDist":    { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/desechosDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/clientes":       { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/vehiculoDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/buscarDist":     { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/agregarDist":    { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/catalogoDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/ventasDist":     { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
 
-  // SKU catalog — the one distribuidor route catalog-roles can hit.
+  // SKU catalog — distribuidor-only, but accessible to all distribuidor
+  // roles (admin / catalogo / catalogo_admin / marketplace_tracker).
   "/dashboard/catalogoSku":    { plans: ["distribuidor"] },
+
+  // Marketplace operations — distribuidor plan, admin or marketplace_tracker
+  // only. Plain catalogo / catalogo_admin sales reps stay out — they're
+  // hired to push product, not to manage the storefront. Longest-prefix
+  // match logic below means these rules win over the broader
+  // "/dashboard/marketplace" entry in OPEN_ROUTES.
+  "/dashboard/marketplace/perfil":    { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
+  "/dashboard/marketplace/pedidos":   { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
+  "/dashboard/marketplace/productos": { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
 };
 
-// These routes are open to any logged-in user with a company
+// Routes open to any logged-in user with a token. Includes the bare
+// /dashboard/marketplace browser (fleet shoppers + everyone else can
+// look around). The /dashboard/marketplace/<sub> rules above carve the
+// distribuidor-only ops pages back out via longest-prefix match.
 const OPEN_ROUTES = [
   "/dashboard/marketplace",
   "/dashboard/ajustes",
   "/dashboard/agregarConductor",
 ];
+
+// Find the longest-prefix rule across BOTH ROUTE_ACCESS and OPEN_ROUTES.
+// Without this, a more-specific guarded route (e.g. /marketplace/perfil)
+// would lose to its broader open-route ancestor (/marketplace), letting
+// any logged-in user past the gate.
+function findMatch(
+  pathname: string,
+): { prefix: string; rule: RouteRule | "open" } | null {
+  let best: { prefix: string; rule: RouteRule | "open" } | null = null;
+  for (const [prefix, rule] of Object.entries(ROUTE_ACCESS)) {
+    if (pathname.startsWith(prefix) && (!best || prefix.length > best.prefix.length)) {
+      best = { prefix, rule };
+    }
+  }
+  for (const prefix of OPEN_ROUTES) {
+    if (pathname.startsWith(prefix) && (!best || prefix.length > best.prefix.length)) {
+      best = { prefix, rule: "open" };
+    }
+  }
+  return best;
+}
 
 export default function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -62,29 +109,32 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
     // Skip the root /dashboard page (it has its own redirect logic)
     if (pathname === "/dashboard") { setAllowed(true); return; }
 
-    // Open routes — just need a token
-    if (OPEN_ROUTES.some((r) => pathname.startsWith(r))) {
+    const match = findMatch(pathname);
+
+    // Open match (no role/plan gating) — only need a token.
+    if (match && match.rule === "open") {
       const token = localStorage.getItem("token");
       if (!token) { router.replace("/login"); return; }
       setAllowed(true);
       return;
     }
 
-    // Find matching rule — sort by longest prefix first so /analistaDist matches before /analista
-    const rule = Object.entries(ROUTE_ACCESS)
-      .filter(([prefix]) => pathname.startsWith(prefix))
-      .sort((a, b) => b[0].length - a[0].length)[0];
-    if (!rule) {
+    if (!match) {
       // Unknown route — allow for regular users (it's likely a shared
-      // component / dynamic path). But DENY for catalog-scoped users:
-      // they only have /catalogoSku plus OPEN_ROUTES, so an unknown path
-      // almost certainly means they typed the URL of a surface they
-      // shouldn't have access to. Bounce them back to catalogoSku.
+      // component / dynamic path). But DENY for scoped distribuidor
+      // roles: their world is /catalogoSku + the marketplace ops pages,
+      // so an unknown path almost certainly means they typed a URL of
+      // a surface they shouldn't reach. Bounce them to their home.
       try {
         const stored = localStorage.getItem("user");
         const user = stored ? JSON.parse(stored) : null;
-        if (user?.role === "catalogo" || user?.role === "catalogo_admin") {
+        const role = user?.role;
+        if (role === "catalogo" || role === "catalogo_admin") {
           router.replace("/dashboard/catalogoSku");
+          return;
+        }
+        if (role === "marketplace_tracker") {
+          router.replace("/dashboard/marketplace/perfil");
           return;
         }
       } catch { /* fall through to optimistic allow */ }
@@ -92,7 +142,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    const [, access] = rule;
+    const access = match.rule as RouteRule;
 
     async function check() {
       try {
@@ -127,9 +177,9 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
         // role when they don't belong here. Two-sided check:
         //   `roles`       → allowlist (must include user.role)
         //   `deniedRoles` → blocklist (must NOT include user.role)
-        // deniedRoles is how we carve catalog-only roles out of the rest
-        // of the distribuidor surface without maintaining an allowlist
-        // that drifts every time we add a new distribuidor role.
+        // deniedRoles is how we carve scoped distribuidor roles out of
+        // the rest of the distribuidor surface without maintaining an
+        // allowlist that drifts every time we add a new role.
         if (access.roles && !access.roles.includes(user.role)) {
           redirectToHome(plan, user.role);
           return;
@@ -151,10 +201,15 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
     }
 
     function redirectToHome(plan: string, role?: string) {
-      // Catalog-scoped roles land on the SKU catalog no matter the plan —
-      // that's the only surface they have access to.
+      // Scoped distribuidor roles each have a fixed home — that's where
+      // their nav lives, so unauthorized URL hits land them somewhere
+      // they actually have permission to be.
       if (role === "catalogo" || role === "catalogo_admin") {
         router.replace("/dashboard/catalogoSku");
+        return;
+      }
+      if (role === "marketplace_tracker") {
+        router.replace("/dashboard/marketplace/perfil");
         return;
       }
       if (plan === "distribuidor")      router.replace("/dashboard/distribuidor");

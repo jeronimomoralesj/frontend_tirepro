@@ -7,10 +7,12 @@ import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
   Mail, Globe, Star, Clock, CheckCircle, Shield, Recycle, ChevronLeft,
   ChevronRight, ChevronDown, Minus, Plus, X, Check, Search, Zap, Info,
-  Weight, Scale, Gauge,
+  Weight, Scale, Gauge, Sparkles,
 } from "lucide-react";
+import { buildProductFaqs } from "./faq";
 import { useCart } from "../../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
+import { PaymentBadges } from "../../../../components/marketplace/PaymentBadges";
 import { trackProductView, trackAddToCart, trackReviewSubmit, trackProductDwell } from "../../../../lib/marketplaceAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -228,6 +230,10 @@ export default function ProductClient({
 
   function handleAddToCart() {
     if (!product) return;
+    // Hard stock guard — every visual button already disables itself
+    // at 0, but defense-in-depth so a stale UI state (mid-fetch
+    // refresh, etc.) can't push an out-of-stock item into the cart.
+    if (product.cantidadDisponible <= 0) return;
     const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
     cart.addItem({
       listingId: product.id,
@@ -474,8 +480,10 @@ export default function ProductClient({
               )}
             </p>
 
-            {/* Stars */}
-            {product._count.reviews > 0 && (
+            {/* Trust signal — stars when reviews exist; otherwise a
+                "Producto nuevo en TirePro" badge so the absence of
+                reviews never reads as a negative signal to the buyer. */}
+            {product._count.reviews > 0 ? (
               <div className="flex items-center gap-2 mt-3">
                 <div className="flex gap-0.5">
                   {[1, 2, 3, 4, 5].map((s) => (
@@ -486,6 +494,21 @@ export default function ProductClient({
                   {avgRating.toFixed(1)} ({product._count.reviews})
                   {product.totalSold != null && product.totalSold > 0 && <> · {product.totalSold} vendido{product.totalSold !== 1 ? "s" : ""}</>}
                 </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <span
+                  className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full"
+                  style={{ background: "rgba(30,118,182,0.10)", color: "#1E76B6" }}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Recomendado por TirePro
+                </span>
+                {brandInfo?.tier && (
+                  <span className="text-[11px] text-gray-500">
+                    Marca {BRAND_TIER_META[brandInfo.tier]?.label?.toLowerCase() ?? "verificada"}
+                  </span>
+                )}
               </div>
             )}
 
@@ -774,13 +797,22 @@ export default function ProductClient({
               style={{ boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18), 0 0 0 1px rgba(30,118,182,0.08)" }}
             >
               <div className="flex items-center gap-2 mb-3">
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
-                <p className="text-xs font-black text-emerald-600">
-                  Disponible
-                  {product.cantidadDisponible > 0 && product.cantidadDisponible <= 10 && (
-                    <span className="text-amber-600 font-bold"> · solo {product.cantidadDisponible} unidades</span>
-                  )}
-                </p>
+                {product.cantidadDisponible <= 0 ? (
+                  <>
+                    <X className="w-4 h-4 text-red-500" />
+                    <p className="text-xs font-black text-red-600">Agotada</p>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    <p className="text-xs font-black text-emerald-600">
+                      Disponible
+                      {product.cantidadDisponible <= 10 && (
+                        <span className="text-amber-600 font-bold"> · solo {product.cantidadDisponible} unidades</span>
+                      )}
+                    </p>
+                  </>
+                )}
               </div>
               {product.tiempoEntrega && (
                 <p className="text-[11px] text-gray-500 flex items-center gap-1.5 mb-4">
@@ -792,9 +824,21 @@ export default function ProductClient({
               <div className="flex items-center gap-4 mb-4">
                 <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Cantidad</span>
                 <div className="flex items-center rounded-full overflow-hidden" style={{ border: "1.5px solid #e5e5e5" }}>
-                  <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="px-3.5 py-2 hover:bg-[#f0f7ff] transition-colors"><Minus className="w-3.5 h-3.5 text-gray-500" /></button>
+                  <button
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    disabled={product.cantidadDisponible <= 0 || qty <= 1}
+                    className="px-3.5 py-2 hover:bg-[#f0f7ff] transition-colors disabled:opacity-40"
+                  >
+                    <Minus className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
                   <span className="px-5 py-2 text-[14px] font-black text-[#0A183A]" style={{ borderLeft: "1.5px solid #e5e5e5", borderRight: "1.5px solid #e5e5e5" }}>{qty}</span>
-                  <button onClick={() => setQty((q) => q + 1)} className="px-3.5 py-2 hover:bg-[#f0f7ff] transition-colors"><Plus className="w-3.5 h-3.5 text-gray-500" /></button>
+                  <button
+                    onClick={() => setQty((q) => Math.min(product.cantidadDisponible, q + 1))}
+                    disabled={product.cantidadDisponible <= 0 || qty >= product.cantidadDisponible}
+                    className="px-3.5 py-2 hover:bg-[#f0f7ff] transition-colors disabled:opacity-40"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
                 </div>
                 {qty > 1 && (
                   <span className="text-sm font-black text-[#0A183A] ml-auto">
@@ -803,11 +847,33 @@ export default function ProductClient({
                 )}
               </div>
 
-              <button onClick={handleAddToCart}
-                className="w-full py-3.5 rounded-2xl text-[15px] font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
-                style={{ background: "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)" }}>
-                <ShoppingCart className="w-4 h-4" />
-                Agregar al carrito
+              {/* Primary CTA — sized big on purpose. The whole product
+                  page exists to drive this click; treat it like the
+                  hero button it is. */}
+              <button
+                onClick={handleAddToCart}
+                disabled={product.cantidadDisponible <= 0}
+                className="w-full py-5 sm:py-6 rounded-2xl text-lg sm:text-xl font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/40 active:scale-[0.99] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:shadow-none"
+                style={{
+                  background: product.cantidadDisponible <= 0
+                    ? "linear-gradient(135deg,#6b7280 0%,#9ca3af 100%)"
+                    : "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)",
+                  boxShadow: product.cantidadDisponible <= 0
+                    ? "none"
+                    : "0 16px 36px -10px rgba(30,118,182,0.55)",
+                }}
+              >
+                {product.cantidadDisponible <= 0 ? (
+                  <>
+                    <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                    Agotada
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
+                    Agregar al carrito
+                  </>
+                )}
               </button>
               {cart.count > 0 && (
                 <Link href="/marketplace/cart"
@@ -816,8 +882,12 @@ export default function ProductClient({
                 </Link>
               )}
 
+              <div className="mt-3 pt-3 flex items-center justify-center" style={{ borderTop: "1px solid #f1f5f9" }}>
+                <PaymentBadges variant="compact" />
+              </div>
+
               <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
-                El distribuidor confirma tu pedido en hasta 5 días hábiles. El pago se solicita después de la confirmación.
+                Pago seguro: el distribuidor confirma tu pedido y el cobro se libera con la entrega.
               </p>
             </div>
 
@@ -1580,6 +1650,29 @@ export default function ProductClient({
           </section>
         )}
 
+        {/* FAQ SECTION — visible Q&A on the page AND emitted as
+            FAQPage JSON-LD by the server component (page.tsx). Same
+            source of truth (faq.ts) so what we tell crawlers always
+            matches what the buyer can actually find. Heavy SEO + LLM
+            win — Perplexity and ChatGPT quote FAQ-marked content
+            disproportionately. */}
+        <section
+          aria-labelledby="product-faq"
+          className="mt-14 bg-white rounded-3xl p-6 sm:p-8"
+          style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+        >
+          <h2
+            id="product-faq"
+            className="text-xl sm:text-2xl font-black text-[#0A183A] mb-1"
+          >
+            Preguntas frecuentes
+          </h2>
+          <p className="text-xs text-gray-500 mb-5">
+            Lo que más nos preguntan compradores de la {product.marca} {product.modelo}.
+          </p>
+          <ProductFaqList faqs={buildProductFaqs(product)} />
+        </section>
+
         {/* SEO CONTENT BLOCK — H2 with target keyword "Comprar llanta
             {brand} {modelo} en Colombia". Renders Spanish copy crawlers
             can read on first request, plus three columns of internal
@@ -1994,5 +2087,43 @@ function Stepper({
         <Plus className="w-3.5 h-3.5" />
       </button>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Visible FAQ list — accordion-style. Same content the server
+// component emits as FAQPage JSON-LD, so crawlers and buyers see the
+// exact same Q&A. First item starts open so the page never looks
+// "empty" — encourages buyers to skim the rest.
+// ─────────────────────────────────────────────────────────────────────
+
+function ProductFaqList({ faqs }: { faqs: Array<{ q: string; a: string }> }) {
+  if (!faqs.length) return null;
+  return (
+    <div className="divide-y divide-gray-100" role="region">
+      {faqs.map((f, i) => (
+        <FaqItem key={i} q={f.q} a={f.a} defaultOpen={i === 0} />
+      ))}
+    </div>
+  );
+}
+
+function FaqItem({ q, a, defaultOpen = false }: { q: string; a: string; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details
+      open={open}
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+      className="group py-3.5"
+    >
+      <summary className="flex items-start justify-between gap-3 cursor-pointer list-none">
+        <span className="text-sm font-bold text-[#0A183A] leading-snug">{q}</span>
+        <ChevronDown
+          className="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform"
+          style={{ transform: open ? "rotate(180deg)" : "none" }}
+        />
+      </summary>
+      <p className="text-sm text-gray-600 leading-relaxed mt-2.5 pr-6">{a}</p>
+    </details>
   );
 }

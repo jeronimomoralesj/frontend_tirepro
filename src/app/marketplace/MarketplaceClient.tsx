@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
+import { AddToCartButton } from "../../components/marketplace/AddToCartButton";
 import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession } from "../../lib/marketplaceAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -103,6 +105,23 @@ function PublicMarketplace() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const resultsRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Pagination handler that also scrolls to the top of the results
+  // grid. Without this, clicking page N on the bottom-mounted
+  // pagination bar leaves the user looking at the bottom of page N+1
+  // — they don't realise the page changed.
+  const goToPage = React.useCallback((p: number) => {
+    setPage(p);
+    // setTimeout so the new render commits before we scroll.
+    setTimeout(() => {
+      if (resultsRef.current) {
+        resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 50);
+  }, []);
   const [filters, setFilters] = useState<Filters>({ dimensions: [], marcas: [], distributors: [] });
   const [brandsMap, setBrandsMap] = useState<BrandsMap>(new Map());
 
@@ -242,6 +261,9 @@ function PublicMarketplace() {
 
   // Track whether user explicitly set the city filter (vs auto-detected)
   const [ciudadManual, setCiudadManual] = useState(false);
+  // Max-price filter — kept as a string so the user can clear the
+  // input cleanly without coercing to 0. Empty string == no filter.
+  const [maxPrice, setMaxPrice] = useState<string>("");
 
   const fetchListings = useCallback(async () => {
     setLoading(true);
@@ -252,6 +274,8 @@ function PublicMarketplace() {
     if (tipo) p.set("tipo", tipo);
     if (distributorId) p.set("distributorId", distributorId);
     if (rimSizes.length > 0) p.set("rimSizes", rimSizes.join(","));
+    const maxPriceNum = parseInt(maxPrice.replace(/\D/g, ""), 10);
+    if (Number.isFinite(maxPriceNum) && maxPriceNum > 0) p.set("maxPrice", String(maxPriceNum));
     // Only send ciudad as hard filter if user set it manually
     if (ciudad && ciudadManual) p.set("ciudad", ciudad);
     p.set("sortBy", sortBy);
@@ -287,10 +311,10 @@ function PublicMarketplace() {
       }
     } catch { /* */ }
     setLoading(false);
-  }, [search, dimension, marca, tipo, distributorId, rimSizes, ciudad, ciudadManual, sortBy, page]);
+  }, [search, dimension, marca, tipo, distributorId, rimSizes, ciudad, ciudadManual, sortBy, page, maxPrice]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
-  useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, rimSizes, ciudad, sortBy]);
+  useEffect(() => { setPage(1); }, [search, dimension, marca, tipo, distributorId, rimSizes, ciudad, sortBy, maxPrice]);
 
   // Keep the URL's `?q=` in sync with the search state so users can share
   // links (`/marketplace?q=Bfgoodrich`) and the back button works as they
@@ -310,9 +334,9 @@ function PublicMarketplace() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [search, pathname, router, searchParams]);
 
-  const activeFilters = [dimension, marca, tipo, distributorId, rimSizes.length > 0 ? "rim" : "", ciudadManual ? ciudad : ""].filter(Boolean).length;
+  const activeFilters = [dimension, marca, tipo, distributorId, rimSizes.length > 0 ? "rim" : "", ciudadManual ? ciudad : "", maxPrice ? "max" : ""].filter(Boolean).length;
 
-  function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setRimSizes([]); setCategoryLabel(""); setCiudad(""); setCiudadManual(false); }
+  function clearFilters() { setDimension(""); setMarca(""); setTipo(""); setDistributorId(""); setRimSizes([]); setCategoryLabel(""); setCiudad(""); setCiudadManual(false); setMaxPrice(""); }
 
   // Matching brands for the current search term — surfaced as a horizontal
   // strip above the product listings. Lets users land on a brand page even
@@ -445,6 +469,9 @@ function PublicMarketplace() {
             />
             <input type="text" value={ciudad} onChange={(e) => { setCiudad(e.target.value); setCiudadManual(true); }} placeholder="Ciudad"
               className="px-3 py-1.5 rounded-full text-[11px] border border-gray-200 bg-white text-[#555] w-24 placeholder-gray-400 flex-shrink-0" />
+            {/* Max-price filter — formats input live (Colombian
+                thousands), strips non-digits, clears with the X. */}
+            <MaxPriceInput value={maxPrice} onChange={setMaxPrice} />
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
               className="px-3 py-1.5 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#555] flex-shrink-0 ml-auto">
               <option value="relevance">Relevancia</option>
@@ -701,8 +728,11 @@ function PublicMarketplace() {
                 </select>
               </div>
 
-              {/* Product list — full-width rows */}
-              <div className="space-y-3">
+              {/* Product list — full-width rows. The wrapper carries
+                  an id so the pagination handler can scrollIntoView
+                  to the very top of the grid (without a hardcoded
+                  pixel offset that breaks at different page heights). */}
+              <div id="mkt-results-top" ref={resultsRef} className="space-y-3 scroll-mt-24">
                 {listings.map((l) => <ProductRow key={l.id} l={l} brandsMap={brandsMap} />)}
               </div>
 
@@ -726,26 +756,42 @@ function PublicMarketplace() {
                 </div>
               )}
 
-              {/* Pagination */}
+              {/* Pagination — every interaction also scrolls back to the
+                  top of the results so the user doesn't land at the
+                  bottom of the new page (which is where the pagination
+                  itself lives). Uses an anchor element above the grid
+                  rather than a hardcoded scroll-Y so it works at any
+                  page height. */}
               {pages > 1 && (
                 <div className="flex items-center justify-center gap-2 pt-10">
-                  <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
+                  <button
+                    disabled={page <= 1}
+                    onClick={() => goToPage(page - 1)}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50"
+                    aria-label="Página anterior"
+                  >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   {Array.from({ length: Math.min(pages, 7) }, (_, i) => {
                     const p = page <= 4 ? i + 1 : Math.min(page + i - 3, pages - 6 + i + 1);
                     if (p < 1 || p > pages) return null;
                     return (
-                      <button key={p} onClick={() => setPage(p)}
+                      <button
+                        key={p}
+                        onClick={() => goToPage(p)}
                         className="w-9 h-9 rounded-full text-xs font-bold transition-all"
-                        style={{ background: p === page ? "#0A183A" : "transparent", color: p === page ? "white" : "#555" }}>
+                        style={{ background: p === page ? "#0A183A" : "transparent", color: p === page ? "white" : "#555" }}
+                      >
                         {p}
                       </button>
                     );
                   })}
-                  <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
+                  <button
+                    disabled={page >= pages}
+                    onClick={() => goToPage(page + 1)}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-[#333] border border-gray-200 disabled:opacity-20 hover:bg-gray-50"
+                    aria-label="Siguiente página"
+                  >
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -1394,112 +1440,226 @@ function ResultsSidebar({
 // ProductRow — Amazon-style full-width result row
 // =============================================================================
 
+// ─────────────────────────────────────────────────────────────────────
+// ProductRow — search-result card optimised for fast scanning + a
+// frictionless "add to cart". Two-column on mobile (image left, info
+// right) so the card stays under one viewport and the price + cart
+// button never slip below the fold. Three columns on sm+ (image,
+// info, price+CTA stack) for desktop scanning. The whole card is a
+// link to the product page; the cart button uses preventDefault +
+// stopPropagation so adding an item never bounces the user away.
+// ─────────────────────────────────────────────────────────────────────
+
 function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
   const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
   const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
   const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
   const price = hasPromo ? l.precioPromo! : l.precioCop;
   const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
-  const cpk = l.catalog?.crowdAvgCpk ?? l.catalog?.cpkEstimado;
   const reviewCount = l._count?.reviews ?? 0;
+  const soldCount = l._count?.orders ?? 0;
   const avgRating = (l.reviews && l.reviews.length > 0)
     ? (l.reviews.reduce((s, r) => s + r.rating, 0) / l.reviews.length)
     : 0;
+  const lowStock = typeof l.cantidadDisponible === "number" && l.cantidadDisponible > 0 && l.cantidadDisponible <= 3;
+  const outOfStock = typeof l.cantidadDisponible === "number" && l.cantidadDisponible <= 0;
 
   return (
     <Link
       href={`/marketplace/product/${l.id}`}
-      className="group flex flex-col sm:flex-row gap-4 bg-white rounded-2xl p-4 hover:-translate-y-0.5 hover:shadow-2xl transition-all border border-gray-100"
+      className="group block bg-white rounded-2xl border border-gray-100 hover:border-[#1E76B6]/30 hover:shadow-[0_18px_40px_-20px_rgba(10,24,58,0.20)] transition-all overflow-hidden"
     >
-      {/* Image */}
-      <div
-        className="relative w-full sm:w-44 h-44 sm:h-40 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
-        style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)", border: "1px solid rgba(30,118,182,0.06)" }}
-      >
-        {cover ? (
-          <img src={cover} alt={`Llanta ${l.marca} ${l.modelo} ${l.dimension}${l.tipo === "reencauche" ? " reencauche" : ""} — Comprar en Colombia`} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500" />
-        ) : (
-          <Package className="w-10 h-10 text-gray-200" />
-        )}
-        {hasPromo && (
-          <span
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black text-white"
-            style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)", boxShadow: "0 4px 12px rgba(239,68,68,0.3)" }}
-          >
-            -{discount}%
-          </span>
-        )}
-        {l.tipo === "reencauche" && (
-          <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-black text-purple-700 bg-purple-100/90 backdrop-blur-sm flex items-center gap-0.5">
-            <Recycle className="w-2.5 h-2.5" /> Reenc.
-          </span>
-        )}
-      </div>
+      <div className="grid grid-cols-[112px_1fr] sm:grid-cols-[160px_1fr_180px] gap-3 sm:gap-4 p-3 sm:p-4">
+        {/* IMAGE — fixed-size on mobile (112px square) so it never
+            steals more than ~30% of the card; bigger on desktop. */}
+        <div
+          className="relative w-28 h-28 sm:w-40 sm:h-40 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
+          style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)", border: "1px solid rgba(30,118,182,0.06)" }}
+        >
+          {cover ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={cover}
+              alt={`Llanta ${l.marca} ${l.modelo} ${l.dimension}${l.tipo === "reencauche" ? " reencauche" : ""}`}
+              className="w-full h-full object-contain p-2.5 group-hover:scale-105 transition-transform duration-500"
+              loading="lazy"
+            />
+          ) : (
+            <Package className="w-9 h-9 text-gray-200" />
+          )}
 
-      {/* Body */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex-1">
-          <BrandLink marca={l.marca} brandsMap={brandsMap}
-            className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest" />
-          <h3 className="text-base sm:text-lg font-black text-[#0A183A] leading-snug group-hover:text-[#1E76B6] transition-colors line-clamp-2 mt-0.5">
+          {/* Top-left badges — promo, retread */}
+          <div className="absolute top-1.5 left-1.5 flex flex-col gap-1">
+            {hasPromo && (
+              <span
+                className="px-1.5 py-0.5 rounded-md text-[9px] font-black text-white"
+                style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)", boxShadow: "0 4px 10px rgba(239,68,68,0.30)" }}
+              >
+                -{discount}%
+              </span>
+            )}
+            {l.tipo === "reencauche" && (
+              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black text-purple-700 bg-purple-100/95 backdrop-blur-sm flex items-center gap-0.5">
+                <Recycle className="w-2.5 h-2.5" /> Reenc.
+              </span>
+            )}
+          </div>
+          {/* Stock urgency — bottom-left so it doesn't fight the promo badge */}
+          {lowStock && (
+            <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md text-[8px] font-black text-amber-800 bg-amber-100/95">
+              Solo {l.cantidadDisponible}
+            </span>
+          )}
+          {outOfStock && (
+            <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md text-[8px] font-black text-gray-700 bg-gray-200/95">
+              Agotado
+            </span>
+          )}
+        </div>
+
+        {/* INFO — title, dimension, trust signals. Mobile stays in
+            2-col grid so this column is everything-not-the-image; on
+            sm+ this is the middle column. */}
+        <div className="min-w-0 flex flex-col">
+          <BrandLink
+            marca={l.marca}
+            brandsMap={brandsMap}
+            className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest truncate"
+          />
+          <h3 className="text-[15px] sm:text-lg font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-2 group-hover:text-[#1E76B6] transition-colors">
             {l.modelo}
           </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-[11px] text-gray-500 mt-0.5 truncate">
             <span className="font-bold text-[#0A183A]">{l.dimension}</span>
             {l.eje && <> · Eje {l.eje}</>}
-            {l.tipo === "reencauche" ? " · Reencauche" : " · Nueva"}
+            <span className="hidden sm:inline">{l.tipo === "reencauche" ? " · Reencauche" : " · Nueva"}</span>
           </p>
 
-          {/* Reviews + meta chips */}
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            {reviewCount > 0 && (
-              <span className="flex items-center gap-1 text-[11px] text-gray-500">
+          {/* Trust strip — rating OR brand authority fallback. */}
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            {reviewCount > 0 ? (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500">
                 <div className="flex">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className="w-3 h-3" fill={s <= Math.round(avgRating) ? "#f59e0b" : "none"} style={{ color: s <= Math.round(avgRating) ? "#f59e0b" : "#d1d5db" }} />
+                    <Star
+                      key={s}
+                      className="w-3 h-3"
+                      fill={s <= Math.round(avgRating) ? "#f59e0b" : "none"}
+                      style={{ color: s <= Math.round(avgRating) ? "#f59e0b" : "#d1d5db" }}
+                    />
                   ))}
                 </div>
-                ({reviewCount})
+                <span>({reviewCount})</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-[#1E76B6] bg-[#1E76B6]/10 px-1.5 py-0.5 rounded-full">
+                <Sparkles className="w-2.5 h-2.5" /> TirePro
+              </span>
+            )}
+            {soldCount > 0 && (
+              <span className="text-[10px] text-gray-500">
+                {soldCount} vendid{soldCount === 1 ? "a" : "as"}
               </span>
             )}
             {l.tiempoEntrega && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 flex items-center gap-1">
+              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-full">
                 <Clock className="w-2.5 h-2.5" />
                 {l.tiempoEntrega}
               </span>
             )}
-            {l.distributor?.name && (
-              <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                <Truck className="w-2.5 h-2.5" />
-                {l.distributor.name}
-              </span>
-            )}
           </div>
 
-          {l.descripcion && (
-            <p className="text-xs text-gray-500 mt-2 line-clamp-2 hidden sm:block whitespace-pre-line">{l.descripcion}</p>
+          {/* Distributor — quieter chip, links separately on the dist
+              page anyway. Hidden on tiny screens to save room. */}
+          {l.distributor?.name && (
+            <span className="hidden sm:flex text-[10px] text-gray-400 mt-1.5 items-center gap-1 truncate">
+              <Truck className="w-2.5 h-2.5 flex-shrink-0" />
+              {l.distributor.name}
+            </span>
           )}
-        </div>
-      </div>
 
-      {/* Price column */}
-      <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-start gap-2 flex-shrink-0 sm:min-w-[140px] sm:text-right">
-        <div>
-          {hasPromo && (
-            <p className="text-xs text-gray-400 line-through">{fmtCOP(l.precioCop)}</p>
+          {/* MOBILE price + CTA row — pushed to the bottom of the
+              info column so the whole card stays under one viewport
+              even on a 360px-wide phone. The same data is rendered
+              on the right side of the card on sm+ via the third
+              column (display:none here). */}
+          <div className="sm:hidden mt-auto pt-2 flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              {hasPromo && (
+                <p className="text-[10px] text-gray-400 line-through leading-none">{fmtCOP(l.precioCop)}</p>
+              )}
+              <p className="text-xl font-black text-[#0A183A] tracking-tight leading-none">{fmtCOP(price)}</p>
+              <p className="text-[9px] text-gray-400 leading-none mt-0.5">+ IVA</p>
+            </div>
+            <AddToCartButton listing={l} variant="compact" className="flex-shrink-0" />
+          </div>
+
+          {/* Tiempo de entrega chip on mobile — moved here so it sits
+              under the title and doesn't crowd the price row. */}
+          {l.tiempoEntrega && (
+            <span className="sm:hidden inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-full mt-1.5 self-start">
+              <Clock className="w-2.5 h-2.5" />
+              {l.tiempoEntrega}
+            </span>
           )}
-          <p className="text-2xl sm:text-3xl font-black text-[#0A183A] tracking-tight leading-none">{fmtCOP(price)}</p>
-          <p className="text-[10px] text-gray-400 mt-1">+ IVA</p>
         </div>
-        <span
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black text-white sm:mt-2"
-          style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
-        >
-          Ver llanta
-          <ArrowRight className="w-3 h-3" />
-        </span>
+
+        {/* DESKTOP price + CTA column */}
+        <div className="hidden sm:flex flex-col items-end justify-between gap-2 flex-shrink-0">
+          <div className="text-right">
+            {hasPromo && (
+              <p className="text-xs text-gray-400 line-through leading-none">{fmtCOP(l.precioCop)}</p>
+            )}
+            <p className="text-3xl font-black text-[#0A183A] tracking-tight leading-none mt-0.5">{fmtCOP(price)}</p>
+            <p className="text-[10px] text-gray-400 mt-1">+ IVA · pago seguro</p>
+          </div>
+          <div className="flex flex-col items-stretch gap-1.5 w-full">
+            <AddToCartButton listing={l} variant="default" className="w-full justify-center" />
+            <span
+              className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold text-[#0A183A] hover:bg-[#F0F7FF] transition-colors w-full"
+              style={{ border: "1px solid rgba(10,24,58,0.10)" }}
+            >
+              Ver detalles
+              <ArrowRight className="w-3 h-3" />
+            </span>
+          </div>
+        </div>
       </div>
     </Link>
+  );
+}
+
+// =============================================================================
+// MaxPriceInput — formats live as Colombian thousands ("1.500.000")
+// while keeping the parent state as a plain digit string. Lets the
+// user clear via an X without breaking the controlled-input contract.
+// =============================================================================
+
+function MaxPriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const digits = value.replace(/\D/g, "");
+  const display = digits ? Number(digits).toLocaleString("es-CO") : "";
+  return (
+    <div className="relative flex-shrink-0">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 pointer-events-none">$</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={display}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+        placeholder="Precio máx."
+        className="pl-6 pr-7 py-1.5 rounded-full text-[11px] border border-gray-200 bg-white text-[#555] w-32 placeholder-gray-400"
+      />
+      {digits && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"
+          aria-label="Limpiar precio máximo"
+        >
+          <X className="w-2.5 h-2.5" />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -1521,28 +1681,153 @@ function SearchablePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const ref = React.useRef<HTMLDivElement | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [desktopPos, setDesktopPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = React.useRef<HTMLDivElement | null>(null);
 
-  // Close on outside click
+  // Detect mobile on open (and on resize while open) so we render the
+  // right layout. We also recompute desktop position from the trigger
+  // rect because the panel is portaled to <body> — `absolute`
+  // positioning relative to the trigger no longer works once the DOM
+  // hierarchy is broken by the portal.
+  useEffect(() => {
+    if (!open) return;
+    function recalc() {
+      const mobile = window.innerWidth < 640;
+      setIsMobile(mobile);
+      if (!mobile && triggerRef.current) {
+        const r = triggerRef.current.getBoundingClientRect();
+        setDesktopPos({ top: r.bottom + 6, left: r.left });
+      }
+    }
+    recalc();
+    window.addEventListener("resize", recalc);
+    window.addEventListener("scroll", recalc, true);
+    return () => {
+      window.removeEventListener("resize", recalc);
+      window.removeEventListener("scroll", recalc, true);
+    };
+  }, [open]);
+
+  // Close on outside click — but only outside the trigger AND the
+  // portaled panel, so clicking inside the panel doesn't dismiss it.
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery("");
-      }
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      const panel = document.getElementById(`searchable-panel-${label}`);
+      if (panel?.contains(target)) return;
+      setOpen(false);
+      setQuery("");
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
+  }, [open, label]);
+
+  // Lock body scroll on the mobile bottom sheet.
+  useEffect(() => {
+    if (!open || !isMobile) return;
+    if (typeof document === "undefined") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open, isMobile]);
 
   const selected = options.find((o) => o.value === value);
   const filtered = query.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase()))
     : options;
 
+  const panelInner = (
+    <>
+      {/* Mobile drag handle + label header */}
+      {isMobile && (
+        <div className="flex flex-col items-center pt-2 pb-1 border-b border-gray-100">
+          <span className="w-10 h-1 rounded-full bg-gray-300 mb-2" aria-hidden />
+          <p className="text-[11px] font-black text-[#0A183A] uppercase tracking-widest pb-1.5">{label}</p>
+        </div>
+      )}
+      <div className="p-2 border-b border-gray-100">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <input
+            autoFocus
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Buscar ${label.toLowerCase()}…`}
+            className="w-full pl-8 pr-2 py-2 text-[12px] rounded-lg border border-gray-200 bg-white text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]"
+          />
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto py-1" style={{ overscrollBehavior: "contain" }}>
+        {value && (
+          <button
+            type="button"
+            onClick={() => { onChange(""); setOpen(false); setQuery(""); }}
+            className="w-full text-left px-3.5 py-2 text-[12px] font-bold text-red-500 hover:bg-red-50"
+          >
+            Limpiar selección
+          </button>
+        )}
+        {filtered.length === 0 ? (
+          <p className="text-[12px] text-gray-400 text-center py-6">Sin resultados</p>
+        ) : (
+          filtered.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => { onChange(o.value); setOpen(false); setQuery(""); }}
+              className="w-full text-left px-3.5 py-2.5 text-[12px] hover:bg-[#F0F7FF] transition-colors truncate"
+              style={{
+                color: o.value === value ? "#1E76B6" : "#0A183A",
+                fontWeight: o.value === value ? 700 : 400,
+                background: o.value === value ? "rgba(30,118,182,0.06)" : undefined,
+              }}
+            >
+              {o.label}
+            </button>
+          ))
+        )}
+      </div>
+      {isMobile && (
+        <div style={{ height: "env(safe-area-inset-bottom, 0px)" }} aria-hidden />
+      )}
+    </>
+  );
+
+  const panel = isMobile ? (
+    <>
+      <div
+        className="fixed inset-0 z-40 bg-black/35"
+        onClick={() => { setOpen(false); setQuery(""); }}
+        aria-hidden
+      />
+      <div
+        id={`searchable-panel-${label}`}
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-white max-h-[80vh] flex flex-col"
+        style={{ boxShadow: "0 -12px 32px -10px rgba(10,24,58,0.22)" }}
+      >
+        {panelInner}
+      </div>
+    </>
+  ) : desktopPos ? (
+    <div
+      id={`searchable-panel-${label}`}
+      className="fixed z-50 w-72 max-h-[28rem] rounded-2xl bg-white flex flex-col"
+      style={{
+        top: desktopPos.top,
+        left: Math.min(desktopPos.left, (typeof window !== "undefined" ? window.innerWidth : 1024) - 300),
+        boxShadow: "0 12px 32px -10px rgba(10,24,58,0.22), 0 0 0 1px rgba(30,118,182,0.08)",
+      }}
+    >
+      {panelInner}
+    </div>
+  ) : null;
+
   return (
-    <div className="relative flex-shrink-0" ref={ref}>
+    <div className="relative flex-shrink-0" ref={triggerRef}>
       <button
         type="button"
         onClick={() => setOpen((s) => !s)}
@@ -1551,55 +1836,12 @@ function SearchablePicker({
         <span className="truncate max-w-[120px]">{selected ? selected.label : label}</span>
         <ChevronRight className={`w-3 h-3 text-gray-400 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
-      {open && (
-        <div
-          className="absolute left-0 mt-1.5 z-30 w-60 rounded-2xl bg-white overflow-hidden"
-          style={{ boxShadow: "0 12px 32px -10px rgba(10,24,58,0.22), 0 0 0 1px rgba(30,118,182,0.08)" }}
-        >
-          <div className="p-2 border-b border-gray-100">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-              <input
-                autoFocus
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Buscar ${label.toLowerCase()}…`}
-                className="w-full pl-8 pr-2 py-1.5 text-[11px] rounded-lg border border-gray-200 bg-white text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6]"
-              />
-            </div>
-          </div>
-          <div className="max-h-60 overflow-y-auto py-1">
-            {value && (
-              <button
-                type="button"
-                onClick={() => { onChange(""); setOpen(false); setQuery(""); }}
-                className="w-full text-left px-3 py-1.5 text-[11px] font-bold text-red-500 hover:bg-red-50"
-              >
-                Limpiar selección
-              </button>
-            )}
-            {filtered.length === 0 ? (
-              <p className="text-[11px] text-gray-400 text-center py-3">Sin resultados</p>
-            ) : (
-              filtered.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  onClick={() => { onChange(o.value); setOpen(false); setQuery(""); }}
-                  className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#F0F7FF] transition-colors truncate"
-                  style={{
-                    color: o.value === value ? "#1E76B6" : "#0A183A",
-                    fontWeight: o.value === value ? 700 : 400,
-                  }}
-                >
-                  {o.label}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+      {/* Portal to document.body so the panel isn't clipped by the
+          horizontally-scrolling filter strip's overflow:auto. The
+          mobile sheet is `position: fixed` anyway, so it survives;
+          desktop falls back to absolute positioning relative to the
+          trigger via the responsive class set inside `panel`. */}
+      {open && typeof document !== "undefined" && createPortal(panel, document.body)}
     </div>
   );
 }
@@ -2359,12 +2601,15 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
           </div>
         )}
 
-        {/* Price */}
-        <div className="mt-2.5">
-          <span className="text-lg font-black text-[#111]">{fmtCOP(price)}</span>
-          {hasPromo && (
-            <span className="text-[11px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>
-          )}
+        {/* Price + quick add */}
+        <div className="mt-2.5 flex items-baseline justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-lg font-black text-[#111]">{fmtCOP(price)}</span>
+            {hasPromo && (
+              <span className="text-[11px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>
+            )}
+          </div>
+          <AddToCartButton listing={l} variant="icon" />
         </div>
 
         {/* Tags */}

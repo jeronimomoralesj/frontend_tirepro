@@ -39,19 +39,24 @@ function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
     // (catalogo_admin) see ONLY the SKU catalog — not Pedidos / Desechos
     // / Gestión / Vehículos etc. They're hired to push product, not to
     // manage fleets.
+    // Catálogo (sales rep) + Catálogo Admin (sales manager) only get the
+    // SKU catalog — they're hired to push product, not to manage the
+    // storefront.
     if (role === "catalogo" || role === "catalogo_admin") {
       return [
         { name: "Catálogo", path: "/dashboard/catalogoSku", icon: BookOpen },
       ];
     }
-    // marketplace_tracker — distribuidor-only role, sees the catalog at
-    // the sales-rep level (NOT admin) plus a dedicated marketplace view
-    // for orders / tracking. Excluded from Pedidos / Desechos / Gestión
-    // / Vehículos like the catalogo roles.
+    // Marketplace Tracker — catalog browsing + the three marketplace
+    // operations pages (storefront profile, orders, listings). Excluded
+    // from the fleet-management sections (Pedidos / Desechos / Gestión /
+    // Vehículos) so the sidebar stays focused.
     if (role === "marketplace_tracker") {
       return [
-        { name: "Catálogo",    path: "/dashboard/catalogoSku",  icon: BookOpen     },
-        { name: "Marketplace", path: "/dashboard/marketplace",  icon: ShoppingCart },
+        { name: "Catálogo",  path: "/dashboard/catalogoSku",            icon: BookOpen     },
+        { name: "Perfil",    path: "/dashboard/marketplace/perfil",     icon: User2        },
+        { name: "Pedidos",   path: "/dashboard/marketplace/pedidos",    icon: ShoppingCart },
+        { name: "Productos", path: "/dashboard/marketplace/productos",  icon: Package      },
       ];
     }
     return [
@@ -221,6 +226,11 @@ export default function Sidebar({
   // Cotizaciones waiting for the fleet to accept/reject — drives the red
   // bubble on the "Analista" nav item for non-dist (fleet) users.
   const [pendingQuotesCount, setPendingQuotesCount] = useState<number>(0);
+  // Marketplace orders sitting in `pendiente` — drives the red bubble on
+  // the "Pedidos" nav item (both /dashboard/pedidosDist for dist admins
+  // and /dashboard/marketplace/pedidos for marketplace_tracker users).
+  // Polled at the same 60s cadence as the others.
+  const [pendingMarketplaceCount, setPendingMarketplaceCount] = useState<number>(0);
 
   // -- Bootstrap: load user from localStorage ----------------------------------
   useEffect(() => {
@@ -333,6 +343,38 @@ export default function Sidebar({
           }
         }
         if (!cancelled) setPendingQuotesCount(count);
+      } catch { /* silent */ }
+    }
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [user?.companyId, company?.plan]);
+
+  // Marketplace pending-orders bubble — only meaningful for distribuidor
+  // companies (they're the ones receiving marketplace orders). 60s
+  // poll matches the other counters; the dist's "Refresh" button on
+  // /dashboard/marketplace/pedidos refreshes the page list separately
+  // — this only feeds the sidebar bubble.
+  useEffect(() => {
+    if (!user?.companyId || company?.plan !== "distribuidor") {
+      setPendingMarketplaceCount(0);
+      return;
+    }
+    let cancelled = false;
+    async function tick() {
+      try {
+        const token = typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+        const res = await fetch(
+          `${API_BASE}/marketplace/orders/distributor?distributorId=${user!.companyId}`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const pending = Array.isArray(data)
+          ? data.filter((o: { status?: string }) => o.status === "pendiente").length
+          : 0;
+        setPendingMarketplaceCount(pending);
       } catch { /* silent */ }
     }
     tick();
@@ -488,8 +530,12 @@ export default function Sidebar({
               collapsed={false}
               onClick={closeMobile}
               badge={
-                link.path === "/dashboard/pedidosDist" ? openBidsCount
-                : link.path === "/dashboard/analista"  ? pendingQuotesCount
+                // /pedidosDist is the dist admin's unified inbox — surface
+                // BOTH open bids and pending marketplace orders so the
+                // bubble matches "things to action in Pedidos".
+                link.path === "/dashboard/pedidosDist"           ? openBidsCount + pendingMarketplaceCount
+                : link.path === "/dashboard/marketplace/pedidos" ? pendingMarketplaceCount
+                : link.path === "/dashboard/analista"            ? pendingQuotesCount
                 : undefined
               }
             />
@@ -625,8 +671,12 @@ export default function Sidebar({
               active={pathname === link.path}
               collapsed={collapsed}
               badge={
-                link.path === "/dashboard/pedidosDist" ? openBidsCount
-                : link.path === "/dashboard/analista"  ? pendingQuotesCount
+                // /pedidosDist is the dist admin's unified inbox — surface
+                // BOTH open bids and pending marketplace orders so the
+                // bubble matches "things to action in Pedidos".
+                link.path === "/dashboard/pedidosDist"           ? openBidsCount + pendingMarketplaceCount
+                : link.path === "/dashboard/marketplace/pedidos" ? pendingMarketplaceCount
+                : link.path === "/dashboard/analista"            ? pendingQuotesCount
                 : undefined
               }
             />

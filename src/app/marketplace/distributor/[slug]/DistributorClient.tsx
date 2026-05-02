@@ -4,11 +4,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Search, Loader2, Package, Truck, ArrowLeft, Phone, Mail,
-  MapPin, Globe, ChevronLeft, ChevronRight,
+  Search, Loader2, Package, Truck, ArrowLeft, ArrowUpRight, Phone, Mail,
+  MapPin, Globe, ChevronLeft, ChevronRight, Sparkles,
   Store, Shield, Recycle, Building2, ShieldCheck, Layers, Send, MessageCircle,
 } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
+import { AddToCartButton } from "../../../../components/marketplace/AddToCartButton";
 import { trackDistributorView } from "../../../../lib/marketplaceAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -18,12 +19,29 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
+interface PinnedListing {
+  id: string;
+  marca: string;
+  modelo: string;
+  dimension: string;
+  precioCop: number;
+  precioPromo: number | null;
+  promoHasta: string | null;
+  imageUrls: string[] | null;
+  coverIndex: number;
+}
+
 interface Profile {
   id: string; slug: string | null; name: string; profileImage: string; plan: string;
   emailAtencion: string | null; telefono: string | null;
   descripcion: string | null; bannerImage: string | null;
   direccion: string | null; ciudad: string | null; sitioWeb: string | null;
   cobertura: any[] | null; tipoEntrega: string | null; colorMarca: string | null;
+  promoBannerImage: string | null;
+  promoBannerTitle: string | null;
+  promoBannerSubtitle: string | null;
+  promoBannerHref: string | null;
+  pinnedListing: PinnedListing | null;
   _count: { listings: number };
 }
 
@@ -140,6 +158,38 @@ export default function DistributorStorefront() {
   // load via a single high-limit query.
   const [stockedBrands, setStockedBrands] = useState<string[]>([]);
   const [stockedDimensions, setStockedDimensions] = useState<string[]>([]);
+
+  // Brand metadata (logo + slug) keyed by lowercase brand name. The
+  // /marketplace/brands endpoint is the same one MarketplaceClient uses
+  // for its global brand pills, so we get logos that line up with the
+  // brand-detail pages without a second source of truth.
+  type BrandMeta = { name: string; slug: string; logoUrl: string | null };
+  const [brandsMap, setBrandsMap] = useState<Map<string, BrandMeta>>(new Map());
+  useEffect(() => {
+    fetch(`${API_BASE}/marketplace/brands`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: any[]) => {
+        const m = new Map<string, BrandMeta>();
+        if (Array.isArray(rows)) {
+          for (const row of rows) {
+            if (row?.name) {
+              m.set(String(row.name).toLowerCase().trim(), {
+                name:    row.name,
+                slug:    row.slug ?? null,
+                logoUrl: row.logoUrl ?? null,
+              });
+            }
+          }
+        }
+        setBrandsMap(m);
+      })
+      .catch(() => { /* no logos — carousel falls back to monogram tiles */ });
+  }, []);
+
+  const brandsCarouselRef = useRef<HTMLDivElement>(null);
+  const scrollBrandsBy = useCallback((delta: number) => {
+    brandsCarouselRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+  }, []);
   useEffect(() => {
     if (!profile?.id) return;
     const p = new URLSearchParams();
@@ -150,16 +200,39 @@ export default function DistributorStorefront() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const items: any[] = d?.listings ?? [];
-        const brandCounts = new Map<string, number>();
+        // Dedupe brands by lowercase key — distributors sometimes
+        // upload the same brand with mixed casing ("Hankook" + "hankook")
+        // and we don't want two cards for the same logo. Keep the
+        // best-cased variant we've seen so the tile stays readable
+        // even when no BrandInfo record exists to override the display.
+        const brandCounts = new Map<string, { display: string; count: number }>();
         const dimCounts = new Map<string, number>();
+        const looksProper = (s: string) =>
+          s.length > 0 && s[0] === s[0].toUpperCase();
         for (const l of items) {
-          const m = (l.marca || "").trim();
-          if (m) brandCounts.set(m, (brandCounts.get(m) ?? 0) + 1);
+          const raw = (l.marca || "").trim();
+          if (raw) {
+            const key = raw.toLowerCase();
+            const existing = brandCounts.get(key);
+            if (existing) {
+              existing.count += 1;
+              // Upgrade to a properly-cased variant if we now see one
+              // and didn't have one before.
+              if (looksProper(raw) && !looksProper(existing.display)) {
+                existing.display = raw;
+              }
+            } else {
+              brandCounts.set(key, { display: raw, count: 1 });
+            }
+          }
           const dim = (l.dimension || "").trim();
           if (dim) dimCounts.set(dim, (dimCounts.get(dim) ?? 0) + 1);
         }
         setStockedBrands(
-          [...brandCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([n]) => n),
+          [...brandCounts.values()]
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 12)
+            .map((v) => v.display),
         );
         setStockedDimensions(
           [...dimCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([d]) => d),
@@ -231,7 +304,25 @@ export default function DistributorStorefront() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
-      <MarketplaceNav />
+      <MarketplaceNav
+        coBrand={profile ? {
+          name: profile.name,
+          // Skip the default placeholder logo — it's the same generic
+          // TirePro mark, would render twice next to the real one and
+          // defeat the "co-brand" framing. Also reject empty / non-http
+          // URLs so we never hand <img src=""> to the navbar.
+          logoUrl: (() => {
+            const u = (profile.profileImage ?? "").trim();
+            if (!u) return null;
+            if (u.includes("logoFull.png")) return null;
+            return u;
+          })(),
+          href: `/marketplace/distributor/${profile.slug ?? profile.id}`,
+          accentColor: profile.colorMarca && profile.colorMarca.trim()
+            ? profile.colorMarca
+            : undefined,
+        } : undefined}
+      />
 
       {/* Banner */}
       <div className="relative h-56 sm:h-72 lg:h-80 overflow-hidden">
@@ -316,28 +407,9 @@ export default function DistributorStorefront() {
                   </div>
                 </div>
 
-                {/* Contact buttons */}
-                <div className="flex gap-2 flex-wrap flex-shrink-0">
-                  {profile?.telefono && (
-                    <a href={`tel:${profile.telefono}`}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-black text-white transition-all hover:opacity-95 hover:shadow-lg active:scale-[0.98]"
-                      style={{ background: `linear-gradient(135deg,#0A183A,${brandColor})`, boxShadow: `0 6px 18px ${brandColor}40` }}>
-                      <Phone className="w-3.5 h-3.5" /> Llamar
-                    </a>
-                  )}
-                  {profile?.emailAtencion && (
-                    <a href={`mailto:${profile.emailAtencion}`}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold text-[#0A183A] border border-gray-200 hover:bg-[#F0F7FF] hover:border-[#1E76B6]/30 transition-colors">
-                      <Mail className="w-3.5 h-3.5" /> Email
-                    </a>
-                  )}
-                  {profile?.sitioWeb && (
-                    <a href={profile.sitioWeb} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold text-[#0A183A] border border-gray-200 hover:bg-[#F0F7FF] hover:border-[#1E76B6]/30 transition-colors">
-                      <Globe className="w-3.5 h-3.5" /> Web
-                    </a>
-                  )}
-                </div>
+                {/* Contact buttons removed — the storefront's job is
+                    to drive purchases on-page, not push the buyer off
+                    to a phone/email back-channel. */}
               </div>
 
               {/* Description */}
@@ -407,14 +479,226 @@ export default function DistributorStorefront() {
         </section>
       </div>
 
-      {/* BRANDS STRIP — chips act as catalog filters (not external
-          links). Clicking a chip filters the catalog below by that
-          marca; clicking the same chip again clears the filter.
-          Auto-scrolls to the catalog so the user sees the result. */}
+      {/* PROMO HERO — distributor-pinned banner + featured product,
+          edited from /dashboard/marketplace/perfil. Layout adapts to
+          which slots are populated:
+            - banner only           → full-width banner
+            - banner + pinned listing → 2/3 + 1/3 on desktop, stacked on mobile
+            - pinned listing only   → narrow featured-product card centered
+          The banner's optional click-through routes via <Link> for
+          internal /marketplace/... URLs and target=_blank for external. */}
+      {(profile?.promoBannerImage || profile?.pinnedListing) && (
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+          {/* Flex (not grid) — Tailwind's JIT scanner doesn't always
+              extract arbitrary `md:grid-cols-[…]` from a template
+              literal, which is why the columns kept collapsing to a
+              single stack on desktop. flex-row + numeric basis classes
+              are statically extractable and behave the same. */}
+          <div className="flex flex-col md:flex-row gap-4 md:items-center">
+            {profile.promoBannerImage && (() => {
+              const href      = profile.promoBannerHref?.trim() || null;
+              const isInternal= !!href && href.startsWith("/");
+              const isExternal= !!href && /^https?:\/\//i.test(href);
+              // Banner takes the bigger slot on desktop. min-w-0 lets
+              // the inner aspect-ratio computation use the actual
+              // basis width instead of the inflated content width.
+              // basis-4/5 + no flex-1 → banner stays at ~80%, leaving
+              // the pin at ~20%. flex-1 sets basis:0 which would
+              // override the fraction, so we drop it here.
+              const slotCls = profile.pinnedListing
+                ? "w-full md:basis-4/5 min-w-0"
+                : "w-full";
+              const inner = (
+                <div
+                  className="relative w-full overflow-hidden rounded-2xl h-full"
+                  style={{
+                    // Cinematic 32:9 — keeps the banner visually
+                    // present without dominating the page, and lines
+                    // the row up to a height the featured-product
+                    // card can match on large screens (~250px on a
+                    // 1400px viewport) without going huge.
+                    aspectRatio: "32 / 9",
+                    border: "1px solid rgba(10,24,58,0.08)",
+                    boxShadow: `0 18px 36px -16px ${brandColor}40`,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={profile.promoBannerImage}
+                    alt={profile.promoBannerTitle ?? `${profile.name} — promoción`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  {(profile.promoBannerTitle || profile.promoBannerSubtitle) && (
+                    <div
+                      className="absolute inset-0 flex flex-col justify-end p-5 sm:p-8 text-white"
+                      style={{ background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 60%)" }}
+                    >
+                      {profile.promoBannerTitle && (
+                        <p className="text-lg sm:text-2xl lg:text-3xl font-black leading-tight drop-shadow">
+                          {profile.promoBannerTitle}
+                        </p>
+                      )}
+                      {profile.promoBannerSubtitle && (
+                        <p className="text-xs sm:text-sm font-medium opacity-90 mt-1 drop-shadow">
+                          {profile.promoBannerSubtitle}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+              if (isInternal) return <Link href={href!} className={`block ${slotCls}`}>{inner}</Link>;
+              if (isExternal) return <a href={href!} target="_blank" rel="noopener noreferrer" className={`block ${slotCls}`}>{inner}</a>;
+              return <div className={slotCls}>{inner}</div>;
+            })()}
+
+            {profile.pinnedListing && (() => {
+              const l = profile.pinnedListing;
+              const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+              const cover = imgs.length > 0 ? (imgs[l.coverIndex ?? 0] ?? imgs[0]) : null;
+              const promoActive = l.precioPromo != null && l.promoHasta != null && new Date(l.promoHasta).getTime() > Date.now();
+              const price = promoActive ? l.precioPromo! : l.precioCop;
+              const promoPct = promoActive
+                ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100)
+                : 0;
+              const pinSlotCls = profile.promoBannerImage
+                ? "w-full md:basis-1/5 min-w-0"
+                : "w-full max-w-md mx-auto";
+              return (
+                <div className={pinSlotCls}>
+                  <Link
+                    href={`/marketplace/product/${l.id}`}
+                    className="group relative flex flex-col rounded-2xl bg-white overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
+                    style={{
+                      border: "1px solid rgba(10,24,58,0.08)",
+                      boxShadow: `0 18px 36px -16px ${brandColor}40`,
+                    }}
+                  >
+                    {/* Tiny label strip */}
+                    <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
+                      <span
+                        className="text-[10px] font-black uppercase tracking-widest"
+                        style={{ color: brandColor }}
+                      >
+                        Destacado
+                      </span>
+                      <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-[#0A183A] transition-colors" />
+                    </div>
+
+                    {/* Compact horizontal body — image tile is a fixed
+                        88×88 square so the card's natural height stays
+                        small (~140px) and never balloons regardless of
+                        column width. */}
+                    <div className="flex items-center gap-3 px-4 pb-4">
+                      <div
+                        className="rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
+                        style={{
+                          width: 88,
+                          height: 88,
+                          background: `radial-gradient(circle at 30% 20%, ${brandColor}14, ${brandColor}04 70%)`,
+                        }}
+                      >
+                        {cover ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={cover}
+                            alt={`${l.marca} ${l.modelo}`}
+                            className="max-w-full max-h-full object-contain p-2 transition-transform duration-300 group-hover:scale-110"
+                          />
+                        ) : (
+                          <Package className="w-7 h-7 text-gray-300" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: brandColor }}>
+                          {l.marca}
+                        </p>
+                        <p className="text-sm font-black text-[#0A183A] leading-tight mt-0.5 truncate">
+                          {l.modelo}
+                        </p>
+                        <p className="text-[11px] text-gray-500 truncate mt-0.5">{l.dimension}</p>
+                        <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
+                          <span
+                            className="text-base font-black tabular-nums"
+                            style={{ color: brandColor }}
+                          >
+                            {fmtCOP(price)}
+                          </span>
+                          {promoActive && (
+                            <span className="text-[10px] text-gray-400 line-through tabular-nums">
+                              {fmtCOP(l.precioCop)}
+                            </span>
+                          )}
+                          {promoActive && promoPct > 0 && (
+                            <span className="text-[9px] font-black uppercase tracking-widest text-white bg-emerald-600 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                              −{promoPct}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* WHY BUY — value-prop cards moved up to right under the
+          promo hero so trust signals show before the user has to
+          scroll past the whole catalog. Reads: identity → promo →
+          reasons to trust → brands → catalog → map → B2B → SEO. */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+        <section aria-labelledby="dist-why" className="space-y-3">
+          <p
+            id="dist-why"
+            className="text-[10px] font-black uppercase tracking-widest mb-1"
+            style={{ color: brandColor }}
+          >
+            Por qué comprar aquí
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { icon: ShieldCheck, title: "Distribuidor verificado", sub: "Pasó nuestro proceso de validación de TirePro Marketplace." },
+              { icon: Package,     title: "Amplio inventario",       sub: `${profile?._count.listings ?? 0} producto${profile?._count.listings === 1 ? "" : "s"} disponibles entre marcas y dimensiones.` },
+              { icon: Truck,       title: "Envío en Colombia",       sub: cobertura.length > 0 ? `Cobertura activa en ${cobertura.slice(0, 3).map((c: any) => c.ciudad).filter(Boolean).join(", ")}${cobertura.length > 3 ? " y más" : ""}.` : "Despacho a las principales ciudades del país." },
+              { icon: Building2,   title: "Atendemos flotas",        sub: "Compras al por mayor con asesoría directa y precios para empresas." },
+            ].map((b) => {
+              const Icon = b.icon;
+              return (
+                <div
+                  key={b.title}
+                  className="bg-white rounded-2xl p-4 flex items-start gap-3"
+                  style={{ boxShadow: "0 6px 18px -10px rgba(10,24,58,0.12)", border: "1px solid rgba(10,24,58,0.05)" }}
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: `${brandColor}12`, border: `1px solid ${brandColor}22` }}
+                  >
+                    <Icon className="w-4 h-4" style={{ color: brandColor }} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-black text-[#0A183A] leading-tight">{b.title}</p>
+                    <p className="text-[10px] text-gray-500 leading-snug mt-0.5">{b.sub}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      {/* BRANDS CAROUSEL — logos pulled from BrandInfo so the dist's
+          storefront matches the global marketplace styling. Clicking a
+          tile filters the catalog by that marca; clicking the active
+          tile clears the filter. Falls back to a monogram badge for
+          brands without a registered logo. */}
       {stockedBrands.length > 0 && (
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
           <section aria-labelledby="dist-brands">
-            <div className="flex items-end justify-between mb-3">
+            <div className="flex items-end justify-between mb-3 gap-3 flex-wrap">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: brandColor }}>
                   Filtra por marca
@@ -423,41 +707,120 @@ export default function DistributorStorefront() {
                   Marcas que vende {profile?.name}
                 </h2>
               </div>
-              {marcaFilter && (
-                <button
-                  onClick={() => setMarcaFilter("")}
-                  className="text-[10px] font-black hover:underline"
-                  style={{ color: brandColor }}
-                >
-                  Limpiar marca
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {marcaFilter && (
+                  <button
+                    onClick={() => setMarcaFilter("")}
+                    className="text-[10px] font-black hover:underline"
+                    style={{ color: brandColor }}
+                  >
+                    Limpiar marca
+                  </button>
+                )}
+                {/* Desktop scroll arrows — hidden on touch where the strip
+                    scrolls naturally. */}
+                <div className="hidden sm:flex gap-1.5">
+                  <button
+                    onClick={() => scrollBrandsBy(-360)}
+                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:bg-gray-50 transition-colors"
+                    style={{ border: "1px solid rgba(10,24,58,0.10)" }}
+                    aria-label="Marcas anteriores"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-[#0A183A]" />
+                  </button>
+                  <button
+                    onClick={() => scrollBrandsBy(360)}
+                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:bg-gray-50 transition-colors"
+                    style={{ border: "1px solid rgba(10,24,58,0.10)" }}
+                    aria-label="Marcas siguientes"
+                  >
+                    <ChevronRight className="w-4 h-4 text-[#0A183A]" />
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div
+              ref={brandsCarouselRef}
+              className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
+              style={{ scrollSnapType: "x mandatory" }}
+            >
               {stockedBrands.map((b) => {
                 const active = marcaFilter === b;
+                const meta = brandsMap.get(b.toLowerCase().trim());
+                const logo = meta?.logoUrl ?? null;
+                // Prefer the canonical name from BrandInfo when available
+                // — that's the version the brand-detail page already
+                // uses, and it normalises any remaining casing drift.
+                const display = meta?.name ?? b;
+                const initial = (display.trim()[0] ?? "?").toUpperCase();
                 return (
                   <button
                     key={b}
                     onClick={() => {
                       setMarcaFilter(active ? "" : b);
                       if (typeof window !== "undefined") {
-                        // Defer so React re-renders the active state
-                        // before we scroll.
                         setTimeout(() => {
                           document.getElementById("catalogo-distribuidor")?.scrollIntoView({ behavior: "smooth", block: "start" });
                         }, 80);
                       }
                     }}
-                    className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-full transition-all"
+                    className="group flex-shrink-0 flex flex-col items-center justify-between rounded-2xl bg-white transition-all overflow-hidden"
                     style={{
-                      background: active ? `linear-gradient(135deg,#0A183A,${brandColor})` : "white",
-                      color: active ? "white" : "#0A183A",
-                      border: active ? "1px solid transparent" : "1px solid rgba(10,24,58,0.08)",
-                      boxShadow: active ? `0 6px 16px -6px ${brandColor}80` : "none",
+                      width: 148,
+                      height: 132,
+                      padding: "12px",
+                      scrollSnapAlign: "start",
+                      border: active
+                        ? `2px solid ${brandColor}`
+                        : "1px solid rgba(10,24,58,0.08)",
+                      boxShadow: active
+                        ? `0 14px 28px -12px ${brandColor}90`
+                        : "0 1px 2px rgba(10,24,58,0.04)",
+                      transform: active ? "translateY(-2px)" : "none",
                     }}
                   >
-                    <span className="text-xs font-black">{b}</span>
+                    {/* Fixed-size logo box keeps every card visually
+                        balanced regardless of the source logo's aspect
+                        ratio. object-contain + center positioning means
+                        wide marks (Continental) and square ones
+                        (Pirelli) both sit on the same baseline. */}
+                    <div
+                      className="w-full flex items-center justify-center"
+                      style={{ height: 72 }}
+                    >
+                      {logo ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={logo}
+                          alt={`${display} logo`}
+                          loading="lazy"
+                          className="transition-transform group-hover:scale-105"
+                          style={{
+                            maxWidth: "100%",
+                            maxHeight: "100%",
+                            objectFit: "contain",
+                            objectPosition: "center",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl"
+                          style={{
+                            background: `linear-gradient(135deg, ${brandColor}1a, ${brandColor}33)`,
+                            color: brandColor,
+                          }}
+                        >
+                          {initial}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className="text-[11px] font-black tracking-wide truncate w-full text-center"
+                      style={{ color: active ? brandColor : "#0A183A" }}
+                    >
+                      {display}
+                    </span>
                   </button>
                 );
               })}
@@ -631,12 +994,19 @@ export default function DistributorStorefront() {
                       )}
                     </div>
                     <div className="p-3.5">
-                      <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: brandColor }}>{l.marca}</p>
                       <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
                       <p className="text-[10px] text-gray-400">{l.dimension}</p>
-                      <div className="mt-2 flex items-baseline gap-1.5">
-                        <span className="text-lg font-black text-[#0A183A]">{fmtCOP(price)}</span>
-                        {hasPromo && <span className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</span>}
+                      <div className="mt-2 flex items-baseline justify-between gap-2 flex-wrap">
+                        <div className="min-w-0">
+                          <span className="text-lg font-black text-[#0A183A]">{fmtCOP(price)}</span>
+                          {hasPromo && <span className="text-[10px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>}
+                        </div>
+                        <AddToCartButton
+                          listing={l as any}
+                          variant="icon"
+                          accent={`linear-gradient(135deg,#0A183A,${brandColor})`}
+                        />
                       </div>
                       <div className="flex flex-wrap gap-1 mt-1.5">
                         {l.tiempoEntrega && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">{l.tiempoEntrega}</span>}
@@ -664,50 +1034,6 @@ export default function DistributorStorefront() {
         )}
       </main>
 
-      {/* WHY BUY — value prop cards. Moved here (after the catalog,
-          before the map) so the page reads: identity → stats → brands
-          → catalog → reasons to trust → coverage map → B2B → SEO.
-          Title trimmed to a single eyebrow line so it doesn't repeat
-          "{name}, distribuidor verificado" right under the H1. */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10">
-        <section aria-labelledby="dist-why" className="space-y-3">
-          <p
-            id="dist-why"
-            className="text-[10px] font-black uppercase tracking-widest mb-1"
-            style={{ color: brandColor }}
-          >
-            Por qué comprar aquí
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { icon: ShieldCheck, title: "Distribuidor verificado", sub: "Pasó nuestro proceso de validación de TirePro Marketplace." },
-              { icon: Package,     title: "Amplio inventario",       sub: `${profile?._count.listings ?? 0} producto${profile?._count.listings === 1 ? "" : "s"} disponibles entre marcas y dimensiones.` },
-              { icon: Truck,       title: "Envío en Colombia",       sub: cobertura.length > 0 ? `Cobertura activa en ${cobertura.slice(0, 3).map((c: any) => c.ciudad).filter(Boolean).join(", ")}${cobertura.length > 3 ? " y más" : ""}.` : "Despacho a las principales ciudades del país." },
-              { icon: Building2,   title: "Atendemos flotas",        sub: "Compras al por mayor con asesoría directa y precios para empresas." },
-            ].map((b) => {
-              const Icon = b.icon;
-              return (
-                <div
-                  key={b.title}
-                  className="bg-white rounded-2xl p-4 flex items-start gap-3"
-                  style={{ boxShadow: "0 6px 18px -10px rgba(10,24,58,0.12)", border: "1px solid rgba(10,24,58,0.05)" }}
-                >
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: `${brandColor}12`, border: `1px solid ${brandColor}22` }}
-                  >
-                    <Icon className="w-4 h-4" style={{ color: brandColor }} />
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-black text-[#0A183A] leading-tight">{b.title}</p>
-                    <p className="text-[10px] text-gray-500 leading-snug mt-0.5">{b.sub}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </div>
 
       {/* MAP — moved to the end (after the catalog + Por qué) so the
           tires breathe right under the hero and the user only meets
@@ -728,83 +1054,6 @@ export default function DistributorStorefront() {
           <div ref={mapRef} className="h-64 sm:h-72 rounded-3xl overflow-hidden border border-gray-100" style={{ zIndex: 0, boxShadow: "0 12px 40px -16px rgba(10,24,58,0.18)" }} />
         </div>
       )}
-
-      {/* B2B / FLOTAS — explicit "we sell to fleets" block. Pre-fills
-          the email/WhatsApp body with a quote-request template so
-          buyers don't have to think. Most retread-volume conversions
-          start as a phone or WhatsApp ping, not a checkout. */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10">
-        <section
-          aria-labelledby="dist-b2b"
-          className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, #0A183A 0%, ${brandColor} 100%)`,
-            boxShadow: "0 24px 60px -24px rgba(10,24,58,0.45)",
-          }}
-        >
-          <div
-            className="absolute inset-0 opacity-15 pointer-events-none"
-            aria-hidden
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 15% 20%, rgba(255,255,255,0.5), transparent 40%), radial-gradient(circle at 85% 100%, rgba(255,255,255,0.3), transparent 40%)",
-            }}
-          />
-          <div className="relative grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6 items-center">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/70 mb-2">
-                Compras para flotas y empresas
-              </p>
-              <h2 id="dist-b2b" className="text-xl sm:text-2xl lg:text-3xl font-black leading-tight">
-                Cotiza al por mayor con {profile?.name}
-              </h2>
-              <p className="text-sm text-white/85 mt-2 max-w-xl leading-relaxed">
-                Atendemos transportadores, talleres y operadores logísticos. Pídenos un
-                presupuesto para tu flota — descuentos por volumen y asesoría directa
-                con un comercial.
-              </p>
-              <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px] text-white/85 max-w-xl">
-                <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/70" /> Precios por volumen</li>
-                <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/70" /> Asesoría comercial directa</li>
-                <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/70" /> Facturación a empresa</li>
-                <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/70" /> Despacho coordinado</li>
-              </ul>
-            </div>
-            <div className="flex flex-col gap-2.5">
-              {whatsappHref && (
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-black bg-white text-[#0A183A] hover:bg-gray-50 transition-colors"
-                  style={{ boxShadow: "0 12px 28px -10px rgba(0,0,0,0.45)" }}
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  WhatsApp para cotizar
-                </a>
-              )}
-              {profile?.emailAtencion && (
-                <a
-                  href={`mailto:${profile.emailAtencion}?subject=${encodeURIComponent(`Cotización flota — ${profile.name}`)}&body=${encodeURIComponent(`Hola,\n\nVengo desde TirePro Marketplace y me gustaría una cotización para una flota.\n\n• Cantidad estimada: \n• Dimensiones: \n• Tipo (nueva / reencauche): \n• Ciudad de entrega: \n\nGracias.`)}`}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-bold text-white border border-white/30 hover:bg-white/10 transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                  Enviar correo
-                </a>
-              )}
-              {profile?.telefono && (
-                <a
-                  href={`tel:${profile.telefono}`}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-bold text-white border border-white/30 hover:bg-white/10 transition-colors"
-                >
-                  <Phone className="w-4 h-4" />
-                  Llamar a {profile.telefono}
-                </a>
-              )}
-            </div>
-          </div>
-        </section>
-      </div>
 
       {/* SEO CONTENT BLOCK — H2 with target keyword "Comprar llantas
           con {distributor} en Colombia". Server-rendered Spanish copy
@@ -911,57 +1160,6 @@ export default function DistributorStorefront() {
 
       {/* Footer */}
       <MarketplaceFooter />
-
-      {/* STICKY MOBILE CTA — phone / WhatsApp / email always within
-          thumb's reach. Hidden on desktop where the profile-card
-          contact buttons are persistently visible. */}
-      {(profile?.telefono || profile?.emailAtencion) && (
-        <>
-          <div className="lg:hidden h-20" aria-hidden />
-          <div
-            className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md"
-            style={{ borderTop: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 -8px 24px -12px rgba(10,24,58,0.18)" }}
-          >
-            <div className="px-3 py-2.5 flex items-center gap-2">
-              <div className="min-w-0 flex-1 truncate">
-                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">Contacta</p>
-                <p className="text-[12px] font-black text-[#0A183A] leading-tight truncate">{profile.name}</p>
-              </div>
-              {whatsappHref && (
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="WhatsApp"
-                  className="w-11 h-11 rounded-full flex items-center justify-center text-white"
-                  style={{ background: "#22c55e", boxShadow: "0 6px 16px -4px rgba(34,197,94,0.55)" }}
-                >
-                  <MessageCircle className="w-4 h-4" />
-                </a>
-              )}
-              {profile.telefono && (
-                <a
-                  href={`tel:${profile.telefono}`}
-                  aria-label="Llamar"
-                  className="w-11 h-11 rounded-full flex items-center justify-center text-white"
-                  style={{ background: `linear-gradient(135deg,#0A183A,${brandColor})`, boxShadow: `0 6px 16px -4px ${brandColor}99` }}
-                >
-                  <Phone className="w-4 h-4" />
-                </a>
-              )}
-              {profile.emailAtencion && (
-                <a
-                  href={`mailto:${profile.emailAtencion}`}
-                  aria-label="Email"
-                  className="w-11 h-11 rounded-full flex items-center justify-center text-[#0A183A] border border-gray-200 bg-white"
-                >
-                  <Mail className="w-4 h-4" />
-                </a>
-              )}
-            </div>
-          </div>
-        </>
-      )}
 
     </div>
   );

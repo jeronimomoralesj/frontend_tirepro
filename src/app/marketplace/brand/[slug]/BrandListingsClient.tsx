@@ -16,7 +16,8 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { Package, Recycle, Search, ShoppingCart, Tag, X } from "lucide-react";
+import { ArrowRight, Package, Recycle, Search, Tag, X } from "lucide-react";
+import { AddToCartButton } from "../../../../components/marketplace/AddToCartButton";
 
 export interface BrandListing {
   id: string;
@@ -333,14 +334,24 @@ export default function BrandListingsClient({
                     </p>
                   )}
 
-                  {/* CTA — visible on hover, always present on mobile */}
-                  <span
-                    className="mt-2 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black text-white transition-opacity opacity-90 group-hover:opacity-100"
-                    style={{ background: `linear-gradient(135deg, ${accent}, ${primary})` }}
-                  >
-                    <ShoppingCart className="w-3 h-3" />
-                    Ver y comprar
-                  </span>
+                  {/* Quick add + view CTA — primary action is the cart
+                      button so the buyer can stay on the brand page
+                      and add multiple SKUs without bouncing. */}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <AddToCartButton
+                      listing={l as any}
+                      variant="compact"
+                      accent={`linear-gradient(135deg, ${accent}, ${primary})`}
+                      className="flex-1"
+                    />
+                    <span
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-full text-[#0A183A] transition-opacity opacity-90 group-hover:opacity-100 flex-shrink-0"
+                      style={{ background: "white", border: `1px solid ${primary}33` }}
+                      aria-label="Ver detalle"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
                 </div>
               </Link>
             );

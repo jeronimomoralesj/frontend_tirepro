@@ -17,6 +17,7 @@ import {
   Shield,
   Users,
   PlusCircle,
+  ChevronDown,
   ChevronRight,
   Upload,
   Search,
@@ -195,6 +196,473 @@ function GhostBtn({ children, onClick, className = "" }: {
     >
       {children}
     </button>
+  );
+}
+
+// =============================================================================
+// Role editor — admin-only popover. Renders the user's current role as a
+// pill, click to switch via a small dropdown. Distribuidor-plan-only roles
+// (catalogo / catalogo_admin / marketplace_tracker) only appear when the
+// company is on that plan, mirroring the create-user form. The user can't
+// edit their OWN role here — locking yourself out of admin would brick
+// the whole company until support intervenes.
+// =============================================================================
+
+const ROLE_META: Record<string, { label: string; bg: string }> = {
+  admin:               { label: "Admin",                bg: "#0A183A" },
+  catalogo_admin:      { label: "Catálogo Admin",       bg: "#7c3aed" },
+  catalogo:            { label: "Catálogo",             bg: "#a855f7" },
+  marketplace_tracker: { label: "Marketplace Tracker",  bg: "#f97316" },
+  viewer:              { label: "Regular",              bg: "#1E76B6" },
+  regular:             { label: "Regular",              bg: "#1E76B6" },
+};
+
+function RoleEditor({
+  currentRole, isSelf, companyPlan, onChange,
+}: {
+  currentRole: string;
+  isSelf: boolean;
+  companyPlan: string;
+  onChange: (nextRole: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Click-outside to close.
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  const m = ROLE_META[currentRole] ?? ROLE_META.regular;
+
+  // What roles can this user be promoted/demoted to?
+  const baseRoles = [
+    { key: "admin",   label: "Admin"   },
+    { key: "viewer",  label: "Regular" },
+  ];
+  const distRoles = companyPlan === "distribuidor"
+    ? [
+        { key: "catalogo",            label: "Catálogo (ventas)" },
+        { key: "catalogo_admin",      label: "Catálogo Admin (ventas + stats)" },
+        { key: "marketplace_tracker", label: "Marketplace Tracker" },
+      ]
+    : [];
+  const options = [...baseRoles, ...distRoles];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => { if (!isSelf) setOpen((o) => !o); }}
+        title={isSelf ? "No puedes cambiar tu propio rol" : "Cambiar rol"}
+        disabled={isSelf}
+        // Visible at every breakpoint — this is an action button, not a
+        // decorative badge. The previous "hidden sm:inline-flex" was a
+        // copy-over from the old static role pill and meant the mobile
+        // Users tab had no way to change roles at all.
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold text-white transition-opacity"
+        style={{
+          background: m.bg,
+          cursor: isSelf ? "default" : "pointer",
+          opacity: isSelf ? 0.85 : 1,
+        }}
+      >
+        <Shield className="w-2.5 h-2.5" />
+        {m.label}
+        {!isSelf && <ChevronDown className="w-2.5 h-2.5 opacity-80" />}
+      </button>
+
+      {open && !isSelf && (
+        <div
+          className="absolute right-0 top-full mt-1.5 z-30 min-w-[220px] rounded-xl bg-white shadow-2xl py-1"
+          style={{ border: "1px solid rgba(10,24,58,0.08)" }}
+        >
+          {options.map((opt) => {
+            const active = opt.key === currentRole;
+            return (
+              <button
+                key={opt.key}
+                onClick={() => { onChange(opt.key); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-[#F0F7FF] transition-colors"
+              >
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ background: ROLE_META[opt.key]?.bg ?? "#9ca3af" }}
+                />
+                <span className={active ? "font-black text-[#0A183A]" : "font-bold text-[#0A183A]"}>
+                  {opt.label}
+                </span>
+                {active && <span className="ml-auto text-[10px] text-[#1E76B6] font-bold">Actual</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Users tab — search + role filter + expandable cards. Admin-only view in
+// /dashboard/ajustes that lets the company owner manage who can sign in,
+// what they can do (RoleEditor), and which placas they're scoped to.
+// Compact-by-default cards expand inline to reveal placa management.
+// =============================================================================
+
+const ROLE_FILTERS: { key: string; label: string }[] = [
+  { key: "all",                 label: "Todos" },
+  { key: "admin",               label: "Admins" },
+  { key: "viewer",              label: "Regulares" },
+  { key: "catalogo",            label: "Catálogo" },
+  { key: "catalogo_admin",      label: "Catálogo Admin" },
+  { key: "marketplace_tracker", label: "Marketplace" },
+];
+
+// Deterministic gradient pairs so each user's avatar gets a stable, distinct
+// color tied to the first letter of their name. Saves us from React-side
+// hashing while still feeling personalized.
+const AVATAR_GRADIENTS: [string, string][] = [
+  ["#1E76B6", "#62b8f0"], ["#7c3aed", "#a855f7"], ["#f97316", "#fb923c"],
+  ["#16a34a", "#22c55e"], ["#0A183A", "#173D68"], ["#dc2626", "#f87171"],
+  ["#0891b2", "#22d3ee"], ["#ca8a04", "#facc15"],
+];
+function avatarGradient(seed: string): [string, string] {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
+}
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function UsersTabContent({
+  users, currentUserId, companyPlan, plateInputs, setPlateInputs,
+  onEditRole, onDelete, onAddPlate, onRemovePlate, onNewUser,
+}: {
+  users: UserData[];
+  currentUserId: string | null;
+  companyPlan: string;
+  plateInputs: Record<string, string>;
+  setPlateInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  onEditRole: (userId: string, nextRole: string) => void;
+  onDelete: (userId: string) => void;
+  onAddPlate: (userId: string) => void;
+  onRemovePlate: (userId: string, plate: string) => void;
+  onNewUser: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Per-role counts feed the filter chip labels — the buttons feel more
+  // useful when each tells you the cohort size in advance.
+  const roleCounts = users.reduce<Record<string, number>>((acc, u) => {
+    acc[u.role] = (acc[u.role] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const filtered = users.filter((u) => {
+    if (roleFilter !== "all") {
+      // "viewer" filter also matches the legacy "regular" role string.
+      if (roleFilter === "viewer" && (u.role === "viewer" || u.role === "regular")) {
+        // accept
+      } else if (u.role !== roleFilter) {
+        return false;
+      }
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const blob = `${u.name} ${u.email}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Sort: pinned self first, admins next, then alphabetical. Makes the list
+  // useful at a glance instead of order-of-creation.
+  const sorted = [...filtered].sort((a, b) => {
+    const selfA = a.id === currentUserId ? -2 : 0;
+    const selfB = b.id === currentUserId ? -2 : 0;
+    const adminA = a.role === "admin" ? -1 : 0;
+    const adminB = b.role === "admin" ? -1 : 0;
+    if (selfA !== selfB || adminA !== adminB) {
+      return (selfA + adminA) - (selfB + adminB);
+    }
+    return a.name.localeCompare(b.name, "es");
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-lg font-black text-[#0A183A]">Usuarios</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {users.length} {users.length === 1 ? "miembro" : "miembros"} en tu empresa
+          </p>
+        </div>
+        <PrimaryBtn onClick={onNewUser}>
+          <UserPlus className="w-4 h-4" /> Nuevo
+        </PrimaryBtn>
+      </div>
+
+      {/* Search + role chips */}
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre o correo…"
+            className="w-full pl-10 pr-9 py-2.5 rounded-xl text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+            style={{ border: "1px solid rgba(52,140,203,0.18)" }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+          {ROLE_FILTERS.map((rf) => {
+            const count =
+              rf.key === "all"
+                ? users.length
+                : rf.key === "viewer"
+                  ? (roleCounts.viewer ?? 0) + (roleCounts.regular ?? 0)
+                  : (roleCounts[rf.key] ?? 0);
+            // Hide chip for plan-irrelevant roles to keep the strip tight
+            const distOnly =
+              rf.key === "catalogo" ||
+              rf.key === "catalogo_admin" ||
+              rf.key === "marketplace_tracker";
+            if (distOnly && companyPlan !== "distribuidor" && count === 0) return null;
+            const active = roleFilter === rf.key;
+            return (
+              <button
+                key={rf.key}
+                onClick={() => setRoleFilter(rf.key)}
+                className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors flex-shrink-0"
+                style={{
+                  background: active ? "#0A183A" : "white",
+                  color:      active ? "white" : "#0A183A",
+                  border: `1px solid ${active ? "#0A183A" : "rgba(10,24,58,0.10)"}`,
+                }}
+              >
+                {rf.label} <span className={active ? "text-white/70" : "text-gray-400"}>· {count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* User cards / empty states */}
+      {users.length === 0 ? (
+        <Card className="p-10 text-center">
+          <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+          <p className="text-sm font-bold text-gray-400">No hay usuarios aún</p>
+          <p className="text-xs text-gray-400 mt-1">Invita a tu primer compañero con el botón <strong>Nuevo</strong>.</p>
+        </Card>
+      ) : sorted.length === 0 ? (
+        <Card className="p-10 text-center">
+          <Search className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+          <p className="text-sm font-bold text-gray-400">Sin resultados</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Prueba otro término o limpia los filtros.
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map((u) => (
+            <UserListCard
+              key={u.id}
+              u={u}
+              isSelf={u.id === currentUserId}
+              expanded={expandedId === u.id}
+              companyPlan={companyPlan}
+              plateInput={plateInputs[u.id] ?? ""}
+              setPlateInput={(v) => setPlateInputs((prev) => ({ ...prev, [u.id]: v }))}
+              onToggle={() => setExpandedId((id) => (id === u.id ? null : u.id))}
+              onEditRole={(next) => onEditRole(u.id, next)}
+              onDelete={() => onDelete(u.id)}
+              onAddPlate={() => onAddPlate(u.id)}
+              onRemovePlate={(plate) => onRemovePlate(u.id, plate)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserListCard({
+  u, isSelf, expanded, companyPlan, plateInput, setPlateInput,
+  onToggle, onEditRole, onDelete, onAddPlate, onRemovePlate,
+}: {
+  u: UserData;
+  isSelf: boolean;
+  expanded: boolean;
+  companyPlan: string;
+  plateInput: string;
+  setPlateInput: (v: string) => void;
+  onToggle: () => void;
+  onEditRole: (next: string) => void;
+  onDelete: () => void;
+  onAddPlate: () => void;
+  onRemovePlate: (plate: string) => void;
+}) {
+  const [a, b] = avatarGradient(u.id || u.email);
+
+  return (
+    <div
+      className="rounded-2xl bg-white overflow-hidden transition-all"
+      style={{
+        border: `1px solid ${isSelf ? "rgba(30,118,182,0.30)" : "rgba(10,24,58,0.08)"}`,
+        boxShadow: expanded ? "0 14px 30px -16px rgba(10,24,58,0.18)" : "none",
+      }}
+    >
+      {/* Compact header row — clickable to expand the placa drawer */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left px-3 sm:px-4 py-3 flex items-center gap-3"
+      >
+        {/* Initials avatar with deterministic gradient */}
+        <div
+          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-black text-sm"
+          style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}
+        >
+          {initials(u.name)}
+        </div>
+
+        {/* Identity */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="font-black text-sm text-[#0A183A] truncate">
+              {u.name}
+            </p>
+            {isSelf && (
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded text-[#1E76B6] bg-[#F0F7FF] flex-shrink-0">
+                Tú
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 truncate">{u.email}</p>
+        </div>
+
+        {/* Inline metadata — placas count + role pill + chevron */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {u.plates && u.plates.length > 0 && (
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-[#1E76B6] bg-[#F0F7FF]">
+              <Tag className="w-2.5 h-2.5" />
+              {u.plates.length}
+            </span>
+          )}
+          {/* Role editor — stop propagation so the chevron click on the
+              outer row doesn't accidentally close the dropdown the user
+              just opened. */}
+          <span onClick={(e) => e.stopPropagation()}>
+            <RoleEditor
+              currentRole={u.role}
+              isSelf={isSelf}
+              companyPlan={companyPlan}
+              onChange={onEditRole}
+            />
+          </span>
+          <ChevronDown
+            className="w-4 h-4 text-gray-400 transition-transform"
+            style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+          />
+        </div>
+      </button>
+
+      {/* Expandable: placa management + delete */}
+      {expanded && (
+        <div className="px-3 sm:px-4 pb-4 pt-1 border-t" style={{ borderColor: "rgba(10,24,58,0.06)" }}>
+          <div className="mt-3 mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+              Placas asignadas {u.plates?.length ? `(${u.plates.length})` : ""}
+            </p>
+          </div>
+
+          {u.plates?.length ? (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {u.plates.map((plate) => (
+                <span
+                  key={plate}
+                  className="flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-bold"
+                  style={{
+                    background: "rgba(30,118,182,0.08)",
+                    color: "#1E76B6",
+                    border: "1px solid rgba(30,118,182,0.20)",
+                  }}
+                >
+                  <Tag className="w-2.5 h-2.5" />
+                  {plate}
+                  <button
+                    onClick={() => onRemovePlate(plate)}
+                    className="ml-0.5 p-0.5 rounded-full hover:bg-red-100 transition-colors"
+                    style={{ color: "#DC2626" }}
+                    title={`Quitar ${plate}`}
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div
+              className="flex items-center justify-center py-3 mb-3 rounded-lg text-[11px] text-gray-400 font-medium"
+              style={{ border: "1.5px dashed rgba(52,140,203,0.18)" }}
+            >
+              Sin placas asignadas
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Nueva placa…"
+              value={plateInput}
+              onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === "Enter" && onAddPlate()}
+              className="flex-1 px-3 py-2 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+              style={{ border: "1px solid rgba(52,140,203,0.18)" }}
+            />
+            <PrimaryBtn onClick={onAddPlate}>
+              <PlusCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Agregar</span>
+            </PrimaryBtn>
+          </div>
+
+          {/* Danger zone — delete user. Hidden on self so admins can't
+              suicide-delete the only admin and lock the company. */}
+          {!isSelf && (
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: "rgba(10,24,58,0.06)" }}>
+              <button
+                onClick={onDelete}
+                className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-colors hover:bg-red-50"
+                style={{ color: "#DC2626" }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Eliminar usuario
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -842,6 +1310,36 @@ const AjustesPage: React.FC = () => {
       toast("Usuario eliminado", "success");
       if (user) fetchUsers(user.companyId);
     } catch (e) { toast(e instanceof Error ? e.message : "Error", "error"); }
+  };
+
+  // Admin can change another user's role inline. Backend validates against
+  // the Prisma UserRole enum so we don't have to mirror the list here —
+  // any unknown value 400s. We optimistically update the local list, then
+  // refetch so server-side caches stay coherent.
+  const handleEditRole = async (userId: string, nextRole: string) => {
+    const target = users.find((x) => x.id === userId);
+    if (!target) return;
+    if (target.role === nextRole) return;
+    if (target.id === user?.id) {
+      toast("No puedes cambiar tu propio rol", "error");
+      return;
+    }
+    try {
+      const res = await authFetch(`${API_BASE}/users/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ role: nextRole }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any));
+        throw new Error(body?.message ?? "No se pudo actualizar el rol");
+      }
+      // Optimistic update for immediate feedback; fetchUsers reconciles.
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: nextRole } : u));
+      toast("Rol actualizado", "success");
+      if (user) fetchUsers(user.companyId);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Error", "error");
+    }
   };
 
   const handleAddPlate = async (userId: string) => {
@@ -1524,17 +2022,24 @@ const AjustesPage: React.FC = () => {
                     };
                     const ret = o.returnStatus ? returnMeta[o.returnStatus] : null;
                     const canRequestReturn = !o.returnStatus && (o.status === "entregado" || o.status === "enviado");
+                    // Tracking deep-link — uses the buyer email already
+                    // on the order so the tracking page passes its email
+                    // gate without prompting the user again.
+                    const trackHref = `/marketplace/order/${o.id}?email=${encodeURIComponent(o.buyerEmail ?? user?.email ?? "")}`;
                     return (
-                      <div key={o.id} className="rounded-xl bg-white overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.1)" }}>
+                      <div key={o.id} className="rounded-xl bg-white overflow-hidden hover:border-[#1E76B6]/30 transition-colors" style={{ border: "1px solid rgba(52,140,203,0.1)" }}>
                         <div className="flex items-center gap-3 p-3">
-                          <div className="w-14 h-14 rounded-xl bg-[#f5f5f7] flex items-center justify-center overflow-hidden flex-shrink-0">
+                          <a
+                            href={trackHref}
+                            className="w-14 h-14 rounded-xl bg-[#f5f5f7] flex items-center justify-center overflow-hidden flex-shrink-0"
+                          >
                             {cover ? <img src={cover} alt="" className="w-full h-full object-contain p-1.5" /> : <Package className="w-5 h-5 text-gray-300" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
+                          </a>
+                          <a href={trackHref} className="flex-1 min-w-0 group">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <a href={`/marketplace/product/${o.listingId}`} className="text-sm font-bold text-[#0A183A] hover:text-[#1E76B6] truncate">
+                              <span className="text-sm font-bold text-[#0A183A] group-hover:text-[#1E76B6] truncate">
                                 {o.listing?.marca} {o.listing?.modelo}
-                              </a>
+                              </span>
                               <span className="text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: st.bg, color: st.color }}>{st.label}</span>
                               {ret && (
                                 <span className="text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: ret.bg, color: ret.color }}>{ret.label}</span>
@@ -1550,7 +2055,10 @@ const AjustesPage: React.FC = () => {
                             {o.returnReason && (
                               <p className="text-[10px] text-gray-500 mt-1 italic">Motivo: {o.returnReason}</p>
                             )}
-                          </div>
+                            <p className="text-[10px] font-bold text-[#1E76B6] mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              Ver seguimiento →
+                            </p>
+                          </a>
                           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                             <p className="text-sm font-black text-[#0A183A]">{fmtCOP(o.totalCop)}</p>
                             {canRequestReturn && (
@@ -1893,119 +2401,18 @@ const AjustesPage: React.FC = () => {
         {/* USERS TAB                                                         */}
         {/* ================================================================ */}
         {activeTab === "users" && user?.role === "admin" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-black text-[#0A183A]">{users.length} usuario{users.length !== 1 ? "s" : ""}</p>
-              <PrimaryBtn onClick={() => setActiveTab("addUser")}>
-                <UserPlus className="w-4 h-4" /> Nuevo
-              </PrimaryBtn>
-            </div>
-
-            {users.length === 0 ? (
-              <Card className="p-10 text-center">
-                <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                <p className="text-sm font-bold text-gray-400">No hay usuarios aún</p>
-              </Card>
-            ) : (
-              users.map((u) => (
-                <Card key={u.id} className="overflow-hidden">
-                  {/* User header */}
-                  <div className="px-4 sm:px-5 py-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid rgba(52,140,203,0.1)", background: "rgba(10,24,58,0.02)" }}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #1E76B6, #348CCB)" }}>
-                        <User className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-black text-sm text-[#0A183A] truncate">{u.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{u.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {(() => {
-                        // Four-role badge: regular fleet user, fleet admin,
-                        // catálogo sales rep, catálogo sales manager. The
-                        // two catálogo roles are distribuidor-only — they
-                        // appear here only when the company hires sales
-                        // people through TirePro.
-                        const meta: Record<string, { label: string; bg: string }> = {
-                          admin:               { label: "Admin",                bg: "#0A183A" },
-                          catalogo_admin:      { label: "Catálogo Admin",       bg: "#7c3aed" },
-                          catalogo:            { label: "Catálogo",             bg: "#a855f7" },
-                          marketplace_tracker: { label: "Marketplace Tracker",  bg: "#f97316" },
-                          viewer:              { label: "Regular",              bg: "#1E76B6" },
-                          regular:             { label: "Regular",              bg: "#1E76B6" },
-                        };
-                        const m = meta[u.role] ?? meta.regular;
-                        return (
-                          <span
-                            className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                            style={{ background: m.bg }}
-                          >
-                            <Shield className="w-2.5 h-2.5" />
-                            {m.label}
-                          </span>
-                        );
-                      })()}
-                      <button
-                        onClick={() => handleDeleteUser(u.id)}
-                        className="p-2 rounded-xl transition-all hover:bg-red-50"
-                        style={{ color: "#DC2626" }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Plates section */}
-                  <div className="p-4 sm:p-5">
-                    <SectionTitle icon={Tag} title="Placas Asignadas" />
-                    {u.plates?.length ? (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {u.plates.map((plate) => (
-                          <span
-                            key={plate}
-                            className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-bold group"
-                            style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.2)" }}
-                          >
-                            <Tag className="w-2.5 h-2.5" />
-                            {plate}
-                            <button
-                              onClick={() => handleRemovePlate(u.id, plate)}
-                              className="p-0.5 rounded-full hover:bg-red-100 transition-colors"
-                              style={{ color: "#DC2626" }}
-                            >
-                              <X className="w-2.5 h-2.5" />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center py-4 mb-4 rounded-xl text-xs text-gray-400 font-medium" style={{ border: "2px dashed rgba(52,140,203,0.15)" }}>
-                        Sin placas asignadas
-                      </div>
-                    )}
-
-                    {/* Add plate form */}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Nueva placa…"
-                        value={plateInputs[u.id] ?? ""}
-                        onChange={(e) => setPlateInputs((prev) => ({ ...prev, [u.id]: e.target.value.toUpperCase() }))}
-                        onKeyDown={(e) => e.key === "Enter" && handleAddPlate(u.id)}
-                        className={`${inputCls} flex-1`}
-                        style={inputStyle}
-                      />
-                      <PrimaryBtn onClick={() => handleAddPlate(u.id)}>
-                        <PlusCircle className="w-4 h-4" />
-                        <span className="hidden sm:inline">Agregar</span>
-                      </PrimaryBtn>
-                    </div>
-                  </div>
-                </Card>
-              ))
-            )}
-          </div>
+          <UsersTabContent
+            users={users}
+            currentUserId={user?.id ?? null}
+            companyPlan={(company?.plan ?? "").toLowerCase()}
+            plateInputs={plateInputs}
+            setPlateInputs={setPlateInputs}
+            onEditRole={handleEditRole}
+            onDelete={handleDeleteUser}
+            onAddPlate={handleAddPlate}
+            onRemovePlate={handleRemovePlate}
+            onNewUser={() => setActiveTab("addUser")}
+          />
         )}
 
         {/* ================================================================ */}

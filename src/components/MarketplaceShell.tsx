@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Search, MapPin, User, Menu, X, Truck, Package, Store } from "lucide-react";
+import { PaymentBadges } from "./marketplace/PaymentBadges";
 import { useCart } from "../lib/useCart";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -38,7 +39,24 @@ interface DistributorOption {
 // NAVBAR — Amazon/MercadoLibre style
 // =============================================================================
 
-export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: string; onSearch?: (q: string) => void }) {
+// Optional co-brand for distributor storefronts. When provided, the
+// navbar renders "TirePro | <Distributor logo>" so the page reads like
+// a co-branded storefront rather than a TirePro page that happens to
+// list a distributor's catalogue.
+export interface CoBrand {
+  name: string;
+  logoUrl?: string | null;
+  href?: string;       // where the distributor logo links to (default: current page)
+  accentColor?: string; // optional brand color for the divider tint
+}
+
+export function MarketplaceNav({
+  initialSearch, onSearch, coBrand,
+}: {
+  initialSearch?: string;
+  onSearch?: (q: string) => void;
+  coBrand?: CoBrand;
+}) {
   const cart = useCart();
   const router = useRouter();
   const [q, setQ] = useState(initialSearch ?? "");
@@ -145,10 +163,42 @@ export function MarketplaceNav({ initialSearch, onSearch }: { initialSearch?: st
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Logo */}
-            <Link href="/marketplace" className="flex-shrink-0">
-              <Image src="/logo_full.png" alt="TirePro" width={100} height={30} className="h-6 sm:h-7 w-auto" />
-            </Link>
+            {/* Logo lockup — TirePro alone, or "TirePro | <distributor>"
+                when the page passes a coBrand. The pipe is a real
+                hairline divider tinted with the distributor's brand
+                color so the lockup feels intentionally co-branded. */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0">
+              <Link href="/marketplace" className="flex-shrink-0">
+                <Image src="/logo_full.png" alt="TirePro" width={100} height={30} className="h-6 sm:h-7 w-auto" />
+              </Link>
+              {coBrand && (
+                <>
+                  <span
+                    aria-hidden
+                    className="block w-px h-7 sm:h-8 flex-shrink-0"
+                    style={{ background: coBrand.accentColor ?? "rgba(10,24,58,0.18)" }}
+                  />
+                  <Link
+                    href={coBrand.href ?? "#"}
+                    className="flex items-center gap-2 min-w-0 group"
+                    aria-label={`${coBrand.name} — storefront`}
+                  >
+                    {coBrand.logoUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={coBrand.logoUrl}
+                        alt={`${coBrand.name} logo`}
+                        className="h-6 sm:h-7 w-auto max-w-[120px] sm:max-w-[160px] object-contain"
+                      />
+                    ) : (
+                      <span className="text-[13px] sm:text-sm font-black text-[#0A183A] truncate group-hover:text-[#1E76B6] transition-colors">
+                        {coBrand.name}
+                      </span>
+                    )}
+                  </Link>
+                </>
+              )}
+            </div>
 
             {/* Desktop search */}
             <div ref={wrapperRef} className="hidden sm:block flex-1 max-w-xl relative min-w-0 mx-auto">
@@ -434,8 +484,15 @@ export function MarketplaceFooter() {
             </Link>
           </div>
         </div>
-        <div className="mt-8 pt-6 border-t border-white/10 text-center">
-          <p className="text-[10px] text-white/30">tirepro.com.co — Marketplace de llantas para flotas en Colombia</p>
+        {/* Payment trust strip — surfaces the fact that we run on
+            Wompi and accept all the major Colombian payment methods.
+            Lives in the footer so it's on every marketplace page. */}
+        <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center sm:justify-between gap-3">
+          <p className="text-[10px] text-white/30 order-2 sm:order-1">tirepro.com.co — Marketplace de llantas para flotas en Colombia</p>
+          <div className="order-1 sm:order-2 inline-flex items-center gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">Pagos seguros</span>
+            <PaymentBadges variant="compact" className="!flex-row" />
+          </div>
         </div>
       </div>
     </footer>

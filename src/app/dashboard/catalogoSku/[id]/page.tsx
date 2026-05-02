@@ -8,7 +8,13 @@ import {
   AlertCircle, Trash2, Image as ImageIcon, CheckCircle2, Film, Video,
   Edit3, Save, ShoppingCart, Check, Share2, Store,
 } from "lucide-react";
-import { buildCatalogPdf, type PdfInput } from "../pdf";
+// `pdf.ts` is dynamic-imported inside onGeneratePdf — it pulls in jspdf
+// and jspdf-autotable (the latter mutates jsPDF.prototype on import),
+// which together weigh ~300kB and fight Turbopack's chunk
+// invalidation under HMR ("module factory is not available"). Loading
+// them only on click keeps the page chunk light and dodges the stale-
+// factory path entirely.
+import type { PdfInput } from "../pdf";
 import { useCatalogCart } from "../cart";
 import { canSharePdf, sharePdf, downloadPdf } from "../share";
 
@@ -673,6 +679,7 @@ export default function CatalogoSkuDetailPage() {
         fetchViaProxy: proxyFetcher,
       };
 
+      const { buildCatalogPdf } = await import("../pdf");
       const blob = await buildCatalogPdf(pdfInput);
       const filename = `${sku.marca}-${sku.modelo}-${sku.dimension}.pdf`.replace(/[^a-zA-Z0-9._-]/g, "_");
 

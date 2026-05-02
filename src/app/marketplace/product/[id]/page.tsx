@@ -1,6 +1,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import ProductClient from "./ProductClient";
+import { buildProductFaqs } from "./faq";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -252,11 +253,30 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     ],
   };
 
+  // FAQPage structured data — same Q&A array the visible <Faq /> on
+  // ProductClient renders, so what crawlers index always matches what
+  // buyers see (Google penalises mismatched FAQ schema). Cite-ability
+  // for AI search engines (Perplexity / Google AI Overview / ChatGPT
+  // browsing) is the main payoff.
+  const faqs = buildProductFaqs(product);
+  const faqStructuredData = faqs.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f: { q: string; a: string }) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  } : null;
+
   return (
     <>
       {/* SEO: structured data */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
+      {faqStructuredData && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }} />
+      )}
 
       {/* SEO: server-rendered content for crawlers */}
       <div className="sr-only" aria-hidden="false">
