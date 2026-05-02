@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Plus, Settings, Search, Car, ChartPie,
   LogOut, Glasses, LifeBuoy, User, Menu, X,
   ChevronLeft, ChevronRight, Truck, User2, Trash2,
-  Trash, ClipboardList, Package, ShoppingCart, BookOpen,
+  Trash, ClipboardList, Package, ShoppingCart, BookOpen, BarChart3,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -53,21 +53,23 @@ function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
     // Vehículos) so the sidebar stays focused.
     if (role === "marketplace_tracker") {
       return [
-        { name: "Catálogo",  path: "/dashboard/catalogoSku",            icon: BookOpen     },
-        { name: "Perfil",    path: "/dashboard/marketplace/perfil",     icon: User2        },
-        { name: "Pedidos",   path: "/dashboard/marketplace/pedidos",    icon: ShoppingCart },
-        { name: "Productos", path: "/dashboard/marketplace/productos",  icon: Package      },
+        { name: "Catálogo",     path: "/dashboard/catalogoSku",                 icon: BookOpen      },
+        { name: "Perfil",       path: "/dashboard/marketplace/perfil",          icon: User2         },
+        { name: "Pedidos",      path: "/dashboard/marketplace/pedidos",         icon: ShoppingCart  },
+        { name: "Productos",    path: "/dashboard/marketplace/productos",       icon: Package       },
+        { name: "Estadísticas", path: "/dashboard/marketplace/estadisticas",    icon: BarChart3     },
       ];
     }
     return [
-      { name: "Resumen",   path: "/dashboard/distribuidor", icon: LayoutDashboard },
-      { name: "Pedidos",   path: "/dashboard/pedidosDist",  icon: ShoppingCart    },
-      { name: "Desechos",  path: "/dashboard/desechosDist", icon: Trash2          },
-      { name: "Gestión",   path: "/dashboard/clientes",     icon: User2           },
-      { name: "Vehículos", path: "/dashboard/vehiculoDist", icon: Truck           },
-      { name: "Catálogo",  path: "/dashboard/catalogoSku",  icon: BookOpen        },
-      { name: "Buscar",    path: "/dashboard/buscarDist",   icon: Search          },
-      { name: "Agregar",   path: "/dashboard/agregarDist",  icon: Plus            },
+      { name: "Resumen",      path: "/dashboard/distribuidor",                icon: LayoutDashboard },
+      { name: "Pedidos",      path: "/dashboard/pedidosDist",                 icon: ShoppingCart    },
+      { name: "Estadísticas", path: "/dashboard/marketplace/estadisticas",    icon: BarChart3       },
+      { name: "Desechos",     path: "/dashboard/desechosDist",                icon: Trash2          },
+      { name: "Gestión",      path: "/dashboard/clientes",                    icon: User2           },
+      { name: "Vehículos",    path: "/dashboard/vehiculoDist",                icon: Truck           },
+      { name: "Catálogo",     path: "/dashboard/catalogoSku",                 icon: BookOpen        },
+      { name: "Buscar",       path: "/dashboard/buscarDist",                  icon: Search          },
+      { name: "Agregar",      path: "/dashboard/agregarDist",                 icon: Plus            },
     ];
   }
 

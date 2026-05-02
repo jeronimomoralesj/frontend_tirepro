@@ -29,6 +29,53 @@ export function trackMarketplaceHome() {
   });
 }
 
+// ─── Internal server-side view tracking ────────────────────────────────────
+// In addition to GA4, post each view to our own backend so distributors
+// can see real, first-party stats on their dashboard. Calls go through
+// /api/track/marketplace-view (Next.js route handler) which enriches
+// the body with Vercel edge geo headers before forwarding to NestJS.
+//
+// Fire-and-forget — never await this. Network errors are swallowed in
+// the route handler; analytics must never block the user.
+
+let _lastTrack: Record<string, number> = {};
+function shouldTrack(key: string, minIntervalMs = 30_000): boolean {
+  // Per-tab in-memory dedup. Stops a fast nav-back-and-forward, an
+  // accidental React StrictMode double-render, or a user refreshing
+  // the page from inflating view counts. 30s window is plenty short
+  // to still capture genuine repeat-views in a multi-tab session.
+  if (typeof window === "undefined") return false;
+  const now = Date.now();
+  const last = _lastTrack[key] ?? 0;
+  if (now - last < minIntervalMs) return false;
+  _lastTrack[key] = now;
+  return true;
+}
+
+function postView(targetType: "product" | "distributor", targetId: string) {
+  if (typeof window === "undefined" || !targetId) return;
+  if (!shouldTrack(`${targetType}:${targetId}`)) return;
+  // Use sendBeacon when available — survives the user navigating
+  // away mid-flight (closing the tab, clicking through to checkout
+  // etc.). fetch with keepalive is the modern fallback.
+  try {
+    const body = JSON.stringify({ targetType, targetId });
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const blob = new Blob([body], { type: "application/json" });
+      navigator.sendBeacon("/api/track/marketplace-view", blob);
+      return;
+    }
+    fetch("/api/track/marketplace-view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(() => { /* swallow */ });
+  } catch {
+    /* swallow — analytics must never throw */
+  }
+}
+
 /** Product detail page viewed */
 export function trackProductView(product: {
   id: string;
@@ -54,6 +101,7 @@ export function trackProductView(product: {
       },
     ],
   });
+  postView("product", product.id);
 }
 
 /** Distributor storefront viewed */
@@ -66,6 +114,7 @@ export function trackDistributorView(distributor: {
     promotion_name: distributor.name,
     creative_name: "distributor_storefront",
   });
+  postView("distributor", distributor.id);
 }
 
 // ─── Search & Discovery ─────────────────────────────────────────────────────

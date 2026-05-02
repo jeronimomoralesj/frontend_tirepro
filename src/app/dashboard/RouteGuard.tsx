@@ -64,9 +64,10 @@ const ROUTE_ACCESS: Record<string, RouteRule> = {
   // hired to push product, not to manage the storefront. Longest-prefix
   // match logic below means these rules win over the broader
   // "/dashboard/marketplace" entry in OPEN_ROUTES.
-  "/dashboard/marketplace/perfil":    { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
-  "/dashboard/marketplace/pedidos":   { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
-  "/dashboard/marketplace/productos": { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
+  "/dashboard/marketplace/perfil":       { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
+  "/dashboard/marketplace/pedidos":      { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
+  "/dashboard/marketplace/productos":    { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
+  "/dashboard/marketplace/estadisticas": { plans: ["distribuidor"], roles: ["admin", "marketplace_tracker"] },
 };
 
 // Routes open to any logged-in user with a token. Includes the bare
