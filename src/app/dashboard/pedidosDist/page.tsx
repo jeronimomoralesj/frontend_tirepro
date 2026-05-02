@@ -16,7 +16,17 @@ import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 // ventasDist/page.tsx is left in place for any direct-URL access but
 // no longer referenced from the dashboard nav.
 const VentasDistPage = React.lazy(() => import("../marketplace/pedidos/page"));
-const CatalogoDistPage = React.lazy(() => import("../catalogoDist/page"));
+// Catálogo tab points at the modern /dashboard/catalogoSku page so dist
+// admins see the same SKU catalog + ficha técnica + sales-advisor + cart
+// experience that marketplace_tracker users get from the sidebar. The
+// legacy /dashboard/catalogoDist URL stays alive (re-exports from the
+// same module) for any old bookmark.
+const CatalogoDistPage = React.lazy(() => import("../catalogoSku/page"));
+// Perfil tab — same modern unified surface that marketplace_tracker users
+// land on when they hit Perfil in the sidebar. Inline DistributorProfileSection
+// (legacy, ~600 LOC) replaced by this lazy import so the two audiences
+// edit their storefront from the exact same form, no drift.
+const PerfilDistPage = React.lazy(() => import("../marketplace/perfil/page"));
 
 // -- API ----------------------------------------------------------------------
 
@@ -3257,7 +3267,11 @@ export default function PedidosDistPage() {
           <CatalogoDistPage />
         </React.Suspense>
       )}
-      {section === "perfil" && <DistributorProfileSection />}
+      {section === "perfil" && (
+        <React.Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-[#1E76B6]" /></div>}>
+          <PerfilDistPage />
+        </React.Suspense>
+      )}
     </div>
   );
 }
