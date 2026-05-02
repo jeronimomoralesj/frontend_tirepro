@@ -487,7 +487,7 @@ export default function DistributorStorefront() {
                   href="#catalogo-distribuidor"
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-black text-white transition-all hover:-translate-y-0.5 hover:shadow-2xl active:scale-[0.98]"
                   style={{
-                    background: `linear-gradient(135deg,#0A183A,${brandColor})`,
+                    background: brandColor,
                     boxShadow: `0 14px 28px -10px ${brandColor}80`,
                   }}
                 >
@@ -1158,7 +1158,7 @@ export default function DistributorStorefront() {
                             <AddToCartButton
                               listing={l as any}
                               variant="icon"
-                              accent={`linear-gradient(135deg,#0A183A,${brandColor})`}
+                              accent={brandColor}
                             />
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -1256,7 +1256,7 @@ export default function DistributorStorefront() {
               onClick={() => setFiltersOpen(false)}
               className="w-full py-3.5 rounded-2xl text-sm font-black text-white active:scale-[0.98] transition-transform"
               style={{
-                background: `linear-gradient(135deg,#0A183A,${brandColor})`,
+                background: brandColor,
                 boxShadow: `0 12px 24px -8px ${brandColor}80`,
               }}
             >
@@ -1452,7 +1452,7 @@ function FilterPanel({
                 onClick={() => setUseCase(u.key)}
                 className="px-2.5 py-1.5 rounded-full text-[11px] font-black transition-all"
                 style={{
-                  background: active ? `linear-gradient(135deg,#0A183A,${brandColor})` : "white",
+                  background: active ? brandColor : "white",
                   color: active ? "white" : "#0A183A",
                   border: active ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
                   boxShadow: active ? `0 4px 12px -4px ${brandColor}80` : "none",

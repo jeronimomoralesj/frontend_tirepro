@@ -164,7 +164,7 @@ export default function BrandListingsClient({
                 onClick={() => setUseCase(c.key)}
                 className="px-3 py-1.5 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5"
                 style={{
-                  background: active ? `linear-gradient(135deg, ${accent}, ${primary})` : "white",
+                  background: active ? primary : "white",
                   color: active ? "white" : "#0A183A",
                   border: active ? "1px solid transparent" : `1px solid ${toRgba(primary, 0.18)}`,
                   boxShadow: active ? `0 4px 12px ${toRgba(primary, 0.25)}` : "none",
@@ -242,7 +242,7 @@ export default function BrandListingsClient({
             <button
               onClick={clearAll}
               className="mt-4 px-4 py-2 rounded-full text-[11px] font-bold text-white"
-              style={{ background: `linear-gradient(135deg, ${accent}, ${primary})` }}
+              style={{ background: primary }}
             >
               Limpiar filtros
             </button>
@@ -341,7 +341,7 @@ export default function BrandListingsClient({
                     <AddToCartButton
                       listing={l as any}
                       variant="compact"
-                      accent={`linear-gradient(135deg, ${accent}, ${primary})`}
+                      accent={primary}
                       className="flex-1"
                     />
                     <span
