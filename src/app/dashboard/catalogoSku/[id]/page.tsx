@@ -576,6 +576,18 @@ export default function CatalogoSkuDetailPage() {
   }
 
   async function onDeleteImage(imgId: string) {
+    // Synthetic ids prefixed with "listing-…" represent images
+    // surfaced from the dist's marketplace listing (no real
+    // CatalogImage row exists). Tell the user to remove them at
+    // the source — the marketplace product editor — instead of
+    // hitting the catalog DELETE endpoint with an invalid id.
+    if (imgId.startsWith("listing-")) {
+      alert(
+        "Esta imagen viene de tu producto en el marketplace. " +
+        "Edítala desde Productos → Editar producto para cambiarla.",
+      );
+      return;
+    }
     if (!confirm("¿Eliminar esta imagen?")) return;
     setDeleting(imgId);
     try {

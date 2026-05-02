@@ -38,17 +38,51 @@ export function trackMarketplaceHome() {
 // Fire-and-forget — never await this. Network errors are swallowed in
 // the route handler; analytics must never block the user.
 
+// Stops repeat-fires within the same browser session. Two layers:
+//   1. In-memory `_lastTrack` (per tab) — covers React StrictMode's
+//      effect-twice in dev, plus rapid back/forward in the same tab
+//   2. sessionStorage — survives an in-tab page refresh AND syncs
+//      across tabs of the same browser session, so opening the
+//      same product in 3 tabs = 1 view, not 3
+//
+// Window is 5 minutes per (targetType:targetId). Genuinely revisiting
+// a product page after 5+ minutes counts as a new view, which is the
+// industry-standard session-window definition. Anonymous + logged-in
+// users go through the same path — no special-casing needed.
+const SS_KEY = "tp_mp_track_v1";
 let _lastTrack: Record<string, number> = {};
-function shouldTrack(key: string, minIntervalMs = 30_000): boolean {
-  // Per-tab in-memory dedup. Stops a fast nav-back-and-forward, an
-  // accidental React StrictMode double-render, or a user refreshing
-  // the page from inflating view counts. 30s window is plenty short
-  // to still capture genuine repeat-views in a multi-tab session.
+function shouldTrack(key: string, minIntervalMs = 5 * 60_000): boolean {
   if (typeof window === "undefined") return false;
   const now = Date.now();
-  const last = _lastTrack[key] ?? 0;
-  if (now - last < minIntervalMs) return false;
+
+  // Layer 1: in-memory check
+  const memLast = _lastTrack[key] ?? 0;
+  if (now - memLast < minIntervalMs) return false;
+
+  // Layer 2: sessionStorage check (cross-tab, survives refresh)
+  let store: Record<string, number> = {};
+  try {
+    const raw = sessionStorage.getItem(SS_KEY);
+    if (raw) store = JSON.parse(raw) as Record<string, number>;
+  } catch { /* JSON parse failure → treat as empty */ }
+  const ssLast = store[key] ?? 0;
+  if (now - ssLast < minIntervalMs) {
+    _lastTrack[key] = ssLast; // sync layer 1 so we skip even faster next time
+    return false;
+  }
+
+  // Mark — both layers. Cap the store size at 50 entries so we don't
+  // grow unbounded over a long session of browsing.
   _lastTrack[key] = now;
+  store[key] = now;
+  const entries = Object.entries(store);
+  if (entries.length > 50) {
+    entries.sort((a, b) => b[1] - a[1]);
+    store = Object.fromEntries(entries.slice(0, 50));
+  }
+  try {
+    sessionStorage.setItem(SS_KEY, JSON.stringify(store));
+  } catch { /* private mode / quota — fine, layer 1 still works */ }
   return true;
 }
 
