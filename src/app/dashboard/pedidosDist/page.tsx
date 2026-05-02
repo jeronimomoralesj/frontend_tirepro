@@ -27,6 +27,11 @@ const CatalogoDistPage = React.lazy(() => import("../catalogoSku/page"));
 // (legacy, ~600 LOC) replaced by this lazy import so the two audiences
 // edit their storefront from the exact same form, no drift.
 const PerfilDistPage = React.lazy(() => import("../marketplace/perfil/page"));
+// Estadísticas tab — moved off the sidebar (admins) into this same
+// tabbed view so the order surface and its analytics share a roof.
+// marketplace_tracker still has it as a sidebar item (they don't have
+// the pedidosDist tabbed page).
+const EstadisticasPage = React.lazy(() => import("../marketplace/estadisticas/page"));
 
 // -- API ----------------------------------------------------------------------
 
@@ -3220,13 +3225,14 @@ function ReturnReencaucheModal({
 // =============================================================================
 
 export default function PedidosDistPage() {
-  const [section, setSection] = useState<"pedidos" | "marketplace" | "catalogo" | "perfil">("pedidos");
+  const [section, setSection] = useState<"pedidos" | "marketplace" | "estadisticas" | "catalogo" | "perfil">("pedidos");
 
   const tabs: { key: typeof section; icon: React.ElementType; label: string }[] = [
-    { key: "pedidos", icon: Package, label: "Pedidos" },
-    { key: "marketplace", icon: Store, label: "Marketplace" },
-    { key: "catalogo", icon: Package, label: "Catalogo" },
-    { key: "perfil", icon: User, label: "Mi Perfil" },
+    { key: "pedidos",      icon: Package,    label: "Pedidos" },
+    { key: "marketplace",  icon: Store,      label: "Marketplace" },
+    { key: "estadisticas", icon: BarChart3,  label: "Estadísticas" },
+    { key: "catalogo",     icon: Package,    label: "Catalogo" },
+    { key: "perfil",       icon: User,       label: "Mi Perfil" },
   ];
 
   return (
@@ -3260,6 +3266,11 @@ export default function PedidosDistPage() {
       {section === "marketplace" && (
         <React.Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-[#1E76B6]" /></div>}>
           <VentasDistPage />
+        </React.Suspense>
+      )}
+      {section === "estadisticas" && (
+        <React.Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-[#1E76B6]" /></div>}>
+          <EstadisticasPage />
         </React.Suspense>
       )}
       {section === "catalogo" && (

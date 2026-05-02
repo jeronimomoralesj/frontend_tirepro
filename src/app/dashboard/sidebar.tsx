@@ -60,16 +60,21 @@ function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
         { name: "Estadísticas", path: "/dashboard/marketplace/estadisticas",    icon: BarChart3     },
       ];
     }
+    // Dist admin nav. Estadísticas is intentionally NOT a standalone
+    // entry here — admins reach it as a tab inside /dashboard/pedidosDist
+    // alongside Pedidos / Marketplace / Catálogo / Perfil, so the order
+    // surface and the analytics that describe it live together.
+    // marketplace_tracker users still see Estadísticas in their sidebar
+    // because they don't have the tabbed pedidosDist surface.
     return [
-      { name: "Resumen",      path: "/dashboard/distribuidor",                icon: LayoutDashboard },
-      { name: "Pedidos",      path: "/dashboard/pedidosDist",                 icon: ShoppingCart    },
-      { name: "Estadísticas", path: "/dashboard/marketplace/estadisticas",    icon: BarChart3       },
-      { name: "Desechos",     path: "/dashboard/desechosDist",                icon: Trash2          },
-      { name: "Gestión",      path: "/dashboard/clientes",                    icon: User2           },
-      { name: "Vehículos",    path: "/dashboard/vehiculoDist",                icon: Truck           },
-      { name: "Catálogo",     path: "/dashboard/catalogoSku",                 icon: BookOpen        },
-      { name: "Buscar",       path: "/dashboard/buscarDist",                  icon: Search          },
-      { name: "Agregar",      path: "/dashboard/agregarDist",                 icon: Plus            },
+      { name: "Resumen",   path: "/dashboard/distribuidor", icon: LayoutDashboard },
+      { name: "Pedidos",   path: "/dashboard/pedidosDist",  icon: ShoppingCart    },
+      { name: "Desechos",  path: "/dashboard/desechosDist", icon: Trash2          },
+      { name: "Gestión",   path: "/dashboard/clientes",     icon: User2           },
+      { name: "Vehículos", path: "/dashboard/vehiculoDist", icon: Truck           },
+      { name: "Catálogo",  path: "/dashboard/catalogoSku",  icon: BookOpen        },
+      { name: "Buscar",    path: "/dashboard/buscarDist",   icon: Search          },
+      { name: "Agregar",   path: "/dashboard/agregarDist",  icon: Plus            },
     ];
   }
 
