@@ -151,10 +151,10 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
       { "@type": "ListItem", position: 9,  name: "Goodyear",                url: "https://www.tirepro.com.co/marketplace?q=Goodyear" },
       { "@type": "ListItem", position: 10, name: "Pirelli",                 url: "https://www.tirepro.com.co/marketplace?q=Pirelli" },
       { "@type": "ListItem", position: 11, name: "Hankook",                 url: "https://www.tirepro.com.co/marketplace?q=Hankook" },
-      { "@type": "ListItem", position: 12, name: "Llantas 295/80R22.5",     url: "https://www.tirepro.com.co/marketplace?q=295/80R22.5" },
-      { "@type": "ListItem", position: 13, name: "Llantas 11R22.5",         url: "https://www.tirepro.com.co/marketplace?q=11R22.5" },
-      { "@type": "ListItem", position: 14, name: "Llantas 315/80R22.5",     url: "https://www.tirepro.com.co/marketplace?q=315/80R22.5" },
-      { "@type": "ListItem", position: 15, name: "Llantas 265/70R16",       url: "https://www.tirepro.com.co/marketplace?q=265/70R16" },
+      { "@type": "ListItem", position: 12, name: "Llantas 295/80R22.5",     url: "https://www.tirepro.com.co/marketplace/dimension/295-80r22-5" },
+      { "@type": "ListItem", position: 13, name: "Llantas 11R22.5",         url: "https://www.tirepro.com.co/marketplace/dimension/11r22-5" },
+      { "@type": "ListItem", position: 14, name: "Llantas 315/80R22.5",     url: "https://www.tirepro.com.co/marketplace/dimension/315-80r22-5" },
+      { "@type": "ListItem", position: 15, name: "Llantas 265/70R16",       url: "https://www.tirepro.com.co/marketplace/dimension/265-70r16" },
     ],
   };
 

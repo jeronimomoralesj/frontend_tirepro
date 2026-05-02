@@ -1,21 +1,14 @@
 // src/app/sitemap.ts
 import { MetadataRoute } from 'next'
+import { POPULAR_DIMENSIONS, toDimensionSlug } from './marketplace/dimension/_lib/dimensions'
+import { CITIES } from './marketplace/ciudad/_lib/cities'
+import { CATEGORIES } from './marketplace/categoria/_lib/categories'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : 'https://api.tirepro.com.co/api'
 
 const BASE_URL = 'https://www.tirepro.com.co'
-
-// Popular tire dimensions searched in Colombia — these become indexable landing pages
-const POPULAR_DIMENSIONS = [
-  '295/80R22.5', '11R22.5', '315/80R22.5', '12R22.5',
-  '275/80R22.5', '225/70R19.5', '215/75R17.5', '235/75R17.5',
-  '7.50R16', '9.5R17.5', '12R24.5', '11R24.5',
-  '265/70R16', '245/70R16', '235/75R15',
-  '205/55R16', '195/65R15', '215/60R16', '195/55R16',
-  '185/65R15', '175/70R13', '205/65R15',
-]
 
 // Popular search terms for marketplace
 const POPULAR_SEARCHES = [
@@ -104,21 +97,52 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/marketplace`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.95 },
   ]
 
-  // -- Dimension landing pages (e.g. /marketplace?q=295/80R22.5) ---------------
-  // These are the money pages — someone searching "295/80R22.5 Colombia" should land here
+  // -- Dimension landing pages -------------------------------------------------
+  // Dedicated /marketplace/dimension/[slug] routes — server-rendered pages
+  // with H1, product grid, AggregateOffer JSON-LD, FAQ, and brand
+  // cross-links. Replaced the old /marketplace?q=… query-string entries
+  // because Google treats those as faceted search and won't anchor
+  // authority to them. The dedicated route gives each dimension its own
+  // canonical URL.
   const dimensionPages: MetadataRoute.Sitemap = POPULAR_DIMENSIONS.map((dim) => ({
-    url: `${BASE_URL}/marketplace?q=${encodeURIComponent(dim)}`,
+    url: `${BASE_URL}/marketplace/dimension/${toDimensionSlug(dim)}`,
     lastModified: new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.9,
   }))
 
   // -- Brand/type search pages -------------------------------------------------
+  // Pointed at /marketplace/buscar (SSR) instead of the client-side
+  // /marketplace?q= so crawlers see the actual filtered product set
+  // in the HTML, not the generic shell.
   const searchPages: MetadataRoute.Sitemap = POPULAR_SEARCHES.map((q) => ({
-    url: `${BASE_URL}/marketplace?q=${encodeURIComponent(q)}`,
+    url: `${BASE_URL}/marketplace/buscar?q=${encodeURIComponent(q)}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.85,
+  }))
+
+  // -- Category landing pages --------------------------------------------------
+  // Vehicle-class and tipo (reencauche / nueva) landing pages. Filled in
+  // alongside the dimension and city pages — together these three hubs
+  // cover the canonical Colombian tire-buy intents.
+  const categoryPages: MetadataRoute.Sitemap = CATEGORIES.map((c) => ({
+    url: `${BASE_URL}/marketplace/categoria/${c.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily' as const,
+    priority: 0.9,
+  }))
+
+  // -- City landing pages ------------------------------------------------------
+  // Dedicated /marketplace/ciudad/[slug] routes for the 15 largest
+  // Colombian markets. Each one carries LocalBusiness array JSON-LD,
+  // ItemList of distributors with cobertura in that city, and a
+  // city-specific FAQ. These are the primary local-search vehicles.
+  const cityPages: MetadataRoute.Sitemap = CITIES.map((c) => ({
+    url: `${BASE_URL}/marketplace/ciudad/${c.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily' as const,
+    priority: 0.9,
   }))
 
   // -- Fetch brands --------------------------------------------------------
@@ -207,6 +231,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticPages,
     ...marketplaceStatic,
     ...dimensionPages,
+    ...categoryPages,
+    ...cityPages,
     ...searchPages,
     ...brandEntries,
     ...distributorEntries,
