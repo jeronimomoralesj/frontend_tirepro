@@ -234,16 +234,51 @@ export default function Sidebar({
   // Polled at the same 60s cadence as the others.
   const [pendingMarketplaceCount, setPendingMarketplaceCount] = useState<number>(0);
 
-  // -- Bootstrap: load user from localStorage ----------------------------------
+  // -- Bootstrap: load user from localStorage, then refresh from server -------
+  // We hydrate the sidebar immediately from localStorage so the nav
+  // doesn't blank on every navigation, but in the background we hit
+  // /users/me to check for role/plan drift. If the server returns a
+  // different role (e.g. admin → marketplace_tracker promotion that
+  // happened after the JWT was minted), we update both localStorage
+  // and the in-memory state so the sidebar re-renders the correct
+  // links without forcing a logout.
   useEffect(() => {
     const raw   = localStorage.getItem("user");
     const token = localStorage.getItem("token");
-    if (raw && token) {
-      setUser(JSON.parse(raw));
-    } else {
+    if (!raw || !token) {
       localStorage.clear();
       window.location.href = "/login";
+      return;
     }
+    try { setUser(JSON.parse(raw)); } catch { /* fall through to server fetch */ }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const fresh = await res.json();
+        if (!fresh?.id) return;
+        const reconciled: UserData = {
+          name:      fresh.name,
+          role:      fresh.role,
+          companyId: fresh.companyId ?? "",
+        };
+        try {
+          const stored = JSON.parse(localStorage.getItem("user") ?? "{}");
+          localStorage.setItem("user", JSON.stringify({
+            ...stored, ...reconciled,
+            id: fresh.id, email: fresh.email,
+            userPlan: fresh.userPlan ?? stored.userPlan ?? "free",
+            company: fresh.company ?? stored.company ?? null,
+          }));
+        } catch { /* ignore — state is the source of truth this render */ }
+        setUser(reconciled);
+      } catch { /* network blip — sidebar keeps the cached value */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // -- Fetch company once we have the id ---------------------------------------
