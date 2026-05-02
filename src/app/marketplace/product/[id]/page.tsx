@@ -231,7 +231,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         bestRating: 5,
         worstRating: 1,
       },
-      review: product.reviews.slice(0, 5).map((r: any) => ({
+      // Surface every review in JSON-LD (capped at 50 to keep the
+      // payload under Google's 100KB structured-data soft limit on
+      // products with hundreds of reviews — but well above the prior
+      // arbitrary 5-review cap that left most data invisible).
+      review: product.reviews.slice(0, 50).map((r: any) => ({
         "@type": "Review",
         author: { "@type": "Person", name: r.user?.name ?? "Usuario" },
         datePublished: r.createdAt,

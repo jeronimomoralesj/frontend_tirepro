@@ -6,7 +6,19 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/dashboard/', '/api/', '/driver-action/', '/login', '/registeruser', '/verify', '/delete', '/blog/admin/', '/_next/', '/settings'],
+        disallow: [
+          '/dashboard/', '/api/', '/driver-action/', '/login', '/registeruser',
+          '/verify', '/delete', '/blog/admin/', '/_next/', '/settings',
+          // Transactional surfaces — burn no crawl budget on per-user pages.
+          '/marketplace/cart', '/marketplace/order/',
+          // Faceted-search params — `?sortBy=`, `?page=`, `?limit=` etc.
+          // produce thin duplicates of the same product set. Strip them
+          // from the index so the canonical /marketplace path is the
+          // only one ranked. Note: `?q=` is intentionally allowed —
+          // those are the dimension/brand landing variants we DO want
+          // ranked (and which the dynamic sitemap surfaces).
+          '/*?*sortBy=', '/*?*page=', '/*?*limit=',
+        ],
       },
       // Google — full access to all public content including images
       { userAgent: 'Googlebot', allow: '/' },

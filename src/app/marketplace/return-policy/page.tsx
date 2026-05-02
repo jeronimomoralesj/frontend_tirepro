@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Script from "next/script";
 import type { Metadata } from "next";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { ArrowLeft, RotateCcw, ShieldCheck, Clock, AlertTriangle, Mail } from "lucide-react";
@@ -10,9 +11,61 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://www.tirepro.com.co/marketplace/return-policy" },
 };
 
+// FAQPage schema — every Q/A on the page is answered here too so AI
+// engines (ChatGPT/Claude/Perplexity/Google AI Mode) can cite the
+// policy directly when a buyer asks "can I return tires bought on
+// TirePro?". Mirrors the visible copy verbatim — Google penalises
+// JSON-LD that lies about page content.
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "¿Puedo devolver una llanta comprada en TirePro Marketplace?",
+      acceptedAnswer: { "@type": "Answer", text: "Sí. En el Marketplace TirePro puedes solicitar la devolución de una llanta hasta 30 días calendario después de recibir tu pedido, siempre y cuando la llanta no haya sido instalada y se encuentre en su estado original. Cada solicitud se envía directamente al distribuidor que despachó el producto, quien revisa el caso y coordina el proceso de recolección y reembolso." },
+    },
+    {
+      "@type": "Question",
+      name: "¿Cuánto tiempo tengo para solicitar una devolución?",
+      acceptedAnswer: { "@type": "Answer", text: "Tienes 30 días calendario desde la fecha de entrega para solicitar la devolución. Para casos de daños en transporte, la solicitud debe presentarse dentro de las primeras 48 horas tras recibir el pedido." },
+    },
+    {
+      "@type": "Question",
+      name: "¿Qué casos aceptan devolución?",
+      acceptedAnswer: { "@type": "Answer", text: "Aceptamos devoluciones por producto incorrecto (medida, marca o modelo distinto al pedido), defectos de fábrica documentados con fotografías, daños visibles en el transporte reportados en 48 horas, o cambio de opinión dentro de los primeros 5 días hábiles si la llanta está sin uso, sin instalar y en su empaque original." },
+    },
+    {
+      "@type": "Question",
+      name: "¿Puedo devolver una llanta ya instalada?",
+      acceptedAnswer: { "@type": "Answer", text: "No. La devolución por cambio de opinión solo aplica para llantas sin instalar. Las llantas instaladas, con desgaste por uso, modificadas o dañadas por manipulación inadecuada no califican para devolución, salvo que se trate de un defecto de fábrica documentado." },
+    },
+    {
+      "@type": "Question",
+      name: "¿Cómo solicito una devolución en TirePro?",
+      acceptedAnswer: { "@type": "Answer", text: "1) Inicia sesión en TirePro y entra a Mis pedidos. 2) Ubica el pedido y haz clic en Solicitar devolución. 3) Indica el motivo y adjunta fotografías si aplica. 4) El distribuidor revisará tu caso en hasta 5 días hábiles y te contactará. 5) Si se aprueba, el distribuidor coordina la recolección y emite el reembolso." },
+    },
+    {
+      "@type": "Question",
+      name: "¿En cuánto tiempo recibo el reembolso?",
+      acceptedAnswer: { "@type": "Answer", text: "Una vez el distribuidor recibe el producto y verifica su estado, se emite el reembolso por el mismo medio de pago utilizado en la compra. El plazo habitual es de 5 a 15 días hábiles, dependiendo de la entidad financiera." },
+    },
+    {
+      "@type": "Question",
+      name: "¿Quién paga el envío de la devolución?",
+      acceptedAnswer: { "@type": "Answer", text: "Los gastos de envío de la devolución pueden ser asumidos por el distribuidor o por el comprador según el motivo. Cuando la devolución es por producto incorrecto, defecto de fábrica o daño en transporte, el distribuidor cubre el costo del envío." },
+    },
+  ],
+};
+
 export default function ReturnPolicyPage() {
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
+      <Script
+        id="return-policy-faq"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <MarketplaceNav />
 
       {/* Hero */}

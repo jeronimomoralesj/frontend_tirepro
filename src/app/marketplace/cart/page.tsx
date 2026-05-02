@@ -48,16 +48,31 @@ export default function CartPage() {
   const [distributorProfiles, setDistributorProfiles] = useState<Record<string, DistributorProfile>>({});
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [addressMode, setAddressMode] = useState<"saved" | "new">("saved");
+  // True iff the localStorage `user` blob has both name + email — that's
+  // enough to skip the data form entirely. The check runs after mount
+  // so SSR renders the guest form and hydration upgrades it once we
+  // can read localStorage.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Lets the user override the auto-fill if e.g. they want to ship to a
+  // different email than their account. Set true by clicking "Cambiar"
+  // on the logged-in confirmation row.
+  const [editingDetails, setEditingDetails] = useState(false);
 
   // -- Pre-fill buyer details from logged-in user + persisted profile -------
   useEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem("user") ?? "{}");
       const stored = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "{}");
+      const userName  = (user.name ?? "").toString().trim();
+      const userEmail = (user.email ?? "").toString().trim();
+      // Logged-in for our purposes = we have enough data to populate the
+      // checkout payload without asking. Email is the only field Wompi
+      // strictly requires beyond the cart contents.
+      if (userName && userEmail) setIsLoggedIn(true);
       setForm((f) => ({
         ...f,
-        buyerName:    f.buyerName    || stored.buyerName    || user.name  || "",
-        buyerEmail:   f.buyerEmail   || stored.buyerEmail   || user.email || "",
+        buyerName:    f.buyerName    || stored.buyerName    || userName  || "",
+        buyerEmail:   f.buyerEmail   || stored.buyerEmail   || userEmail || "",
         buyerPhone:   f.buyerPhone   || stored.buyerPhone   || user.telefono || "",
         buyerAddress: f.buyerAddress || stored.buyerAddress || "",
         buyerCity:    f.buyerCity    || stored.buyerCity    || "",
@@ -396,12 +411,43 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {!showCheckout ? (
+                {/* Three states for the checkout entry point:
+                    1. Guest               → "Pagar" button reveals the form (showCheckout)
+                    2. Logged in (default) → straight-to-Wompi button + "Pagas como [name]" line
+                    3. Logged in but user clicked "Cambiar" → falls through to the form like a guest */}
+                {!showCheckout && !(isLoggedIn && !editingDetails) ? (
                   <button onClick={() => setShowCheckout(true)}
                     className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
                     style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
                     Pagar
                   </button>
+                ) : isLoggedIn && !editingDetails ? (
+                  <div className="space-y-2.5">
+                    <button
+                      onClick={handlePay}
+                      disabled={submitting}
+                      className="w-full py-3.5 rounded-2xl text-sm font-black text-white disabled:opacity-50 transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
+                      style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                    >
+                      {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pagar ${fmtCOP(totalToCharge)}`}
+                    </button>
+                    <p className="text-[11px] text-gray-500 text-center">
+                      Pagas como <span className="font-bold text-[#0A183A]">{form.buyerName}</span>
+                      {" · "}
+                      <button
+                        onClick={() => setEditingDetails(true)}
+                        className="font-bold text-[#1E76B6] hover:underline"
+                      >
+                        Cambiar
+                      </button>
+                    </p>
+                    {checkoutError && (
+                      <p className="text-[11px] text-red-600 font-medium text-center">{checkoutError}</p>
+                    )}
+                    <p className="text-[10px] text-gray-400 leading-relaxed text-center">
+                      Te llevaremos a Wompi para completar el pago de forma segura.
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">Tus datos</p>

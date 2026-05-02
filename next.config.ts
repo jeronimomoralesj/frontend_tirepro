@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-XSS-Protection", value: "1; mode=block" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // Force HTTPS for two years incl. subdomains, request preload list
+          // inclusion. Once preloaded the browser refuses HTTP entirely —
+          // worth the lockup since the entire surface is HTTPS-only already.
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          // Permissions-Policy locks down sensors we don't use (camera /
+          // mic / geolocation are explicitly denied for cross-origin frames
+          // since the only camera surface we use lives on this same origin).
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self), payment=(self), interest-cohort=()" },
         ],
       },
       {
