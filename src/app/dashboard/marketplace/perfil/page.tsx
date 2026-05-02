@@ -56,6 +56,9 @@ interface CompanyForm {
   ciudad: string;
   telefono: string;
   emailAtencion: string;
+  /** Up to 2 additional notification recipients. Order-placed emails
+   *  fan out to emailAtencion + every entry here, deduped server-side. */
+  emailsAtencion: string[];
   sitioWeb: string;
   descripcion: string;
   colorMarca: string;
@@ -75,7 +78,8 @@ interface CompanyForm {
 
 const EMPTY_FORM: CompanyForm = {
   name: "", slug: null, profileImage: "", bannerImage: "",
-  ciudad: "", telefono: "", emailAtencion: "", sitioWeb: "",
+  ciudad: "", telefono: "", emailAtencion: "", emailsAtencion: ["", ""],
+  sitioWeb: "",
   descripcion: "", colorMarca: "#1E76B6", tipoEntrega: "ambos",
   cobertura: [],
   promoBannerImage: "", promoBannerTitle: "",
@@ -128,6 +132,13 @@ export default function PerfilDistributorPage() {
           ciudad:              c.ciudad              ?? "",
           telefono:            c.telefono            ?? "",
           emailAtencion:       c.emailAtencion       ?? "",
+          // Pad / truncate to two slots so the UI always renders two
+          // input fields. The server caps at 5 but the perfil UI
+          // exposes only the first two — that's the supported shape.
+          emailsAtencion: (() => {
+            const arr = Array.isArray(c.emailsAtencion) ? c.emailsAtencion : [];
+            return [arr[0] ?? "", arr[1] ?? ""];
+          })(),
           sitioWeb:            c.sitioWeb            ?? "",
           descripcion:         c.descripcion         ?? "",
           colorMarca:          c.colorMarca          ?? "#1E76B6",
@@ -165,6 +176,11 @@ export default function PerfilDistributorPage() {
           ciudad:        form.ciudad,
           telefono:      form.telefono,
           emailAtencion: form.emailAtencion,
+          // Strip empty entries before send — UI renders fixed two
+          // slots but the server should only see real addresses.
+          emailsAtencion: form.emailsAtencion
+            .map((e) => e.trim())
+            .filter((e) => e.length > 0),
           sitioWeb:      form.sitioWeb,
           descripcion:   form.descripcion,
           colorMarca:    form.colorMarca,
@@ -582,12 +598,50 @@ export default function PerfilDistributorPage() {
                   placeholder="+57 300 …"
                 />
               </Field>
-              <Field label="Email de atención">
+              <Field
+                label="Email de atención"
+                hint="Email principal. Aparece como contacto público y recibe los pedidos nuevos."
+              >
                 <input
                   className={inputCls} style={inputStyle}
                   value={form.emailAtencion}
                   onChange={(e) => setForm((f) => ({ ...f, emailAtencion: e.target.value }))}
                   placeholder="contacto@empresa.co"
+                  type="email"
+                />
+              </Field>
+              {/* Up to 2 extras — order notifications fan out to all 3.
+                  Stays close to the primary so the dist sees the
+                  whole notification list at a glance. Empty inputs
+                  drop out at save time. */}
+              <Field
+                label="Email adicional 1 (opcional)"
+                hint="Recibe la misma notificación de pedidos."
+              >
+                <input
+                  className={inputCls} style={inputStyle}
+                  value={form.emailsAtencion[0] ?? ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      emailsAtencion: [e.target.value, f.emailsAtencion[1] ?? ""],
+                    }))
+                  }
+                  placeholder="ventas@empresa.co"
+                  type="email"
+                />
+              </Field>
+              <Field label="Email adicional 2 (opcional)">
+                <input
+                  className={inputCls} style={inputStyle}
+                  value={form.emailsAtencion[1] ?? ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      emailsAtencion: [f.emailsAtencion[0] ?? "", e.target.value],
+                    }))
+                  }
+                  placeholder="logistica@empresa.co"
                   type="email"
                 />
               </Field>
@@ -729,13 +783,22 @@ export default function PerfilDistributorPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label, hint, children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block mb-1">
         {label}
       </span>
       {children}
+      {hint && (
+        <span className="text-[10px] text-gray-400 block mt-1 leading-snug">{hint}</span>
+      )}
     </label>
   );
 }
