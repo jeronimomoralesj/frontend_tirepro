@@ -31,6 +31,8 @@ import {
   Package,
   Clock,
   RotateCcw,
+  Truck,
+  ArrowUpRight,
 } from "lucide-react";
 import CambiarContrasena from "./CambiarContraseña";
 
@@ -1041,17 +1043,29 @@ const AjustesPage: React.FC = () => {
   const [error,   setError]   = useState("");
   const [loading, setLoading] = useState(true);
   const [toasts,  setToasts]  = useState<Toast[]>([]);
-  const [activeTab, setActiveTab] = useState<TabId>("profile");
+  // Initial tab can come from ?tab= so external links (e.g.
+  // MarketplaceShell's "Mis Pedidos" entry) deep-link straight into
+  // the right section. Falls back to "profile" if no/unknown value.
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    if (typeof window === "undefined") return "profile";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    const allowed: TabId[] = ["profile", "orders", "planes", "company", "users", "addUser", "distributors"];
+    return (allowed as string[]).includes(t ?? "") ? (t as TabId) : "profile";
+  });
 
-  // Catálogo / Catálogo Admin / Marketplace Tracker should never see
-  // anything but Profile — even if the user/handlers somehow flip
-  // activeTab. Force it back.
+  // Scoped distribuidor roles (catalogo / catalogo_admin /
+  // marketplace_tracker) historically only saw the Profile tab. We
+  // now let them onto the Orders tab too — every role is allowed to
+  // place a marketplace order, so every role needs to be able to
+  // see their order history. Other admin-only tabs (Planes / Empresa
+  // / Usuarios / Distribuidores) stay blocked for these roles.
   useEffect(() => {
     const restrictedRole =
       user?.role === "catalogo" ||
       user?.role === "catalogo_admin" ||
       user?.role === "marketplace_tracker";
-    if (restrictedRole && activeTab !== "profile") {
+    const allowedForRestricted: TabId[] = ["profile", "orders"];
+    if (restrictedRole && !(allowedForRestricted as string[]).includes(activeTab)) {
       setActiveTab("profile");
     }
   }, [user?.role, activeTab]);
@@ -1418,7 +1432,11 @@ const AjustesPage: React.FC = () => {
     user?.role === "marketplace_tracker";
   const tabs: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean; hideForDistributor?: boolean; requiresCompany?: boolean; hideForCatalogo?: boolean }[] = [
     { id: "profile",      label: "Perfil",          icon: User                             },
-    { id: "orders",       label: "Mis Pedidos",     icon: ShoppingCart, hideForCatalogo: true },
+    // Mis Pedidos is universal — every authenticated user can have placed
+    // a marketplace order, regardless of role/plan/company. Used to be
+    // gated behind hideForCatalogo, which excluded catalogo /
+    // catalogo_admin / marketplace_tracker for no good reason.
+    { id: "orders",       label: "Mis Pedidos",     icon: ShoppingCart },
     { id: "planes",       label: "Planes",          icon: Tag,         hideForCatalogo: true },
     { id: "company",      label: "Empresa",         icon: Building,    requiresCompany: true, hideForCatalogo: true },
     { id: "users",        label: "Usuarios",        icon: Users,    adminOnly: true, requiresCompany: true },
@@ -2055,12 +2073,22 @@ const AjustesPage: React.FC = () => {
                             {o.returnReason && (
                               <p className="text-[10px] text-gray-500 mt-1 italic">Motivo: {o.returnReason}</p>
                             )}
-                            <p className="text-[10px] font-bold text-[#1E76B6] mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              Ver seguimiento →
-                            </p>
                           </a>
                           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                             <p className="text-sm font-black text-[#0A183A]">{fmtCOP(o.totalCop)}</p>
+                            {/* Explicit tracking CTA — replaces the prior
+                                hover-only "Ver seguimiento →" hint, which
+                                was invisible on touch and easy to miss on
+                                desktop. Always visible, never hidden. */}
+                            <a
+                              href={trackHref}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black text-white whitespace-nowrap transition-all hover:opacity-90"
+                              style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                            >
+                              <Truck className="w-2.5 h-2.5" />
+                              Rastrear pedido
+                              <ArrowUpRight className="w-2.5 h-2.5" />
+                            </a>
                             {canRequestReturn && (
                               <button
                                 onClick={() => { setReturnModal(o); setReturnReason(""); setReturnError(""); }}

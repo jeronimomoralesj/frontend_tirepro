@@ -286,7 +286,9 @@ export function MarketplaceNav({
               )}
 
               {isLoggedIn ? (
-                <Link href="/settings" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
+                /* Was pointing at /settings — that route doesn't exist;
+                   the real settings live at /dashboard/ajustes. */
+                <Link href="/dashboard/ajustes" className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-[#f0f7ff] transition-colors">
                   <User className="w-4 h-4 text-[#0A183A]" />
                   <span className="text-[12px] font-medium text-[#0A183A]">{userName?.split(" ")[0]}</span>
                 </Link>
@@ -421,7 +423,19 @@ export function MarketplaceNav({
                       Ir a Plataforma
                     </Link>
                   )}
-                  {hasCompany && <Link href="/dashboard/analista" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Mis Pedidos</Link>}
+                  {/* Mis Pedidos lives inside ajustes for everyone —
+                      no hasCompany gate. Marketplace-only buyers
+                      (no company) need to track their orders too,
+                      and dashboard/ajustes is in OPEN_ROUTES so the
+                      RouteGuard lets any logged-in user through. The
+                      ?tab=orders deep-link opens the right section. */}
+                  <Link
+                    href="/dashboard/ajustes?tab=orders"
+                    onClick={() => setMobileMenu(false)}
+                    className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50"
+                  >
+                    Mis Pedidos
+                  </Link>
                   {!hasCompany && (
                     <Link href="/signup" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">
                       Activar plataforma (gratis)
