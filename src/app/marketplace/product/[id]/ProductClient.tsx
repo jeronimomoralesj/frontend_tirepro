@@ -1858,7 +1858,7 @@ export default function ProductClient({
           safe area. */}
       <div
         aria-hidden
-        style={{ height: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+        style={{ height: "calc(6.5rem + env(safe-area-inset-bottom))" }}
       />
       <div
         className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md"
@@ -1874,19 +1874,19 @@ export default function ProductClient({
               Row A: price (with promo) + total (when qty > 1) on the right.
               Row B: stepper + full-width "Agregar al carrito" button.
               ─────────────────────────────────────────────────────────── */}
-          <div className="sm:hidden py-2.5">
-            <div className="flex items-baseline justify-between gap-2 mb-2">
+          <div className="sm:hidden py-3">
+            <div className="flex items-baseline justify-between gap-2 mb-2.5">
               <div className="flex items-baseline gap-2 min-w-0">
-                <span className="text-[18px] font-black text-[#0A183A] leading-none tabular-nums truncate">
+                <span className="text-[20px] font-black text-[#0A183A] leading-none tabular-nums truncate">
                   {fmtCOP(price)}
                 </span>
                 {hasPromo && (
-                  <span className="text-[11px] text-gray-400 line-through leading-none">
+                  <span className="text-[12px] text-gray-400 line-through leading-none">
                     {fmtCOP(product.precioCop)}
                   </span>
                 )}
                 {hasPromo && (
-                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider leading-none">
+                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider leading-none">
                     −{discount}%
                   </span>
                 )}
@@ -1897,7 +1897,7 @@ export default function ProductClient({
                 </span>
               )}
             </div>
-            <div className="flex items-stretch gap-2">
+            <div className="flex items-stretch gap-2 h-14">
               <Stepper
                 qty={qty}
                 setQty={setQty}
@@ -1906,22 +1906,22 @@ export default function ProductClient({
               <button
                 onClick={handleAddToCart}
                 disabled={product.cantidadDisponible === 0}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl text-[13px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98]"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98]"
                 style={{
                   background: addedToCart
                     ? "linear-gradient(135deg,#16a34a,#22c55e)"
                     : "linear-gradient(135deg,#0A183A,#1E76B6)",
                   boxShadow: addedToCart
-                    ? "0 8px 22px -6px rgba(34,197,94,0.5)"
-                    : "0 8px 22px -6px rgba(30,118,182,0.5)",
+                    ? "0 10px 26px -6px rgba(34,197,94,0.55)"
+                    : "0 10px 26px -6px rgba(30,118,182,0.55)",
                 }}
               >
-                {addedToCart ? <Check className="w-4 h-4 flex-shrink-0" /> : <ShoppingCart className="w-4 h-4 flex-shrink-0" />}
+                {addedToCart ? <Check className="w-5 h-5 flex-shrink-0" /> : <ShoppingCart className="w-5 h-5 flex-shrink-0" />}
                 <span className="truncate">
                   {product.cantidadDisponible === 0
                     ? "Agotada"
                     : addedToCart
-                      ? "Agregada al carrito"
+                      ? "Agregada"
                       : "Agregar al carrito"}
                 </span>
               </button>
@@ -1993,17 +1993,17 @@ export default function ProductClient({
             <button
               onClick={handleAddToCart}
               disabled={product.cantidadDisponible === 0}
-              className="inline-flex items-center justify-center gap-1.5 px-6 py-3 rounded-full text-sm font-black text-white transition-all disabled:opacity-50 active:scale-[0.98] flex-shrink-0"
+              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98] flex-shrink-0"
               style={{
                 background: addedToCart
                   ? "linear-gradient(135deg,#16a34a,#22c55e)"
                   : "linear-gradient(135deg,#0A183A,#1E76B6)",
                 boxShadow: addedToCart
-                  ? "0 8px 22px -6px rgba(34,197,94,0.5)"
-                  : "0 8px 22px -6px rgba(30,118,182,0.5)",
+                  ? "0 10px 26px -6px rgba(34,197,94,0.5)"
+                  : "0 10px 26px -6px rgba(30,118,182,0.5)",
               }}
             >
-              {addedToCart ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
+              {addedToCart ? <Check className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
               {product.cantidadDisponible === 0
                 ? "Agotada"
                 : addedToCart

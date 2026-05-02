@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   BookOpen, Search, ChevronRight, Loader2, Package, Image as ImageIcon,
   Filter, X, BarChart3, Plus, Lightbulb, Star, Sparkles, ShoppingCart, Check,
+  Sliders, CheckCircle2,
 } from "lucide-react";
 import { useCatalogCart } from "./cart";
 
@@ -78,8 +79,12 @@ export default function CatalogoSkuPage() {
   // Curation (add / remove tires from the list) is a management task —
   // admins + sales managers. Plain catalogo reps don't see the button.
   const [canCurate,  setCanCurate]  = useState(false);
+  // Bulk ficha-técnica edit by banda is admin-only — the backend
+  // gates with roles: ['admin'] on /catalog/dist/bulk-by-banda.
+  const [canBulkEdit, setCanBulkEdit] = useState(false);
   // Sales advisor modal (open to everyone — it's a selling tool).
   const [advisorOpen, setAdvisorOpen] = useState(false);
+  const [bandaOpen,   setBandaOpen]   = useState(false);
   // Cart badge in the header links to the multi-tire quote builder.
   const cart = useCatalogCart();
   useEffect(() => {
@@ -87,6 +92,7 @@ export default function CatalogoSkuPage() {
       const u = JSON.parse(localStorage.getItem("user") ?? "{}");
       setCanSeeStats(u?.role === "admin" || u?.role === "catalogo_admin");
       setCanCurate (u?.role === "admin" || u?.role === "catalogo_admin");
+      setCanBulkEdit(u?.role === "admin");
     } catch { /* leave as false */ }
   }, []);
 
@@ -157,6 +163,16 @@ export default function CatalogoSkuPage() {
             <span className="hidden sm:inline">Asesor de ventas</span>
             <span className="sm:hidden">Asesor</span>
           </button>
+          {canBulkEdit && (
+            <button onClick={() => setBandaOpen(true)}
+              title="Editar ficha técnica para todas las dimensiones de una banda"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+              style={{ background: "rgba(30,118,182,0.08)", color: "#1E76B6", border: "1px solid rgba(30,118,182,0.25)" }}>
+              <Sliders className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Editar ficha por banda</span>
+              <span className="sm:hidden">Banda</span>
+            </button>
+          )}
           {canCurate && (
             <Link href="/dashboard/catalogoSku/explorar"
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
@@ -295,6 +311,12 @@ export default function CatalogoSkuPage() {
       </div>
 
       {advisorOpen && <AdvisorModal onClose={() => setAdvisorOpen(false)} />}
+      {bandaOpen && (
+        <BandaFichaModal
+          onClose={() => setBandaOpen(false)}
+          onApplied={() => { setBandaOpen(false); fetchItems(); }}
+        />
+      )}
     </div>
   );
 }
@@ -734,5 +756,505 @@ function TextInput({ label, value, onChange, placeholder }: {
         className="w-full mt-0.5 px-2.5 py-2 rounded-lg text-xs text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
         style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }} />
     </div>
+  );
+}
+
+// =============================================================================
+// Banda ficha modal
+// Same pattern as the marketplace BandaEditModal but operates on the
+// shared TireMasterCatalog (subscribed SKUs only) and edits ficha-técnica
+// fields instead of images/description. Identity fields (marca/modelo/
+// dimension/skuRef/anchoMm/perfil/rin) are stripped server-side so the
+// per-dimension uniqueness can't be corrupted from here.
+// =============================================================================
+
+type BandaPreviewItem = {
+  id: string;
+  marca: string;
+  modelo: string;
+  dimension: string;
+  skuRef: string;
+};
+
+function BandaFichaModal({
+  onClose,
+  onApplied,
+}: {
+  onClose: () => void;
+  onApplied: () => void;
+}) {
+  // Brand + modelo options drawn from this dist's subscribed catalog
+  // (one big page) — we don't want the user typing brands they don't
+  // already have in their list.
+  const [allRows, setAllRows] = useState<{ marca: string; modelo: string }[]>([]);
+  const [loadingRows, setLoadingRows] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const params = new URLSearchParams({ page: "1", pageSize: "500" });
+        const res = await authFetch(`${API_BASE}/catalog/dist/search?${params.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setAllRows((data.items ?? []).map((r: { marca: string; modelo: string }) => ({
+          marca: r.marca, modelo: r.modelo,
+        })));
+      } catch {
+        setAllRows([]);
+      } finally {
+        setLoadingRows(false);
+      }
+    })();
+  }, []);
+
+  const brandOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of allRows) if (r.marca?.trim()) set.add(r.marca.trim());
+    return [...set].sort();
+  }, [allRows]);
+
+  const [marca, setMarca] = useState<string>("");
+  useEffect(() => {
+    if (!marca && brandOptions[0]) setMarca(brandOptions[0]);
+  }, [brandOptions, marca]);
+
+  const [modeloMatch, setModeloMatch] = useState("");
+  const [preview, setPreview] = useState<BandaPreviewItem[] | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState<{ updated: number } | null>(null);
+
+  const modeloSuggestions = useMemo(() => {
+    if (!marca.trim()) return [];
+    const set = new Set<string>();
+    const m = marca.trim().toLowerCase();
+    for (const r of allRows) {
+      if (r.marca?.trim().toLowerCase() === m && r.modelo?.trim()) {
+        set.add(r.modelo.trim());
+      }
+    }
+    return [...set].sort();
+  }, [allRows, marca]);
+
+  // Ficha técnica payload — every field optional; only filled values
+  // are sent. Reencauchable uses a tri-state ('keep'/'true'/'false') so
+  // an empty save doesn't accidentally overwrite a true to false.
+  const [terreno, setTerreno]                   = useState("");
+  const [ejeTirePro, setEjeTirePro]             = useState("");
+  const [posicion, setPosicion]                 = useState("");
+  const [pctPavimento, setPctPavimento]         = useState("");
+  const [rtdMm, setRtdMm]                       = useState("");
+  const [indiceCarga, setIndiceCarga]           = useState("");
+  const [indiceVelocidad, setIndiceVelocidad]   = useState("");
+  const [psiRecomendado, setPsiRecomendado]     = useState("");
+  const [pesoKg, setPesoKg]                     = useState("");
+  const [cinturones, setCinturones]             = useState("");
+  const [pr, setPr]                             = useState("");
+  const [reencauchable, setReencauchable]       = useState<"keep" | "true" | "false">("keep");
+  const [tipoBanda, setTipoBanda]               = useState("");
+  const [categoria, setCategoria]               = useState("");
+  const [segmento, setSegmento]                 = useState("");
+  const [tipo, setTipo]                         = useState("");
+  const [construccion, setConstruccion]         = useState("");
+  const [notasColombia, setNotasColombia]       = useState("");
+
+  function buildPayload(): Record<string, unknown> {
+    const data: Record<string, unknown> = {};
+    if (terreno)                  data.terreno = terreno;
+    if (ejeTirePro)               data.ejeTirePro = ejeTirePro;
+    if (posicion.trim())          data.posicion = posicion.trim();
+    if (pctPavimento !== "") {
+      const n = Number(pctPavimento);
+      if (!Number.isNaN(n)) {
+        const clamped = Math.max(0, Math.min(100, n));
+        data.pctPavimento = clamped;
+        data.pctDestapado = 100 - clamped;
+      }
+    }
+    if (rtdMm !== "") {
+      const n = Number(rtdMm);
+      if (!Number.isNaN(n) && n >= 0) data.rtdMm = n;
+    }
+    if (indiceCarga.trim())       data.indiceCarga = indiceCarga.trim();
+    if (indiceVelocidad.trim())   data.indiceVelocidad = indiceVelocidad.trim();
+    if (psiRecomendado !== "") {
+      const n = Number(psiRecomendado);
+      if (!Number.isNaN(n) && n >= 0) data.psiRecomendado = n;
+    }
+    if (pesoKg !== "") {
+      const n = Number(pesoKg);
+      if (!Number.isNaN(n) && n >= 0) data.pesoKg = n;
+    }
+    if (cinturones.trim())        data.cinturones = cinturones.trim();
+    if (pr.trim())                data.pr = pr.trim();
+    if (reencauchable !== "keep") data.reencauchable = reencauchable === "true";
+    if (tipoBanda.trim())         data.tipoBanda = tipoBanda.trim();
+    if (categoria)                data.categoria = categoria;
+    if (segmento.trim())          data.segmento = segmento.trim();
+    if (tipo)                     data.tipo = tipo;
+    if (construccion)             data.construccion = construccion;
+    if (notasColombia.trim())     data.notasColombia = notasColombia.trim();
+    return data;
+  }
+
+  const payloadHasFields = Object.keys(buildPayload()).length > 0;
+
+  async function handlePreview() {
+    if (!marca.trim() || !modeloMatch.trim()) {
+      setError("Selecciona marca y escribe la banda");
+      return;
+    }
+    setPreviewing(true);
+    setError("");
+    try {
+      const res = await authFetch(`${API_BASE}/catalog/dist/preview-by-banda`, {
+        method: "POST",
+        body: JSON.stringify({
+          marca:          marca.trim(),
+          modeloContains: modeloMatch.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as BandaPreviewItem[];
+      setPreview(data);
+    } catch (e) {
+      setError((e instanceof Error ? e.message : "").slice(0, 200) || "No se pudo cargar la vista previa");
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  async function handleApply() {
+    if (!preview || preview.length === 0) {
+      setError("Vista previa primero para confirmar a cuáles aplica");
+      return;
+    }
+    const data = buildPayload();
+    if (Object.keys(data).length === 0) {
+      setError("Llena al menos un campo de ficha técnica");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await authFetch(`${API_BASE}/catalog/dist/bulk-by-banda`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          marca:          marca.trim(),
+          modeloContains: modeloMatch.trim(),
+          data,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const out = await res.json();
+      setDone({ updated: out.updated ?? 0 });
+      setTimeout(() => onApplied(), 1500);
+    } catch (e) {
+      setError((e instanceof Error ? e.message : "").slice(0, 200) || "No se pudo aplicar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40"
+      onClick={() => !saving && onClose()}
+    >
+      <div
+        className="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl max-h-[92vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 sm:px-6 py-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid rgba(10,24,58,0.08)" }}>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#1E76B6]">Editar ficha por banda</p>
+            <h2 className="text-lg font-black text-[#0A183A]">Ficha técnica en lote</h2>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Aplica los mismos atributos a todas las dimensiones de una misma banda en tu catálogo.
+            </p>
+          </div>
+          <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Cerrar">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
+          {/* Step 1 — picker */}
+          <div className="grid sm:grid-cols-2 gap-3">
+            <ModalField label="Marca">
+              <select
+                className="w-full px-3 py-2.5 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+                value={marca}
+                onChange={(e) => { setMarca(e.target.value); setPreview(null); }}
+              >
+                {loadingRows && <option value="">Cargando…</option>}
+                {!loadingRows && brandOptions.length === 0 && <option value="">Sin SKUs en tu catálogo</option>}
+                {brandOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </ModalField>
+            <ModalField label="Banda / modelo">
+              <input
+                list="catalog-banda-suggestions"
+                className="w-full px-3 py-2.5 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+                value={modeloMatch}
+                onChange={(e) => { setModeloMatch(e.target.value); setPreview(null); }}
+                placeholder="Ej: ATX, AT PRO RA8, R268"
+              />
+              <datalist id="catalog-banda-suggestions">
+                {modeloSuggestions.map((m) => <option key={m} value={m} />)}
+              </datalist>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Match parcial — escribe lo suficiente para identificar la banda.
+              </p>
+            </ModalField>
+          </div>
+
+          <button
+            type="button"
+            onClick={handlePreview}
+            disabled={previewing || !marca.trim() || !modeloMatch.trim()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold text-[#1E76B6] hover:bg-[#F0F7FF] disabled:opacity-50"
+            style={{ border: "1px solid rgba(30,118,182,0.20)" }}
+          >
+            {previewing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+            Ver vista previa
+          </button>
+
+          {preview && (
+            <div
+              className="rounded-xl p-4"
+              style={{
+                background: preview.length > 0 ? "rgba(30,118,182,0.06)" : "rgba(245,158,11,0.06)",
+                border:     `1px solid ${preview.length > 0 ? "rgba(30,118,182,0.20)" : "rgba(245,158,11,0.25)"}`,
+              }}
+            >
+              <p className="text-sm font-black text-[#0A183A]">
+                {preview.length} SKU{preview.length !== 1 ? "s" : ""} se actualizará{preview.length !== 1 ? "n" : ""}
+              </p>
+              {preview.length === 0 ? (
+                <p className="text-xs text-amber-700 mt-1">
+                  No encontramos SKUs en tu catálogo con esa banda. Intenta con menos texto.
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                  {preview.map((p) => (
+                    <span
+                      key={p.id}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white"
+                      style={{ color: "#0A183A", border: "1px solid rgba(10,24,58,0.08)" }}
+                    >
+                      {p.modelo} · {p.dimension}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2 — ficha técnica payload */}
+          {preview && preview.length > 0 && !done && (
+            <div className="border-t pt-4 space-y-3" style={{ borderColor: "rgba(10,24,58,0.06)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#348CCB]">
+                Llena solo los campos que quieras sobreescribir
+              </p>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <ModalField label="Terreno">
+                  <FichaSelect value={terreno} onChange={setTerreno} options={[
+                    { v: "", l: "— No cambiar —" },
+                    { v: "Carretera", l: "Carretera" },
+                    { v: "Mixto",     l: "Mixto" },
+                    { v: "Urbano",    l: "Urbano" },
+                    { v: "Regional",  l: "Regional" },
+                    { v: "Off-Road",  l: "Off-Road" },
+                  ]} />
+                </ModalField>
+                <ModalField label="Eje TirePro">
+                  <FichaSelect value={ejeTirePro} onChange={setEjeTirePro} options={[
+                    { v: "",          l: "— No cambiar —" },
+                    { v: "direccion", l: "Dirección" },
+                    { v: "traccion",  l: "Tracción" },
+                    { v: "libre",     l: "Libre / multi" },
+                    { v: "remolque",  l: "Remolque" },
+                  ]} />
+                </ModalField>
+                <ModalField label="Categoría">
+                  <FichaSelect value={categoria} onChange={setCategoria} options={[
+                    { v: "",           l: "— No cambiar —" },
+                    { v: "nueva",      l: "Nueva" },
+                    { v: "reencauche", l: "Reencauche" },
+                  ]} />
+                </ModalField>
+                <ModalField label="Construcción">
+                  <FichaSelect value={construccion} onChange={setConstruccion} options={[
+                    { v: "",             l: "— No cambiar —" },
+                    { v: "Radial",       l: "Radial" },
+                    { v: "Convencional", l: "Convencional" },
+                  ]} />
+                </ModalField>
+                <ModalField label="Tipo">
+                  <FichaSelect value={tipo} onChange={setTipo} options={[
+                    { v: "",          l: "— No cambiar —" },
+                    { v: "Tubeless",  l: "Tubeless" },
+                    { v: "Tube-Type", l: "Tube-Type" },
+                  ]} />
+                </ModalField>
+                <ModalField label="Reencauchable">
+                  <FichaSelect value={reencauchable} onChange={(v) => setReencauchable(v as "keep" | "true" | "false")} options={[
+                    { v: "keep",  l: "— No cambiar —" },
+                    { v: "true",  l: "Sí" },
+                    { v: "false", l: "No" },
+                  ]} />
+                </ModalField>
+                <ModalField label="Posición">
+                  <FichaText value={posicion} onChange={setPosicion} placeholder="Ej: Direccional" />
+                </ModalField>
+                <ModalField label="Segmento">
+                  <FichaText value={segmento} onChange={setSegmento} placeholder="Ej: Tractomula, Bus" />
+                </ModalField>
+                <ModalField label="Tipo de banda">
+                  <FichaText value={tipoBanda} onChange={setTipoBanda} placeholder="Ej: Bandag BDR-HT" />
+                </ModalField>
+                <ModalField label="Índice de carga">
+                  <FichaText value={indiceCarga} onChange={setIndiceCarga} placeholder="Ej: 152/148" />
+                </ModalField>
+                <ModalField label="Índice de velocidad">
+                  <FichaText value={indiceVelocidad} onChange={setIndiceVelocidad} placeholder="Ej: M, K, L" />
+                </ModalField>
+                <ModalField label="Cinturones">
+                  <FichaText value={cinturones} onChange={setCinturones} placeholder="Ej: 4B+2N" />
+                </ModalField>
+                <ModalField label="PR (ply rating)">
+                  <FichaText value={pr} onChange={setPr} placeholder="Ej: 16, 18PR" />
+                </ModalField>
+                <ModalField label="Profundidad RTD (mm)">
+                  <FichaNumber value={rtdMm} onChange={setRtdMm} placeholder="Ej: 16" step="0.1" />
+                </ModalField>
+                <ModalField label="PSI recomendado">
+                  <FichaNumber value={psiRecomendado} onChange={setPsiRecomendado} placeholder="Ej: 110" />
+                </ModalField>
+                <ModalField label="Peso (kg)">
+                  <FichaNumber value={pesoKg} onChange={setPesoKg} placeholder="Ej: 65" step="0.1" />
+                </ModalField>
+                <ModalField label="% Pavimento">
+                  <FichaNumber value={pctPavimento} onChange={setPctPavimento} placeholder="0–100" />
+                  {pctPavimento !== "" && !Number.isNaN(Number(pctPavimento)) && (
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Se guarda también % destapado = {Math.max(0, Math.min(100, 100 - Number(pctPavimento)))}
+                    </p>
+                  )}
+                </ModalField>
+              </div>
+
+              <ModalField label="Notas Colombia — opcional">
+                <textarea
+                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                  style={{ border: "1px solid rgba(52,140,203,0.2)", resize: "vertical" }}
+                  value={notasColombia}
+                  onChange={(e) => setNotasColombia(e.target.value)}
+                  placeholder="Comentarios sobre la banda en operación local."
+                />
+              </ModalField>
+            </div>
+          )}
+
+          {done && (
+            <div
+              className="p-4 rounded-2xl"
+              style={{
+                background: "rgba(34,197,94,0.06)",
+                border: "1px solid rgba(34,197,94,0.20)",
+              }}
+            >
+              <p className="text-sm font-black text-[#0A183A]">
+                {done.updated} SKU{done.updated !== 1 ? "s" : ""} actualizado{done.updated !== 1 ? "s" : ""}
+              </p>
+            </div>
+          )}
+
+          {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 sm:px-6 py-4 flex items-center justify-end gap-2" style={{ borderTop: "1px solid rgba(10,24,58,0.08)" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 rounded-full text-sm font-bold text-[#0A183A] hover:bg-gray-100 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          {!done && (
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={
+                saving ||
+                !preview ||
+                preview.length === 0 ||
+                !payloadHasFields
+              }
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-black text-white disabled:opacity-50"
+              style={{
+                background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+                boxShadow: "0 12px 28px -10px rgba(30,118,182,0.45)",
+              }}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              {preview ? `Aplicar a ${preview.length}` : "Aplicar"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-[10px] font-bold uppercase tracking-wide text-[#348CCB]">{label}</label>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+function FichaSelect({ value, onChange, options }: {
+  value: string; onChange: (v: string) => void;
+  options: Array<{ v: string; l: string }>;
+}) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2.5 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+      style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
+      {options.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+    </select>
+  );
+}
+
+function FichaText({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      className="w-full px-3 py-2.5 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+      style={{ border: "1px solid rgba(52,140,203,0.2)" }} />
+  );
+}
+
+function FichaNumber({ value, onChange, placeholder, step }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; step?: string;
+}) {
+  return (
+    <input type="number" value={value} step={step} min="0"
+      onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      className="w-full px-3 py-2.5 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+      style={{ border: "1px solid rgba(52,140,203,0.2)" }} />
   );
 }
