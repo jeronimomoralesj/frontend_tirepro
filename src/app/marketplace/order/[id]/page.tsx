@@ -16,6 +16,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import {
   AlertCircle, ArrowLeft, CheckCircle2, Clock, Loader2, Mail,
   MapPin, Package, Phone, RefreshCw, ShoppingCart, Truck, XCircle,
+  Star, MessageSquare,
 } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 
@@ -38,6 +39,13 @@ interface StatusEvent {
   note?: string | null;
   /** Set on the "confirmado" event when the dist promised a delivery date. */
   eta?: string | null;
+}
+
+interface OrderSurvey {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
 }
 
 interface TrackedOrder {
@@ -74,6 +82,8 @@ interface TrackedOrder {
     telefono: string | null;
     ciudad: string | null;
   };
+  /** Post-delivery survey, when one has been submitted. */
+  survey?: OrderSurvey | null;
 }
 
 // Per-status visual + label info. Anything not in this map (free-text
@@ -332,6 +342,20 @@ function OrderCard({
         )}
         <Journey events={history} currentStatus={order.status} cancelNote={order.notas} />
       </section>
+
+      {/* Post-delivery survey — only shown once status hits entregado.
+          If a survey already exists we show the thank-you state with
+          the buyer's own words echoed back. */}
+      {order.status === "entregado" && (
+        <section className="px-5 sm:px-6 py-5" style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}>
+          <DeliverySurvey
+            orderId={order.id}
+            email={order.buyerEmail}
+            existing={order.survey ?? null}
+            onSubmitted={onRefresh}
+          />
+        </section>
+      )}
 
       {/* Product */}
       <section className="px-5 sm:px-6 py-5" style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}>
@@ -636,5 +660,180 @@ function JourneyNode({
         )}
       </div>
     </li>
+  );
+}
+
+// =============================================================================
+// DELIVERY SURVEY — buyer rates the order experience after entrega
+//
+// Renders one of three states based on `existing`:
+//   1. submitted (existing survey, < 30 days old) → thank-you card with
+//                                                   their own rating
+//                                                   echoed back
+//   2. submitted (older)                          → still thank-you, no
+//                                                   second-guess prompt
+//   3. nothing yet                                → form with 5-star
+//                                                   picker + optional
+//                                                   comment + Enviar
+//
+// API call is email-gated server-side. The same email already pulled
+// from the URL/JWT to load the order is reused, so the buyer doesn't
+// re-type it.
+// =============================================================================
+
+function DeliverySurvey({
+  orderId, email, existing, onSubmitted,
+}: {
+  orderId: string;
+  email: string;
+  existing: { id: string; rating: number; comment: string | null; createdAt: string } | null;
+  /** Called after a successful submit — parent should refetch the
+   *  order so `existing` populates and the form flips to thank-you. */
+  onSubmitted: () => void;
+}) {
+  const [rating, setRating] = useState<number>(existing?.rating ?? 0);
+  const [hover, setHover]   = useState<number>(0);
+  const [comment, setComment] = useState<string>(existing?.comment ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // Pre-existing survey — show the thank-you state immediately.
+  if (existing) {
+    return (
+      <div
+        className="rounded-2xl p-5"
+        style={{
+          background: "linear-gradient(135deg,rgba(34,197,94,0.06),rgba(16,185,129,0.04))",
+          border: "1px solid rgba(34,197,94,0.20)",
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center flex-shrink-0"
+            style={{ border: "1px solid rgba(34,197,94,0.25)" }}>
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">¡Gracias por tu reseña!</p>
+            <p className="text-sm text-[#0A183A] font-bold mt-0.5">Tu opinión ayuda al distribuidor a mejorar.</p>
+            <div className="flex items-center gap-1 mt-2">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star
+                  key={s}
+                  className="w-4 h-4"
+                  fill={s <= existing.rating ? "#f59e0b" : "none"}
+                  style={{ color: s <= existing.rating ? "#f59e0b" : "#d1d5db" }}
+                />
+              ))}
+              <span className="text-xs font-bold text-[#0A183A] ml-1">{existing.rating}/5</span>
+            </div>
+            {existing.comment && (
+              <blockquote className="mt-2 text-xs text-gray-600 italic border-l-2 border-emerald-200 pl-3">
+                {existing.comment}
+              </blockquote>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  async function submit() {
+    if (rating < 1) {
+      setError("Selecciona una calificación de 1 a 5 estrellas");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/marketplace/orders/${orderId}/survey`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, rating, comment: comment.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      onSubmitted();
+    } catch (e) {
+      setError((e instanceof Error ? e.message : "").slice(0, 200) || "No se pudo enviar tu reseña");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="rounded-2xl p-5"
+      style={{
+        background: "linear-gradient(135deg,rgba(30,118,182,0.06),rgba(52,140,203,0.04))",
+        border: "1px solid rgba(30,118,182,0.20)",
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center flex-shrink-0"
+          style={{ border: "1px solid rgba(30,118,182,0.25)" }}>
+          <MessageSquare className="w-5 h-5 text-[#1E76B6]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#1E76B6]">¿Cómo fue tu experiencia?</p>
+          <p className="text-sm text-[#0A183A] font-bold mt-0.5">Califica este pedido</p>
+          <p className="text-[11px] text-gray-500 mt-1">
+            Tu reseña le llega al distribuidor para mejorar el servicio.
+          </p>
+
+          {/* Star picker */}
+          <div className="flex items-center gap-1 mt-3">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onMouseEnter={() => setHover(s)}
+                onMouseLeave={() => setHover(0)}
+                onClick={() => setRating(s)}
+                className="p-1 transition-transform active:scale-90"
+                aria-label={`${s} estrella${s === 1 ? "" : "s"}`}
+              >
+                <Star
+                  className="w-7 h-7"
+                  fill={s <= (hover || rating) ? "#f59e0b" : "none"}
+                  style={{ color: s <= (hover || rating) ? "#f59e0b" : "#d1d5db" }}
+                />
+              </button>
+            ))}
+            {rating > 0 && (
+              <span className="text-xs font-bold text-[#0A183A] ml-2">{rating}/5</span>
+            )}
+          </div>
+
+          {/* Comment */}
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder="¿Algún comentario? (opcional)"
+            className="mt-3 w-full px-3 py-2 rounded-xl text-sm bg-white text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/30"
+            style={{ border: "1px solid rgba(52,140,203,0.20)", resize: "vertical" }}
+          />
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-[10px] text-gray-400">{comment.length}/1000</span>
+          </div>
+
+          {error && <p className="text-[11px] text-red-600 font-medium mt-2">{error}</p>}
+
+          <button
+            type="button"
+            onClick={submit}
+            disabled={submitting || rating < 1}
+            className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-black text-white transition-all disabled:opacity-50 hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+              boxShadow: "0 8px 20px -8px rgba(30,118,182,0.45)",
+            }}
+          >
+            {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+            Enviar reseña
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

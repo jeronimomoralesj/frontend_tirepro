@@ -10,7 +10,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowUpRight, Building2, Check, CheckCircle2, ChevronDown, Clock, Hash,
+  ArrowUpRight, Building2, Calendar, Check, CheckCircle2, ChevronDown, Clock, Hash,
   Loader2, Lock, Mail, MapPin, Package, Pencil, Phone, RefreshCw, ShoppingCart,
   Tag, Truck, User2, X, XCircle,
 } from "lucide-react";
@@ -596,9 +596,22 @@ function StatusActions({
   // estado…" are escape hatches available at every stage so the dist
   // can drop in custom statuses ("en preparación", "listo para
   // retirar", etc.) between the canonical steps.
-  type Mode = "idle" | "menu" | "custom" | "cancel" | "eta";
+  // Status-update modes:
+  //  - idle / menu             — entry points (button → menu)
+  //  - eta                     — set or update the delivery date
+  //                              (chained off Confirmar OR standalone
+  //                              "Editar fecha estimada" entry)
+  //  - confirmNote / shipNote  — Confirmar / Enviado with an optional
+  //                              note for the buyer (chained off menu)
+  //  - deliverNote             — Entregado with an optional note
+  //  - custom / cancel         — free-form status / cancelReason
+  type Mode =
+    | "idle" | "menu"
+    | "eta" | "confirmNote" | "shipNote" | "deliverNote"
+    | "custom" | "cancel";
   const [mode, setMode] = useState<Mode>("idle");
   const [text, setText] = useState("");
+  const [noteText, setNoteText] = useState("");
   const [etaInput, setEtaInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -620,6 +633,7 @@ function StatusActions({
     status: string;
     cancelReason?: string;
     etaDate?: string | null;
+    note?: string;
   }) {
     if (!companyId) return;
     setSaving(true);
@@ -630,6 +644,7 @@ function StatusActions({
         status: opts.status,
       };
       if (opts.cancelReason) body.cancelReason = opts.cancelReason;
+      if (opts.note?.trim()) body.note = opts.note.trim();
       if (opts.etaDate !== undefined) {
         // Empty string clears, ISO string sets, undefined leaves untouched.
         body.etaDate = opts.etaDate || null;
@@ -647,6 +662,7 @@ function StatusActions({
       });
       setMode("idle");
       setText("");
+      setNoteText("");
       setEtaInput("");
     } catch (e: any) {
       setError(e?.message?.slice(0, 200) || "No se pudo actualizar");
@@ -680,31 +696,32 @@ function StatusActions({
 
       {mode === "menu" && (
         <div
-          className="absolute right-0 bottom-full mb-2 w-64 rounded-xl bg-white shadow-xl z-10 overflow-hidden"
+          className="absolute right-0 bottom-full mb-2 w-72 rounded-xl bg-white shadow-xl z-10 overflow-hidden"
           style={{ border: "1px solid rgba(10,24,58,0.10)" }}
         >
           {/* Canonical happy path — top of menu */}
           <button
             type="button"
-            onClick={() => { setMode("eta"); setEtaInput(order.etaDate ? order.etaDate.slice(0, 10) : ""); }}
+            onClick={() => { setMode("eta"); setEtaInput(order.etaDate ? order.etaDate.slice(0, 10) : ""); setNoteText(""); }}
             disabled={saving || order.status === "confirmado"}
             className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-xs font-bold text-[#1E76B6] hover:bg-[#F0F7FF] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <CheckCircle2 className="w-4 h-4" /> Confirmar
-            <span className="ml-auto text-[9px] font-normal text-gray-400 uppercase tracking-wider">+ ETA</span>
+            <span className="ml-auto text-[9px] font-normal text-gray-400 uppercase tracking-wider">+ Fecha</span>
           </button>
           <button
             type="button"
-            onClick={() => patch({ status: "enviado" })}
+            onClick={() => { setMode("shipNote"); setNoteText(""); }}
             disabled={saving}
             className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-xs font-bold text-violet-700 hover:bg-violet-50 disabled:opacity-50"
             style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}
           >
             <Truck className="w-4 h-4" /> Enviado
+            <span className="ml-auto text-[9px] font-normal text-gray-400 uppercase tracking-wider">+ Nota</span>
           </button>
           <button
             type="button"
-            onClick={() => patch({ status: "entregado" })}
+            onClick={() => { setMode("deliverNote"); setNoteText(""); }}
             disabled={saving}
             className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
             style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}
@@ -713,18 +730,33 @@ function StatusActions({
             <span className="ml-auto text-[9px] font-normal text-gray-400 uppercase tracking-wider">cierra</span>
           </button>
 
+          {/* Editable fecha estimada — always available, even after the
+              order has shipped, so the dist can revise it whenever the
+              operation slips. Not a status change; just an etaDate
+              patch on the current status. */}
+          <div style={{ borderTop: "1px solid rgba(10,24,58,0.10)" }}>
+            <button
+              type="button"
+              onClick={() => { setMode("eta"); setEtaInput(order.etaDate ? order.etaDate.slice(0, 10) : ""); setNoteText(""); }}
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-xs font-bold text-[#0A183A] hover:bg-[#F0F7FF]"
+            >
+              <Calendar className="w-4 h-4 text-[#1E76B6]" />
+              {order.etaDate ? "Editar fecha estimada" : "Agregar fecha estimada"}
+            </button>
+          </div>
+
           {/* Escape hatches — keep separated visually */}
           <div style={{ borderTop: "1px solid rgba(10,24,58,0.10)" }}>
             <button
               type="button"
-              onClick={() => { setMode("custom"); setText(""); }}
+              onClick={() => { setMode("custom"); setText(""); setNoteText(""); }}
               className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-xs font-bold text-[#0A183A] hover:bg-[#F0F7FF]"
             >
               <Pencil className="w-4 h-4" /> Otro estado…
             </button>
             <button
               type="button"
-              onClick={() => { setMode("cancel"); setText(""); }}
+              onClick={() => { setMode("cancel"); setText(""); setNoteText(""); }}
               className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-xs font-bold text-red-700 hover:bg-red-50"
               style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}
             >
@@ -735,54 +767,136 @@ function StatusActions({
         </div>
       )}
 
-      {/* ETA picker — pops up from "Confirmar" pick */}
-      {mode === "eta" && (
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Fecha estimada picker. Two entry points:
+            - "Confirmar" from the menu  → sets status=confirmado + etaDate
+            - "Editar fecha" from menu   → keeps current status, just patches etaDate
+          The standalone-edit path uses the order's CURRENT status so we
+          don't accidentally regress an already-shipped order back to
+          confirmado. */}
+      {mode === "eta" && (() => {
+        const targetStatus = order.status === "pendiente" ? "confirmado" : order.status;
+        const isStatusChange = order.status === "pendiente";
+        return (
+          <div className="flex flex-col gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#1E76B6]">
+                Fecha estimada de entrega
+              </span>
+              <input
+                autoFocus
+                type="date"
+                min={todayIso}
+                value={etaInput}
+                onChange={(e) => setEtaInput(e.target.value)}
+                className="px-3 py-1.5 rounded-full text-xs bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                style={{ border: "1px solid rgba(52,140,203,0.25)" }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") { setMode("idle"); setEtaInput(""); setNoteText(""); setError(""); }
+                }}
+              />
+            </div>
+            <input
+              type="text"
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Nota para el comprador (opcional)"
+              className="px-3 py-1.5 rounded-full text-xs bg-white text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+              style={{ border: "1px solid rgba(52,140,203,0.25)" }}
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!etaInput) return;
+                  // Pin at noon UTC so every viewer (server email, buyer
+                  // browser, dist browser) reads the same calendar day
+                  // regardless of their local timezone — avoids the
+                  // off-by-one drift we'd get with local-midnight or
+                  // local-23:59:59 conversions.
+                  patch({
+                    status: targetStatus,
+                    etaDate: `${etaInput}T12:00:00.000Z`,
+                    note: noteText.trim() || undefined,
+                  });
+                }}
+                disabled={!etaInput || saving}
+                className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold text-white disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+              >
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                {isStatusChange ? "Confirmar pedido" : "Guardar fecha"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode("idle"); setEtaInput(""); setNoteText(""); setError(""); }}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:bg-gray-100"
+                aria-label="Cancelar"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Nota inline — Enviado / Entregado pop a single text field
+          for the dist to add a personalized message before saving. */}
+      {(mode === "shipNote" || mode === "deliverNote") && (
+        <div className="flex flex-col gap-2 w-full sm:w-auto">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#1E76B6]">
-            Entrega
+            {mode === "shipNote" ? "Marcar como enviado" : "Marcar como entregado"}
           </span>
           <input
             autoFocus
-            type="date"
-            min={todayIso}
-            value={etaInput}
-            onChange={(e) => setEtaInput(e.target.value)}
-            className="px-3 py-1.5 rounded-full text-xs bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+            type="text"
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder={mode === "shipNote"
+              ? "Ej: Salió por Servientrega, guía 0123…"
+              : "Ej: Recibido por Juan en recepción"}
+            className="px-3 py-1.5 rounded-full text-xs bg-white text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6] sm:w-72"
             style={{ border: "1px solid rgba(52,140,203,0.25)" }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && etaInput) {
-                // Pin at noon UTC so every viewer (server email, buyer
-                // browser, dist browser) reads the same calendar day
-                // regardless of their local timezone — avoids the
-                // off-by-one drift we'd get with local-midnight or
-                // local-23:59:59 conversions.
-                patch({ status: "confirmado", etaDate: `${etaInput}T12:00:00.000Z` });
+              if (e.key === "Enter") {
+                patch({
+                  status: mode === "shipNote" ? "enviado" : "entregado",
+                  note: noteText.trim() || undefined,
+                });
               } else if (e.key === "Escape") {
-                setMode("idle"); setEtaInput(""); setError("");
+                setMode("idle"); setNoteText(""); setError("");
               }
             }}
           />
-          <button
-            type="button"
-            onClick={() => {
-              if (!etaInput) return;
-              patch({ status: "confirmado", etaDate: `${etaInput}T12:00:00.000Z` });
-            }}
-            disabled={!etaInput || saving}
-            className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold text-white disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
-          >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-            Confirmar
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode("idle"); setEtaInput(""); setError(""); }}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:bg-gray-100"
-            aria-label="Cancelar"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <p className="text-[10px] text-gray-400 italic">
+            La nota aparece en el seguimiento del comprador. Es opcional.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => patch({
+                status: mode === "shipNote" ? "enviado" : "entregado",
+                note: noteText.trim() || undefined,
+              })}
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold text-white disabled:opacity-50"
+              style={{
+                background: mode === "shipNote"
+                  ? "linear-gradient(135deg,#7c3aed,#a855f7)"
+                  : "linear-gradient(135deg,#059669,#22c55e)",
+              }}
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              {mode === "shipNote" ? "Marcar enviado" : "Marcar entregado"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode("idle"); setNoteText(""); setError(""); }}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-500 hover:bg-gray-100"
+              aria-label="Cancelar"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
