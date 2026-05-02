@@ -58,6 +58,35 @@ interface BrandInfo {
   country: string | null;
   tier: "premium" | "mid" | "value" | null;
   foundedYear: number | null;
+  primaryColor: string | null;
+  accentColor:  string | null;
+}
+
+// Validate an admin-entered hex string. Anything that's not a clean
+// #RGB / #RRGGBB / #RRGGBBAA is dropped so a typo in the brand admin
+// can't break the layout (CSS will still parse the property as a
+// valid value when we fall back to the TirePro brand below).
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+function safeHex(c: string | null | undefined): string | null {
+  if (!c) return null;
+  const t = c.trim();
+  return HEX_RE.test(t) ? t : null;
+}
+
+// Build the per-brand palette used to tint accents across the product
+// page. Falls back to TirePro blue (#1E76B6) so untagged brands look
+// identical to the previous design and the page never lacks a primary.
+function brandPalette(brand: { primaryColor?: string | null; accentColor?: string | null } | null | undefined) {
+  const primary = safeHex(brand?.primaryColor) ?? "#1E76B6";
+  const accent  = safeHex(brand?.accentColor)  ?? primary;
+  // CSS color-mix lets us tint against white without parsing the hex.
+  // Wrap each tint in `color-mix(in srgb, ${primary} N%, white)` to
+  // get a pastel that still visually reads as "the brand color".
+  const tint06 = `color-mix(in srgb, ${primary} 6%, white)`;
+  const tint10 = `color-mix(in srgb, ${primary} 10%, white)`;
+  const tint18 = `color-mix(in srgb, ${primary} 18%, white)`;
+  const tint30 = `color-mix(in srgb, ${primary} 30%, white)`;
+  return { primary, accent, tint06, tint10, tint18, tint30 };
 }
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -300,6 +329,7 @@ export default function ProductClient({
   const cpk = kmEstimados > 0 ? price / kmEstimados : null;
   const avgRating = product.reviews.length > 0 ? product.reviews.reduce((s, r) => s + r.rating, 0) / product.reviews.length : 0;
   const cobertura = Array.isArray(product.distributor.cobertura) ? product.distributor.cobertura : [];
+  const palette = brandPalette(brandInfo);
 
   return (
     <div className="min-h-screen bg-white">
@@ -395,8 +425,11 @@ export default function ProductClient({
             <div
               className="relative aspect-[5/4] sm:aspect-square rounded-3xl overflow-hidden flex items-center justify-center mb-4 group max-h-[50vh] sm:max-h-none mx-auto w-full"
               style={{
-                background: "radial-gradient(circle at 30% 20%, #ffffff 0%, #f0f7ff 60%, #dbeafe 100%)",
-                boxShadow: "0 20px 60px -20px rgba(10,24,58,0.25), 0 0 0 1px rgba(30,118,182,0.08)",
+                // Brand-tinted radial wash so the backdrop subtly echoes
+                // the brand color (Continental glows red, Michelin blue,
+                // etc.) without overpowering the tire photo.
+                background: `radial-gradient(circle at 30% 20%, #ffffff 0%, ${palette.tint06} 60%, ${palette.tint18} 100%)`,
+                boxShadow: `0 20px 60px -20px rgba(10,24,58,0.25), 0 0 0 1px color-mix(in srgb, ${palette.primary} 15%, white)`,
               }}
             >
               {hasPromo && (
@@ -422,7 +455,7 @@ export default function ProductClient({
                 {imgs.map((url, i) => (
                   <button key={i} onClick={() => setSelectedImg(i)}
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 transition-all"
-                    style={{ background: "#f5f5f7", border: i === selectedImg ? "2px solid #1E76B6" : "2px solid transparent", opacity: i === selectedImg ? 1 : 0.5 }}>
+                    style={{ background: "#f5f5f7", border: i === selectedImg ? `2px solid ${palette.primary}` : "2px solid transparent", opacity: i === selectedImg ? 1 : 0.5 }}>
                     <img src={url} alt={`${product.marca} ${product.modelo} ${product.dimension} - imagen ${i + 1}`} className="w-full h-full object-contain p-1.5" />
                   </button>
                 ))}
@@ -435,10 +468,22 @@ export default function ProductClient({
             <div className="flex items-center gap-2 flex-wrap">
               <Link
                 href={`/marketplace/brand/${brandInfo?.slug ?? product.marca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-")}`}
-                className="inline-flex items-center gap-2 text-[11px] font-black text-[#1E76B6] tracking-widest uppercase px-3 py-1.5 rounded-full bg-white border border-[#1E76B6]/30 hover:bg-[#F0F7FF] hover:border-[#1E76B6]/50 transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 text-[11px] font-black tracking-widest uppercase px-3 py-1.5 rounded-full bg-white transition-colors shadow-sm"
+                style={{
+                  color:           palette.primary,
+                  borderWidth:     "1px",
+                  borderStyle:     "solid",
+                  borderColor:     `color-mix(in srgb, ${palette.primary} 35%, white)`,
+                  backgroundColor: "white",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = palette.tint06; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "white"; }}
               >
                 {brandInfo?.logoUrl && (
-                  <span className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white" style={{ border: "1px solid rgba(30,118,182,0.18)" }}>
+                  <span
+                    className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white"
+                    style={{ border: `1px solid color-mix(in srgb, ${palette.primary} 25%, white)` }}
+                  >
                     <img src={brandInfo.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
                   </span>
                 )}

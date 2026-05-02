@@ -69,6 +69,11 @@ async function fetchBrandInfo(marca: string | null | undefined) {
       country: (data.country ?? null) as string | null,
       tier: (data.tier ?? null) as "premium" | "mid" | "value" | null,
       foundedYear: (data.foundedYear ?? null) as number | null,
+      // Editorial brand colors — admin-set per brand. Used to tint
+      // accents on the product page so e.g. a Continental product has
+      // an orange-red glow vs. Michelin's blue.
+      primaryColor: (data.primaryColor ?? null) as string | null,
+      accentColor:  (data.accentColor  ?? null) as string | null,
     };
   } catch {
     return null;
