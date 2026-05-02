@@ -4,9 +4,9 @@ import Script from "next/script";
 export const metadata: Metadata = {
   title: "Marketplace de Llantas en Colombia — Compra Online | TirePro",
   description:
-    "Compra llantas nuevas y reencauche para camiones, tractomulas, buses, camionetas y autos en Colombia. " +
-    "Compara precios de distribuidores verificados. Michelin, Bridgestone, Continental, Goodyear y mas. " +
-    "Busca por dimension (295/80R22.5, 11R22.5, 265/70R16) o por placa. Envio a todo el pais.",
+    "Compra llantas para tu auto, camioneta, SUV, camion o flota en Colombia. " +
+    "Compara precios de distribuidores verificados. Michelin, Bridgestone, Continental, Goodyear, Pirelli, Hankook y mas. " +
+    "Busca por dimension (205/55R16, 265/70R16, 295/80R22.5) o por placa. Envio a todo el pais.",
   keywords: [
     // Core long-tail variations
     "marketplace de llantas en colombia", "marketplace llantas colombia",
@@ -16,11 +16,15 @@ export const metadata: Metadata = {
     "tienda online de llantas colombia", "tienda de llantas online",
     "venta de llantas colombia", "llantas online colombia",
     "comparador de precios de llantas", "comparar precios llantas",
-    // Vehicle types
+    // Vehicle types — consumer-first (autos and SUVs are the primary
+    // marketplace audience now); fleet/commercial keywords still
+    // included so we don't lose ranking on B2B queries.
+    "llantas para auto", "llantas para automovil", "llantas para sedan",
+    "llantas para camioneta", "llantas para suv", "llantas para 4x4",
+    "llantas para pickup", "llantas para hatchback",
     "llantas para camion", "llantas para tractomula", "llantas para bus",
-    "llantas para camioneta", "llantas para auto", "llantas para flota",
-    "llantas para flotas de transporte", "llantas para maquinaria",
-    "llantas para volqueta", "llantas para furgon",
+    "llantas para flota", "llantas para flotas de transporte",
+    "llantas para maquinaria", "llantas para volqueta", "llantas para furgon",
     // Reencauche
     "reencauche de llantas colombia", "reencauche llantas",
     "llantas reencauchadas", "casco para reencauche",
@@ -58,7 +62,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "Marketplace de Llantas en Colombia — TirePro",
-    description: "Compra llantas nuevas y reencauche. Compara precios de distribuidores verificados en toda Colombia. Envio a todo el pais.",
+    description: "Compra llantas para tu auto, camioneta, SUV o flota. Compara precios de distribuidores verificados en toda Colombia con envio nacional.",
     url: "https://www.tirepro.com.co/marketplace",
     siteName: "TirePro",
     locale: "es_CO",
@@ -68,7 +72,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Marketplace de Llantas — TirePro Colombia",
-    description: "Compra llantas para tu flota o vehiculo. Distribuidores verificados, precios directos, envio nacional.",
+    description: "Compra llantas para tu auto, camioneta, SUV o flota. Distribuidores verificados, precios directos, envio nacional.",
     images: ["https://www.tirepro.com.co/og-image.png"],
   },
   alternates: {
@@ -109,13 +113,13 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
       { "@type": "Question", name: "¿Dónde comprar llantas online en Colombia?",
         acceptedAnswer: { "@type": "Answer", text: "TirePro Marketplace es la plataforma para comprar llantas nuevas y reencauche de distribuidores verificados en toda Colombia. Encuentra Michelin, Bridgestone, Continental, Goodyear, Pirelli, Hankook, Firestone y más. Busca por dimensión, marca o placa de tu vehículo y recibe envíos a Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga, Pereira y todo el país." } },
       { "@type": "Question", name: "¿Cuál es el mejor marketplace de llantas en Colombia?",
-        acceptedAnswer: { "@type": "Answer", text: "TirePro Marketplace es el marketplace líder de llantas en Colombia, especializado en flotas de transporte. Conecta a operadores de camiones, tractomulas y buses con distribuidores verificados, ofrece comparación de precios en tiempo real, búsqueda por placa, catálogo de 2.500+ SKUs y entregas en todo el territorio nacional." } },
-      { "@type": "Question", name: "¿Cómo comprar llantas para camión en Colombia?",
-        acceptedAnswer: { "@type": "Answer", text: "1) Entra a tirepro.com.co/marketplace. 2) Busca por dimensión (295/80R22.5, 11R22.5, 315/80R22.5) o por la placa de tu camión. 3) Compara precios de distribuidores verificados. 4) Solicita cotización o agrega al carrito. 5) Recibe la llanta en tu ciudad o flota. Métodos de pago: tarjeta, PSE, Nequi y crédito empresarial para flotas." } },
+        acceptedAnswer: { "@type": "Answer", text: "TirePro Marketplace es el marketplace líder de llantas en Colombia para autos, camionetas, SUV, camiones y flotas. Conecta a compradores particulares, talleres y empresas de transporte con distribuidores verificados, ofrece comparación de precios en tiempo real, búsqueda por placa o por dimensión, catálogo de 2.500+ SKUs y entregas en todo el territorio nacional." } },
+      { "@type": "Question", name: "¿Cómo comprar llantas en Colombia?",
+        acceptedAnswer: { "@type": "Answer", text: "1) Entra a tirepro.com.co/marketplace. 2) Busca por dimensión (205/55R16, 265/70R16, 295/80R22.5) o por la placa de tu vehículo. 3) Compara precios de distribuidores verificados para tu auto, camioneta, SUV o flota. 4) Agrega al carrito y paga online. 5) Recibe la llanta en tu ciudad. Métodos de pago: tarjeta, PSE y Nequi vía Wompi; crédito empresarial disponible para flotas." } },
       { "@type": "Question", name: "¿Qué dimensión de llantas necesita mi vehículo?",
-        acceptedAnswer: { "@type": "Answer", text: "En TirePro puedes buscar por placa y obtener la dimensión exacta. Las más comunes en Colombia: tractomulas 295/80R22.5 y 11R22.5, camiones medianos 11R22.5 y 12R22.5, buses 275/80R22.5 y 215/75R17.5, camionetas 265/70R16 y 245/70R16, sedanes 205/55R16 y 195/65R15, compactos 175/70R13 y 185/65R15." } },
-      { "@type": "Question", name: "¿Cuánto cuestan las llantas para camión en Colombia?",
-        acceptedAnswer: { "@type": "Answer", text: "Los precios varían según marca, dimensión y tipo (nueva o reencauche). En TirePro puedes comparar precios de múltiples distribuidores en segundos. Referencias actuales: llanta nueva 295/80R22.5 desde $800.000 COP, reencauche 295/80R22.5 desde $400.000 COP, 11R22.5 nueva desde $750.000 COP. Los precios cambian frecuentemente — siempre revisa el marketplace para el valor del día." } },
+        acceptedAnswer: { "@type": "Answer", text: "En TirePro puedes buscar por placa y obtener la dimensión exacta. Las más comunes en Colombia: subcompactos (Picanto, Spark) 165/65R14 y 175/65R14, sedanes (Logan, Corolla, Mazda 3) 185/65R15 y 205/55R16, SUV (Tucson, Tracker, CX-5) 215/55R17 y 225/55R18, camionetas (Hilux, Ranger) 265/65R17 y 265/60R18, camiones medianos 11R22.5 y 12R22.5, tractomulas 295/80R22.5 y 11R22.5." } },
+      { "@type": "Question", name: "¿Cuánto cuestan las llantas en Colombia?",
+        acceptedAnswer: { "@type": "Answer", text: "Los precios varían según marca, dimensión y tipo de vehículo. Referencias actuales: llanta para auto 175/65R14 desde $200.000 COP, llanta para SUV 215/55R17 desde $350.000 COP, llanta camioneta 265/65R17 desde $450.000 COP, llanta tractomula nueva 295/80R22.5 desde $800.000 COP, reencauche 295/80R22.5 desde $400.000 COP. En TirePro puedes comparar precios de múltiples distribuidores en segundos." } },
       { "@type": "Question", name: "¿TirePro vende llantas reencauchadas?",
         acceptedAnswer: { "@type": "Answer", text: "Sí. TirePro Marketplace ofrece llantas reencauchadas de distribuidores certificados, con garantía y trazabilidad del casco original. El reencauche puede reducir el costo de llantas para flotas hasta 40% manteniendo el rendimiento operativo." } },
       { "@type": "Question", name: "¿Qué marcas de llantas hay en TirePro?",
@@ -123,15 +127,15 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
       { "@type": "Question", name: "¿TirePro entrega llantas a todo Colombia?",
         acceptedAnswer: { "@type": "Answer", text: "Sí. Los distribuidores del marketplace TirePro entregan en Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga, Pereira, Manizales, Armenia, Ibagué, Cúcuta, Santa Marta, Villavicencio, Neiva, Pasto, Popayán, Tunja, Sincelejo, Valledupar, Montería y todo el territorio nacional." } },
       { "@type": "Question", name: "¿Puedo comprar llantas al por mayor para mi flota?",
-        acceptedAnswer: { "@type": "Answer", text: "Sí. TirePro está diseñado específicamente para flotas. Solicita cotizaciones masivas, negocia con varios distribuidores al tiempo, gestiona órdenes de compra recurrentes y aprovecha precios mayoristas. Las flotas con plan TirePro reciben recomendaciones automáticas de compra basadas en el desgaste real de cada vehículo." } },
+        acceptedAnswer: { "@type": "Answer", text: "Sí. Aunque TirePro Marketplace funciona principalmente para compradores particulares (un juego de llantas para tu auto, camioneta o SUV), también atendemos flotas: solicita cotizaciones masivas, negocia con varios distribuidores al tiempo, gestiona órdenes recurrentes y aprovecha precios mayoristas. Las flotas con plan TirePro reciben recomendaciones automáticas de compra basadas en el desgaste real de cada vehículo." } },
       { "@type": "Question", name: "¿Qué garantía tienen las llantas compradas en TirePro?",
         acceptedAnswer: { "@type": "Answer", text: "Cada llanta vendida en el marketplace TirePro cuenta con la garantía oficial del fabricante o del distribuidor verificado. Las llantas nuevas tienen garantía contra defectos de fabricación; las reencauchadas tienen garantía sobre el proceso de reencauche y la integridad del casco." } },
       { "@type": "Question", name: "¿Cómo elegir entre llanta nueva y reencauche?",
-        acceptedAnswer: { "@type": "Answer", text: "Para flotas pesadas el reencauche suele ser la opción más rentable cuando el casco está en buen estado, ofreciendo hasta 40% de ahorro. La llanta nueva se recomienda en ejes de dirección, cuando el casco no es retreadable o cuando se busca máxima vida útil. TirePro analiza tu CPK histórico y te dice cuál opción minimiza el costo por kilómetro de tu flota." } },
+        acceptedAnswer: { "@type": "Answer", text: "Para autos, camionetas y SUV la recomendación es siempre llanta nueva — el reencauche aplica únicamente a llantas de carga (camión, tractomula, bus). En flotas pesadas el reencauche suele ser la opción más rentable cuando el casco está en buen estado (hasta 40% de ahorro vs llanta nueva equivalente), aunque la llanta nueva se prefiere en ejes de dirección y cuando el casco no es retreadable." } },
       { "@type": "Question", name: "¿TirePro ofrece financiación de llantas?",
         acceptedAnswer: { "@type": "Answer", text: "Algunos distribuidores en TirePro Marketplace ofrecen plazos de pago, crédito empresarial y opciones de leasing para flotas. Los términos varían por distribuidor — consulta directamente al solicitar cotización." } },
       { "@type": "Question", name: "¿Qué es TirePro?",
-        acceptedAnswer: { "@type": "Answer", text: "TirePro es la plataforma colombiana de gestión inteligente de llantas con inteligencia artificial para flotas de transporte, más un marketplace que conecta flotas con distribuidores verificados. Reduce costos de llantas hasta 25% mediante análisis de CPK, predicción de fallas, recomendaciones de compra automatizadas y comparación de precios en tiempo real." } },
+        acceptedAnswer: { "@type": "Answer", text: "TirePro es el marketplace de llantas más grande de Colombia para autos, camionetas, SUV, camiones y flotas. Conectamos compradores particulares y empresas con distribuidores verificados, ofreciendo comparación de precios en tiempo real, búsqueda por placa o por dimensión, métodos de pago locales (tarjeta, PSE, Nequi) y envío nacional. Para flotas, TirePro adicionalmente ofrece una plataforma de gestión con análisis de CPK, predicción de fallas y recomendaciones de compra automatizadas." } },
     ],
   };
 
@@ -175,13 +179,14 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
     alternateName: ["TirePro Marketplace", "TirePro Colombia"],
     url: "https://www.tirepro.com.co",
     logo: "https://www.tirepro.com.co/logo_full.png",
-    description: "Marketplace y plataforma de gestión inteligente de llantas con IA para flotas de transporte en Colombia.",
+    description: "El marketplace de llantas más grande de Colombia. Compra para auto, camioneta, SUV, camión o flota con distribuidores verificados y envío nacional.",
     foundingLocation: { "@type": "Place", address: { "@type": "PostalAddress", addressCountry: "CO", addressLocality: "Bogotá" } },
     areaServed: { "@type": "Country", name: "Colombia" },
     knowsAbout: [
-      "Llantas para flotas de transporte", "Reencauche de llantas",
-      "Análisis CPK (costo por kilómetro)", "Gestión de inventario de llantas",
-      "Predicción de fallas de llantas con IA", "Marketplace de llantas Colombia",
+      "Marketplace de llantas Colombia", "Llantas para auto", "Llantas para camioneta",
+      "Llantas para SUV", "Llantas para camión", "Llantas para flotas de transporte",
+      "Reencauche de llantas", "Análisis CPK (costo por kilómetro)",
+      "Predicción de fallas de llantas con IA",
     ],
     sameAs: [
       "https://www.linkedin.com/company/tirepro",
@@ -212,12 +217,12 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
 
       <div aria-hidden="true" style={SR_ONLY_STYLE}>
         <h1>TirePro Marketplace — Comprar llantas online en Colombia</h1>
-        <h2>Marketplace de llantas en Colombia para flotas, camiones, tractomulas, buses, camionetas y autos</h2>
+        <h2>Marketplace de llantas en Colombia para autos, camionetas, SUV, camiones, buses y flotas</h2>
         <p>
           TirePro Marketplace es la plataforma líder en Colombia para comprar llantas nuevas y reencauchadas
-          de distribuidores verificados. Encuentra llantas para tractomula, camión, bus, camioneta, automóvil
-          y maquinaria pesada. Compara precios en tiempo real, busca por dimensión o por placa, solicita
-          cotizaciones a varios distribuidores al tiempo y recibe envíos en todo el país.
+          de distribuidores verificados. Encuentra llantas para tu auto, camioneta, SUV, pickup, hatchback,
+          camión, bus, tractomula o flota de transporte. Compara precios en tiempo real, busca por dimensión
+          o por placa, paga en línea con tarjeta, PSE o Nequi, y recibe en cualquier ciudad del país.
         </p>
         <h3>Marcas disponibles</h3>
         <p>
@@ -239,25 +244,28 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
         </p>
         <h3>Para quién es TirePro Marketplace</h3>
         <p>
-          Diseñado para flotas de transporte que buscan reducir el costo por kilómetro (CPK) de sus llantas,
-          empresas logísticas, transportadores de carga, operadores de buses intermunicipales y urbanos,
-          dueños de tractomulas, talleres y mecánicos, y conductores particulares que quieren comparar
-          precios antes de comprar.
+          Diseñado para conductores particulares que quieren comparar precios antes de comprar llantas para
+          su auto, camioneta o SUV; talleres y mecánicos que necesitan stock variado; y también flotas de
+          transporte, empresas logísticas, transportadores de carga, operadores de buses y dueños de
+          tractomulas que buscan reducir el costo por kilómetro (CPK) de sus llantas.
         </p>
         <h3>Por qué elegir TirePro</h3>
         <p>
           Distribuidores verificados, comparación de precios en tiempo real, búsqueda por placa con
-          recomendación automática de dimensión, catálogo de 2.500+ SKUs, integración con la plataforma
-          de gestión TirePro para flotas, recomendaciones de compra basadas en IA, y reducción de costos
-          de hasta 25% para flotas que adoptan la plataforma completa.
+          recomendación automática de dimensión, catálogo de 2.500+ SKUs entre llantas para auto, camioneta,
+          SUV, camión, bus y tractomula, pago en línea con tarjeta, PSE o Nequi, envío en toda Colombia,
+          y para flotas: integración con la plataforma de gestión TirePro y reducción de costos de hasta 25%
+          mediante análisis de CPK e IA.
         </p>
         <h3>Términos relacionados</h3>
         <p>
-          marketplace de llantas en Colombia, comprar llantas online, llantas para flotas, donde comprar
-          llantas en Bogotá, llantas baratas Colombia, distribuidor de llantas verificado, comparar precios
-          de llantas, llantas para camión Colombia, llantas para tractomula, reencauche de llantas Colombia,
-          llantas Michelin Colombia, llantas Bridgestone Colombia, tienda online de llantas, llantas al por
-          mayor Colombia, llantas con envío nacional.
+          marketplace de llantas en Colombia, comprar llantas online, llantas para auto, llantas para
+          camioneta, llantas para SUV, llantas para pickup, llantas para hatchback, llantas para camión,
+          llantas para flotas, donde comprar llantas en Bogotá, llantas baratas Colombia, distribuidor de
+          llantas verificado, comparar precios de llantas, llantas Kia Picanto, llantas Toyota Hilux,
+          llantas Renault Logan, llantas Mazda 3, llantas Chevrolet Tracker, llantas para tractomula,
+          reencauche de llantas Colombia, llantas Michelin Colombia, llantas Bridgestone Colombia, tienda
+          online de llantas, llantas al por mayor Colombia, llantas con envío nacional.
         </p>
       </div>
 

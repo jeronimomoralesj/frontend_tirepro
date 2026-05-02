@@ -261,7 +261,7 @@ const onlineStoreLd = {
   name: 'Marketplace TirePro',
   url: 'https://www.tirepro.com.co/marketplace',
   description:
-    'Tienda online de llantas para flotas y conductores en Colombia. Distribuidores verificados, instalación, alineación, balanceo y entrega a domicilio.',
+    'Tienda online de llantas en Colombia para autos, camionetas, SUV, camiones, buses y flotas. Distribuidores verificados, comparación de precios en tiempo real y entrega nacional.',
   parentOrganization: { '@id': 'https://www.tirepro.com.co/#organization' },
   hasMerchantReturnPolicy: {
     '@type': 'MerchantReturnPolicy',

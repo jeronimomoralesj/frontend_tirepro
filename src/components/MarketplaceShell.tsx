@@ -460,8 +460,8 @@ export function MarketplaceFooter() {
           <div>
             <Image src="/logo_full.png" alt="TirePro" width={90} height={27} className="h-6 w-auto brightness-0 invert mb-3" />
             <p className="text-xs text-white/40 leading-relaxed">
-              La plataforma de llantas para flotas mas grande de Colombia.
-              Encuentra las mejores ofertas de distribuidores verificados.
+              El marketplace de llantas mas grande de Colombia. Compra para tu auto,
+              camioneta, SUV o flota con distribuidores verificados y envio nacional.
             </p>
           </div>
           <div>
