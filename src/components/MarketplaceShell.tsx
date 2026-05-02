@@ -488,7 +488,7 @@ export function MarketplaceFooter() {
             Wompi and accept all the major Colombian payment methods.
             Lives in the footer so it's on every marketplace page. */}
         <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center sm:justify-between gap-3">
-          <p className="text-[10px] text-white/30 order-2 sm:order-1">tirepro.com.co — Marketplace de llantas para flotas en Colombia</p>
+          <p className="text-[10px] text-white/30 order-2 sm:order-1">tirepro.com.co — Marketplace de llantas en Colombia</p>
           <div className="order-1 sm:order-2 inline-flex items-center gap-2">
             <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">Pagos seguros</span>
             <PaymentBadges variant="compact" className="!flex-row" />
