@@ -9,7 +9,13 @@ import {
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 
-const VentasDistPage = React.lazy(() => import("../ventasDist/page"));
+// Marketplace tab points at the modern unified pedidos page so dist
+// admins get the exact same order-management UX as marketplace_tracker
+// users (Spanish labels, ETA editor that revises without regressing
+// status, per-status notes, lifecycle filter, etc). The legacy
+// ventasDist/page.tsx is left in place for any direct-URL access but
+// no longer referenced from the dashboard nav.
+const VentasDistPage = React.lazy(() => import("../marketplace/pedidos/page"));
 const CatalogoDistPage = React.lazy(() => import("../catalogoDist/page"));
 
 // -- API ----------------------------------------------------------------------
