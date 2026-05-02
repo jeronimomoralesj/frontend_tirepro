@@ -18,11 +18,20 @@ export const POPULAR_DIMENSIONS = [
   "225/70R19.5", "215/75R17.5", "235/75R17.5", "9.5R17.5",
   // Small commercial (rim 16)
   "7.50R16",
-  // SUV / camioneta (rim 15–17)
-  "265/70R16", "245/70R16", "235/75R15",
-  // Auto / sedan (rim 13–17)
+  // Pickup / SUV grandes (rim 17–18) — Hilux, Fortuner, Ranger, L200, Frontier, Land Cruiser
+  "265/65R17", "265/60R18", "245/65R17", "285/60R18",
+  "265/70R16", "245/70R16",
+  // SUV medianas y compactas (rim 16–19) — Tucson, CX-5, Captiva, Sorento, Sportage, Outlander, Tracker, Duster
+  "215/55R17", "215/65R16", "225/55R17", "225/55R18", "225/60R17", "225/65R17",
+  "235/55R17", "235/55R18", "235/55R19", "235/60R17", "235/65R17", "255/55R18",
+  // Auto / sedan (rim 13–16)
   "205/55R16", "195/65R15", "215/60R16", "195/55R16",
-  "185/65R15", "175/70R13", "205/65R15",
+  "185/65R15", "175/70R13", "205/65R15", "235/75R15",
+  // Subcompactos / urbanos (rim 13–15) — Picanto, Spark, Sandero, Yaris, Eon, Logan, Sail, Mazda 2
+  "165/65R14", "175/65R14", "175/65R15", "185/55R15", "185/65R14",
+  "195/60R15",
+  // Furgones / vans comerciales (LT) — Hyundai HD, Chevrolet NPR/NHR, Hino Dutro
+  "8.25R16", "7.00R15",
 ] as const;
 
 export type Dimension = (typeof POPULAR_DIMENSIONS)[number];

@@ -3,6 +3,7 @@ import { MetadataRoute } from 'next'
 import { POPULAR_DIMENSIONS, toDimensionSlug } from './marketplace/dimension/_lib/dimensions'
 import { CITIES } from './marketplace/ciudad/_lib/cities'
 import { CATEGORIES } from './marketplace/categoria/_lib/categories'
+import { VEHICLES } from './marketplace/vehiculo/_lib/vehicles'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -133,6 +134,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }))
 
+  // -- Vehicle landing pages ---------------------------------------------------
+  // /marketplace/vehiculo/[slug] for each Colombian make+model in the
+  // catalog. These target "llantas para Kia Picanto", "llantas para
+  // Toyota Hilux" etc. — the most-searched intent class after
+  // dimension and brand. Each page maps the vehicle to its stock
+  // dimension(s) and renders the matching products SSR.
+  const vehiclePages: MetadataRoute.Sitemap = VEHICLES.map((v) => ({
+    url: `${BASE_URL}/marketplace/vehiculo/${v.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.9,
+  }))
+
   // -- City landing pages ------------------------------------------------------
   // Dedicated /marketplace/ciudad/[slug] routes for the 15 largest
   // Colombian markets. Each one carries LocalBusiness array JSON-LD,
@@ -231,6 +245,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticPages,
     ...marketplaceStatic,
     ...dimensionPages,
+    ...vehiclePages,
     ...categoryPages,
     ...cityPages,
     ...searchPages,
