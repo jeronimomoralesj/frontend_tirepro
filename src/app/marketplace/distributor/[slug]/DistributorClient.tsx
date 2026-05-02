@@ -6,7 +6,8 @@ import Link from "next/link";
 import {
   Search, Loader2, Package, Truck, ArrowLeft, ArrowUpRight, Phone, Mail,
   MapPin, Globe, ChevronLeft, ChevronRight, Sparkles,
-  Store, Shield, Recycle, Building2, ShieldCheck, Layers, Send, MessageCircle,
+  Store, Shield, Recycle, Building2, ShieldCheck, Layers, Send, MessageCircle, X,
+  SlidersHorizontal,
 } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import { AddToCartButton } from "../../../../components/marketplace/AddToCartButton";
@@ -71,7 +72,35 @@ export default function DistributorStorefront() {
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(true);
   const [search, setSearch] = useState("");
+  // Debounced copy of `search` — typing into the input updates `search`
+  // immediately so the field stays responsive, but the fetch only runs
+  // 280ms after the user stops typing. Without this, every keystroke
+  // triggered a full re-fetch + grid re-render, which is what the
+  // "lags" complaint was actually about.
+  const [searchDebounced, setSearchDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 280);
+    return () => clearTimeout(t);
+  }, [search]);
   const [tipo, setTipo] = useState("");
+  const [eje, setEje] = useState("");
+  const [dimension, setDimension] = useState("");
+  // Sort + max-price mirror the marketplace search so the dist's
+  // storefront feels like a scoped slice of the global experience —
+  // not a simpler one-off layout that loses parity over time.
+  const [sortBy, setSortBy] = useState<string>("price_asc");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  // Mobile filter drawer — true when the user has tapped the Filtros
+  // button on a small viewport. Sidebar is always visible on lg+.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Lock body scroll while the mobile drawer is open. Otherwise the
+  // page scrolls behind the drawer when the user touches it.
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [filtersOpen]);
   // Catalog filters local to this distributor's storefront. The brand
   // chips above the catalog and the use-case chips inside the filter
   // bar both write into these and re-fetch.
@@ -102,8 +131,10 @@ export default function DistributorStorefront() {
     setLoading(true);
     const p = new URLSearchParams();
     p.set("distributorId", profile.id);
-    if (search) p.set("search", search);
+    if (searchDebounced) p.set("search", searchDebounced);
     if (tipo) p.set("tipo", tipo);
+    if (eje) p.set("eje", eje);
+    if (dimension) p.set("dimension", dimension);
     if (marcaFilter) p.set("marca", marcaFilter);
     // Compute rims once so we both send them as a query param AND keep
     // a client-side rim-regex fallback (defensive — works even if the
@@ -111,11 +142,13 @@ export default function DistributorStorefront() {
     const useCaseCfg = USE_CASES.find((u) => u.key === useCase);
     const rimSizes = useCaseCfg?.rims ?? [];
     if (rimSizes.length > 0) p.set("rimSizes", rimSizes.join(","));
+    const maxPriceNum = parseInt(maxPrice.replace(/\D/g, ""), 10);
+    if (Number.isFinite(maxPriceNum) && maxPriceNum > 0) p.set("maxPrice", String(maxPriceNum));
     p.set("page", String(page));
     // Bigger page when a use-case filter is active so the client-side
     // rim filter has enough rows to work with.
     p.set("limit", rimSizes.length > 0 ? "60" : "24");
-    p.set("sortBy", "price_asc");
+    p.set("sortBy", sortBy || "price_asc");
     try {
       const res = await fetch(`${API_BASE}/marketplace/listings?${p}`);
       if (res.ok) {
@@ -141,10 +174,10 @@ export default function DistributorStorefront() {
       }
     } catch { /* */ }
     setLoading(false);
-  }, [profile?.id, search, tipo, marcaFilter, useCase, page]);
+  }, [profile?.id, searchDebounced, tipo, eje, dimension, marcaFilter, useCase, page, sortBy, maxPrice]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
-  useEffect(() => { setPage(1); }, [search, tipo, marcaFilter, useCase]);
+  useEffect(() => { setPage(1); }, [searchDebounced, tipo, eje, dimension, marcaFilter, useCase, sortBy, maxPrice]);
 
   const rawCobertura = Array.isArray(profile?.cobertura) ? profile!.cobertura : [];
   const cobertura = rawCobertura.map((c: any) => typeof c === "string" ? { ciudad: c, direccion: "", lat: null, lng: null } : c);
@@ -241,6 +274,21 @@ export default function DistributorStorefront() {
       .catch(() => {});
   }, [profile?.id]);
 
+  // Active filters — memoized so the chip list only rebuilds when one
+  // of the inputs actually changes, not on every keystroke or scroll.
+  const activeChips = useMemo(() => {
+    const list: Array<{ key: string; label: string; clear: () => void }> = [];
+    if (marcaFilter) list.push({ key: "marca",     label: marcaFilter,                                              clear: () => setMarcaFilter("") });
+    if (useCase)     list.push({ key: "useCase",   label: USE_CASES.find((u) => u.key === useCase)?.label ?? "",     clear: () => setUseCase("") });
+    if (tipo)        list.push({ key: "tipo",      label: tipo === "nueva" ? "Nuevas" : "Reencauche",                clear: () => setTipo("") });
+    if (eje)         list.push({ key: "eje",       label: eje[0].toUpperCase() + eje.slice(1),                       clear: () => setEje("") });
+    if (dimension)   list.push({ key: "dimension", label: dimension,                                                  clear: () => setDimension("") });
+    if (maxPrice)    list.push({ key: "maxPrice",  label: `Hasta $${Number(maxPrice.replace(/\D/g, "")).toLocaleString("es-CO")}`, clear: () => setMaxPrice("") });
+    return list;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marcaFilter, useCase, tipo, eje, dimension, maxPrice]);
+  const activeFiltersCount = activeChips.length;
+
   // WhatsApp link — Colombia phone numbers in TirePro come in many shapes
   // ("+57 315 134 9122", "315 134 9122", "+573151349122"). Strip every
   // non-digit and prepend 57 if it's missing so wa.me works regardless.
@@ -324,119 +372,203 @@ export default function DistributorStorefront() {
         } : undefined}
       />
 
-      {/* Banner */}
-      <div className="relative h-56 sm:h-72 lg:h-80 overflow-hidden">
-        <div className="absolute inset-0" style={{
+      {/* HERO — co-branded landing-style header. Reads like the dist
+          has their own landing page but is unmistakably hosted on
+          TirePro: a small "TirePro × {dist}" co-brand chip up top, the
+          dist's name as the marquee headline, their description as
+          the tagline, and CTAs that drive the visitor toward either
+          the catalog (primary) or WhatsApp (secondary). The right
+          column carries the dist logo against their banner image so
+          their visual identity still dominates the hero. */}
+      <section
+        className="relative overflow-hidden"
+        style={{
           background: profile?.bannerImage
-            ? `url(${profile.bannerImage}) center/cover no-repeat`
-            : "linear-gradient(135deg, #0A183A 0%, #173D68 55%, #1E76B6 100%)",
-        }} />
-        <div className="absolute inset-0" style={{
-          background: "linear-gradient(180deg, rgba(10,24,58,0.55) 0%, rgba(10,24,58,0.15) 50%, rgba(245,245,247,1) 100%)",
-        }} />
-        <div className="absolute inset-0 opacity-25" aria-hidden style={{
-          backgroundImage: "radial-gradient(circle at 15% 20%, rgba(52,140,203,0.55), transparent 45%), radial-gradient(circle at 85% 0%, rgba(245,158,11,0.4), transparent 45%)",
-        }} />
-        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-5">
-          <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/80 hover:text-white transition-colors">
+            ? `linear-gradient(135deg, ${brandColor}12 0%, ${brandColor}04 60%, white 100%)`
+            : `linear-gradient(135deg, ${brandColor}1a 0%, ${brandColor}06 55%, white 100%)`,
+        }}
+      >
+        {/* Soft brand-tinted blobs in the background — subtle texture
+            so the hero doesn't feel flat. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-50 pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(circle at 12% 20%, ${brandColor}1a, transparent 45%), radial-gradient(circle at 88% 0%, ${brandColor}10, transparent 45%)`,
+          }}
+        />
+
+        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-10 sm:pb-14">
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#0A183A]/70 hover:text-[#0A183A] transition-colors"
+          >
             <ArrowLeft className="w-3 h-3" />
             Volver al marketplace
           </Link>
-        </div>
-      </div>
 
-      {/* Profile card — overlaps banner */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 -mt-24 relative z-10">
-        <div className="bg-white rounded-3xl p-6 sm:p-8" style={{
-          boxShadow: "0 20px 60px -20px rgba(10,24,58,0.25), 0 0 0 1px rgba(30,118,182,0.06)",
-        }}>
-          <div className="flex flex-col sm:flex-row gap-6">
-            {/* Logo */}
-            <div
-              className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl flex items-center justify-center overflow-hidden flex-shrink-0 p-3 -mt-20 sm:-mt-24 border-4 border-white"
-              style={{
-                background: "radial-gradient(circle at 30% 20%, #ffffff, #f0f7ff)",
-                boxShadow: "0 12px 32px -10px rgba(10,24,58,0.3)",
-              }}
-            >
-              {profile?.profileImage && profile.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
-                <img src={profile.profileImage} alt={profile.name} className="max-w-full max-h-full object-contain" />
-              ) : (
-                <Store className="w-12 h-12 text-gray-300" />
-              )}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                <div>
-                  <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-2"
-                    style={{ background: `${brandColor}15`, color: brandColor }}
-                  >
-                    <Shield className="w-3 h-3" />
-                    Distribuidor verificado
+          <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            {/* LEFT — copy & CTAs */}
+            <div className="lg:col-span-7">
+              {/* Co-brand strip — TirePro logo · Distributor logo. Reads
+                  as a partnership lockup, not a header logo dump. */}
+              <div className="inline-flex items-center gap-2.5 px-3 py-2 rounded-full bg-white"
+                style={{ boxShadow: "0 6px 14px -8px rgba(10,24,58,0.15)", border: `1px solid ${brandColor}22` }}
+              >
+                <img src="/logo_full.png" alt="TirePro" className="h-4 sm:h-[18px] w-auto" />
+                <span className="text-gray-300 text-xs font-light">×</span>
+                {profile?.profileImage && !profile.profileImage.includes("logoFull.png") ? (
+                  <img
+                    src={profile.profileImage}
+                    alt={profile.name}
+                    className="h-4 sm:h-[18px] w-auto object-contain"
+                  />
+                ) : (
+                  <span className="text-[11px] font-black uppercase tracking-widest" style={{ color: brandColor }}>
+                    {profile?.name}
                   </span>
-                  <h1
-                    className="text-2xl sm:text-[32px] font-black leading-[1.05] tracking-tight"
-                    style={{
-                      background: `linear-gradient(135deg,#0A183A,${brandColor})`,
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}
-                  >
-                    {profile?.name ?? "Distribuidor"}
-                  </h1>
-                  <div className="flex flex-wrap items-center gap-3 mt-2">
-                    {profile?.ciudad && (
-                      <span className="flex items-center gap-1 text-xs text-gray-500 font-medium">
-                        <MapPin className="w-3.5 h-3.5 text-[#1E76B6]" /> {profile.ciudad}
-                      </span>
-                    )}
-                    {profile?._count.listings != null && (
-                      <span className="flex items-center gap-1 text-xs text-gray-500 font-medium">
-                        <Package className="w-3.5 h-3.5 text-[#1E76B6]" /> {profile._count.listings} productos
-                      </span>
-                    )}
-                    {entrega && (
-                      <span className="flex items-center gap-1 text-xs text-gray-500 font-medium">
-                        <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
-                        {entrega === "domicilio" ? "Entrega a domicilio" : entrega === "recogida" ? "Solo recogida" : "Domicilio y recogida"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Contact buttons removed — the storefront's job is
-                    to drive purchases on-page, not push the buyer off
-                    to a phone/email back-channel. */}
+                )}
               </div>
 
-              {/* Description */}
-              {profile?.descripcion && (
-                <p className="text-sm text-gray-600 mt-4 leading-relaxed max-w-2xl">{profile.descripcion}</p>
-              )}
+              <span
+                className="mt-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest"
+                style={{ background: `${brandColor}15`, color: brandColor }}
+              >
+                <Shield className="w-3 h-3" />
+                Distribuidor verificado
+              </span>
 
-              {/* Coverage badges */}
+              <h1
+                className="mt-3 text-[34px] sm:text-[48px] lg:text-[56px] font-black leading-[1.02] tracking-tight"
+                style={{
+                  background: `linear-gradient(135deg,#0A183A,${brandColor})`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                {profile?.name ?? "Distribuidor"}
+              </h1>
+
+              <p className="mt-4 text-base sm:text-lg text-gray-600 leading-relaxed max-w-xl">
+                {profile?.descripcion?.trim()
+                  ? profile.descripcion
+                  : `Compra llantas con ${profile?.name ?? "este distribuidor"} en TirePro Marketplace. Asesoría directa, pago seguro y entrega coordinada.`}
+              </p>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                {profile?.ciudad && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-[#0A183A] font-bold">
+                    <MapPin className="w-3.5 h-3.5" style={{ color: brandColor }} />
+                    {profile.ciudad}
+                  </span>
+                )}
+                {profile?._count.listings != null && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-[#0A183A] font-bold">
+                      <Package className="w-3.5 h-3.5" style={{ color: brandColor }} />
+                      {profile._count.listings} productos
+                    </span>
+                  </>
+                )}
+                {entrega && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-[#0A183A] font-bold">
+                      <Truck className="w-3.5 h-3.5" style={{ color: brandColor }} />
+                      {entrega === "domicilio" ? "Entrega a domicilio" : entrega === "recogida" ? "Solo recogida" : "Domicilio y recogida"}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <div className="mt-7">
+                <a
+                  href="#catalogo-distribuidor"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-black text-white transition-all hover:-translate-y-0.5 hover:shadow-2xl active:scale-[0.98]"
+                  style={{
+                    background: `linear-gradient(135deg,#0A183A,${brandColor})`,
+                    boxShadow: `0 14px 28px -10px ${brandColor}80`,
+                  }}
+                >
+                  Ver catálogo
+                  <ArrowUpRight className="w-4 h-4" />
+                </a>
+              </div>
+
+              {/* Coverage chips — under CTAs so they read as
+                  reassurance, not header noise. */}
               {cobertura.length > 0 && (
-                <div className="mt-4 flex items-center gap-2 flex-wrap">
+                <div className="mt-6 flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cobertura</span>
-                  {cobertura.slice(0, 8).map((c: any, i: number) => (
-                    <span key={i} className="text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5"
-                      style={{ background: `${brandColor}10`, color: brandColor, border: `1px solid ${brandColor}25` }}>
+                  {cobertura.slice(0, 6).map((c: any, i: number) => (
+                    <span
+                      key={i}
+                      className="text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5"
+                      style={{ background: `${brandColor}10`, color: brandColor, border: `1px solid ${brandColor}25` }}
+                    >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: brandColor }} />
                       {c.ciudad ?? c}
                     </span>
                   ))}
-                  {cobertura.length > 8 && (
-                    <span className="text-[10px] text-gray-400 font-bold">+{cobertura.length - 8} más</span>
+                  {cobertura.length > 6 && (
+                    <span className="text-[10px] text-gray-400 font-bold">+{cobertura.length - 6} más</span>
                   )}
                 </div>
               )}
             </div>
+
+            {/* RIGHT — visual lockup. The dist's banner is the backdrop
+                for a centered logo card so their identity dominates
+                the right side without us repeating the logo twice. */}
+            <div className="lg:col-span-5">
+              <div
+                className="relative rounded-3xl overflow-hidden aspect-[4/3] sm:aspect-[5/4] lg:aspect-square"
+                style={{
+                  background: profile?.bannerImage
+                    ? `url(${profile.bannerImage}) center/cover no-repeat`
+                    : `radial-gradient(circle at 30% 20%, ${brandColor}26, ${brandColor}05 65%, white)`,
+                  boxShadow: `0 30px 60px -24px ${brandColor}55, 0 0 0 1px ${brandColor}1a`,
+                }}
+              >
+                {profile?.bannerImage && (
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: `linear-gradient(135deg, ${brandColor}40 0%, rgba(10,24,58,0.10) 60%, rgba(255,255,255,0.0) 100%)`,
+                    }}
+                  />
+                )}
+                <div className="absolute inset-0 flex items-center justify-center p-8">
+                  <div
+                    className="bg-white rounded-2xl flex items-center justify-center p-6 sm:p-8 max-w-[68%] aspect-[3/2]"
+                    style={{ boxShadow: "0 20px 50px -16px rgba(10,24,58,0.35)" }}
+                  >
+                    {profile?.profileImage && !profile.profileImage.includes("logoFull.png") ? (
+                      <img
+                        src={profile.profileImage}
+                        alt={profile.name}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    ) : (
+                      <Store className="w-16 h-16 text-gray-300" />
+                    )}
+                  </div>
+                </div>
+                {/* "Sponsored by TirePro" subtle ribbon — reinforces
+                    co-brand without competing with the dist's logo. */}
+                <div
+                  className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[9px] font-black tracking-widest uppercase backdrop-blur"
+                  style={{ background: "rgba(255,255,255,0.92)", color: "#0A183A", boxShadow: "0 4px 10px rgba(10,24,58,0.15)" }}
+                >
+                  <span className="opacity-70">en</span>
+                  <img src="/logo_full.png" alt="TirePro" className="h-3 w-auto" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* STATS STRIP — at-a-glance trust metrics. Sits visually anchored
           on the profile card. Pulls only data the API already returns
@@ -829,9 +961,13 @@ export default function DistributorStorefront() {
         </div>
       )}
 
-      {/* Search + Filters */}
-      <div id="catalogo-distribuidor" className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 scroll-mt-24">
-        <div className="flex items-end justify-between mb-3 gap-3">
+      {/* CATALOG — sidebar + grid layout, modeled on the global
+          marketplace search but scoped to this distributor's listings.
+          Sidebar is sticky on lg+ and slides in from the left as a
+          drawer on mobile. */}
+      <div id="catalogo-distribuidor" className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-10 scroll-mt-20">
+        {/* Section header */}
+        <div className="flex items-end justify-between mb-4 gap-3">
           <div>
             <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Catálogo</p>
             <h2 className="text-lg sm:text-xl font-black text-[#0A183A]">Productos del distribuidor</h2>
@@ -841,198 +977,294 @@ export default function DistributorStorefront() {
           </span>
         </div>
 
-        {/* Use-case chips — first row, mirrors the brand-page filter
-            language so users get the same shortcuts everywhere. */}
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {USE_CASES.map((u) => {
-            const active = useCase === u.key;
-            return (
-              <button
-                key={u.key || "all"}
-                onClick={() => setUseCase(u.key)}
-                className="px-3 py-1.5 rounded-full text-[11px] font-black transition-all"
-                style={{
-                  background: active ? `linear-gradient(135deg,#0A183A,${brandColor})` : "white",
-                  color: active ? "white" : "#0A183A",
-                  border: active ? "1px solid transparent" : "1px solid rgba(10,24,58,0.08)",
-                  boxShadow: active ? `0 4px 12px -4px ${brandColor}80` : "none",
-                }}
-              >
-                {u.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Sidebar (left) + content column (right). Using flex with
+            explicit widths instead of `grid-cols-[240px_minmax(0,1fr)]`
+            because Tailwind's JIT was inconsistent extracting that
+            arbitrary value at build time — when the class didn't
+            compile, the grid collapsed to one column and the sidebar
+            stacked on top of the products. Flex utilities are
+            extracted reliably and produce identical visuals.
 
-        <div
-          className="flex items-center gap-2 p-2 rounded-2xl bg-white"
-          style={{ boxShadow: "0 8px 24px -12px rgba(10,24,58,0.15), 0 0 0 1px rgba(30,118,182,0.08)" }}
-        >
-          <div className="flex items-center gap-2 flex-1 px-3">
-            <Search className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar en este catálogo…"
-              className="flex-1 bg-transparent outline-none text-sm text-[#0A183A] placeholder-gray-400 py-2.5" />
-          </div>
-          <div className="hidden sm:flex gap-1">
-            {[{ v: "", l: "Todo" }, { v: "nueva", l: "Nuevas" }, { v: "reencauche", l: "Reencauche" }].map((t) => (
-              <button key={t.v} onClick={() => setTipo(t.v)}
-                className="px-3 py-2 rounded-xl text-[11px] font-black transition-all"
-                style={{
-                  background: tipo === t.v ? `linear-gradient(135deg,#0A183A,${brandColor})` : "transparent",
-                  color: tipo === t.v ? "white" : "#555",
-                }}>
-                {t.l}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex sm:hidden gap-1 mt-2">
-          {[{ v: "", l: "Todo" }, { v: "nueva", l: "Nuevas" }, { v: "reencauche", l: "Reencauche" }].map((t) => (
-            <button key={t.v} onClick={() => setTipo(t.v)}
-              className="px-3 py-1.5 rounded-full text-[10px] font-black transition-all"
-              style={{
-                background: tipo === t.v ? `linear-gradient(135deg,#0A183A,${brandColor})` : "white",
-                color: tipo === t.v ? "white" : "#555",
-                border: tipo === t.v ? "none" : "1px solid #e5e5e5",
-              }}>
-              {t.l}
-            </button>
-          ))}
-        </div>
+            `sticky top-16` (MarketplaceNav's h-16) + the inner
+            `max-h-[calc(100vh-5rem)] overflow-y-auto` keeps the
+            sidebar from spilling past the viewport when filter
+            lists are long. */}
+        <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start">
+          {/* SIDEBAR — desktop only. Mobile uses the drawer below. */}
+          <aside
+            className="hidden lg:block flex-shrink-0 w-60 self-start sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto bg-white rounded-2xl p-4"
+            style={{ boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18)", border: "1px solid rgba(10,24,58,0.05)" }}
+          >
+            <FilterPanel
+              brandColor={brandColor}
+              tipo={tipo} setTipo={setTipo}
+              eje={eje} setEje={setEje}
+              dimension={dimension} setDimension={setDimension}
+              dimensions={stockedDimensions}
+              marcaFilter={marcaFilter} setMarcaFilter={setMarcaFilter}
+              brands={stockedBrands}
+              useCase={useCase} setUseCase={setUseCase}
+              useCases={USE_CASES}
+              maxPrice={maxPrice} setMaxPrice={setMaxPrice}
+              onClearAll={() => {
+                setMarcaFilter(""); setUseCase(""); setTipo(""); setEje("");
+                setDimension(""); setMaxPrice("");
+              }}
+            />
+          </aside>
 
-        {/* Active-filter summary + reset — only renders when any of the
-            three (marca / use case / tipo) is active. Search has its
-            own visible input. */}
-        {(marcaFilter || useCase || tipo) && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mr-1">Filtros:</span>
-            {marcaFilter && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                style={{ background: brandColor }}
-              >
-                {marcaFilter}
-              </span>
-            )}
-            {useCase && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                style={{ background: brandColor }}
-              >
-                {USE_CASES.find((u) => u.key === useCase)?.label}
-              </span>
-            )}
-            {tipo && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
-                style={{ background: brandColor }}
-              >
-                {tipo === "nueva" ? "Nuevas" : "Reencauche"}
-              </span>
-            )}
-            <button
-              onClick={() => { setMarcaFilter(""); setUseCase(""); setTipo(""); }}
-              className="text-[10px] font-black hover:underline ml-1"
-              style={{ color: brandColor }}
+          {/* RIGHT — search · sort · filter chips · grid · pagination.
+              `flex-1 min-w-0 w-full` is the flex equivalent of the
+              earlier `minmax(0, 1fr)` track — fills remaining space
+              without overflowing the parent on narrow viewports. */}
+          <div className="flex-1 min-w-0 w-full">
+            {/* Search bar — sits inside the right column so it aligns
+                with the grid (was full-width and overran the sidebar). */}
+            <div
+              className="flex items-center gap-2 p-2 rounded-2xl bg-white mb-3"
+              style={{ boxShadow: "0 8px 24px -12px rgba(10,24,58,0.15), 0 0 0 1px rgba(30,118,182,0.08)" }}
             >
-              Limpiar todos
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Products */}
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-[#1E76B6]" />
-          </div>
-        ) : listings.length === 0 ? (
-          <div className="flex flex-col items-center py-20">
-            <Package className="w-12 h-12 text-gray-200 mb-3" />
-            <p className="text-sm font-bold text-[#0A183A]">Sin productos</p>
-            <p className="text-xs text-gray-400 mt-1">Este distribuidor aun no ha publicado productos.</p>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-              {listings.map((l) => {
-                const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
-                const coverImg = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
-                const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
-                const price = hasPromo ? l.precioPromo! : l.precioCop;
-                const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
-
-                return (
-                  <Link
-                    key={l.id}
-                    href={`/marketplace/product/${l.id}`}
-                    className="bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group block border border-gray-100"
-                  >
-                    <div
-                      className="relative aspect-square flex items-center justify-center overflow-hidden"
-                      style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
-                    >
-                      {coverImg ? (
-                        <img src={coverImg} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform duration-500" />
-                      ) : (
-                        <Package className="w-10 h-10 text-gray-200" />
-                      )}
-                      {hasPromo && (
-                        <span
-                          className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-black text-white"
-                          style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)", boxShadow: "0 6px 14px rgba(239,68,68,0.3)" }}
-                        >
-                          -{discount}%
-                        </span>
-                      )}
-                      {l.tipo === "reencauche" && (
-                        <span className="absolute top-3 right-3 px-2 py-1 rounded-full text-[9px] font-black text-purple-700 bg-purple-100/90 backdrop-blur-sm flex items-center gap-0.5">
-                          <Recycle className="w-2.5 h-2.5" /> Reenc.
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-3.5">
-                      <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: brandColor }}>{l.marca}</p>
-                      <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
-                      <p className="text-[10px] text-gray-400">{l.dimension}</p>
-                      <div className="mt-2 flex items-baseline justify-between gap-2 flex-wrap">
-                        <div className="min-w-0">
-                          <span className="text-lg font-black text-[#0A183A]">{fmtCOP(price)}</span>
-                          {hasPromo && <span className="text-[10px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>}
-                        </div>
-                        <AddToCartButton
-                          listing={l as any}
-                          variant="icon"
-                          accent={`linear-gradient(135deg,#0A183A,${brandColor})`}
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {l.tiempoEntrega && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">{l.tiempoEntrega}</span>}
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+              <div className="flex items-center gap-2 flex-1 px-3">
+                <Search className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar en este catálogo…"
+                  className="flex-1 bg-transparent outline-none text-sm text-[#0A183A] placeholder-gray-400 py-2.5"
+                />
+                {search && (
+                  <button onClick={() => setSearch("")} className="p-1 text-gray-400 hover:text-gray-600" aria-label="Limpiar búsqueda">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            {pages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-10">
-                <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-xs text-gray-400 px-3">Pagina {page} de {pages}</span>
-                <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
-                  <ChevronRight className="w-4 h-4" />
+            {/* Mobile filters trigger + sort row */}
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => setFiltersOpen(true)}
+                className="lg:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[11px] font-black bg-white text-[#0A183A]"
+                style={{ border: `1px solid ${brandColor}33`, boxShadow: "0 6px 14px -8px rgba(10,24,58,0.18)" }}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" style={{ color: brandColor }} />
+                Filtros
+                {activeFiltersCount > 0 && (
+                  <span className="ml-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-full text-white" style={{ background: brandColor }}>
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="ml-auto px-3 py-2 rounded-full text-[11px] font-medium border border-gray-200 bg-white text-[#0A183A] flex-shrink-0"
+              >
+                <option value="price_asc">Menor precio</option>
+                <option value="price_desc">Mayor precio</option>
+                <option value="newest">Más recientes</option>
+                <option value="relevance">Relevancia</option>
+              </select>
+            </div>
+
+            {/* Active-filter chips (each clears its own filter) */}
+            {activeChips.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mr-1">Filtros:</span>
+                {activeChips.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={f.clear}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white hover:opacity-90"
+                    style={{ background: brandColor }}
+                  >
+                    {f.label}
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setMarcaFilter(""); setUseCase(""); setTipo(""); setEje("");
+                    setDimension(""); setMaxPrice("");
+                  }}
+                  className="text-[10px] font-black hover:underline ml-1"
+                  style={{ color: brandColor }}
+                >
+                  Limpiar todos
                 </button>
               </div>
             )}
-          </>
-        )}
-      </main>
+
+            {/* Grid */}
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-6 h-6 animate-spin text-[#1E76B6]" />
+              </div>
+            ) : listings.length === 0 ? (
+              <div className="flex flex-col items-center py-20 bg-white rounded-2xl">
+                <Package className="w-12 h-12 text-gray-200 mb-3" />
+                <p className="text-sm font-bold text-[#0A183A]">Sin productos</p>
+                <p className="text-xs text-gray-400 mt-1">No hay resultados con estos filtros.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  {listings.map((l) => {
+                    const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+                    const coverImg = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+                    const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+                    const price = hasPromo ? l.precioPromo! : l.precioCop;
+                    const discount = hasPromo ? Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100) : 0;
+
+                    return (
+                      <Link
+                        key={l.id}
+                        href={`/marketplace/product/${l.id}`}
+                        className="bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group block border border-gray-100"
+                      >
+                        <div
+                          className="relative aspect-square flex items-center justify-center overflow-hidden"
+                          style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
+                        >
+                          {coverImg ? (
+                            <img src={coverImg} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform duration-500" />
+                          ) : (
+                            <Package className="w-10 h-10 text-gray-200" />
+                          )}
+                          {hasPromo && (
+                            <span
+                              className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-black text-white"
+                              style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)", boxShadow: "0 6px 14px rgba(239,68,68,0.3)" }}
+                            >
+                              -{discount}%
+                            </span>
+                          )}
+                          {l.tipo === "reencauche" && (
+                            <span className="absolute top-3 right-3 px-2 py-1 rounded-full text-[9px] font-black text-purple-700 bg-purple-100/90 backdrop-blur-sm flex items-center gap-0.5">
+                              <Recycle className="w-2.5 h-2.5" /> Reenc.
+                            </span>
+                          )}
+                        </div>
+                        <div className="p-3.5">
+                          <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: brandColor }}>{l.marca}</p>
+                          <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
+                          <p className="text-[10px] text-gray-400">{l.dimension}</p>
+                          <div className="mt-2 flex items-baseline justify-between gap-2 flex-wrap">
+                            <div className="min-w-0">
+                              <span className="text-lg font-black text-[#0A183A]">{fmtCOP(price)}</span>
+                              {hasPromo && <span className="text-[10px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>}
+                            </div>
+                            <AddToCartButton
+                              listing={l as any}
+                              variant="icon"
+                              accent={`linear-gradient(135deg,#0A183A,${brandColor})`}
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {l.tiempoEntrega && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">{l.tiempoEntrega}</span>}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                {pages > 1 && (
+                  <div className="flex items-center justify-center gap-2 pt-10">
+                    <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
+                      className="w-9 h-9 rounded-full flex items-center justify-center border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs text-gray-400 px-3">Pagina {page} de {pages}</span>
+                    <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)}
+                      className="w-9 h-9 rounded-full flex items-center justify-center border border-gray-200 disabled:opacity-20 hover:bg-gray-50">
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile filter drawer — slides up from the bottom on phones
+          (matches iOS share-sheet language better than a side drawer
+          for one-thumb use). Always full-height of viewport so long
+          filter lists don't fight the on-screen keyboard. The
+          backdrop dim-fades and the panel translates in via CSS
+          transitions instead of mounting/unmounting the panel —
+          keeps the open animation smooth on low-end Android. */}
+      <div
+        className={`lg:hidden fixed inset-0 z-[60] transition-opacity duration-200 ${filtersOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        aria-hidden={!filtersOpen}
+      >
+        <button
+          aria-label="Cerrar filtros"
+          onClick={() => setFiltersOpen(false)}
+          className="absolute inset-0 bg-black/45"
+          tabIndex={-1}
+        />
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filtros"
+          className={`absolute inset-x-0 bottom-0 bg-white rounded-t-3xl flex flex-col transition-transform duration-250 ease-out ${filtersOpen ? "translate-y-0" : "translate-y-full"}`}
+          style={{ height: "92vh", boxShadow: "0 -20px 50px -20px rgba(10,24,58,0.4)" }}
+        >
+          {/* Drag handle */}
+          <div className="pt-2 pb-1 flex justify-center flex-shrink-0">
+            <span className="block w-10 h-1.5 rounded-full bg-gray-200" />
+          </div>
+          <div className="px-5 pt-1 pb-3 flex items-center justify-between flex-shrink-0 border-b border-gray-100">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: brandColor }}>Filtros</p>
+              <p className="text-sm font-black text-[#0A183A]">Refinar búsqueda</p>
+            </div>
+            <button
+              onClick={() => setFiltersOpen(false)}
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100"
+              aria-label="Cerrar filtros"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <FilterPanel
+              brandColor={brandColor}
+              tipo={tipo} setTipo={setTipo}
+              eje={eje} setEje={setEje}
+              dimension={dimension} setDimension={setDimension}
+              dimensions={stockedDimensions}
+              marcaFilter={marcaFilter} setMarcaFilter={setMarcaFilter}
+              brands={stockedBrands}
+              useCase={useCase} setUseCase={setUseCase}
+              useCases={USE_CASES}
+              maxPrice={maxPrice} setMaxPrice={setMaxPrice}
+              onClearAll={() => {
+                setMarcaFilter(""); setUseCase(""); setTipo(""); setEje("");
+                setDimension(""); setMaxPrice("");
+              }}
+            />
+          </div>
+          <div
+            className="px-5 py-3 flex-shrink-0 bg-white border-t border-gray-100"
+            style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+          >
+            <button
+              onClick={() => setFiltersOpen(false)}
+              className="w-full py-3.5 rounded-2xl text-sm font-black text-white active:scale-[0.98] transition-transform"
+              style={{
+                background: `linear-gradient(135deg,#0A183A,${brandColor})`,
+                boxShadow: `0 12px 24px -8px ${brandColor}80`,
+              }}
+            >
+              Ver {total} producto{total !== 1 ? "s" : ""}
+            </button>
+          </div>
+        </aside>
+      </div>
 
 
       {/* MAP — moved to the end (after the catalog + Por qué) so the
@@ -1161,6 +1393,250 @@ export default function DistributorStorefront() {
       {/* Footer */}
       <MarketplaceFooter />
 
+    </div>
+  );
+}
+
+// FilterPanel — the body of the sidebar on desktop and the drawer
+// on mobile. Pure presentational: every piece of state lives in
+// the parent so the desktop and mobile copies stay in sync without
+// any shared store gymnastics.
+function FilterPanel({
+  brandColor,
+  tipo, setTipo,
+  eje, setEje,
+  dimension, setDimension,
+  dimensions,
+  marcaFilter, setMarcaFilter,
+  brands,
+  useCase, setUseCase,
+  useCases,
+  maxPrice, setMaxPrice,
+  onClearAll,
+}: {
+  brandColor: string;
+  tipo: string; setTipo: (v: string) => void;
+  eje: string;  setEje:  (v: string) => void;
+  dimension: string; setDimension: (v: string) => void;
+  dimensions: string[];
+  marcaFilter: string; setMarcaFilter: (v: string) => void;
+  brands: string[];
+  useCase: any; setUseCase: (v: any) => void;
+  useCases: Array<{ key: any; label: string; rims?: number[] }>;
+  maxPrice: string; setMaxPrice: (v: string) => void;
+  onClearAll: () => void;
+}) {
+  const anyActive = !!(tipo || eje || dimension || marcaFilter || useCase || maxPrice);
+  return (
+    <div className="space-y-5">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: brandColor }}>
+          Refinar
+        </p>
+        {anyActive && (
+          <button onClick={onClearAll} className="text-[10px] font-black hover:underline" style={{ color: brandColor }}>
+            Limpiar
+          </button>
+        )}
+      </div>
+
+      {/* Use case */}
+      <FilterGroup title="Tipo de vehículo">
+        <div className="flex flex-wrap gap-1.5">
+          {useCases.map((u) => {
+            const active = useCase === u.key;
+            return (
+              <button
+                key={u.key || "all"}
+                onClick={() => setUseCase(u.key)}
+                className="px-2.5 py-1.5 rounded-full text-[11px] font-black transition-all"
+                style={{
+                  background: active ? `linear-gradient(135deg,#0A183A,${brandColor})` : "white",
+                  color: active ? "white" : "#0A183A",
+                  border: active ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
+                  boxShadow: active ? `0 4px 12px -4px ${brandColor}80` : "none",
+                }}
+              >
+                {u.label}
+              </button>
+            );
+          })}
+        </div>
+      </FilterGroup>
+
+      {/* Tipo */}
+      <FilterGroup title="Tipo">
+        <div className="space-y-1.5">
+          {[{ v: "", l: "Todas" }, { v: "nueva", l: "Nuevas" }, { v: "reencauche", l: "Reencauche" }].map((t) => (
+            <FilterRadio
+              key={t.v}
+              label={t.l}
+              checked={tipo === t.v}
+              onChange={() => setTipo(t.v)}
+              brandColor={brandColor}
+            />
+          ))}
+        </div>
+      </FilterGroup>
+
+      {/* Eje */}
+      <FilterGroup title="Eje">
+        <div className="space-y-1.5">
+          {[
+            { v: "", l: "Cualquiera" },
+            { v: "direccion", l: "Dirección" },
+            { v: "traccion", l: "Tracción" },
+            { v: "libre", l: "Libre / multi" },
+            { v: "remolque", l: "Remolque" },
+          ].map((e) => (
+            <FilterRadio
+              key={e.v}
+              label={e.l}
+              checked={eje === e.v}
+              onChange={() => setEje(e.v)}
+              brandColor={brandColor}
+            />
+          ))}
+        </div>
+      </FilterGroup>
+
+      {/* Marca */}
+      {brands.length > 0 && (
+        <FilterGroup title="Marca">
+          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 -mr-1">
+            <FilterRadio
+              label="Todas"
+              checked={!marcaFilter}
+              onChange={() => setMarcaFilter("")}
+              brandColor={brandColor}
+            />
+            {brands.map((b) => (
+              <FilterRadio
+                key={b}
+                label={b}
+                checked={marcaFilter === b}
+                onChange={() => setMarcaFilter(b)}
+                brandColor={brandColor}
+              />
+            ))}
+          </div>
+        </FilterGroup>
+      )}
+
+      {/* Medida */}
+      {dimensions.length > 0 && (
+        <FilterGroup title="Medida">
+          <div className="flex flex-wrap gap-1.5">
+            {dimension && (
+              <button
+                onClick={() => setDimension("")}
+                className="px-2 py-1 rounded-full text-[10px] font-black bg-white text-[#0A183A] hover:bg-gray-50"
+                style={{ border: "1px solid rgba(10,24,58,0.10)" }}
+              >
+                Limpiar
+              </button>
+            )}
+            {dimensions.map((d) => {
+              const active = dimension === d;
+              return (
+                <button
+                  key={d}
+                  onClick={() => setDimension(active ? "" : d)}
+                  className="px-2.5 py-1 rounded-full text-[10px] font-bold transition-all font-mono"
+                  style={{
+                    background: active ? brandColor : "white",
+                    color: active ? "white" : "#0A183A",
+                    border: active ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
+                  }}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+        </FilterGroup>
+      )}
+
+      {/* Max price */}
+      <FilterGroup title="Precio máximo">
+        <DistMaxPriceInput value={maxPrice} onChange={setMaxPrice} brandColor={brandColor} />
+      </FilterGroup>
+    </div>
+  );
+}
+
+function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function FilterRadio({
+  label, checked, onChange, brandColor,
+}: { label: string; checked: boolean; onChange: () => void; brandColor: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className="flex items-center gap-2 w-full text-left text-[12px] font-medium hover:bg-gray-50 rounded-lg px-2 py-1.5 transition-colors"
+      style={{ color: checked ? brandColor : "#0A183A" }}
+    >
+      <span
+        className="w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{
+          border: `1.5px solid ${checked ? brandColor : "rgba(10,24,58,0.25)"}`,
+          background: "white",
+        }}
+      >
+        {checked && (
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: brandColor }} />
+        )}
+      </span>
+      <span className={checked ? "font-black" : ""}>{label}</span>
+    </button>
+  );
+}
+
+// Mirrors MarketplaceClient's MaxPriceInput shape so the dist storefront's
+// filter strip lines up visually with the global search. Local copy keeps
+// the storefront component free of cross-page imports.
+function DistMaxPriceInput({
+  value,
+  onChange,
+  brandColor,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  brandColor: string;
+}) {
+  const digits = value.replace(/\D/g, "");
+  const display = digits ? Number(digits).toLocaleString("es-CO") : "";
+  return (
+    <div className="relative w-full">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-gray-400 pointer-events-none">$</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={display}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+        placeholder="Precio máx."
+        className="pl-6 pr-7 py-2 rounded-lg text-[11px] bg-white text-[#0A183A] w-full placeholder-gray-400"
+        style={{ border: `1px solid ${digits ? `${brandColor}55` : "rgba(10,24,58,0.10)"}` }}
+      />
+      {digits && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"
+          aria-label="Limpiar precio máximo"
+        >
+          <X className="w-2.5 h-2.5" />
+        </button>
+      )}
     </div>
   );
 }
