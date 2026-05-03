@@ -6,12 +6,13 @@
 // "Nuevo producto" modal. Heavier flows (catalog SKU picker, bulk
 // promo, inactive cleanup) still live in /catalogoDist.
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle, ArrowUpRight, CheckCircle2, ExternalLink, FileSpreadsheet,
   Image as ImageIcon, Loader2, Package, Pencil, Percent, Plus, Search,
   Tag, ToggleLeft, ToggleRight, Trash2, Upload, X,
+  MapPin, Store as StoreIcon, RefreshCw, Link2,
 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -1281,6 +1282,12 @@ function EditListingModal({
             )}
           </ModalField>
 
+          {/* Retail source connection — paste a public retailer
+              product URL (Alkosto / Ktronix today) and we re-scrape
+              the price + per-store stock daily so buyers can choose
+              to pick up at one of those locations. */}
+          <RetailSourceSection listingId={listing.id} />
+
           {error && (
             <p className="text-xs text-red-600 font-medium">{error}</p>
           )}
@@ -2246,6 +2253,354 @@ function BandaEditModal({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// RETAIL SOURCE — connect a public retailer product page (Alkosto /
+// Ktronix today) so buyers can choose to pick up at one of the
+// retailer's physical stores. Daily cron re-scrapes price + per-store
+// stock; the dist sees a "última actualización" timestamp + a manual
+// refresh button so they can verify the parse on demand.
+// =============================================================================
+
+interface RetailPickupPoint {
+  id: string;
+  externalId: string | null;
+  name: string;
+  address: string | null;
+  city: string;
+  cityDisplay: string | null;
+  lat: number | null;
+  lng: number | null;
+  hours: string | null;
+  stockUnits: number;
+  refreshedAt: string;
+}
+
+interface RetailSourcePayload {
+  id: string;
+  url: string;
+  domain: string | null;
+  lastPriceCop: number | null;
+  lastFetchedAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  isActive: boolean;
+  pickupPoints: RetailPickupPoint[];
+}
+
+function RetailSourceSection({ listingId }: { listingId: string }) {
+  const [source, setSource] = useState<RetailSourcePayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [url, setUrl] = useState("");
+  const [priceHtml, setPriceHtml] = useState("");
+  const [stockHtml, setStockHtml] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/listings/${listingId}/retail-source`);
+      if (res.ok) {
+        const data = (await res.json()) as RetailSourcePayload | null;
+        setSource(data);
+        if (data) {
+          setUrl(data.url);
+          setEditing(false);
+        } else {
+          setEditing(true);
+        }
+      } else {
+        setSource(null);
+        setEditing(true);
+      }
+    } catch {
+      setSource(null);
+      setEditing(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [listingId]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  async function save() {
+    if (!url.trim()) {
+      setErr("Pega la URL del producto en el sitio del retailer");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/listings/${listingId}/retail-source`, {
+        method: "POST",
+        body: JSON.stringify({
+          url: url.trim(),
+          priceHtmlSnippet: priceHtml.trim() || undefined,
+          stockHtmlSnippet: stockHtml.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await reload();
+    } catch (e) {
+      setErr((e instanceof Error ? e.message : "").slice(0, 300) || "No se pudo conectar la fuente");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refresh() {
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/listings/${listingId}/retail-source/refresh`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await reload();
+    } catch (e) {
+      setErr((e instanceof Error ? e.message : "").slice(0, 300) || "No se pudo refrescar");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function detach() {
+    if (!confirm("¿Desconectar este producto del retailer?")) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/listings/${listingId}/retail-source`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setSource(null);
+      setUrl("");
+      setPriceHtml("");
+      setStockHtml("");
+      setEditing(true);
+    } catch (e) {
+      setErr((e instanceof Error ? e.message : "").slice(0, 300) || "No se pudo desconectar");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Group points by city for the in-stock summary
+  const cityGroups = useMemo(() => {
+    if (!source) return [];
+    const map = new Map<string, { city: string; cityDisplay: string; total: number; points: RetailPickupPoint[] }>();
+    for (const p of source.pickupPoints) {
+      if (!map.has(p.city)) {
+        map.set(p.city, { city: p.city, cityDisplay: p.cityDisplay ?? p.city, total: 0, points: [] });
+      }
+      const g = map.get(p.city)!;
+      g.total += p.stockUnits;
+      g.points.push(p);
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [source]);
+
+  const inStockTotal = source?.pickupPoints.reduce((s, p) => s + p.stockUnits, 0) ?? 0;
+
+  return (
+    <div className="rounded-2xl p-4"
+      style={{ background: "rgba(30,118,182,0.04)", border: "1px solid rgba(30,118,182,0.18)" }}>
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2">
+          <Link2 className="w-4 h-4 text-[#1E76B6]" />
+          <p className="text-sm font-black text-[#0A183A]">Conexión con tienda externa</p>
+        </div>
+        {source && (
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#1E76B6]">
+            {source.domain ?? "conectado"}
+          </span>
+        )}
+      </div>
+      <p className="text-[11px] text-gray-500 leading-snug mb-3">
+        Pega la URL pública del producto en Alkosto o Ktronix. Cada día actualizamos el precio
+        y el stock por tienda; los compradores ven la opción de recoger en la sucursal más cercana.
+      </p>
+
+      {loading ? (
+        <div className="py-4 flex items-center justify-center text-[#1E76B6]">
+          <Loader2 className="w-4 h-4 animate-spin" />
+        </div>
+      ) : editing ? (
+        <div className="space-y-2">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://www.alkosto.com/llanta-…/p/…"
+            className="w-full px-3 py-2 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+            style={{ border: "1px solid rgba(52,140,203,0.25)" }}
+          />
+          <details className="group">
+            <summary className="text-[10px] font-bold uppercase tracking-widest text-[#1E76B6] cursor-pointer hover:underline">
+              Pegar HTML de precio y stock (opcional)
+            </summary>
+            <div className="mt-2 space-y-2">
+              <textarea
+                value={priceHtml}
+                onChange={(e) => setPriceHtml(e.target.value)}
+                placeholder='HTML del precio (p.ej. <input class="price-hidden" value="..."> ...)'
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg text-[11px] font-mono bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                style={{ border: "1px solid rgba(52,140,203,0.25)", resize: "vertical" }}
+              />
+              <textarea
+                value={stockHtml}
+                onChange={(e) => setStockHtml(e.target.value)}
+                placeholder='HTML del bloque de stock por ciudad'
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg text-[11px] font-mono bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                style={{ border: "1px solid rgba(52,140,203,0.25)", resize: "vertical" }}
+              />
+              <p className="text-[10px] text-gray-400 leading-snug">
+                Solo necesario para retailers nuevos. Para Alkosto/Ktronix usamos un parser dedicado.
+              </p>
+            </div>
+          </details>
+          {err && <p className="text-[11px] text-red-600 font-medium">{err}</p>}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={save}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-black text-white disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+            >
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              {source ? "Actualizar URL" : "Conectar"}
+            </button>
+            {source && (
+              <button
+                type="button"
+                onClick={() => { setEditing(false); setUrl(source.url); setErr(""); }}
+                className="px-3 py-2 rounded-full text-xs font-bold text-gray-500 hover:bg-gray-100"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+        </div>
+      ) : source ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <a
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-bold text-[#1E76B6] hover:underline truncate max-w-full inline-flex items-center gap-1"
+            >
+              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{source.url}</span>
+            </a>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={busy}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold text-[#1E76B6] hover:bg-[#1E76B6]/10 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                Actualizar
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="px-2.5 py-1 rounded-full text-[10px] font-bold text-[#0A183A] hover:bg-gray-100"
+              >
+                Editar URL
+              </button>
+              <button
+                type="button"
+                onClick={detach}
+                disabled={busy}
+                className="px-2.5 py-1 rounded-full text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                Desconectar
+              </button>
+            </div>
+          </div>
+
+          {/* Status row */}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg bg-white px-2 py-2" style={{ border: "1px solid rgba(10,24,58,0.06)" }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Precio</p>
+              <p className="text-sm font-black text-[#0A183A] tabular-nums">
+                {source.lastPriceCop ? new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(source.lastPriceCop) : "—"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white px-2 py-2" style={{ border: "1px solid rgba(10,24,58,0.06)" }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Tiendas con stock</p>
+              <p className="text-sm font-black text-[#0A183A] tabular-nums">
+                {source.pickupPoints.filter((p) => p.stockUnits > 0).length}
+                <span className="text-[10px] text-gray-400 font-normal"> / {source.pickupPoints.length}</span>
+              </p>
+            </div>
+            <div className="rounded-lg bg-white px-2 py-2" style={{ border: "1px solid rgba(10,24,58,0.06)" }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Unidades total</p>
+              <p className="text-sm font-black text-[#0A183A] tabular-nums">{inStockTotal}</p>
+            </div>
+          </div>
+
+          {source.lastError && (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-[11px] text-red-700"
+              style={{ border: "1px solid rgba(239,68,68,0.2)" }}>
+              <strong>Error en la última actualización:</strong> {source.lastError}
+            </div>
+          )}
+          {source.lastSuccessAt && (
+            <p className="text-[10px] text-gray-400">
+              Última actualización exitosa: {new Date(source.lastSuccessAt).toLocaleString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
+
+          {cityGroups.length > 0 && (
+            <details className="group" open={false}>
+              <summary className="text-[10px] font-bold uppercase tracking-widest text-[#1E76B6] cursor-pointer hover:underline">
+                Tiendas por ciudad ({cityGroups.length})
+              </summary>
+              <div className="mt-2 space-y-1.5 max-h-64 overflow-y-auto">
+                {cityGroups.map((g) => (
+                  <div key={g.city} className="rounded-lg bg-white px-3 py-2"
+                    style={{ border: "1px solid rgba(10,24,58,0.06)" }}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[12px] font-black text-[#0A183A] flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-[#1E76B6]" />
+                        {g.cityDisplay}
+                      </span>
+                      <span className="text-[10px] font-bold tabular-nums"
+                        style={{ color: g.total > 0 ? "#059669" : "#9ca3af" }}>
+                        {g.total} unidad{g.total === 1 ? "" : "es"}
+                      </span>
+                    </div>
+                    <ul className="space-y-0.5 ml-1">
+                      {g.points.map((p) => (
+                        <li key={p.id} className="text-[10px] text-gray-600 flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1 truncate">
+                            <StoreIcon className="w-2.5 h-2.5 flex-shrink-0 text-gray-400" />
+                            <span className="truncate">{p.name}</span>
+                          </span>
+                          <span className={p.stockUnits > 0 ? "font-bold text-emerald-600" : "text-gray-400"}>
+                            {p.stockUnits} u.
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

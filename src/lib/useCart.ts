@@ -15,6 +15,13 @@ export interface CartItem {
   distributorId: string;
   distributorName: string;
   quantity: number;
+  /** Pickup-mode selection. When set, the buyer picks up the line at
+   *  the chosen RetailPickupPoint instead of getting it shipped.
+   *  pickupPointName + pickupCity are denormalised at selection time
+   *  so the cart UI can render the choice without re-fetching. */
+  pickupPointId?: string;
+  pickupPointName?: string;
+  pickupCity?: string;
 }
 
 const CART_KEY = "tirepro_cart";
@@ -84,6 +91,31 @@ export function useCart() {
     sync(readCart().filter((c) => c.listingId !== listingId));
   }, [sync]);
 
+  /** Set or clear pickup mode on a single line. Pass `null` to revert
+   *  to shipping. Doesn't touch quantity / price. */
+  const setPickup = useCallback((
+    listingId: string,
+    pickup: { pointId: string; pointName: string; city: string } | null,
+  ) => {
+    const current = readCart();
+    sync(current.map((c) => {
+      if (c.listingId !== listingId) return c;
+      if (!pickup) {
+        const { pickupPointId, pickupPointName, pickupCity, ...rest } = c;
+        // Strip the pickup fields when clearing — keeps the cart blob
+        // tidy and round-trips cleanly through JSON.parse/stringify.
+        void pickupPointId; void pickupPointName; void pickupCity;
+        return rest as CartItem;
+      }
+      return {
+        ...c,
+        pickupPointId: pickup.pointId,
+        pickupPointName: pickup.pointName,
+        pickupCity: pickup.city,
+      };
+    }));
+  }, [sync]);
+
   const clearCart = useCallback(() => { sync([]); }, [sync]);
 
   const total = items.reduce((s, c) => {
@@ -94,5 +126,5 @@ export function useCart() {
 
   const count = items.reduce((s, c) => s + c.quantity, 0);
 
-  return { items, count, total, addItem, updateQty, removeItem, clearCart };
+  return { items, count, total, addItem, updateQty, removeItem, setPickup, clearCart };
 }

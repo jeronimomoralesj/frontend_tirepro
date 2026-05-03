@@ -64,6 +64,13 @@ interface TrackedOrder {
   notas: string | null;
   statusHistory: StatusEvent[] | null;
   etaDate: string | null;
+  // When the buyer chose "Recoger en tienda" at checkout, these fields
+  // describe where they pick up the order. Denormalised on the order
+  // itself so a renamed/removed pickup point doesn't break the UI.
+  deliveryMode: string;
+  pickupPointId: string | null;
+  pickupPointName: string | null;
+  pickupCity: string | null;
   createdAt: string;
   updatedAt: string;
   listing: {
@@ -427,11 +434,27 @@ function OrderCard({
             </a>
           )}
 
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-4 mb-2">Entrega</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-4 mb-2">
+            {order.deliveryMode === "pickup" ? "Recoger en tienda" : "Entrega"}
+          </p>
           <div className="text-xs text-[#0A183A] space-y-0.5">
             <p className="font-bold">{order.buyerName}</p>
             {order.buyerCompany && <p className="text-gray-600">{order.buyerCompany}</p>}
-            {(order.buyerAddress || order.buyerCity) && (
+            {order.deliveryMode === "pickup" && order.pickupPointName ? (
+              <div
+                className="mt-1 rounded-xl px-3 py-2 flex items-start gap-2"
+                style={{ background: "rgba(30,118,182,0.05)", border: "1px solid rgba(30,118,182,0.18)" }}
+              >
+                <MapPin className="w-3.5 h-3.5 text-[#1E76B6] mt-0.5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-black text-[#0A183A] truncate">{order.pickupPointName}</p>
+                  {order.pickupCity && <p className="text-[11px] text-gray-500 truncate">{order.pickupCity}</p>}
+                  <p className="text-[10px] text-[#1E76B6] font-bold mt-0.5">
+                    Coordina con el distribuidor antes de ir a recoger.
+                  </p>
+                </div>
+              </div>
+            ) : (order.buyerAddress || order.buyerCity) ? (
               <p className="text-gray-600 flex items-start gap-1">
                 <MapPin className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
                 <span>
@@ -440,7 +463,7 @@ function OrderCard({
                   {order.buyerCity ?? ""}
                 </span>
               </p>
-            )}
+            ) : null}
           </div>
         </div>
 

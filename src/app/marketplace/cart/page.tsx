@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Loader2,
-  CheckCircle, Package, Truck, MapPin, ChevronDown,
+  CheckCircle, Package, Truck, MapPin, ChevronDown, X,
 } from "lucide-react";
 import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
@@ -38,7 +38,7 @@ type SavedAddress = { ciudad: string; direccion: string };
 
 export default function CartPage() {
   const router = useRouter();
-  const { items, count, total, updateQty, removeItem, clearCart } = useCart();
+  const { items, count, total, updateQty, removeItem, setPickup, clearCart } = useCart();
   const [showCheckout, setShowCheckout] = useState(false);
   const [form, setForm] = useState({
     buyerName: "", buyerEmail: "", buyerPhone: "",
@@ -137,7 +137,14 @@ export default function CartPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
-          items: items.map((i) => ({ listingId: i.listingId, quantity: i.quantity })),
+          items: items.map((i) => ({
+            listingId:     i.listingId,
+            quantity:      i.quantity,
+            // Forward the pickup-point selection (when set) so the
+            // backend can validate stock against the right store and
+            // mark the order as deliveryMode='pickup'.
+            ...(i.pickupPointId ? { pickupPointId: i.pickupPointId } : {}),
+          })),
           buyerName:    form.buyerName.trim(),
           buyerEmail:   form.buyerEmail.trim(),
           buyerPhone:   form.buyerPhone.trim() || undefined,
@@ -324,45 +331,58 @@ export default function CartPage() {
                     {distItems.map((item) => {
                       const price = getItemPrice(item);
                       return (
-                        <div key={item.listingId} className="px-4 sm:px-5 py-4 flex gap-3 sm:gap-4">
-                          {/* Image */}
-                          <div
-                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                            style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)", border: "1px solid rgba(30,118,182,0.08)" }}
-                          >
-                            {item.imageUrl ? (
-                              <img src={item.imageUrl} alt={`${item.marca} ${item.modelo} ${item.dimension}`} className="w-full h-full object-contain p-2" />
-                            ) : (
-                              <Package className="w-6 h-6 text-gray-200" />
-                            )}
-                          </div>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">{item.marca}</p>
-                            <Link href={`/marketplace/product/${item.listingId}`} className="text-sm font-black text-[#0A183A] hover:text-[#1E76B6] leading-snug truncate block">
-                              {item.modelo}
-                            </Link>
-                            <p className="text-[11px] text-gray-400 mt-0.5">{item.dimension} · {item.tipo === "reencauche" ? "Reencauche" : "Nueva"}</p>
-                            <p className="text-sm font-black text-[#0A183A] mt-1">{fmtCOP(price)}<span className="text-[10px] font-normal text-gray-400"> /unidad</span></p>
-                          </div>
-
-                          {/* Qty + remove */}
-                          <div className="flex flex-col items-end gap-2">
-                            <button onClick={() => removeItem(item.listingId)} className="text-gray-300 hover:text-red-500 transition-colors">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                            <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                              <button onClick={() => updateQty(item.listingId, item.quantity - 1)} className="px-2 py-1 hover:bg-gray-50">
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="px-3 py-1 text-xs font-bold border-x border-gray-200">{item.quantity}</span>
-                              <button onClick={() => updateQty(item.listingId, item.quantity + 1)} className="px-2 py-1 hover:bg-gray-50">
-                                <Plus className="w-3 h-3" />
-                              </button>
+                        <div key={item.listingId} className="px-4 sm:px-5 py-4 flex flex-col gap-3">
+                          <div className="flex gap-3 sm:gap-4">
+                            {/* Image */}
+                            <div
+                              className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                              style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)", border: "1px solid rgba(30,118,182,0.08)" }}
+                            >
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={`${item.marca} ${item.modelo} ${item.dimension}`} className="w-full h-full object-contain p-2" />
+                              ) : (
+                                <Package className="w-6 h-6 text-gray-200" />
+                              )}
                             </div>
-                            <p className="text-xs font-bold text-[#0A183A]">{fmtCOP(price * item.quantity)}</p>
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">{item.marca}</p>
+                              <Link href={`/marketplace/product/${item.listingId}`} className="text-sm font-black text-[#0A183A] hover:text-[#1E76B6] leading-snug truncate block">
+                                {item.modelo}
+                              </Link>
+                              <p className="text-[11px] text-gray-400 mt-0.5">{item.dimension} · {item.tipo === "reencauche" ? "Reencauche" : "Nueva"}</p>
+                              <p className="text-sm font-black text-[#0A183A] mt-1">{fmtCOP(price)}<span className="text-[10px] font-normal text-gray-400"> /unidad</span></p>
+                            </div>
+
+                            {/* Qty + remove */}
+                            <div className="flex flex-col items-end gap-2">
+                              <button onClick={() => removeItem(item.listingId)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                                <button onClick={() => updateQty(item.listingId, item.quantity - 1)} className="px-2 py-1 hover:bg-gray-50">
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="px-3 py-1 text-xs font-bold border-x border-gray-200">{item.quantity}</span>
+                                <button onClick={() => updateQty(item.listingId, item.quantity + 1)} className="px-2 py-1 hover:bg-gray-50">
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <p className="text-xs font-bold text-[#0A183A]">{fmtCOP(price * item.quantity)}</p>
+                            </div>
                           </div>
+                          {/* Delivery mode picker — collapses to a single
+                              "Envío a domicilio" line when no pickup
+                              points exist for this listing, expands into
+                              the pickup selector when they do. */}
+                          <PickupChooser
+                            listingId={item.listingId}
+                            currentPickupPointId={item.pickupPointId ?? null}
+                            currentPickupPointName={item.pickupPointName ?? null}
+                            currentPickupCity={item.pickupCity ?? null}
+                            onChoose={setPickup}
+                          />
                         </div>
                       );
                     })}
@@ -505,6 +525,217 @@ export default function CartPage() {
         )}
       </main>
       <MarketplaceFooter />
+    </div>
+  );
+}
+
+// =============================================================================
+// PICKUP CHOOSER — per-line delivery-mode toggle. Renders nothing if
+// the listing has no retail-source connected (`/pickup-points` returns
+// null). When pickup is available, lets the buyer flip between
+// "Envío a domicilio" (default) and "Recoger en tienda" with a city
+// selector + per-store list. Selection persists into the cart blob.
+// =============================================================================
+
+interface PickupCityGroup {
+  city: string;
+  cityDisplay: string;
+  totalStock: number;
+  points: Array<{
+    id: string;
+    externalId: string | null;
+    name: string;
+    address: string | null;
+    lat: number | null;
+    lng: number | null;
+    hours: string | null;
+    stockUnits: number;
+  }>;
+}
+
+interface PickupResponse {
+  url: string;
+  domain: string | null;
+  lastSuccessAt: string | null;
+  cities: PickupCityGroup[];
+}
+
+function PickupChooser({
+  listingId,
+  currentPickupPointId,
+  currentPickupPointName,
+  currentPickupCity,
+  onChoose,
+}: {
+  listingId: string;
+  currentPickupPointId: string | null;
+  currentPickupPointName: string | null;
+  currentPickupCity: string | null;
+  onChoose: (
+    listingId: string,
+    pickup: { pointId: string; pointName: string; city: string } | null,
+  ) => void;
+}) {
+  const [data, setData] = useState<PickupResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [selectedCity, setSelectedCity] = useState<string | null>(currentPickupCity ?? null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/marketplace/listings/${listingId}/pickup-points`);
+        if (!res.ok) {
+          if (!cancelled) setData(null);
+          return;
+        }
+        const json = (await res.json()) as PickupResponse | null;
+        if (!cancelled) setData(json);
+      } catch {
+        if (!cancelled) setData(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [listingId]);
+
+  // No retail source / no in-stock cities → render nothing. The default
+  // shipping flow is the only option, no UI noise needed.
+  if (loading) return null;
+  if (!data || data.cities.length === 0) return null;
+
+  const isPickup = !!currentPickupPointId;
+  const activeCity = selectedCity ?? data.cities[0]?.city ?? null;
+  const activeGroup = data.cities.find((c) => c.city === activeCity) ?? data.cities[0];
+
+  return (
+    <div className="rounded-xl px-3 py-2.5"
+      style={{ background: "#F8FAFC", border: "1px solid rgba(10,24,58,0.06)" }}>
+      {/* Mode toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onChoose(listingId, null)}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all"
+          style={{
+            background: !isPickup ? "#1E76B6" : "white",
+            color:      !isPickup ? "white" : "#0A183A",
+            border:     !isPickup ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
+          }}
+        >
+          <Truck className="w-3 h-3" />
+          Envío a domicilio
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all"
+          style={{
+            background: isPickup ? "#1E76B6" : "white",
+            color:      isPickup ? "white" : "#0A183A",
+            border:     isPickup ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
+          }}
+        >
+          <MapPin className="w-3 h-3" />
+          Recoger en tienda
+        </button>
+      </div>
+
+      {/* Selected pickup point summary */}
+      {isPickup && (
+        <div className="mt-2 flex items-start justify-between gap-2">
+          <div className="text-[11px] text-[#0A183A] flex-1 min-w-0">
+            <p className="font-black truncate">{currentPickupPointName}</p>
+            <p className="text-gray-500 truncate">{currentPickupCity}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="text-[10px] font-bold text-[#1E76B6] hover:underline flex-shrink-0"
+          >
+            Cambiar
+          </button>
+        </div>
+      )}
+
+      {/* City + store selector modal */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40"
+          onClick={() => setOpen(false)}>
+          <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 flex items-center justify-between gap-3"
+              style={{ borderBottom: "1px solid rgba(10,24,58,0.08)" }}>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">Recoger en tienda</p>
+                <p className="text-sm font-black text-[#0A183A]">Elige ciudad y sucursal</p>
+              </div>
+              <button onClick={() => setOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4 flex-shrink-0" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">Ciudad</p>
+              <div className="flex flex-wrap gap-1.5">
+                {data.cities.map((c) => (
+                  <button
+                    key={c.city}
+                    type="button"
+                    onClick={() => setSelectedCity(c.city)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-black transition-all"
+                    style={{
+                      background: activeCity === c.city ? "#1E76B6" : "white",
+                      color:      activeCity === c.city ? "white" : "#0A183A",
+                      border:     activeCity === c.city ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
+                    }}
+                  >
+                    <MapPin className="w-2.5 h-2.5" />
+                    {c.cityDisplay}
+                    <span className="text-[9px] opacity-80">· {c.totalStock}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {activeGroup?.points.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    onChoose(listingId, {
+                      pointId:   p.id,
+                      pointName: p.name,
+                      city:      activeGroup.cityDisplay,
+                    });
+                    setOpen(false);
+                  }}
+                  className="w-full text-left rounded-xl px-3 py-2.5 hover:bg-[#F0F7FF] transition-colors flex items-start gap-2"
+                  style={{
+                    border: currentPickupPointId === p.id
+                      ? "1px solid #1E76B6"
+                      : "1px solid rgba(10,24,58,0.08)",
+                    background: currentPickupPointId === p.id ? "rgba(30,118,182,0.05)" : "white",
+                  }}
+                >
+                  <MapPin className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-black text-[#0A183A] truncate">{p.name}</p>
+                    {p.address && <p className="text-[10px] text-gray-500 truncate">{p.address}</p>}
+                    {p.hours && <p className="text-[10px] text-gray-400 truncate">{p.hours}</p>}
+                  </div>
+                  <span className="text-[10px] font-black tabular-nums flex-shrink-0"
+                    style={{ color: p.stockUnits > 0 ? "#059669" : "#9ca3af" }}>
+                    {p.stockUnits} u.
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
