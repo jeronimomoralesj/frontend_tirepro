@@ -89,15 +89,23 @@ export function BrandLink({
 
 // =============================================================================
 
-export default function PublicMarketplaceWrapper() {
+// Pre-applied filters when MarketplaceClient is embedded inside another
+// page (e.g. /marketplace/ciudad/<slug> renders the same UX with the
+// city already locked in). All optional — when nothing is passed, the
+// component behaves exactly like the bare /marketplace landing.
+export interface MarketplaceClientProps {
+  initialCiudad?: string;
+}
+
+export default function PublicMarketplaceWrapper(props: MarketplaceClientProps) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-[#f5f5f7]" />}>
-      <PublicMarketplace />
+      <PublicMarketplace {...props} />
     </Suspense>
   );
 }
 
-function PublicMarketplace() {
+function PublicMarketplace({ initialCiudad }: MarketplaceClientProps) {
   const searchParams = useSearchParams();
   const router       = useRouter();
   const pathname     = usePathname();
@@ -133,7 +141,7 @@ function PublicMarketplace() {
   const [distributorId, setDistributorId] = useState("");
   const [rimSizes, setRimSizes] = useState<string[]>([]);
   const [categoryLabel, setCategoryLabel] = useState("");
-  const [ciudad, setCiudad] = useState("");
+  const [ciudad, setCiudad] = useState(initialCiudad ?? "");
   const [sortBy, setSortBy] = useState("relevance");
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<{ type: string; listings: Listing[] }>({ type: "", listings: [] });
@@ -154,6 +162,13 @@ function PublicMarketplace() {
 
   // Location detection
   useEffect(() => {
+    // Embedded use (city already locked in by the parent route, e.g. the
+    // /marketplace/ciudad/<slug> wrapper). Skip auto-detection so we don't
+    // overwrite the parent's filter with a stored localStorage city.
+    if (initialCiudad) {
+      setDetectedCity(initialCiudad);
+      return;
+    }
     // 1. Check localStorage first
     const saved = localStorage.getItem("marketplace_city");
     if (saved) { setCiudad(saved); setDetectedCity(saved); return; }
@@ -260,8 +275,11 @@ function PublicMarketplace() {
       .catch(() => { /* ignore — falls back to slugified link, no logo */ });
   }, []);
 
-  // Track whether user explicitly set the city filter (vs auto-detected)
-  const [ciudadManual, setCiudadManual] = useState(false);
+  // Track whether user explicitly set the city filter (vs auto-detected).
+  // When a city is supplied via the initialCiudad prop (e.g. embedded on
+  // /marketplace/ciudad/<slug>), treat it as a manual filter so the
+  // backend applies it as a hard constraint from the first request.
+  const [ciudadManual, setCiudadManual] = useState(!!initialCiudad);
   // Max-price filter — kept as a string so the user can clear the
   // input cleanly without coercing to 0. Empty string == no filter.
   const [maxPrice, setMaxPrice] = useState<string>("");
@@ -440,6 +458,35 @@ function PublicMarketplace() {
     <div className="min-h-screen bg-[#f5f5f7]">
       {/* ═══ NAV ═══ */}
       <MarketplaceNav initialSearch={search} onSearch={setSearch} />
+
+      {/* City landing banner — only renders when MarketplaceClient is
+          embedded with a pre-applied city (e.g. /marketplace/ciudad/<slug>).
+          Provides the visible H1 the city landing needs for SEO and a
+          one-tap "ver todo Colombia" escape so the buyer isn't trapped in
+          the city filter. */}
+      {initialCiudad && (
+        <div className="bg-gradient-to-r from-[#0A183A] via-[#173D68] to-[#1E76B6] text-white">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/60 mb-0.5">
+                Llantas en
+              </p>
+              <h1 className="text-xl sm:text-2xl font-black leading-tight truncate">
+                {initialCiudad}
+                <span className="text-white/70 font-bold text-sm sm:text-base ml-2">
+                  · Marketplace TirePro
+                </span>
+              </h1>
+            </div>
+            <Link
+              href="/marketplace"
+              className="text-[11px] font-bold text-white/80 hover:text-white inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 transition-colors backdrop-blur-sm border border-white/15"
+            >
+              Ver todas las ciudades
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Filters bar */}
       <div className="bg-white border-b border-gray-100">
