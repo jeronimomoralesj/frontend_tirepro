@@ -423,13 +423,9 @@ export default function ProductClient({
           {/* LEFT — Images */}
           <div className="lg:sticky lg:top-20 lg:self-start">
             <div
-              className="relative aspect-[5/4] sm:aspect-square rounded-3xl overflow-hidden flex items-center justify-center mb-4 group max-h-[50vh] sm:max-h-none mx-auto w-full"
+              className="relative aspect-[5/4] sm:aspect-square rounded-3xl overflow-hidden flex items-center justify-center mb-4 group max-h-[50vh] sm:max-h-none mx-auto w-full bg-[#f7f7f9]"
               style={{
-                // Brand-tinted radial wash so the backdrop subtly echoes
-                // the brand color (Continental glows red, Michelin blue,
-                // etc.) without overpowering the tire photo.
-                background: `radial-gradient(circle at 30% 20%, #ffffff 0%, ${palette.tint06} 60%, ${palette.tint18} 100%)`,
-                boxShadow: `0 20px 60px -20px rgba(10,24,58,0.25), 0 0 0 1px color-mix(in srgb, ${palette.primary} 15%, white)`,
+                boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18), inset 0 0 0 1px rgba(10,24,58,0.05)",
               }}
             >
               {hasPromo && (
@@ -541,20 +537,13 @@ export default function ProductClient({
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 mt-3 flex-wrap">
-                <span
-                  className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(30,118,182,0.10)", color: "#1E76B6" }}
-                >
-                  <Sparkles className="w-3 h-3" />
-                  Recomendado por TirePro
-                </span>
-                {brandInfo?.tier && (
+              brandInfo?.tier && (
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
                   <span className="text-[11px] text-gray-500">
                     Marca {BRAND_TIER_META[brandInfo.tier]?.label?.toLowerCase() ?? "verificada"}
                   </span>
-                )}
-              </div>
+                </div>
+              )
             )}
 
             {/* Divider */}
@@ -963,48 +952,49 @@ export default function ProductClient({
             </div>
 
             {/* ═══ RETREADABILITY INDEX ═══ */}
-            {/* Hidden for reencauche tires — a retread can't itself be retreaded
-                again for additional lives, so the index doesn't apply. */}
-            {product.tipo !== "reencauche" && (
-            <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
-              <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Reencauchabilidad</p>
-              <p className="text-sm font-black text-[#0A183A] mb-3">Índice de reencauchabilidad</p>
-              {(() => {
-                const reencauchable = product.catalog?.reencauchable ?? false;
-                const kmEst = product.catalog?.kmEstimadosReales ?? 0;
-                const rtd = product.catalog?.rtdMm ?? 0;
-                const isReencauche = product.tipo === "reencauche";
+            {/* Hidden for reencauche tires (a retread can't be retreaded
+                again) AND for passenger-car tires where the score lands in
+                the "Bajo" range — those are typically auto/SUV products
+                where retread isn't applicable, so the block adds noise
+                without helping the buyer. */}
+            {(() => {
+              if (product.tipo === "reencauche") return null;
+              const reencauchable = product.catalog?.reencauchable ?? false;
+              const kmEst = product.catalog?.kmEstimadosReales ?? 0;
+              const rtd = product.catalog?.rtdMm ?? 0;
 
-                // Calculate index 0-100
-                let score = 0;
-                if (reencauchable) score += 40;
-                if (rtd >= 18) score += 20; else if (rtd >= 14) score += 10;
-                if (kmEst >= 150000) score += 20; else if (kmEst >= 100000) score += 10;
-                if (!isReencauche) score += 20; // new tires have more retread potential
+              let score = 0;
+              if (reencauchable) score += 40;
+              if (rtd >= 18) score += 20; else if (rtd >= 14) score += 10;
+              if (kmEst >= 150000) score += 20; else if (kmEst >= 100000) score += 10;
+              score += 20; // new tire (already gated above)
 
-                const color = score >= 70 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
-                const label = score >= 70 ? "Excelente" : score >= 40 ? "Moderado" : "Bajo";
+              // Drop the whole block for typical passenger-car tires
+              // (no fabric retread cert + low RTD/km → score lands ≤30).
+              if (score < 40) return null;
 
-                return (
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${score}%`, background: color }} />
-                      </div>
-                      <span className="text-sm font-black" style={{ color }}>{score}/100</span>
+              const color = score >= 70 ? "#22c55e" : "#f59e0b";
+              const label = score >= 70 ? "Excelente" : "Moderado";
+
+              return (
+                <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
+                  <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Reencauchabilidad</p>
+                  <p className="text-sm font-black text-[#0A183A] mb-3">Índice de reencauchabilidad</p>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${score}%`, background: color }} />
                     </div>
-                    <p className="text-xs font-bold" style={{ color }}>{label}</p>
-                    <div className="mt-2 space-y-1 text-[10px] text-gray-500">
-                      <p>{reencauchable ? "Casco reencauchable — puede tener hasta 3 vidas adicionales" : "No reencauchable segun fabricante"}</p>
-                      {rtd > 0 && <p>Profundidad inicial: {rtd}mm {rtd >= 18 ? "(optima para reencauche)" : rtd >= 14 ? "(adecuada)" : "(limitada)"}</p>}
-                      {kmEst > 0 && <p>{(kmEst / 1000).toFixed(0)}K km estimados por vida</p>}
-                      {isReencauche && <p>Este producto ya es un reencauche — ahorro estimado vs nueva: ~40%</p>}
-                    </div>
+                    <span className="text-sm font-black" style={{ color }}>{score}/100</span>
                   </div>
-                );
-              })()}
-            </div>
-            )}
+                  <p className="text-xs font-bold" style={{ color }}>{label}</p>
+                  <div className="mt-2 space-y-1 text-[10px] text-gray-500">
+                    <p>{reencauchable ? "Casco reencauchable — puede tener hasta 3 vidas adicionales" : "No reencauchable segun fabricante"}</p>
+                    {rtd > 0 && <p>Profundidad inicial: {rtd}mm {rtd >= 18 ? "(optima para reencauche)" : rtd >= 14 ? "(adecuada)" : "(limitada)"}</p>}
+                    {kmEst > 0 && <p>{(kmEst / 1000).toFixed(0)}K km estimados por vida</p>}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ═══ VEHICLE COMPATIBILITY ═══ */}
             <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
