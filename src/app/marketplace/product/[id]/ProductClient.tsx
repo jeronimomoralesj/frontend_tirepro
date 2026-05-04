@@ -246,14 +246,98 @@ export default function ProductClient({
     return () => { trackProductDwell(product.id, (Date.now() - start) / 1000); };
   }, [product?.id]);
 
-  // Fetch similar products + promo listings from same distributor
+  // Fetch similar products + promo listings from same distributor.
+  //
+  // Recommendation strategy: pull three buckets in parallel and score
+  // every candidate against the source product. The previous version
+  // was a single exact-dimension query (4 results, all the same size),
+  // which left flat tires for buyers shopping cross-dimension or by
+  // brand. The new pool covers:
+  //   • same dimension (strongest signal — same vehicle fit)
+  //   • same brand   (loyal-buyer / brand-explorer flow)
+  //   • same rim     (vehicle-compatible alternatives)
+  // and ranks by a weighted score (dimension > brand > rim > tipo >
+  // price proximity > same distributor), penalising out-of-stock so
+  // agotados sink to the bottom.
   useEffect(() => {
     if (!product) return;
-    fetch(`${API_BASE}/marketplace/listings?dimension=${encodeURIComponent(product.dimension)}&limit=5&sortBy=price_asc`)
-      .then((r) => (r.ok ? r.json() : { listings: [] }))
-      .then((d) => setSimilar((d.listings ?? []).filter((l: any) => l.id !== product.id).slice(0, 4)))
-      .catch(() => {});
-    // Fetch promo listings from same distributor
+
+    const sourceHasPromo =
+      product.precioPromo != null && product.promoHasta &&
+      new Date(product.promoHasta) > new Date();
+    const sourcePrice = sourceHasPromo ? product.precioPromo! : product.precioCop;
+    const rimRe = /R\s*(\d+(?:\.\d+)?)/;
+    const rimOf = (dim: string): number | null => {
+      const m = (dim || "").toUpperCase().match(rimRe);
+      return m ? parseFloat(m[1]) : null;
+    };
+    const sourceRim = rimOf(product.dimension);
+
+    Promise.all([
+      // Bucket 1 — exact dimension. Highest-fidelity match for the
+      // buyer who landed here looking for "this size, anything else".
+      fetch(`${API_BASE}/marketplace/listings?dimension=${encodeURIComponent(product.dimension)}&limit=20&sortBy=price_asc`)
+        .then((r) => (r.ok ? r.json() : { listings: [] }))
+        .catch(() => ({ listings: [] })),
+      // Bucket 2 — same brand, any size. Catches buyers loyal to a
+      // marca who want to see other models from it.
+      fetch(`${API_BASE}/marketplace/listings?marca=${encodeURIComponent(product.marca)}&limit=20&sortBy=newest`)
+        .then((r) => (r.ok ? r.json() : { listings: [] }))
+        .catch(() => ({ listings: [] })),
+      // Bucket 3 — same rim, any brand. Same vehicle compatibility
+      // even if width / aspect ratio differs slightly. Skipped when
+      // the source dimension isn't parseable (oddly-formatted SKU).
+      sourceRim != null
+        ? fetch(`${API_BASE}/marketplace/listings?rimSizes=${sourceRim}&limit=30&sortBy=newest`)
+            .then((r) => (r.ok ? r.json() : { listings: [] }))
+            .catch(() => ({ listings: [] }))
+        : Promise.resolve({ listings: [] }),
+    ]).then(([byDim, byBrand, byRim]) => {
+      const seen = new Set<string>([product.id]);
+      const pool: any[] = [];
+      for (const arr of [byDim.listings, byBrand.listings, byRim.listings]) {
+        for (const l of arr ?? []) {
+          if (!seen.has(l.id)) {
+            seen.add(l.id);
+            pool.push(l);
+          }
+        }
+      }
+
+      const scored = pool.map((c: any) => {
+        let score = 0;
+        // Dimension exact — strongest signal (same vehicle fit).
+        if (c.dimension === product.dimension) score += 12;
+        // Same brand — keeps brand-loyal buyers in their lane.
+        if ((c.marca || "").toLowerCase() === product.marca.toLowerCase()) score += 7;
+        // Same rim — vehicle compatibility even with different width.
+        const cRim = rimOf(c.dimension);
+        if (sourceRim != null && cRim != null && sourceRim === cRim) score += 4;
+        // Same tipo (nueva / reencauche) — buyer rarely cross-shops.
+        if (c.tipo === product.tipo) score += 3;
+        // Price proximity — band of confidence around the source price.
+        const cPromoActive =
+          c.precioPromo != null && c.promoHasta &&
+          new Date(c.promoHasta) > new Date();
+        const cPrice = cPromoActive ? c.precioPromo : c.precioCop;
+        if (sourcePrice > 0 && cPrice > 0) {
+          const ratio = Math.abs(cPrice - sourcePrice) / sourcePrice;
+          if (ratio <= 0.15) score += 4;
+          else if (ratio <= 0.30) score += 2;
+          else if (ratio <= 0.50) score += 1;
+        }
+        // Same distributor — faster shipping, single packing slip.
+        if (c.distributor?.id && c.distributor.id === product.distributor?.id) score += 2;
+        // Out-of-stock penalty so agotados sink even if otherwise relevant.
+        if (typeof c.cantidadDisponible === "number" && c.cantidadDisponible <= 0) score -= 8;
+        return { listing: c, score };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      setSimilar(scored.slice(0, 8).map((s) => s.listing));
+    }).catch(() => { /* ignore — section just hides */ });
+
+    // Promo listings from the same distributor (separate concern).
     fetch(`${API_BASE}/marketplace/listings?distributorId=${product.distributor.id}&limit=10&sortBy=price_asc`)
       .then((r) => (r.ok ? r.json() : { listings: [] }))
       .then((d) => setPromoListings(
@@ -1512,6 +1596,56 @@ export default function ProductClient({
           </div>
         </div>
 
+        {/* Similar products — placed above reviews so a buyer who
+            decides this isn't quite the right tire has somewhere to
+            keep shopping before scrolling past the social-proof block.
+            Recommendations are scored on dimension/brand/rim/price
+            similarity, not just exact-dimension. */}
+        {similar.length > 0 && (
+          <section className="mt-14">
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">También te puede interesar</p>
+                <h2 className="text-xl sm:text-2xl font-black text-[#0A183A]">Productos similares</h2>
+              </div>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
+              {similar.map((l: any) => {
+                const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+                const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+                const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+                const p = hasPromo ? l.precioPromo : l.precioCop;
+                return (
+                  <Link
+                    key={l.id}
+                    href={productHref(l)}
+                    className="flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group border border-gray-100"
+                    style={{ width: "min(70vw, 240px)" }}
+                  >
+                    <div
+                      className="aspect-square flex items-center justify-center overflow-hidden"
+                      style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
+                    >
+                      {cover ? (
+                        <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension} — llanta en Colombia`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform" />
+                      ) : (
+                        <Package className="w-10 h-10 text-gray-200" />
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>
+                      <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
+                      <p className="text-[11px] text-gray-400">{l.dimension}</p>
+                      <p className="text-base font-black text-[#0A183A] mt-2">{fmtCOP(p)}</p>
+                      {l.distributor && <p className="text-[9px] text-gray-400 mt-1 truncate">{l.distributor.name}</p>}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Reviews & Ratings section */}
         <div className="mt-12">
           <div className="flex items-center justify-between mb-5">
@@ -1842,51 +1976,6 @@ export default function ProductClient({
           );
         })()}
 
-        {/* Similar products */}
-        {similar.length > 0 && (
-          <section className="mt-14">
-            <div className="flex items-end justify-between mb-4">
-              <div>
-                <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">También te puede interesar</p>
-                <h2 className="text-xl sm:text-2xl font-black text-[#0A183A]">Productos similares</h2>
-              </div>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
-              {similar.map((l: any) => {
-                const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
-                const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
-                const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
-                const p = hasPromo ? l.precioPromo : l.precioCop;
-                return (
-                  <Link
-                    key={l.id}
-                    href={productHref(l)}
-                    className="flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group border border-gray-100"
-                    style={{ width: "min(70vw, 240px)" }}
-                  >
-                    <div
-                      className="aspect-square flex items-center justify-center overflow-hidden"
-                      style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
-                    >
-                      {cover ? (
-                        <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension} — llanta en Colombia`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform" />
-                      ) : (
-                        <Package className="w-10 h-10 text-gray-200" />
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>
-                      <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
-                      <p className="text-[11px] text-gray-400">{l.dimension}</p>
-                      <p className="text-base font-black text-[#0A183A] mt-2">{fmtCOP(p)}</p>
-                      {l.distributor && <p className="text-[9px] text-gray-400 mt-1 truncate">{l.distributor.name}</p>}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        )}
       </main>
 
       <MarketplaceFooter />
