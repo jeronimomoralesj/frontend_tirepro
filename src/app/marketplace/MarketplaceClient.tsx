@@ -95,6 +95,19 @@ export function BrandLink({
 // component behaves exactly like the bare /marketplace landing.
 export interface MarketplaceClientProps {
   initialCiudad?: string;
+  /**
+   * Category preset (used by /marketplace/categoria/<slug>): pre-applies
+   * tipo / rimSizes filters and renders a brand-colored hero banner with
+   * the supplied H1 + subtitle. The label is what shows in the active-
+   * filter chip; the H1 is what appears in the visible banner.
+   */
+  initialCategory?: {
+    label: string;
+    h1: string;
+    subtitle?: string;
+    tipo?: 'nueva' | 'reencauche';
+    rimSizes?: number[];
+  };
 }
 
 export default function PublicMarketplaceWrapper(props: MarketplaceClientProps) {
@@ -105,7 +118,7 @@ export default function PublicMarketplaceWrapper(props: MarketplaceClientProps) 
   );
 }
 
-function PublicMarketplace({ initialCiudad }: MarketplaceClientProps) {
+function PublicMarketplace({ initialCiudad, initialCategory }: MarketplaceClientProps) {
   const searchParams = useSearchParams();
   const router       = useRouter();
   const pathname     = usePathname();
@@ -137,10 +150,15 @@ function PublicMarketplace({ initialCiudad }: MarketplaceClientProps) {
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [dimension, setDimension] = useState("");
   const [marca, setMarca] = useState("");
-  const [tipo, setTipo] = useState(searchParams.get("tipo") ?? "");
+  // Category presets (initialCategory) override the URL-param tipo so a
+  // category landing always reflects the route's intent, not whatever
+  // ?tipo= happened to be in the address bar.
+  const [tipo, setTipo] = useState(initialCategory?.tipo ?? searchParams.get("tipo") ?? "");
   const [distributorId, setDistributorId] = useState("");
-  const [rimSizes, setRimSizes] = useState<string[]>([]);
-  const [categoryLabel, setCategoryLabel] = useState("");
+  const [rimSizes, setRimSizes] = useState<string[]>(
+    initialCategory?.rimSizes?.map((r) => String(r)) ?? [],
+  );
+  const [categoryLabel, setCategoryLabel] = useState(initialCategory?.label ?? "");
   const [ciudad, setCiudad] = useState(initialCiudad ?? "");
   const [sortBy, setSortBy] = useState("relevance");
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
@@ -458,6 +476,42 @@ function PublicMarketplace({ initialCiudad }: MarketplaceClientProps) {
     <div className="min-h-screen bg-[#f5f5f7]">
       {/* ═══ NAV ═══ */}
       <MarketplaceNav initialSearch={search} onSearch={setSearch} />
+
+      {/* Category landing banner — only renders when MarketplaceClient is
+          embedded with a pre-applied category (e.g.
+          /marketplace/categoria/auto). Provides the visible H1 + subtitle
+          the category landing needs for SEO and a one-tap escape to the
+          full marketplace. Shown above the city banner when both are
+          set, so the user reads "Llantas para auto" first, then the city
+          context. */}
+      {initialCategory && (
+        <div className="bg-gradient-to-r from-[#0A183A] via-[#173D68] to-[#1E76B6] text-white">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/60 mb-0.5">
+                Categoría
+              </p>
+              <h1 className="text-xl sm:text-2xl font-black leading-tight truncate">
+                {initialCategory.h1}
+                <span className="text-white/70 font-bold text-sm sm:text-base ml-2 hidden sm:inline">
+                  · Marketplace TirePro
+                </span>
+              </h1>
+              {initialCategory.subtitle && (
+                <p className="text-[11px] sm:text-xs text-white/70 mt-1 truncate">
+                  {initialCategory.subtitle}
+                </p>
+              )}
+            </div>
+            <Link
+              href="/marketplace"
+              className="text-[11px] font-bold text-white/80 hover:text-white inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 transition-colors backdrop-blur-sm border border-white/15 flex-shrink-0"
+            >
+              Ver todas las categorías
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* City landing banner — only renders when MarketplaceClient is
           embedded with a pre-applied city (e.g. /marketplace/ciudad/<slug>).
