@@ -773,46 +773,38 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 )}
               </dl>
 
-              {/* Magazine-style metric rail — numbers first, micro-labels
-                  below. Vertical dividers keep it dense and readable. */}
+              {/* Magazine-style metric rail. Numeric values get the big
+                  display treatment; word-values (Nacional / Verificados)
+                  drop a tier in size so they fit in one column on any
+                  breakpoint. Each cell is min-w-0 + truncate so long
+                  values stay within bounds. */}
               <div
-                className="mt-6 pt-5 grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100"
+                className="mt-6 pt-5 grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-5"
                 style={{ borderTop: `1px solid ${rgba(PRIMARY, 0.12)}` }}
               >
-                <div className="px-3 first:pl-0">
-                  <p className="text-2xl sm:text-3xl font-black text-[#0A183A] tracking-tight leading-none">
-                    {brand.total}
-                  </p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">
-                    Producto{brand.total !== 1 ? "s" : ""}
-                  </p>
-                </div>
-                {fromPriceStr && (
-                  <div className="px-3">
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight leading-none" style={{ color: PRIMARY }}>
-                      {fromPriceStr}
-                    </p>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">
-                      Desde
-                    </p>
-                  </div>
-                )}
-                <div className="px-3">
-                  <p className="text-2xl sm:text-3xl font-black text-[#0A183A] tracking-tight leading-none">
-                    Nacional
-                  </p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">
-                    Envío
-                  </p>
-                </div>
-                <div className="px-3">
-                  <p className="text-2xl sm:text-3xl font-black text-[#0A183A] tracking-tight leading-none">
-                    Verificados
-                  </p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">
-                    Distribuidores
-                  </p>
-                </div>
+                {(() => {
+                  type Metric = { value: string; label: string; color?: string; size: "big" | "word" };
+                  const metrics: Metric[] = [
+                    { value: String(brand.total), label: brand.total === 1 ? "Producto" : "Productos", size: "big" },
+                    ...(fromPriceStr ? [{ value: fromPriceStr, label: "Desde", color: PRIMARY, size: "big" as const }] : []),
+                    { value: "Nacional", label: "Envío", size: "word" },
+                    { value: "Verificados", label: "Distribuidores", size: "word" },
+                  ];
+                  return metrics.map((m) => (
+                    <div key={m.label} className="min-w-0">
+                      <p
+                        className={`${m.size === "big" ? "text-2xl sm:text-[28px]" : "text-base sm:text-lg"} font-black tracking-tight leading-none truncate`}
+                        style={{ color: m.color ?? "#0A183A" }}
+                        title={m.value}
+                      >
+                        {m.value}
+                      </p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2 truncate">
+                        {m.label}
+                      </p>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           </div>
