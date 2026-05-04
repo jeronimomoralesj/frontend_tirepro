@@ -16,12 +16,15 @@ import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 // ventasDist/page.tsx is left in place for any direct-URL access but
 // no longer referenced from the dashboard nav.
 const VentasDistPage = React.lazy(() => import("../marketplace/pedidos/page"));
-// Catálogo tab points at the modern /dashboard/catalogoSku page so dist
-// admins see the same SKU catalog + ficha técnica + sales-advisor + cart
-// experience that marketplace_tracker users get from the sidebar. The
-// legacy /dashboard/catalogoDist URL stays alive (re-exports from the
-// same module) for any old bookmark.
-const CatalogoDistPage = React.lazy(() => import("../catalogoSku/page"));
+// Catálogo tab points at the marketplace-listings manager
+// (/dashboard/marketplace/productos) — the same surface where admins
+// edit their actual storefront SKUs, prices, images, promos AND link
+// each listing to its external retail source (Alkosto, etc.). The
+// previous catalogoSku reference showed the read-only SKU master
+// catalog (terreno, kmEstimados, etc.), which doesn't expose any of
+// the marketplace publishing controls a distributor needs to manage
+// what's actually for sale.
+const CatalogoDistPage = React.lazy(() => import("../marketplace/productos/page"));
 // Perfil tab — same modern unified surface that marketplace_tracker users
 // land on when they hit Perfil in the sidebar. Inline DistributorProfileSection
 // (legacy, ~600 LOC) replaced by this lazy import so the two audiences
