@@ -13,7 +13,7 @@ import {
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
 import { AddToCartButton } from "../../components/marketplace/AddToCartButton";
-import { MayWeekBanner } from "../../components/marketplace/MayWeekBanner";
+import { MayWeekBanner, MayWeekStars, useMayWeek } from "../../components/marketplace/MayWeekBanner";
 import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession } from "../../lib/marketplaceAnalytics";
 import { productHref } from "./product/_lib/url";
 
@@ -1558,6 +1558,7 @@ function ResultsSidebar({
 // ─────────────────────────────────────────────────────────────────────
 
 function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
+  const mayWeek = useMayWeek();
   const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
   const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
   const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
@@ -1602,6 +1603,7 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
                 className="px-1.5 py-0.5 rounded-md text-[9px] font-black text-white"
                 style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)", boxShadow: "0 4px 10px rgba(239,68,68,0.30)" }}
               >
+                {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
                 -{discount}%
               </span>
             )}
@@ -1971,6 +1973,7 @@ function MarketplaceHero({
   const [perfil, setPerfil] = useState("");
   const [rin, setRin]       = useState("");
   const [text, setText]     = useState("");
+  const mayWeek = useMayWeek();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -2011,6 +2014,10 @@ function MarketplaceHero({
               "linear-gradient(135deg, rgba(10,24,58,0.92) 0%, rgba(23,61,104,0.82) 45%, rgba(30,118,182,0.55) 100%)",
           }}
         />
+        {/* Atmosphere-only May-week starfield. Sits between the dark
+            overlay and the foreground content; no extra text, no
+            franchise art. Self-hides outside May 1–7. */}
+        {mayWeek && <MayWeekStars density="hero" />}
 
         <div className="relative flex flex-col justify-center gap-4 px-5 py-7 sm:px-10 sm:py-8 lg:px-16 max-w-3xl">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-[9px] sm:text-[10px] font-bold text-white uppercase tracking-widest w-fit">
@@ -2368,6 +2375,7 @@ function BrandsStrip({ brandsMap, stockedSlugs }: { brandsMap: BrandsMap; stocke
 // =============================================================================
 
 function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: BrandsMap }) {
+  const mayWeek = useMayWeek();
   const fmtCOP = (n: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
@@ -2412,6 +2420,7 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
                   <Package className="w-10 h-10 text-gray-200" />
                 )}
                 <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black text-white bg-red-500 shadow-sm">
+                  {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
                   -{discount}%
                 </span>
                 {meta?.logoUrl && (
@@ -2642,6 +2651,7 @@ function BestSellersScroller({ listings, brandsMap, title, subtitle }: { listing
 // =============================================================================
 
 function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
+  const mayWeek = useMayWeek();
   const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
   const coverImg = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
   const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
@@ -2672,7 +2682,10 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
         {/* Badges */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           {hasPromo && (
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white bg-red-500 shadow-sm">-{discount}%</span>
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white bg-red-500 shadow-sm">
+              {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
+              -{discount}%
+            </span>
           )}
           {isReencauche && (
             <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-purple-700 bg-purple-100 flex items-center gap-0.5">

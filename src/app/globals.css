@@ -335,3 +335,17 @@
   100% { transform: scale(1);    box-shadow: 0 0 0 4px  rgba(52,140,203,0.0); }
 }
 .animate-tire-pulse { animation: tire-pulse 650ms ease-out both; }
+
+/* ── MAY-WEEK STARFIELD TWINKLE ──────────────────────────────────────── */
+/* Slow opacity pulse for the date-gated marketplace decorations
+   (May 1–7). Generic CSS — used by .mayweek-twinkle wherever a
+   <MayWeekStars /> overlay sits. Respects prefers-reduced-motion so
+   we never animate against the user's setting. */
+@keyframes mayweek-twinkle {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.mayweek-twinkle { animation: mayweek-twinkle 4.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .mayweek-twinkle { animation: none; }
+}
