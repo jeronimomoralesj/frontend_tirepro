@@ -792,8 +792,13 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                   ];
                   return metrics.map((m) => (
                     <div key={m.label} className="min-w-0">
+                      {/* whitespace-nowrap + a font size that fits the
+                          longest expected value ("$ 1.234.567") inside
+                          the ~120px column. We also bump the column up to
+                          its content width via `w-fit` so the price never
+                          gets clipped by truncate. */}
                       <p
-                        className={`${m.size === "big" ? "text-2xl sm:text-[28px]" : "text-base sm:text-lg"} font-black tracking-tight leading-none truncate`}
+                        className={`${m.size === "big" ? "text-lg sm:text-xl" : "text-sm sm:text-base"} font-black tracking-tight leading-none whitespace-nowrap`}
                         style={{ color: m.color ?? "#0A183A" }}
                         title={m.value}
                       >

@@ -30,6 +30,7 @@ export interface BrandListing {
   promoHasta: string | null;
   imageUrls: string[] | null;
   coverIndex: number;
+  cantidadDisponible?: number | null;
   distributor?: { id: string; name: string };
 }
 
@@ -95,10 +96,14 @@ export default function BrandListingsClient({
   }, [listings]);
   const showTipoFilter = tipoMix.hasNueva && tipoMix.hasRetread;
 
-  // Filtered listings.
+  // Filtered + stock-aware sort. Even though the backend already sorts by
+  // inventoryRank desc, we re-sort client-side as a safety net so a stale
+  // cache or a deploy lag can never put "Agotado" listings above
+  // in-stock ones. Within each stock bucket we keep the backend's order
+  // (image quality, then recency).
   const filtered = useMemo(() => {
     const sizeQ = size.trim().toUpperCase().replace(/\s+/g, "");
-    return listings.filter((l) => {
+    const matched = listings.filter((l) => {
       // Tipo filter
       if (tipo !== "all" && (l.tipo || "").toLowerCase() !== tipo) return false;
 
@@ -120,6 +125,16 @@ export default function BrandListingsClient({
 
       return true;
     });
+    // Stable partition: stock > 0 first, agotados last. We can't rely on
+    // Array.prototype.sort being stable across all engines (it is in V8
+    // but spec only since ES2019), so we partition explicitly.
+    const inStock: BrandListing[] = [];
+    const outOfStock: BrandListing[] = [];
+    for (const l of matched) {
+      if (l.cantidadDisponible != null && l.cantidadDisponible <= 0) outOfStock.push(l);
+      else inStock.push(l);
+    }
+    return [...inStock, ...outOfStock];
   }, [listings, useCase, tipo, size]);
 
   const empty = filtered.length === 0;
