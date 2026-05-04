@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Calendar, Building2, Globe, Factory, Package, ArrowRight, Star, Award, ShieldCheck, ShoppingCart, Truck, BookOpen, PlayCircle, Sparkles, ChevronRight } from "lucide-react";
+import { ArrowLeft, Globe, Factory, Package, ArrowRight, Star, ShieldCheck, ShoppingCart, Truck, BookOpen, PlayCircle, Sparkles, ChevronRight } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import BrandListingsClient from "./BrandListingsClient";
 
@@ -253,12 +253,6 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
     if (topModels.length >= 6) break;
   }
 
-  const facts: Array<{ icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string; value: string; sub?: string }> = [];
-  if (brand.country)       facts.push({ icon: MapPin,    label: "País de origen", value: `${flag} ${brand.country}` });
-  if (brand.foundedYear)   facts.push({ icon: Calendar,  label: "Fundada en",     value: String(brand.foundedYear), sub: yearsActive ? `${yearsActive} años en el mercado` : undefined });
-  if (brand.headquarters)  facts.push({ icon: Building2, label: "Sede",           value: brand.headquarters });
-  if (brand.parentCompany) facts.push({ icon: Factory,   label: "Empresa matriz", value: brand.parentCompany });
-
   const brandUrl = `https://www.tirepro.com.co/marketplace/brand/${brand.slug}`;
 
   // Price summary for AggregateOffer — drives "from $X" rich snippets on SERPs.
@@ -489,10 +483,9 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 {/* Floating tier ribbon */}
                 {tier && (
                   <span
-                    className="absolute -top-3 -right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl"
+                    className="absolute -top-3 -right-3 z-10 inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl"
                     style={{ background: tier.bg, color: "white" }}
                   >
-                    <Award className="w-3 h-3" />
                     {tier.label}
                   </span>
                 )}
@@ -659,112 +652,171 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
       </section>
 
       <main className="max-w-5xl mx-auto px-3 sm:px-6 py-8 -mt-4 relative space-y-8">
-        {/* STATS STRIP — at-a-glance trust metrics that elevate the page
-            from "product list" to "marketplace landing". 4 cards on
-            desktop / 2x2 on mobile. The strip sits visually anchored on
-            the hero via the negative margin above. */}
+        {/* BRAND PROFILE — replaces the old "stats grid + datos grid" pair.
+            Editorial layout, magazine-style: a poster-sized country-flag
+            panel on the left (the brand's heritage at a glance), a key-value
+            dossier on the right, and a thin metric rail across the bottom
+            with the marketplace numbers (productos / desde / envío /
+            distribuidores). One unified surface — much less template-y than
+            two stacked grids of icon cards. */}
         <section
-          aria-labelledby="brand-stats"
-          className="bg-white rounded-3xl p-4 sm:p-5"
+          aria-labelledby="brand-profile"
+          className="bg-white rounded-3xl overflow-hidden"
           style={{ boxShadow: "0 24px 60px -24px rgba(10,24,58,0.25)", border: `1px solid ${rgba(PRIMARY, 0.10)}` }}
         >
-          <h2 id="brand-stats" className="sr-only">Métricas de {brand.name} en TirePro</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {[
-              {
-                icon: Package,
-                label: "Productos",
-                value: String(brand.total),
-                sub: brand.total === 1 ? "disponible" : "disponibles",
-              },
-              ...(fromPriceStr ? [{
-                icon: ShoppingCart,
-                label: "Desde",
-                value: fromPriceStr,
-                sub: "precio más bajo",
-              }] : []),
-              {
-                icon: Truck,
-                label: "Envío",
-                value: "Nacional",
-                sub: "Bogotá, Medellín, Cali +",
-              },
-              {
-                icon: ShieldCheck,
-                label: "Distribuidores",
-                value: "Verificados",
-                sub: "filtro de calidad TirePro",
-              },
-            ].slice(0, 4).map((s) => {
-              const Icon = s.icon;
-              return (
-                <div key={s.label} className="flex items-start gap-3">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: rgba(PRIMARY, 0.08), border: `1px solid ${rgba(PRIMARY, 0.15)}` }}
-                  >
-                    <Icon className="w-4 h-4" style={{ color: PRIMARY }} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: PRIMARY }}>
-                      {s.label}
-                    </p>
-                    <p className="text-[15px] font-black text-[#0A183A] leading-tight truncate">{s.value}</p>
-                    <p className="text-[10px] text-gray-500 leading-snug">{s.sub}</p>
-                  </div>
+          <h2 id="brand-profile" className="sr-only">Perfil de la marca {brand.name}</h2>
+          <div className="grid lg:grid-cols-12">
+            {/* LEFT: oversized country panel. Big flag emoji rendered as a
+                poster on a brand-colored gradient. The flag size scales
+                from ~96px on mobile to ~160px on desktop so it reads as
+                the dominant visual, not a tiny chip. */}
+            <div
+              className="lg:col-span-5 p-7 sm:p-9 relative overflow-hidden flex flex-col justify-center min-h-[260px]"
+              style={{ background: `linear-gradient(140deg, ${ACCENT} 0%, ${PRIMARY} 100%)` }}
+            >
+              {/* Decorative concentric circles — depth without adding image weight */}
+              <div
+                className="absolute -top-24 -right-24 w-72 h-72 rounded-full opacity-20"
+                style={{ background: `radial-gradient(circle, ${rgba(PRIMARY, 0.6)}, transparent 70%)` }}
+                aria-hidden
+              />
+              <div
+                className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full opacity-15"
+                style={{ background: `radial-gradient(circle, rgba(255,255,255,0.4), transparent 70%)` }}
+                aria-hidden
+              />
+
+              <p className="relative text-[10px] font-black uppercase tracking-[0.2em] text-white/70 mb-3">
+                Origen
+              </p>
+              <div className="relative flex items-center gap-5">
+                {/* Big flag block — fixed-width passport-card so the emoji
+                    renders inside a defined frame instead of looking like
+                    a stray chip. */}
+                <div
+                  className="flex-shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white/95 flex items-center justify-center shadow-2xl"
+                  style={{ boxShadow: "0 20px 40px -10px rgba(0,0,0,0.35)" }}
+                >
+                  <span className="text-6xl sm:text-7xl leading-none" aria-hidden>{flag}</span>
                 </div>
-              );
-            })}
+                <div className="min-w-0">
+                  <p className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight">
+                    {brand.country ?? "Internacional"}
+                  </p>
+                  {brand.foundedYear && (
+                    <p className="text-xs text-white/80 mt-1 font-medium">
+                      Fundada en {brand.foundedYear}
+                      {yearsActive ? ` · ${yearsActive} años en el mercado` : ""}
+                    </p>
+                  )}
+                  {tier && (
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/85 mt-2">
+                      Marca {tier.label}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT: dossier + magazine stat rail */}
+            <div className="lg:col-span-7 p-7 sm:p-9 flex flex-col">
+              <div className="flex items-baseline justify-between mb-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: PRIMARY }}>
+                  Perfil de marca
+                </p>
+                <span className="text-[10px] font-bold text-gray-400">{brand.name}</span>
+              </div>
+
+              {/* Definition list — editorial dossier. Drops icons entirely,
+                  uses typography contrast to do the work. */}
+              <dl className="divide-y divide-gray-100">
+                {brand.headquarters && (
+                  <div className="grid grid-cols-3 gap-4 py-3">
+                    <dt className="text-[10px] font-black uppercase tracking-widest text-gray-400 self-center">Sede</dt>
+                    <dd className="col-span-2 text-sm font-bold text-[#0A183A]">{brand.headquarters}</dd>
+                  </div>
+                )}
+                {brand.parentCompany && (
+                  <div className="grid grid-cols-3 gap-4 py-3">
+                    <dt className="text-[10px] font-black uppercase tracking-widest text-gray-400 self-center">Empresa matriz</dt>
+                    <dd className="col-span-2 text-sm font-bold text-[#0A183A]">{brand.parentCompany}</dd>
+                  </div>
+                )}
+                {brand.foundedYear && (
+                  <div className="grid grid-cols-3 gap-4 py-3">
+                    <dt className="text-[10px] font-black uppercase tracking-widest text-gray-400 self-center">Trayectoria</dt>
+                    <dd className="col-span-2 text-sm font-bold text-[#0A183A]">
+                      {brand.foundedYear}
+                      {yearsActive ? <span className="text-gray-500 font-medium"> · {yearsActive} años activos</span> : null}
+                    </dd>
+                  </div>
+                )}
+                {brand.website && (
+                  <div className="grid grid-cols-3 gap-4 py-3">
+                    <dt className="text-[10px] font-black uppercase tracking-widest text-gray-400 self-center">Sitio oficial</dt>
+                    <dd className="col-span-2 text-sm font-bold">
+                      <a
+                        href={brand.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline truncate inline-flex items-center gap-1"
+                        style={{ color: PRIMARY }}
+                      >
+                        {(() => {
+                          try { return new URL(brand.website).host.replace(/^www\./, ""); }
+                          catch { return brand.website; }
+                        })()}
+                        <Globe className="w-3 h-3" />
+                      </a>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {/* Magazine-style metric rail — numbers first, micro-labels
+                  below. Vertical dividers keep it dense and readable. */}
+              <div
+                className="mt-6 pt-5 grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100"
+                style={{ borderTop: `1px solid ${rgba(PRIMARY, 0.12)}` }}
+              >
+                <div className="px-3 first:pl-0">
+                  <p className="text-2xl sm:text-3xl font-black text-[#0A183A] tracking-tight leading-none">
+                    {brand.total}
+                  </p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">
+                    Producto{brand.total !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                {fromPriceStr && (
+                  <div className="px-3">
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight leading-none" style={{ color: PRIMARY }}>
+                      {fromPriceStr}
+                    </p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">
+                      Desde
+                    </p>
+                  </div>
+                )}
+                <div className="px-3">
+                  <p className="text-2xl sm:text-3xl font-black text-[#0A183A] tracking-tight leading-none">
+                    Nacional
+                  </p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">
+                    Envío
+                  </p>
+                </div>
+                <div className="px-3">
+                  <p className="text-2xl sm:text-3xl font-black text-[#0A183A] tracking-tight leading-none">
+                    Verificados
+                  </p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2">
+                    Distribuidores
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
-
-        {/* Facts grid */}
-        {facts.length > 0 && (
-          <section
-            className="bg-white rounded-3xl p-5 sm:p-6 relative overflow-hidden"
-            style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
-          >
-            {/* Brand-colored top rail so each card feels owned by the brand. */}
-            <div
-              className="absolute top-0 left-0 right-0 h-1"
-              style={{ background: `linear-gradient(90deg, ${PRIMARY}, ${ACCENT})` }}
-              aria-hidden
-            />
-            <p
-              className="text-[10px] font-black uppercase tracking-widest mb-4"
-              style={{ color: PRIMARY }}
-            >
-              Datos de la marca
-            </p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {facts.map(({ icon: Icon, label, value, sub }) => (
-                <div
-                  key={label}
-                  className="rounded-2xl p-4"
-                  style={{
-                    background: `linear-gradient(135deg, ${rgba(PRIMARY, 0.07)}, ${rgba(PRIMARY, 0.03)})`,
-                    border: `1px solid ${rgba(PRIMARY, 0.14)}`,
-                  }}
-                >
-                  <div
-                    className="w-9 h-9 rounded-xl bg-white flex items-center justify-center mb-2.5"
-                    style={{ border: `1px solid ${rgba(PRIMARY, 0.18)}` }}
-                  >
-                    <Icon className="w-4 h-4" style={{ color: PRIMARY }} />
-                  </div>
-                  <p
-                    className="text-[9px] font-black uppercase tracking-widest"
-                    style={{ color: PRIMARY }}
-                  >
-                    {label}
-                  </p>
-                  <p className="text-sm font-black text-[#0A183A] mt-0.5 leading-tight">{value}</p>
-                  {sub && <p className="text-[10px] text-gray-500 mt-0.5">{sub}</p>}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* Description — with a brand-colored left accent bar. */}
         {brand.description && (
