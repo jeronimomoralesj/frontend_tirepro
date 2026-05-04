@@ -15,6 +15,7 @@
  * Spec: https://support.google.com/merchants/answer/7052112
  */
 import { NextResponse, type NextRequest } from "next/server";
+import { productHref } from "../marketplace/product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -139,7 +140,7 @@ export async function GET(req: NextRequest) {
       <g:id>${escapeXml(l.id)}</g:id>
       <g:title>${escapeXml(title)}</g:title>
       <g:description>${escapeXml(fullDescription)}</g:description>
-      <g:link>${SITE}/marketplace/product/${escapeXml(l.id)}</g:link>
+      <g:link>${SITE}${escapeXml(productHref(l))}</g:link>
       <g:image_link>${escapeXml(cover)}</g:image_link>
 ${additionalImages.map((u: string) => `      <g:additional_image_link>${escapeXml(u)}</g:additional_image_link>`).join("\n")}
       <g:availability>${availability}</g:availability>

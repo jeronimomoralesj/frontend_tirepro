@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ShoppingCart, Search, MapPin, User, Menu, X, Truck, Package, Store } from "lucide-react";
 import { PaymentBadges } from "./marketplace/PaymentBadges";
 import { useCart } from "../lib/useCart";
+import { productHref } from "../app/marketplace/product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -141,7 +142,7 @@ export function MarketplaceNav({
 
   function selectSuggestion(s: Suggestion) {
     setShowSuggestions(false);
-    router.push(`/marketplace/product/${s.id}`);
+    router.push(productHref(s));
   }
 
   function selectDistributor(d: DistributorOption) {

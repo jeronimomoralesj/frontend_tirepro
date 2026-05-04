@@ -1,18 +1,28 @@
 import React from "react";
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import ProductClient from "./ProductClient";
 import { buildProductFaqs } from "./faq";
+import { extractListingId, isCanonicalParam, productHref, productSlug } from "../_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
+
+const SITE = "https://www.tirepro.com.co";
 
 export async function generateStaticParams() {
   try {
     const res = await fetch(`${API_BASE}/marketplace/listings?limit=1000&sortBy=newest`);
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.listings ?? []).map((l: any) => ({ id: l.id }));
+    // Pre-render the canonical slug-id form so Google/Bing crawl the
+    // SEO URL on first hit. The legacy bare-uuid form still works
+    // (handled at runtime via permanentRedirect) but we don't pre-render
+    // it — no need to ship two static pages per product.
+    return (data.listings ?? []).map((l: any) => ({
+      id: productSlug(l) ? `${productSlug(l)}-${l.id}` : l.id,
+    }));
   } catch {
     return [];
   }
@@ -81,8 +91,11 @@ async function fetchBrandInfo(marca: string | null | undefined) {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
-  const product = await fetchProduct(id);
+  const { id: param } = await params;
+  // Param can be either "<uuid>" or "<slug>-<uuid>" — extract the real key.
+  const realId = extractListingId(param);
+  if (!realId) return { title: "Producto — TirePro Marketplace" };
+  const product = await fetchProduct(realId);
   if (!product) return { title: "Producto — TirePro Marketplace" };
 
   const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
@@ -97,7 +110,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   // keywords for product queries (e.g. "Michelin XZE2+ 295/80R22.5 precio").
   const title = `${product.marca} ${product.modelo} ${product.dimension} — ${fmtCOP(price)} | ${tipoLabel} | TirePro`;
   const description = `Compra ${product.marca} ${product.modelo} ${product.dimension} (${tipoLabel.toLowerCase()}) por ${fmtCOP(price)} COP de ${sellerName}${sellerCity}. Envio en Colombia. ${product.descripcion?.substring(0, 100) ?? "Distribuidor verificado en TirePro Marketplace."}`.slice(0, 300);
-  const url = `https://www.tirepro.com.co/marketplace/product/${id}`;
+  // Canonical URL is always the slug-id form, regardless of how the page
+  // was reached. Search engines de-duplicate to this URL.
+  const url = `${SITE}${productHref(product)}`;
   const ogImage = cover || "https://www.tirepro.com.co/og-image.png";
 
   return {
@@ -147,11 +162,22 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const product = await fetchProduct(id);
+  const { id: param } = await params;
+  const realId = extractListingId(param);
+  if (!realId) {
+    return <ProductClient initialProduct={null} />;
+  }
+  const product = await fetchProduct(realId);
 
   if (!product) {
     return <ProductClient initialProduct={null} />;
+  }
+
+  // 301 to the canonical slug-id URL when the visitor landed on the bare
+  // UUID (legacy backlinks, old Google index entries, manual share links)
+  // OR on a slug-id URL whose slug is stale (product renamed).
+  if (!isCanonicalParam(param, product)) {
+    permanentRedirect(productHref(product));
   }
 
   // Brand info — fetched in parallel-friendly way for the clickable brand pill
@@ -185,7 +211,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     size: product.dimension,
     offers: {
       "@type": "Offer",
-      url: `https://www.tirepro.com.co/marketplace/product/${id}`,
+      url: `${SITE}${productHref(product)}`,
       priceCurrency: "COP",
       price: price,
       priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],

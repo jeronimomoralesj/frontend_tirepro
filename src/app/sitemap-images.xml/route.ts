@@ -10,6 +10,7 @@
  * → Sitemaps. Discoverable via robots.txt.
  */
 import { NextResponse } from "next/server";
+import { productHref } from "../marketplace/product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -74,7 +75,7 @@ export async function GET() {
       l.distributor?.ciudad && `con envío desde ${l.distributor.ciudad}`,
     ].filter(Boolean);
 
-    const pageUrl = `${SITE}/marketplace/product/${l.id}`;
+    const pageUrl = `${SITE}${productHref(l)}`;
 
     ordered.slice(0, 5).forEach((img, idx) => {
       entries.push({

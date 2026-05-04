@@ -10,6 +10,7 @@ import {
   Weight, Scale, Gauge, Sparkles,
 } from "lucide-react";
 import { buildProductFaqs } from "./faq";
+import { productHref } from "../_lib/url";
 import { useCart } from "../../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import { PaymentBadges } from "../../../../components/marketplace/PaymentBadges";
@@ -196,7 +197,11 @@ export default function ProductClient({
     setFetchFailed(false);
 
     async function load() {
-      const url = `${API_BASE}/marketplace/product/${id}`;
+      // The route param can be either the bare UUID or the slug-id form.
+      // The backend only accepts the UUID, so extract it before fetching.
+      const uuidMatch = id.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      const apiId = uuidMatch ? uuidMatch[0] : id;
+      const url = `${API_BASE}/marketplace/product/${apiId}`;
       // Try up to 2 times — first hit, then a single retry after a short
       // delay if the first attempt failed (covers transient backend / RDS
       // pool blips). A definitive 404 stops the loop without flagging
@@ -1653,7 +1658,7 @@ export default function ProductClient({
                 return (
                   <Link
                     key={l.id}
-                    href={`/marketplace/product/${l.id}`}
+                    href={productHref(l)}
                     className="flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group border border-gray-100 relative"
                     style={{ width: "min(70vw, 240px)" }}
                   >
@@ -1855,7 +1860,7 @@ export default function ProductClient({
                 return (
                   <Link
                     key={l.id}
-                    href={`/marketplace/product/${l.id}`}
+                    href={productHref(l)}
                     className="flex-shrink-0 snap-start bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group border border-gray-100"
                     style={{ width: "min(70vw, 240px)" }}
                   >

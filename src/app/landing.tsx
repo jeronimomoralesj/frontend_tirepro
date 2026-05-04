@@ -32,6 +32,7 @@ import feature1 from '../../public/feat1.png'
 import feature2 from '../../public/feat1.png'
 import Link from 'next/link'
 import ScrollFlow from '../components/ScrollFlow'
+import { productHref } from './marketplace/product/_lib/url'
 import HeroVisual from '../components/HeroVisual'
 import { RecomendacionesMock, BodegaMock } from '../components/FeatureMockups'
 
@@ -524,7 +525,7 @@ function BestSellers({ items }: { items: any[] }) {
             return (
               <a
                 key={l.id}
-                href={`/marketplace/product/${l.id}`}
+                href={productHref(l)}
                 className="rounded-xl overflow-hidden border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all group"
               >
                 {/* Image */}

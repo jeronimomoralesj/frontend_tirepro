@@ -14,6 +14,7 @@ import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
 import { AddToCartButton } from "../../components/marketplace/AddToCartButton";
 import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession } from "../../lib/marketplaceAnalytics";
+import { productHref } from "./product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -594,7 +595,7 @@ function PublicMarketplace() {
               const imgs = Array.isArray(o.listing?.imageUrls) ? o.listing.imageUrls : [];
               const cover = imgs.length > 0 ? imgs[o.listing?.coverIndex ?? 0] ?? imgs[0] : null;
               return (
-                <Link key={o.id} href={`/marketplace/product/${o.listingId}`}
+                <Link key={o.id} href={productHref({ id: o.listingId, ...o.listing })}
                   className="flex-shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white border border-gray-100 hover:shadow-md transition-all"
                   style={{ minWidth: 240 }}>
                   <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -1162,7 +1163,7 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
             {results.map((l) => {
               const cover = l.imageUrls?.[l.coverIndex ?? 0] ?? l.imageUrls?.[0];
               return (
-                <a key={l.id} href={`/marketplace/product/${l.id}`}
+                <a key={l.id} href={productHref(l)}
                   className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-gray-100 hover:border-[#1E76B6]/30 hover:shadow-sm transition-all">
                   <div className="w-12 h-12 rounded-lg bg-gray-50 flex-shrink-0 flex items-center justify-center overflow-hidden">
                     {cover ? <img src={cover} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-200" />}
@@ -1466,7 +1467,7 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
 
   return (
     <Link
-      href={`/marketplace/product/${l.id}`}
+      href={productHref(l)}
       className="group block bg-white rounded-2xl border border-gray-100 hover:border-[#1E76B6]/30 hover:shadow-[0_18px_40px_-20px_rgba(10,24,58,0.20)] transition-all overflow-hidden"
     >
       <div className="grid grid-cols-[112px_1fr] sm:grid-cols-[160px_1fr_180px] gap-3 sm:gap-4 p-3 sm:p-4">
@@ -2293,7 +2294,7 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
           const discount = Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100);
           const meta = brandsMap?.get(l.marca);
           return (
-            <Link key={l.id} href={`/marketplace/product/${l.id}`}
+            <Link key={l.id} href={productHref(l)}
               className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-[#1E76B6]/30 hover:shadow-lg hover:-translate-y-0.5 transition-all group block">
               <div className="relative aspect-square flex items-center justify-center overflow-hidden bg-[#fafafa]">
                 {cover ? (
@@ -2548,7 +2549,7 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
     ? l.reviews.reduce((s, r) => s + r.rating, 0) / l.reviews.length : 0;
 
   return (
-    <Link href={`/marketplace/product/${l.id}`}
+    <Link href={productHref(l)}
       className="bg-white rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 group block">
 
       {/* Image */}

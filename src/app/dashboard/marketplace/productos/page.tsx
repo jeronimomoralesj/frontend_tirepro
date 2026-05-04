@@ -14,6 +14,7 @@ import {
   Tag, ToggleLeft, ToggleRight, Trash2, Upload, X,
   MapPin, Store as StoreIcon, RefreshCw, Link2,
 } from "lucide-react";
+import { productHref } from "../../../marketplace/product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -382,7 +383,7 @@ function ListingRow({ l, onEdit }: { l: Listing; onEdit: () => void }) {
 
         <div className="mt-2 flex items-center gap-3">
           <Link
-            href={`/marketplace/product/${l.id}`}
+            href={productHref(l)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[10px] font-bold text-[#1E76B6] hover:underline inline-flex items-center gap-1"

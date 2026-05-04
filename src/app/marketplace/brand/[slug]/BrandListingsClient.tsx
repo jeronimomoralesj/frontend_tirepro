@@ -18,6 +18,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Package, Recycle, Search, Tag, X } from "lucide-react";
 import { AddToCartButton } from "../../../../components/marketplace/AddToCartButton";
+import { productHref } from "../../product/_lib/url";
 
 export interface BrandListing {
   id: string;
@@ -280,7 +281,7 @@ export default function BrandListingsClient({
             return (
               <Link
                 key={l.id}
-                href={`/marketplace/product/${l.id}`}
+                href={productHref(l)}
                 className="bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group relative flex flex-col"
                 style={{ border: `1px solid ${toRgba(primary, 0.1)}` }}
               >

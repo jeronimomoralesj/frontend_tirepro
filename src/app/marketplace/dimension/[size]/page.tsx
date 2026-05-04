@@ -12,6 +12,7 @@ import {
   POPULAR_DIMENSIONS, dimensionFromSlug, toDimensionSlug,
   parseDimension, vehicleClass, describeDimension,
 } from "../_lib/dimensions";
+import { productHref } from "../../product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -205,7 +206,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ size
       itemListElement: listings.slice(0, 20).map((l, i) => ({
         "@type": "ListItem",
         position: i + 1,
-        url: `${SITE}/marketplace/product/${l.id}`,
+        url: `${SITE}${productHref(l)}`,
         name: `${l.marca} ${l.modelo} ${l.dimension}`.trim(),
       })),
     },
@@ -447,7 +448,7 @@ export default async function DimensionPage({ params }: { params: Promise<{ size
               return (
                 <Link
                   key={l.id}
-                  href={`/marketplace/product/${l.id}`}
+                  href={productHref(l)}
                   className="bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group block border border-gray-100"
                 >
                   <div

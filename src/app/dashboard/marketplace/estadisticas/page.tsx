@@ -5,6 +5,7 @@ import {
   BarChart3, ShoppingCart, Eye, TrendingUp, Package, MapPin, Loader2,
   ArrowUpRight, X, Calendar, ChevronRight, Image as ImageIcon,
 } from "lucide-react";
+import { productHref } from "../../../marketplace/product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
@@ -530,7 +531,7 @@ function ProductDetailDrawer({ listingId, days, onClose }: {
               {/* Footer link */}
               <div className="pt-3 border-t border-gray-100">
                 <a
-                  href={`/marketplace/product/${data.listing.id}`}
+                  href={productHref(data.listing)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs font-black text-[#1E76B6] hover:underline"

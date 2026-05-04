@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { extractListingId, productHref } from "../_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
+
+const SITE = "https://www.tirepro.com.co";
 
 // Cache product metadata for 30 min — long enough to deduplicate within a
 // build, short enough that a failed fetch doesn't haunt the page for hours.
@@ -23,9 +26,17 @@ async function fetchProductMeta(id: string) {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
+  const { id: param } = await params;
+  // Param is either "<uuid>" (legacy) or "<slug>-<uuid>" (canonical).
+  const realId = extractListingId(param);
+  if (!realId) {
+    return {
+      title: "Llantas en Colombia · TirePro Marketplace",
+      description: "Compra llantas nuevas y reencauche de distribuidores verificados en Colombia.",
+    };
+  }
   try {
-    const p = await fetchProductMeta(id);
+    const p = await fetchProductMeta(realId);
     if (!p) {
       return {
         title: "Llantas en Colombia · TirePro Marketplace",
@@ -56,7 +67,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       openGraph: {
         title: `${p.marca} ${p.modelo} ${p.dimension} — ${price}`,
         description,
-        url: `https://www.tirepro.com.co/marketplace/product/${id}`,
+        url: `${SITE}${productHref(p)}`,
         siteName: "TirePro Marketplace",
         locale: "es_CO",
         type: "website",
@@ -68,7 +79,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         description: `${p.marca} ${p.modelo} ${p.dimension} por ${price}. ${p.distributor?.name ?? "TirePro Marketplace"}`,
         images: [{ url: cover, alt: `${p.marca} ${p.modelo}` }],
       },
-      alternates: { canonical: `https://www.tirepro.com.co/marketplace/product/${id}` },
+      alternates: { canonical: `${SITE}${productHref(p)}` },
       other: {
         "product:price:amount": String(p.precioCop),
         "product:price:currency": "COP",

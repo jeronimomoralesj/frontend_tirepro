@@ -12,6 +12,7 @@ import {
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import { AddToCartButton } from "../../../../components/marketplace/AddToCartButton";
 import { trackDistributorView } from "../../../../lib/marketplaceAnalytics";
+import { productHref } from "../../product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -699,7 +700,7 @@ export default function DistributorStorefront() {
               return (
                 <div className={pinSlotCls}>
                   <Link
-                    href={`/marketplace/product/${l.id}`}
+                    href={productHref(l)}
                     className="group relative flex flex-col rounded-2xl bg-white overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
                     style={{
                       border: "1px solid rgba(10,24,58,0.08)",
@@ -1120,7 +1121,7 @@ export default function DistributorStorefront() {
                     return (
                       <Link
                         key={l.id}
-                        href={`/marketplace/product/${l.id}`}
+                        href={productHref(l)}
                         className="bg-white rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all group block border border-gray-100"
                       >
                         <div

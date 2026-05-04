@@ -4,6 +4,7 @@ import { POPULAR_DIMENSIONS, toDimensionSlug } from './marketplace/dimension/_li
 import { CITIES } from './marketplace/ciudad/_lib/cities'
 import { CATEGORIES } from './marketplace/categoria/_lib/categories'
 import { VEHICLES } from './marketplace/vehiculo/_lib/vehicles'
+import { productHref } from './marketplace/product/_lib/url'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -198,15 +199,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const listings = data.listings ?? []
 
       // Each product gets its image array attached so Google Image search
-      // treats /marketplace/product/<id> as the canonical landing page for
-      // those tire photos. Caps at 5 images per product to stay within the
-      // 1000-images-per-URL limit and keep the sitemap small.
+      // treats the canonical product URL as the landing page for those tire
+      // photos. URL is the slug-id form (productHref) so search engines pick
+      // up the SEO-friendly path on first crawl. Caps at 5 images per
+      // product to stay within the 1000-images-per-URL limit.
       productEntries = listings.map((l: any) => {
         const imgs: string[] = Array.isArray(l.imageUrls) ? l.imageUrls.filter(Boolean) : []
         const cover = imgs[l.coverIndex ?? 0] ?? imgs[0]
         const ordered = cover ? [cover, ...imgs.filter((u: string) => u !== cover)] : imgs
         return {
-          url: `${BASE_URL}/marketplace/product/${l.id}`,
+          url: `${BASE_URL}${productHref(l)}`,
           lastModified: safeDate(l.updatedAt),
           changeFrequency: 'weekly' as const,
           priority: 0.8,

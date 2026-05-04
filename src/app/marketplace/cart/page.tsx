@@ -11,6 +11,7 @@ import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { PaymentBadges } from "../../../components/marketplace/PaymentBadges";
 import { trackViewCart, trackBeginCheckout, trackPurchase } from "../../../lib/marketplaceAnalytics";
+import { productHref } from "../product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -348,7 +349,7 @@ export default function CartPage() {
                             {/* Info */}
                             <div className="flex-1 min-w-0">
                               <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">{item.marca}</p>
-                              <Link href={`/marketplace/product/${item.listingId}`} className="text-sm font-black text-[#0A183A] hover:text-[#1E76B6] leading-snug truncate block">
+                              <Link href={productHref({ id: item.listingId, marca: item.marca, modelo: item.modelo, dimension: item.dimension })} className="text-sm font-black text-[#0A183A] hover:text-[#1E76B6] leading-snug truncate block">
                                 {item.modelo}
                               </Link>
                               <p className="text-[11px] text-gray-400 mt-0.5">{item.dimension} · {item.tipo === "reencauche" ? "Reencauche" : "Nueva"}</p>

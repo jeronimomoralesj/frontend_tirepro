@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Globe, Factory, Package, ArrowRight, Star, ShieldCheck, ShoppingCart, Truck, BookOpen, PlayCircle, Sparkles, ChevronRight } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import BrandListingsClient from "./BrandListingsClient";
+import { productHref } from "../../product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -241,7 +242,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   // listings (already sorted by image quality, so these are the prettiest
   // results to lead with). Drives the "modelos destacados" rail in the hero.
   const seenModels = new Set<string>();
-  const topModels: Array<{ id: string; modelo: string; image: string | null; price: number }> = [];
+  const topModels: Array<{ id: string; marca: string; modelo: string; dimension: string; image: string | null; price: number }> = [];
   for (const l of brand.listings) {
     const key = (l.modelo || "").toLowerCase().trim();
     if (!key || seenModels.has(key)) continue;
@@ -249,7 +250,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
     const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
     const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
     const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
-    topModels.push({ id: l.id, modelo: l.modelo, image: cover, price: hasPromo ? l.precioPromo! : l.precioCop });
+    topModels.push({ id: l.id, marca: l.marca, modelo: l.modelo, dimension: l.dimension, image: cover, price: hasPromo ? l.precioPromo! : l.precioCop });
     if (topModels.length >= 6) break;
   }
 
@@ -316,7 +317,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
       itemListElement: brand.listings.slice(0, 20).map((l, i) => ({
         "@type": "ListItem",
         position: i + 1,
-        url: `https://www.tirepro.com.co/marketplace/product/${l.id}`,
+        url: `https://www.tirepro.com.co${productHref(l)}`,
         name: `${l.marca} ${l.modelo} ${l.dimension}`,
       })),
     },
@@ -618,7 +619,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 {topModels.map((m) => (
                   <Link
                     key={m.id}
-                    href={`/marketplace/product/${m.id}`}
+                    href={productHref(m)}
                     className="snap-start flex-shrink-0 w-36 sm:w-44 bg-white/95 hover:bg-white rounded-2xl p-3 transition-all hover:-translate-y-1 group"
                     style={{ boxShadow: "0 12px 28px -10px rgba(0,0,0,0.4)" }}
                   >
