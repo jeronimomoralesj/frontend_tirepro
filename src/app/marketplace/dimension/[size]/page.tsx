@@ -314,8 +314,11 @@ export default async function DimensionPage({ params }: { params: Promise<{ size
                 <Layers className="w-3 h-3" />
                 Medida
               </span>
+              {/* Explicit {' '} so the H1 doesn't flatten as "…dimensionn
+                  Colombia" without a space — JSX strips the newline
+                  between expression and sibling tag. */}
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.02] tracking-tight">
-                Llantas {canonical}
+                Llantas {canonical}{' '}
                 <span className="block text-base sm:text-xl font-bold text-white/70 mt-2">
                   en Colombia · TirePro Marketplace
                 </span>

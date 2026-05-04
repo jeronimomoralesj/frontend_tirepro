@@ -471,7 +471,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
             {hasVideo && (
               <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/85 bg-black/25 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/15">
                 <PlayCircle className="w-3 h-3" />
-                Video oficial
+                Video
               </span>
             )}
           </div>
@@ -551,8 +551,13 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
               {/* H1 — leads with bare brand for nav-intent queries (e.g. "nexen"),
                   followed by the long-tail qualifier. Two-line treatment makes
                   the brand word the dominant visual. */}
+              {/* Trailing space inside the first span so the H1 reads as
+                  "Nexen Llantas Nexen en Colombia…" when flattened — JSX
+                  strips the newline between sibling spans, and Google /
+                  social previews / screen readers see the whole H1 as a
+                  single string. The `block` layout is unaffected. */}
               <h1 className="font-black text-white leading-[0.95] tracking-tight">
-                <span className="block text-[44px] sm:text-[64px] lg:text-[88px]">{brand.name}</span>
+                <span className="block text-[44px] sm:text-[64px] lg:text-[88px]">{brand.name}{' '}</span>
                 <span className="block text-[18px] sm:text-[24px] lg:text-[28px] font-bold text-white/85 mt-1">
                   Llantas {brand.name} en Colombia{fromPriceStr && <> · desde <span className="text-white">{fromPriceStr}</span></>}
                 </span>

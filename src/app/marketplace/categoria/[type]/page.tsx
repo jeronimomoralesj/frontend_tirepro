@@ -297,8 +297,15 @@ export default async function CategoryPage({ params }: { params: Promise<{ type:
                 {cat.kind === "tipo" ? <Recycle className="w-3 h-3" /> : <Layers className="w-3 h-3" />}
                 Categoría
               </span>
+              {/* Explicit {' '} keeps flat-text concatenation correct
+                  ("Llantas para SUV en Colombia" instead of "SUVen
+                  Colombia"). JSX strips the newline between an expression
+                  and a sibling element, so without the space Google,
+                  social previews, and screen readers read the title
+                  joined. The visual layout is unchanged because the span
+                  is `block`. */}
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-[1.02] tracking-tight">
-                Llantas {cat.h1Suffix}
+                Llantas {cat.h1Suffix}{' '}
                 <span className="block text-base sm:text-xl font-bold text-white/70 mt-2">
                   en Colombia · TirePro Marketplace
                 </span>
