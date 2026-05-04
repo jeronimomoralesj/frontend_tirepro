@@ -1680,12 +1680,12 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
             </span>
           )}
 
-          {/* MOBILE price + CTA row — pushed to the bottom of the
-              info column so the whole card stays under one viewport
-              even on a 360px-wide phone. The same data is rendered
-              on the right side of the card on sm+ via the third
-              column (display:none here). */}
-          <div className="sm:hidden mt-auto pt-2 flex items-end justify-between gap-2">
+          {/* MOBILE price + CTA — stacked vertically so the price is
+              always fully visible above the button, even on the
+              narrowest phones (360px). Previously the price + button
+              shared a horizontal row and the button could overlap a
+              long price string. */}
+          <div className="sm:hidden mt-auto pt-2 flex flex-col items-stretch gap-2">
             <div className="min-w-0">
               {hasPromo && (
                 <p className="text-[10px] text-gray-400 line-through leading-none">{fmtCOP(l.precioCop)}</p>
@@ -1693,7 +1693,7 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
               <p className="text-xl font-black text-[#0A183A] tracking-tight leading-none">{fmtCOP(price)}</p>
               <p className="text-[9px] text-gray-400 leading-none mt-0.5">+ IVA</p>
             </div>
-            <AddToCartButton listing={l} variant="compact" className="flex-shrink-0" />
+            <AddToCartButton listing={l} variant="compact" className="w-full justify-center" />
           </div>
 
           {/* Tiempo de entrega chip on mobile — moved here so it sits
@@ -2703,15 +2703,25 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
           </div>
         )}
 
-        {/* Price + quick add */}
-        <div className="mt-2.5 flex items-baseline justify-between gap-2">
+        {/* Price + quick add. Stacks vertically on mobile (price on top,
+            full-width "Agregar" pill below) so the price never gets
+            clipped or overlapped on a narrow phone — the icon-only
+            button left no room when the price ran wide ("$ 1.234.567"
+            collided with the round icon at 360px viewport widths).
+            Reverts to the original side-by-side layout from sm: up
+            where the row has plenty of horizontal space. */}
+        <div className="mt-2.5 flex flex-col items-stretch gap-2 sm:flex-row sm:items-baseline sm:justify-between">
           <div className="min-w-0">
             <span className="text-lg font-black text-[#111]">{fmtCOP(price)}</span>
             {hasPromo && (
               <span className="text-[11px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>
             )}
           </div>
-          <AddToCartButton listing={l} variant="icon" />
+          {/* Full-width compact pill on mobile, round icon on desktop. */}
+          <AddToCartButton listing={l} variant="compact" className="w-full justify-center sm:hidden" />
+          <span className="hidden sm:inline-flex">
+            <AddToCartButton listing={l} variant="icon" />
+          </span>
         </div>
 
         {/* Tags */}
