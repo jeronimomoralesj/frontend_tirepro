@@ -13,6 +13,7 @@ import {
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
 import { AddToCartButton } from "../../components/marketplace/AddToCartButton";
+import { MayWeekBanner } from "../../components/marketplace/MayWeekBanner";
 import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession } from "../../lib/marketplaceAnalytics";
 import { productHref } from "./product/_lib/url";
 
@@ -476,6 +477,10 @@ function PublicMarketplace({ initialCiudad, initialCategory }: MarketplaceClient
     <div className="min-h-screen bg-[#f5f5f7]">
       {/* ═══ NAV ═══ */}
       <MarketplaceNav initialSearch={search} onSearch={setSearch} />
+
+      {/* Date-gated seasonal banner. Self-hides outside May 1–7 and
+          when the user has dismissed it for the current year. */}
+      <MayWeekBanner />
 
       {/* Category landing banner — only renders when MarketplaceClient is
           embedded with a pre-applied category (e.g.
