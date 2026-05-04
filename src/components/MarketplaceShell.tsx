@@ -368,14 +368,26 @@ export function MarketplaceNav({
           </div>
         )}
 
-        {/* Categories strip */}
+        {/* Categories strip — universal cross-link to the dedicated
+            /marketplace/categoria/* landing pages. Crucial for SEO: these
+            broad-intent pages ("llantas para SUV", "llantas para camión")
+            previously had no internal links from the shell, so Google
+            treated them as orphan landing pages with thin authority.
+            Surfacing them on every marketplace page concentrates
+            site-wide PageRank on them. */}
         <div className="border-t border-black/[0.04]">
           <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-0.5 py-2 overflow-x-auto scrollbar-hide">
               {[
                 { href: "/marketplace?todos=1", label: "Todo" },
-                { href: "/marketplace?tipo=nueva", label: "Nuevas" },
-                { href: "/marketplace?tipo=reencauche", label: "Reencauche" },
+                { href: "/marketplace/categoria/auto", label: "Auto" },
+                { href: "/marketplace/categoria/camioneta", label: "Camioneta" },
+                { href: "/marketplace/categoria/suv", label: "SUV" },
+                { href: "/marketplace/categoria/camion", label: "Camión" },
+                { href: "/marketplace/categoria/tractomula", label: "Tractomula" },
+                { href: "/marketplace/categoria/bus", label: "Bus" },
+                { href: "/marketplace/categoria/nueva", label: "Nuevas" },
+                { href: "/marketplace/categoria/reencauche", label: "Reencauche" },
                 { href: "/marketplace", label: "Distribuidores", icon: true },
                 ...(!isLoggedIn ? [{ href: "/companyregister", label: "Vender" }] : []),
               ].map((item) => (
@@ -446,8 +458,14 @@ export function MarketplaceNav({
               )}
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">Categorias</p>
               <a href="/marketplace?todos=1" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Todo</a>
-              <a href="/marketplace?tipo=nueva" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas Nuevas</a>
-              <a href="/marketplace?tipo=reencauche" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Reencauche</a>
+              <a href="/marketplace/categoria/auto" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas para auto</a>
+              <a href="/marketplace/categoria/camioneta" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas para camioneta</a>
+              <a href="/marketplace/categoria/suv" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas para SUV</a>
+              <a href="/marketplace/categoria/camion" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas para camión</a>
+              <a href="/marketplace/categoria/tractomula" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas para tractomula</a>
+              <a href="/marketplace/categoria/bus" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas para bus</a>
+              <a href="/marketplace/categoria/nueva" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Llantas Nuevas</a>
+              <a href="/marketplace/categoria/reencauche" className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#0A183A] hover:bg-gray-50">Reencauche</a>
               <div className="h-px bg-gray-100 my-2" />
               {!isLoggedIn && (
                 <Link href="/login" onClick={() => setMobileMenu(false)} className="block px-3 py-2.5 rounded-lg text-sm font-medium text-[#1E76B6] hover:bg-blue-50">Ingresar</Link>
@@ -470,13 +488,29 @@ export function MarketplaceFooter() {
   return (
     <footer className="bg-[#0A183A] mt-16">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <Image src="/logo_full.png" alt="TirePro" width={90} height={27} className="h-6 w-auto brightness-0 invert mb-3" />
             <p className="text-xs text-white/40 leading-relaxed">
               El marketplace de llantas mas grande de Colombia. Compra para tu auto,
               camioneta, SUV o flota con distribuidores verificados y envio nacional.
             </p>
+          </div>
+          {/* Por vehículo — every marketplace page links to these category
+              landing pages, concentrating PageRank on the broad-intent
+              queries ("llantas para SUV", "llantas para tractomula") that
+              get the most search volume. */}
+          <div>
+            <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Por vehículo</p>
+            <div className="space-y-2">
+              <Link href="/marketplace/categoria/auto" className="block text-xs text-white/40 hover:text-white transition-colors">Llantas para auto</Link>
+              <Link href="/marketplace/categoria/camioneta" className="block text-xs text-white/40 hover:text-white transition-colors">Llantas para camioneta</Link>
+              <Link href="/marketplace/categoria/suv" className="block text-xs text-white/40 hover:text-white transition-colors">Llantas para SUV</Link>
+              <Link href="/marketplace/categoria/camion" className="block text-xs text-white/40 hover:text-white transition-colors">Llantas para camión</Link>
+              <Link href="/marketplace/categoria/tractomula" className="block text-xs text-white/40 hover:text-white transition-colors">Llantas para tractomula</Link>
+              <Link href="/marketplace/categoria/bus" className="block text-xs text-white/40 hover:text-white transition-colors">Llantas para bus</Link>
+              <Link href="/marketplace/categoria/reencauche" className="block text-xs text-white/40 hover:text-white transition-colors">Reencauche</Link>
+            </div>
           </div>
           <div>
             <p className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">Enlaces</p>
