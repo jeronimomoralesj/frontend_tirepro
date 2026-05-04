@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Calendar, Building2, Globe, Factory, Package, ArrowRight, Star, Award, ShieldCheck, ShoppingCart, Truck, Shield, BookOpen } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Building2, Globe, Factory, Package, ArrowRight, Star, Award, ShieldCheck, ShoppingCart, Truck, BookOpen, PlayCircle, Sparkles, ChevronRight } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import BrandListingsClient from "./BrandListingsClient";
 
@@ -31,6 +31,7 @@ interface BrandPageData {
   primaryColor?: string | null;
   accentColor?: string | null;
   heroImageUrl?: string | null;
+  videoUrl?: string | null;
   tagline?: string | null;
   published?: boolean;
   total: number;
@@ -123,8 +124,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     : "llantas";
 
   const titleFocus = focusLabel ? ` ${focusLabel}` : "";
-  const title = `Llantas ${brand.name}${titleFocus} en Colombia${fromStr} — Comprar Online | TirePro`;
-  const desc = `Compra ${focusDesc} ${brand.name}${fromStr} en Bogotá, Medellín, Cali, Barranquilla y toda Colombia. ${brand.total} producto${brand.total !== 1 ? "s" : ""} de distribuidores verificados${brand.country ? ` — marca ${brand.country.toLowerCase()}` : ""}. Compara precios y opciones en TirePro Marketplace.`.slice(0, 300);
+  // Lead with the bare brand keyword first ("Nexen Colombia | Llantas …") so
+  // SERP shows the brand front-and-center for navigational queries like just
+  // "nexen". The "Llantas …" qualifier still covers the long-tail intent.
+  const title = `${brand.name} Colombia | Llantas ${brand.name}${titleFocus}${fromStr} — TirePro`;
+  const desc = `${brand.name} Colombia: ${focusDesc} ${brand.name}${fromStr} con envío a Bogotá, Medellín, Cali, Barranquilla, Bucaramanga y todo el país. ${brand.total} producto${brand.total !== 1 ? "s" : ""} de distribuidores verificados${brand.country ? `. Marca ${brand.country.toLowerCase()}` : ""}${brand.foundedYear ? ` desde ${brand.foundedYear}` : ""}. Compara precios y compra online en TirePro.`.slice(0, 300);
   const url = `https://www.tirepro.com.co/marketplace/brand/${slug}`;
   const ogImage = brand.heroImageUrl || brand.logoUrl || "https://www.tirepro.com.co/og-image.png";
   return {
@@ -132,17 +136,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description: desc,
     keywords: [
       brand.name,
+      `${brand.name} colombia`,
+      `${brand.name} bogota`, `${brand.name} medellin`, `${brand.name} cali`, `${brand.name} barranquilla`,
       `llantas ${brand.name}`,
       `llantas ${brand.name} colombia`,
-      `comprar llantas ${brand.name}`,
-      `precio llantas ${brand.name}`,
-      `distribuidor ${brand.name}`,
-      `distribuidor ${brand.name} colombia`,
-      `${brand.name} colombia`,
+      `llantas ${brand.name} bogota`, `llantas ${brand.name} medellin`,
+      `comprar llantas ${brand.name}`, `comprar ${brand.name} colombia`,
+      `precio llantas ${brand.name}`, `precio ${brand.name} colombia`,
+      `${brand.name} precio`, `${brand.name} catalogo`,
+      `distribuidor ${brand.name}`, `distribuidor ${brand.name} colombia`,
       `${brand.name} ${brand.country ?? ""}`,
       `catalogo ${brand.name}`,
       `modelos ${brand.name}`,
-      `${brand.name} tractomula`, `${brand.name} camion`, `${brand.name} bus`, `${brand.name} camioneta`,
+      `${brand.name} tractomula`, `${brand.name} camion`, `${brand.name} bus`, `${brand.name} camioneta`, `${brand.name} suv`, `${brand.name} 4x4`,
     ].filter(Boolean),
     alternates: { canonical: url },
     openGraph: {
@@ -213,14 +219,39 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
     return `rgba(${r},${g},${b},${a})`;
   };
 
-  // Hero: image over a brand-colored tint when both exist, else pure brand
-  // gradient, else TirePro default. The dark overlay keeps text readable
-  // regardless of the image lightness.
-  const heroBackground = brand.heroImageUrl
-    ? `linear-gradient(135deg, ${rgba(ACCENT, 0.82)} 0%, ${rgba(PRIMARY, 0.55)} 100%), url(${brand.heroImageUrl}) center/cover`
-    : brand.primaryColor
+  // Hero background. The video (when present) sits on top of this, so when
+  // we have a video we still want a dark base color — the video element
+  // covers the whole layer and only shows when fully buffered.
+  // Layered design:
+  //   1. Solid base (PRIMARY/ACCENT gradient or default).
+  //   2. Optional <video> on top (handled in JSX).
+  //   3. Optional heroImageUrl as fallback for browsers that block autoplay.
+  //   4. Color overlay tint to keep text legible.
+  const hasVideo = !!brand.videoUrl;
+  const heroBaseGradient = brand.primaryColor
     ? `linear-gradient(135deg, ${PRIMARY} 0%, ${ACCENT} 55%, ${ACCENT} 100%)`
     : "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)";
+  const heroBackground = hasVideo
+    ? heroBaseGradient
+    : brand.heroImageUrl
+    ? `linear-gradient(135deg, ${rgba(ACCENT, 0.82)} 0%, ${rgba(PRIMARY, 0.55)} 100%), url(${brand.heroImageUrl}) center/cover`
+    : heroBaseGradient;
+
+  // Top models for the hero strip — pick the first 6 distinct models from
+  // listings (already sorted by image quality, so these are the prettiest
+  // results to lead with). Drives the "modelos destacados" rail in the hero.
+  const seenModels = new Set<string>();
+  const topModels: Array<{ id: string; modelo: string; image: string | null; price: number }> = [];
+  for (const l of brand.listings) {
+    const key = (l.modelo || "").toLowerCase().trim();
+    if (!key || seenModels.has(key)) continue;
+    seenModels.add(key);
+    const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+    const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+    const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+    topModels.push({ id: l.id, modelo: l.modelo, image: cover, price: hasPromo ? l.precioPromo! : l.precioCop });
+    if (topModels.length >= 6) break;
+  }
 
   const facts: Array<{ icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string; value: string; sub?: string }> = [];
   if (brand.country)       facts.push({ icon: MapPin,    label: "País de origen", value: `${flag} ${brand.country}` });
@@ -318,9 +349,51 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
     : productFocus === "both"    ? "llantas nuevas y de reencauche"
     : "llantas";
 
-  // FAQ block was removed — guarantee/origin claims about a third-party
-  // brand belong on the manufacturer's site, and rendering FAQPage JSON-LD
-  // without the matching visible Q&A risks a structured-data penalty.
+  // FAQ — marketplace-only facts (counts, prices, cities, focus). We
+  // deliberately don't make claims about the brand itself (warranty, origin
+  // guarantees) because TirePro is the marketplace, not the manufacturer —
+  // those answers belong on the brand's own site. Each Q&A has matching
+  // visible copy below so the FAQPage JSON-LD passes Google's structured-
+  // data validation.
+  const cityFocus = "Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Cartagena, Pereira y resto del país";
+  const faqs: Array<{ q: string; a: string }> = [
+    {
+      q: `¿Dónde puedo comprar llantas ${brand.name} en Colombia?`,
+      a: `En TirePro Marketplace encuentras ${brand.total} producto${brand.total !== 1 ? "s" : ""} ${brand.name} de distribuidores verificados con envío a ${cityFocus}. Compras 100% online y pagas con tarjeta, PSE o transferencia.`,
+    },
+    ...(fromPriceStr ? [{
+      q: `¿Cuánto cuesta una llanta ${brand.name}?`,
+      a: `Las llantas ${brand.name} en TirePro empiezan desde ${fromPriceStr}. El precio final depende de la medida, el modelo y el distribuidor — compara opciones directamente en el catálogo de la marca.`,
+    }] : []),
+    ...(productFocus === "both" ? [{
+      q: `¿${brand.name} ofrece llantas nuevas y reencauche?`,
+      a: `Sí. En TirePro encuentras tanto llantas nuevas ${brand.name} como soluciones de reencauche bajo la misma marca. Filtra por tipo en el catálogo para ver las opciones que aplican a tu vehículo.`,
+    }] : productFocus === "new" ? [{
+      q: `¿${brand.name} hace reencauche?`,
+      a: `${brand.name} se especializa en llantas nuevas — no produce reencauche bajo su marca. Si buscas reencauche, explora otras marcas en el marketplace de TirePro.`,
+    }] : productFocus === "retread" ? [{
+      q: `¿${brand.name} vende llantas nuevas?`,
+      a: `${brand.name} se enfoca en reencauche y bandas de rodamiento, no en llantas nuevas. Para llantas nuevas, explora otras marcas en TirePro Marketplace.`,
+    }] : []),
+    {
+      q: `¿Hay distribuidores ${brand.name} cerca de mí?`,
+      a: `TirePro reúne distribuidores ${brand.name} verificados en las principales ciudades de Colombia (${cityFocus}). El envío sale del distribuidor más cercano según tu dirección.`,
+    },
+    ...(brand.country || brand.foundedYear ? [{
+      q: `¿De dónde es la marca ${brand.name}?`,
+      a: `${brand.name} es una marca${tier ? ` ${tier.label.toLowerCase()}` : ""}${brand.country ? ` de origen ${brand.country.toLowerCase()}` : ""}${brand.foundedYear ? `, fundada en ${brand.foundedYear}` : ""}${brand.parentCompany ? `, parte de ${brand.parentCompany}` : ""}.`,
+    }] : []),
+  ];
+
+  const faqSchema = faqs.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  } : null;
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
@@ -329,58 +402,145 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(brandSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+      {faqSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      )}
 
-      {/* HERO — conversion-focused. H1 leads with the high-intent target
-          phrase ("Compra llantas {Brand} en Colombia"), price hook in a
-          chip, primary CTA jumps to #catalogo and a secondary trust line
-          with envío + verificado + tier. Brand color reads as background
-          accent only — type stays high-contrast white for legibility. */}
-      <div className="relative overflow-hidden" style={{ background: heroBackground }}>
-        <div className="absolute inset-0 opacity-10" aria-hidden style={{
-          backgroundImage: "radial-gradient(circle at 20% 0%, rgba(52,140,203,0.6), transparent 40%), radial-gradient(circle at 80% 100%, rgba(245,158,11,0.4), transparent 40%)",
-        }} />
-        <div className="relative max-w-5xl mx-auto px-3 sm:px-6 pt-5 pb-10 sm:pb-14">
-          <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/70 hover:text-white transition-colors mb-4">
-            <ArrowLeft className="w-3 h-3" />
-            Volver al marketplace
-          </Link>
+      {/* HERO — full-bleed, asymmetric, video-friendly. Five layers:
+          1. Brand-color base gradient.
+          2. <video> autoplay loop (when admin set videoUrl).
+          3. heroImageUrl as a fallback poster.
+          4. Brand-tinted color wash to keep text legible regardless of media.
+          5. Animated noise + radial mesh accents for depth.
+          The two-column grid (5/7) breaks the centered template look — logo
+          stack on the left feels like a brand mark, copy fills the right. */}
+      <section
+        className="relative overflow-hidden text-white"
+        style={{ background: heroBackground }}
+      >
+        {/* Video background. Plays muted + looped; falls back to heroImageUrl
+            poster + base gradient on autoplay block (iOS low-power mode). */}
+        {hasVideo && (
+          <video
+            className="absolute inset-0 w-full h-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster={brand.heroImageUrl ?? undefined}
+            aria-hidden
+          >
+            <source src={brand.videoUrl!} />
+          </video>
+        )}
 
-          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6 lg:gap-10">
-            {/* Logo card — bigger on desktop so the brand reads first */}
-            <div
-              className="w-32 h-32 sm:w-40 sm:h-40 rounded-3xl bg-white flex items-center justify-center overflow-hidden flex-shrink-0 p-4 mx-auto lg:mx-0"
-              style={{ boxShadow: "0 24px 60px -12px rgba(10,24,58,0.55)" }}
-            >
-              {brand.logoUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={brand.logoUrl} alt={`Logo ${brand.name} — Llantas en Colombia`} className="max-w-full max-h-full object-contain" />
-              ) : (
-                <span className="text-5xl font-black text-[#0A183A]">{brand.name.charAt(0)}</span>
-              )}
-            </div>
+        {/* Color wash on top of media. Slightly darker on the left so copy
+            stays readable; thinner on the right so the video reads through. */}
+        <div
+          className="absolute inset-0"
+          aria-hidden
+          style={{
+            background: hasVideo || brand.heroImageUrl
+              ? `linear-gradient(105deg, ${rgba(ACCENT, 0.92)} 0%, ${rgba(ACCENT, 0.7)} 35%, ${rgba(PRIMARY, 0.45)} 70%, ${rgba(PRIMARY, 0.25)} 100%)`
+              : "transparent",
+          }}
+        />
 
-            <div className="min-w-0 flex-1">
-              {/* Trust pills */}
-              <div className="flex items-center gap-2 flex-wrap mb-3">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black text-white bg-white/15 backdrop-blur-sm border border-white/20 uppercase tracking-widest">
-                  <ShieldCheck className="w-3 h-3" />
-                  Marca verificada
-                </span>
+        {/* Animated mesh accents — pure CSS so it's free at runtime. */}
+        <div
+          className="absolute inset-0 opacity-30 mix-blend-screen pointer-events-none"
+          aria-hidden
+          style={{
+            backgroundImage: `radial-gradient(circle at 18% 12%, ${rgba(PRIMARY, 0.55)}, transparent 38%), radial-gradient(circle at 82% 92%, rgba(245,158,11,0.35), transparent 40%), radial-gradient(circle at 50% 50%, ${rgba(ACCENT, 0.35)}, transparent 55%)`,
+          }}
+        />
+        {/* Subtle grain. Inline SVG so it ships in the HTML without an extra request. */}
+        <div
+          className="absolute inset-0 opacity-[0.06] pointer-events-none"
+          aria-hidden
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.6'/></svg>\")",
+          }}
+        />
+
+        <div className="relative max-w-6xl mx-auto px-3 sm:px-6 pt-5 pb-12 sm:pb-16 lg:pb-20">
+          <div className="flex items-center justify-between mb-5">
+            <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/70 hover:text-white transition-colors">
+              <ArrowLeft className="w-3 h-3" />
+              Marketplace
+              <ChevronRight className="w-3 h-3 opacity-50" />
+              <span className="text-white">{brand.name}</span>
+            </Link>
+            {hasVideo && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-white/85 bg-black/25 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/15">
+                <PlayCircle className="w-3 h-3" />
+                Video oficial
+              </span>
+            )}
+          </div>
+
+          {/* Asymmetric grid — kills the centered-template look. */}
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            {/* LEFT: logo, country, tier ribbon */}
+            <div className="lg:col-span-4 flex flex-col items-center lg:items-start gap-4">
+              <div className="relative">
+                {/* Floating tier ribbon */}
                 {tier && (
                   <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest"
-                    style={{ background: tier.bg, color: "white", boxShadow: "0 6px 14px rgba(0,0,0,0.2)" }}
+                    className="absolute -top-3 -right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl"
+                    style={{ background: tier.bg, color: "white" }}
                   >
                     <Award className="w-3 h-3" />
                     {tier.label}
                   </span>
                 )}
+                <div
+                  className="w-36 h-36 sm:w-44 sm:h-44 rounded-[28px] bg-white flex items-center justify-center overflow-hidden p-5"
+                  style={{ boxShadow: `0 30px 70px -15px ${rgba(ACCENT, 0.7)}` }}
+                >
+                  {brand.logoUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={brand.logoUrl} alt={`Logo ${brand.name} — Llantas en Colombia`} className="max-w-full max-h-full object-contain" />
+                  ) : (
+                    <span className="text-6xl font-black text-[#0A183A]">{brand.name.charAt(0)}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Country + founding chip stack */}
+              <div className="flex flex-col items-center lg:items-start gap-1.5 text-center lg:text-left">
                 {brand.country && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-white bg-white/10 border border-white/15">
-                    <span className="text-sm leading-none">{flag}</span>
-                    {brand.country}
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/90">
+                    <span className="text-base leading-none">{flag}</span>
+                    Marca {brand.country.toLowerCase()}
+                    {brand.foundedYear && <span className="text-white/60"> · desde {brand.foundedYear}</span>}
                   </span>
                 )}
+                {tier && (
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className="w-3.5 h-3.5"
+                        fill={s <= tier.stars ? "#fbbf24" : "none"}
+                        style={{ color: s <= tier.stars ? "#fbbf24" : "rgba(255,255,255,0.35)" }}
+                      />
+                    ))}
+                    <span className="text-[10px] text-white/70 font-bold ml-1">{tier.sublabel}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT: H1 + value prop + CTA */}
+            <div className="lg:col-span-8 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-3">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black text-white bg-white/15 backdrop-blur-sm border border-white/20 uppercase tracking-widest">
+                  <ShieldCheck className="w-3 h-3" />
+                  Distribuidores verificados
+                </span>
                 {productFocus && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white bg-white/10 border border-white/15">
                     {productFocus === "new" && "Llantas nuevas"}
@@ -388,33 +548,39 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                     {productFocus === "both" && "Nuevas + Reencauche"}
                   </span>
                 )}
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-white/90 bg-white/10 border border-white/15">
+                  <Sparkles className="w-3 h-3" />
+                  {brand.total} producto{brand.total !== 1 ? "s" : ""}
+                </span>
               </div>
 
-              {/* H1 — target keyword. Single line; tagline (when present)
-                  carries the brand voice below. */}
-              <h1 className="text-[32px] sm:text-[48px] lg:text-[56px] font-black text-white leading-[1.05] tracking-tight">
-                Llantas {brand.name}
+              {/* H1 — leads with bare brand for nav-intent queries (e.g. "nexen"),
+                  followed by the long-tail qualifier. Two-line treatment makes
+                  the brand word the dominant visual. */}
+              <h1 className="font-black text-white leading-[0.95] tracking-tight">
+                <span className="block text-[44px] sm:text-[64px] lg:text-[88px]">{brand.name}</span>
+                <span className="block text-[18px] sm:text-[24px] lg:text-[28px] font-bold text-white/85 mt-1">
+                  Llantas {brand.name} en Colombia{fromPriceStr && <> · desde <span className="text-white">{fromPriceStr}</span></>}
+                </span>
               </h1>
 
               {brand.tagline && (
-                <p className="text-sm sm:text-base text-white/90 mt-3 font-medium max-w-xl">{brand.tagline}</p>
+                <p className="text-sm sm:text-base text-white/90 mt-4 font-medium max-w-2xl italic">
+                  &ldquo;{brand.tagline}&rdquo;
+                </p>
               )}
 
-              {/* Value-prop sub-line — only the claims TirePro can make
-                  globally for any seller. Per-listing extras (instalación,
-                  garantía) are surfaced on the product page, not here, so
-                  we don't mis-set expectations on the brand landing. */}
-              <p className="text-[12px] sm:text-sm text-white/85 mt-3 max-w-xl">
-                Distribuidores verificados en toda Colombia. Envío nacional y pago seguro.
-                {fromPriceStr && <>{" "}Desde <strong className="text-white">{fromPriceStr}</strong>.</>}
+              <p className="text-[13px] sm:text-sm text-white/85 mt-4 max-w-2xl leading-relaxed">
+                Compra {productNoun} <strong className="text-white">{brand.name}</strong> con envío a Bogotá,
+                Medellín, Cali, Barranquilla, Bucaramanga, Cartagena, Pereira y todo el país. Compara precios
+                de distribuidores verificados y paga online de forma segura.
               </p>
 
-              {/* CTA row */}
-              <div className="mt-5 flex flex-wrap items-center gap-2">
+              <div className="mt-6 flex flex-wrap items-center gap-2">
                 <a
                   href="#catalogo"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-black bg-white hover:bg-white/95 transition-all"
-                  style={{ color: ACCENT, boxShadow: "0 14px 30px -10px rgba(0,0,0,0.4)" }}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-black bg-white hover:bg-white/95 transition-all hover:-translate-y-0.5"
+                  style={{ color: ACCENT, boxShadow: "0 14px 30px -10px rgba(0,0,0,0.5)" }}
                 >
                   <ShoppingCart className="w-4 h-4" />
                   Ver catálogo
@@ -432,33 +598,65 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                     href={brand.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-white bg-white/10 hover:bg-white/15 transition-colors backdrop-blur-sm border border-white/20"
+                    className="inline-flex items-center gap-1.5 px-4 py-3 rounded-full text-xs font-bold text-white bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-sm border border-white/20"
                   >
                     <Globe className="w-3.5 h-3.5" />
-                    Sitio oficial
+                    Sitio oficial {brand.name}
                   </a>
                 )}
               </div>
-
-              {tier && (
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        className="w-4 h-4"
-                        fill={s <= tier.stars ? "#fbbf24" : "none"}
-                        style={{ color: s <= tier.stars ? "#fbbf24" : "rgba(255,255,255,0.3)" }}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[11px] text-white/80 font-bold">{tier.sublabel}</span>
-                </div>
-              )}
             </div>
           </div>
+
+          {/* Top-models rail — concrete proof there's a catalog, plus visual
+              variety that breaks the static-card layout. Horizontal scroll
+              on mobile; flex row on desktop. */}
+          {topModels.length > 0 && (
+            <div className="mt-10">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/80">
+                  Modelos destacados {brand.name}
+                </p>
+                <a href="#catalogo" className="text-[10px] font-bold text-white/80 hover:text-white inline-flex items-center gap-1">
+                  Ver todos <ArrowRight className="w-3 h-3" />
+                </a>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 snap-x snap-mandatory">
+                {topModels.map((m) => (
+                  <Link
+                    key={m.id}
+                    href={`/marketplace/product/${m.id}`}
+                    className="snap-start flex-shrink-0 w-36 sm:w-44 bg-white/95 hover:bg-white rounded-2xl p-3 transition-all hover:-translate-y-1 group"
+                    style={{ boxShadow: "0 12px 28px -10px rgba(0,0,0,0.4)" }}
+                  >
+                    <div
+                      className="aspect-square w-full rounded-xl flex items-center justify-center overflow-hidden mb-2"
+                      style={{ background: `radial-gradient(circle at 30% 20%, #fff, ${rgba(PRIMARY, 0.08)})` }}
+                    >
+                      {m.image ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={m.image}
+                          alt={`${brand.name} ${m.modelo}`}
+                          className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <Package className="w-8 h-8 text-gray-300" />
+                      )}
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: PRIMARY }}>
+                      {brand.name}
+                    </p>
+                    <p className="text-xs font-black text-[#0A183A] truncate">{m.modelo}</p>
+                    <p className="text-[11px] font-black text-[#0A183A] mt-0.5">{fmtCOP(m.price)}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </section>
 
       <main className="max-w-5xl mx-auto px-3 sm:px-6 py-8 -mt-4 relative space-y-8">
         {/* STATS STRIP — at-a-glance trust metrics that elevate the page
@@ -832,6 +1030,51 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
             })}
           </div>
         </section>
+
+        {/* FAQ — marketplace-only facts so the FAQPage JSON-LD has
+            matching visible text. Renders as native <details> for zero-JS
+            accordion behaviour. Targets long-tail "{brand} colombia
+            distribuidor", "{brand} precio", etc. */}
+        {faqs.length > 0 && (
+          <section
+            aria-labelledby="brand-faq"
+            className="bg-white rounded-3xl p-6 sm:p-8 relative overflow-hidden"
+            style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+          >
+            <div
+              className="absolute top-0 left-0 right-0 h-1"
+              style={{ background: `linear-gradient(90deg, ${PRIMARY}, ${ACCENT})` }}
+              aria-hidden
+            />
+            <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: PRIMARY }}>
+              Preguntas frecuentes
+            </p>
+            <h2 id="brand-faq" className="text-xl sm:text-2xl font-black text-[#0A183A] mb-5">
+              Sobre llantas {brand.name} en Colombia
+            </h2>
+            <div className="divide-y divide-gray-100">
+              {faqs.map((f, i) => (
+                <details
+                  key={i}
+                  className="group py-3"
+                  open={i === 0}
+                >
+                  <summary className="flex items-center justify-between gap-3 cursor-pointer list-none">
+                    <h3 className="text-sm font-black text-[#0A183A] flex-1">{f.q}</h3>
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-open:rotate-90"
+                      style={{ background: rgba(PRIMARY, 0.1), color: PRIMARY }}
+                      aria-hidden
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                  </summary>
+                  <p className="text-xs text-gray-600 leading-relaxed mt-2 pr-9">{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* INTERNAL LINKS — boosts SEO authority for sibling brand pages,
             popular dimensions, and use-case queries. Other brands + popular

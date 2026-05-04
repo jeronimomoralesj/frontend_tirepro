@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Edit3, Trash2, X, Save, Palette, ExternalLink } from 'lucide-react'
+import { Plus, Edit3, Trash2, X, Save, Palette, ExternalLink, Video } from 'lucide-react'
 
 interface Brand {
   id: string
@@ -19,6 +19,7 @@ interface Brand {
   primaryColor: string | null
   accentColor: string | null
   heroImageUrl: string | null
+  videoUrl: string | null
   tagline: string | null
   published: boolean
   sourceUrl: string | null
@@ -263,7 +264,7 @@ function BrandEditModal({
         <div className="p-6 space-y-8">
           {/* Live preview */}
           <div
-            className="rounded-2xl overflow-hidden border border-[#173D68]/30"
+            className="rounded-2xl overflow-hidden border border-[#173D68]/30 relative"
             style={{
               background: brand.heroImageUrl
                 ? `url(${brand.heroImageUrl}) center/cover`
@@ -272,7 +273,17 @@ function BrandEditModal({
                 : 'linear-gradient(135deg,#0A183A,#1E76B6)',
             }}
           >
-            <div className="bg-black/30 backdrop-blur-sm p-6 flex items-center gap-5">
+            {brand.videoUrl && (
+              <video
+                src={brand.videoUrl}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
+            <div className="bg-black/30 backdrop-blur-sm p-6 flex items-center gap-5 relative">
               <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center p-3 flex-shrink-0">
                 {brand.logoUrl ? (
                   <img src={brand.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
@@ -331,6 +342,19 @@ function BrandEditModal({
                   onChange={(v) => set('heroImageUrl', v)}
                   placeholder="https://... (opcional)"
                 />
+              </Field>
+              <Field label="Video loop del hero (.mp4 o .webm)" full>
+                <div className="space-y-2">
+                  <Input
+                    value={brand.videoUrl ?? ''}
+                    onChange={(v) => set('videoUrl', v)}
+                    placeholder="https://.../brand-loop.mp4"
+                  />
+                  <p className="text-[11px] text-gray-400 inline-flex items-center gap-1.5">
+                    <Video size={12} />
+                    Si lo defines, reemplaza la imagen hero con un video sin sonido en bucle. Usa archivos cortos (≤8s, ≤4MB).
+                  </p>
+                </div>
               </Field>
               <Field label="Color primario">
                 <ColorInput
