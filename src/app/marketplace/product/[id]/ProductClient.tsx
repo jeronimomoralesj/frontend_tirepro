@@ -668,7 +668,7 @@ export default function ProductClient({
                 </div>
                 <span className="text-[13px] text-gray-500">
                   {avgRating.toFixed(1)} ({product._count.reviews})
-                  {product.totalSold != null && product.totalSold > 0 && <> · {product.totalSold} vendido{product.totalSold !== 1 ? "s" : ""}</>}
+                  {product.totalSold != null && product.totalSold >= 123 && <> · {product.totalSold} vendidos</>}
                 </span>
               </div>
             ) : (

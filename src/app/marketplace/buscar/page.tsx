@@ -4,7 +4,7 @@ import Script from "next/script";
 import type { Metadata } from "next";
 import {
   ArrowLeft, Package, Truck, ShieldCheck, Search, ChevronRight, Recycle,
-  X, Store,
+  X,
 } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { productHref } from "../product/_lib/url";
@@ -311,11 +311,6 @@ export default async function BuscarPage(
                         -{discount}%
                       </span>
                     )}
-                    {l.retailSource?.isActive && (
-                      <span className={`absolute ${promoActive ? "top-10" : "top-3"} left-3 px-2 py-0.5 rounded-full text-[9px] font-black text-emerald-800 bg-emerald-100/95 backdrop-blur-sm flex items-center gap-0.5`}>
-                        <Store className="w-2.5 h-2.5" /> Recoger
-                      </span>
-                    )}
                     {l.tipo === "reencauche" && (
                       <span className="absolute top-3 right-3 px-2 py-1 rounded-full text-[9px] font-black text-purple-700 bg-purple-100/90 backdrop-blur-sm flex items-center gap-0.5">
                         <Recycle className="w-2.5 h-2.5" /> Reenc.
@@ -330,6 +325,9 @@ export default async function BuscarPage(
                       <span className="text-lg font-black text-[#0A183A]">{fmtCOP(price)}</span>
                       {promoActive && <span className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</span>}
                     </div>
+                    <p className="text-[9px] text-gray-400 leading-none mt-0.5">
+                      + IVA · {l.retailSource?.isActive ? "Envío y recogida" : "Envío"}
+                    </p>
                   </div>
                 </Link>
               );

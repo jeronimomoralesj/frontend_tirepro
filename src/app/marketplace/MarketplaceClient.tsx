@@ -1612,11 +1612,6 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
                 -{discount}%
               </span>
             )}
-            {l.retailSource?.isActive && (
-              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black text-emerald-800 bg-emerald-100/95 backdrop-blur-sm flex items-center gap-0.5">
-                <Store className="w-2.5 h-2.5" /> Recoger
-              </span>
-            )}
             {l.tipo === "reencauche" && (
               <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black text-purple-700 bg-purple-100/95 backdrop-blur-sm flex items-center gap-0.5">
                 <Recycle className="w-2.5 h-2.5" /> Reenc.
@@ -1675,9 +1670,12 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
                 <Sparkles className="w-2.5 h-2.5" /> TirePro
               </span>
             )}
-            {soldCount > 0 && (
+            {/* Suppress small sales counts — a "1 vendida" chip looks
+                weaker than no chip at all. From 123 onward the number
+                signals real traction. */}
+            {soldCount >= 123 && (
               <span className="text-[10px] text-gray-500">
-                {soldCount} vendid{soldCount === 1 ? "a" : "as"}
+                {soldCount} vendidas
               </span>
             )}
             {l.tiempoEntrega && (
@@ -1708,7 +1706,9 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
                 <p className="text-[10px] text-gray-400 line-through leading-none">{fmtCOP(l.precioCop)}</p>
               )}
               <p className="text-xl font-black text-[#0A183A] tracking-tight leading-none">{fmtCOP(price)}</p>
-              <p className="text-[9px] text-gray-400 leading-none mt-0.5">+ IVA</p>
+              <p className="text-[9px] text-gray-400 leading-none mt-0.5">
+                + IVA · {l.retailSource?.isActive ? "Envío y recogida" : "Envío"}
+              </p>
             </div>
             <AddToCartButton listing={l} variant="compact" className="w-full justify-center" />
           </div>
@@ -1730,7 +1730,9 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
               <p className="text-xs text-gray-400 line-through leading-none">{fmtCOP(l.precioCop)}</p>
             )}
             <p className="text-3xl font-black text-[#0A183A] tracking-tight leading-none mt-0.5">{fmtCOP(price)}</p>
-            <p className="text-[10px] text-gray-400 mt-1">+ IVA · pago seguro</p>
+            <p className="text-[10px] text-gray-400 mt-1">
+              + IVA · {l.retailSource?.isActive ? "Envío y recogida" : "Envío"} · pago seguro
+            </p>
           </div>
           <div className="flex flex-col items-stretch gap-1.5 w-full">
             <AddToCartButton listing={l} variant="default" className="w-full justify-center" />
@@ -2433,11 +2435,6 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
                   {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
                   -{discount}%
                 </span>
-                {l.retailSource?.isActive && (
-                  <span className="absolute top-2 left-2 mt-7 px-2 py-0.5 rounded-full text-[9px] font-black text-emerald-800 bg-emerald-100 flex items-center gap-0.5">
-                    <Store className="w-2.5 h-2.5" /> Recoger
-                  </span>
-                )}
                 {meta?.logoUrl && (
                   <div className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white shadow-sm p-1 overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2702,11 +2699,6 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
               -{discount}%
             </span>
           )}
-          {l.retailSource?.isActive && (
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-emerald-800 bg-emerald-100 flex items-center gap-0.5">
-              <Store className="w-2.5 h-2.5" /> Recoger
-            </span>
-          )}
           {isReencauche && (
             <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-purple-700 bg-purple-100 flex items-center gap-0.5">
               <Recycle className="w-2.5 h-2.5" /> Reencauche
@@ -2737,7 +2729,7 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
               ))}
             </div>
             <span className="text-[9px] text-gray-400">({reviewCount})</span>
-            {soldCount > 0 && <span className="text-[9px] text-gray-400 ml-1">&middot; {soldCount} vendido{soldCount !== 1 ? "s" : ""}</span>}
+            {soldCount >= 123 && <span className="text-[9px] text-gray-400 ml-1">&middot; {soldCount} vendidos</span>}
           </div>
         )}
 
@@ -2754,6 +2746,9 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
             {hasPromo && (
               <span className="text-[11px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>
             )}
+            <p className="text-[9px] text-gray-400 leading-none mt-0.5">
+              + IVA · {l.retailSource?.isActive ? "Envío y recogida" : "Envío"}
+            </p>
           </div>
           {/* Full-width compact pill on mobile, round icon on desktop. */}
           <AddToCartButton listing={l} variant="compact" className="w-full justify-center sm:hidden" />
