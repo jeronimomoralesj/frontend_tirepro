@@ -14,6 +14,7 @@ import { productHref } from "../_lib/url";
 import { useCart } from "../../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import { PaymentBadges } from "../../../../components/marketplace/PaymentBadges";
+import { useMayWeek } from "../../../../components/marketplace/MayWeekBanner";
 import { trackProductView, trackAddToCart, trackReviewSubmit, trackProductDwell } from "../../../../lib/marketplaceAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -144,6 +145,7 @@ export default function ProductClient({
   brandInfo?: BrandInfo | null;
 }) {
   const { id } = useParams<{ id: string }>();
+  const mayWeek = useMayWeek();
   const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
   const [loading, setLoading] = useState(!initialProduct);
   const [selectedImg, setSelectedImg] = useState(0);
@@ -522,6 +524,7 @@ export default function ProductClient({
                   className="absolute top-4 left-4 z-10 px-3 py-1 rounded-full text-[10px] font-black text-white"
                   style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)", boxShadow: "0 6px 18px rgba(239,68,68,0.35)" }}
                 >
+                  {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
                   -{discount}% OFF
                 </span>
               )}
@@ -644,7 +647,10 @@ export default function ProductClient({
                 className="px-4 py-3 rounded-2xl mb-3 flex items-center gap-3 text-white"
                 style={{ background: "linear-gradient(135deg,#dc2626 0%,#ef4444 50%,#f97316 100%)", boxShadow: "0 8px 24px rgba(239,68,68,0.25)" }}
               >
-                <span className="text-sm font-black px-2.5 py-0.5 rounded-full bg-white/25 backdrop-blur-sm">-{discount}%</span>
+                <span className="text-sm font-black px-2.5 py-0.5 rounded-full bg-white/25 backdrop-blur-sm">
+                  {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
+                  -{discount}%
+                </span>
                 <p className="text-xs font-bold">Promoción hasta {new Date(product.promoHasta!).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}</p>
               </div>
             )}

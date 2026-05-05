@@ -149,6 +149,15 @@ export default async function BuscarPage(
   const { h1 } = describeQuery(sp);
   const canonical = buildCanonical(sp);
 
+  // Server-side May-week check (1st–7th of May, server local time).
+  // The page is ISR'd at revalidate=1800, so the May-week ✦ flickers
+  // on within ~30 min of midnight on May 1st and back off within
+  // ~30 min after May 7th. No SEO impact: the date check changes
+  // nothing in metadata, structured data, or visible copy — just
+  // adds a single `aria-hidden` decorative span on discount badges.
+  const _now = new Date();
+  const mayWeek = _now.getMonth() === 4 && _now.getDate() >= 1 && _now.getDate() <= 7;
+
   const prices = listings.map(effectivePrice).filter((p) => p > 0);
   const lowPrice  = prices.length > 0 ? Math.min(...prices) : null;
   const highPrice = prices.length > 0 ? Math.max(...prices) : null;
@@ -297,6 +306,7 @@ export default async function BuscarPage(
                     {promoActive && (
                       <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-black text-white"
                         style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)" }}>
+                        {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
                         -{discount}%
                       </span>
                     )}
