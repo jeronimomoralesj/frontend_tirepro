@@ -39,6 +39,11 @@ interface Listing {
   } | null;
   _count?: { reviews: number; orders: number };
   reviews?: { rating: number }[];
+  // Boolean flag from the backend left-join. Present + isActive=true
+  // means this listing has a connected retail source (Alkosto / Ktronix)
+  // with daily-refreshed pickup-point stock — drives the "Recoger en
+  // tienda" pill on cards.
+  retailSource?: { isActive: boolean } | null;
 }
 
 interface DistributorOption { id: string; name: string; profileImage: string }
@@ -1596,7 +1601,7 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
             <Package className="w-9 h-9 text-gray-200" />
           )}
 
-          {/* Top-left badges — promo, retread */}
+          {/* Top-left badges — promo, retread, pickup */}
           <div className="absolute top-1.5 left-1.5 flex flex-col gap-1">
             {hasPromo && (
               <span
@@ -1605,6 +1610,11 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
               >
                 {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
                 -{discount}%
+              </span>
+            )}
+            {l.retailSource?.isActive && (
+              <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black text-emerald-800 bg-emerald-100/95 backdrop-blur-sm flex items-center gap-0.5">
+                <Store className="w-2.5 h-2.5" /> Recoger
               </span>
             )}
             {l.tipo === "reencauche" && (
@@ -2423,6 +2433,11 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
                   {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
                   -{discount}%
                 </span>
+                {l.retailSource?.isActive && (
+                  <span className="absolute top-2 left-2 mt-7 px-2 py-0.5 rounded-full text-[9px] font-black text-emerald-800 bg-emerald-100 flex items-center gap-0.5">
+                    <Store className="w-2.5 h-2.5" /> Recoger
+                  </span>
+                )}
                 {meta?.logoUrl && (
                   <div className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white shadow-sm p-1 overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2685,6 +2700,11 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
             <span className="px-2 py-0.5 rounded-full text-[9px] font-black text-white bg-red-500 shadow-sm">
               {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
               -{discount}%
+            </span>
+          )}
+          {l.retailSource?.isActive && (
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-emerald-800 bg-emerald-100 flex items-center gap-0.5">
+              <Store className="w-2.5 h-2.5" /> Recoger
             </span>
           )}
           {isReencauche && (

@@ -7,7 +7,7 @@ import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
   Mail, Globe, Star, Clock, CheckCircle, Shield, Recycle, ChevronLeft,
   ChevronRight, ChevronDown, Minus, Plus, X, Check, Search, Zap, Info,
-  Weight, Scale, Gauge, Sparkles,
+  Weight, Scale, Gauge, Sparkles, Store,
 } from "lucide-react";
 import { buildProductFaqs } from "./faq";
 import { productHref } from "../_lib/url";
@@ -51,6 +51,34 @@ interface Product {
   reviews: Review[];
   _count: { reviews: number };
   totalSold?: number;
+  // Boolean flag from the backend left-join. true means the listing has
+  // a connected, daily-refreshed retail source (Alkosto/Ktronix) — the
+  // product page renders a "Recoger en tienda" section that fetches the
+  // full per-bodega list lazily via /listings/:id/pickup-points.
+  retailSource?: { isActive: boolean } | null;
+}
+
+// Public buyer-facing shape returned by /marketplace/listings/:id/pickup-points.
+interface PickupCityGroup {
+  city: string;
+  cityDisplay: string;
+  totalStock: number;
+  points: Array<{
+    id: string;
+    externalId: string | null;
+    name: string;
+    address: string | null;
+    lat: number | null;
+    lng: number | null;
+    hours: string | null;
+    stockUnits: number;
+  }>;
+}
+interface PickupResponse {
+  url: string;
+  domain: string | null;
+  lastSuccessAt: string | null;
+  cities: PickupCityGroup[];
 }
 
 interface BrandInfo {
@@ -153,6 +181,7 @@ export default function ProductClient({
   const [addedToCart, setAddedToCart] = useState(false);
   const [similar, setSimilar] = useState<any[]>([]);
   const [promoListings, setPromoListings] = useState<any[]>([]);
+  const [pickup, setPickup] = useState<PickupResponse | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewHover, setReviewHover] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
@@ -346,6 +375,20 @@ export default function ProductClient({
         (d.listings ?? []).filter((l: any) => l.id !== product.id && l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date()).slice(0, 4)
       ))
       .catch(() => {});
+
+    // Pickup-points fetch — only when the listing is flagged as having a
+    // connected retail source on the server. The flag is computed by a
+    // single left-join in /marketplace/product/:id, so we avoid hitting
+    // the dedicated endpoint for the 99% of products that don't have a
+    // retailer link. When the flag IS set, we resolve city groups + per-
+    // bodega stock counts here (the same payload the cart's
+    // PickupChooser consumes).
+    if (product.retailSource?.isActive) {
+      fetch(`${API_BASE}/marketplace/listings/${product.id}/pickup-points`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => setPickup(d as PickupResponse | null))
+        .catch(() => {});
+    }
   }, [product]);
 
   function handleAddToCart() {
@@ -1045,6 +1088,64 @@ export default function ProductClient({
                 </div>
               )}
             </div>
+
+            {/* ═══ PICKUP AVAILABILITY ═══ */}
+            {/* Surfaced upstream of the cart so a buyer who'd rather pick
+                up today than wait for shipping discovers the option on
+                the product page. Renders nothing when the listing has
+                no retail source connected, when the source is inactive,
+                or when no city has any in-stock pickup point right now —
+                the buyer just sees the standard shipping flow. The
+                actual store picker (with city dropdown, per-bodega list
+                + individual stock counts) lives in the cart's
+                PickupChooser; this section is a discovery surface
+                showing top cities + total stock + an in-page CTA that
+                jumps to the cart. */}
+            {pickup && pickup.cities.length > 0 && (() => {
+              const totalStock = pickup.cities.reduce((s, c) => s + c.totalStock, 0);
+              const totalPoints = pickup.cities.reduce((s, c) => s + c.points.length, 0);
+              const topCities = pickup.cities.slice(0, 3);
+              const moreCities = pickup.cities.length - topCities.length;
+              return (
+                <div className="mt-6 p-5 rounded-2xl bg-white border border-emerald-100" style={{ boxShadow: "0 8px 24px -16px rgba(16,185,129,0.18)" }}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <Store className="w-5 h-5 text-emerald-700" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Recoger en tienda</p>
+                      <p className="text-sm font-black text-[#0A183A] mt-0.5 leading-snug">
+                        Disponible hoy en {totalPoints} {totalPoints === 1 ? "tienda" : "tiendas"}
+                        <span className="text-gray-500 font-bold"> · {totalStock} {totalStock === 1 ? "unidad" : "unidades"}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <ul className="mt-4 space-y-1.5">
+                    {topCities.map((c) => (
+                      <li key={c.city} className="flex items-center justify-between gap-2 text-[12px]">
+                        <span className="flex items-center gap-1.5 text-[#0A183A] font-bold truncate">
+                          <MapPin className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                          {c.cityDisplay}
+                        </span>
+                        <span className="text-[10px] text-gray-500 font-bold flex-shrink-0">
+                          {c.points.length} {c.points.length === 1 ? "tienda" : "tiendas"} · {c.totalStock} unid.
+                        </span>
+                      </li>
+                    ))}
+                    {moreCities > 0 && (
+                      <li className="text-[11px] text-gray-400 italic">
+                        + {moreCities} {moreCities === 1 ? "ciudad más" : "ciudades más"}
+                      </li>
+                    )}
+                  </ul>
+
+                  <p className="text-[10px] text-gray-500 leading-relaxed mt-3 pt-3 border-t border-emerald-50">
+                    Elige el punto exacto al agregar al carrito. Stock actualizado diariamente.
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* ═══ RETREADABILITY INDEX ═══ */}
             {/* Hidden for reencauche tires (a retread can't be retreaded

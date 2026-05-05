@@ -4,7 +4,7 @@ import Script from "next/script";
 import type { Metadata } from "next";
 import {
   ArrowLeft, Package, Truck, ShieldCheck, Search, ChevronRight, Recycle,
-  X,
+  X, Store,
 } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { productHref } from "../product/_lib/url";
@@ -30,6 +30,7 @@ interface Listing {
   imageUrls: string[] | null;
   coverIndex: number;
   distributor?: { id: string; slug?: string | null; name: string };
+  retailSource?: { isActive: boolean } | null;
 }
 
 // Server-rendered with 30-min ISR. The whole point of this route is
@@ -308,6 +309,11 @@ export default async function BuscarPage(
                         style={{ background: "linear-gradient(135deg,#dc2626,#ef4444)" }}>
                         {mayWeek && <span aria-hidden className="text-cyan-100 mr-0.5">✦</span>}
                         -{discount}%
+                      </span>
+                    )}
+                    {l.retailSource?.isActive && (
+                      <span className={`absolute ${promoActive ? "top-10" : "top-3"} left-3 px-2 py-0.5 rounded-full text-[9px] font-black text-emerald-800 bg-emerald-100/95 backdrop-blur-sm flex items-center gap-0.5`}>
+                        <Store className="w-2.5 h-2.5" /> Recoger
                       </span>
                     )}
                     {l.tipo === "reencauche" && (
