@@ -739,71 +739,11 @@ export default function ProductClient({
               {product.tiempoEntrega && <span className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">{product.tiempoEntrega}</span>}
             </div>
 
-            {/* DECISION STRIP — translates raw spec fields into buyer
-                language. The "Ideal para" summary chips moved into the
-                Vehicle Compatibility section below (single source of
-                truth for "what vehicles is this tire for?"); only the
-                "Por qué elegirla" rationale lives here now. */}
-            {(() => {
-              const c = product.catalog;
-              const isReenc = product.tipo === "reencauche";
-              const tier = brandInfo?.tier;
-
-              const reasons: Array<{ title: string; sub: string }> = [];
-              if (tier === "premium") {
-                reasons.push({ title: "Calidad premium", sub: "Carcasa y compuestos de gama alta · ingeniería para cargas exigentes." });
-              } else if (tier === "mid") {
-                reasons.push({ title: "Equilibrio precio-rendimiento", sub: "Buena durabilidad con precio inicial competitivo." });
-              } else if (tier === "value") {
-                reasons.push({ title: "Costo-efectiva", sub: "Pensada para flotas de alta rotación con presupuesto ajustado." });
-              }
-              if (!isReenc && c?.reencauchable) {
-                reasons.push({
-                  title: c.vidasReencauche
-                    ? `Reencauchable hasta ${c.vidasReencauche} vidas`
-                    : "Reencauchable",
-                  sub: "Extiende su vida útil reduciendo el costo total de tus llantas.",
-                });
-              }
-              if (isReenc) {
-                reasons.push({
-                  title: "Aprovecha tus cascos",
-                  sub: "El reencauche reduce el costo por kilómetro frente a una llanta nueva equivalente.",
-                });
-              }
-              if (c?.kmEstimadosReales && c.kmEstimadosReales >= 100000) {
-                reasons.push({
-                  title: `~${(c.kmEstimadosReales / 1000).toFixed(0)}K km estimados`,
-                  sub: "Vida útil proyectada en condiciones colombianas reales.",
-                });
-              }
-
-              if (reasons.length === 0) return null;
-
-              return (
-                <div className="mt-5">
-                  <div
-                    className="rounded-2xl p-4"
-                    style={{
-                      background: "linear-gradient(135deg,rgba(34,197,94,0.05),rgba(16,185,129,0.02))",
-                      border: "1px solid rgba(34,197,94,0.16)",
-                    }}
-                  >
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-2 text-emerald-700">
-                      Por qué elegirla
-                    </p>
-                    <ul className="space-y-2">
-                      {reasons.slice(0, 4).map((r) => (
-                        <li key={r.title}>
-                            <p className="text-[12px] font-black text-[#0A183A]">{r.title}</p>
-                            <p className="text-[10px] text-gray-600 leading-snug">{r.sub}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Decision-strip cards (Ideal para + Por qué elegirla) live
+                inside the Compatibilidad section now (rendered side-by-
+                side on desktop). Buyer reads "what vehicles" + "why
+                this one" in a single visual block instead of scrolling
+                between cards. */}
 
             {/* Description (from distributor) — clamped to 280 chars by
                 default. Long distributor copy (full spec dumps, marketing
@@ -1223,6 +1163,11 @@ export default function ProductClient({
                 );
               })()}
 
+              {/* Two-column layout on desktop: vehicle list (left) +
+                  Por qué elegirla rationale (right). Stacks on mobile.
+                  Both rendered as IIFEs inside the same grid so they
+                  share padding + appear visually paired. */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
               {(() => {
                 const dim = product.dimension;
                 const eje = product.eje;
@@ -1411,6 +1356,67 @@ export default function ProductClient({
                   </div>
                 );
               })()}
+
+              {/* Por qué elegirla — derives reasons from brand tier,
+                  reencauchabilidad, kmEstimados. Sits next to the
+                  vehicle list so the buyer reads "what fits" + "why
+                  this one" in a single visual block. */}
+              {(() => {
+                const c = product.catalog;
+                const isReenc = product.tipo === "reencauche";
+                const tier = brandInfo?.tier;
+                const reasons: Array<{ title: string; sub: string }> = [];
+                if (tier === "premium") {
+                  reasons.push({ title: "Calidad premium", sub: "Carcasa y compuestos de gama alta · ingeniería para cargas exigentes." });
+                } else if (tier === "mid") {
+                  reasons.push({ title: "Equilibrio precio-rendimiento", sub: "Buena durabilidad con precio inicial competitivo." });
+                } else if (tier === "value") {
+                  reasons.push({ title: "Costo-efectiva", sub: "Pensada para flotas de alta rotación con presupuesto ajustado." });
+                }
+                if (!isReenc && c?.reencauchable) {
+                  reasons.push({
+                    title: c.vidasReencauche
+                      ? `Reencauchable hasta ${c.vidasReencauche} vidas`
+                      : "Reencauchable",
+                    sub: "Extiende su vida útil reduciendo el costo total de tus llantas.",
+                  });
+                }
+                if (isReenc) {
+                  reasons.push({
+                    title: "Aprovecha tus cascos",
+                    sub: "El reencauche reduce el costo por kilómetro frente a una llanta nueva equivalente.",
+                  });
+                }
+                if (c?.kmEstimadosReales && c.kmEstimadosReales >= 100000) {
+                  reasons.push({
+                    title: `~${(c.kmEstimadosReales / 1000).toFixed(0)}K km estimados`,
+                    sub: "Vida útil proyectada en condiciones colombianas reales.",
+                  });
+                }
+                if (reasons.length === 0) return null;
+                return (
+                  <div
+                    className="rounded-2xl p-4"
+                    style={{
+                      background: "linear-gradient(135deg,rgba(34,197,94,0.05),rgba(16,185,129,0.02))",
+                      border: "1px solid rgba(34,197,94,0.16)",
+                    }}
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-widest mb-2 text-emerald-700">
+                      Por qué elegirla
+                    </p>
+                    <ul className="space-y-2">
+                      {reasons.slice(0, 4).map((r) => (
+                        <li key={r.title}>
+                          <p className="text-[12px] font-black text-[#0A183A]">{r.title}</p>
+                          <p className="text-[10px] text-gray-600 leading-snug">{r.sub}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+              </div>
             </div>
 
             {/* ═══ PER-PLACA ANALYSIS (pro users only) ═══ */}
