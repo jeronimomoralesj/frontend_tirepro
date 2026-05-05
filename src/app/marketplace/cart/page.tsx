@@ -117,20 +117,46 @@ export default function CartPage() {
   async function handlePay() {
     setCheckoutError("");
     if (!form.buyerName.trim() || !form.buyerEmail.trim() || items.length === 0) return;
+    // Block submission when delivery items exist but the buyer hasn't
+    // provided a shipping address. (Pickup-only carts and recogida-only
+    // distributors skip this check via addressNeeded === false.)
+    if (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim())) {
+      setCheckoutError("Falta la dirección de entrega.");
+      setShowCheckout(true);
+      setEditingDetails(true);
+      return;
+    }
 
     trackBeginCheckout(total, items.map((i) => ({ id: i.listingId, marca: i.marca, modelo: i.modelo, precioCop: i.precioCop, quantity: i.quantity })));
     setSubmitting(true);
     const token = localStorage.getItem("token") ?? "";
 
     // Persist the minimal buyer profile so a return visit doesn't have
-    // to re-type. Address fields are no longer collected at checkout.
+    // to re-type. Address now lives alongside the rest of the profile
+    // (collected back at checkout when delivery is needed).
     try {
       localStorage.setItem(PROFILE_KEY, JSON.stringify({
         buyerName:    form.buyerName,
         buyerEmail:   form.buyerEmail,
         buyerPhone:   form.buyerPhone,
         buyerCompany: form.buyerCompany,
+        buyerAddress: form.buyerAddress,
+        buyerCity:    form.buyerCity,
       }));
+      // Also append the address to the saved-addresses book (deduped on
+      // ciudad+direccion) so the next checkout can offer it as a
+      // saved option.
+      if (form.buyerAddress.trim() && form.buyerCity.trim()) {
+        const next: SavedAddress[] = [
+          { ciudad: form.buyerCity.trim(), direccion: form.buyerAddress.trim() },
+          ...savedAddresses.filter(
+            (a) =>
+              a.ciudad.trim().toLowerCase() !== form.buyerCity.trim().toLowerCase() ||
+              a.direccion.trim().toLowerCase() !== form.buyerAddress.trim().toLowerCase(),
+          ),
+        ].slice(0, 5);
+        localStorage.setItem(ADDRESSES_KEY, JSON.stringify(next));
+      }
     } catch { /* ignore */ }
 
     try {
@@ -150,6 +176,10 @@ export default function CartPage() {
           buyerEmail:   form.buyerEmail.trim(),
           buyerPhone:   form.buyerPhone.trim() || undefined,
           buyerCompany: form.buyerCompany.trim() || undefined,
+          // Forward the shipping address when at least one item ships.
+          // Pickup-only carts omit it so the order rows stay clean.
+          ...(hasDeliveryItems && form.buyerAddress.trim() ? { buyerAddress: form.buyerAddress.trim() } : {}),
+          ...(hasDeliveryItems && form.buyerCity.trim()    ? { buyerCity:    form.buyerCity.trim()    } : {}),
           notas:        form.notas.trim() || undefined,
           // Wompi's CloudFront WAF rejects http://localhost as a
           // redirect-url even in sandbox, so for local dev we let an
@@ -242,6 +272,16 @@ export default function CartPage() {
     [distributorList],
   );
   const onlyRecogida = distributorList.length > 0 && distributorList.every((d) => d.tipoEntrega === "recogida");
+
+  // Per-line aggregates that drive the checkout form. An item without a
+  // pickupPointId is in delivery mode (the default); an item with one
+  // ships in pickup mode against the chosen retail bodega.
+  const hasDeliveryItems = useMemo(() => items.some((i) => !i.pickupPointId), [items]);
+  const hasPickupItems   = useMemo(() => items.some((i) => !!i.pickupPointId), [items]);
+  // Address only required when at least one item ships and at least one
+  // distributor in the cart actually offers domicilio. Pickup-only carts
+  // can pay without entering a shipping address.
+  const addressNeeded = hasDeliveryItems && requiresAddress;
 
   // Saved addresses limited to the available delivery cities
   const validSavedAddresses = useMemo(
@@ -462,6 +502,36 @@ export default function CartPage() {
                         Cambiar
                       </button>
                     </p>
+                    {/* Delivery / pickup summary so the buyer can confirm
+                        before going to Wompi without having to re-open
+                        the full form. Click "Cambiar" to edit. */}
+                    {addressNeeded && (
+                      form.buyerAddress.trim() ? (
+                        <p className="text-[11px] text-gray-500 text-center truncate">
+                          Envío a <span className="font-bold text-[#0A183A]">{form.buyerAddress}</span>
+                          {form.buyerCity && <>, {form.buyerCity}</>}
+                          {" · "}
+                          <button
+                            onClick={() => setEditingDetails(true)}
+                            className="font-bold text-[#1E76B6] hover:underline"
+                          >
+                            Cambiar
+                          </button>
+                        </p>
+                      ) : (
+                        <button
+                          onClick={() => setEditingDetails(true)}
+                          className="text-[11px] font-bold text-amber-700 hover:underline w-full text-center"
+                        >
+                          + Agregar dirección de entrega
+                        </button>
+                      )
+                    )}
+                    {hasPickupItems && (
+                      <p className="text-[11px] text-emerald-700 text-center">
+                        Recoger en {items.filter((i) => i.pickupPointId).length} {items.filter((i) => i.pickupPointId).length === 1 ? "tienda" : "tiendas"} ya seleccionada{items.filter((i) => i.pickupPointId).length === 1 ? "" : "s"}
+                      </p>
+                    )}
                     {checkoutError && (
                       <p className="text-[11px] text-red-600 font-medium text-center">{checkoutError}</p>
                     )}
@@ -495,9 +565,131 @@ export default function CartPage() {
                       className={inputCls}
                     />
 
+                    {/* Shipping address — only when at least one item is set
+                        to delivery and at least one distributor in the cart
+                        offers domicilio. Pickup-only orders skip this. */}
+                    {addressNeeded && (
+                      <div className="pt-1">
+                        <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
+                          Dirección de entrega
+                          {hasPickupItems && (
+                            <span className="ml-1 text-[9px] font-bold text-gray-400 normal-case">
+                              · solo para los productos con envío
+                            </span>
+                          )}
+                        </p>
+                        {validSavedAddresses.length > 0 && (
+                          <div className="mb-2 flex gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setAddressMode("saved")}
+                              className="px-2.5 py-1 rounded-full text-[10px] font-black"
+                              style={{
+                                background: addressMode === "saved" ? "#1E76B6" : "white",
+                                color:      addressMode === "saved" ? "white" : "#0A183A",
+                                border:     addressMode === "saved" ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
+                              }}
+                            >
+                              Guardadas
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAddressMode("new")}
+                              className="px-2.5 py-1 rounded-full text-[10px] font-black"
+                              style={{
+                                background: addressMode === "new" ? "#1E76B6" : "white",
+                                color:      addressMode === "new" ? "white" : "#0A183A",
+                                border:     addressMode === "new" ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
+                              }}
+                            >
+                              Nueva
+                            </button>
+                          </div>
+                        )}
+                        {addressMode === "saved" && validSavedAddresses.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {validSavedAddresses.map((a, i) => {
+                              const active = form.buyerCity === a.ciudad && form.buyerAddress === a.direccion;
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => selectSavedAddress(i)}
+                                  className="w-full text-left rounded-xl px-3 py-2 transition-colors"
+                                  style={{
+                                    background: active ? "rgba(30,118,182,0.08)" : "white",
+                                    border: active ? "1px solid #1E76B6" : "1px solid rgba(10,24,58,0.08)",
+                                  }}
+                                >
+                                  <p className="text-[12px] font-black text-[#0A183A] truncate">{a.direccion}</p>
+                                  <p className="text-[10px] text-gray-500 truncate">{a.ciudad}</p>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {deliveryCities.length > 0 ? (
+                              <select
+                                value={form.buyerCity}
+                                onChange={(e) => setForm((f) => ({ ...f, buyerCity: e.target.value }))}
+                                className={inputCls}
+                              >
+                                <option value="">Ciudad *</option>
+                                {deliveryCities.map((c) => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={form.buyerCity}
+                                onChange={(e) => setForm((f) => ({ ...f, buyerCity: e.target.value }))}
+                                placeholder="Ciudad *"
+                                className={inputCls}
+                              />
+                            )}
+                            <input
+                              type="text"
+                              value={form.buyerAddress}
+                              onChange={(e) => setForm((f) => ({ ...f, buyerAddress: e.target.value }))}
+                              placeholder="Dirección (calle, número, piso, apto) *"
+                              className={inputCls}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Pickup-summary — when at least one item is set to
+                        recoger en tienda, surface a confirmation strip so
+                        the buyer sees the bodega(s) one last time before
+                        paying. Editing happens on the per-line
+                        PickupChooser above. */}
+                    {hasPickupItems && (
+                      <div className="rounded-xl p-3" style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5">
+                          Recoges en tienda
+                        </p>
+                        <ul className="space-y-1">
+                          {items.filter((i) => i.pickupPointId).map((i) => (
+                            <li key={i.listingId} className="text-[11px] text-[#0A183A] truncate">
+                              <span className="font-bold">{i.marca} {i.modelo}</span>
+                              <span className="text-gray-500"> · {i.pickupPointName} · {i.pickupCity}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
                     <button
                       onClick={handlePay}
-                      disabled={submitting || !form.buyerName.trim() || !form.buyerEmail.trim()}
+                      disabled={
+                        submitting
+                        || !form.buyerName.trim()
+                        || !form.buyerEmail.trim()
+                        || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
+                      }
                       className="w-full py-3.5 rounded-2xl text-sm font-black text-white disabled:opacity-40 transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98]"
                       style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
                     >
@@ -509,7 +701,7 @@ export default function CartPage() {
                     )}
 
                     <p className="text-[10px] text-gray-500 leading-relaxed text-center">
-                      Te llevaremos a Wompi para completar el pago de forma segura. Los detalles de entrega los coordinas con el distribuidor después de la confirmación.
+                      Te llevaremos a Wompi para completar el pago de forma segura. {addressNeeded ? "El distribuidor coordinará la entrega a la dirección indicada." : "Recoges en la tienda seleccionada cuando el distribuidor confirme tu pedido."}
                     </p>
 
                     <button

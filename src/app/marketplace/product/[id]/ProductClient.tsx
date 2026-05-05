@@ -1054,12 +1054,32 @@ export default function ProductClient({
                 </Link>
               )}
 
+              {/* Available delivery modes — surfaces upstream of the
+                  cart so a buyer doesn't reach checkout to discover their
+                  options. Always shows envío (the marketplace default);
+                  shows the second pill only when this listing has an
+                  active connected retail source (Alkosto / Ktronix). The
+                  exact bodega is chosen in the cart's PickupChooser. */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black text-[#1E76B6] bg-[#1E76B6]/10">
+                  <Truck className="w-3 h-3" />
+                  Envío a domicilio
+                </span>
+                {product.retailSource?.isActive && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black text-emerald-800 bg-emerald-100">
+                    <Store className="w-3 h-3" />
+                    Recoger en tienda
+                  </span>
+                )}
+              </div>
+
               <div className="mt-3 pt-3 flex items-center justify-center" style={{ borderTop: "1px solid #f1f5f9" }}>
                 <PaymentBadges variant="compact" />
               </div>
 
               <p className="text-[10px] text-gray-400 mt-3 leading-relaxed">
                 Pago seguro: el distribuidor confirma tu pedido y el cobro se libera con la entrega.
+                {product.retailSource?.isActive && " Eliges envío o tienda al agregar al carrito."}
               </p>
             </div>
 
