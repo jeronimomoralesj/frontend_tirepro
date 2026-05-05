@@ -740,31 +740,14 @@ export default function ProductClient({
             </div>
 
             {/* DECISION STRIP — translates raw spec fields into buyer
-                language ("Ideal para" + "Por qué elegir"). Sits ABOVE
-                the technical Notas TirePro block so users decide before
-                drilling into specs. Heuristic: derives from eje, terreno,
-                rim size, brand tier, reencauchable, cpk. */}
+                language. The "Ideal para" summary chips moved into the
+                Vehicle Compatibility section below (single source of
+                truth for "what vehicles is this tire for?"); only the
+                "Por qué elegirla" rationale lives here now. */}
             {(() => {
               const c = product.catalog;
-              const eje = (product.eje ?? c?.ejeTirePro ?? "").toLowerCase();
-              const terr = (c?.terreno ?? "").toLowerCase();
-              const rim = parseFloat((product.dimension.match(/R\s*(\d{2}(?:\.\d)?)/i) ?? [, ""])[1]);
-              const tier = brandInfo?.tier;
               const isReenc = product.tipo === "reencauche";
-
-              const idealFor: string[] = [];
-              if (rim >= 22) idealFor.push("Tractomulas y camiones pesados");
-              else if (rim >= 17.5) idealFor.push("Camiones y buses");
-              else if (rim >= 16) idealFor.push("Camionetas y SUV");
-              else if (rim >= 13) idealFor.push("Automóvil");
-              if (eje.includes("tracc")) idealFor.push("Eje motriz / tracción");
-              else if (eje.includes("dirección") || eje.includes("direccion")) idealFor.push("Eje delantero / dirección");
-              else if (eje.includes("remol") || eje.includes("trailer")) idealFor.push("Trailer / remolque");
-              if (terr.includes("carretera")) idealFor.push("Larga distancia en carretera");
-              else if (terr.includes("mixto")) idealFor.push("Servicio mixto on/off-road");
-              else if (terr.includes("urbano") || terr.includes("ciudad")) idealFor.push("Servicio urbano");
-              else if (terr.includes("destap") || terr.includes("off")) idealFor.push("Terrenos destapados");
-              if (isReenc) idealFor.push("Flotas con cascos reencauchables");
+              const tier = brandInfo?.tier;
 
               const reasons: Array<{ title: string; sub: string }> = [];
               if (tier === "premium") {
@@ -795,52 +778,29 @@ export default function ProductClient({
                 });
               }
 
-              if (idealFor.length === 0 && reasons.length === 0) return null;
+              if (reasons.length === 0) return null;
 
               return (
-                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {idealFor.length > 0 && (
-                    <div
-                      className="rounded-2xl p-4"
-                      style={{
-                        background: "linear-gradient(135deg,rgba(30,118,182,0.06),rgba(52,140,203,0.02))",
-                        border: "1px solid rgba(30,118,182,0.12)",
-                      }}
-                    >
-                      <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
-                        Ideal para
-                      </p>
-                      <ul className="space-y-1.5">
-                        {idealFor.slice(0, 5).map((it) => (
-                          <li key={it} className="flex items-start gap-2 text-[12px] text-[#0A183A]">
-                            <Check className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0 mt-0.5" />
-                            <span>{it}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {reasons.length > 0 && (
-                    <div
-                      className="rounded-2xl p-4"
-                      style={{
-                        background: "linear-gradient(135deg,rgba(34,197,94,0.05),rgba(16,185,129,0.02))",
-                        border: "1px solid rgba(34,197,94,0.16)",
-                      }}
-                    >
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-2 text-emerald-700">
-                        Por qué elegirla
-                      </p>
-                      <ul className="space-y-2">
-                        {reasons.slice(0, 4).map((r) => (
-                          <li key={r.title}>
+                <div className="mt-5">
+                  <div
+                    className="rounded-2xl p-4"
+                    style={{
+                      background: "linear-gradient(135deg,rgba(34,197,94,0.05),rgba(16,185,129,0.02))",
+                      border: "1px solid rgba(34,197,94,0.16)",
+                    }}
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-widest mb-2 text-emerald-700">
+                      Por qué elegirla
+                    </p>
+                    <ul className="space-y-2">
+                      {reasons.slice(0, 4).map((r) => (
+                        <li key={r.title}>
                             <p className="text-[12px] font-black text-[#0A183A]">{r.title}</p>
                             <p className="text-[10px] text-gray-600 leading-snug">{r.sub}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               );
             })()}
@@ -1212,10 +1172,57 @@ export default function ProductClient({
               );
             })()}
 
-            {/* ═══ VEHICLE COMPATIBILITY ═══ */}
+            {/* ═══ VEHICLE COMPATIBILITY ═══
+                Single source of truth for "what fits this tire". Quick-
+                summary chips at the top (the old "Ideal para" block,
+                inlined here) translate eje/terreno/rim into buyer
+                language; the detailed list below names actual vehicle
+                models per category. */}
             <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
               <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Compatibilidad</p>
               <p className="text-sm font-black text-[#0A183A] mb-3">Vehículos compatibles</p>
+
+              {/* Quick "Ideal para" chips — high-level fit summary
+                  derived from rim, eje, terreno, tipo. Same heuristic
+                  the standalone Ideal-para card used to run; it now
+                  lives here as a one-glance summary above the
+                  per-vehicle breakdown. */}
+              {(() => {
+                const c = product.catalog;
+                const ejeLower = (product.eje ?? c?.ejeTirePro ?? "").toLowerCase();
+                const terrLower = (c?.terreno ?? "").toLowerCase();
+                const rimSummary = parseFloat((product.dimension.match(/R\s*(\d{2}(?:\.\d)?)/i) ?? [, ""])[1]);
+                const isReenc = product.tipo === "reencauche";
+                const idealFor: string[] = [];
+                if (rimSummary >= 22) idealFor.push("Tractomulas y camiones pesados");
+                else if (rimSummary >= 17.5) idealFor.push("Camiones y buses");
+                else if (rimSummary >= 16) idealFor.push("Camionetas y SUV");
+                else if (rimSummary >= 13) idealFor.push("Automóvil");
+                if (ejeLower.includes("tracc")) idealFor.push("Eje motriz / tracción");
+                else if (ejeLower.includes("dirección") || ejeLower.includes("direccion")) idealFor.push("Eje delantero / dirección");
+                else if (ejeLower.includes("remol") || ejeLower.includes("trailer")) idealFor.push("Trailer / remolque");
+                if (terrLower.includes("carretera")) idealFor.push("Larga distancia en carretera");
+                else if (terrLower.includes("mixto")) idealFor.push("Servicio mixto on/off-road");
+                else if (terrLower.includes("urbano") || terrLower.includes("ciudad")) idealFor.push("Servicio urbano");
+                else if (terrLower.includes("destap") || terrLower.includes("off")) idealFor.push("Terrenos destapados");
+                if (isReenc) idealFor.push("Flotas con cascos reencauchables");
+                if (idealFor.length === 0) return null;
+                return (
+                  <div className="mb-4 flex flex-wrap gap-1.5">
+                    {idealFor.slice(0, 5).map((it) => (
+                      <span
+                        key={it}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-[#1E76B6]"
+                        style={{ background: "rgba(30,118,182,0.08)", border: "1px solid rgba(30,118,182,0.18)" }}
+                      >
+                        <Check className="w-3 h-3" />
+                        {it}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {(() => {
                 const dim = product.dimension;
                 const eje = product.eje;
