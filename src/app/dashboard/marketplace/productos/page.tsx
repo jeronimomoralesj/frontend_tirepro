@@ -411,7 +411,10 @@ interface CreateForm {
   marca: string;
   modelo: string;
   dimension: string;
-  eje: "" | "direccion" | "traccion" | "remolque" | "todas";
+  // Must match Prisma's EjeType enum exactly — sending anything else
+  // (including the old "todas" value) makes the backend reject the
+  // request with `Invalid value for argument eje. Expected EjeType.`.
+  eje: "" | "direccion" | "traccion" | "libre" | "remolque" | "repuesto";
   tipo: "nueva" | "reencauche";
   precioCop: number | "";
   cantidadDisponible: number | "";
@@ -595,8 +598,9 @@ function CreateListingModal({
                 <option value="">Sin definir</option>
                 <option value="direccion">Dirección</option>
                 <option value="traccion">Tracción</option>
+                <option value="libre">Libre</option>
                 <option value="remolque">Remolque</option>
-                <option value="todas">Todas</option>
+                <option value="repuesto">Repuesto</option>
               </select>
             </ModalField>
             <ModalField label="Tipo">

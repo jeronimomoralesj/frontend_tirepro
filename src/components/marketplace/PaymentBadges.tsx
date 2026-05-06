@@ -1,9 +1,9 @@
 // Payment-method trust strip — drop in below CTAs / pricing / footers
-// to signal what we accept. Uses real brand SVGs from /public/payment/
-// so the browser caches them and they render exactly the same on every
-// page. The SVGs are kept aspect-ratio'd to a 64×40 box (8:5) so the
-// row of badges is visually consistent regardless of which logos are
-// included.
+// to signal what we accept. Loads the real brand assets from
+// /public/payment/ so the browser caches them. Each method maps to
+// its own file (different brands ship in different formats: Bold +
+// Nequi as PNG, PSE as WebP, the card networks as SVG), so we map
+// method → filename instead of assuming a single extension.
 
 import React from "react";
 
@@ -12,6 +12,19 @@ type Variant = "compact" | "wide";
 type PaymentMethod = "visa" | "mastercard" | "amex" | "pse" | "nequi";
 
 const ALL_METHODS: PaymentMethod[] = ["visa", "mastercard", "amex", "pse", "nequi"];
+
+// Per-method asset path. Bold's logo + the new PSE / Nequi pulls live
+// alongside the card-network SVGs we already had. Update this map
+// when a brand ships a new asset rather than renaming files in
+// /public/payment/ — older browsers may still have cached versions
+// and SEO crawlers index the old paths.
+const METHOD_FILES: Record<PaymentMethod, string> = {
+  visa:       "/payment/visa.svg",
+  mastercard: "/payment/mastercard.svg",
+  amex:       "/payment/amex-real.svg",
+  pse:        "/payment/pse-real.webp",
+  nequi:      "/payment/nequi-real.png",
+};
 
 const METHOD_LABELS: Record<PaymentMethod, string> = {
   visa:        "Visa",
@@ -48,7 +61,7 @@ export function PaymentBadges({
           <span>{caption}</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/payment/bold.svg"
+            src="/payment/bold.png"
             alt="Bold"
             height={boldHeight}
             style={{ height: boldHeight, width: "auto" }}
@@ -60,7 +73,7 @@ export function PaymentBadges({
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/payment/bold.svg"
+              src="/payment/bold.png"
               alt="Bold"
               height={boldHeight}
               style={{ height: boldHeight, width: "auto", marginRight: 4 }}
@@ -71,7 +84,7 @@ export function PaymentBadges({
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             key={m}
-            src={`/payment/${m}.svg`}
+            src={METHOD_FILES[m]}
             alt={METHOD_LABELS[m]}
             title={METHOD_LABELS[m]}
             height={badgeHeight}
