@@ -1645,10 +1645,16 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
           <h3 className="text-[15px] sm:text-lg font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-2 group-hover:text-[#1E76B6] transition-colors">
             {l.modelo}
           </h3>
-          <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-            <span className="font-bold text-[#0A183A]">{l.dimension}</span>
-            {l.eje && <> · Eje {l.eje}</>}
-            <span className="hidden sm:inline">{l.tipo === "reencauche" ? " · Reencauche" : " · Nueva"}</span>
+          {/* Dimension upgraded to a primary spec line — bigger, brand
+              color, tabular nums. Eje + tipo demoted to a quieter row
+              below so dimension stands out cleanly. */}
+          <p className="text-base sm:text-lg font-black text-[#1E76B6] tabular-nums tracking-tight mt-1 leading-none">
+            {l.dimension}
+          </p>
+          <p className="text-[10px] text-gray-500 mt-1 truncate">
+            {l.eje && <>Eje {l.eje}</>}
+            {l.eje && <> · </>}
+            {l.tipo === "reencauche" ? "Reencauche" : "Nueva"}
           </p>
 
           {/* Trust strip — rating OR brand authority fallback. */}
@@ -2455,7 +2461,7 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
               <div className="p-3">
                 <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest truncate">{l.marca}</p>
                 <p className="text-sm font-black text-[#0A183A] leading-snug truncate">{l.modelo}</p>
-                <p className="text-[10px] text-gray-400">{l.dimension}</p>
+                <p className="text-[13px] font-black text-[#1E76B6] tabular-nums tracking-tight mt-0.5 leading-none">{l.dimension}</p>
                 <div className="mt-1.5 flex items-baseline gap-1.5">
                   <span className="text-base font-black text-[#0A183A]">{fmtCOP(l.precioPromo!)}</span>
                   <span className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</span>
@@ -2728,7 +2734,12 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
         <BrandLink marca={l.marca} brandsMap={brandsMap}
           className="text-[10px] text-[#1E76B6] uppercase tracking-wider font-black" />
         <p className="text-sm font-bold text-[#111] mt-0.5 leading-snug line-clamp-2">{l.modelo}</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">{l.dimension}{l.eje ? ` · ${l.eje}` : ""}</p>
+        {/* Dimension is the spec a buyer matches against their car —
+            give it real visual weight (not text-[10px] grey muted). */}
+        <p className="text-[14px] font-black text-[#1E76B6] tabular-nums tracking-tight mt-1 leading-none">
+          {l.dimension}
+          {l.eje && <span className="text-[10px] text-gray-400 font-bold ml-1.5">· {l.eje}</span>}
+        </p>
 
         {/* Stars */}
         {reviewCount > 0 && (

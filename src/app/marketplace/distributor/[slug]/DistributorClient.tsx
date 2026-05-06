@@ -750,7 +750,7 @@ export default function DistributorStorefront() {
                         <p className="text-sm font-black text-[#0A183A] leading-tight mt-0.5 truncate">
                           {l.modelo}
                         </p>
-                        <p className="text-[11px] text-gray-500 truncate mt-0.5">{l.dimension}</p>
+                        <p className="text-[13px] font-black tabular-nums tracking-tight mt-1 leading-none truncate" style={{ color: brandColor }}>{l.dimension}</p>
                         <div className="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
                           <span
                             className="text-base font-black tabular-nums"
@@ -1150,7 +1150,7 @@ export default function DistributorStorefront() {
                         <div className="p-3.5">
                           <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: brandColor }}>{l.marca}</p>
                           <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
-                          <p className="text-[10px] text-gray-400">{l.dimension}</p>
+                          <p className="text-[13px] font-black tabular-nums tracking-tight mt-1 leading-none" style={{ color: brandColor }}>{l.dimension}</p>
                           <div className="mt-2 flex items-baseline justify-between gap-2 flex-wrap">
                             <div className="min-w-0">
                               <span className="text-lg font-black text-[#0A183A]">{fmtCOP(price)}</span>

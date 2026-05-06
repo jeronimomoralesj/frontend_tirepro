@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Loader2,
-  CheckCircle, Package, Truck, MapPin, ChevronDown, X,
+  CheckCircle, Package, Truck, MapPin, ChevronDown, X, Sparkles,
 } from "lucide-react";
 import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
@@ -374,6 +374,73 @@ export default function CartPage() {
   // ships in pickup mode against the chosen retail bodega.
   const hasDeliveryItems = useMemo(() => items.some((i) => !i.pickupPointId), [items]);
   const hasPickupItems   = useMemo(() => items.some((i) => !!i.pickupPointId), [items]);
+
+  // "También te podría gustar" — recommendations based on what's
+  // already in the cart. Picks the most common dimension across cart
+  // lines and fetches in-stock listings of the same size from the
+  // public listings endpoint, filtering out anything already in the
+  // cart. Quietly empty if the user is offline / endpoint hiccups.
+  type RecListing = {
+    id: string; marca: string; modelo: string; dimension: string; tipo: string;
+    precioCop: number; precioPromo: number | null; promoHasta: string | null;
+    imageUrls: string[] | null; coverIndex: number; cantidadDisponible: number;
+    distributor: { id: string; slug: string | null; name: string };
+    retailSource?: { isActive: boolean; hasBodegaStock?: boolean; bodegaUnits?: number } | null;
+  };
+  const [recommendations, setRecommendations] = useState<RecListing[]>([]);
+  // Top dimension key — joined to a stable string so the effect
+  // re-fires only when the cart's "shape" changes, not on every
+  // qty bump.
+  const topDimension = useMemo(() => {
+    if (items.length === 0) return null;
+    const counts = items.reduce<Record<string, number>>((acc, i) => {
+      acc[i.dimension] = (acc[i.dimension] ?? 0) + i.quantity; return acc;
+    }, {});
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }, [items.map((i) => `${i.dimension}:${i.quantity}`).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!topDimension) { setRecommendations([]); return; }
+    const inCartIds = new Set(items.map((i) => i.listingId));
+    let cancelled = false;
+    fetch(`${API_BASE}/marketplace/listings?dimension=${encodeURIComponent(topDimension)}&limit=10&sortBy=relevance`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        const all = (d?.listings ?? []) as RecListing[];
+        setRecommendations(all.filter((l) => !inCartIds.has(l.id)).slice(0, 6));
+      })
+      .catch(() => { if (!cancelled) setRecommendations([]); });
+    return () => { cancelled = true; };
+  }, [topDimension, items.map((i) => i.listingId).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Buyer-facing ETA shown in the checkout block. Pickup-only orders
+  // are typically same-day or next-day, so we surface that copy. Mixed
+  // / delivery orders quote a 3–7 business-day window — the actual
+  // confirmed ETA comes from the distributor when they accept the
+  // order on /dashboard/marketplace/pedidos. Computed against today
+  // so the dates always look fresh on a stale tab.
+  const etaLabel = useMemo(() => {
+    if (items.length === 0) return null;
+    if (hasPickupItems && !hasDeliveryItems) return "Listo para recoger en 1–2 días";
+    const addBusinessDays = (start: Date, days: number) => {
+      const d = new Date(start);
+      let added = 0;
+      while (added < days) {
+        d.setDate(d.getDate() + 1);
+        const day = d.getDay();
+        if (day !== 0 && day !== 6) added += 1;
+      }
+      return d;
+    };
+    const now      = new Date();
+    const earliest = addBusinessDays(now, 3);
+    const latest   = addBusinessDays(now, 7);
+    const monthsEs = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+    const sameMonth = earliest.getMonth() === latest.getMonth();
+    return sameMonth
+      ? `${earliest.getDate()}–${latest.getDate()} ${monthsEs[latest.getMonth()]}`
+      : `${earliest.getDate()} ${monthsEs[earliest.getMonth()]} – ${latest.getDate()} ${monthsEs[latest.getMonth()]}`;
+  }, [items.length, hasPickupItems, hasDeliveryItems]);
   // Address only required when at least one item ships and at least one
   // distributor in the cart actually offers domicilio. Pickup-only carts
   // can pay without entering a shipping address.
@@ -397,24 +464,34 @@ export default function CartPage() {
     <div className="min-h-screen bg-[#f5f5f7]">
       <MarketplaceNav />
 
-      {/* Hero band */}
+      {/* Hero band — single smooth blue (top-to-bottom subtle deepening
+          from #1E76B6 → #1668A0). Cleaner than the prior 3-stop dark
+          gradient. Right-side "Estás a un paso" tag plays the same
+          motivational role as Mercado Libre's "Ya casi es tuya" without
+          repeating their copy verbatim. Hidden on the smallest phones
+          to keep the title row uncrowded. */}
       <div
         className="relative overflow-hidden"
-        style={{ background: "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)" }}
+        style={{ background: "linear-gradient(180deg,#1E76B6 0%,#1668A0 100%)" }}
       >
-        <div className="absolute inset-0 opacity-10" aria-hidden style={{
-          backgroundImage: "radial-gradient(circle at 20% 0%, rgba(52,140,203,0.6), transparent 40%), radial-gradient(circle at 80% 100%, rgba(245,158,11,0.4), transparent 40%)",
-        }} />
         <div className="relative max-w-5xl mx-auto px-3 sm:px-6 pt-5 pb-7">
-          <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/70 hover:text-white transition-colors mb-2">
+          <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/80 hover:text-white transition-colors mb-2">
             <ArrowLeft className="w-3 h-3" />
             Seguir comprando
           </Link>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white leading-none tracking-tight">Tu carrito</h1>
-            <p className="text-[11px] sm:text-xs text-white/70 mt-1">
-              {count > 0 ? <>{count} producto{count !== 1 ? "s" : ""} · {Object.keys(grouped).length} distribuidor{Object.keys(grouped).length !== 1 ? "es" : ""}</> : "Sin productos"}
-            </p>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white leading-none tracking-tight">Tu carrito</h1>
+              <p className="text-[11px] sm:text-xs text-white/85 mt-1">
+                {count > 0 ? <>{count} producto{count !== 1 ? "s" : ""} · {Object.keys(grouped).length} distribuidor{Object.keys(grouped).length !== 1 ? "es" : ""}</> : "Sin productos"}
+              </p>
+            </div>
+            {count > 0 && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-[11px] font-bold text-white whitespace-nowrap">
+                <Sparkles className="w-3 h-3" />
+                ¡Estás a un paso!
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -547,52 +624,60 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <div
-                  className="rounded-2xl p-4 mb-5"
-                  style={{ background: "linear-gradient(135deg,rgba(30,118,182,0.06),rgba(52,140,203,0.04))", border: "1px solid rgba(30,118,182,0.12)" }}
-                >
-                  <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-1">Total a pagar</p>
-                  <p
-                    className="text-3xl font-black tracking-tight leading-none"
-                    style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-                  >
-                    {fmtCOP(totalToCharge)}
-                  </p>
-                  <div className="mt-3">
-                    <PaymentBadges variant="wide" />
-                  </div>
-                </div>
-
-                {/* Three states for the checkout entry point:
-                    1. Form open → showCheckout=true (guest pressed "Pagar"
-                       to reveal it) OR editingDetails=true (logged-in user
-                       pressed "Cambiar" to edit address / name).
-                    2. Default + logged in → straight-to-Bold button +
-                       "Pagas como [name]" summary.
-                    3. Default + guest → "Pagar" button that reveals the
-                       form. */}
+                {/* Merged checkout block — Total + ETA + Pay button +
+                    accepted methods all live in a single card so the
+                    buyer's eye lands on one focal point. White Pay
+                    button (clean / trustworthy / premium), inline
+                    Bold logo on the right, dark text. */}
                 {!showCheckout && !editingDetails && !isLoggedIn ? (
-                  <button onClick={() => setShowCheckout(true)}
-                    className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
-                    style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
-                    Pagar
-                  </button>
+                  <div
+                    className="rounded-2xl p-5 mb-5"
+                    style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.15)" }}
+                  >
+                    <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-1">Total a pagar</p>
+                    <p className="text-3xl font-black tracking-tight leading-none text-[#0A183A]">{fmtCOP(totalToCharge)}</p>
+                    {etaLabel && (
+                      <p className="text-[11px] text-gray-500 mt-2 flex items-center gap-1.5">
+                        <Truck className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />
+                        Entrega estimada: <span className="font-bold text-[#0A183A]">{etaLabel}</span>
+                      </p>
+                    )}
+                    <button onClick={() => setShowCheckout(true)}
+                      className="mt-4 w-full py-3.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98]"
+                      style={{ background: "linear-gradient(135deg,#1E76B6,#1668A0)" }}>
+                      Pagar
+                    </button>
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Aceptamos</p>
+                      <PaymentBadges variant="compact" className="!flex-row" />
+                    </div>
+                  </div>
                 ) : isLoggedIn && !editingDetails && !showCheckout ? (
-                  <div className="space-y-2.5">
-                    {/* Premium Bold-style CTA — solid dark button matching
-                        Bold's dark-L variant from their docs. White text on
-                        near-black (#0A0A0A → #1A1A1A subtle gradient for
-                        depth), inline Bold wordmark on the right, amount
-                        prominent. No surrounding panel — the button stands
-                        alone as the focal point of the cart. */}
+                  <div
+                    className="rounded-2xl p-5 mb-5 space-y-3"
+                    style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.15)" }}
+                  >
+                    <div>
+                      <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-1">Total a pagar</p>
+                      <p className="text-3xl font-black tracking-tight leading-none text-[#0A183A]">{fmtCOP(totalToCharge)}</p>
+                      {etaLabel && (
+                        <p className="text-[11px] text-gray-500 mt-2 flex items-center gap-1.5">
+                          <Truck className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />
+                          Entrega estimada: <span className="font-bold text-[#0A183A]">{etaLabel}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* White Pay button — clean premium feel, dark text +
+                        inline Bold logo. Hover deepens the border / adds
+                        shadow. Uses the same merged label pattern as
+                        before (Pagar / amount on the left, "con bold"
+                        on the right) but inverted color scheme. */}
                     <button
                       onClick={handlePay}
                       disabled={submitting}
-                      className="group w-full py-4 px-5 rounded-2xl text-white disabled:opacity-50 transition-all hover:shadow-2xl hover:shadow-black/30 active:scale-[0.99] flex items-center justify-between gap-3"
-                      style={{
-                        background: "linear-gradient(135deg,#0A0A0A 0%,#1F1F1F 100%)",
-                        boxShadow: "0 12px 32px -10px rgba(0,0,0,0.45)",
-                      }}
+                      className="w-full py-4 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-between gap-3"
+                      style={{ border: "1.5px solid rgba(10,10,10,0.18)" }}
                     >
                       {submitting ? (
                         <span className="w-full flex items-center justify-center gap-2 text-sm font-bold">
@@ -602,16 +687,21 @@ export default function CartPage() {
                       ) : (
                         <>
                           <span className="flex flex-col items-start leading-tight">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/55">Pagar</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Pagar</span>
                             <span className="text-lg font-black tracking-tight">{fmtCOP(totalToCharge)}</span>
                           </span>
-                          <span className="flex items-center gap-1.5 text-sm font-bold text-white/80">
+                          <span className="flex items-center gap-1.5 text-sm font-bold text-gray-600">
                             con
-                            <BoldLogo height={20} accent="#FF3D6E" />
+                            <BoldLogo height={20} />
                           </span>
                         </>
                       )}
                     </button>
+
+                    <div className="pt-1">
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Aceptamos</p>
+                      <PaymentBadges variant="compact" className="!flex-row" />
+                    </div>
                     <p className="text-[11px] text-gray-500 text-center">
                       Pagas como <span className="font-bold text-[#0A183A]">{form.buyerName}</span>
                       {" · "}
@@ -802,39 +892,53 @@ export default function CartPage() {
                       </div>
                     )}
 
-                    {/* Same premium Bold-style CTA as the logged-in path. */}
-                    <button
-                      onClick={handlePay}
-                      disabled={
-                        submitting
-                        || !form.buyerName.trim()
-                        || !form.buyerEmail.trim()
-                        || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
-                      }
-                      className="group w-full py-4 px-5 rounded-2xl text-white disabled:opacity-40 transition-all hover:shadow-2xl hover:shadow-black/30 active:scale-[0.99] flex items-center justify-between gap-3"
-                      style={{
-                        background: "linear-gradient(135deg,#0A0A0A 0%,#1F1F1F 100%)",
-                        boxShadow: "0 12px 32px -10px rgba(0,0,0,0.45)",
-                      }}
+                    {/* Same white Pay button + ETA + payment-methods strip
+                        as the logged-in path. Repeated here so the form
+                        flow shares the same clean checkout block. */}
+                    <div
+                      className="rounded-2xl p-4 space-y-3"
+                      style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.15)" }}
                     >
-                      {submitting ? (
-                        <span className="w-full flex items-center justify-center gap-2 text-sm font-bold">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Procesando…
-                        </span>
-                      ) : (
-                        <>
-                          <span className="flex flex-col items-start leading-tight">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/55">Pagar</span>
-                            <span className="text-lg font-black tracking-tight">{fmtCOP(totalToCharge)}</span>
-                          </span>
-                          <span className="flex items-center gap-1.5 text-sm font-bold text-white/80">
-                            con
-                            <BoldLogo height={20} accent="#FF3D6E" />
-                          </span>
-                        </>
+                      {etaLabel && (
+                        <p className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                          <Truck className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />
+                          Entrega estimada: <span className="font-bold text-[#0A183A]">{etaLabel}</span>
+                        </p>
                       )}
-                    </button>
+                      <button
+                        onClick={handlePay}
+                        disabled={
+                          submitting
+                          || !form.buyerName.trim()
+                          || !form.buyerEmail.trim()
+                          || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
+                        }
+                        className="w-full py-4 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-40 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-between gap-3"
+                        style={{ border: "1.5px solid rgba(10,10,10,0.18)" }}
+                      >
+                        {submitting ? (
+                          <span className="w-full flex items-center justify-center gap-2 text-sm font-bold">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Procesando…
+                          </span>
+                        ) : (
+                          <>
+                            <span className="flex flex-col items-start leading-tight">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Pagar</span>
+                              <span className="text-lg font-black tracking-tight">{fmtCOP(totalToCharge)}</span>
+                            </span>
+                            <span className="flex items-center gap-1.5 text-sm font-bold text-gray-600">
+                              con
+                              <BoldLogo height={20} />
+                            </span>
+                          </>
+                        )}
+                      </button>
+                      <div className="pt-1">
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Aceptamos</p>
+                        <PaymentBadges variant="compact" className="!flex-row" />
+                      </div>
+                    </div>
 
                     {checkoutError && (
                       <p className="text-[11px] text-red-600 font-medium">{checkoutError}</p>
@@ -855,6 +959,57 @@ export default function CartPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* También te podría gustar — recommendations of the same
+            dimension as what's in the cart, in-stock, not-already-in-
+            cart. Empty silently if the endpoint returned nothing
+            (offline / no inventory match) so the cart doesn't grow a
+            blank section. */}
+        {items.length > 0 && recommendations.length > 0 && (
+          <section className="mt-12">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="text-lg sm:text-xl font-black text-[#0A183A] tracking-tight">También te podría gustar</h2>
+              {topDimension && (
+                <span className="text-[11px] font-bold text-gray-500">Misma medida · {topDimension}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              {recommendations.map((l) => {
+                const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+                const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+                const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+                const price = hasPromo ? l.precioPromo! : l.precioCop;
+                return (
+                  <Link
+                    key={l.id}
+                    href={productHref({ id: l.id, marca: l.marca, modelo: l.modelo, dimension: l.dimension })}
+                    className="group bg-white rounded-2xl p-3 transition-all hover:shadow-xl hover:-translate-y-0.5"
+                    style={{ border: "1px solid rgba(10,24,58,0.08)" }}
+                  >
+                    <div className="aspect-square w-full bg-[#fafafa] rounded-xl flex items-center justify-center overflow-hidden mb-2.5">
+                      {cover ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={cover} alt={`${l.marca} ${l.modelo}`} className="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition-transform" />
+                      ) : (
+                        <Package className="w-8 h-8 text-gray-300" />
+                      )}
+                    </div>
+                    <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{l.marca}</p>
+                    <p className="text-[12px] font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-1">{l.modelo}</p>
+                    {/* Larger dimension display — the user's #1 ask: dim
+                        is the most important spec on a tire card so it
+                        gets bigger type, brand color, tabular nums. */}
+                    <p className="text-sm font-black text-[#1E76B6] tabular-nums tracking-tight mt-1">{l.dimension}</p>
+                    <p className="text-[14px] font-black text-[#0A183A] tracking-tight tabular-nums mt-1.5">{fmtCOP(price)}</p>
+                    {hasPromo && (
+                      <p className="text-[10px] text-gray-400 line-through tabular-nums">{fmtCOP(l.precioCop)}</p>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
         )}
       </main>
       <MarketplaceFooter />

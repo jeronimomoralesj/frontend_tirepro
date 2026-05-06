@@ -503,7 +503,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ slug: 
                   <div className="p-3.5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-[#1E76B6]">{l.marca}</p>
                     <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
-                    <p className="text-[10px] text-gray-400">{l.dimension}</p>
+                    <p className="text-[13px] font-black text-[#1E76B6] tabular-nums tracking-tight mt-1 leading-none">{l.dimension}</p>
                     <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
                       <span className="text-lg font-black text-[#0A183A]">{fmtCOP(price)}</span>
                       {promoActive && <span className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</span>}

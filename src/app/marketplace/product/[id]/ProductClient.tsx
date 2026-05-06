@@ -1768,7 +1768,7 @@ export default function ProductClient({
                     <div className="p-4">
                       <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>
                       <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
-                      <p className="text-[11px] text-gray-400">{l.dimension}</p>
+                      <p className="text-[13px] font-black text-[#1E76B6] tabular-nums tracking-tight mt-1 leading-none">{l.dimension}</p>
                       <p className="text-base font-black text-[#0A183A] mt-2">{fmtCOP(p)}</p>
                       {l.distributor && <p className="text-[9px] text-gray-400 mt-1 truncate">{l.distributor.name}</p>}
                     </div>
@@ -1944,7 +1944,7 @@ export default function ProductClient({
                     <div className="p-4">
                       <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>
                       <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
-                      <p className="text-[11px] text-gray-400">{l.dimension}</p>
+                      <p className="text-[13px] font-black text-[#1E76B6] tabular-nums tracking-tight mt-1 leading-none">{l.dimension}</p>
                       <div className="flex items-baseline gap-1.5 mt-2">
                         <p className="text-base font-black text-red-500">{fmtCOP(l.precioPromo)}</p>
                         <p className="text-[10px] text-gray-400 line-through">{fmtCOP(l.precioCop)}</p>

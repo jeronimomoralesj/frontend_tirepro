@@ -335,7 +335,7 @@ export default function BrandListingsClient({
                     {l.marca}
                   </p>
                   <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
-                  <p className="text-[10px] text-gray-400">{l.dimension}</p>
+                  <p className="text-[13px] font-black tabular-nums tracking-tight mt-1 leading-none" style={{ color: primary }}>{l.dimension}</p>
 
                   <div className="mt-1.5 flex items-baseline gap-1.5">
                     <span className="text-base font-black text-[#0A183A]">{fmtCOP(price)}</span>
