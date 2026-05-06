@@ -47,6 +47,12 @@ interface Product {
     notasColombia?: string | null; fuente?: string | null;
     crowdAvgPrice?: number | null; crowdAvgKm?: number | null;
     crowdConfidence?: number | null; crowdCompanyCount?: number | null;
+    /** Retailer-scraped product specs (Alkosto's "Especificaciones"
+     *  tables). Drives the "Detalles de la llanta" section. Null on
+     *  catalog SKUs whose connected listing hasn't been scraped yet
+     *  (or whose retailer doesn't ship a spec table). */
+    productSpecs?: { sections: Array<{ title: string; items: Array<{ label: string; value: string }> }> } | null;
+    productSpecsAt?: string | null;
   } | null;
   reviews: Review[];
   _count: { reviews: number };
@@ -770,7 +776,12 @@ export default function ProductClient({
               );
             })()}
 
-            {/* Notas TirePro — collapsible technical sheet */}
+            {/* Detalles de la llanta — collapsible technical sheet.
+                Combines TirePro's catalog-level data with the Alkosto
+                "Especificaciones" tables we scrape on every retail-
+                source refresh. Text bumped one tier across the board
+                so the panel reads cleanly at a glance instead of
+                feeling like fine print. */}
             {product.catalog && (() => {
               const c = product.catalog;
               const loadLi = parseLoadIndex(c.indiceCarga);
@@ -800,45 +811,80 @@ export default function ProductClient({
               }
               if (c.skuRef)               rows.push({ label: "SKU TirePro", value: c.skuRef });
 
+              // Total data points across our catalog rows + every
+              // Alkosto-scraped section so the header preview number
+              // is honest about how much info opens when clicked.
+              const specSectionCount = c.productSpecs?.sections?.length ?? 0;
+              const specItemCount = (c.productSpecs?.sections ?? []).reduce((s, sec) => s + sec.items.length, 0);
+              const totalDataPoints = rows.length + specItemCount;
+
               return (
                 <div className="mt-4 rounded-2xl border border-gray-200 overflow-hidden">
                   <button
                     onClick={() => setNotasOpen(!notasOpen)}
-                    className="w-full px-4 py-3 flex items-center gap-2.5 hover:bg-gray-50 transition-colors"
+                    className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-gray-50 transition-colors"
                     style={{ background: notasOpen ? "rgba(30,118,182,0.04)" : "white" }}>
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
-                      <Info className="w-3.5 h-3.5 text-white" />
+                      <Info className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1 text-left min-w-0">
-                      <p className="text-xs font-black text-[#0A183A]">Notas TirePro</p>
-                      <p className="text-[10px] text-gray-500">Ficha técnica verificada · {rows.length} datos</p>
+                      <p className="text-base font-black text-[#0A183A]">Detalles de la llanta</p>
+                      <p className="text-[12px] text-gray-500 mt-0.5">
+                        Ficha técnica · {totalDataPoints} datos
+                        {specSectionCount > 0 && <> · {specSectionCount} secciones</>}
+                      </p>
                     </div>
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${notasOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${notasOpen ? "rotate-180" : ""}`} />
                   </button>
                   {notasOpen && (
-                    <div className="px-4 pb-4 pt-1 space-y-0.5" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
-                      {rows.map((r, i) => (
-                        <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
-                          <span className="text-[11px] text-gray-500 flex-shrink-0">{r.label}</span>
-                          <span className="text-[11px] font-bold text-[#0A183A] text-right">{r.value}</span>
+                    <div className="px-4 pb-4 pt-2 space-y-0.5" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                      {rows.length > 0 && (
+                        <>
+                          <p className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest pt-2 pb-1">Especificaciones TirePro</p>
+                          {rows.map((r, i) => (
+                            <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                              <span className="text-[13px] text-gray-600 flex-shrink-0">{r.label}</span>
+                              <span className="text-[13px] font-bold text-[#0A183A] text-right">{r.value}</span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Retailer-scraped spec sections (Alkosto's
+                          "Especificaciones" tables: Características
+                          Técnicas / Físicas / Información Adicional /
+                          Otros Atributos). Each section is its own
+                          labelled block; long values like vehicle
+                          model lists are rendered with whitespace-
+                          pre-line so the "; " separators wrap. */}
+                      {(c.productSpecs?.sections ?? []).map((sec) => (
+                        <div key={sec.title} className="mt-4 pt-3 border-t border-gray-100">
+                          <p className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-1.5">{sec.title}</p>
+                          {sec.items.map((item, i) => (
+                            <div key={i} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                              <span className="text-[13px] text-gray-600 flex-shrink-0 max-w-[40%]">{item.label}</span>
+                              <span className="text-[13px] font-bold text-[#0A183A] text-right whitespace-pre-line break-words">{item.value}</span>
+                            </div>
+                          ))}
                         </div>
                       ))}
+
                       {c.notasColombia && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1">Notas Colombia</p>
-                          <p className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-line">{c.notasColombia}</p>
+                        <div className="mt-4 pt-3 border-t border-gray-100">
+                          <p className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-1.5">Notas Colombia</p>
+                          <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">{c.notasColombia}</p>
                         </div>
                       )}
                       {c.crowdCompanyCount != null && c.crowdCompanyCount >= 3 && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1.5">Datos reales de la red</p>
-                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        <div className="mt-4 pt-3 border-t border-gray-100">
+                          <p className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">Datos reales de la red</p>
+                          <div className="grid grid-cols-2 gap-2 text-[12px]">
                             {c.crowdAvgPrice != null && <div><span className="text-gray-500">Precio típico: </span><span className="font-bold text-[#0A183A]">{fmtCOP(Math.round(c.crowdAvgPrice))}</span></div>}
                             {c.crowdAvgKm != null && <div><span className="text-gray-500">Km reales: </span><span className="font-bold text-[#0A183A]">{(c.crowdAvgKm / 1000).toFixed(0)}K</span></div>}
                             {c.crowdConfidence != null && <div><span className="text-gray-500">Confianza: </span><span className="font-bold text-[#0A183A]">{Math.round(c.crowdConfidence * 100)}%</span></div>}
                           </div>
-                          <p className="text-[9px] text-gray-400 mt-1.5">Basado en {c.crowdCompanyCount} empresas de la red TirePro</p>
+                          <p className="text-[10px] text-gray-400 mt-1.5">Basado en {c.crowdCompanyCount} empresas de la red TirePro</p>
                         </div>
                       )}
                     </div>
