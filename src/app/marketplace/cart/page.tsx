@@ -826,41 +826,46 @@ export default function CartPage() {
                       <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Aceptamos</p>
                       <PaymentBadges variant="compact" className="!flex-row" />
                     </div>
-                    <p className="text-[11px] text-gray-500 text-center">
-                      Pagas como <span className="font-bold text-[#0A183A]">{form.buyerName}</span>
-                      {" · "}
-                      <button
-                        onClick={() => setEditingDetails(true)}
-                        className="font-bold text-[#1E76B6] hover:underline"
-                      >
-                        Cambiar
-                      </button>
-                    </p>
-                    {/* Delivery / pickup summary so the buyer can confirm
-                        before going to Bold without having to re-open
-                        the full form. Click "Cambiar" to edit. */}
-                    {addressNeeded && (
-                      form.buyerAddress.trim() ? (
-                        <p className="text-[11px] text-gray-500 text-center truncate">
-                          Envío a <span className="font-bold text-[#0A183A]">{form.buyerAddress}</span>
-                          {form.buyerCity && <>, {form.buyerCity}</>}
-                          {" · "}
-                          <button
-                            onClick={() => setEditingDetails(true)}
-                            className="font-bold text-[#1E76B6] hover:underline"
-                          >
-                            Cambiar
-                          </button>
-                        </p>
-                      ) : (
+                    {/* Buyer-info summary — always shows every field
+                        we have (name, email, phone, address+city
+                        when on file) so the buyer can spot a stale
+                        value without re-opening the form. Single
+                        "Cambiar" link in the header opens the edit
+                        form. Address row stays visible whenever an
+                        address is set, even on pickup-only carts —
+                        the buyer might want to update it for the
+                        next delivery purchase. */}
+                    <div className="rounded-xl px-3.5 py-3" style={{ background: "#F8FAFC", border: "1px solid rgba(10,24,58,0.06)" }}>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">Tus datos</p>
                         <button
                           onClick={() => setEditingDetails(true)}
-                          className="text-[11px] font-bold text-amber-700 hover:underline w-full text-center"
+                          className="text-[11px] font-black text-[#1E76B6] hover:underline"
                         >
-                          + Agregar dirección de entrega
+                          Cambiar
                         </button>
-                      )
-                    )}
+                      </div>
+                      <dl className="grid grid-cols-[64px_1fr] gap-x-2 gap-y-1 text-[11px] leading-tight">
+                        <dt className="text-gray-500">Nombre</dt>
+                        <dd className="font-bold text-[#0A183A] truncate">{form.buyerName}</dd>
+                        <dt className="text-gray-500">Email</dt>
+                        <dd className="font-bold text-[#0A183A] truncate">{form.buyerEmail}</dd>
+                        <dt className="text-gray-500">Teléfono</dt>
+                        <dd className={`font-bold truncate ${form.buyerPhone.trim() ? "text-[#0A183A]" : "text-amber-700"}`}>
+                          {form.buyerPhone.trim() || "Falta agregar"}
+                        </dd>
+                        {(form.buyerAddress.trim() || addressNeeded) && (
+                          <>
+                            <dt className="text-gray-500">Dirección</dt>
+                            <dd className={`font-bold truncate ${form.buyerAddress.trim() ? "text-[#0A183A]" : "text-amber-700"}`}>
+                              {form.buyerAddress.trim()
+                                ? `${form.buyerAddress}${form.buyerCity ? `, ${form.buyerCity}` : ""}`
+                                : "Falta agregar"}
+                            </dd>
+                          </>
+                        )}
+                      </dl>
+                    </div>
                     {hasPickupItems && (
                       <p className="text-[11px] text-emerald-700 text-center">
                         Recoger en {items.filter((i) => i.pickupPointId).length} {items.filter((i) => i.pickupPointId).length === 1 ? "tienda" : "tiendas"} ya seleccionada{items.filter((i) => i.pickupPointId).length === 1 ? "" : "s"}
