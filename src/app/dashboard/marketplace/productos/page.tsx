@@ -66,6 +66,34 @@ export default function ProductosMarketplacePage() {
   const [tab, setTab] = useState<FilterTab>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
+  // "Actualizar todo" button state — fires the admin-only refresh-all
+  // endpoint that re-scrapes every active retail source (pickup-point
+  // stock, prices, Alkosto product specs, catalog ficha técnica auto-
+  // fill). The endpoint returns immediately and the actual loop runs
+  // in the background, so we just track an in-flight flash here so
+  // the user knows the click registered.
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshAllMsg, setRefreshAllMsg] = useState<string | null>(null);
+  async function handleRefreshAll() {
+    if (refreshingAll) return;
+    setRefreshingAll(true);
+    setRefreshAllMsg(null);
+    try {
+      const res = await authFetch(`${API_BASE}/marketplace/admin/retail-sources/refresh-all`, { method: "POST" });
+      if (res.ok) {
+        setRefreshAllMsg("Refresco iniciado. Tarda unos minutos en completar.");
+      } else if (res.status === 403) {
+        setRefreshAllMsg("Solo admins pueden refrescar todo el catálogo.");
+      } else {
+        setRefreshAllMsg("No se pudo iniciar el refresco. Revisa los logs.");
+      }
+    } catch {
+      setRefreshAllMsg("Error de red. Intenta de nuevo.");
+    } finally {
+      setRefreshingAll(false);
+      setTimeout(() => setRefreshAllMsg(null), 8000);
+    }
+  }
   const [showBanda, setShowBanda] = useState(false);
   const [editing, setEditing] = useState<Listing | null>(null);
 
@@ -157,6 +185,21 @@ export default function ProductosMarketplacePage() {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Refresca TODOS los listings con retail source (Alkosto)
+                conectado: stock, precios, especificaciones, ficha
+                técnica del catálogo. Mismo trabajo que hace el cron
+                a las 4 AM, pero a demanda. */}
+            <button
+              type="button"
+              onClick={handleRefreshAll}
+              disabled={!companyId || refreshingAll}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold text-[#0A183A] bg-white hover:bg-[#F0F7FF] transition-colors disabled:opacity-50"
+              style={{ border: "1px solid rgba(10,24,58,0.10)" }}
+              title="Re-escanea todos los enlaces de Alkosto y actualiza stock, precios y ficha técnica"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshingAll ? "animate-spin" : ""}`} />
+              {refreshingAll ? "Iniciando…" : "Actualizar todo"}
+            </button>
             <button
               type="button"
               onClick={() => setShowBanda(true)}
@@ -189,6 +232,25 @@ export default function ProductosMarketplacePage() {
             </button>
           </div>
         </div>
+
+        {/* Toast for the "Actualizar todo" result. Auto-clears after
+            a few seconds (handled in handleRefreshAll). */}
+        {refreshAllMsg && (
+          <div
+            className="mb-4 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"
+            style={{
+              background: refreshAllMsg.includes("Solo admins") || refreshAllMsg.includes("Error") || refreshAllMsg.includes("No se pudo")
+                ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.08)",
+              border: refreshAllMsg.includes("Solo admins") || refreshAllMsg.includes("Error") || refreshAllMsg.includes("No se pudo")
+                ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(34,197,94,0.25)",
+              color: refreshAllMsg.includes("Solo admins") || refreshAllMsg.includes("Error") || refreshAllMsg.includes("No se pudo")
+                ? "#b91c1c" : "#15803d",
+            }}
+          >
+            <RefreshCw className="w-4 h-4 flex-shrink-0" />
+            {refreshAllMsg}
+          </div>
+        )}
 
         {/* KPI strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
