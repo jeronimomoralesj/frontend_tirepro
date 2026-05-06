@@ -1151,15 +1151,25 @@ export default function DistributorStorefront() {
                           <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: brandColor }}>{l.marca}</p>
                           <p className="text-sm font-black text-[#0A183A] leading-snug truncate mt-0.5">{l.modelo}</p>
                           <p className="text-[13px] font-black tabular-nums tracking-tight mt-1 leading-none" style={{ color: brandColor }}>{l.dimension}</p>
-                          <div className="mt-2 flex items-baseline justify-between gap-2 flex-wrap">
-                            <div className="min-w-0">
-                              <span className="text-lg font-black text-[#0A183A]">{fmtCOP(price)}</span>
-                              {hasPromo && <span className="text-[10px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>}
-                            </div>
+                          {/* Price always sits on its own row above the
+                              CTAs so they never collide on tight cards.
+                              Two buttons: icon-only Agregar + Comprar ya
+                              pill, side by side. */}
+                          <div className="mt-2 min-w-0">
+                            <span className="text-lg font-black text-[#0A183A] tabular-nums">{fmtCOP(price)}</span>
+                            {hasPromo && <span className="text-[10px] text-gray-400 line-through ml-1.5 tabular-nums">{fmtCOP(l.precioCop)}</span>}
+                          </div>
+                          <div className="mt-2 flex items-stretch gap-1.5">
                             <AddToCartButton
                               listing={l as any}
                               variant="icon"
                               accent={brandColor}
+                            />
+                            <AddToCartButton
+                              listing={l as any}
+                              variant="compact"
+                              accent={brandColor}
+                              className="flex-1 justify-center"
                             />
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1.5">

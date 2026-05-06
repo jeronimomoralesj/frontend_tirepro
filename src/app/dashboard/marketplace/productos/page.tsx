@@ -51,6 +51,8 @@ interface Listing {
   isActive: boolean;
   imageUrls: string[] | null;
   coverIndex: number;
+  /** "domicilio" | "pickup" | "both" — null falls back to distributor default. */
+  deliveryMode: string | null;
   updatedAt?: string;
 }
 
@@ -416,6 +418,9 @@ interface CreateForm {
   // request with `Invalid value for argument eje. Expected EjeType.`.
   eje: "" | "direccion" | "traccion" | "libre" | "remolque" | "repuesto";
   tipo: "nueva" | "reencauche";
+  /** Per-listing override for how this SKU is delivered. "" = use the
+   *  distributor's default (current behaviour for legacy listings). */
+  deliveryMode: "" | "domicilio" | "pickup" | "both";
   precioCop: number | "";
   cantidadDisponible: number | "";
   // Backend stores tiempoEntrega as a single string ("3 días"). The form
@@ -430,6 +435,7 @@ interface CreateForm {
 
 const EMPTY_CREATE: CreateForm = {
   marca: "", modelo: "", dimension: "", eje: "", tipo: "nueva",
+  deliveryMode: "",
   precioCop: "", cantidadDisponible: "",
   tiempoEntregaNum: "", tiempoEntregaUnit: "días",
   descripcion: "", imageUrls: [], coverIndex: 0,
@@ -491,6 +497,9 @@ function CreateListingModal({
           dimension:          form.dimension.trim(),
           eje:                form.eje || undefined,
           tipo:               form.tipo,
+          // "" means "use distributor default" — omit so backend
+          // doesn't write an empty string to the column.
+          deliveryMode:       form.deliveryMode || undefined,
           precioCop:          form.precioCop,
           cantidadDisponible: typeof form.cantidadDisponible === "number" ? form.cantidadDisponible : 0,
           tiempoEntrega:
@@ -620,6 +629,24 @@ function CreateListingModal({
                   </button>
                 ))}
               </div>
+            </ModalField>
+            <ModalField label="Modo de entrega">
+              {/* "Sin definir" = use the distributor's overall tipoEntrega.
+                  Pick a specific mode here to override per-listing — useful
+                  for heavy commercial sizes that don't ship economically
+                  (pickup-only) or warehouse SKUs without bodega coverage
+                  (delivery-only). */}
+              <select
+                className="w-full px-3 py-2.5 rounded-lg text-sm bg-white text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]"
+                style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+                value={form.deliveryMode}
+                onChange={(e) => setForm((f) => ({ ...f, deliveryMode: e.target.value as CreateForm["deliveryMode"] }))}
+              >
+                <option value="">Sin definir (usar predeterminado)</option>
+                <option value="domicilio">Solo domicilio</option>
+                <option value="pickup">Solo recogida en tienda</option>
+                <option value="both">Ambas opciones</option>
+              </select>
             </ModalField>
             <ModalField label="Tiempo de entrega">
               <div className="grid grid-cols-[1fr_auto] gap-2">
@@ -873,6 +900,8 @@ interface EditForm {
   imageUrls: string[];
   coverIndex: number;
   isActive: boolean;
+  /** Per-listing delivery mode override. "" = use distributor default. */
+  deliveryMode: "" | "domicilio" | "pickup" | "both";
   // Promo: tracked as on/off + price + ISO date so the user can dial it
   // in or clear it without touching the rest of the form.
   promoEnabled: boolean;
@@ -913,6 +942,7 @@ function EditListingModal({
       imageUrls:           Array.isArray(listing.imageUrls) ? listing.imageUrls : [],
       coverIndex:          listing.coverIndex ?? 0,
       isActive:            listing.isActive,
+      deliveryMode:        ((listing.deliveryMode as EditForm["deliveryMode"]) ?? ""),
       promoEnabled:        promoActive,
       precioPromo:         listing.precioPromo ?? "",
       promoHasta:          listing.promoHasta ? listing.promoHasta.slice(0, 10) : "",
@@ -979,6 +1009,10 @@ function EditListingModal({
         imageUrls:          form.imageUrls,
         coverIndex:         form.imageUrls.length > 0 ? form.coverIndex : 0,
         isActive:           form.isActive,
+        // null clears the override and falls back to distributor default;
+        // a non-empty string sets it. Backend validates the enum values
+        // and silently coerces invalid input to null.
+        deliveryMode:       form.deliveryMode || null,
       };
       // Only touch tiempoEntrega if the user actually edited it — keeps
       // legacy free-text values intact when they're not parseable into
@@ -1145,6 +1179,20 @@ function EditListingModal({
                   <option value="semanas">Semanas</option>
                 </select>
               </div>
+            </ModalField>
+            <ModalField label="Modo de entrega">
+              {/* "Sin definir" = use the distributor's overall tipoEntrega.
+                  Pick a specific mode here to override per-listing. */}
+              <select
+                className={inputCls} style={inputStyle}
+                value={form.deliveryMode}
+                onChange={(e) => setForm((f) => ({ ...f, deliveryMode: e.target.value as EditForm["deliveryMode"] }))}
+              >
+                <option value="">Sin definir (usar predeterminado)</option>
+                <option value="domicilio">Solo domicilio</option>
+                <option value="pickup">Solo recogida en tienda</option>
+                <option value="both">Ambas opciones</option>
+              </select>
             </ModalField>
           </div>
 

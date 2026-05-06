@@ -2754,29 +2754,25 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
           </div>
         )}
 
-        {/* Price + quick add. Stacks vertically on mobile (price on top,
-            full-width "Agregar" pill below) so the price never gets
-            clipped or overlapped on a narrow phone — the icon-only
-            button left no room when the price ran wide ("$ 1.234.567"
-            collided with the round icon at 360px viewport widths).
-            Reverts to the original side-by-side layout from sm: up
-            where the row has plenty of horizontal space. */}
-        <div className="mt-2.5 flex flex-col items-stretch gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+        {/* Price always sits on its own row above the CTAs so wide
+            prices ("$ 1.234.567") never collide with the buttons.
+            Buttons live in a single horizontal row below: a square
+            icon-only Agregar (silent add, lets power users stack
+            items) and a flex-1 "Comprar ya" pill (express path —
+            adds and routes to /cart). Same shape on every viewport
+            so the layout doesn't reflow. */}
+        <div className="mt-2.5">
           <div className="min-w-0">
-            <span className="text-lg font-black text-[#111]">{fmtCOP(price)}</span>
+            <span className="text-lg font-black text-[#111] tabular-nums">{fmtCOP(price)}</span>
             {hasPromo && (
-              <span className="text-[11px] text-gray-400 line-through ml-1.5">{fmtCOP(l.precioCop)}</span>
+              <span className="text-[11px] text-gray-400 line-through ml-1.5 tabular-nums">{fmtCOP(l.precioCop)}</span>
             )}
             <p className="text-[9px] text-gray-400 leading-none mt-0.5">
               + IVA · {l.retailSource?.isActive ? "Envío y recogida" : "Envío"}
             </p>
           </div>
-          {/* Always two buttons: icon-only "Agregar" (silent add, lets
-              power users stack multiple items) + Comprar ya (express
-              flow that adds + routes to /cart). Stacked vertically on
-              mobile so they get full width; horizontal on desktop. */}
-          <div className="flex flex-col sm:flex-row gap-1.5 w-full sm:w-auto items-stretch sm:items-center">
-            <AddToCartButton listing={l} variant="icon" className="self-end sm:self-auto" />
+          <div className="mt-2 flex items-stretch gap-1.5">
+            <AddToCartButton listing={l} variant="icon" />
             <AddToCartButton listing={l} variant="compact" className="flex-1 justify-center" />
           </div>
         </div>

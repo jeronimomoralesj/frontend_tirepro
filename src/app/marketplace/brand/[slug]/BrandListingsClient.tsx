@@ -350,23 +350,22 @@ export default function BrandListingsClient({
                     </p>
                   )}
 
-                  {/* Quick add + view CTA — primary action is the cart
-                      button so the buyer can stay on the brand page
-                      and add multiple SKUs without bouncing. */}
-                  <div className="mt-2 flex items-center gap-1.5">
+                  {/* Two CTAs: icon-only Agregar (silent add) + compact
+                      Comprar ya (express path to /cart). Sits on its own
+                      row below the price so the buttons never collide
+                      with a long price string. */}
+                  <div className="mt-2 flex items-stretch gap-1.5">
+                    <AddToCartButton
+                      listing={l as any}
+                      variant="icon"
+                      accent={primary}
+                    />
                     <AddToCartButton
                       listing={l as any}
                       variant="compact"
                       accent={primary}
-                      className="flex-1"
+                      className="flex-1 justify-center"
                     />
-                    <span
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-full text-[#0A183A] transition-opacity opacity-90 group-hover:opacity-100 flex-shrink-0"
-                      style={{ background: "white", border: `1px solid ${primary}33` }}
-                      aria-label="Ver detalle"
-                    >
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
                   </div>
                 </div>
               </Link>
