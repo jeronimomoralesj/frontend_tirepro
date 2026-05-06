@@ -564,16 +564,20 @@ export default function CartPage() {
                 </div>
 
                 {/* Three states for the checkout entry point:
-                    1. Guest               → "Pagar" button reveals the form (showCheckout)
-                    2. Logged in (default) → straight-to-Bold button + "Pagas como [name]" line
-                    3. Logged in but user clicked "Cambiar" → falls through to the form like a guest */}
-                {!showCheckout && !(isLoggedIn && !editingDetails) ? (
+                    1. Form open → showCheckout=true (guest pressed "Pagar"
+                       to reveal it) OR editingDetails=true (logged-in user
+                       pressed "Cambiar" to edit address / name).
+                    2. Default + logged in → straight-to-Bold button +
+                       "Pagas como [name]" summary.
+                    3. Default + guest → "Pagar" button that reveals the
+                       form. */}
+                {!showCheckout && !editingDetails && !isLoggedIn ? (
                   <button onClick={() => setShowCheckout(true)}
                     className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
                     style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
                     Pagar
                   </button>
-                ) : isLoggedIn && !editingDetails ? (
+                ) : isLoggedIn && !editingDetails && !showCheckout ? (
                   <div className="space-y-2.5">
                     {/* Premium Bold-style CTA — solid dark button matching
                         Bold's dark-L variant from their docs. White text on
@@ -841,7 +845,7 @@ export default function CartPage() {
                     </p>
 
                     <button
-                      onClick={() => setShowCheckout(false)}
+                      onClick={() => { setShowCheckout(false); setEditingDetails(false); }}
                       className="w-full py-2 text-xs font-bold text-gray-400 hover:text-gray-600"
                     >
                       Volver
@@ -989,11 +993,18 @@ function PickupChooser({
         </div>
       )}
 
-      {/* City + store selector modal */}
+      {/* City + store selector modal.
+          Mobile: bottom-sheet at 92vh so the stores list is always
+          visible below the city picker. City pills scroll horizontally
+          in a single row instead of wrapping (a wrap-row of 25+ city
+          pills was eating most of the modal height and pushing the
+          stores list off-screen — the original "you pick a city but
+          don't see the stores" bug).
+          Desktop: centered card at max 90vh. */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40"
           onClick={() => setOpen(false)}>
-          <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col"
+          <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl h-[92vh] sm:h-auto sm:max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 flex items-center justify-between gap-3"
               style={{ borderBottom: "1px solid rgba(10,24,58,0.08)" }}>
@@ -1006,15 +1017,17 @@ function PickupChooser({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="px-5 py-4 flex-shrink-0" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
+            <div className="px-5 pt-3 pb-2 flex-shrink-0" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5">Ciudad</p>
-              <div className="flex flex-wrap gap-1.5">
+              {/* Horizontal scroll instead of wrap so the city row is one
+                  line tall regardless of how many cities Bold returned. */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
                 {data.cities.map((c) => (
                   <button
                     key={c.city}
                     type="button"
                     onClick={() => setSelectedCity(c.city)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-black transition-all"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-black transition-all flex-shrink-0"
                     style={{
                       background: activeCity === c.city ? "#1E76B6" : "white",
                       color:      activeCity === c.city ? "white" : "#0A183A",
@@ -1028,7 +1041,19 @@ function PickupChooser({
                 ))}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {/* Sucursales header so the user has a clear visual cue that
+                the list below is filtered to the chosen city. */}
+            <div className="px-5 pt-3 pb-1.5 flex items-baseline justify-between flex-shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                Sucursales {activeGroup ? `en ${activeGroup.cityDisplay}` : ""}
+              </p>
+              {activeGroup && (
+                <span className="text-[10px] font-bold text-emerald-700">
+                  {activeGroup.points.length} {activeGroup.points.length === 1 ? "tienda" : "tiendas"} · {activeGroup.totalStock} unid.
+                </span>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2">
               {activeGroup?.points.map((p) => (
                 <button
                   key={p.id}
