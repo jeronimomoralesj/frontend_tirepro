@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Loader2,
-  CheckCircle, Package, Truck, MapPin, ChevronDown, X, Sparkles,
+  CheckCircle, Package, Truck, MapPin, ChevronDown, X,
 } from "lucide-react";
 import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
@@ -375,11 +375,15 @@ export default function CartPage() {
   const hasDeliveryItems = useMemo(() => items.some((i) => !i.pickupPointId), [items]);
   const hasPickupItems   = useMemo(() => items.some((i) => !!i.pickupPointId), [items]);
 
-  // "También te podría gustar" — recommendations based on what's
-  // already in the cart. Picks the most common dimension across cart
-  // lines and fetches in-stock listings of the same size from the
-  // public listings endpoint, filtering out anything already in the
-  // cart. Quietly empty if the user is offline / endpoint hiccups.
+  // "También te podría gustar" — recommendations based on what's in
+  // the cart. We don't restrict to the EXACT dimension because tire
+  // sizes are too narrow (a buyer with 205/55R16 in cart almost
+  // certainly fits 205/60R16, 215/55R16, etc.). Instead we search by
+  // RIM SIZE: tires sharing the same rim are typically interchangeable
+  // across the same vehicle class, which surfaces meaningfully more
+  // options without recommending tires for completely different
+  // vehicles. Filtered to same tipo (nueva vs reencauche) when the
+  // cart is uniform on that axis.
   type RecListing = {
     id: string; marca: string; modelo: string; dimension: string; tipo: string;
     precioCop: number; precioPromo: number | null; promoHasta: string | null;
@@ -401,17 +405,31 @@ export default function CartPage() {
   useEffect(() => {
     if (!topDimension) { setRecommendations([]); return; }
     const inCartIds = new Set(items.map((i) => i.listingId));
+    // Pull the rim out of the dimension string ("205/55R16" → "16",
+    // "295/80R22.5" → "22.5"). The backend's `rimSizes` filter on
+    // /marketplace/listings already does the right SQL `contains
+    // R<rim>` match. If we can't parse a rim (weird format), fall
+    // back to the original exact-dimension query.
+    const rimMatch = topDimension.match(/R(\d+(?:\.\d+)?)/i);
+    const rimSize = rimMatch ? rimMatch[1] : null;
+    // Same-tipo filter only when the cart is uniform — a mixed cart
+    // (some nueva, some reencauche) shouldn't bias the recs either way.
+    const tipos = Array.from(new Set(items.map((i) => i.tipo)));
+    const tipoQuery = tipos.length === 1 ? `&tipo=${encodeURIComponent(tipos[0])}` : "";
+    const url = rimSize
+      ? `${API_BASE}/marketplace/listings?rimSizes=${encodeURIComponent(rimSize)}&limit=14&sortBy=relevance${tipoQuery}`
+      : `${API_BASE}/marketplace/listings?dimension=${encodeURIComponent(topDimension)}&limit=10&sortBy=relevance${tipoQuery}`;
     let cancelled = false;
-    fetch(`${API_BASE}/marketplace/listings?dimension=${encodeURIComponent(topDimension)}&limit=10&sortBy=relevance`)
+    fetch(url)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return;
         const all = (d?.listings ?? []) as RecListing[];
-        setRecommendations(all.filter((l) => !inCartIds.has(l.id)).slice(0, 6));
+        setRecommendations(all.filter((l) => !inCartIds.has(l.id)).slice(0, 8));
       })
       .catch(() => { if (!cancelled) setRecommendations([]); });
     return () => { cancelled = true; };
-  }, [topDimension, items.map((i) => i.listingId).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [topDimension, items.map((i) => `${i.listingId}:${i.tipo}`).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Buyer-facing ETA shown in the checkout block. Pickup-only orders
   // are typically same-day or next-day, so we surface that copy. Mixed
@@ -487,9 +505,8 @@ export default function CartPage() {
               </p>
             </div>
             {count > 0 && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-[11px] font-bold text-white whitespace-nowrap">
-                <Sparkles className="w-3 h-3" />
-                ¡Estás a un paso!
+              <span className="hidden sm:inline-flex items-center px-4 py-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-base font-black text-white whitespace-nowrap tracking-tight">
+                Estás a un paso
               </span>
             )}
           </div>
@@ -598,6 +615,52 @@ export default function CartPage() {
                   </div>
                 </div>
               ))}
+
+              {/* También te podría gustar — moved INTO the left column
+                  (was at the bottom of <main>) so the user sees recs
+                  while still scrolling through their cart instead of
+                  way below the order summary. Sticks visually with
+                  the items it's based on. Empty silently if the
+                  endpoint returned nothing. */}
+              {recommendations.length > 0 && (
+                <section className="pt-4">
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h2 className="text-lg sm:text-xl font-black text-[#0A183A] tracking-tight">También te podría gustar</h2>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
+                    {recommendations.map((l) => {
+                      const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+                      const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+                      const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+                      const price = hasPromo ? l.precioPromo! : l.precioCop;
+                      return (
+                        <Link
+                          key={l.id}
+                          href={productHref({ id: l.id, marca: l.marca, modelo: l.modelo, dimension: l.dimension })}
+                          className="group bg-white rounded-2xl p-3 transition-all hover:shadow-xl hover:-translate-y-0.5"
+                          style={{ border: "1px solid rgba(10,24,58,0.08)" }}
+                        >
+                          <div className="aspect-square w-full bg-[#fafafa] rounded-xl flex items-center justify-center overflow-hidden mb-2.5">
+                            {cover ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={cover} alt={`${l.marca} ${l.modelo}`} className="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition-transform" />
+                            ) : (
+                              <Package className="w-8 h-8 text-gray-300" />
+                            )}
+                          </div>
+                          <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{l.marca}</p>
+                          <p className="text-[12px] font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-1">{l.modelo}</p>
+                          <p className="text-sm font-black text-[#1E76B6] tabular-nums tracking-tight mt-1">{l.dimension}</p>
+                          <p className="text-[14px] font-black text-[#0A183A] tracking-tight tabular-nums mt-1.5">{fmtCOP(price)}</p>
+                          {hasPromo && (
+                            <p className="text-[10px] text-gray-400 line-through tabular-nums">{fmtCOP(l.precioCop)}</p>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
             </div>
 
             {/* RIGHT — Summary + Checkout */}
@@ -676,23 +739,23 @@ export default function CartPage() {
                     <button
                       onClick={handlePay}
                       disabled={submitting}
-                      className="w-full py-4 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-between gap-3"
-                      style={{ border: "1.5px solid rgba(10,10,10,0.18)" }}
+                      className="w-full py-5 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-between gap-3"
+                      style={{ border: "2px solid #0A0A0A" }}
                     >
                       {submitting ? (
-                        <span className="w-full flex items-center justify-center gap-2 text-sm font-bold">
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="w-full flex items-center justify-center gap-2 text-base font-bold">
+                          <Loader2 className="w-5 h-5 animate-spin" />
                           Procesando…
                         </span>
                       ) : (
                         <>
                           <span className="flex flex-col items-start leading-tight">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Pagar</span>
-                            <span className="text-lg font-black tracking-tight">{fmtCOP(totalToCharge)}</span>
+                            <span className="text-xs font-black uppercase tracking-widest text-gray-500">Pagar</span>
+                            <span className="text-2xl sm:text-[26px] font-black tracking-tight tabular-nums">{fmtCOP(totalToCharge)}</span>
                           </span>
-                          <span className="flex items-center gap-1.5 text-sm font-bold text-gray-600">
+                          <span className="flex items-center gap-2 text-base font-black text-[#0A0A0A]">
                             con
-                            <BoldLogo height={20} />
+                            <BoldLogo height={26} />
                           </span>
                         </>
                       )}
@@ -913,8 +976,8 @@ export default function CartPage() {
                           || !form.buyerEmail.trim()
                           || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
                         }
-                        className="w-full py-4 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-40 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-between gap-3"
-                        style={{ border: "1.5px solid rgba(10,10,10,0.18)" }}
+                        className="w-full py-5 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-40 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-between gap-3"
+                        style={{ border: "2px solid #0A0A0A" }}
                       >
                         {submitting ? (
                           <span className="w-full flex items-center justify-center gap-2 text-sm font-bold">
@@ -961,56 +1024,6 @@ export default function CartPage() {
           </div>
         )}
 
-        {/* También te podría gustar — recommendations of the same
-            dimension as what's in the cart, in-stock, not-already-in-
-            cart. Empty silently if the endpoint returned nothing
-            (offline / no inventory match) so the cart doesn't grow a
-            blank section. */}
-        {items.length > 0 && recommendations.length > 0 && (
-          <section className="mt-12">
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="text-lg sm:text-xl font-black text-[#0A183A] tracking-tight">También te podría gustar</h2>
-              {topDimension && (
-                <span className="text-[11px] font-bold text-gray-500">Misma medida · {topDimension}</span>
-              )}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {recommendations.map((l) => {
-                const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
-                const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
-                const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
-                const price = hasPromo ? l.precioPromo! : l.precioCop;
-                return (
-                  <Link
-                    key={l.id}
-                    href={productHref({ id: l.id, marca: l.marca, modelo: l.modelo, dimension: l.dimension })}
-                    className="group bg-white rounded-2xl p-3 transition-all hover:shadow-xl hover:-translate-y-0.5"
-                    style={{ border: "1px solid rgba(10,24,58,0.08)" }}
-                  >
-                    <div className="aspect-square w-full bg-[#fafafa] rounded-xl flex items-center justify-center overflow-hidden mb-2.5">
-                      {cover ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={cover} alt={`${l.marca} ${l.modelo}`} className="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition-transform" />
-                      ) : (
-                        <Package className="w-8 h-8 text-gray-300" />
-                      )}
-                    </div>
-                    <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{l.marca}</p>
-                    <p className="text-[12px] font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-1">{l.modelo}</p>
-                    {/* Larger dimension display — the user's #1 ask: dim
-                        is the most important spec on a tire card so it
-                        gets bigger type, brand color, tabular nums. */}
-                    <p className="text-sm font-black text-[#1E76B6] tabular-nums tracking-tight mt-1">{l.dimension}</p>
-                    <p className="text-[14px] font-black text-[#0A183A] tracking-tight tabular-nums mt-1.5">{fmtCOP(price)}</p>
-                    {hasPromo && (
-                      <p className="text-[10px] text-gray-400 line-through tabular-nums">{fmtCOP(l.precioCop)}</p>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        )}
       </main>
       <MarketplaceFooter />
     </div>
