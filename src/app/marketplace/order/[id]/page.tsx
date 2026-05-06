@@ -91,6 +91,15 @@ interface TrackedOrder {
   };
   /** Post-delivery survey, when one has been submitted. */
   survey?: OrderSurvey | null;
+  /** Bold reference (= Payment.boldOrderId) — used to call
+   *  /payments/bold/reconcile/{ref} when the order is still
+   *  `pago_pendiente` after the buyer returns from Bold. */
+  payment?: {
+    id: string;
+    provider: string;
+    boldOrderId: string | null;
+    status: string;
+  } | null;
 }
 
 // Per-status visual + label info. Anything not in this map (free-text
@@ -164,6 +173,57 @@ export default function OrderTrackingPage() {
       }
     } catch { /* not logged in — show gate */ }
   }, [orderId, search, fetchOrder]);
+
+  // Webhook-failure rescue: when the buyer lands here right after paying
+  // through Bold but the order is still `pago_pendiente` (Bold's webhook
+  // either hasn't arrived or won't), poll our reconcile endpoint which
+  // queries Bold's transaction-status API directly and resolves the order.
+  // We retry a few times (Bold can take a few seconds to record an
+  // approved card sale, longer for PSE) before giving up. Once status
+  // flips to anything except pending we stop and refresh the order.
+  const [reconciling, setReconciling] = useState(false);
+  useEffect(() => {
+    if (!order) return;
+    if (order.status !== "pago_pendiente") return;
+    if (order.payment?.provider !== "bold") return;
+    const reference = order.payment?.boldOrderId;
+    if (!reference) return;
+
+    let cancelled = false;
+    let attempt = 0;
+    const maxAttempts = 6;        // ~1 minute total, with backoff below
+    const delays = [1000, 2000, 3000, 5000, 8000, 13000]; // ms — fibonacci-ish
+
+    async function poll() {
+      if (cancelled) return;
+      attempt += 1;
+      setReconciling(true);
+      try {
+        const res = await fetch(`${API_BASE}/payments/bold/reconcile/${encodeURIComponent(reference!)}`, {
+          method: "POST",
+        });
+        if (!res.ok) return; // 4xx/5xx — surface nothing, fall through to retry
+        const result = (await res.json()) as { ok: boolean; status?: string };
+        // If Bold reports anything other than "pending", refetch the
+        // order so the UI flips off the "Esperando pago" state.
+        if (result.ok && result.status && result.status !== "pending") {
+          if (!cancelled) await fetchOrder(emailInput || order!.buyerEmail);
+          cancelled = true;
+          return;
+        }
+      } catch { /* retry */ } finally {
+        if (!cancelled) setReconciling(false);
+      }
+      if (attempt < maxAttempts && !cancelled) {
+        setTimeout(poll, delays[attempt] ?? 13000);
+      }
+    }
+
+    // First attempt fires immediately so paid orders flip in <1s when
+    // Bold's status API has the record by the time we land here.
+    poll();
+    return () => { cancelled = true; };
+  }, [order, emailInput, fetchOrder]);
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
@@ -250,6 +310,7 @@ export default function OrderTrackingPage() {
             order={order}
             onRefresh={() => fetchOrder(emailInput)}
             refreshing={loading}
+            reconciling={reconciling}
           />
         )}
       </div>
@@ -262,11 +323,15 @@ export default function OrderTrackingPage() {
 // ─────────────────────────────────────────────────────────────────────
 
 function OrderCard({
-  order, onRefresh, refreshing,
+  order, onRefresh, refreshing, reconciling = false,
 }: {
   order: TrackedOrder;
   onRefresh: () => void;
   refreshing: boolean;
+  /** True while we're polling /payments/bold/reconcile in the parent.
+   *  Used to swap the "Esperando confirmación" banner icon for a
+   *  spinner so the buyer sees something is happening. */
+  reconciling?: boolean;
 }) {
   const subtotal = order.totalCop;
   const total    = order.totalWithIva ?? subtotal;
@@ -318,6 +383,32 @@ function OrderCard({
           Actualizar
         </button>
       </header>
+
+      {/* Webhook-rescue banner — shown only while the order is still
+          waiting for Bold's payment confirmation and we're polling
+          /payments/bold/reconcile in the background. Reassures the
+          buyer their payment is being verified instead of looking
+          stuck. */}
+      {order.status === "pago_pendiente" && order.payment?.provider === "bold" && (
+        <div
+          className="mx-5 sm:mx-6 mt-6 flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.30)" }}
+        >
+          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-100">
+            {reconciling
+              ? <Loader2 className="w-4 h-4 text-amber-700 animate-spin" />
+              : <Clock className="w-4 h-4 text-amber-700" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-amber-700">
+              {reconciling ? "Verificando pago…" : "Esperando confirmación"}
+            </p>
+            <p className="text-[12px] text-[#0A183A] leading-snug mt-0.5">
+              Tu pago está siendo verificado con Bold. Esto suele tomar segundos; si tarda más de un minuto, recarga la página.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Journey timeline — vertical map of every status event the
           order has been through, with timestamps. The most recent
