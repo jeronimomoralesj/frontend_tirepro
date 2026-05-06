@@ -244,7 +244,7 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
     },
     {
       q: `¿Puedo pagar contraentrega o a crédito en ${c.name}?`,
-      a: `TirePro Marketplace acepta tarjeta de crédito, débito, PSE y Nequi a través de Wompi. Algunos distribuidores ofrecen plazos de pago o crédito empresarial para flotas en ${c.name} — consulta directamente al solicitar cotización.`,
+      a: `TirePro Marketplace acepta tarjeta de crédito, débito, PSE y Nequi a través de Bold. Algunos distribuidores ofrecen plazos de pago o crédito empresarial para flotas en ${c.name} — consulta directamente al solicitar cotización.`,
     },
   ];
 

@@ -22,7 +22,7 @@ const METHOD_LABELS: Record<PaymentMethod, string> = {
 };
 
 interface Props {
-  /** "compact" = single line, smaller logos. "wide" = bigger logos with the "Pago seguro vía Wompi" caption above. */
+  /** "compact" = single line, smaller logos. "wide" = bigger logos with the "Pago seguro vía Bold" caption above. */
   variant?: Variant;
   /** Override the caption when variant="wide". */
   caption?: string;
@@ -39,7 +39,7 @@ export function PaymentBadges({
   methods = ALL_METHODS,
 }: Props) {
   const badgeHeight = variant === "wide" ? 28 : 22;
-  const wompiHeight = variant === "wide" ? 22 : 18;
+  const boldHeight  = variant === "wide" ? 22 : 18;
 
   return (
     <div className={`inline-flex flex-col gap-2 ${className}`}>
@@ -48,10 +48,10 @@ export function PaymentBadges({
           <span>{caption}</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/payment/wompi.svg"
-            alt="Wompi"
-            height={wompiHeight}
-            style={{ height: wompiHeight, width: "auto" }}
+            src="/payment/bold.svg"
+            alt="Bold"
+            height={boldHeight}
+            style={{ height: boldHeight, width: "auto" }}
           />
         </div>
       )}
@@ -60,10 +60,10 @@ export function PaymentBadges({
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/payment/wompi.svg"
-              alt="Wompi"
-              height={wompiHeight}
-              style={{ height: wompiHeight, width: "auto", marginRight: 4 }}
+              src="/payment/bold.svg"
+              alt="Bold"
+              height={boldHeight}
+              style={{ height: boldHeight, width: "auto", marginRight: 4 }}
             />
           </>
         )}

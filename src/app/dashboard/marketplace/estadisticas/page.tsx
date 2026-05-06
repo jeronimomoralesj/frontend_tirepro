@@ -229,7 +229,7 @@ export default function EstadisticasPage() {
                   <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">Más vendidos</p>
                   <h2 className="text-base font-black text-[#0A183A]">Top productos por unidades ({overview.windowDays} días)</h2>
                   <p className="text-[11px] text-gray-500 mt-0.5">
-                    Solo cuenta pedidos pagados (Wompi confirmó) y no cancelados.
+                    Solo cuenta pedidos pagados (Bold confirmó) y no cancelados.
                   </p>
                 </div>
               </div>

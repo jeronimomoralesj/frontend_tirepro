@@ -534,7 +534,7 @@ export function MarketplaceFooter() {
           </div>
         </div>
         {/* Payment trust strip — surfaces the fact that we run on
-            Wompi and accept all the major Colombian payment methods.
+            Bold and accept all the major Colombian payment methods.
             Lives in the footer so it's on every marketplace page. */}
         <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center sm:justify-between gap-3">
           <p className="text-[10px] text-white/30 order-2 sm:order-1">tirepro.com.co — Marketplace de llantas en Colombia</p>

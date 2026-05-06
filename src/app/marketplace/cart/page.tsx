@@ -67,7 +67,7 @@ export default function CartPage() {
       const userName  = (user.name ?? "").toString().trim();
       const userEmail = (user.email ?? "").toString().trim();
       // Logged-in for our purposes = we have enough data to populate the
-      // checkout payload without asking. Email is the only field Wompi
+      // checkout payload without asking. Email is the only field Bold
       // strictly requires beyond the cart contents.
       if (userName && userEmail) setIsLoggedIn(true);
       setForm((f) => ({
@@ -107,11 +107,11 @@ export default function CartPage() {
 
   // We charge what's in the cart, no automatic IVA gross-up. The dist's
   // own invoice handles IVA breakdown — showing one number on the cart
-  // and a different one on Wompi confused buyers.
+  // and a different one on the gateway confused buyers.
   const totalToCharge = total;
 
   // Single-step checkout: backend creates orders + Payment, returns a
-  // ready-to-redirect Wompi checkout URL. Buyer pays on Wompi → returns
+  // ready-to-redirect Bold checkout URL. Buyer pays on Bold → returns
   // to the tracking page → webhook flips status async.
   const [checkoutError, setCheckoutError] = useState("");
   async function handlePay() {
@@ -160,7 +160,12 @@ export default function CartPage() {
     } catch { /* ignore */ }
 
     try {
-      const res = await fetch(`${API_BASE}/payments/wompi/checkout`, {
+      // Switched from Wompi to Bold (bold.co) — same redirect-checkout
+      // shape so the rest of the cart UI is unchanged. The legacy
+      // /payments/wompi/checkout route is still mounted server-side so any
+      // in-flight Wompi redirect from before the cutover can finish, but
+      // every new checkout goes through Bold from here.
+      const res = await fetch(`${API_BASE}/payments/bold/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
@@ -181,12 +186,9 @@ export default function CartPage() {
           ...(hasDeliveryItems && form.buyerAddress.trim() ? { buyerAddress: form.buyerAddress.trim() } : {}),
           ...(hasDeliveryItems && form.buyerCity.trim()    ? { buyerCity:    form.buyerCity.trim()    } : {}),
           notas:        form.notas.trim() || undefined,
-          // Wompi's CloudFront WAF rejects http://localhost as a
-          // redirect-url even in sandbox, so for local dev we let an
-          // env var pin the redirect to the production host. The
-          // tracking page is public anyway — buyer still lands on the
-          // right order page after paying. In production the env var
-          // isn't set, so we fall back to the actual origin.
+          // Bold requires HTTPS for callback_url, so for local dev we let
+          // an env var pin the redirect to the production host. Tracking
+          // page is public — buyer still lands on the right order page.
           redirectBaseUrl:
             (process.env.NEXT_PUBLIC_PAYMENT_REDIRECT_BASE?.trim()) ||
             (typeof window !== "undefined" ? window.location.origin : "https://www.tirepro.com.co"),
@@ -199,12 +201,12 @@ export default function CartPage() {
       const data = await res.json() as {
         checkoutUrl: string;
         orderIds: string[];
-        amountInCents: number;
+        amountCop: number;
       };
       if (!data?.checkoutUrl) throw new Error("Respuesta inválida del servidor");
 
-      // Track purchase intent before we leave the page — Wompi return
-      // doesn't always come back to /marketplace/cart so this is the
+      // Track purchase intent before we leave the page — the Bold return
+      // lands on /marketplace/order/<id>, not the cart, so this is the
       // last chance to fire the analytics event.
       trackPurchase({
         orderId: data.orderIds.join("-"),
@@ -474,7 +476,7 @@ export default function CartPage() {
 
                 {/* Three states for the checkout entry point:
                     1. Guest               → "Pagar" button reveals the form (showCheckout)
-                    2. Logged in (default) → straight-to-Wompi button + "Pagas como [name]" line
+                    2. Logged in (default) → straight-to-Bold button + "Pagas como [name]" line
                     3. Logged in but user clicked "Cambiar" → falls through to the form like a guest */}
                 {!showCheckout && !(isLoggedIn && !editingDetails) ? (
                   <button onClick={() => setShowCheckout(true)}
@@ -503,7 +505,7 @@ export default function CartPage() {
                       </button>
                     </p>
                     {/* Delivery / pickup summary so the buyer can confirm
-                        before going to Wompi without having to re-open
+                        before going to Bold without having to re-open
                         the full form. Click "Cambiar" to edit. */}
                     {addressNeeded && (
                       form.buyerAddress.trim() ? (
@@ -536,7 +538,7 @@ export default function CartPage() {
                       <p className="text-[11px] text-red-600 font-medium text-center">{checkoutError}</p>
                     )}
                     <p className="text-[10px] text-gray-400 leading-relaxed text-center">
-                      Te llevaremos a Wompi para completar el pago de forma segura.
+                      Te llevaremos a Bold para completar el pago de forma segura.
                     </p>
                   </div>
                 ) : (
@@ -701,7 +703,7 @@ export default function CartPage() {
                     )}
 
                     <p className="text-[10px] text-gray-500 leading-relaxed text-center">
-                      Te llevaremos a Wompi para completar el pago de forma segura. {addressNeeded ? "El distribuidor coordinará la entrega a la dirección indicada." : "Recoges en la tienda seleccionada cuando el distribuidor confirme tu pedido."}
+                      Te llevaremos a Bold para completar el pago de forma segura. {addressNeeded ? "El distribuidor coordinará la entrega a la dirección indicada." : "Recoges en la tienda seleccionada cuando el distribuidor confirme tu pedido."}
                     </p>
 
                     <button

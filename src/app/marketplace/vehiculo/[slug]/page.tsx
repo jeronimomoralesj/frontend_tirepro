@@ -536,7 +536,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ slug: 
                 : <>Marcas premium e intermedias del mercado colombiano están disponibles. </>
               }
               Recibe en Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga, Pereira y demás
-              ciudades principales en 1–5 días hábiles, con pago en tarjeta, PSE o Nequi vía Wompi.
+              ciudades principales en 1–5 días hábiles, con pago en tarjeta, PSE o Nequi vía Bold.
             </p>
             <p>
               {v.category === "auto" || v.category === "suv"
