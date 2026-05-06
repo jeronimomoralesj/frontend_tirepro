@@ -525,12 +525,28 @@ function OrderCard({
             </a>
           )}
 
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-4 mb-2">
-            {order.deliveryMode === "pickup" ? "Recoger en tienda" : "Entrega"}
-          </p>
+          <div className="flex items-baseline justify-between gap-2 mt-4 mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+              {order.deliveryMode === "pickup" ? "Recoger en tienda" : "Entrega"}
+            </p>
+            {/* Edit gate: contact info can only be changed before the
+                distributor accepts the order. Once status hits
+                `confirmado` (or beyond) the dist may already be
+                coordinating delivery against the saved address — we
+                lock edits server-side and hide the link client-side. */}
+            {(order.status === "pago_pendiente" || order.status === "pendiente") && (
+              <ContactEditor order={order} onSaved={onRefresh} />
+            )}
+          </div>
           <div className="text-xs text-[#0A183A] space-y-0.5">
             <p className="font-bold">{order.buyerName}</p>
             {order.buyerCompany && <p className="text-gray-600">{order.buyerCompany}</p>}
+            {order.buyerPhone && (
+              <p className="text-gray-600 flex items-center gap-1">
+                <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                {order.buyerPhone}
+              </p>
+            )}
             {order.deliveryMode === "pickup" && order.pickupPointName ? (
               <div
                 className="mt-1 rounded-xl px-3 py-2 flex items-start gap-2"
@@ -948,6 +964,132 @@ function DeliverySurvey({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Inline editor for buyer contact info on the tracking page. Only
+ * surfaces while order.status is `pago_pendiente` or `pendiente` —
+ * the gate is enforced server-side too. Click "Editar" to expand a
+ * small form with phone + address + city; "Guardar" PATCHes
+ * /marketplace/orders/:id/contact and triggers a refetch of the
+ * tracked order on success.
+ */
+function ContactEditor({
+  order,
+  onSaved,
+}: {
+  order: TrackedOrder;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [phone, setPhone]     = useState(order.buyerPhone ?? "");
+  const [address, setAddress] = useState(order.buyerAddress ?? "");
+  const [city, setCity]       = useState(order.buyerCity ?? "");
+
+  // Reset local form state when the parent re-renders with fresh
+  // values (e.g. after a successful save → refetch).
+  useEffect(() => {
+    if (!open) {
+      setPhone(order.buyerPhone ?? "");
+      setAddress(order.buyerAddress ?? "");
+      setCity(order.buyerCity ?? "");
+      setError("");
+    }
+  }, [order.buyerPhone, order.buyerAddress, order.buyerCity, open]);
+
+  async function handleSave() {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/marketplace/orders/${order.id}/contact`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: order.buyerEmail,
+          buyerPhone: phone.trim() || null,
+          buyerAddress: address.trim() || null,
+          buyerCity: city.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        setError(txt.slice(0, 200) || "No se pudo guardar.");
+        return;
+      }
+      setOpen(false);
+      onSaved();
+    } catch {
+      setError("Error de red. Intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-[11px] font-black text-[#1E76B6] hover:underline"
+      >
+        Editar
+      </button>
+    );
+  }
+
+  return (
+    <div className="absolute z-20 mt-7 -ml-32 sm:ml-0 right-0 w-[280px] bg-white rounded-xl p-3 shadow-2xl"
+      style={{ border: "1px solid rgba(10,24,58,0.10)" }}>
+      <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">Editar mis datos</p>
+      <div className="space-y-2">
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Teléfono"
+          className="w-full px-2.5 py-1.5 rounded-lg text-[12px] bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] text-[#0A183A]"
+        />
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Dirección"
+          className="w-full px-2.5 py-1.5 rounded-lg text-[12px] bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] text-[#0A183A]"
+        />
+        <input
+          type="text"
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          placeholder="Ciudad"
+          className="w-full px-2.5 py-1.5 rounded-lg text-[12px] bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 focus:border-[#1E76B6] text-[#0A183A]"
+        />
+      </div>
+      {error && <p className="mt-2 text-[10px] text-red-600 font-bold">{error}</p>}
+      <div className="flex items-center gap-2 mt-2.5">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-500 hover:bg-gray-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 px-3 py-1.5 rounded-lg text-[11px] font-black text-white disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+        >
+          {saving ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : "Guardar"}
+        </button>
+      </div>
+      <p className="mt-2 text-[9px] text-gray-400 leading-tight">
+        Solo puedes editar antes de que el distribuidor confirme tu pedido.
+      </p>
     </div>
   );
 }
