@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Loader2,
@@ -12,6 +13,58 @@ import { MarketplaceNav, MarketplaceFooter } from "../../../components/Marketpla
 import { PaymentBadges } from "../../../components/marketplace/PaymentBadges";
 import { trackViewCart, trackBeginCheckout, trackPurchase } from "../../../lib/marketplaceAnalytics";
 import { productHref } from "../product/_lib/url";
+
+// Bold Botón de Pagos — official button widget config returned by
+// /payments/bold/button-config. Bold's library reads these off a
+// <script data-bold-button> element to render their branded CTA.
+type BoldButtonConfig = {
+  apiKey:             string;
+  orderId:            string;
+  amount:             number;
+  currency:           string;
+  integritySignature: string;
+  redirectionUrl:     string;
+  description:        string;
+  customerData?:      string;   // JSON-encoded
+  billingAddress?:    string;   // JSON-encoded
+  paymentId:          string;
+  orderIds:           string[];
+};
+
+/**
+ * Renders Bold's official designed button (with their logo + branding).
+ * The library at https://checkout.bold.co/library/boldPaymentButton.js
+ * scans the DOM for <script data-bold-button> and replaces them in
+ * place with the styled button. Re-mounts on config change so a buyer
+ * who edits the cart and re-submits gets a fresh button bound to the
+ * new orderId / amount / signature triple.
+ */
+function BoldOfficialButton({ config }: { config: BoldButtonConfig }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const host = ref.current;
+    if (!host) return;
+    host.innerHTML = "";
+    const s = document.createElement("script");
+    // dark-L = Bold's biggest dark-themed variant. Other valid values:
+    // dark-S/M/L, light-S/M/L. Omit for default (dark-L).
+    s.setAttribute("data-bold-button", "dark-L");
+    s.setAttribute("data-api-key",            config.apiKey);
+    s.setAttribute("data-order-id",           config.orderId);
+    s.setAttribute("data-amount",             String(config.amount));
+    s.setAttribute("data-currency",           config.currency);
+    s.setAttribute("data-integrity-signature", config.integritySignature);
+    s.setAttribute("data-redirection-url",    config.redirectionUrl);
+    s.setAttribute("data-description",        config.description);
+    if (config.customerData)   s.setAttribute("data-customer-data",   config.customerData);
+    if (config.billingAddress) s.setAttribute("data-billing-address", config.billingAddress);
+    // Embedded = modal iframe — keeps the buyer on our domain through
+    // the whole flow, only redirecting after the result.
+    s.setAttribute("data-render-mode", "embedded");
+    host.appendChild(s);
+  }, [config]);
+  return <div ref={ref} className="bold-button-host" />;
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -110,10 +163,17 @@ export default function CartPage() {
   // and a different one on the gateway confused buyers.
   const totalToCharge = total;
 
-  // Single-step checkout: backend creates orders + Payment, returns a
-  // ready-to-redirect Bold checkout URL. Buyer pays on Bold → returns
-  // to the tracking page → webhook flips status async.
+  // Two-step checkout with Bold's official designed button:
+  //   1. Buyer fills the form and clicks "Continuar al pago". We POST to
+  //      /payments/bold/button-config to mint Payment + Orders + the
+  //      integrity hash that locks the amount.
+  //   2. Bold's <script data-bold-button> widget renders their polished,
+  //      Bold-branded button in place. The buyer clicks it and Bold
+  //      opens the embedded checkout modal.
+  // The webhook reconciliation flow is unchanged — same Payment row,
+  // same boldOrderId reference, same backend handler.
   const [checkoutError, setCheckoutError] = useState("");
+  const [boldConfig, setBoldConfig]       = useState<BoldButtonConfig | null>(null);
   async function handlePay() {
     setCheckoutError("");
     if (!form.buyerName.trim() || !form.buyerEmail.trim() || items.length === 0) return;
@@ -160,12 +220,12 @@ export default function CartPage() {
     } catch { /* ignore */ }
 
     try {
-      // Switched from Wompi to Bold (bold.co) — same redirect-checkout
-      // shape so the rest of the cart UI is unchanged. The legacy
-      // /payments/wompi/checkout route is still mounted server-side so any
-      // in-flight Wompi redirect from before the cutover can finish, but
-      // every new checkout goes through Bold from here.
-      const res = await fetch(`${API_BASE}/payments/bold/checkout`, {
+      // Step 1 of the Bold checkout: ask the backend for the data
+      // attributes needed to render Bold's official <script data-bold-button>
+      // widget. This also creates the Payment + MarketplaceOrder rows
+      // and locks the amount via the integrity hash, so the webhook
+      // reconciliation works exactly like the legacy redirect flow.
+      const res = await fetch(`${API_BASE}/payments/bold/button-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
@@ -186,9 +246,10 @@ export default function CartPage() {
           ...(hasDeliveryItems && form.buyerAddress.trim() ? { buyerAddress: form.buyerAddress.trim() } : {}),
           ...(hasDeliveryItems && form.buyerCity.trim()    ? { buyerCity:    form.buyerCity.trim()    } : {}),
           notas:        form.notas.trim() || undefined,
-          // Bold requires HTTPS for callback_url, so for local dev we let
-          // an env var pin the redirect to the production host. Tracking
-          // page is public — buyer still lands on the right order page.
+          // Bold requires HTTPS for the post-payment redirect URL, so
+          // for local dev we let an env var pin the redirect to the
+          // production host. Tracking page is public — buyer still
+          // lands on the right order page after paying.
           redirectBaseUrl:
             (process.env.NEXT_PUBLIC_PAYMENT_REDIRECT_BASE?.trim()) ||
             (typeof window !== "undefined" ? window.location.origin : "https://www.tirepro.com.co"),
@@ -198,23 +259,27 @@ export default function CartPage() {
         const txt = await res.text();
         throw new Error(txt || "No se pudo iniciar el pago");
       }
-      const data = await res.json() as {
-        checkoutUrl: string;
-        orderIds: string[];
-        amountCop: number;
-      };
-      if (!data?.checkoutUrl) throw new Error("Respuesta inválida del servidor");
+      const data = await res.json() as BoldButtonConfig;
+      if (!data?.integritySignature || !data?.apiKey) {
+        throw new Error("Respuesta inválida del servidor");
+      }
 
-      // Track purchase intent before we leave the page — the Bold return
-      // lands on /marketplace/order/<id>, not the cart, so this is the
-      // last chance to fire the analytics event.
+      // Track purchase intent now — Bold's checkout opens in a modal,
+      // and depending on whether the buyer completes / cancels we
+      // can't always fire from the redirect side.
       trackPurchase({
         orderId: data.orderIds.join("-"),
         totalCop: totalToCharge,
         items: items.map((i) => ({ id: i.listingId, marca: i.marca, modelo: i.modelo, precioCop: i.precioCop, quantity: i.quantity, distributorName: i.distributorName })),
       });
-      clearCart();
-      window.location.href = data.checkoutUrl;
+
+      // Hand off to Bold's button widget. Cart isn't cleared yet — we
+      // wait until the buyer actually clicks Bold's button (best signal
+      // we have without webhook callbacks on the frontend). If they
+      // bail at this point the orders will resolve on a webhook event
+      // (declined / expired) anyway.
+      setBoldConfig(data);
+      setSubmitting(false);
     } catch (e: any) {
       setCheckoutError(e?.message?.slice(0, 200) || "No se pudo iniciar el pago");
       setSubmitting(false);
@@ -301,6 +366,12 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
+      {/* Bold Botón de Pagos library — must be in the document before the
+          <script data-bold-button> nodes BoldOfficialButton injects, but
+          we use afterInteractive so it doesn't block the cart's first
+          paint. The library scans the DOM for data-bold-button elements
+          on every load and replaces them with the styled Bold button. */}
+      <Script src="https://checkout.bold.co/library/boldPaymentButton.js" strategy="afterInteractive" />
       <MarketplaceNav />
 
       {/* Hero band */}
@@ -486,14 +557,22 @@ export default function CartPage() {
                   </button>
                 ) : isLoggedIn && !editingDetails ? (
                   <div className="space-y-2.5">
-                    <button
-                      onClick={handlePay}
-                      disabled={submitting}
-                      className="w-full py-3.5 rounded-2xl text-sm font-black text-white disabled:opacity-50 transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
-                      style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
-                    >
-                      {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pagar ${fmtCOP(totalToCharge)}`}
-                    </button>
+                    {boldConfig ? (
+                      // Bold's own designed button — replaces our gradient
+                      // CTA once we've reserved the order on the backend.
+                      // The buyer clicks Bold's button to open the embedded
+                      // checkout modal.
+                      <BoldOfficialButton config={boldConfig} />
+                    ) : (
+                      <button
+                        onClick={handlePay}
+                        disabled={submitting}
+                        className="w-full py-3.5 rounded-2xl text-sm font-black text-white disabled:opacity-50 transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
+                        style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                      >
+                        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : `Continuar al pago ${fmtCOP(totalToCharge)}`}
+                      </button>
+                    )}
                     <p className="text-[11px] text-gray-500 text-center">
                       Pagas como <span className="font-bold text-[#0A183A]">{form.buyerName}</span>
                       {" · "}
@@ -537,9 +616,23 @@ export default function CartPage() {
                     {checkoutError && (
                       <p className="text-[11px] text-red-600 font-medium text-center">{checkoutError}</p>
                     )}
-                    <p className="text-[10px] text-gray-400 leading-relaxed text-center">
-                      Te llevaremos a Bold para completar el pago de forma segura.
-                    </p>
+                    {boldConfig ? (
+                      <>
+                        <p className="text-[10px] text-gray-400 leading-relaxed text-center">
+                          Haz clic en el botón de Bold para completar el pago de forma segura.
+                        </p>
+                        <button
+                          onClick={() => setBoldConfig(null)}
+                          className="w-full py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600"
+                        >
+                          Modificar pedido
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-[10px] text-gray-400 leading-relaxed text-center">
+                        Te llevaremos a Bold para completar el pago de forma segura.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -684,33 +777,46 @@ export default function CartPage() {
                       </div>
                     )}
 
-                    <button
-                      onClick={handlePay}
-                      disabled={
-                        submitting
-                        || !form.buyerName.trim()
-                        || !form.buyerEmail.trim()
-                        || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
-                      }
-                      className="w-full py-3.5 rounded-2xl text-sm font-black text-white disabled:opacity-40 transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98]"
-                      style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
-                    >
-                      {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Pagar ${fmtCOP(totalToCharge)}`}
-                    </button>
+                    {boldConfig ? (
+                      // Form's been validated server-side — Bold's button
+                      // replaces our gradient CTA. Buyer clicks Bold's
+                      // button to open the embedded checkout modal.
+                      <BoldOfficialButton config={boldConfig} />
+                    ) : (
+                      <button
+                        onClick={handlePay}
+                        disabled={
+                          submitting
+                          || !form.buyerName.trim()
+                          || !form.buyerEmail.trim()
+                          || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
+                        }
+                        className="w-full py-3.5 rounded-2xl text-sm font-black text-white disabled:opacity-40 transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98]"
+                        style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                      >
+                        {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Continuar al pago ${fmtCOP(totalToCharge)}`}
+                      </button>
+                    )}
 
                     {checkoutError && (
                       <p className="text-[11px] text-red-600 font-medium">{checkoutError}</p>
                     )}
 
-                    <p className="text-[10px] text-gray-500 leading-relaxed text-center">
-                      Te llevaremos a Bold para completar el pago de forma segura. {addressNeeded ? "El distribuidor coordinará la entrega a la dirección indicada." : "Recoges en la tienda seleccionada cuando el distribuidor confirme tu pedido."}
-                    </p>
+                    {boldConfig ? (
+                      <p className="text-[10px] text-gray-500 leading-relaxed text-center">
+                        Haz clic en el botón de Bold para completar el pago de forma segura. {addressNeeded ? "El distribuidor coordinará la entrega a la dirección indicada." : "Recoges en la tienda seleccionada cuando el distribuidor confirme tu pedido."}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-gray-500 leading-relaxed text-center">
+                        Te llevaremos a Bold para completar el pago de forma segura. {addressNeeded ? "El distribuidor coordinará la entrega a la dirección indicada." : "Recoges en la tienda seleccionada cuando el distribuidor confirme tu pedido."}
+                      </p>
+                    )}
 
                     <button
-                      onClick={() => setShowCheckout(false)}
+                      onClick={() => { setBoldConfig(null); setShowCheckout(false); }}
                       className="w-full py-2 text-xs font-bold text-gray-400 hover:text-gray-600"
                     >
-                      Volver
+                      {boldConfig ? "Modificar pedido" : "Volver"}
                     </button>
                   </div>
                 )}

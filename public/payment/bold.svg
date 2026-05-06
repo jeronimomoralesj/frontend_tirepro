@@ -1,3 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 28" role="img" aria-label="Bold">
-  <text x="6" y="20" font-family="Helvetica,Arial,sans-serif" font-weight="900" font-size="18" fill="#0A0A0A" letter-spacing="-0.5">bold</text>
+  <!--
+    Inline placeholder wordmark, sized to the same 90×28 box every other
+    badge in /public/payment/ uses. Bold's own brand assets aren't
+    distributed as a standalone download — their UI kit ships them via
+    https://bold.co/library/ui-kit.js dynamically. Swap this file with
+    Bold's official asset (request access at prensa@bold.co) when ready.
+  -->
+  <text
+    x="6" y="21"
+    font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Helvetica Neue', Arial, sans-serif"
+    font-weight="900"
+    font-size="22"
+    fill="#0A0A0A"
+    letter-spacing="-1.2"
+  >bold<tspan fill="#FF3D6E">·</tspan></text>
 </svg>
