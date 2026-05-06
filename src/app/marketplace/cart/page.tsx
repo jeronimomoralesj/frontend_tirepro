@@ -143,10 +143,14 @@ export default function CartPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // We charge what's in the cart, no automatic IVA gross-up. The dist's
-  // own invoice handles IVA breakdown — showing one number on the cart
-  // and a different one on the gateway confused buyers.
-  const totalToCharge = total;
+  // Listing prices are net (no IVA included); we add 19% on top so the
+  // amount the buyer pays via Bold matches the IVA-inclusive total
+  // shown in the order summary. Previously the cart showed an IVA
+  // line for transparency but didn't add it to totalToCharge —
+  // buyers thought they were paying the gross when Bold actually
+  // billed only the subtotal.
+  const ivaCop = useMemo(() => Math.round(total * 0.19), [total]);
+  const totalToCharge = total + ivaCop;
 
   // Single-click checkout via Bold's BoldCheckout JS API:
   //   1. Buyer fills the form and clicks "Pagar". We POST to
@@ -158,17 +162,10 @@ export default function CartPage() {
   //   3. After payment, Bold redirects to redirectionUrl (the order
   //      tracking page) and the webhook reconciles status async.
   const [checkoutError, setCheckoutError] = useState("");
-  // "Revisa tus datos" gate — buyer must explicitly tick that they
-  // verified the buyer info before the Pay button enables. Catches the
-  // logged-in case where stale localStorage might have a wrong phone
-  // or address that the buyer breezed past.
-  const [dataConfirmed, setDataConfirmed] = useState(false);
-  // Auto-uncheck whenever any required field changes — the buyer
-  // editing their address/phone/etc invalidates a previous "revisé
-  // mis datos" tick. Forces them to re-verify after every change.
-  useEffect(() => {
-    setDataConfirmed(false);
-  }, [form.buyerName, form.buyerEmail, form.buyerPhone, form.buyerAddress, form.buyerCity]);
+  // "Revisa tus datos" is a visual reminder only — no checkbox gate.
+  // The Tus datos panel header carries the "Verifica que sean los
+  // correctos antes de pagar" copy so the buyer reads their info
+  // before clicking Pagar.
   // Bold's loader script lives in the marketplace layout so it starts
   // loading the moment the buyer enters /marketplace/* — by the time
   // they reach the cart, window.BoldCheckout is almost always ready.
@@ -851,33 +848,9 @@ export default function CartPage() {
                       </button>
                     )}
 
-                    {/* Explicit confirmation gate — buyer must tick this
-                        before the Pay button enables. Catches the
-                        logged-in case where stale localStorage data
-                        slipped through unnoticed. Disabled until all
-                        required fields are filled (otherwise it'd be
-                        a confirm-then-still-disabled dead end). */}
-                    <label
-                      className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${
-                        canSubmit ? "hover:bg-gray-50" : "opacity-50 cursor-not-allowed"
-                      }`}
-                      style={{ border: "1px solid rgba(10,24,58,0.10)" }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={dataConfirmed}
-                        onChange={(e) => setDataConfirmed(e.target.checked)}
-                        disabled={!canSubmit}
-                        className="mt-0.5 w-4 h-4 rounded accent-[#1E76B6] flex-shrink-0"
-                      />
-                      <span className="text-[12px] text-[#0A183A] font-bold leading-snug">
-                        Revisé mis datos y son correctos
-                      </span>
-                    </label>
-
                     <button
                       onClick={handlePay}
-                      disabled={submitting || !canSubmit || !dataConfirmed}
+                      disabled={submitting || !canSubmit}
                       className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
                       style={{ border: "2px solid #0A0A0A" }}
                     >
