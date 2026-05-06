@@ -333,9 +333,18 @@ function OrderCard({
    *  spinner so the buyer sees something is happening. */
   reconciling?: boolean;
 }) {
-  const subtotal = order.totalCop;
-  const total    = order.totalWithIva ?? subtotal;
-  const ivaAmount = total - subtotal;
+  // Buyer paid subtotal + 19% IVA via Bold (since the cart switch).
+  // The order row stores totalCop = subtotal (net); IVA was added on
+  // top at checkout time. Display all three lines so the receipt
+  // matches what their card / PSE statement actually shows. Falls
+  // back to the explicit totalWithIva column if a future backend
+  // change populates it directly.
+  const subtotal  = order.totalCop;
+  const ivaAmount =
+    order.totalWithIva != null && order.totalWithIva > subtotal
+      ? order.totalWithIva - subtotal
+      : Math.round(subtotal * 0.19);
+  const total     = subtotal + ivaAmount;
   const unitPrice = order.quantity > 0 ? order.totalCop / order.quantity : order.totalCop;
 
   const imgs = Array.isArray(order.listing.imageUrls) ? order.listing.imageUrls : [];
@@ -578,11 +587,9 @@ function OrderCard({
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Resumen</p>
           <div className="space-y-1.5 text-xs">
             <Row label="Subtotal" value={fmtCOP(subtotal)} />
-            {order.totalWithIva != null && ivaAmount > 0 && (
-              <Row label="IVA" value={fmtCOP(ivaAmount)} muted />
-            )}
+            <Row label="IVA (19%)" value={fmtCOP(ivaAmount)} muted />
             <div className="pt-1.5 mt-1.5" style={{ borderTop: "1px dashed rgba(10,24,58,0.10)" }}>
-              <Row label="Total" value={fmtCOP(total)} bold />
+              <Row label="Total pagado" value={fmtCOP(total)} bold />
             </div>
           </div>
           {order.paymentStatus && (

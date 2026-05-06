@@ -370,9 +370,17 @@ function MktRow({
   // is just the simple split. If/when the model grows multi-line, swap
   // this for the actual line array.
   const unitPrice = order.quantity > 0 ? order.totalCop / order.quantity : order.totalCop;
+  // Buyer paid subtotal + 19% IVA via Bold. The order's totalCop is
+  // the net subtotal — IVA was added on top at checkout. Compute the
+  // breakdown so the dist sees what the buyer actually paid (matches
+  // the receipt + Bold dashboard). Falls back to totalWithIva if the
+  // backend ever populates it directly.
   const subtotal  = order.totalCop;
-  const total     = order.totalWithIva ?? subtotal;
-  const ivaAmount = total - subtotal;
+  const ivaAmount =
+    order.totalWithIva != null && order.totalWithIva > subtotal
+      ? order.totalWithIva - subtotal
+      : Math.round(subtotal * 0.19);
+  const total     = subtotal + ivaAmount;
   const imgs      = Array.isArray(order.listing?.imageUrls) ? order.listing!.imageUrls! : [];
   const cover     = imgs.length > 0 ? (imgs[order.listing?.coverIndex ?? 0] ?? imgs[0]) : null;
 
@@ -405,7 +413,24 @@ function MktRow({
             </>
           )}
         </div>
-        <StatusPill status={order.status} />
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          {/* "Pago confirmado" badge — surfaces alongside the status
+              pill whenever Bold has approved the payment OR the order
+              has moved past pago_pendiente (which only happens after
+              the webhook flips it). Gives the dist a clear "it's safe
+              to act on this order, the buyer's money is in" signal
+              before they accept / ship. */}
+          {(order.paymentStatus === "approved" || (order.status !== "pago_pendiente" && order.status !== "cancelado")) && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black"
+              style={{ background: "rgba(34,197,94,0.10)", color: "#15803d" }}
+            >
+              <CheckCircle2 className="w-3 h-3" />
+              Pago confirmado
+            </span>
+          )}
+          <StatusPill status={order.status} />
+        </div>
       </header>
 
       {/* Line items — one per row. The marketplace model is single-listing
@@ -485,11 +510,9 @@ function MktRow({
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Resumen</p>
           <div className="space-y-1.5 text-xs">
             <Row label="Subtotal" value={fmtCOP(subtotal)} />
-            {order.totalWithIva != null && ivaAmount > 0 && (
-              <Row label="IVA" value={fmtCOP(ivaAmount)} muted />
-            )}
+            <Row label="IVA (19%)" value={fmtCOP(ivaAmount)} muted />
             <div className="pt-1.5 mt-1.5" style={{ borderTop: "1px dashed rgba(10,24,58,0.10)" }}>
-              <Row label="Total" value={fmtCOP(total)} bold />
+              <Row label="Total pagado" value={fmtCOP(total)} bold />
             </div>
             {order.paymentStatus && (
               <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
