@@ -11,6 +11,7 @@ import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { PaymentBadges } from "../../../components/marketplace/PaymentBadges";
 import { BoldLogo } from "../../../components/marketplace/BoldLogo";
+import { AddToCartButton } from "../../../components/marketplace/AddToCartButton";
 import { trackViewCart, trackBeginCheckout, trackPurchase } from "../../../lib/marketplaceAnalytics";
 import { productHref } from "../product/_lib/url";
 
@@ -431,6 +432,9 @@ export default function CartPage() {
     return () => { cancelled = true; };
   }, [topDimension, items.map((i) => `${i.listingId}:${i.tipo}`).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // (canSubmit + missingFieldLabel are declared further down once
+  //  addressNeeded is in scope — they depend on it.)
+
   // Buyer-facing ETA shown in the checkout block. Pickup-only orders
   // are typically same-day or next-day, so we surface that copy. Mixed
   // / delivery orders quote a 3–7 business-day window — the actual
@@ -463,6 +467,33 @@ export default function CartPage() {
   // distributor in the cart actually offers domicilio. Pickup-only carts
   // can pay without entering a shipping address.
   const addressNeeded = hasDeliveryItems && requiresAddress;
+
+  // Single source of truth for "is the form complete enough to pay" —
+  // used to gate the Pay button on BOTH the logged-in path and the
+  // guest form path. Previously the logged-in summary trusted whatever
+  // localStorage held; if a buyer signed up without a phone (social
+  // login etc.) they could click Pagar with form.buyerPhone === "" and
+  // the order would be created with no contact phone, blocking the
+  // distributor from coordinating delivery. Phone is now required;
+  // address only when a delivery item is in the cart.
+  const canSubmit = useMemo(() => {
+    if (!form.buyerName.trim())  return false;
+    if (!form.buyerEmail.trim()) return false;
+    if (!form.buyerPhone.trim()) return false;
+    if (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim())) return false;
+    return true;
+  }, [form.buyerName, form.buyerEmail, form.buyerPhone, form.buyerAddress, form.buyerCity, addressNeeded]);
+
+  // Tells the buyer in plain language WHICH field is missing — surfaced
+  // above the disabled Pay button so they know what to do next.
+  const missingFieldLabel = useMemo(() => {
+    if (!form.buyerName.trim())  return "tu nombre";
+    if (!form.buyerEmail.trim()) return "tu correo";
+    if (!form.buyerPhone.trim()) return "tu teléfono";
+    if (addressNeeded && !form.buyerCity.trim())    return "tu ciudad";
+    if (addressNeeded && !form.buyerAddress.trim()) return "tu dirección";
+    return null;
+  }, [form.buyerName, form.buyerEmail, form.buyerPhone, form.buyerAddress, form.buyerCity, addressNeeded]);
 
   // Saved addresses limited to the available delivery cities
   const validSavedAddresses = useMemo(
@@ -634,28 +665,43 @@ export default function CartPage() {
                       const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
                       const price = hasPromo ? l.precioPromo! : l.precioCop;
                       return (
-                        <Link
+                        <div
                           key={l.id}
-                          href={productHref({ id: l.id, marca: l.marca, modelo: l.modelo, dimension: l.dimension })}
                           className="group bg-white rounded-2xl p-3 transition-all hover:shadow-xl hover:-translate-y-0.5"
                           style={{ border: "1px solid rgba(10,24,58,0.08)" }}
                         >
-                          <div className="aspect-square w-full bg-[#fafafa] rounded-xl flex items-center justify-center overflow-hidden mb-2.5">
-                            {cover ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img src={cover} alt={`${l.marca} ${l.modelo}`} className="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition-transform" />
-                            ) : (
-                              <Package className="w-8 h-8 text-gray-300" />
-                            )}
+                          {/* Card body navigates to the product page; the
+                              add-to-cart icon below stays on /cart and
+                              just appends to the cart (its own onClick
+                              prevents bubbling so the Link doesn't fire). */}
+                          <Link href={productHref({ id: l.id, marca: l.marca, modelo: l.modelo, dimension: l.dimension })} className="block">
+                            <div className="aspect-square w-full bg-[#fafafa] rounded-xl flex items-center justify-center overflow-hidden mb-2.5">
+                              {cover ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img src={cover} alt={`${l.marca} ${l.modelo}`} className="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition-transform" />
+                              ) : (
+                                <Package className="w-8 h-8 text-gray-300" />
+                              )}
+                            </div>
+                            <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{l.marca}</p>
+                            <p className="text-[12px] font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-1">{l.modelo}</p>
+                            <p className="text-sm font-black text-[#1E76B6] tabular-nums tracking-tight mt-1">{l.dimension}</p>
+                          </Link>
+                          {/* Price + add-to-cart on a shared row so the
+                              card stays compact. Icon variant adds
+                              silently and stays on /cart (no nav) so
+                              the buyer can stack several recs without
+                              losing their place. */}
+                          <div className="mt-1.5 flex items-end justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[14px] font-black text-[#0A183A] tracking-tight tabular-nums leading-none">{fmtCOP(price)}</p>
+                              {hasPromo && (
+                                <p className="text-[10px] text-gray-400 line-through tabular-nums leading-none mt-0.5">{fmtCOP(l.precioCop)}</p>
+                              )}
+                            </div>
+                            <AddToCartButton listing={l as any} variant="icon" />
                           </div>
-                          <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{l.marca}</p>
-                          <p className="text-[12px] font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-1">{l.modelo}</p>
-                          <p className="text-sm font-black text-[#1E76B6] tabular-nums tracking-tight mt-1">{l.dimension}</p>
-                          <p className="text-[14px] font-black text-[#0A183A] tracking-tight tabular-nums mt-1.5">{fmtCOP(price)}</p>
-                          {hasPromo && (
-                            <p className="text-[10px] text-gray-400 line-through tabular-nums">{fmtCOP(l.precioCop)}</p>
-                          )}
-                        </Link>
+                        </div>
                       );
                     })}
                   </div>
@@ -731,32 +777,47 @@ export default function CartPage() {
                       )}
                     </div>
 
-                    {/* White Pay button — clean premium feel, dark text +
-                        inline Bold logo. Hover deepens the border / adds
-                        shadow. Uses the same merged label pattern as
-                        before (Pagar / amount on the left, "con bold"
-                        on the right) but inverted color scheme. */}
+                    {/* When the buyer is logged in but missing a required
+                        field (phone often, sometimes address) the Pay
+                        button is disabled — surface what's missing
+                        with a one-tap "Agregarlo" link that flips into
+                        the edit form so the buyer doesn't have to
+                        guess why the button is greyed out. */}
+                    {missingFieldLabel && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingDetails(true)}
+                        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-left"
+                        style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.30)" }}
+                      >
+                        <span className="text-[12px] text-amber-800 font-bold">
+                          Falta {missingFieldLabel}
+                        </span>
+                        <span className="text-[11px] font-black text-amber-900 underline">Agregarlo</span>
+                      </button>
+                    )}
                     <button
                       onClick={handlePay}
-                      disabled={submitting}
-                      className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
+                      disabled={submitting || !canSubmit}
+                      className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
                       style={{ border: "2px solid #0A0A0A" }}
                     >
                       {submitting ? (
-                        <span className="w-full flex items-center justify-center gap-2 text-2xl font-black">
-                          <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="w-full flex items-center justify-center gap-2 text-xl sm:text-2xl font-black">
+                          <Loader2 className="w-5 h-5 animate-spin" />
                           Procesando…
                         </span>
                       ) : (
                         // Single, unmistakable CTA: huge "Pagar" + Bold
                         // wordmark. Amount lives in the Total a pagar
-                        // block right above this button — repeating it
-                        // here was redundant and made the button feel
-                        // crowded.
-                        <span className="w-full flex items-center justify-center gap-3">
-                          <span className="text-3xl sm:text-[32px] font-black tracking-tight">Pagar</span>
-                          <span className="text-2xl font-black text-gray-500">con</span>
-                          <BoldLogo height={32} />
+                        // block right above this button. Sizes scale
+                        // down on mobile so the row never overflows
+                        // the button's 2px border on a 320-px sidebar.
+                        <span className="w-full flex items-center justify-center gap-2 sm:gap-3 whitespace-nowrap">
+                          <span className="text-2xl sm:text-3xl font-black tracking-tight">Pagar</span>
+                          <span className="text-lg sm:text-2xl font-black text-gray-500">con</span>
+                          <BoldLogo height={26} className="sm:hidden" />
+                          <BoldLogo height={32} className="hidden sm:inline-block" />
                         </span>
                       )}
                     </button>
@@ -834,7 +895,7 @@ export default function CartPage() {
                       type="tel"
                       value={form.buyerPhone}
                       onChange={(e) => setForm((f) => ({ ...f, buyerPhone: e.target.value }))}
-                      placeholder="Teléfono"
+                      placeholder="Teléfono *"
                       className={inputCls}
                     />
 
@@ -970,13 +1031,8 @@ export default function CartPage() {
                       )}
                       <button
                         onClick={handlePay}
-                        disabled={
-                          submitting
-                          || !form.buyerName.trim()
-                          || !form.buyerEmail.trim()
-                          || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
-                        }
-                        className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-40 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
+                        disabled={submitting || !canSubmit}
+                        className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
                         style={{ border: "2px solid #0A0A0A" }}
                       >
                         {submitting ? (
