@@ -28,7 +28,13 @@ export function BoldLogo({
       src="/payment/bold.png"
       alt={ariaLabel}
       height={height}
-      style={{ height, width: "auto", display: "inline-block", verticalAlign: "middle" }}
+      // Don't set inline `display` — that would override any Tailwind
+      // display utility callers pass via className (`sm:hidden`,
+      // `hidden`, etc.) because inline styles always win over CSS
+      // classes. Caused two side-by-side Bold logos to render on the
+      // cart's Pay button when we tried to swap mobile/desktop sizes
+      // via responsive classes.
+      style={{ height, width: "auto", verticalAlign: "middle" }}
       className={className}
     />
   );

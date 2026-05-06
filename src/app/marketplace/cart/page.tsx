@@ -158,6 +158,17 @@ export default function CartPage() {
   //   3. After payment, Bold redirects to redirectionUrl (the order
   //      tracking page) and the webhook reconciles status async.
   const [checkoutError, setCheckoutError] = useState("");
+  // "Revisa tus datos" gate — buyer must explicitly tick that they
+  // verified the buyer info before the Pay button enables. Catches the
+  // logged-in case where stale localStorage might have a wrong phone
+  // or address that the buyer breezed past.
+  const [dataConfirmed, setDataConfirmed] = useState(false);
+  // Auto-uncheck whenever any required field changes — the buyer
+  // editing their address/phone/etc invalidates a previous "revisé
+  // mis datos" tick. Forces them to re-verify after every change.
+  useEffect(() => {
+    setDataConfirmed(false);
+  }, [form.buyerName, form.buyerEmail, form.buyerPhone, form.buyerAddress, form.buyerCity]);
   // Bold's loader script lives in the marketplace layout so it starts
   // loading the moment the buyer enters /marketplace/* — by the time
   // they reach the cart, window.BoldCheckout is almost always ready.
@@ -766,6 +777,8 @@ export default function CartPage() {
                     className="rounded-2xl p-5 mb-5 space-y-3"
                     style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.15)" }}
                   >
+                    {/* Total + ETA at the top — sets the price the buyer
+                        is about to pay before anything else. */}
                     <div>
                       <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-1">Total a pagar</p>
                       <p className="text-3xl font-black tracking-tight leading-none text-[#0A183A]">{fmtCOP(totalToCharge)}</p>
@@ -777,70 +790,21 @@ export default function CartPage() {
                       )}
                     </div>
 
-                    {/* When the buyer is logged in but missing a required
-                        field (phone often, sometimes address) the Pay
-                        button is disabled — surface what's missing
-                        with a one-tap "Agregarlo" link that flips into
-                        the edit form so the buyer doesn't have to
-                        guess why the button is greyed out. */}
-                    {missingFieldLabel && (
-                      <button
-                        type="button"
-                        onClick={() => setEditingDetails(true)}
-                        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-left"
-                        style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.30)" }}
-                      >
-                        <span className="text-[12px] text-amber-800 font-bold">
-                          Falta {missingFieldLabel}
-                        </span>
-                        <span className="text-[11px] font-black text-amber-900 underline">Agregarlo</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={handlePay}
-                      disabled={submitting || !canSubmit}
-                      className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
-                      style={{ border: "2px solid #0A0A0A" }}
-                    >
-                      {submitting ? (
-                        <span className="w-full flex items-center justify-center gap-2 text-xl sm:text-2xl font-black">
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          Procesando…
-                        </span>
-                      ) : (
-                        // Single, unmistakable CTA: huge "Pagar" + Bold
-                        // wordmark. Amount lives in the Total a pagar
-                        // block right above this button. Sizes scale
-                        // down on mobile so the row never overflows
-                        // the button's 2px border on a 320-px sidebar.
-                        <span className="w-full flex items-center justify-center gap-2 sm:gap-3 whitespace-nowrap">
-                          <span className="text-2xl sm:text-3xl font-black tracking-tight">Pagar</span>
-                          <span className="text-lg sm:text-2xl font-black text-gray-500">con</span>
-                          <BoldLogo height={26} className="sm:hidden" />
-                          <BoldLogo height={32} className="hidden sm:inline-block" />
-                        </span>
-                      )}
-                    </button>
-
-                    <div className="pt-1">
-                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Aceptamos</p>
-                      <PaymentBadges variant="compact" className="!flex-row" />
-                    </div>
-                    {/* Buyer-info summary — always shows every field
-                        we have (name, email, phone, address+city
-                        when on file) so the buyer can spot a stale
-                        value without re-opening the form. Single
-                        "Cambiar" link in the header opens the edit
-                        form. Address row stays visible whenever an
-                        address is set, even on pickup-only carts —
-                        the buyer might want to update it for the
-                        next delivery purchase. */}
+                    {/* Buyer-info summary moved ABOVE the Pay button so
+                        the logged-in buyer is forced to verify the
+                        auto-filled data before paying. Stale localStorage
+                        was letting buyers click Pagar with a wrong
+                        phone or address and the distributor couldn't
+                        reach them. */}
                     <div className="rounded-xl px-3.5 py-3" style={{ background: "#F8FAFC", border: "1px solid rgba(10,24,58,0.06)" }}>
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">Tus datos</p>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">Revisa tus datos</p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Verifica que sean los correctos antes de pagar</p>
+                        </div>
                         <button
                           onClick={() => setEditingDetails(true)}
-                          className="text-[11px] font-black text-[#1E76B6] hover:underline"
+                          className="text-[11px] font-black text-[#1E76B6] hover:underline flex-shrink-0"
                         >
                           Cambiar
                         </button>
@@ -866,6 +830,79 @@ export default function CartPage() {
                         )}
                       </dl>
                     </div>
+
+                    {/* When the buyer is logged in but missing a required
+                        field (phone often, sometimes address) the Pay
+                        button is disabled — surface what's missing
+                        with a one-tap "Agregarlo" link that flips into
+                        the edit form so the buyer doesn't have to
+                        guess why the button is greyed out. */}
+                    {missingFieldLabel && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingDetails(true)}
+                        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-left"
+                        style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.30)" }}
+                      >
+                        <span className="text-[12px] text-amber-800 font-bold">
+                          Falta {missingFieldLabel}
+                        </span>
+                        <span className="text-[11px] font-black text-amber-900 underline">Agregarlo</span>
+                      </button>
+                    )}
+
+                    {/* Explicit confirmation gate — buyer must tick this
+                        before the Pay button enables. Catches the
+                        logged-in case where stale localStorage data
+                        slipped through unnoticed. Disabled until all
+                        required fields are filled (otherwise it'd be
+                        a confirm-then-still-disabled dead end). */}
+                    <label
+                      className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${
+                        canSubmit ? "hover:bg-gray-50" : "opacity-50 cursor-not-allowed"
+                      }`}
+                      style={{ border: "1px solid rgba(10,24,58,0.10)" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={dataConfirmed}
+                        onChange={(e) => setDataConfirmed(e.target.checked)}
+                        disabled={!canSubmit}
+                        className="mt-0.5 w-4 h-4 rounded accent-[#1E76B6] flex-shrink-0"
+                      />
+                      <span className="text-[12px] text-[#0A183A] font-bold leading-snug">
+                        Revisé mis datos y son correctos
+                      </span>
+                    </label>
+
+                    <button
+                      onClick={handlePay}
+                      disabled={submitting || !canSubmit || !dataConfirmed}
+                      className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
+                      style={{ border: "2px solid #0A0A0A" }}
+                    >
+                      {submitting ? (
+                        <span className="w-full flex items-center justify-center gap-2 text-xl sm:text-2xl font-black">
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Procesando…
+                        </span>
+                      ) : (
+                        // Single, unmistakable CTA: huge "Pagar" + Bold
+                        // wordmark. Amount lives in the Total a pagar
+                        // block right above this button. Single
+                        // BoldLogo render — duplicating it for
+                        // mobile/desktop sizes was producing two
+                        // logos because inline styles on <img> beat
+                        // the responsive `hidden` / `sm:hidden`
+                        // utilities.
+                        <span className="w-full flex items-center justify-center gap-2 sm:gap-3 whitespace-nowrap">
+                          <span className="text-2xl sm:text-3xl font-black tracking-tight">Pagar</span>
+                          <span className="text-lg sm:text-2xl font-black text-gray-500">con</span>
+                          <BoldLogo height={28} />
+                        </span>
+                      )}
+                    </button>
+
                     {hasPickupItems && (
                       <p className="text-[11px] text-emerald-700 text-center">
                         Recoger en {items.filter((i) => i.pickupPointId).length} {items.filter((i) => i.pickupPointId).length === 1 ? "tienda" : "tiendas"} ya seleccionada{items.filter((i) => i.pickupPointId).length === 1 ? "" : "s"}
@@ -874,6 +911,12 @@ export default function CartPage() {
                     {checkoutError && (
                       <p className="text-[11px] text-red-600 font-medium text-center">{checkoutError}</p>
                     )}
+
+                    <div className="pt-1">
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Aceptamos</p>
+                      <PaymentBadges variant="compact" className="!flex-row" />
+                    </div>
+
                     <p className="text-[10px] text-gray-400 leading-relaxed text-center">
                       Pago 100% seguro. Bold protege tus datos con cifrado SSL.
                     </p>
