@@ -739,25 +739,25 @@ export default function CartPage() {
                     <button
                       onClick={handlePay}
                       disabled={submitting}
-                      className="w-full py-5 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-between gap-3"
+                      className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
                       style={{ border: "2px solid #0A0A0A" }}
                     >
                       {submitting ? (
-                        <span className="w-full flex items-center justify-center gap-2 text-base font-bold">
-                          <Loader2 className="w-5 h-5 animate-spin" />
+                        <span className="w-full flex items-center justify-center gap-2 text-2xl font-black">
+                          <Loader2 className="w-6 h-6 animate-spin" />
                           Procesando…
                         </span>
                       ) : (
-                        <>
-                          <span className="flex flex-col items-start leading-tight">
-                            <span className="text-xs font-black uppercase tracking-widest text-gray-500">Pagar</span>
-                            <span className="text-2xl sm:text-[26px] font-black tracking-tight tabular-nums">{fmtCOP(totalToCharge)}</span>
-                          </span>
-                          <span className="flex items-center gap-2 text-base font-black text-[#0A0A0A]">
-                            con
-                            <BoldLogo height={26} />
-                          </span>
-                        </>
+                        // Single, unmistakable CTA: huge "Pagar" + Bold
+                        // wordmark. Amount lives in the Total a pagar
+                        // block right above this button — repeating it
+                        // here was redundant and made the button feel
+                        // crowded.
+                        <span className="w-full flex items-center justify-center gap-3">
+                          <span className="text-3xl sm:text-[32px] font-black tracking-tight">Pagar</span>
+                          <span className="text-2xl font-black text-gray-500">con</span>
+                          <BoldLogo height={32} />
+                        </span>
                       )}
                     </button>
 
@@ -976,7 +976,7 @@ export default function CartPage() {
                           || !form.buyerEmail.trim()
                           || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
                         }
-                        className="w-full py-5 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-40 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-between gap-3"
+                        className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-40 transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
                         style={{ border: "2px solid #0A0A0A" }}
                       >
                         {submitting ? (
