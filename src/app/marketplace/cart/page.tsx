@@ -10,6 +10,7 @@ import {
 import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { PaymentBadges } from "../../../components/marketplace/PaymentBadges";
+import { BoldLogo } from "../../../components/marketplace/BoldLogo";
 import { trackViewCart, trackBeginCheckout, trackPurchase } from "../../../lib/marketplaceAnalytics";
 import { productHref } from "../product/_lib/url";
 
@@ -578,32 +579,46 @@ export default function CartPage() {
                     Pagar
                   </button>
                 ) : isLoggedIn && !editingDetails ? (
-                  // Dark CTA panel — Bold's docs recommend the gray "light"
-                  // button variant when sitting on a dark background, which
-                  // is the recipe we follow here: navy panel surrounding a
-                  // light-gray button with the Bold wordmark.
-                  <div className="space-y-2.5 rounded-2xl p-3.5" style={{ background: "linear-gradient(135deg,#0A183A,#173D68)" }}>
+                  <div className="space-y-2.5">
+                    {/* Premium Bold-style CTA — solid dark button matching
+                        Bold's dark-L variant from their docs. White text on
+                        near-black (#0A0A0A → #1A1A1A subtle gradient for
+                        depth), inline Bold wordmark on the right, amount
+                        prominent. No surrounding panel — the button stands
+                        alone as the focal point of the cart. */}
                     <button
                       onClick={handlePay}
                       disabled={submitting}
-                      className="w-full py-3.5 rounded-xl text-sm font-black text-[#0A0A0A] bg-[#E5E7EB] disabled:opacity-50 transition-all hover:bg-white hover:shadow-2xl active:scale-[0.98] flex items-center justify-center gap-2"
+                      className="group w-full py-4 px-5 rounded-2xl text-white disabled:opacity-50 transition-all hover:shadow-2xl hover:shadow-black/30 active:scale-[0.99] flex items-center justify-between gap-3"
+                      style={{
+                        background: "linear-gradient(135deg,#0A0A0A 0%,#1F1F1F 100%)",
+                        boxShadow: "0 12px 32px -10px rgba(0,0,0,0.45)",
+                      }}
                     >
                       {submitting ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="w-full flex items-center justify-center gap-2 text-sm font-bold">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Procesando…
+                        </span>
                       ) : (
                         <>
-                          <span>Pagar {fmtCOP(totalToCharge)} con</span>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src="/payment/bold.svg" alt="Bold" height={18} style={{ height: 18, width: "auto" }} />
+                          <span className="flex flex-col items-start leading-tight">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/55">Pagar</span>
+                            <span className="text-lg font-black tracking-tight">{fmtCOP(totalToCharge)}</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 text-sm font-bold text-white/80">
+                            con
+                            <BoldLogo height={20} accent="#FF3D6E" />
+                          </span>
                         </>
                       )}
                     </button>
-                    <p className="text-[11px] text-white/60 text-center">
-                      Pagas como <span className="font-bold text-white">{form.buyerName}</span>
+                    <p className="text-[11px] text-gray-500 text-center">
+                      Pagas como <span className="font-bold text-[#0A183A]">{form.buyerName}</span>
                       {" · "}
                       <button
                         onClick={() => setEditingDetails(true)}
-                        className="font-bold text-[#9CC3E5] hover:underline"
+                        className="font-bold text-[#1E76B6] hover:underline"
                       >
                         Cambiar
                       </button>
@@ -613,13 +628,13 @@ export default function CartPage() {
                         the full form. Click "Cambiar" to edit. */}
                     {addressNeeded && (
                       form.buyerAddress.trim() ? (
-                        <p className="text-[11px] text-white/60 text-center truncate">
-                          Envío a <span className="font-bold text-white">{form.buyerAddress}</span>
+                        <p className="text-[11px] text-gray-500 text-center truncate">
+                          Envío a <span className="font-bold text-[#0A183A]">{form.buyerAddress}</span>
                           {form.buyerCity && <>, {form.buyerCity}</>}
                           {" · "}
                           <button
                             onClick={() => setEditingDetails(true)}
-                            className="font-bold text-[#9CC3E5] hover:underline"
+                            className="font-bold text-[#1E76B6] hover:underline"
                           >
                             Cambiar
                           </button>
@@ -627,22 +642,22 @@ export default function CartPage() {
                       ) : (
                         <button
                           onClick={() => setEditingDetails(true)}
-                          className="text-[11px] font-bold text-amber-300 hover:underline w-full text-center"
+                          className="text-[11px] font-bold text-amber-700 hover:underline w-full text-center"
                         >
                           + Agregar dirección de entrega
                         </button>
                       )
                     )}
                     {hasPickupItems && (
-                      <p className="text-[11px] text-emerald-300 text-center">
+                      <p className="text-[11px] text-emerald-700 text-center">
                         Recoger en {items.filter((i) => i.pickupPointId).length} {items.filter((i) => i.pickupPointId).length === 1 ? "tienda" : "tiendas"} ya seleccionada{items.filter((i) => i.pickupPointId).length === 1 ? "" : "s"}
                       </p>
                     )}
                     {checkoutError && (
-                      <p className="text-[11px] text-red-300 font-medium text-center">{checkoutError}</p>
+                      <p className="text-[11px] text-red-600 font-medium text-center">{checkoutError}</p>
                     )}
-                    <p className="text-[10px] text-white/50 leading-relaxed text-center">
-                      Bold abrirá una ventana segura para completar el pago.
+                    <p className="text-[10px] text-gray-400 leading-relaxed text-center">
+                      Pago 100% seguro. Bold protege tus datos con cifrado SSL.
                     </p>
                   </div>
                 ) : (
@@ -788,31 +803,39 @@ export default function CartPage() {
                       </div>
                     )}
 
-                    {/* Same dark-panel + gray Bold button treatment as
-                        the logged-in path. Bold's brand guidance: gray
-                        button on dark backgrounds. */}
-                    <div className="rounded-2xl p-3.5 -mx-1" style={{ background: "linear-gradient(135deg,#0A183A,#173D68)" }}>
-                      <button
-                        onClick={handlePay}
-                        disabled={
-                          submitting
-                          || !form.buyerName.trim()
-                          || !form.buyerEmail.trim()
-                          || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
-                        }
-                        className="w-full py-3.5 rounded-xl text-sm font-black text-[#0A0A0A] bg-[#E5E7EB] disabled:opacity-40 transition-all hover:bg-white hover:shadow-2xl active:scale-[0.98] flex items-center justify-center gap-2"
-                      >
-                        {submitting ? (
+                    {/* Same premium Bold-style CTA as the logged-in path. */}
+                    <button
+                      onClick={handlePay}
+                      disabled={
+                        submitting
+                        || !form.buyerName.trim()
+                        || !form.buyerEmail.trim()
+                        || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
+                      }
+                      className="group w-full py-4 px-5 rounded-2xl text-white disabled:opacity-40 transition-all hover:shadow-2xl hover:shadow-black/30 active:scale-[0.99] flex items-center justify-between gap-3"
+                      style={{
+                        background: "linear-gradient(135deg,#0A0A0A 0%,#1F1F1F 100%)",
+                        boxShadow: "0 12px 32px -10px rgba(0,0,0,0.45)",
+                      }}
+                    >
+                      {submitting ? (
+                        <span className="w-full flex items-center justify-center gap-2 text-sm font-bold">
                           <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <span>Pagar {fmtCOP(totalToCharge)} con</span>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src="/payment/bold.svg" alt="Bold" height={18} style={{ height: 18, width: "auto" }} />
-                          </>
-                        )}
-                      </button>
-                    </div>
+                          Procesando…
+                        </span>
+                      ) : (
+                        <>
+                          <span className="flex flex-col items-start leading-tight">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/55">Pagar</span>
+                            <span className="text-lg font-black tracking-tight">{fmtCOP(totalToCharge)}</span>
+                          </span>
+                          <span className="flex items-center gap-1.5 text-sm font-bold text-white/80">
+                            con
+                            <BoldLogo height={20} accent="#FF3D6E" />
+                          </span>
+                        </>
+                      )}
+                    </button>
 
                     {checkoutError && (
                       <p className="text-[11px] text-red-600 font-medium">{checkoutError}</p>

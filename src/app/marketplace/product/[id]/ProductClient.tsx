@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
@@ -173,12 +173,16 @@ export default function ProductClient({
   brandInfo?: BrandInfo | null;
 }) {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const mayWeek = useMayWeek();
   const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
   const [loading, setLoading] = useState(!initialProduct);
   const [selectedImg, setSelectedImg] = useState(0);
   const [qty, setQty] = useState(1);
-  const [addedToCart, setAddedToCart] = useState(false);
+  // (`addedToCart` flash state was removed — the buy-now flow now
+  //  navigates straight to /cart on click, so the toast / "Agregada"
+  //  visual feedback is no longer reachable. The cart page itself is
+  //  the new feedback surface.)
   const [similar, setSimilar] = useState<any[]>([]);
   const [promoListings, setPromoListings] = useState<any[]>([]);
   const [pickup, setPickup] = useState<PickupResponse | null>(null);
@@ -391,7 +395,11 @@ export default function ProductClient({
     }
   }, [product]);
 
-  function handleAddToCart() {
+  // Express-checkout handler: add the configured quantity to the cart
+  // and route immediately to /marketplace/cart, where the Bold button
+  // lives. Matches the "Comprar ya" UX direction across the marketplace
+  // — single click from product page to checkout.
+  function handleBuyNow() {
     if (!product) return;
     // Hard stock guard — every visual button already disables itself
     // at 0, but defense-in-depth so a stale UI state (mid-fetch
@@ -416,8 +424,7 @@ export default function ProductClient({
       dimension: product.dimension, precioCop: product.precioCop,
       tipo: product.tipo, distributorName: product.distributor.name, quantity: qty,
     });
-    setAddedToCart(true);
-    setTimeout(() => setAddedToCart(false), 3000);
+    router.push("/marketplace/cart");
   }
 
   if (loading) return (
@@ -468,40 +475,6 @@ export default function ProductClient({
   return (
     <div className="min-h-screen bg-white">
       <MarketplaceNav />
-
-      {/* Added-to-cart toast — slides in from the right on desktop, top
-          of the screen on mobile so it doesn't overlap the sticky CTA. */}
-      {addedToCart && (
-        <div
-          className="fixed top-20 left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm z-50 bg-white rounded-2xl shadow-2xl p-4 flex items-center gap-3"
-          style={{
-            border: "1px solid rgba(34,197,94,0.20)",
-            animation: "toastIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards",
-          }}
-        >
-          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(34,197,94,0.12)" }}>
-            <Check className="w-4 h-4 text-emerald-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-[#0A183A]">Agregado al carrito</p>
-            <p className="text-[11px] text-gray-500 truncate">
-              {qty} × {product.marca} {product.modelo}
-            </p>
-          </div>
-          <Link
-            href="/marketplace/cart"
-            className="text-[11px] font-bold text-[#1E76B6] hover:underline flex-shrink-0 px-2 py-1 rounded-full hover:bg-[#f0f7ff]"
-          >
-            Ver carrito ({cart.count})
-          </Link>
-          <style jsx>{`
-            @keyframes toastIn {
-              from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-              to   { opacity: 1; transform: translateY(0) scale(1); }
-            }
-          `}</style>
-        </div>
-      )}
 
       {/* HEADER — minimal nav strip with TirePro blue accents.
           - Thin brand-gradient bar at the very top anchors the page
@@ -923,7 +896,7 @@ export default function ProductClient({
                   page exists to drive this click; treat it like the
                   hero button it is. */}
               <button
-                onClick={handleAddToCart}
+                onClick={handleBuyNow}
                 disabled={product.cantidadDisponible <= 0}
                 className="w-full py-5 sm:py-6 rounded-2xl text-lg sm:text-xl font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/40 active:scale-[0.99] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:shadow-none"
                 style={{
@@ -942,8 +915,8 @@ export default function ProductClient({
                   </>
                 ) : (
                   <>
-                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
-                    Agregar al carrito
+                    <Zap className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" />
+                    Comprar ya
                   </>
                 )}
               </button>
@@ -2173,31 +2146,23 @@ export default function ProductClient({
                 disponible={product.cantidadDisponible}
               />
               <button
-                onClick={handleAddToCart}
+                onClick={handleBuyNow}
                 disabled={product.cantidadDisponible === 0}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98]"
                 style={{
-                  background: addedToCart
-                    ? "linear-gradient(135deg,#16a34a,#22c55e)"
-                    : "linear-gradient(135deg,#0A183A,#1E76B6)",
-                  boxShadow: addedToCart
-                    ? "0 10px 26px -6px rgba(34,197,94,0.55)"
-                    : "0 10px 26px -6px rgba(30,118,182,0.55)",
+                  background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+                  boxShadow: "0 10px 26px -6px rgba(30,118,182,0.55)",
                 }}
               >
-                {addedToCart ? <Check className="w-5 h-5 flex-shrink-0" /> : <ShoppingCart className="w-5 h-5 flex-shrink-0" />}
+                <Zap className="w-5 h-5 flex-shrink-0" fill="currentColor" />
                 <span className="truncate">
-                  {product.cantidadDisponible === 0
-                    ? "Agotada"
-                    : addedToCart
-                      ? "Agregada"
-                      : "Agregar al carrito"}
+                  {product.cantidadDisponible === 0 ? "Agotada" : "Comprar ya"}
                 </span>
               </button>
             </div>
             {/* Cart link on a third compact row when there's already something
                 in the cart. Doesn't push the buttons up if cart is empty. */}
-            {cart.count > 0 && !addedToCart && (
+            {cart.count > 0 && (
               <Link
                 href="/marketplace/cart"
                 className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#1E76B6]"
@@ -2260,27 +2225,19 @@ export default function ProductClient({
             />
 
             <button
-              onClick={handleAddToCart}
+              onClick={handleBuyNow}
               disabled={product.cantidadDisponible === 0}
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98] flex-shrink-0"
               style={{
-                background: addedToCart
-                  ? "linear-gradient(135deg,#16a34a,#22c55e)"
-                  : "linear-gradient(135deg,#0A183A,#1E76B6)",
-                boxShadow: addedToCart
-                  ? "0 10px 26px -6px rgba(34,197,94,0.5)"
-                  : "0 10px 26px -6px rgba(30,118,182,0.5)",
+                background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+                boxShadow: "0 10px 26px -6px rgba(30,118,182,0.5)",
               }}
             >
-              {addedToCart ? <Check className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
-              {product.cantidadDisponible === 0
-                ? "Agotada"
-                : addedToCart
-                  ? "Agregada"
-                  : "Agregar al carrito"}
+              <Zap className="w-5 h-5" fill="currentColor" />
+              {product.cantidadDisponible === 0 ? "Agotada" : "Comprar ya"}
             </button>
 
-            {cart.count > 0 && !addedToCart && (
+            {cart.count > 0 && (
               <Link
                 href="/marketplace/cart"
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-[#1E76B6] hover:bg-[#f0f7ff] transition-colors flex-shrink-0"

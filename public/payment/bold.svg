@@ -1,17 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 28" role="img" aria-label="Bold">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 28" role="img" aria-label="Bold">
   <!--
-    Inline placeholder wordmark, sized to the same 90×28 box every other
-    badge in /public/payment/ uses. Bold's own brand assets aren't
-    distributed as a standalone download — their UI kit ships them via
-    https://bold.co/library/ui-kit.js dynamically. Swap this file with
-    Bold's official asset (request access at prensa@bold.co) when ready.
+    Static placeholder Bold wordmark — used in PaymentBadges where the SVG
+    is loaded as an <img>. fill="currentColor" only takes effect when the
+    SVG is inlined; <img> ignores it, so this file uses an explicit dark
+    fill that works on the light backgrounds where PaymentBadges renders.
+    For the cart's dark CTA button we render the inline BoldLogo component
+    instead, which respects currentColor properly.
   -->
   <text
-    x="6" y="21"
-    font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Helvetica Neue', Arial, sans-serif"
+    x="2" y="22"
+    font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Manrope', system-ui, sans-serif"
     font-weight="900"
     font-size="22"
-    fill="#0A0A0A"
     letter-spacing="-1.2"
-  >bold<tspan fill="#FF3D6E">·</tspan></text>
+    fill="#0A0A0A"
+  >bold</text>
+  <circle cx="73" cy="19.5" r="3.2" fill="#FF3D6E"/>
 </svg>
