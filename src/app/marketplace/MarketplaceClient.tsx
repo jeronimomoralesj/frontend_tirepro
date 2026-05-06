@@ -42,8 +42,10 @@ interface Listing {
   // Boolean flag from the backend left-join. Present + isActive=true
   // means this listing has a connected retail source (Alkosto / Ktronix)
   // with daily-refreshed pickup-point stock — drives the "Recoger en
-  // tienda" pill on cards.
-  retailSource?: { isActive: boolean } | null;
+  // tienda" pill on cards. `bodegaUnits` (sum across in-stock pickup
+  // points) lets the AddToCartButton flag a 0-warehouse listing as
+  // still buyable when bodegas have inventory.
+  retailSource?: { isActive: boolean; hasBodegaStock?: boolean; bodegaUnits?: number } | null;
 }
 
 interface DistributorOption { id: string; name: string; profileImage: string }
@@ -1710,7 +1712,11 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
                 + IVA · {l.retailSource?.isActive ? "Envío y recogida" : "Envío"}
               </p>
             </div>
-            <AddToCartButton listing={l} variant="compact" className="w-full justify-center" />
+            {/* Two buttons: icon-only Agregar + Comprar ya pill. */}
+            <div className="flex gap-1.5">
+              <AddToCartButton listing={l} variant="icon" />
+              <AddToCartButton listing={l} variant="compact" className="flex-1 justify-center" />
+            </div>
           </div>
 
           {/* Tiempo de entrega chip on mobile — moved here so it sits
@@ -1735,7 +1741,11 @@ function ProductRow({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
             </p>
           </div>
           <div className="flex flex-col items-stretch gap-1.5 w-full">
-            <AddToCartButton listing={l} variant="default" className="w-full justify-center" />
+            {/* Two-button group: icon Agregar + Comprar ya pill. */}
+            <div className="flex gap-1.5">
+              <AddToCartButton listing={l} variant="icon" />
+              <AddToCartButton listing={l} variant="default" className="flex-1 justify-center" />
+            </div>
             <span
               className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold text-[#0A183A] hover:bg-[#F0F7FF] transition-colors w-full"
               style={{ border: "1px solid rgba(10,24,58,0.10)" }}
@@ -2750,11 +2760,14 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
               + IVA · {l.retailSource?.isActive ? "Envío y recogida" : "Envío"}
             </p>
           </div>
-          {/* Full-width compact pill on mobile, round icon on desktop. */}
-          <AddToCartButton listing={l} variant="compact" className="w-full justify-center sm:hidden" />
-          <span className="hidden sm:inline-flex">
-            <AddToCartButton listing={l} variant="icon" />
-          </span>
+          {/* Always two buttons: icon-only "Agregar" (silent add, lets
+              power users stack multiple items) + Comprar ya (express
+              flow that adds + routes to /cart). Stacked vertically on
+              mobile so they get full width; horizontal on desktop. */}
+          <div className="flex flex-col sm:flex-row gap-1.5 w-full sm:w-auto items-stretch sm:items-center">
+            <AddToCartButton listing={l} variant="icon" className="self-end sm:self-auto" />
+            <AddToCartButton listing={l} variant="compact" className="flex-1 justify-center" />
+          </div>
         </div>
 
         {/* Tags */}

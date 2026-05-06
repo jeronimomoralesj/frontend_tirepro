@@ -410,16 +410,11 @@ export default function CartPage() {
             <ArrowLeft className="w-3 h-3" />
             Seguir comprando
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-              <ShoppingCart className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white leading-none tracking-tight">Tu carrito</h1>
-              <p className="text-[11px] sm:text-xs text-white/70 mt-1">
-                {count > 0 ? <>{count} producto{count !== 1 ? "s" : ""} · {Object.keys(grouped).length} distribuidor{Object.keys(grouped).length !== 1 ? "es" : ""}</> : "Sin productos"}
-              </p>
-            </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white leading-none tracking-tight">Tu carrito</h1>
+            <p className="text-[11px] sm:text-xs text-white/70 mt-1">
+              {count > 0 ? <>{count} producto{count !== 1 ? "s" : ""} · {Object.keys(grouped).length} distribuidor{Object.keys(grouped).length !== 1 ? "es" : ""}</> : "Sin productos"}
+            </p>
           </div>
         </div>
       </div>

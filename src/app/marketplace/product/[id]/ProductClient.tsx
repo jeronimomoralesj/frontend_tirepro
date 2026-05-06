@@ -395,6 +395,25 @@ export default function ProductClient({
     }
   }, [product]);
 
+  // Effective stock = warehouse + bodega pickup-points pooled. A listing
+  // can have 0 warehouse stock but 600+ units across retail bodegas
+  // (the "Pirelli with 652 bodega units" case) — we treat that as
+  // buyable. While pickup data is still loading and the listing has
+  // an active retail source, we optimistically assume buyable to
+  // avoid a flash of "Agotada" — the hard stock guard at click time
+  // catches any genuinely-empty case.
+  const bodegaStock = product
+    ? (pickup?.cities ?? []).reduce((s, c) => s + c.totalStock, 0)
+    : 0;
+  const isWaitingForPickup = !!product?.retailSource?.isActive && pickup === null;
+  const warehouseStock = product?.cantidadDisponible ?? 0;
+  const effectiveStock = warehouseStock + bodegaStock;
+  const isBuyable = effectiveStock > 0 || isWaitingForPickup;
+  // Stepper bound: pool warehouse + bodega so a buyer of a bodega-only
+  // listing can buy multiple tires from the same city. Min 1 so the
+  // stepper doesn't lock at 0 while pickup loads.
+  const qtyMax = Math.max(effectiveStock, isWaitingForPickup ? 1 : 0, 1);
+
   // Express-checkout handler: add the configured quantity to the cart
   // and route immediately to /marketplace/cart, where the Bold button
   // lives. Matches the "Comprar ya" UX direction across the marketplace
@@ -402,9 +421,10 @@ export default function ProductClient({
   function handleBuyNow() {
     if (!product) return;
     // Hard stock guard — every visual button already disables itself
-    // at 0, but defense-in-depth so a stale UI state (mid-fetch
-    // refresh, etc.) can't push an out-of-stock item into the cart.
-    if (product.cantidadDisponible <= 0) return;
+    // when nothing's in stock, but defense-in-depth so a stale UI
+    // state (mid-fetch refresh, etc.) can't push an out-of-stock
+    // item into the cart.
+    if (effectiveStock <= 0) return;
     const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
     cart.addItem({
       listingId: product.id,
@@ -842,7 +862,7 @@ export default function ProductClient({
               style={{ boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18), 0 0 0 1px rgba(30,118,182,0.08)" }}
             >
               <div className="flex items-center gap-2 mb-3">
-                {product.cantidadDisponible <= 0 ? (
+                {!isBuyable ? (
                   <>
                     <X className="w-4 h-4 text-red-500" />
                     <p className="text-xs font-black text-red-600">Agotada</p>
@@ -852,8 +872,8 @@ export default function ProductClient({
                     <CheckCircle className="w-4 h-4 text-emerald-500" />
                     <p className="text-xs font-black text-emerald-600">
                       Disponible
-                      {product.cantidadDisponible <= 10 && (
-                        <span className="text-amber-600 font-bold"> · solo {product.cantidadDisponible} unidades</span>
+                      {effectiveStock > 0 && effectiveStock <= 10 && (
+                        <span className="text-amber-600 font-bold"> · solo {effectiveStock} unidades</span>
                       )}
                     </p>
                   </>
@@ -871,15 +891,15 @@ export default function ProductClient({
                 <div className="flex items-center rounded-full overflow-hidden" style={{ border: "1.5px solid #e5e5e5" }}>
                   <button
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    disabled={product.cantidadDisponible <= 0 || qty <= 1}
+                    disabled={!isBuyable || qty <= 1}
                     className="px-3.5 py-2 hover:bg-[#f0f7ff] transition-colors disabled:opacity-40"
                   >
                     <Minus className="w-3.5 h-3.5 text-gray-500" />
                   </button>
                   <span className="px-5 py-2 text-[14px] font-black text-[#0A183A]" style={{ borderLeft: "1.5px solid #e5e5e5", borderRight: "1.5px solid #e5e5e5" }}>{qty}</span>
                   <button
-                    onClick={() => setQty((q) => Math.min(product.cantidadDisponible, q + 1))}
-                    disabled={product.cantidadDisponible <= 0 || qty >= product.cantidadDisponible}
+                    onClick={() => setQty((q) => Math.min(qtyMax, q + 1))}
+                    disabled={!isBuyable || qty >= qtyMax}
                     className="px-3.5 py-2 hover:bg-[#f0f7ff] transition-colors disabled:opacity-40"
                   >
                     <Plus className="w-3.5 h-3.5 text-gray-500" />
@@ -897,18 +917,18 @@ export default function ProductClient({
                   hero button it is. */}
               <button
                 onClick={handleBuyNow}
-                disabled={product.cantidadDisponible <= 0}
+                disabled={!isBuyable}
                 className="w-full py-5 sm:py-6 rounded-2xl text-lg sm:text-xl font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/40 active:scale-[0.99] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:shadow-none"
                 style={{
-                  background: product.cantidadDisponible <= 0
+                  background: !isBuyable
                     ? "linear-gradient(135deg,#6b7280 0%,#9ca3af 100%)"
                     : "linear-gradient(135deg,#0A183A 0%,#1E76B6 100%)",
-                  boxShadow: product.cantidadDisponible <= 0
+                  boxShadow: !isBuyable
                     ? "none"
                     : "0 16px 36px -10px rgba(30,118,182,0.55)",
                 }}
               >
-                {product.cantidadDisponible <= 0 ? (
+                {!isBuyable ? (
                   <>
                     <X className="w-5 h-5 sm:w-6 sm:h-6" />
                     Agotada
@@ -2143,11 +2163,11 @@ export default function ProductClient({
               <Stepper
                 qty={qty}
                 setQty={setQty}
-                disponible={product.cantidadDisponible}
+                disponible={qtyMax}
               />
               <button
                 onClick={handleBuyNow}
-                disabled={product.cantidadDisponible === 0}
+                disabled={!isBuyable}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98]"
                 style={{
                   background: "linear-gradient(135deg,#0A183A,#1E76B6)",
@@ -2156,7 +2176,7 @@ export default function ProductClient({
               >
                 <Zap className="w-5 h-5 flex-shrink-0" fill="currentColor" />
                 <span className="truncate">
-                  {product.cantidadDisponible === 0 ? "Agotada" : "Comprar ya"}
+                  {!isBuyable ? "Agotada" : "Comprar ya"}
                 </span>
               </button>
             </div>
@@ -2221,12 +2241,12 @@ export default function ProductClient({
             <Stepper
               qty={qty}
               setQty={setQty}
-              disponible={product.cantidadDisponible}
+              disponible={qtyMax}
             />
 
             <button
               onClick={handleBuyNow}
-              disabled={product.cantidadDisponible === 0}
+              disabled={!isBuyable}
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98] flex-shrink-0"
               style={{
                 background: "linear-gradient(135deg,#0A183A,#1E76B6)",
@@ -2234,7 +2254,7 @@ export default function ProductClient({
               }}
             >
               <Zap className="w-5 h-5" fill="currentColor" />
-              {product.cantidadDisponible === 0 ? "Agotada" : "Comprar ya"}
+              {!isBuyable ? "Agotada" : "Comprar ya"}
             </button>
 
             {cart.count > 0 && (

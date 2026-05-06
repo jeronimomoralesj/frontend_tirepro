@@ -37,6 +37,14 @@ export interface AddToCartListing {
   coverIndex?: number | null;
   distributor?: { id: string; name: string } | null;
   cantidadDisponible?: number | null;
+  /** Retail bodega stock summary from the listings API. A listing with 0
+   *  warehouse stock (cantidadDisponible) is still buyable when there
+   *  are bodega pickup points holding inventory. */
+  retailSource?: {
+    isActive: boolean;
+    hasBodegaStock?: boolean;
+    bodegaUnits?: number;
+  } | null;
 }
 
 interface Props {
@@ -57,10 +65,16 @@ export function AddToCartButton({ listing, variant = "default", accent, classNam
   const router = useRouter();
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
-  const outOfStock = listing.cantidadDisponible != null && listing.cantidadDisponible <= 0;
-  const noDist = !listing.distributor;
-  const disabled = outOfStock || noDist;
-  const isIcon = variant === "icon";
+  // A listing is buyable if it has stock SOMEWHERE — warehouse OR bodega.
+  // Listings with 0 warehouse but active retail pickup points (e.g.
+  // Alkosto bodega holding 652 units) are still in-stock from the
+  // buyer's perspective; they just have to choose pickup at checkout.
+  const warehouseStock = listing.cantidadDisponible ?? 0;
+  const bodegaStock    = listing.retailSource?.bodegaUnits ?? 0;
+  const outOfStock     = warehouseStock <= 0 && bodegaStock <= 0;
+  const noDist         = !listing.distributor;
+  const disabled       = outOfStock || noDist;
+  const isIcon         = variant === "icon";
 
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
