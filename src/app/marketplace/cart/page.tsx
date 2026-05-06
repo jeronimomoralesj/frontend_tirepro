@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import Script from "next/script";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Loader2,
@@ -156,18 +155,28 @@ export default function CartPage() {
   //      same page. The buyer pays without leaving tirepro.com.co.
   //   3. After payment, Bold redirects to redirectionUrl (the order
   //      tracking page) and the webhook reconciles status async.
-  const [checkoutError, setCheckoutError]   = useState("");
-  // boldLibLoaded gates the Pay button — prevents a click before
-  // window.BoldCheckout exists. Set true on the `boldCheckoutLoaded`
-  // event Bold fires once their loader script is ready.
-  const [boldLibLoaded, setBoldLibLoaded]   = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.BoldCheckout) { setBoldLibLoaded(true); return; }
-    const onLoaded = () => setBoldLibLoaded(true);
-    window.addEventListener("boldCheckoutLoaded", onLoaded);
-    return () => window.removeEventListener("boldCheckoutLoaded", onLoaded);
-  }, []);
+  const [checkoutError, setCheckoutError] = useState("");
+  // Bold's loader script lives in the marketplace layout so it starts
+  // loading the moment the buyer enters /marketplace/* — by the time
+  // they reach the cart, window.BoldCheckout is almost always ready.
+  // We don't gate the button on that anymore (used to render disabled-
+  // gray on cold first visit). Instead handlePay waits up to a few
+  // seconds for the library if it isn't quite there when the buyer
+  // clicks. Cached visits stay instant.
+  async function waitForBoldCheckout(timeoutMs = 5000): Promise<void> {
+    if (typeof window === "undefined") throw new Error("Bold no está disponible aquí");
+    if (window.BoldCheckout) return;
+    await new Promise<void>((resolve, reject) => {
+      const t = setTimeout(() => {
+        window.removeEventListener("boldCheckoutLoaded", onLoaded);
+        reject(new Error("Bold tardó demasiado en cargar. Revisa tu conexión y vuelve a intentar."));
+      }, timeoutMs);
+      const onLoaded = () => { clearTimeout(t); resolve(); };
+      window.addEventListener("boldCheckoutLoaded", onLoaded, { once: true });
+      // In case the event already fired before this listener attached.
+      if (window.BoldCheckout) { clearTimeout(t); resolve(); }
+    });
+  }
   async function handlePay() {
     setCheckoutError("");
     if (!form.buyerName.trim() || !form.buyerEmail.trim() || items.length === 0) return;
@@ -267,12 +276,14 @@ export default function CartPage() {
         items: items.map((i) => ({ id: i.listingId, marca: i.marca, modelo: i.modelo, precioCop: i.precioCop, quantity: i.quantity, distributorName: i.distributorName })),
       });
 
-      // Bold's loader hadn't attached BoldCheckout to window yet — bail
-      // out cleanly so the buyer isn't stuck. The library normally
-      // loads in a few hundred ms after page interactive, so this only
-      // happens on very fast clicks or on a flaky network.
-      if (typeof window === "undefined" || !window.BoldCheckout) {
-        throw new Error("Bold no terminó de cargar. Espera un segundo y vuelve a intentar.");
+      // Wait for Bold's loader script if it isn't ready yet. Layout
+      // starts the load on every marketplace page, so on cached
+      // visits this is a no-op; on cold first visits we may wait a
+      // few hundred ms. Throws after 5s so the buyer gets feedback
+      // if the library is genuinely failing.
+      await waitForBoldCheckout();
+      if (!window.BoldCheckout) {
+        throw new Error("Bold no terminó de cargar. Vuelve a intentar.");
       }
 
       // Instance API — same library that powers Bold's <script
@@ -383,12 +394,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7]">
-      {/* Bold Botón de Pagos library — must be in the document before the
-          <script data-bold-button> nodes BoldOfficialButton injects, but
-          we use afterInteractive so it doesn't block the cart's first
-          paint. The library scans the DOM for data-bold-button elements
-          on every load and replaces them with the styled Bold button. */}
-      <Script src="https://checkout.bold.co/library/boldPaymentButton.js" strategy="afterInteractive" />
       <MarketplaceNav />
 
       {/* Hero band */}
@@ -573,21 +578,32 @@ export default function CartPage() {
                     Pagar
                   </button>
                 ) : isLoggedIn && !editingDetails ? (
-                  <div className="space-y-2.5">
+                  // Dark CTA panel — Bold's docs recommend the gray "light"
+                  // button variant when sitting on a dark background, which
+                  // is the recipe we follow here: navy panel surrounding a
+                  // light-gray button with the Bold wordmark.
+                  <div className="space-y-2.5 rounded-2xl p-3.5" style={{ background: "linear-gradient(135deg,#0A183A,#173D68)" }}>
                     <button
                       onClick={handlePay}
-                      disabled={submitting || !boldLibLoaded}
-                      className="w-full py-3.5 rounded-2xl text-sm font-black text-white disabled:opacity-50 transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98] flex items-center justify-center gap-2"
-                      style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                      disabled={submitting}
+                      className="w-full py-3.5 rounded-xl text-sm font-black text-[#0A0A0A] bg-[#E5E7EB] disabled:opacity-50 transition-all hover:bg-white hover:shadow-2xl active:scale-[0.98] flex items-center justify-center gap-2"
                     >
-                      {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pagar ${fmtCOP(totalToCharge)} con Bold`}
+                      {submitting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <span>Pagar {fmtCOP(totalToCharge)} con</span>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/payment/bold.svg" alt="Bold" height={18} style={{ height: 18, width: "auto" }} />
+                        </>
+                      )}
                     </button>
-                    <p className="text-[11px] text-gray-500 text-center">
-                      Pagas como <span className="font-bold text-[#0A183A]">{form.buyerName}</span>
+                    <p className="text-[11px] text-white/60 text-center">
+                      Pagas como <span className="font-bold text-white">{form.buyerName}</span>
                       {" · "}
                       <button
                         onClick={() => setEditingDetails(true)}
-                        className="font-bold text-[#1E76B6] hover:underline"
+                        className="font-bold text-[#9CC3E5] hover:underline"
                       >
                         Cambiar
                       </button>
@@ -597,13 +613,13 @@ export default function CartPage() {
                         the full form. Click "Cambiar" to edit. */}
                     {addressNeeded && (
                       form.buyerAddress.trim() ? (
-                        <p className="text-[11px] text-gray-500 text-center truncate">
-                          Envío a <span className="font-bold text-[#0A183A]">{form.buyerAddress}</span>
+                        <p className="text-[11px] text-white/60 text-center truncate">
+                          Envío a <span className="font-bold text-white">{form.buyerAddress}</span>
                           {form.buyerCity && <>, {form.buyerCity}</>}
                           {" · "}
                           <button
                             onClick={() => setEditingDetails(true)}
-                            className="font-bold text-[#1E76B6] hover:underline"
+                            className="font-bold text-[#9CC3E5] hover:underline"
                           >
                             Cambiar
                           </button>
@@ -611,21 +627,21 @@ export default function CartPage() {
                       ) : (
                         <button
                           onClick={() => setEditingDetails(true)}
-                          className="text-[11px] font-bold text-amber-700 hover:underline w-full text-center"
+                          className="text-[11px] font-bold text-amber-300 hover:underline w-full text-center"
                         >
                           + Agregar dirección de entrega
                         </button>
                       )
                     )}
                     {hasPickupItems && (
-                      <p className="text-[11px] text-emerald-700 text-center">
+                      <p className="text-[11px] text-emerald-300 text-center">
                         Recoger en {items.filter((i) => i.pickupPointId).length} {items.filter((i) => i.pickupPointId).length === 1 ? "tienda" : "tiendas"} ya seleccionada{items.filter((i) => i.pickupPointId).length === 1 ? "" : "s"}
                       </p>
                     )}
                     {checkoutError && (
-                      <p className="text-[11px] text-red-600 font-medium text-center">{checkoutError}</p>
+                      <p className="text-[11px] text-red-300 font-medium text-center">{checkoutError}</p>
                     )}
-                    <p className="text-[10px] text-gray-400 leading-relaxed text-center">
+                    <p className="text-[10px] text-white/50 leading-relaxed text-center">
                       Bold abrirá una ventana segura para completar el pago.
                     </p>
                   </div>
@@ -772,20 +788,31 @@ export default function CartPage() {
                       </div>
                     )}
 
-                    <button
-                      onClick={handlePay}
-                      disabled={
-                        submitting
-                        || !boldLibLoaded
-                        || !form.buyerName.trim()
-                        || !form.buyerEmail.trim()
-                        || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
-                      }
-                      className="w-full py-3.5 rounded-2xl text-sm font-black text-white disabled:opacity-40 transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98]"
-                      style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
-                    >
-                      {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Pagar ${fmtCOP(totalToCharge)} con Bold`}
-                    </button>
+                    {/* Same dark-panel + gray Bold button treatment as
+                        the logged-in path. Bold's brand guidance: gray
+                        button on dark backgrounds. */}
+                    <div className="rounded-2xl p-3.5 -mx-1" style={{ background: "linear-gradient(135deg,#0A183A,#173D68)" }}>
+                      <button
+                        onClick={handlePay}
+                        disabled={
+                          submitting
+                          || !form.buyerName.trim()
+                          || !form.buyerEmail.trim()
+                          || (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim()))
+                        }
+                        className="w-full py-3.5 rounded-xl text-sm font-black text-[#0A0A0A] bg-[#E5E7EB] disabled:opacity-40 transition-all hover:bg-white hover:shadow-2xl active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        {submitting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <span>Pagar {fmtCOP(totalToCharge)} con</span>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/payment/bold.svg" alt="Bold" height={18} style={{ height: 18, width: "auto" }} />
+                          </>
+                        )}
+                      </button>
+                    </div>
 
                     {checkoutError && (
                       <p className="text-[11px] text-red-600 font-medium">{checkoutError}</p>

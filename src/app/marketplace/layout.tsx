@@ -215,6 +215,14 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
       <Script id="marketplace-breadcrumb" type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }} />
 
+      {/* Bold Botón de Pagos loader — preloaded across all marketplace
+          pages so by the time the buyer reaches /marketplace/cart the
+          window.BoldCheckout class is already attached. Without this
+          the cart's Pay button would render disabled (gray) on a cold
+          first visit until the script finished loading inline on that
+          page. afterInteractive keeps it off the critical path. */}
+      <Script src="https://checkout.bold.co/library/boldPaymentButton.js" strategy="afterInteractive" />
+
       <div aria-hidden="true" style={SR_ONLY_STYLE}>
         <h1>TirePro Marketplace — Comprar llantas online en Colombia</h1>
         <h2>Marketplace de llantas en Colombia para autos, camionetas, SUV, camiones, buses y flotas</h2>
