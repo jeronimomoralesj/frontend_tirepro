@@ -454,6 +454,37 @@ export default function ProductClient({
     router.push("/marketplace/cart");
   }
 
+  // "Agregar al carrito" — same write to cart as Comprar ya, but stays
+  // on the product page so the buyer can continue shopping (add a
+  // second size, add a different model, etc.) before going to
+  // checkout. Flashes a "Agregado" affirmation for 1.5 s then reverts.
+  const [justAdded, setJustAdded] = useState(false);
+  function handleAddToCart() {
+    if (!product) return;
+    if (effectiveStock <= 0) return;
+    const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+    cart.addItem({
+      listingId: product.id,
+      marca: product.marca,
+      modelo: product.modelo,
+      dimension: product.dimension,
+      precioCop: product.precioCop,
+      precioPromo: product.precioPromo,
+      promoHasta: product.promoHasta,
+      tipo: product.tipo,
+      imageUrl: imgs.length > 0 ? imgs[product.coverIndex ?? 0] ?? imgs[0] : null,
+      distributorId: product.distributor.id,
+      distributorName: product.distributor.name,
+    }, qty);
+    trackAddToCart({
+      id: product.id, marca: product.marca, modelo: product.modelo,
+      dimension: product.dimension, precioCop: product.precioCop,
+      tipo: product.tipo, distributorName: product.distributor.name, quantity: qty,
+    });
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1500);
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
       <Loader2 className="w-6 h-6 animate-spin text-[#1E76B6]" />
@@ -987,12 +1018,22 @@ export default function ProductClient({
                   </>
                 )}
               </button>
-              {cart.count > 0 && (
-                <Link href="/marketplace/cart"
-                  className="w-full mt-2 py-3 rounded-2xl text-[13px] font-black text-[#1E76B6] border-2 border-[#1E76B6]/15 hover:bg-[#f0f7ff] flex items-center justify-center gap-2 transition-colors">
-                  Ver carrito ({cart.count})
-                </Link>
-              )}
+              {/* Always-visible secondary CTA — "Agregar al carrito"
+                  lets the buyer queue items without leaving the
+                  product page. Pairs with "Comprar ya" above which
+                  remains the express-checkout shortcut. */}
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={!isBuyable}
+                className="w-full mt-2 py-3 rounded-2xl text-[13px] font-black text-[#1E76B6] border-2 border-[#1E76B6]/15 hover:bg-[#f0f7ff] flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {justAdded ? (
+                  <><Check className="w-4 h-4" /> Agregado al carrito</>
+                ) : (
+                  <><ShoppingCart className="w-4 h-4" /> Agregar al carrito{cart.count > 0 ? ` · ${cart.count} en carrito` : ""}</>
+                )}
+              </button>
 
               {/* Available delivery modes — surfaces upstream of the
                   cart so a buyer doesn't reach checkout to discover their
@@ -2227,17 +2268,22 @@ export default function ProductClient({
                 </span>
               </button>
             </div>
-            {/* Cart link on a third compact row when there's already something
-                in the cart. Doesn't push the buttons up if cart is empty. */}
-            {cart.count > 0 && (
-              <Link
-                href="/marketplace/cart"
-                className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#1E76B6]"
-              >
-                <ShoppingCart className="w-3 h-3" />
-                Ver carrito ({cart.count})
-              </Link>
-            )}
+            {/* Always-visible secondary CTA — "Agregar al carrito"
+                lets the buyer queue items without leaving the page.
+                Compact third row on mobile under the stepper +
+                Comprar ya pair. */}
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!isBuyable}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 text-[12px] font-bold text-[#1E76B6] py-2 rounded-xl border-2 border-[#1E76B6]/15 hover:bg-[#f0f7ff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {justAdded ? (
+                <><Check className="w-3.5 h-3.5" /> Agregado al carrito</>
+              ) : (
+                <><ShoppingCart className="w-3.5 h-3.5" /> Agregar al carrito{cart.count > 0 ? ` · ${cart.count}` : ""}</>
+              )}
+            </button>
           </div>
 
           {/* ───────────────────────────────────────────────────────────
@@ -2304,16 +2350,19 @@ export default function ProductClient({
               {!isBuyable ? "Agotada" : "Comprar ya"}
             </button>
 
-            {cart.count > 0 && (
-              <Link
-                href="/marketplace/cart"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-[#1E76B6] hover:bg-[#f0f7ff] transition-colors flex-shrink-0"
-                style={{ border: "1px solid rgba(30,118,182,0.20)" }}
-              >
-                <ShoppingCart className="w-3.5 h-3.5" />
-                Carrito ({cart.count})
-              </Link>
-            )}
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!isBuyable}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-[#1E76B6] hover:bg-[#f0f7ff] transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ border: "1px solid rgba(30,118,182,0.20)" }}
+            >
+              {justAdded ? (
+                <><Check className="w-3.5 h-3.5" /> Agregado</>
+              ) : (
+                <><ShoppingCart className="w-3.5 h-3.5" /> Agregar{cart.count > 0 ? ` (${cart.count})` : ""}</>
+              )}
+            </button>
           </div>
         </div>
       </div>
