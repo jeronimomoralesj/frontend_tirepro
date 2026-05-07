@@ -18,6 +18,7 @@ import { AddToCartButton } from "../../components/marketplace/AddToCartButton";
 import { MayWeekBanner, MayWeekStars, useMayWeek } from "../../components/marketplace/MayWeekBanner";
 import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession } from "../../lib/marketplaceAnalytics";
 import { productHref } from "./product/_lib/url";
+import { CATEGORIES as SEO_CATEGORIES } from "./categoria/_lib/categories";
 
 // TireAssistant lives in a lazy island so its ~14 KB of vehicle-DB +
 // chat state stays out of the initial /marketplace bundle. Until the
@@ -457,6 +458,30 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
         : "Llantas más vendidas")
     : "Llantas más vendidas";
 
+  // ─── Per-category featured scrollers ───────────────────────────────────
+  // Pick the rim-based categoria slugs that map to a meaningful chunk of
+  // the catalog (tractomula, camión, bus, camioneta, auto) and build a
+  // shuffled scroller per category. Each scroller is gated on having at
+  // least 4 matching listings in the current page so we never render a
+  // half-empty row. The list is intentionally smaller than the full
+  // SEO_CATEGORIES set — too many scrollers fatigues the home view.
+  const FEATURED_CATEGORY_SLUGS = ["tractomula", "camion", "bus", "camioneta", "auto"] as const;
+  const dimMatchesRims = (dim: string, rims: number[]) =>
+    rims.some((r) => new RegExp(`\\bR${r.toString().replace(".", "\\.")}\\b`, "i").test(dim));
+  const featuredByCategory = useMemo(() => {
+    const out: Array<{ slug: string; name: string; listings: Listing[] }> = [];
+    for (const slug of FEATURED_CATEGORY_SLUGS) {
+      const cat = SEO_CATEGORIES.find((c) => c.slug === slug);
+      if (!cat || cat.kind !== "rim" || !cat.rimSizes) continue;
+      const rimSizes = cat.rimSizes;
+      const pool = listings.filter((l) => dimMatchesRims(l.dimension, rimSizes));
+      if (pool.length < 4) continue;
+      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+      out.push({ slug, name: cat.name, listings: shuffled.slice(0, MIN_FEATURED) });
+    }
+    return out;
+  }, [listings]);
+
   // ─── Brands with actual inventory ──────────────────────────────────────
   // BrandsStrip should never link to an empty brand page. The authoritative
   // list of brands with stock is `filters.marcas` (the backend's distinct
@@ -681,22 +706,13 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
         />
       )}
 
-      {/* ═══ TRUST BAND — verificados, envío, pago ═══ */}
-      {homeView && <TrustBand />}
+      {/* ═══ CÓMO FUNCIONA ═══ — moved up from below the bestsellers
+            so the buyer sees the 3-step funnel right under the hero
+            instead of buried at the bottom of the home view. */}
+      {homeView && <HowItWorks />}
 
-      {/* ═══ CATEGORÍAS ═══ */}
-      {homeView && (
-        <CategoriesSection
-          availableDimensions={filters.dimensions}
-          onPick={(rims, label) => {
-            setRimSizes(rims);
-            setCategoryLabel(label);
-            if (typeof window !== "undefined") {
-              setTimeout(() => window.scrollTo({ top: 540, behavior: "smooth" }), 50);
-            }
-          }}
-        />
-      )}
+      {/* ═══ CATEGORÍAS ═══ — pills linking to /marketplace/categoria/<slug> */}
+      {homeView && <CategoriesSection />}
 
       {/* ═══ MARCAS MÁS VENDIDAS — solo marcas con tires en inventario ═══ */}
       {homeView && brandsMap.size > 0 && stockedBrandSlugs.size > 0 && (
@@ -725,8 +741,21 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
         <DealsStrip listings={[...featuredNuevas, ...featuredReencauche]} brandsMap={brandsMap} />
       )}
 
-      {/* ═══ CÓMO FUNCIONA ═══ */}
-      {homeView && <HowItWorks />}
+      {/* ═══ POR CATEGORÍA — bestsellers per vehicle class ═══
+            One scroller per FEATURED_CATEGORY_SLUGS entry that has at
+            least 4 matching listings. Lets buyers browse the home view
+            the same way the categoria/[slug] pages let them browse
+            from the SEO entry points. */}
+      {homeView && featuredByCategory.map((cat) => (
+        <BestSellersScroller
+          key={cat.slug}
+          listings={cat.listings}
+          brandsMap={brandsMap}
+          title={cat.name}
+          subtitle="Stock de distribuidores verificados, listo para envío"
+          viewAllHref={`/marketplace/categoria/${cat.slug}`}
+        />
+      ))}
 
       {/* ═══ RECENT PURCHASES (personalized) ═══ */}
       {recentOrders.length > 0 && !search && !activeFilters && (
@@ -1726,11 +1755,15 @@ function MarketplaceHero({
             )}
           </form>
 
-          {/* Inline trust pills — visible on first paint */}
-          <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-white/75">
-            <li className="inline-flex items-center gap-1"><Shield className="w-3 h-3 text-[#62b8f0]" /> Distribuidores verificados</li>
-            <li className="inline-flex items-center gap-1"><Truck className="w-3 h-3 text-[#62b8f0]" /> Envío nacional</li>
-            <li className="inline-flex items-center gap-1"><CreditCard className="w-3 h-3 text-[#62b8f0]" /> Pago seguro</li>
+          {/* Inline trust pills — sized up so they're a real part of the
+              hero rather than a fine-print footer. The standalone
+              TrustBand section below the hero used to repeat this same
+              copy verbatim; we removed it once the in-hero version got
+              loud enough to do the job alone. */}
+          <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm sm:text-base font-semibold text-white/90 mt-1">
+            <li className="inline-flex items-center gap-2"><Shield className="w-5 h-5 text-[#62b8f0]" /> Distribuidores verificados</li>
+            <li className="inline-flex items-center gap-2"><Truck className="w-5 h-5 text-[#62b8f0]" /> Envío nacional</li>
+            <li className="inline-flex items-center gap-2"><CreditCard className="w-5 h-5 text-[#62b8f0]" /> Pago seguro</li>
           </ul>
         </div>
       </section>
@@ -1791,118 +1824,46 @@ const CATEGORIES: Array<{
   },
 ];
 
-function CategoriesSection({
-  onPick,
-  availableDimensions,
-}: {
-  onPick: (rims: string[], label: string) => void;
-  availableDimensions: string[];
-}) {
+// CategoriesSection — quick-jump pills for every category landing
+// page we maintain (/marketplace/categoria/<slug>). The previous
+// version of this component rendered three large image cards keyed
+// off of the buyer-side rim filter, but it depended on the
+// availableDimensions filter resolving to a non-empty match: when
+// that filter was empty (or didn't intersect the hardcoded rim
+// buckets) the whole section silently rendered nothing. The denser
+// pill layout below shows ALL categories unconditionally and links
+// each one to its canonical SEO landing page so the buyer can
+// browse the same way they would from the top of the site.
+function CategoriesSection() {
   return (
     <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-7 sm:pt-8">
       <div className="flex items-end justify-between mb-3">
         <h2 className="text-base sm:text-xl font-black text-[#0A183A]">Categorías</h2>
-        <p className="text-xs text-gray-500 hidden sm:block">Encuentra llantas según tu tipo de vehículo</p>
+        <p className="text-xs text-gray-500 hidden sm:block">Salta directo a la sección que te interesa</p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
-        {CATEGORIES.map((c) => {
-          const Icon = c.icon;
-          // Only show categories that have at least one matching dimension
-          // in the available catalog — otherwise the click leads to "Sin
-          // resultados".
-          const hasMatch = availableDimensions.some((d) =>
-            c.rims.some((r) => new RegExp(`\\bR${r.replace(".", "\\.")}\\b`, "i").test(d))
-          );
-          if (!hasMatch && availableDimensions.length > 0) return null;
-          return (
-            <button
-              key={c.key}
-              onClick={() => onPick(c.rims, c.label)}
-              className="group relative rounded-2xl overflow-hidden text-left transition-all hover:-translate-y-1 hover:shadow-2xl h-32 sm:h-40"
-              style={{ background: c.gradient }}
+      <ul
+        className="flex flex-wrap gap-2 sm:gap-2.5"
+        aria-label="Categorías de llantas"
+      >
+        {SEO_CATEGORIES.map((c) => (
+          <li key={c.slug}>
+            <Link
+              href={`/marketplace/categoria/${c.slug}`}
+              className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full bg-white border border-gray-200 hover:border-[#1E76B6]/40 hover:bg-[#f0f7ff] transition-all text-[12px] sm:text-sm font-bold text-[#0A183A]"
+              style={{ boxShadow: "0 2px 8px -4px rgba(10,24,58,0.08)" }}
             >
-              {c.bg && (
-                <img
-                  src={c.bg.src1x}
-                  srcSet={`${c.bg.src1x} 1x, ${c.bg.src2x} 2x`}
-                  alt=""
-                  aria-hidden
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-              )}
-              {c.bg && (
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, rgba(10,24,58,0.75) 0%, rgba(23,61,104,0.55) 55%, rgba(30,118,182,0.35) 100%)",
-                  }}
-                />
-              )}
-              {!c.bg && (
-                <div className="absolute -right-6 -bottom-6 opacity-15 group-hover:opacity-25 transition-opacity">
-                  <Icon className="w-44 h-44 text-white" />
-                </div>
-              )}
-              <div className="relative h-full flex flex-col justify-between p-3 sm:p-5">
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-sm border border-white/25 flex items-center justify-center">
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-[9px] sm:text-[10px] font-bold text-white/70 uppercase tracking-widest hidden sm:block">Categoría</p>
-                  <h3 className="text-sm sm:text-xl font-black text-white leading-tight drop-shadow">{c.label}</h3>
-                  <p className="text-[10px] sm:text-[11px] text-white/80 mt-0.5 hidden xs:block">{c.sub}</p>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              {c.name}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 // =============================================================================
-// Trust band — 4 micro-cards establishing credibility right after the hero.
-// Conversion role: addresses the "is this real?" concern in <2 seconds before
-// the user has to think about it. Mobile collapses to a 2x2 grid.
+// (Trust band removed — trust copy lives inside the hero now, sized up.)
 // =============================================================================
-
-const TRUST_ITEMS: Array<{ icon: React.ComponentType<{ className?: string }>; title: string; sub: string }> = [
-  { icon: Shield,     title: "Distribuidores verificados", sub: "Cada vendedor pasa nuestro filtro de calidad." },
-  { icon: Truck,      title: "Envío a toda Colombia",      sub: "Bogotá, Medellín, Cali, Barranquilla y más." },
-  { icon: CreditCard, title: "Pago 100% seguro",            sub: "Tarjeta, PSE, Nequi. Compra protegida." },
-];
-
-function TrustBand() {
-  return (
-    <section
-      aria-labelledby="trust-band-heading"
-      className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-6 sm:pt-8"
-    >
-      <h2 id="trust-band-heading" className="sr-only">Por qué comprar llantas en TirePro</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-        {TRUST_ITEMS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <div key={t.title}
-              className="flex items-start gap-3 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100"
-              style={{ boxShadow: "0 4px 14px -8px rgba(10,24,58,0.12)" }}>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "linear-gradient(135deg,rgba(30,118,182,0.10),rgba(52,140,203,0.05))", border: "1px solid rgba(30,118,182,0.15)" }}>
-                <Icon className="w-4 h-4 text-[#1E76B6]" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[12px] sm:text-sm font-black text-[#0A183A] leading-tight">{t.title}</p>
-                <p className="text-[10px] sm:text-[11px] text-gray-500 leading-snug mt-0.5 hidden sm:block">{t.sub}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
 
 // =============================================================================
 // Top-brands strip — visual entry points to the highest-intent brand pages.
@@ -2217,7 +2178,7 @@ function SeoLinkBlock({ brandsMap }: { brandsMap: BrandsMap }) {
 // Llantas más vendidas — horizontal scroller
 // =============================================================================
 
-function BestSellersScroller({ listings, brandsMap, title, subtitle }: { listings: Listing[]; brandsMap?: BrandsMap; title?: string; subtitle?: string }) {
+function BestSellersScroller({ listings, brandsMap, title, subtitle, viewAllHref }: { listings: Listing[]; brandsMap?: BrandsMap; title?: string; subtitle?: string; viewAllHref?: string }) {
   const ref = React.useRef<HTMLDivElement | null>(null);
   function scroll(dir: 1 | -1) {
     const el = ref.current;
@@ -2226,20 +2187,29 @@ function BestSellersScroller({ listings, brandsMap, title, subtitle }: { listing
   }
   return (
     <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-10">
-      <div className="flex items-end justify-between mb-3">
-        <div>
-          <h2 className="text-base sm:text-xl font-black text-[#0A183A]">{title ?? "Llantas más vendidas"}</h2>
+      <div className="flex items-end justify-between mb-3 gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base sm:text-xl font-black text-[#0A183A] truncate">{title ?? "Llantas más vendidas"}</h2>
           <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">{subtitle ?? "Las favoritas de las flotas en Colombia"}</p>
         </div>
-        <div className="hidden sm:flex gap-1.5">
-          <button onClick={() => scroll(-1)} aria-label="Anterior"
-            className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 hover:shadow-md transition-all">
-            <ChevronLeft className="w-4 h-4 text-[#0A183A]" />
-          </button>
-          <button onClick={() => scroll(1)} aria-label="Siguiente"
-            className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 hover:shadow-md transition-all">
-            <ChevronRight className="w-4 h-4 text-[#0A183A]" />
-          </button>
+        <div className="flex items-center gap-2">
+          {viewAllHref && (
+            <Link href={viewAllHref}
+              className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-[#1E76B6] hover:text-[#0A183A] transition-colors whitespace-nowrap">
+              Ver todas
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
+          <div className="hidden sm:flex gap-1.5">
+            <button onClick={() => scroll(-1)} aria-label="Anterior"
+              className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 hover:shadow-md transition-all">
+              <ChevronLeft className="w-4 h-4 text-[#0A183A]" />
+            </button>
+            <button onClick={() => scroll(1)} aria-label="Siguiente"
+              className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 hover:shadow-md transition-all">
+              <ChevronRight className="w-4 h-4 text-[#0A183A]" />
+            </button>
+          </div>
         </div>
       </div>
       <div
