@@ -266,10 +266,9 @@ const EventosPage: React.FC = () => {
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                style={{ textTransform: "uppercase" }}
                 placeholder="Ej. abc-123"
                 className={`${inputCls} pl-10`}
-                style={inputStyle}
+                style={{ ...inputStyle, textTransform: "uppercase" }}
               />
             </div>
             <button

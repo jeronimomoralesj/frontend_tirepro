@@ -219,6 +219,14 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // companyId of the currently selected client. Derived at component
+  // level so JSX (RecentBulkUploads) can reference it. handleSubmit
+  // re-derives the same value below to keep the upload payload in
+  // sync regardless of when the dropdown changes.
+  const currentCompanyId = selectedCompany !== "Todos"
+    ? companies.find(c => c.name === selectedCompany)?.id ?? null
+    : null;
+
   // Close dropdown on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -711,9 +719,9 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
         </form>
 
         {/* -- Cargas recientes (server-backed, scoped to selected client) -- */}
-        {companyId && (
+        {currentCompanyId && (
           <RecentBulkUploads
-            companyId={companyId}
+            companyId={currentCompanyId}
             refreshKey={recentsVersion}
             onChanged={() => setRecentsVersion((v) => v + 1)}
           />
