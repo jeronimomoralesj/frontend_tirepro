@@ -5,6 +5,9 @@ import { CITIES } from './marketplace/ciudad/_lib/cities'
 import { CATEGORIES } from './marketplace/categoria/_lib/categories'
 import { VEHICLES } from './marketplace/vehiculo/_lib/vehicles'
 import { GLOSSARY_TERMS } from './glosario/_lib/terms'
+import { BRAND_PAIRS, pairSlug } from './marketplace/comparar/_lib/brand-pairs'
+import { GUIDES } from './guias/_lib/guides'
+import { CITY_BRAND_PAIRS } from './marketplace/ciudad/_lib/city-brand-pairs'
 import { productHref } from './marketplace/product/_lib/url'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -93,6 +96,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.65,
   }))
 
+  // -- Buying guides -----------------------------------------------------------
+  // /guias/<slug> long-form articles. Article + HowTo + FAQPage schema.
+  const guiasIndex: MetadataRoute.Sitemap = [
+    { url: `${BASE_URL}/guias`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+  ]
+  const guiasPages: MetadataRoute.Sitemap = GUIDES.map((g) => ({
+    url: `${BASE_URL}/guias/${g.slug}`,
+    lastModified: new Date(g.updatedDate),
+    changeFrequency: 'monthly' as const,
+    priority: 0.75,
+  }))
+
+  // -- Brand-vs-brand comparisons ----------------------------------------------
+  // /marketplace/comparar/<a>-vs-<b> for each curated pair. Targets high-
+  // commercial-intent comparison queries with very low competition in es-CO.
+  const compararIndex: MetadataRoute.Sitemap = [
+    { url: `${BASE_URL}/marketplace/comparar`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+  ]
+  const compararPages: MetadataRoute.Sitemap = BRAND_PAIRS.map((p) => ({
+    url: `${BASE_URL}/marketplace/comparar/${pairSlug(p)}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.75,
+  }))
+
   // -- Blog entries ------------------------------------------------------------
   // Include the cover image so Google Image search treats blog illustrations
   // as canonical and indexes them attached to the article URL (vs. floating
@@ -171,6 +199,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.9,
+  }))
+
+  // -- City × Brand combo pages ------------------------------------------------
+  // /marketplace/ciudad/[city]/[brand] for the top city × brand
+  // combinations. Stacks local + branded intent ("Michelin Bogotá",
+  // "comprar Bridgestone Medellín") which compounds with both the
+  // city pages and the brand pages.
+  const cityBrandPages: MetadataRoute.Sitemap = CITY_BRAND_PAIRS.map((p) => ({
+    url: `${BASE_URL}/marketplace/ciudad/${p.citySlug}/${p.brandSlug}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily' as const,
+    priority: 0.85,
   }))
 
   // -- Fetch brands --------------------------------------------------------
@@ -259,11 +299,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     ...staticPages,
     ...glosarioPages,
+    ...guiasIndex,
+    ...guiasPages,
+    ...compararIndex,
+    ...compararPages,
     ...marketplaceStatic,
     ...dimensionPages,
     ...vehiclePages,
     ...categoryPages,
     ...cityPages,
+    ...cityBrandPages,
     ...searchPages,
     ...brandEntries,
     ...distributorEntries,
