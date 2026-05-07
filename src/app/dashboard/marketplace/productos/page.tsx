@@ -15,6 +15,7 @@ import {
   MapPin, Store as StoreIcon, RefreshCw, Link2,
 } from "lucide-react";
 import { productHref } from "../../../marketplace/product/_lib/url";
+import { PickupLocationsEditor } from "../../../../components/marketplace/PickupLocationsEditor";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -1402,6 +1403,16 @@ function EditListingModal({
               the price + per-store stock daily so buyers can choose
               to pick up at one of those locations. */}
           <RetailSourceSection listingId={listing.id} />
+
+          {/* Manual pickup locations — the dist's own bodegas, edited
+              by hand. Only surfaces when the listing offers pickup
+              (deliveryMode = pickup or both). When a retail source is
+              also connected, both lists are merged for the buyer; when
+              no retail source is connected, this is the only place
+              the buyer can pick up. */}
+          {(form.deliveryMode === "pickup" || form.deliveryMode === "both") && (
+            <PickupLocationsEditor listingId={listing.id} />
+          )}
 
           {error && (
             <p className="text-xs text-red-600 font-medium">{error}</p>
