@@ -17,6 +17,7 @@
 // =============================================================================
 
 import React from "react";
+import Link from "next/link";
 import Script from "next/script";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -272,33 +273,111 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
       <Script id="city-faq-jsonld" type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
 
-      {/* Server-rendered FAQ copy — matches the FAQPage JSON-LD verbatim
-          so Google validates the structured data. Hidden visually
-          (collapsed details) but fully indexable. Lives ABOVE the
-          marketplace so crawlers hit the city-specific copy on the first
-          screen of HTML, before the heavy MarketplaceClient bundle. */}
-      <noscript>
-        <h1>Llantas en {c.name}, {c.department}</h1>
-        <p>{distributors.length > 0 ? `${distributors.length} distribuidor${distributors.length === 1 ? "" : "es"} verificado${distributors.length === 1 ? "" : "s"} con envío a ${c.name}.` : ""} {total} producto{total === 1 ? "" : "s"} disponible{total === 1 ? "" : "s"}{lowPrice ? ` desde ${fmtCOP(lowPrice)}` : ""}.</p>
-      </noscript>
-      <div className="sr-only">
-        <h1>Llantas en {c.name}, {c.department} — Comprar online en TirePro Marketplace</h1>
-        <p>
-          Comprar llantas en {c.name}: {total} producto{total === 1 ? "" : "s"} de {distributors.length} distribuidor{distributors.length === 1 ? "" : "es"} verificado{distributors.length === 1 ? "" : "s"}
-          {lowPrice ? `, desde ${fmtCOP(lowPrice)}` : ""}. Llantas para tractomula, camión, bus, camioneta y auto, marcas Michelin, Bridgestone, Continental, Goodyear, Pirelli, Hankook y más, con envío a {c.name}, {c.department}.
-        </p>
-        {faqs.map((f, i) => (
-          <div key={i}>
-            <h2>{f.q}</h2>
-            <p>{f.a}</p>
-          </div>
-        ))}
-      </div>
-
       {/* Full marketplace UX, city pre-applied. Brings its own MarketplaceNav,
-          city hero banner, search, filters, product grid, footer and
-          assistant. */}
+          city hero banner (with the page H1), search, filters, product grid,
+          footer and assistant. */}
       <MarketplaceClient initialCiudad={c.name} />
+
+      {/* Server-rendered, fully visible SEO section. Lives below the
+          marketplace grid so users land in the shopping flow first,
+          but renders in the initial HTML so crawlers index every
+          paragraph and FAQ entry. The FAQ uses native <details>
+          for an accordion that works without JS — Google still
+          parses the FAQPage JSON-LD above for rich results.
+          Heading hierarchy: marketplace banner owns the page H1
+          (rendered by MarketplaceClient), this section starts at H2. */}
+      <section
+        aria-labelledby="city-seo-heading"
+        style={{
+          background: "#F7F8FB",
+          borderTop: "1px solid rgba(10,24,58,0.06)",
+          padding: "48px 16px 64px",
+        }}
+      >
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+          <h2
+            id="city-seo-heading"
+            style={{ fontSize: 28, fontWeight: 800, color: "#0A183A", marginBottom: 12 }}
+          >
+            Comprar llantas en {c.name}, {c.department}
+          </h2>
+          <p style={{ color: "#334155", lineHeight: 1.6, marginBottom: 24 }}>
+            En TirePro Marketplace puedes comprar llantas en {c.name} de {distributors.length} distribuidor{distributors.length === 1 ? "" : "es"} verificado{distributors.length === 1 ? "" : "s"} con envío local
+            {lowPrice ? `, desde ${fmtCOP(lowPrice)}` : ""}. Hay {total} producto{total === 1 ? "" : "s"} disponible{total === 1 ? "" : "s"} para
+            tractomula, camión, bus, camioneta y auto, con marcas Michelin, Bridgestone, Continental, Goodyear, Pirelli, Hankook y más.
+            {c.blurb && ` ${c.blurb}.`}
+          </p>
+
+          {distributors.length > 0 && (
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0A183A", marginBottom: 12 }}>
+                Distribuidores verificados con cobertura en {c.name}
+              </h3>
+              <ul
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                  gap: 8,
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                }}
+              >
+                {distributors.slice(0, 12).map((d) => (
+                  <li key={d.id}>
+                    <Link
+                      href={`/marketplace/distributor/${d.slug ?? d.id}`}
+                      style={{
+                        display: "block",
+                        padding: "10px 14px",
+                        background: "#fff",
+                        border: "1px solid rgba(10,24,58,0.10)",
+                        borderRadius: 10,
+                        color: "#0A183A",
+                        textDecoration: "none",
+                        fontWeight: 600,
+                        fontSize: 14,
+                      }}
+                    >
+                      {d.name}
+                      <span style={{ color: "#64748b", fontWeight: 400, marginLeft: 6 }}>
+                        · {d.count} producto{d.count === 1 ? "" : "s"}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0A183A", marginBottom: 12 }}>
+              Preguntas frecuentes sobre llantas en {c.name}
+            </h3>
+            {faqs.map((f, i) => (
+              <details
+                key={i}
+                style={{
+                  background: "#fff",
+                  border: "1px solid rgba(10,24,58,0.10)",
+                  borderRadius: 10,
+                  padding: "12px 16px",
+                  marginBottom: 8,
+                }}
+              >
+                <summary
+                  style={{ cursor: "pointer", fontWeight: 600, color: "#0A183A", fontSize: 15 }}
+                >
+                  {f.q}
+                </summary>
+                <p style={{ color: "#334155", lineHeight: 1.6, marginTop: 10, marginBottom: 0 }}>
+                  {f.a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
     </>
   );
 }

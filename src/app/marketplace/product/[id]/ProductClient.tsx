@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
   Mail, Globe, Star, Clock, CheckCircle, Shield, Recycle, ChevronLeft,
@@ -584,9 +585,9 @@ export default function ProductClient({
               <div className="flex gap-2.5 overflow-x-auto pb-1 justify-center">
                 {imgs.map((url, i) => (
                   <button key={i} onClick={() => setSelectedImg(i)}
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 transition-all"
+                    className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 transition-all"
                     style={{ background: "#f5f5f7", border: i === selectedImg ? `2px solid ${palette.primary}` : "2px solid transparent", opacity: i === selectedImg ? 1 : 0.5 }}>
-                    <img src={url} alt={`${product.marca} ${product.modelo} ${product.dimension} - imagen ${i + 1}`} className="w-full h-full object-contain p-1.5" />
+                    <Image src={url} alt={`${product.marca} ${product.modelo} ${product.dimension} - imagen ${i + 1}`} fill sizes="(max-width: 640px) 64px, 80px" style={{ objectFit: "contain", padding: "6px" }} />
                   </button>
                 ))}
               </div>
@@ -611,10 +612,10 @@ export default function ProductClient({
               >
                 {brandInfo?.logoUrl && (
                   <span
-                    className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white"
+                    className="relative w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white"
                     style={{ border: `1px solid color-mix(in srgb, ${palette.primary} 25%, white)` }}
                   >
-                    <img src={brandInfo.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+                    <Image src={brandInfo.logoUrl} alt="" fill sizes="16px" style={{ objectFit: "contain" }} />
                   </span>
                 )}
                 {product.marca}
@@ -1025,9 +1026,9 @@ export default function ProductClient({
             {/* Distributor info */}
             <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
               <Link href={`/marketplace/distributor/${product.distributor.slug ?? product.distributor.id}`} className="flex items-center gap-3 group">
-                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
+                <div className="relative w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
                   {product.distributor.profileImage && product.distributor.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png"
-                    ? <img src={product.distributor.profileImage} alt={`Logo de ${product.distributor.name} — distribuidor de llantas`} className="max-w-full max-h-full object-contain" />
+                    ? <Image src={product.distributor.profileImage} alt={`Logo de ${product.distributor.name} — distribuidor de llantas`} fill sizes="48px" style={{ objectFit: "contain" }} />
                     : <Truck className="w-5 h-5 text-gray-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1802,11 +1803,11 @@ export default function ProductClient({
                     style={{ width: "min(70vw, 240px)" }}
                   >
                     <div
-                      className="aspect-square flex items-center justify-center overflow-hidden"
+                      className="relative aspect-square flex items-center justify-center overflow-hidden"
                       style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
                     >
                       {cover ? (
-                        <img src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension} — llanta en Colombia`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform" />
+                        <Image src={cover} alt={`${l.marca} ${l.modelo} ${l.dimension} — llanta en Colombia`} fill sizes="(max-width: 640px) 70vw, 240px" style={{ objectFit: "contain", padding: "1.25rem" }} className="group-hover:scale-105 transition-transform" />
                       ) : (
                         <Package className="w-10 h-10 text-gray-200" />
                       )}
@@ -1982,10 +1983,10 @@ export default function ProductClient({
                       -{pDiscount}%
                     </span>
                     <div
-                      className="aspect-square flex items-center justify-center overflow-hidden"
+                      className="relative aspect-square flex items-center justify-center overflow-hidden"
                       style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
                     >
-                      {pCover ? <img src={pCover} alt={`${l.marca} ${l.modelo} ${l.dimension}`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform" /> : <Package className="w-10 h-10 text-gray-200" />}
+                      {pCover ? <Image src={pCover} alt={`${l.marca} ${l.modelo} ${l.dimension}`} fill sizes="(max-width: 640px) 70vw, 240px" style={{ objectFit: "contain", padding: "1.25rem" }} className="group-hover:scale-105 transition-transform" /> : <Package className="w-10 h-10 text-gray-200" />}
                     </div>
                     <div className="p-4">
                       <p className="text-[10px] text-[#1E76B6] font-black uppercase tracking-widest">{l.marca}</p>

@@ -10,6 +10,7 @@
 // =============================================================================
 
 import React from "react";
+import Link from "next/link";
 import Script from "next/script";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -262,36 +263,10 @@ export default async function CategoryPage({ params }: { params: Promise<{ type:
       <Script id="cat-faq-jsonld" type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
 
-      {/* Server-rendered SEO copy — invisible to users, indexable by
-          crawlers. Matches the FAQPage JSON-LD verbatim so Google
-          validates the structured data. */}
-      <noscript>
-        <h1>Llantas {cat.h1Suffix} en Colombia</h1>
-        <p>{cat.blurb}{total > 0 && fromCop && ` ${total} producto${total === 1 ? "" : "s"} desde ${fromCop}.`}</p>
-      </noscript>
-      <div className="sr-only">
-        <h1>Llantas {cat.h1Suffix} en Colombia — Marketplace TirePro</h1>
-        <p>
-          {cat.blurb} {total > 0 && fromCop && (
-            <>Hay {total} producto{total === 1 ? "" : "s"} disponible{total === 1 ? "" : "s"} desde {fromCop} en TirePro Marketplace, de distribuidores verificados con envío a Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga, Pereira y todas las ciudades principales de Colombia.</>
-          )}
-          {stockedBrands.length > 0 && <> Marcas en stock: {stockedBrands.slice(0, 8).join(", ")}{stockedBrands.length > 8 ? " y más" : ""}.</>}
-          {cat.kind === "rim" && cat.commonDimensions && (
-            <> Dimensiones comunes: {cat.commonDimensions.slice(0, 6).join(", ")}.</>
-          )}
-        </p>
-        {faqs.map((f, i) => (
-          <div key={i}>
-            <h2>{f.q}</h2>
-            <p>{f.a}</p>
-          </div>
-        ))}
-      </div>
-
       {/* Full marketplace UX, category pre-applied as a hard filter via
           rimSizes (vehicle-class) or tipo (nueva / reencauche). Brings
-          its own MarketplaceNav, search, filters, product grid, footer
-          and assistant. */}
+          its own MarketplaceNav, category hero (page H1), search,
+          filters, product grid, footer and assistant. */}
       <MarketplaceClient
         initialCategory={{
           label: cat.name,
@@ -301,6 +276,142 @@ export default async function CategoryPage({ params }: { params: Promise<{ type:
           rimSizes: cat.kind === "rim" ? cat.rimSizes : undefined,
         }}
       />
+
+      {/* Server-rendered, fully visible SEO section. Lives below the
+          marketplace grid so users see products first, but renders in
+          the initial HTML so crawlers index every paragraph and FAQ.
+          The FAQ uses native <details> so the accordion works
+          without JS. The marketplace banner above owns the page H1;
+          this section starts at H2. */}
+      <section
+        aria-labelledby="cat-seo-heading"
+        style={{
+          background: "#F7F8FB",
+          borderTop: "1px solid rgba(10,24,58,0.06)",
+          padding: "48px 16px 64px",
+        }}
+      >
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+          <h2
+            id="cat-seo-heading"
+            style={{ fontSize: 28, fontWeight: 800, color: "#0A183A", marginBottom: 12 }}
+          >
+            Sobre las llantas {cat.h1Suffix} en Colombia
+          </h2>
+          <p style={{ color: "#334155", lineHeight: 1.6, marginBottom: 24 }}>
+            {cat.blurb}
+            {total > 0 && fromCop && (
+              <> Hay {total} producto{total === 1 ? "" : "s"} disponible{total === 1 ? "" : "s"} desde {fromCop} en TirePro Marketplace, de distribuidores verificados con envío a Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga, Pereira y todas las ciudades principales de Colombia.</>
+            )}
+          </p>
+
+          {stockedBrands.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0A183A", marginBottom: 12 }}>
+                Marcas disponibles para llantas {cat.h1Suffix}
+              </h3>
+              <ul
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                  gap: 8,
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                }}
+              >
+                {stockedBrands.slice(0, 12).map((brand) => (
+                  <li key={brand}>
+                    <Link
+                      href={`/marketplace/brand/${brand.toLowerCase().replace(/\s+/g, "-")}`}
+                      style={{
+                        display: "block",
+                        padding: "10px 14px",
+                        background: "#fff",
+                        border: "1px solid rgba(10,24,58,0.10)",
+                        borderRadius: 10,
+                        color: "#0A183A",
+                        textDecoration: "none",
+                        fontWeight: 600,
+                        fontSize: 14,
+                        textAlign: "center",
+                      }}
+                    >
+                      {brand}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {cat.kind === "rim" && cat.commonDimensions && cat.commonDimensions.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0A183A", marginBottom: 12 }}>
+                Dimensiones comunes para {cat.vehicles.join(", ")}
+              </h3>
+              <ul
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                }}
+              >
+                {cat.commonDimensions.slice(0, 10).map((d) => (
+                  <li key={d}>
+                    <Link
+                      href={`/marketplace/dimension/${d.toLowerCase().replace(/\//g, "-")}`}
+                      style={{
+                        display: "inline-block",
+                        padding: "8px 14px",
+                        background: "#fff",
+                        border: "1px solid rgba(10,24,58,0.10)",
+                        borderRadius: 999,
+                        color: "#0A183A",
+                        textDecoration: "none",
+                        fontWeight: 600,
+                        fontSize: 14,
+                      }}
+                    >
+                      {d}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0A183A", marginBottom: 12 }}>
+              Preguntas frecuentes
+            </h3>
+            {faqs.map((f, i) => (
+              <details
+                key={i}
+                style={{
+                  background: "#fff",
+                  border: "1px solid rgba(10,24,58,0.10)",
+                  borderRadius: 10,
+                  padding: "12px 16px",
+                  marginBottom: 8,
+                }}
+              >
+                <summary
+                  style={{ cursor: "pointer", fontWeight: 600, color: "#0A183A", fontSize: 15 }}
+                >
+                  {f.q}
+                </summary>
+                <p style={{ color: "#334155", lineHeight: 1.6, marginTop: 10, marginBottom: 0 }}>
+                  {f.a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
     </>
   );
 }

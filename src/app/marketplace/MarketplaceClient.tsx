@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Loader2, Package, Truck, X, Store, MapPin,
@@ -84,10 +85,10 @@ export function BrandLink({
     >
       {showLogo && meta?.logoUrl && (
         <span
-          className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center bg-white"
+          className="relative w-4 h-4 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center bg-white"
           style={{ border: "1px solid rgba(30,118,182,0.18)" }}
         >
-          <img src={meta.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+          <Image src={meta.logoUrl} alt="" fill sizes="16px" style={{ objectFit: "contain" }} />
         </span>
       )}
       <span className="truncate">{marca}</span>
@@ -711,8 +712,8 @@ function PublicMarketplace({ initialCiudad, initialCategory }: MarketplaceClient
                 <Link key={o.id} href={productHref({ id: o.listingId, ...o.listing })}
                   className="flex-shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white border border-gray-100 hover:shadow-md transition-all"
                   style={{ minWidth: 240 }}>
-                  <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {cover ? <img src={cover} alt={`${o.listing?.marca} ${o.listing?.modelo}`} className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-200" />}
+                  <div className="relative w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {cover ? <Image src={cover} alt={`${o.listing?.marca} ${o.listing?.modelo}`} fill sizes="48px" style={{ objectFit: "contain", padding: "4px" }} /> : <Package className="w-5 h-5 text-gray-200" />}
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-[#0A183A] truncate">{o.listing?.marca} {o.listing?.modelo}</p>
@@ -805,12 +806,11 @@ function PublicMarketplace({ initialCiudad, initialCategory }: MarketplaceClient
                         className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white border border-gray-200 hover:border-[#1E76B6] hover:shadow-md transition-all flex-shrink-0 group min-w-[160px]"
                       >
                         <span
-                          className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-sm font-black"
+                          className="relative w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-sm font-black"
                           style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
                         >
                           {b.logoUrl ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={b.logoUrl} alt="" className="max-w-full max-h-full object-contain p-0.5 bg-white" />
+                            <Image src={b.logoUrl} alt="" fill sizes="36px" style={{ objectFit: "contain", padding: "2px", background: "white" }} />
                           ) : (
                             b.name.charAt(0).toUpperCase()
                           )}
@@ -1278,8 +1278,8 @@ function TireAssistant({ onSearch }: { onSearch: (q: string) => void }) {
               return (
                 <a key={l.id} href={productHref(l)}
                   className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-gray-100 hover:border-[#1E76B6]/30 hover:shadow-sm transition-all">
-                  <div className="w-12 h-12 rounded-lg bg-gray-50 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                    {cover ? <img src={cover} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-1" /> : <Package className="w-5 h-5 text-gray-200" />}
+                  <div className="relative w-12 h-12 rounded-lg bg-gray-50 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                    {cover ? <Image src={cover} alt={`${l.marca} ${l.modelo}`} fill sizes="48px" style={{ objectFit: "contain", padding: "4px" }} /> : <Package className="w-5 h-5 text-gray-200" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-gray-400 uppercase">{l.marca}</p>
@@ -2381,10 +2381,9 @@ function BrandsStrip({ brandsMap, stockedSlugs }: { brandsMap: BrandsMap; stocke
         {items.map((b) => (
           <Link key={b.slug} href={`/marketplace/brand/${b.slug}`}
             className="group flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-2xl bg-white border border-gray-100 hover:border-[#1E76B6]/40 hover:shadow-md hover:-translate-y-0.5 transition-all">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-[#fafafa] flex items-center justify-center overflow-hidden p-1">
+            <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-[#fafafa] flex items-center justify-center overflow-hidden p-1">
               {b.logoUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={b.logoUrl} alt={`Llantas ${b.name} en Colombia`} className="max-w-full max-h-full object-contain" />
+                <Image src={b.logoUrl} alt={`Llantas ${b.name} en Colombia`} fill sizes="(max-width: 640px) 48px, 56px" style={{ objectFit: "contain" }} />
               ) : (
                 <span className="text-base font-black text-[#0A183A]">{b.name.charAt(0)}</span>
               )}
@@ -2430,7 +2429,7 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
         </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-        {deals.slice(0, 8).map((l) => {
+        {deals.slice(0, 8).map((l, i) => {
           const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
           const cover = imgs[l.coverIndex ?? 0] ?? imgs[0];
           const discount = Math.round(((l.precioCop - l.precioPromo!) / l.precioCop) * 100);
@@ -2440,10 +2439,13 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
               className="bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-[#1E76B6]/30 hover:shadow-lg hover:-translate-y-0.5 transition-all group block">
               <div className="relative aspect-square flex items-center justify-center overflow-hidden bg-[#fafafa]">
                 {cover ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={cover}
+                  <Image src={cover}
                     alt={`Llanta ${l.marca} ${l.modelo} ${l.dimension} con descuento — Comprar en Colombia`}
-                    className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300" />
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    priority={i < 4}
+                    style={{ objectFit: "contain", padding: "1rem" }}
+                    className="group-hover:scale-105 transition-transform duration-300" />
                 ) : (
                   <Package className="w-10 h-10 text-gray-200" />
                 )}
@@ -2453,8 +2455,7 @@ function DealsStrip({ listings, brandsMap }: { listings: Listing[]; brandsMap?: 
                 </span>
                 {meta?.logoUrl && (
                   <div className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white shadow-sm p-1 overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={meta.logoUrl} alt="" className="w-full h-full object-contain" />
+                    <Image src={meta.logoUrl} alt="" fill sizes="32px" style={{ objectFit: "contain" }} />
                   </div>
                 )}
               </div>
@@ -2699,7 +2700,7 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
       {/* Image */}
       <div className="relative aspect-square flex items-center justify-center overflow-hidden bg-[#fafafa]">
         {coverImg ? (
-          <img src={coverImg} alt={`Llanta ${l.marca} ${l.modelo} ${l.dimension}${l.tipo === "reencauche" ? " reencauche" : ""} — Comprar en Colombia`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform duration-300" />
+          <Image src={coverImg} alt={`Llanta ${l.marca} ${l.modelo} ${l.dimension}${l.tipo === "reencauche" ? " reencauche" : ""} — Comprar en Colombia`} fill sizes="(max-width: 640px) 60vw, 220px" style={{ objectFit: "contain", padding: "1.25rem" }} className="group-hover:scale-105 transition-transform duration-300" />
         ) : (
           <div className="flex flex-col items-center gap-1">
             <Package className="w-10 h-10 text-gray-200" />
@@ -2790,9 +2791,9 @@ function ProductCard({ l, brandsMap }: { l: Listing; brandsMap?: BrandsMap }) {
         {/* Distributor + delivery */}
         <div className="mt-3 pt-2.5 flex items-center justify-between" style={{ borderTop: "1px solid #f0f0f0" }}>
           <div className="flex items-center gap-1.5 min-w-0">
-            <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="relative w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
               {l.distributor.profileImage && l.distributor.profileImage !== "https://tireproimages.s3.us-east-1.amazonaws.com/companyResources/logoFull.png" ? (
-                <img src={l.distributor.profileImage} alt={`${l.distributor.name}`} className="w-full h-full object-contain" />
+                <Image src={l.distributor.profileImage} alt={`${l.distributor.name}`} fill sizes="20px" style={{ objectFit: "contain" }} />
               ) : (
                 <Store className="w-2.5 h-2.5 text-gray-400" />
               )}

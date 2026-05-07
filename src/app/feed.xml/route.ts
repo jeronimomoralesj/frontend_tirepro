@@ -54,10 +54,20 @@ function timingSafeEqual(a: string, b: string): boolean {
   return mismatch === 0;
 }
 
-function asPriceCop(n: unknown): string {
-  const num = Number(n);
+// Tire prices in our DB are NET (no IVA). Buyers pay subtotal × 1.19 at
+// checkout via Bold (cart enforces this — see PaymentsService IVA_RATE).
+// Merchant Center will disapprove the feed for "price mismatch" if the
+// number we show in Shopping doesn't match what the buyer is billed on
+// the destination page, so the feed must export the gross price too.
+const IVA_RATE = 0.19;
+
+function asPriceCop(netCop: unknown): string {
+  const num = Number(netCop);
   if (!Number.isFinite(num) || num <= 0) return "";
-  return `${num.toFixed(2)} COP`;
+  // Round to whole pesos — Google accepts decimals but Colombian
+  // checkouts never quote cents, so consistency wins.
+  const gross = Math.round(num * (1 + IVA_RATE));
+  return `${gross.toFixed(2)} COP`;
 }
 
 // Google Merchant taxonomy. Use the full text path instead of the numeric ID
@@ -151,7 +161,7 @@ ${salePrice && l.promoHasta ? `      <g:sale_price_effective_date>${new Date().t
       <g:condition>${condition}</g:condition>
       <g:google_product_category>${escapeXml(GOOGLE_PRODUCT_CATEGORY)}</g:google_product_category>
       <g:product_type>Tires &gt; ${escapeXml(l.tipo === "reencauche" ? "Retread" : "New")} &gt; ${escapeXml(l.dimension ?? "Sin dimensión")}</g:product_type>
-      <g:identifier_exists>no</g:identifier_exists>
+      <g:identifier_exists>false</g:identifier_exists>
       <g:mpn>${escapeXml(l.id)}</g:mpn>
       <g:item_group_id>${escapeXml(l.modelo ?? l.marca ?? l.id)}</g:item_group_id>
       <g:size>${escapeXml(l.dimension ?? "")}</g:size>
@@ -164,6 +174,15 @@ ${salePrice && l.promoHasta ? `      <g:sale_price_effective_date>${new Date().t
         <g:service>Estándar</g:service>
         <g:price>0 COP</g:price>
       </g:shipping>
+      <!-- IVA is already included in g:price above (Colombian VAT 19%).
+           Declaring tax explicitly keeps the Shopping price legend
+           consistent with the destination page so Merchant Center's
+           price-mismatch checker passes. -->
+      <g:tax>
+        <g:country>CO</g:country>
+        <g:rate>19.00</g:rate>
+        <g:tax_ship>no</g:tax_ship>
+      </g:tax>
     </item>`;
     })
     .join("\n");
