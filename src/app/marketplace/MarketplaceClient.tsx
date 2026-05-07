@@ -117,6 +117,14 @@ export interface MarketplaceClientProps {
     tipo?: 'nueva' | 'reencauche';
     rimSizes?: number[];
   };
+  /**
+   * Optional server-rendered SEO content (H2 + distributor/brand grid +
+   * FAQ) injected as a slot just above MarketplaceFooter. Lets
+   * city/category server pages own their canonical-URL copy without
+   * the section ending up below the footer (which is what happens
+   * when it's a sibling of <MarketplaceClient/>).
+   */
+  seoFooter?: React.ReactNode;
 }
 
 export default function PublicMarketplaceWrapper(props: MarketplaceClientProps) {
@@ -127,7 +135,7 @@ export default function PublicMarketplaceWrapper(props: MarketplaceClientProps) 
   );
 }
 
-function PublicMarketplace({ initialCiudad, initialCategory }: MarketplaceClientProps) {
+function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: MarketplaceClientProps) {
   const searchParams = useSearchParams();
   const router       = useRouter();
   const pathname     = usePathname();
@@ -935,6 +943,12 @@ function PublicMarketplace({ initialCiudad, initialCategory }: MarketplaceClient
       {!search && !activeFilters && brandsMap.size > 0 && (
         <SeoLinkBlock brandsMap={brandsMap} />
       )}
+
+      {/* Server-rendered city/category SEO copy slotted in by the parent
+          page. Lives between the catalog and the footer so it reads as
+          a natural article-style "about this page" section instead of
+          orphaned content below the footer. */}
+      {seoFooter}
 
       <MarketplaceFooter />
 
