@@ -459,28 +459,56 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
     : "Llantas más vendidas";
 
   // ─── Per-category featured scrollers ───────────────────────────────────
-  // Pick the rim-based categoria slugs that map to a meaningful chunk of
-  // the catalog (tractomula, camión, bus, camioneta, auto) and build a
-  // shuffled scroller per category. Each scroller is gated on having at
-  // least 4 matching listings in the current page so we never render a
-  // half-empty row. The list is intentionally smaller than the full
-  // SEO_CATEGORIES set — too many scrollers fatigues the home view.
+  // The home view's main `listings` query loads only the first 24 rows
+  // for the catalog grid, so slicing it locally for per-category
+  // scrollers leaves most categories with <4 matches and the row never
+  // renders. We fetch each category independently from the same backend
+  // listings endpoint with a `rimSizes` filter — the marketplace
+  // service caches these in Redis so the 5-fan-out is hot after the
+  // first home-page hit.
   const FEATURED_CATEGORY_SLUGS = ["tractomula", "camion", "bus", "camioneta", "auto"] as const;
-  const dimMatchesRims = (dim: string, rims: number[]) =>
-    rims.some((r) => new RegExp(`\\bR${r.toString().replace(".", "\\.")}\\b`, "i").test(dim));
+  const [categoryFeatured, setCategoryFeatured] = useState<Record<string, Listing[]>>({});
+
+  useEffect(() => {
+    // Only fetch on the home view (no active search / filter / Ver todos
+    // mode). Skipping the fetch when the page is in any active-filter
+    // state avoids hitting the backend with 5 unrelated queries the
+    // user can't see.
+    if (!homeView) return;
+    let cancelled = false;
+    (async () => {
+      const out: Record<string, Listing[]> = {};
+      await Promise.all(FEATURED_CATEGORY_SLUGS.map(async (slug) => {
+        const cat = SEO_CATEGORIES.find((c) => c.slug === slug);
+        if (!cat || cat.kind !== "rim" || !cat.rimSizes) return;
+        const params = new URLSearchParams({
+          rimSizes: cat.rimSizes.join(","),
+          limit:    "12",
+          sortBy:   "newest",
+        });
+        try {
+          const res = await fetch(`${API_BASE}/marketplace/listings?${params.toString()}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!cancelled) out[slug] = data.listings ?? [];
+        } catch { /* swallow — we just won't render that scroller */ }
+      }));
+      if (!cancelled) setCategoryFeatured(out);
+    })();
+    return () => { cancelled = true; };
+  }, [homeView]);
+
   const featuredByCategory = useMemo(() => {
     const out: Array<{ slug: string; name: string; listings: Listing[] }> = [];
     for (const slug of FEATURED_CATEGORY_SLUGS) {
       const cat = SEO_CATEGORIES.find((c) => c.slug === slug);
-      if (!cat || cat.kind !== "rim" || !cat.rimSizes) continue;
-      const rimSizes = cat.rimSizes;
-      const pool = listings.filter((l) => dimMatchesRims(l.dimension, rimSizes));
-      if (pool.length < 4) continue;
-      const shuffled = [...pool].sort(() => Math.random() - 0.5);
-      out.push({ slug, name: cat.name, listings: shuffled.slice(0, MIN_FEATURED) });
+      if (!cat) continue;
+      const rows = categoryFeatured[slug] ?? [];
+      if (rows.length < 4) continue;
+      out.push({ slug, name: cat.name, listings: rows });
     }
     return out;
-  }, [listings]);
+  }, [categoryFeatured]);
 
   // ─── Brands with actual inventory ──────────────────────────────────────
   // BrandsStrip should never link to an empty brand page. The authoritative
