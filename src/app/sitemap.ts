@@ -4,6 +4,7 @@ import { POPULAR_DIMENSIONS, toDimensionSlug } from './marketplace/dimension/_li
 import { CITIES } from './marketplace/ciudad/_lib/cities'
 import { CATEGORIES } from './marketplace/categoria/_lib/categories'
 import { VEHICLES } from './marketplace/vehiculo/_lib/vehicles'
+import { GLOSSARY_TERMS } from './glosario/_lib/terms'
 import { productHref } from './marketplace/product/_lib/url'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -78,7 +79,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/contact`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.6 },
     { url: `${BASE_URL}/legal`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
     { url: `${BASE_URL}/equipo`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE_URL}/glosario`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
   ]
+
+  // -- Glossary entries --------------------------------------------------------
+  // /glosario/<slug> for each tire-industry term — DefinedTerm + FAQPage
+  // schema. Targets very low-competition Spanish queries like "qué es
+  // cpk en llantas" and feeds AI overview citations.
+  const glosarioPages: MetadataRoute.Sitemap = GLOSSARY_TERMS.map((t) => ({
+    url: `${BASE_URL}/glosario/${t.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.65,
+  }))
 
   // -- Blog entries ------------------------------------------------------------
   // Include the cover image so Google Image search treats blog illustrations
@@ -245,6 +258,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     ...staticPages,
+    ...glosarioPages,
     ...marketplaceStatic,
     ...dimensionPages,
     ...vehiclePages,

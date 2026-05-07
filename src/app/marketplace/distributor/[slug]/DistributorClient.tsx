@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Search, Loader2, Package, Truck, ArrowLeft, ArrowUpRight, Phone, Mail,
   MapPin, Globe, ChevronLeft, ChevronRight, Sparkles,
@@ -307,10 +308,41 @@ export default function DistributorStorefront() {
       .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapReady, setMapReady] = useState(false);
+  // Gate the Leaflet script + tile load on the map div scrolling into
+  // view. The presence section sits far below the fold on most
+  // viewports, so eager loading shipped 140KB of leaflet.js + a stream
+  // of OSM tile requests for users who never scroll there. Once the
+  // observer fires we keep the flag latched — there's no benefit to
+  // unmounting Leaflet when the user scrolls back up.
+  const [mapVisible, setMapVisible] = useState(false);
+
+  useEffect(() => {
+    if (mapVisible || !mapRef.current || cobWithCoords.length === 0) return;
+    // Bail out gracefully if the browser doesn't have IntersectionObserver
+    // (very old Safari) — render the map immediately rather than never.
+    if (typeof IntersectionObserver === "undefined") {
+      setMapVisible(true);
+      return;
+    }
+    const el = mapRef.current;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setMapVisible(true);
+          io.disconnect();
+        }
+      },
+      // 200px rootMargin so the script kicks in just before the map
+      // scrolls into the viewport — no perceptible delay for users.
+      { rootMargin: "200px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [cobWithCoords.length, mapVisible]);
 
   // Render map for this distributor's locations
   useEffect(() => {
-    if (!profile || cobWithCoords.length === 0 || !mapRef.current || mapReady) return;
+    if (!profile || cobWithCoords.length === 0 || !mapRef.current || mapReady || !mapVisible) return;
     if (!document.getElementById("leaflet-css")) {
       const link = document.createElement("link"); link.id = "leaflet-css"; link.rel = "stylesheet";
       link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(link);
@@ -341,7 +373,7 @@ export default function DistributorStorefront() {
     };
     if (!(window as any).L) document.body.appendChild(script);
     else script.onload?.(new Event("load"));
-  }, [profile, cobWithCoords, brandColor, mapReady]);
+  }, [profile, cobWithCoords, brandColor, mapReady, mapVisible]);
 
   if (profileLoading) {
     return (
@@ -416,7 +448,7 @@ export default function DistributorStorefront() {
               <div className="inline-flex items-center gap-2.5 px-3 py-2 rounded-full bg-white"
                 style={{ boxShadow: "0 6px 14px -8px rgba(10,24,58,0.15)", border: `1px solid ${brandColor}22` }}
               >
-                <img src="/logo_full.png" alt="TirePro" className="h-4 sm:h-[18px] w-auto" />
+                <Image src="/logo_full.png" alt="TirePro" width={80} height={18} className="h-4 sm:h-[18px] w-auto" />
                 <span className="text-gray-300 text-xs font-light">×</span>
                 {profile?.profileImage && !profile.profileImage.includes("logoFull.png") ? (
                   <img
@@ -563,7 +595,7 @@ export default function DistributorStorefront() {
                   style={{ background: "rgba(255,255,255,0.92)", color: "#0A183A", boxShadow: "0 4px 10px rgba(10,24,58,0.15)" }}
                 >
                   <span className="opacity-70">en</span>
-                  <img src="/logo_full.png" alt="TirePro" className="h-3 w-auto" />
+                  <Image src="/logo_full.png" alt="TirePro" width={52} height={12} className="h-3 w-auto" />
                 </div>
               </div>
             </div>
@@ -1129,7 +1161,7 @@ export default function DistributorStorefront() {
                           style={{ background: "radial-gradient(circle at 30% 20%,#ffffff,#f0f7ff)" }}
                         >
                           {coverImg ? (
-                            <img src={coverImg} alt={`${l.marca} ${l.modelo}`} className="w-full h-full object-contain p-5 group-hover:scale-105 transition-transform duration-500" />
+                            <Image src={coverImg} alt={`${l.marca} ${l.modelo}`} fill sizes="(max-width: 640px) 100vw, 33vw" style={{ objectFit: "contain", padding: "1.25rem" }} className="group-hover:scale-105 transition-transform duration-500" />
                           ) : (
                             <Package className="w-10 h-10 text-gray-200" />
                           )}

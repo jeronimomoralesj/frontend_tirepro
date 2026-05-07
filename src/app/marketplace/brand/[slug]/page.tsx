@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Globe, Factory, Package, ArrowRight, Star, ShieldCheck, ShoppingCart, Truck, BookOpen, PlayCircle, Sparkles, ChevronRight } from "lucide-react";
@@ -41,6 +42,12 @@ interface BrandPageData {
     tipo: string; precioCop: number; precioPromo: number | null;
     promoHasta: string | null; imageUrls: string[] | null; coverIndex: number;
     distributor?: { id: string; name: string };
+    // Review aggregates per listing — backend returns these via the
+    // _count + reviews include in getBrandBySlug. Used to compute the
+    // brand-level AggregateRating shown both in JSON-LD and the
+    // visible reviews band on the page.
+    _count?: { reviews?: number; orders?: number };
+    reviews?: Array<{ rating: number }>;
   }>;
 }
 
@@ -267,6 +274,37 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
   const wikiSameAs = brand.website ? [brand.website] : [];
   if (brand.name) wikiSameAs.push(`https://es.wikipedia.org/wiki/${encodeURIComponent(brand.name)}`);
 
+  // ─── Aggregate rating across this brand's listings ────────────────────
+  // Backend's getBrandBySlug ships up to 10 ratings per listing plus a
+  // total review count. We sum the ratings we have and weight against
+  // the global review count so the average is over all reviews, not
+  // just the sampled 10 per listing. For 0-review brands we render
+  // neither the schema nor the visible band — Google flags
+  // AggregateRating without a real review count as "structured data
+  // mismatch" and demotes the page.
+  let ratingSum = 0;
+  let ratingSamples = 0;
+  let reviewCountTotal = 0;
+  for (const l of brand.listings) {
+    const samples = Array.isArray(l.reviews) ? l.reviews : [];
+    for (const r of samples) {
+      ratingSum += r.rating;
+      ratingSamples += 1;
+    }
+    reviewCountTotal += l._count?.reviews ?? 0;
+  }
+  const averageRating = ratingSamples > 0 ? ratingSum / ratingSamples : 0;
+  const hasAggregateRating = reviewCountTotal > 0 && averageRating > 0;
+  const aggregateRatingLd = hasAggregateRating
+    ? {
+        "@type": "AggregateRating",
+        ratingValue: averageRating.toFixed(1),
+        reviewCount: reviewCountTotal,
+        bestRating: "5",
+        worstRating: "1",
+      }
+    : null;
+
   const brandSchema = {
     "@context": "https://schema.org",
     "@type": "Brand",
@@ -286,6 +324,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
     ...(brand.parentCompany && {
       parentOrganization: { "@type": "Organization", name: brand.parentCompany },
     }),
+    ...(aggregateRatingLd && { aggregateRating: aggregateRatingLd }),
   };
 
   // CollectionPage with AggregateOffer — tells Google "this page lists N
@@ -321,6 +360,7 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
         name: `${l.marca} ${l.modelo} ${l.dimension}`,
       })),
     },
+    ...(aggregateRatingLd && { aggregateRating: aggregateRatingLd }),
   };
 
   const breadcrumbSchema = {
@@ -491,12 +531,11 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                   </span>
                 )}
                 <div
-                  className="w-36 h-36 sm:w-44 sm:h-44 rounded-[28px] bg-white flex items-center justify-center overflow-hidden p-5"
+                  className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-[28px] bg-white flex items-center justify-center overflow-hidden p-5"
                   style={{ boxShadow: `0 30px 70px -15px ${rgba(ACCENT, 0.7)}` }}
                 >
                   {brand.logoUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={brand.logoUrl} alt={`Logo ${brand.name} — Llantas en Colombia`} className="max-w-full max-h-full object-contain" />
+                    <Image src={brand.logoUrl} alt={`Logo ${brand.name} — Llantas en Colombia`} fill sizes="(max-width: 640px) 144px, 176px" style={{ objectFit: "contain", padding: "1.25rem" }} priority />
                   ) : (
                     <span className="text-6xl font-black text-[#0A183A]">{brand.name.charAt(0)}</span>
                   )}
@@ -866,6 +905,52 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                   {[p.city, p.country].filter(Boolean).join(", ")}
                 </span>
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* Visible reviews band — paired with the AggregateRating
+            schema above so Google's "rich result" parser can match
+            the on-page stars to the structured-data claim. Only
+            renders when there's at least one review across the
+            brand's catalog (Google flags AggregateRating without
+            on-page evidence). */}
+        {hasAggregateRating && (
+          <section
+            aria-label={`Calificación promedio para ${brand.name}`}
+            className="bg-white rounded-3xl p-6 sm:p-8"
+            style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+              <div className="flex-shrink-0">
+                <div className="text-5xl font-black" style={{ color: PRIMARY }}>
+                  {averageRating.toFixed(1)}
+                </div>
+                <div className="text-xs text-gray-500 font-medium mt-1">de 5</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1 mb-1.5" aria-hidden>
+                  {[1, 2, 3, 4, 5].map((n) => {
+                    const filled = n <= Math.round(averageRating);
+                    return (
+                      <Star
+                        key={n}
+                        className="w-5 h-5"
+                        style={{
+                          color: filled ? "#F59E0B" : "#E5E7EB",
+                          fill: filled ? "#F59E0B" : "transparent",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <p className="text-sm font-bold text-[#0A183A]">
+                  {reviewCountTotal.toLocaleString("es-CO")} reseña{reviewCountTotal === 1 ? "" : "s"} de compradores verificados
+                </p>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  Promedio calculado a partir de las reseñas de productos {brand.name} compradas en TirePro Marketplace.
+                </p>
+              </div>
             </div>
           </section>
         )}
