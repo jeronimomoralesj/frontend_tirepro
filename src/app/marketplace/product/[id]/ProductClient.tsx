@@ -531,7 +531,7 @@ export default function ProductClient({
   const palette = brandPalette(brandInfo);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-x-hidden">
       <MarketplaceNav />
 
       {/* HEADER — minimal nav strip with TirePro blue accents.
@@ -1830,7 +1830,7 @@ export default function ProductClient({
                 <h2 className="text-xl sm:text-2xl font-black text-[#0A183A]">Productos similares</h2>
               </div>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory -mx-3 px-3 sm:mx-0 sm:px-0">
               {similar.map((l: any) => {
                 const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
                 const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
@@ -2005,7 +2005,7 @@ export default function ProductClient({
                 <h2 className="text-xl sm:text-2xl font-black text-[#0A183A]">Más promociones de {product.distributor.name}</h2>
               </div>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory -mx-3 px-3 sm:mx-0 sm:px-0">
               {promoListings.map((l: any) => {
                 const pImgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
                 const pCover = pImgs.length > 0 ? pImgs[l.coverIndex ?? 0] ?? pImgs[0] : null;
@@ -2200,173 +2200,6 @@ export default function ProductClient({
       </main>
 
       <MarketplaceFooter />
-
-      {/* STICKY CTA — Amazon-style add-to-cart bar pinned to the bottom.
-          Designed to fit 360px screens AND look intentional on desktop.
-          The spacer reserves room so the page footer doesn't sit under
-          the bar; both spacer and bar respect the iPhone home-indicator
-          safe area. */}
-      <div
-        aria-hidden
-        style={{ height: "calc(6.5rem + env(safe-area-inset-bottom))" }}
-      />
-      <div
-        className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md"
-        style={{
-          borderTop: "1px solid rgba(10,24,58,0.08)",
-          boxShadow: "0 -10px 28px -14px rgba(10,24,58,0.22)",
-          paddingBottom: "env(safe-area-inset-bottom)",
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-3 sm:px-6">
-          {/* ───────────────────────────────────────────────────────────
-              MOBILE LAYOUT (< sm) — two clean rows.
-              Row A: price (with promo) + total (when qty > 1) on the right.
-              Row B: stepper + full-width "Agregar al carrito" button.
-              ─────────────────────────────────────────────────────────── */}
-          <div className="sm:hidden py-3">
-            <div className="flex items-baseline justify-between gap-2 mb-2.5">
-              <div className="flex items-baseline gap-2 min-w-0">
-                <span className="text-[20px] font-black text-[#0A183A] leading-none tabular-nums truncate">
-                  {fmtCOP(price)}
-                </span>
-                {hasPromo && (
-                  <span className="text-[12px] text-gray-400 line-through leading-none">
-                    {fmtCOP(product.precioCop)}
-                  </span>
-                )}
-                {hasPromo && (
-                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider leading-none">
-                    −{discount}%
-                  </span>
-                )}
-              </div>
-              {qty > 1 && (
-                <span className="text-[11px] font-bold text-gray-500 leading-none flex-shrink-0">
-                  Total <span className="text-[#0A183A] font-black tabular-nums">{fmtCOP(price * qty)}</span>
-                </span>
-              )}
-            </div>
-            <div className="flex items-stretch gap-2 h-14">
-              <Stepper
-                qty={qty}
-                setQty={setQty}
-                disponible={qtyMax}
-              />
-              <button
-                onClick={handleBuyNow}
-                disabled={!isBuyable}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98]"
-                style={{
-                  background: "linear-gradient(135deg,#0A183A,#1E76B6)",
-                  boxShadow: "0 10px 26px -6px rgba(30,118,182,0.55)",
-                }}
-              >
-                <Zap className="w-5 h-5 flex-shrink-0" fill="currentColor" />
-                <span className="truncate">
-                  {!isBuyable ? "Agotada" : "Comprar ya"}
-                </span>
-              </button>
-            </div>
-            {/* Always-visible secondary CTA — "Agregar al carrito"
-                lets the buyer queue items without leaving the page.
-                Compact third row on mobile under the stepper +
-                Comprar ya pair. */}
-            <button
-              type="button"
-              onClick={handleAddToCart}
-              disabled={!isBuyable}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 text-[12px] font-bold text-[#1E76B6] py-2 rounded-xl border-2 border-[#1E76B6]/15 hover:bg-[#f0f7ff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {justAdded ? (
-                <><Check className="w-3.5 h-3.5" /> Agregado al carrito</>
-              ) : (
-                <><ShoppingCart className="w-3.5 h-3.5" /> Agregar al carrito{cart.count > 0 ? ` · ${cart.count}` : ""}</>
-              )}
-            </button>
-          </div>
-
-          {/* ───────────────────────────────────────────────────────────
-              DESKTOP LAYOUT (sm+) — single row.
-              [thumb + identity] [price] [stepper] [agregar] [ver carrito]
-              ─────────────────────────────────────────────────────────── */}
-          <div className="hidden sm:flex items-center gap-4 py-3">
-            {/* Thumb + identity — left */}
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-12 h-12 rounded-xl bg-[#fafafa] flex-shrink-0 flex items-center justify-center overflow-hidden">
-                {imgs.length > 0 ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={imgs[product.coverIndex ?? 0] ?? imgs[0]}
-                    alt={`${product.marca} ${product.modelo}`}
-                    className="max-w-full max-h-full object-contain p-1"
-                  />
-                ) : (
-                  <Package className="w-5 h-5 text-gray-300" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">
-                  {product.marca}
-                </p>
-                <p className="text-[13px] font-black text-[#0A183A] leading-tight truncate max-w-[200px]">
-                  {product.modelo}
-                </p>
-                <p className="text-[10px] text-gray-400 leading-none">{product.dimension}</p>
-              </div>
-            </div>
-
-            {/* Price block — middle, push everything else right */}
-            <div className="ml-auto text-right">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">
-                {hasPromo ? `−${discount}% · Promoción` : qty > 1 ? `Total · ${qty} unid.` : "Precio"}
-              </p>
-              <p className="text-[18px] font-black text-[#0A183A] leading-tight tabular-nums">
-                {fmtCOP(qty > 1 ? price * qty : price)}
-              </p>
-              {hasPromo && (
-                <p className="text-[10px] text-gray-400 line-through leading-none tabular-nums">
-                  {fmtCOP(product.precioCop * (qty > 1 ? qty : 1))}
-                </p>
-              )}
-            </div>
-
-            <Stepper
-              qty={qty}
-              setQty={setQty}
-              disponible={qtyMax}
-            />
-
-            <button
-              onClick={handleBuyNow}
-              disabled={!isBuyable}
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98] flex-shrink-0"
-              style={{
-                background: "linear-gradient(135deg,#0A183A,#1E76B6)",
-                boxShadow: "0 10px 26px -6px rgba(30,118,182,0.5)",
-              }}
-            >
-              <Zap className="w-5 h-5" fill="currentColor" />
-              {!isBuyable ? "Agotada" : "Comprar ya"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleAddToCart}
-              disabled={!isBuyable}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-[#1E76B6] hover:bg-[#f0f7ff] transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ border: "1px solid rgba(30,118,182,0.20)" }}
-            >
-              {justAdded ? (
-                <><Check className="w-3.5 h-3.5" /> Agregado</>
-              ) : (
-                <><ShoppingCart className="w-3.5 h-3.5" /> Agregar{cart.count > 0 ? ` (${cart.count})` : ""}</>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }
