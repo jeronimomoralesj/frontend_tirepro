@@ -19,6 +19,7 @@ import { MayWeekBanner, MayWeekStars, useMayWeek } from "../../components/market
 import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession } from "../../lib/marketplaceAnalytics";
 import { productHref } from "./product/_lib/url";
 import { CATEGORIES as SEO_CATEGORIES } from "./categoria/_lib/categories";
+import { searchVehicles, VEHICLE_TYPE_TO_CLASE } from "./_islands/vehicle-db";
 
 // TireAssistant lives in a lazy island so its ~14 KB of vehicle-DB +
 // chat state stays out of the initial /marketplace bundle. Until the
@@ -1664,43 +1665,52 @@ function MarketplaceHero({
   const [placaError, setPlacaError] = useState<string | null>(null);
   const [placaUnknown, setPlacaUnknown] = useState<string | null>(null);
   const [communitySaving, setCommunitySaving] = useState(false);
+  // Vehicle-name typeahead for the unknown-plate flow. The buyer
+  // types "Hilux" / "Picanto" / "Logan" → matches against our
+  // 100+ Colombian VEHICLE_DB → resolves to the EXACT manufacturer
+  // dimensions (not generic "camioneta" sizes).
+  const [vehicleQuery, setVehicleQuery] = useState("");
+  const vehicleMatches = useMemo(() => searchVehicles(vehicleQuery, 6), [vehicleQuery]);
   const mayWeek = useMayWeek();
 
-  // Vehicle class options for the community fallback. Each maps to
-  // the `clase` value our backend's TIRE_MAP keys against.
-  const VEHICLE_CLASS_OPTIONS: Array<{ key: string; label: string; sub: string }> = [
-    { key: "AUTOMOVIL",  label: "Auto",       sub: "Sedan, hatchback" },
-    { key: "CAMIONETA",  label: "Camioneta",  sub: "Pickup, doble cabina" },
-    { key: "CAMPERO",    label: "SUV / 4x4",  sub: "Campero, utilitario" },
-    { key: "FURGON",     label: "Furgón",     sub: "Carga liviana" },
-    { key: "CAMION",     label: "Camión",     sub: "Mediano y pesado" },
-    { key: "TRACTOMULA", label: "Tractomula", sub: "Larga distancia" },
-    { key: "VOLQUETA",   label: "Volqueta",   sub: "Construcción" },
-    { key: "BUS",        label: "Bus",        sub: "Urbano e intermunicipal" },
-    { key: "MOTOCICLETA", label: "Moto",      sub: "Motocicleta" },
-  ];
-
-  async function handleCommunityClass(clase: string) {
+  async function handleCommunityVehicle(match: { key: string; label: string; type: string; dims: string[] }) {
     if (!placaUnknown || communitySaving) return;
     setCommunitySaving(true);
     try {
+      // Backend infers dimensions from `clase` via TIRE_MAP, but the
+      // VEHICLE_DB on the client has more precise per-model sizes.
+      // Send both: clase for the DB constraint, marca/linea/dimensions
+      // for the cache so the next buyer with the same plate gets the
+      // exact same vehicle resolution we just showed this buyer.
+      const [marca, ...rest] = match.key.split(" ");
+      const linea = rest.join(" ");
+      const clase = VEHICLE_TYPE_TO_CLASE[match.type] ?? "AUTOMOVIL";
       const res = await fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placaUnknown)}/community`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clase }),
+        body: JSON.stringify({
+          clase,
+          marca: marca.toUpperCase(),
+          linea: linea.toUpperCase(),
+          dimensions: match.dims,
+        }),
       });
       if (!res.ok) {
         setPlacaError("No pudimos guardar tu selección. Busca por medida o intenta de nuevo.");
         return;
       }
-      const data = await res.json();
+      // Always fall back to the client-side dims if the backend
+      // strips them — guarantees the buyer sees a real result panel.
+      const dims = match.dims;
       setPlacaUnknown(null);
+      setVehicleQuery("");
       setPlacaResult({
         found: true,
-        clase: data.clase ?? clase,
-        dimensions: data.dimensions ?? [],
+        marca: marca.charAt(0).toUpperCase() + marca.slice(1),
+        linea: linea.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        clase,
+        dimensions: dims,
       });
-      const dims: string[] = data.dimensions ?? [];
       if (dims.length === 1) {
         onSearchDimension(dims[0]);
         if (typeof window !== "undefined") window.scrollTo({ top: 540, behavior: "smooth" });
@@ -1912,22 +1922,41 @@ function MarketplaceHero({
               <div className="mt-2.5 p-3 rounded-xl bg-white/10 border border-white/15">
                 <p className="text-[12px] text-white/90 font-bold mb-2">
                   No tenemos {placaUnknown} en nuestra base.{" "}
-                  <span className="font-normal text-white/75">¿Qué tipo de vehículo es?</span>
+                  <span className="font-normal text-white/75">¿Cuál es tu vehículo?</span>
                 </p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {VEHICLE_CLASS_OPTIONS.map((o) => (
-                    <button
-                      key={o.key}
-                      type="button"
-                      onClick={() => handleCommunityClass(o.key)}
-                      disabled={communitySaving}
-                      className="text-left px-2.5 py-2 rounded-lg bg-white hover:bg-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      <div className="text-[12px] font-bold text-[#0A183A]">{o.label}</div>
-                      <div className="text-[10px] text-gray-500 truncate">{o.sub}</div>
-                    </button>
-                  ))}
-                </div>
+                <input
+                  type="text"
+                  value={vehicleQuery}
+                  onChange={(e) => setVehicleQuery(e.target.value)}
+                  placeholder="Ej. Toyota Hilux, Kia Picanto, Renault Logan…"
+                  autoFocus
+                  className="w-full px-3 py-2.5 rounded-lg text-sm font-medium bg-white text-[#0A183A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/40"
+                />
+                {vehicleQuery.length >= 2 && vehicleMatches.length > 0 && (
+                  <ul className="mt-2 grid gap-1.5" aria-label="Sugerencias de vehículo">
+                    {vehicleMatches.map((m) => (
+                      <li key={m.key}>
+                        <button
+                          type="button"
+                          onClick={() => handleCommunityVehicle(m)}
+                          disabled={communitySaving}
+                          className="w-full text-left px-3 py-2 rounded-lg bg-white hover:bg-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-bold text-[#0A183A] truncate">{m.label}</div>
+                            <div className="text-[10px] text-gray-500 truncate">{m.type} · {m.dims.slice(0, 2).join(" / ")}</div>
+                          </div>
+                          <ArrowRight className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {vehicleQuery.length >= 2 && vehicleMatches.length === 0 && (
+                  <p className="text-[11px] text-white/65 mt-2">
+                    No tenemos ese modelo. Prueba con otra marca o usa la pestaña <span className="font-bold">Por medida</span>.
+                  </p>
+                )}
                 {communitySaving && (
                   <p className="text-[11px] text-white/70 mt-2 inline-flex items-center gap-1.5">
                     <Loader2 className="w-3 h-3 animate-spin" /> Guardando…
