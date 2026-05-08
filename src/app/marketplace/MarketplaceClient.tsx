@@ -1968,7 +1968,7 @@ function MarketplaceHero({
               <div className="mt-2.5 p-3 rounded-xl bg-white/10 border border-white/15">
                 <p className="text-[12px] text-white/85 mb-1.5">
                   <span className="font-bold text-white">
-                    {[placaResult.marca, placaResult.linea, placaResult.modelo].filter(Boolean).join(" ")}
+                    {[placaResult.marca, placaResult.linea, placaResult.modelo].filter(Boolean).join(" ") || "Vehículo identificado"}
                   </span>
                   {placaResult.clase && (
                     <span className="text-white/60"> · {placaResult.clase}</span>
@@ -1991,6 +1991,22 @@ function MarketplaceHero({
                 ) : (
                   <p className="text-[11px] text-white/65">No tenemos dimensiones recomendadas para este vehículo. Busca por medida si conoces tu llanta.</p>
                 )}
+                {/* Government plate datasets in Colombia are inconsistent
+                    — we've seen sedans tagged CAMPERO and pickups
+                    misregistered as carga pesada. Always give the
+                    buyer an escape hatch to override the gov result
+                    with the precise per-model autocomplete. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlacaUnknown(placa.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+                    setPlacaResult(null);
+                    setVehicleQuery("");
+                  }}
+                  className="mt-2 text-[11px] text-white/70 hover:text-white underline underline-offset-2 decoration-white/30"
+                >
+                  Este no es mi vehículo · buscar por modelo
+                </button>
               </div>
             )}
 
