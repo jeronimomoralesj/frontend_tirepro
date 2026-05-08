@@ -113,6 +113,20 @@ const STATUS_META: Record<string, { label: string; icon: typeof Clock; color: st
   cancelado:      { label: "Cancelado",        icon: XCircle,      color: "#dc2626", bg: "rgba(239,68,68,0.10)"  },
 };
 
+// Story-driven hero copy per status. The order tracking page is the
+// last touchpoint a buyer hits during the wait — narrative beats
+// process language ("Tu llanta va en camino" vs "Status: enviado").
+// `spin` keeps the tire rotating while the order is still moving;
+// terminal states (entregado/cancelado) freeze it.
+const STATUS_STORY: Record<string, { title: string; subtitle: string; spin: boolean }> = {
+  pago_pendiente: { title: "Estamos verificando tu pago", subtitle: "Bold suele confirmar en segundos. Te avisamos al correo cuando llegue.", spin: true },
+  pendiente:      { title: "Tu llanta ya está reservada", subtitle: "El distribuidor está revisando tu pedido para confirmarlo.", spin: true },
+  confirmado:     { title: "¡Confirmado! Estamos alistando tu llanta", subtitle: "El distribuidor la prepara para salir en camino a ti.", spin: true },
+  enviado:        { title: "Tu llanta va rodando hacia ti", subtitle: "Pronto la tendrás puesta. Te avisamos cuando esté cerca.", spin: true },
+  entregado:      { title: "¡Tu llanta llegó!", subtitle: "Que ruedes seguro. Cuéntanos cómo te fue con tu compra.", spin: false },
+  cancelado:      { title: "Este pedido fue cancelado", subtitle: "Si tienes dudas, escríbenos a info@tirepro.com.co.", spin: false },
+};
+
 export default function OrderTrackingPage() {
   const params = useParams<{ id: string }>();
   const search = useSearchParams();
@@ -248,9 +262,31 @@ export default function OrderTrackingPage() {
             ?email= isn't passed and the user isn't logged in. */}
         {!order && !loading && (
           <div
-            className="mt-6 rounded-2xl bg-white p-5 sm:p-6"
-            style={{ border: "1px solid rgba(10,24,58,0.08)" }}
+            className="mt-6 rounded-2xl overflow-hidden"
+            style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18)" }}
           >
+            <div
+              className="relative px-5 sm:px-6 pt-6 pb-5 flex items-center gap-4 overflow-hidden"
+              style={{ background: "linear-gradient(135deg,#0A183A 0%,#173D68 60%,#1E76B6 100%)" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/loading-tire.avif"
+                alt=""
+                className="w-16 h-16 sm:w-20 sm:h-20 object-contain animate-spin flex-shrink-0"
+                style={{ animationDuration: "2.4s", filter: "drop-shadow(0 6px 16px rgba(0,0,0,0.35))" }}
+              />
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Tu pedido</p>
+                <p className="text-lg sm:text-xl font-black text-white leading-tight mt-1">
+                  Tu llanta te está esperando
+                </p>
+                <p className="text-xs text-white/80 mt-1.5 leading-snug">
+                  Verifica tu correo para ver el avance.
+                </p>
+              </div>
+            </div>
+            <div className="bg-white p-5 sm:p-6">
             <div className="flex items-start gap-3 mb-4">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -296,12 +332,22 @@ export default function OrderTrackingPage() {
                 <AlertCircle className="w-3.5 h-3.5" /> {error}
               </p>
             )}
+            </div>
           </div>
         )}
 
         {loading && (
-          <div className="mt-6 flex items-center justify-center py-16 text-[#1E76B6]">
-            <Loader2 className="w-6 h-6 animate-spin" />
+          <div className="mt-6 flex flex-col items-center justify-center py-16">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/loading-tire.avif"
+              alt=""
+              className="w-20 h-20 object-contain animate-spin"
+              style={{ animationDuration: "1.6s" }}
+            />
+            <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-[#1E76B6]">
+              Buscando tu pedido…
+            </p>
           </div>
         )}
 
@@ -317,6 +363,93 @@ export default function OrderTrackingPage() {
 
       <MarketplaceFooter />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Story-driven hero: status-aware narrative title + rotating tire.
+// Lives at the top of OrderCard so it's the first thing the buyer
+// reads. The tire animates while the order is in-flight (pendiente,
+// confirmado, enviado…) and freezes once terminal — instinctive
+// "still moving / arrived / cancelled" cue without parsing labels.
+// ─────────────────────────────────────────────────────────────────────
+
+function StoryHero({
+  order, onRefresh, refreshing,
+}: {
+  order: TrackedOrder;
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
+  const story = STATUS_STORY[order.status] ?? {
+    title: "Tu pedido está en camino",
+    subtitle: "Estamos haciendo seguimiento. Te avisamos en cuanto cambie el estado.",
+    spin: true,
+  };
+  const isCancelled = order.status === "cancelado";
+  const isDelivered = order.status === "entregado";
+
+  // Keep the gradient warm/positive for in-flight + delivered, switch
+  // to muted slate for cancelled so the visual mood matches the copy.
+  const gradient = isCancelled
+    ? "linear-gradient(135deg,#1f2937 0%,#374151 60%,#4b5563 100%)"
+    : "linear-gradient(135deg,#0A183A 0%,#173D68 60%,#1E76B6 100%)";
+
+  return (
+    <header
+      className="relative px-5 sm:px-7 pt-7 pb-6 overflow-hidden"
+      style={{ background: gradient }}
+    >
+      <div className="flex items-center gap-4 sm:gap-5">
+        <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/loading-tire.avif"
+            alt=""
+            className={`w-full h-full object-contain ${story.spin ? "animate-spin" : ""}`}
+            style={{
+              animationDuration: "2.4s",
+              filter: isCancelled
+                ? "drop-shadow(0 6px 16px rgba(0,0,0,0.35)) grayscale(0.4)"
+                : "drop-shadow(0 6px 16px rgba(0,0,0,0.35))",
+              opacity: isCancelled ? 0.7 : 1,
+            }}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/60">
+            {orderNumber(order.id)}
+          </p>
+          <h2 className="text-lg sm:text-2xl font-black text-white leading-tight mt-1">
+            {story.title}
+          </h2>
+          <p className="text-[12px] sm:text-sm text-white/80 mt-1.5 leading-snug">
+            {story.subtitle}
+          </p>
+          {order.etaDate && !isCancelled && !isDelivered && (
+            <p
+              className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-[11px] font-bold text-white"
+              style={{ background: "rgba(255,255,255,0.16)", backdropFilter: "blur(8px)" }}
+            >
+              <Truck className="w-3 h-3" />
+              Llega el{" "}
+              {new Date(order.etaDate).toLocaleDateString("es-CO", {
+                day: "numeric", month: "long", timeZone: "UTC",
+              })}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center justify-center w-8 h-8 rounded-full text-white disabled:opacity-50 transition-colors"
+          style={{ background: "rgba(255,255,255,0.14)" }}
+          aria-label="Actualizar"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+    </header>
   );
 }
 
@@ -375,31 +508,11 @@ function OrderCard({
       className="mt-6 rounded-2xl bg-white overflow-hidden"
       style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18)" }}
     >
-      {/* Header */}
-      <header
-        className="flex items-center justify-between gap-3 px-5 py-3"
-        style={{ background: "#fafbfc", borderBottom: "1px solid rgba(10,24,58,0.06)" }}
-      >
-        <div className="min-w-0">
-          <p className="text-[11px] text-gray-500">
-            Creado {fmtDateTime(order.createdAt)}
-          </p>
-          {order.updatedAt !== order.createdAt && (
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              Última actualización {fmtDateTime(order.updatedAt)}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={onRefresh}
-          disabled={refreshing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-[#1E76B6] hover:bg-[#F0F7FF] disabled:opacity-50"
-          aria-label="Actualizar"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          Actualizar
-        </button>
-      </header>
+      {/* Story hero — status-aware narrative + rotating tire. The
+          tire keeps spinning for in-progress states (pendiente,
+          confirmado, enviado…) and freezes once terminal so the
+          buyer instinctively reads progress at a glance. */}
+      <StoryHero order={order} onRefresh={onRefresh} refreshing={refreshing} />
 
       {/* Webhook-rescue banner — shown only while the order is still
           waiting for Bold's payment confirmation and we're polling
@@ -434,8 +547,11 @@ function OrderCard({
           shown when the order isn't terminal) appear ghosted so the
           buyer sees what's left in the journey. */}
       <section className="px-5 sm:px-6 py-6">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-4">
-          Seguimiento del pedido
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">
+          El viaje de tu llanta
+        </p>
+        <p className="text-xs text-gray-500 mb-4">
+          Cada paso aparece aquí en tiempo real. También te avisamos al correo.
         </p>
         {order.etaDate && order.status !== "cancelado" && order.status !== "entregado" && (
           <div
@@ -627,12 +743,17 @@ function OrderCard({
         className="flex items-center justify-between gap-3 px-5 sm:px-6 py-4"
         style={{ background: "#fafbfc", borderTop: "1px solid rgba(10,24,58,0.06)" }}
       >
-        <p className="text-[11px] text-gray-500">
-          Te enviaremos un correo cada vez que el estado cambie.
-        </p>
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold text-[#0A183A]">
+            Pedido creado el {fmtDateTime(order.createdAt)}
+          </p>
+          <p className="text-[10px] text-gray-500 mt-0.5">
+            Te avisamos por correo cada vez que pase algo nuevo.
+          </p>
+        </div>
         <Link
           href="/marketplace"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-bold text-[#1E76B6] hover:bg-[#F0F7FF]"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[11px] font-bold text-[#1E76B6] hover:bg-[#F0F7FF] flex-shrink-0"
         >
           <ShoppingCart className="w-3 h-3" /> Seguir comprando
         </Link>
