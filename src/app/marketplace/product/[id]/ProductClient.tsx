@@ -530,8 +530,14 @@ export default function ProductClient({
   const cobertura = Array.isArray(product.distributor.cobertura) ? product.distributor.cobertura : [];
   const palette = brandPalette(brandInfo);
 
+  // overflow-x-hidden only on mobile — `position: sticky` on the
+  // desktop image column requires every ancestor on the same axis
+  // to be `overflow: visible`, otherwise the browser silently
+  // downgrades the sticky to a static box. The horizontal-scroll
+  // guard is still useful on touch devices but unnecessary on
+  // desktop because we fixed the underlying -mx-4/px-3 mismatch.
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen bg-white overflow-x-hidden lg:overflow-x-visible">
       <MarketplaceNav />
 
       {/* HEADER — minimal nav strip with TirePro blue accents.
@@ -2313,7 +2319,21 @@ function ProductIdentityBlock({
       >
         {product.modelo}
       </h1>
-      <div className="flex items-center gap-2 flex-wrap mt-2.5">
+      <p className="text-sm text-gray-500 mt-2 font-medium flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="inline-flex items-baseline gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">
+            {product.tipo === "reencauche" ? "Ancho" : "Dimensión"}
+          </span>
+          <span className="font-bold text-[#0A183A]">{product.dimension}</span>
+        </span>
+        {product.eje && (
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">Eje</span>
+            <span className="font-bold text-[#0A183A] capitalize">{product.eje}</span>
+          </span>
+        )}
+      </p>
+      <div className="flex items-center gap-2 flex-wrap mt-3">
         <Link
           href={`/marketplace/brand/${slug}`}
           className="inline-flex items-center gap-2 text-[11px] font-black tracking-widest uppercase px-3 py-1.5 rounded-full bg-white transition-colors shadow-sm"
@@ -2357,20 +2377,6 @@ function ProductIdentityBlock({
           </Link>
         )}
       </div>
-      <p className="text-sm text-gray-500 mt-2 font-medium flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="inline-flex items-baseline gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">
-            {product.tipo === "reencauche" ? "Ancho" : "Dimensión"}
-          </span>
-          <span className="font-bold text-[#0A183A]">{product.dimension}</span>
-        </span>
-        {product.eje && (
-          <span className="inline-flex items-baseline gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">Eje</span>
-            <span className="font-bold text-[#0A183A] capitalize">{product.eje}</span>
-          </span>
-        )}
-      </p>
 
       {product._count.reviews > 0 ? (
         <div className="flex items-center gap-2 mt-3">
