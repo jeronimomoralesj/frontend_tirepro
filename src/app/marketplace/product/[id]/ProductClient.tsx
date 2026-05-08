@@ -546,7 +546,12 @@ export default function ProductClient({
         style={{ background: "linear-gradient(90deg,#0A183A 0%,#1E76B6 50%,#348CCB 100%)" }}
         aria-hidden
       />
+      {/* Volver + breadcrumb — hidden on mobile (the back affordance
+          on small screens is the system back gesture and the marketplace
+          nav's logo, both of which exit cleanly). On sm+ this row gives
+          desktop users orientation: Marketplace / Distributor / Model. */}
       <div
+        className="hidden sm:block"
         style={{
           background: "linear-gradient(180deg, rgba(30,118,182,0.05), rgba(30,118,182,0))",
           borderBottom: "1px solid rgba(30,118,182,0.15)",
@@ -558,25 +563,24 @@ export default function ProductClient({
             className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#1E76B6] hover:text-[#0A183A] transition-colors flex-shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Volver al marketplace</span>
-            <span className="sm:hidden">Volver</span>
+            Volver al marketplace
           </Link>
           <nav
             aria-label="Breadcrumb"
             className="flex items-center gap-1.5 text-[11px] text-gray-500 min-w-0"
           >
-            <Link href="/marketplace" className="hover:text-[#1E76B6] transition-colors hidden sm:inline">
+            <Link href="/marketplace" className="hover:text-[#1E76B6] transition-colors">
               Marketplace
             </Link>
-            <span className="text-[#1E76B6]/40 hidden sm:inline">/</span>
+            <span className="text-[#1E76B6]/40">/</span>
             <Link
               href={`/marketplace/distributor/${product.distributor.slug ?? product.distributor.id}`}
-              className="hover:text-[#1E76B6] transition-colors truncate max-w-[120px] sm:max-w-[180px]"
+              className="hover:text-[#1E76B6] transition-colors truncate max-w-[180px]"
             >
               {product.distributor.name}
             </Link>
             <span className="text-[#1E76B6]/40">/</span>
-            <span className="text-[#0A183A] font-bold truncate max-w-[140px] sm:max-w-[220px]">
+            <span className="text-[#0A183A] font-bold truncate max-w-[220px]">
               {product.modelo}
             </span>
           </nav>
@@ -2200,6 +2204,119 @@ export default function ProductClient({
       </main>
 
       <MarketplaceFooter />
+
+      {/* STICKY CTA — Amazon-style buy bar pinned to the bottom. The
+          in-bar "Agregar al carrito" was removed; the in-page buy
+          box still has its own non-sticky Agregar button so the
+          option to queue items is preserved without the redundancy. */}
+      <div
+        aria-hidden
+        style={{ height: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+      />
+      <div
+        className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md"
+        style={{
+          borderTop: "1px solid rgba(10,24,58,0.08)",
+          boxShadow: "0 -10px 28px -14px rgba(10,24,58,0.22)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
+        <div className="max-w-6xl mx-auto px-3 sm:px-6">
+          {/* Mobile: price/promo row + stepper + Comprar ya. */}
+          <div className="sm:hidden py-3">
+            <div className="flex items-baseline justify-between gap-2 mb-2.5">
+              <div className="flex items-baseline gap-2 min-w-0">
+                <span className="text-[20px] font-black text-[#0A183A] leading-none tabular-nums truncate">
+                  {fmtCOP(price)}
+                </span>
+                {hasPromo && (
+                  <span className="text-[12px] text-gray-400 line-through leading-none">
+                    {fmtCOP(product.precioCop)}
+                  </span>
+                )}
+                {hasPromo && (
+                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider leading-none">
+                    −{discount}%
+                  </span>
+                )}
+              </div>
+              {qty > 1 && (
+                <span className="text-[11px] font-bold text-gray-500 leading-none flex-shrink-0">
+                  Total <span className="text-[#0A183A] font-black tabular-nums">{fmtCOP(price * qty)}</span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-stretch gap-2 h-14">
+              <Stepper qty={qty} setQty={setQty} disponible={qtyMax} />
+              <button
+                onClick={handleBuyNow}
+                disabled={!isBuyable}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+                  boxShadow: "0 10px 26px -6px rgba(30,118,182,0.55)",
+                }}
+              >
+                <Zap className="w-5 h-5 flex-shrink-0" fill="currentColor" />
+                <span className="truncate">{!isBuyable ? "Agotada" : "Comprar ya"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop: thumb + identity + price + stepper + Comprar ya. */}
+          <div className="hidden sm:flex items-center gap-4 py-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-xl bg-[#fafafa] flex-shrink-0 flex items-center justify-center overflow-hidden">
+                {imgs.length > 0 ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={imgs[product.coverIndex ?? 0] ?? imgs[0]}
+                    alt={`${product.marca} ${product.modelo}`}
+                    className="max-w-full max-h-full object-contain p-1"
+                  />
+                ) : (
+                  <Package className="w-5 h-5 text-gray-300" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">
+                  {product.marca}
+                </p>
+                <p className="text-[13px] font-black text-[#0A183A] leading-tight truncate max-w-[200px]">
+                  {product.modelo}
+                </p>
+                <p className="text-[10px] text-gray-400 leading-none">{product.dimension}</p>
+              </div>
+            </div>
+            <div className="ml-auto text-right">
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">
+                {hasPromo ? `−${discount}% · Promoción` : qty > 1 ? `Total · ${qty} unid.` : "Precio"}
+              </p>
+              <p className="text-[18px] font-black text-[#0A183A] leading-tight tabular-nums">
+                {fmtCOP(qty > 1 ? price * qty : price)}
+              </p>
+              {hasPromo && (
+                <p className="text-[10px] text-gray-400 line-through leading-none tabular-nums">
+                  {fmtCOP(product.precioCop * (qty > 1 ? qty : 1))}
+                </p>
+              )}
+            </div>
+            <Stepper qty={qty} setQty={setQty} disponible={qtyMax} />
+            <button
+              onClick={handleBuyNow}
+              disabled={!isBuyable}
+              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full text-[15px] font-black text-white transition-all disabled:opacity-50 active:scale-[0.98] flex-shrink-0"
+              style={{
+                background: "linear-gradient(135deg,#0A183A,#1E76B6)",
+                boxShadow: "0 10px 26px -6px rgba(30,118,182,0.5)",
+              }}
+            >
+              <Zap className="w-5 h-5" fill="currentColor" />
+              {!isBuyable ? "Agotada" : "Comprar ya"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
