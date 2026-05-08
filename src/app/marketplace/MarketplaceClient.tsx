@@ -1635,15 +1635,77 @@ function MarketplaceHero({
   onSearchDimension: (d: string) => void;
   onSearchText: (q: string) => void;
 }) {
-  const [mode, setMode] = useState<"medida" | "texto">("medida");
+  // "placa" lands first because it's the most fleet-friendly entry
+  // point for Colombian buyers — plug in your plate, we resolve the
+  // matching tire dimensions for your specific vehicle. "medida" stays
+  // for power users who already know their size, "texto" for users
+  // searching by brand/model.
+  const [mode, setMode] = useState<"placa" | "medida" | "texto">("placa");
   const [ancho, setAncho]   = useState("");
   const [perfil, setPerfil] = useState("");
   const [rin, setRin]       = useState("");
   const [text, setText]     = useState("");
+  const [placa, setPlaca]   = useState("");
+  // Plate-lookup async state. `placaResult` is null until the user
+  // hits search; loading is the in-flight flag; error is a one-shot
+  // message that clears on the next attempt.
+  const [placaLoading, setPlacaLoading] = useState(false);
+  const [placaResult, setPlacaResult] = useState<{
+    found: boolean;
+    marca?: string | null;
+    linea?: string | null;
+    modelo?: number | string | null;
+    clase?: string | null;
+    dimensions?: string[];
+  } | null>(null);
+  const [placaError, setPlacaError] = useState<string | null>(null);
   const mayWeek = useMayWeek();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "placa") {
+      const p = placa.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!p || p.length < 5) {
+        setPlacaError("Ingresa una placa colombiana válida (ej. ABC123).");
+        return;
+      }
+      setPlacaError(null);
+      setPlacaLoading(true);
+      setPlacaResult(null);
+      try {
+        const res = await fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(p)}`);
+        if (!res.ok) {
+          setPlacaError("No pudimos consultar tu placa. Intenta de nuevo en unos segundos.");
+          return;
+        }
+        const data = await res.json();
+        if (!data.found) {
+          setPlacaError("No encontramos información de esa placa. Prueba buscar por medida o por marca.");
+          return;
+        }
+        setPlacaResult({
+          found: true,
+          marca: data.data?.make ?? data.marca ?? null,
+          linea: data.data?.model ?? data.linea ?? null,
+          modelo: data.data?.year ?? data.modelo ?? null,
+          clase: data.data?.clase ?? data.clase ?? null,
+          dimensions: data.data?.dimensions ?? data.dimensions ?? [],
+        });
+        // If we got exactly one dimension we apply it immediately —
+        // saves the buyer a click. Multiple dims render as chips
+        // below so the user picks the right size for their axle.
+        const dims: string[] = data.data?.dimensions ?? data.dimensions ?? [];
+        if (dims.length === 1) {
+          onSearchDimension(dims[0]);
+          if (typeof window !== "undefined") window.scrollTo({ top: 540, behavior: "smooth" });
+        }
+      } catch {
+        setPlacaError("Error de conexión. Revisa tu internet e intenta de nuevo.");
+      } finally {
+        setPlacaLoading(false);
+      }
+      return;
+    }
     if (mode === "texto") {
       const q = text.trim();
       if (!q) return;
@@ -1704,10 +1766,12 @@ function MarketplaceHero({
             Distribuidores verificados, envío a todo el país, instalación incluida.
           </p>
 
-          {/* Tab switcher — Medida (default, more common for fleet buyers) vs. Texto */}
+          {/* Tab switcher — Placa default (fleet-friendly), Medida for
+              power users, Texto for brand/model queries. */}
           <form onSubmit={handleSubmit} className="max-w-2xl">
             <div role="tablist" aria-label="Modo de búsqueda" className="flex gap-1 mb-2">
               {[
+                { k: "placa",  label: "Por placa" },
                 { k: "medida", label: "Por medida" },
                 { k: "texto",  label: "Por marca o modelo" },
               ].map((t) => {
@@ -1733,7 +1797,22 @@ function MarketplaceHero({
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 p-2 rounded-2xl bg-white/95 backdrop-blur-sm shadow-2xl">
-              {mode === "medida" ? (
+              {mode === "placa" ? (
+                <div className="flex items-center flex-1 px-3">
+                  <Car className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={placa}
+                    onChange={(e) => setPlaca(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                    maxLength={6}
+                    placeholder="ABC123"
+                    aria-label="Placa de tu vehículo"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    className="w-full bg-transparent outline-none text-sm sm:text-base font-bold tracking-widest text-[#0A183A] placeholder-gray-300 px-2 py-2.5 uppercase"
+                  />
+                </div>
+              ) : mode === "medida" ? (
                 <div className="grid grid-cols-3 gap-2 flex-1">
                   <div className="flex flex-col px-2">
                     <span className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider mt-1">Ancho</span>
@@ -1763,12 +1842,46 @@ function MarketplaceHero({
                 </div>
               )}
               <button type="submit"
-                className="px-5 sm:px-6 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 active:scale-[0.98] flex items-center justify-center gap-2"
+                disabled={mode === "placa" && placaLoading}
+                className="px-5 sm:px-6 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
-                <Search className="w-4 h-4" />
-                Buscar
+                {mode === "placa" && placaLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                {mode === "placa" && placaLoading ? "Buscando…" : "Buscar"}
               </button>
             </div>
+
+            {mode === "placa" && placaError && (
+              <p className="text-[12px] text-red-200 mt-2">{placaError}</p>
+            )}
+            {mode === "placa" && placaResult?.found && (
+              <div className="mt-2.5 p-3 rounded-xl bg-white/10 border border-white/15">
+                <p className="text-[12px] text-white/85 mb-1.5">
+                  <span className="font-bold text-white">
+                    {[placaResult.marca, placaResult.linea, placaResult.modelo].filter(Boolean).join(" ")}
+                  </span>
+                  {placaResult.clase && (
+                    <span className="text-white/60"> · {placaResult.clase}</span>
+                  )}
+                </p>
+                {placaResult.dimensions && placaResult.dimensions.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-[10px] text-white/60 self-center mr-1">Medidas sugeridas:</span>
+                    {placaResult.dimensions.slice(0, 6).map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => onSearchDimension(d)}
+                        className="px-2.5 py-1 rounded-full text-[11px] font-bold text-[#0A183A] bg-white hover:bg-yellow-100 border border-white/20 transition-all"
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-white/65">No tenemos dimensiones recomendadas para este vehículo. Busca por medida si conoces tu llanta.</p>
+                )}
+              </div>
+            )}
 
             {mode === "medida" && dimensions.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2.5">
