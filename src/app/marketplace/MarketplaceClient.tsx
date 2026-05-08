@@ -1648,7 +1648,10 @@ function MarketplaceHero({
   const [placa, setPlaca]   = useState("");
   // Plate-lookup async state. `placaResult` is null until the user
   // hits search; loading is the in-flight flag; error is a one-shot
-  // message that clears on the next attempt.
+  // message that clears on the next attempt. `placaUnknown` is true
+  // when the API returned found:false — surfaces the community
+  // vehicle-class picker so the buyer can self-classify and we still
+  // get them to the right tire dimensions.
   const [placaLoading, setPlacaLoading] = useState(false);
   const [placaResult, setPlacaResult] = useState<{
     found: boolean;
@@ -1659,7 +1662,55 @@ function MarketplaceHero({
     dimensions?: string[];
   } | null>(null);
   const [placaError, setPlacaError] = useState<string | null>(null);
+  const [placaUnknown, setPlacaUnknown] = useState<string | null>(null);
+  const [communitySaving, setCommunitySaving] = useState(false);
   const mayWeek = useMayWeek();
+
+  // Vehicle class options for the community fallback. Each maps to
+  // the `clase` value our backend's TIRE_MAP keys against.
+  const VEHICLE_CLASS_OPTIONS: Array<{ key: string; label: string; sub: string }> = [
+    { key: "AUTOMOVIL",  label: "Auto",       sub: "Sedan, hatchback" },
+    { key: "CAMIONETA",  label: "Camioneta",  sub: "Pickup, doble cabina" },
+    { key: "CAMPERO",    label: "SUV / 4x4",  sub: "Campero, utilitario" },
+    { key: "FURGON",     label: "Furgón",     sub: "Carga liviana" },
+    { key: "CAMION",     label: "Camión",     sub: "Mediano y pesado" },
+    { key: "TRACTOMULA", label: "Tractomula", sub: "Larga distancia" },
+    { key: "VOLQUETA",   label: "Volqueta",   sub: "Construcción" },
+    { key: "BUS",        label: "Bus",        sub: "Urbano e intermunicipal" },
+    { key: "MOTOCICLETA", label: "Moto",      sub: "Motocicleta" },
+  ];
+
+  async function handleCommunityClass(clase: string) {
+    if (!placaUnknown || communitySaving) return;
+    setCommunitySaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placaUnknown)}/community`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clase }),
+      });
+      if (!res.ok) {
+        setPlacaError("No pudimos guardar tu selección. Busca por medida o intenta de nuevo.");
+        return;
+      }
+      const data = await res.json();
+      setPlacaUnknown(null);
+      setPlacaResult({
+        found: true,
+        clase: data.clase ?? clase,
+        dimensions: data.dimensions ?? [],
+      });
+      const dims: string[] = data.dimensions ?? [];
+      if (dims.length === 1) {
+        onSearchDimension(dims[0]);
+        if (typeof window !== "undefined") window.scrollTo({ top: 540, behavior: "smooth" });
+      }
+    } catch {
+      setPlacaError("Error de conexión.");
+    } finally {
+      setCommunitySaving(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1672,6 +1723,7 @@ function MarketplaceHero({
       setPlacaError(null);
       setPlacaLoading(true);
       setPlacaResult(null);
+      setPlacaUnknown(null);
       try {
         const res = await fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(p)}`);
         if (!res.ok) {
@@ -1680,7 +1732,10 @@ function MarketplaceHero({
         }
         const data = await res.json();
         if (!data.found) {
-          setPlacaError("No encontramos información de esa placa. Prueba buscar por medida o por marca.");
+          // Plate not in any of our sources — drop the buyer into the
+          // community classifier so we still resolve dimensions and the
+          // next buyer with the same plate gets an instant cache hit.
+          setPlacaUnknown(p);
           return;
         }
         setPlacaResult({
@@ -1852,6 +1907,33 @@ function MarketplaceHero({
 
             {mode === "placa" && placaError && (
               <p className="text-[12px] text-red-200 mt-2">{placaError}</p>
+            )}
+            {mode === "placa" && placaUnknown && (
+              <div className="mt-2.5 p-3 rounded-xl bg-white/10 border border-white/15">
+                <p className="text-[12px] text-white/90 font-bold mb-2">
+                  No tenemos {placaUnknown} en nuestra base.{" "}
+                  <span className="font-normal text-white/75">¿Qué tipo de vehículo es?</span>
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {VEHICLE_CLASS_OPTIONS.map((o) => (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => handleCommunityClass(o.key)}
+                      disabled={communitySaving}
+                      className="text-left px-2.5 py-2 rounded-lg bg-white hover:bg-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <div className="text-[12px] font-bold text-[#0A183A]">{o.label}</div>
+                      <div className="text-[10px] text-gray-500 truncate">{o.sub}</div>
+                    </button>
+                  ))}
+                </div>
+                {communitySaving && (
+                  <p className="text-[11px] text-white/70 mt-2 inline-flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Guardando…
+                  </p>
+                )}
+              </div>
             )}
             {mode === "placa" && placaResult?.found && (
               <div className="mt-2.5 p-3 rounded-xl bg-white/10 border border-white/15">
