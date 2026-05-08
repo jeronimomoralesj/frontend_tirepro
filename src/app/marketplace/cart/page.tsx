@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Loader2,
-  CheckCircle, Package, Truck, MapPin, ChevronDown, X,
+  CheckCircle, Package, Truck, MapPin, ChevronDown, X, Zap,
 } from "lucide-react";
 import { useCart } from "../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { PaymentBadges } from "../../../components/marketplace/PaymentBadges";
+import { AddressAutocomplete } from "../../../components/marketplace/AddressAutocomplete";
 import { BoldLogo } from "../../../components/marketplace/BoldLogo";
 import { AddToCartButton } from "../../../components/marketplace/AddToCartButton";
 import { trackViewCart, trackBeginCheckout, trackPurchase } from "../../../lib/marketplaceAnalytics";
@@ -81,7 +82,13 @@ export default function CartPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [form, setForm] = useState({
     buyerName: "", buyerEmail: "", buyerPhone: "",
-    buyerAddress: "", buyerCity: "", buyerCompany: "", notas: "",
+    // `buyerAddress` is the Google-Places-resolved street + number
+    // (e.g. "Calle 123 #45-67, Bogotá"). `addressDetail` is the
+    // unit-level info Places can't see (apartment, piso, oficina,
+    // notes for the courier). Concatenated at submit time so the
+    // distributor receives the full string in one field, but kept
+    // separate during input for cleaner UX.
+    buyerAddress: "", addressDetail: "", buyerCity: "", buyerCompany: "", notas: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [distributorProfiles, setDistributorProfiles] = useState<Record<string, DistributorProfile>>({});
@@ -256,7 +263,14 @@ export default function CartPage() {
           buyerCompany: form.buyerCompany.trim() || undefined,
           // Forward the shipping address when at least one item ships.
           // Pickup-only carts omit it so the order rows stay clean.
-          ...(hasDeliveryItems && form.buyerAddress.trim() ? { buyerAddress: form.buyerAddress.trim() } : {}),
+          // Concatenate the unit-level detail (apto/piso/oficina) into
+          // the single buyerAddress field the backend / dist sees,
+          // so the courier gets one usable string.
+          ...(hasDeliveryItems && form.buyerAddress.trim() ? {
+            buyerAddress:
+              form.buyerAddress.trim() +
+              (form.addressDetail.trim() ? `, ${form.addressDetail.trim()}` : ""),
+          } : {}),
           ...(hasDeliveryItems && form.buyerCity.trim()    ? { buyerCity:    form.buyerCity.trim()    } : {}),
           notas:        form.notas.trim() || undefined,
           // Bold requires HTTPS for the post-payment redirect URL, so
@@ -521,15 +535,16 @@ export default function CartPage() {
     <div className="min-h-screen bg-[#f5f5f7]">
       <MarketplaceNav />
 
-      {/* Hero band — single smooth blue (top-to-bottom subtle deepening
-          from #1E76B6 → #1668A0). Cleaner than the prior 3-stop dark
-          gradient. Right-side "Estás a un paso" tag plays the same
-          motivational role as Mercado Libre's "Ya casi es tuya" without
-          repeating their copy verbatim. Hidden on the smallest phones
-          to keep the title row uncrowded. */}
+      {/* Hero band — brand-dark gradient (#0A183A → #173D68). Replaced
+          the brighter #1E76B6 base because the cart is a serious
+          commitment moment; the deeper blue feels more like checkout
+          and matches the rest of the brand's auth pages. Right-side
+          tag is now a yellow-accent "¡Ya casi es tuyo!" pill with a
+          Zap icon — louder + happier, plays the dopamine card a few
+          seconds before the buyer commits. */}
       <div
         className="relative overflow-hidden"
-        style={{ background: "linear-gradient(180deg,#1E76B6 0%,#1668A0 100%)" }}
+        style={{ background: "linear-gradient(180deg,#0A183A 0%,#173D68 100%)" }}
       >
         <div className="relative max-w-5xl mx-auto px-3 sm:px-6 pt-5 pb-7">
           <Link href="/marketplace" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-white/80 hover:text-white transition-colors mb-2">
@@ -544,8 +559,12 @@ export default function CartPage() {
               </p>
             </div>
             {count > 0 && (
-              <span className="hidden sm:inline-flex items-center px-4 py-2 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-base font-black text-white whitespace-nowrap tracking-tight">
-                Estás a un paso
+              <span
+                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-base font-black whitespace-nowrap tracking-tight shadow-lg"
+                style={{ background: "linear-gradient(135deg,#fbbf24,#f59e0b)", color: "#0A183A" }}
+              >
+                <Zap className="w-4 h-4" fill="currentColor" />
+                ¡Ya casi es tuyo!
               </span>
             )}
           </div>
@@ -565,31 +584,28 @@ export default function CartPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-            {/* LEFT — Items */}
-            <div className="lg:col-span-2 space-y-5">
-              <div className="flex items-center justify-end">
-                <button onClick={clearCart} className="text-xs font-bold text-red-500 hover:underline">Vaciar carrito</button>
-              </div>
-
+          // Three-column grid with explicit row placement so on mobile
+          // the order is items → payment → También, but on desktop
+          // items + También stack in the left column and payment
+          // gets its own sticky right column. CSS-grid `order` is
+          // the cheap way to flip layouts without rendering content
+          // twice.
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 lg:items-start">
+            {/* LEFT — Items (col-span-2 on desktop, top-left). */}
+            <div className="order-1 lg:col-span-2 lg:col-start-1 lg:row-start-1 space-y-5">
               {Object.entries(grouped).map(([distId, distItems]) => (
                 <div
                   key={distId}
                   className="bg-white rounded-3xl overflow-hidden border border-gray-100"
                   style={{ boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18)" }}
                 >
-                  {/* Distributor header */}
-                  <div
-                    className="px-5 py-3 flex items-center gap-2 border-b border-gray-100"
-                    style={{ background: "linear-gradient(90deg,rgba(30,118,182,0.08),rgba(30,118,182,0.02))" }}
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center flex-shrink-0 border border-[#1E76B6]/15">
-                      <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
-                    </div>
-                    <Link href={`/marketplace/distributor/${distId}`} className="text-xs font-black text-[#0A183A] hover:text-[#1E76B6]">
-                      {distItems[0].distributorName}
-                    </Link>
-                  </div>
+                  {/* Distributor header removed by design — buyer
+                      sees only TirePro as the point of authority.
+                      Multi-distributor orders still render as
+                      separate cards because the outer Object.entries
+                      iteration stays grouped by distributorId; we
+                      just don't surface that grouping visually
+                      anymore. */}
 
                   {/* Items */}
                   <div className="divide-y divide-gray-50">
@@ -655,70 +671,11 @@ export default function CartPage() {
                 </div>
               ))}
 
-              {/* También te podría gustar — moved INTO the left column
-                  (was at the bottom of <main>) so the user sees recs
-                  while still scrolling through their cart instead of
-                  way below the order summary. Sticks visually with
-                  the items it's based on. Empty silently if the
-                  endpoint returned nothing. */}
-              {recommendations.length > 0 && (
-                <section className="pt-4">
-                  <div className="flex items-baseline justify-between mb-3">
-                    <h2 className="text-lg sm:text-xl font-black text-[#0A183A] tracking-tight">También te podría gustar</h2>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
-                    {recommendations.map((l) => {
-                      const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
-                      const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
-                      const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
-                      const price = hasPromo ? l.precioPromo! : l.precioCop;
-                      return (
-                        <div
-                          key={l.id}
-                          className="group bg-white rounded-2xl p-3 transition-all hover:shadow-xl hover:-translate-y-0.5"
-                          style={{ border: "1px solid rgba(10,24,58,0.08)" }}
-                        >
-                          {/* Card body navigates to the product page; the
-                              add-to-cart icon below stays on /cart and
-                              just appends to the cart (its own onClick
-                              prevents bubbling so the Link doesn't fire). */}
-                          <Link href={productHref({ id: l.id, marca: l.marca, modelo: l.modelo, dimension: l.dimension })} className="block">
-                            <div className="aspect-square w-full bg-[#fafafa] rounded-xl flex items-center justify-center overflow-hidden mb-2.5">
-                              {cover ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={cover} alt={`${l.marca} ${l.modelo}`} className="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition-transform" />
-                              ) : (
-                                <Package className="w-8 h-8 text-gray-300" />
-                              )}
-                            </div>
-                            <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{l.marca}</p>
-                            <p className="text-[12px] font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-1">{l.modelo}</p>
-                            <p className="text-sm font-black text-[#1E76B6] tabular-nums tracking-tight mt-1">{l.dimension}</p>
-                          </Link>
-                          {/* Price + add-to-cart on a shared row so the
-                              card stays compact. Icon variant adds
-                              silently and stays on /cart (no nav) so
-                              the buyer can stack several recs without
-                              losing their place. */}
-                          <div className="mt-1.5 flex items-end justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-[14px] font-black text-[#0A183A] tracking-tight tabular-nums leading-none">{fmtCOP(price)}</p>
-                              {hasPromo && (
-                                <p className="text-[10px] text-gray-400 line-through tabular-nums leading-none mt-0.5">{fmtCOP(l.precioCop)}</p>
-                              )}
-                            </div>
-                            <AddToCartButton listing={l as any} variant="icon" />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
             </div>
 
-            {/* RIGHT — Summary + Checkout */}
-            <div>
+            {/* RIGHT — Summary + Checkout (col-3 on desktop, order 2 on mobile so
+                it lands BEFORE También). */}
+            <div className="order-2 lg:col-start-3 lg:row-start-1">
               <div
                 className="bg-white rounded-3xl p-5 sm:p-6 lg:sticky lg:top-20"
                 style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.22), 0 0 0 1px rgba(30,118,182,0.06)" }}
@@ -741,35 +698,15 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* Merged checkout block — Total + ETA + Pay button +
-                    accepted methods all live in a single card so the
-                    buyer's eye lands on one focal point. White Pay
-                    button (clean / trustworthy / premium), inline
-                    Bold logo on the right, dark text. */}
-                {!showCheckout && !editingDetails && !isLoggedIn ? (
-                  <div
-                    className="rounded-2xl p-5 mb-5"
-                    style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.15)" }}
-                  >
-                    <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-widest mb-1">Total a pagar</p>
-                    <p className="text-3xl font-black tracking-tight leading-none text-[#0A183A]">{fmtCOP(totalToCharge)}</p>
-                    {etaLabel && (
-                      <p className="text-[11px] text-gray-500 mt-2 flex items-center gap-1.5">
-                        <Truck className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />
-                        Entrega estimada: <span className="font-bold text-[#0A183A]">{etaLabel}</span>
-                      </p>
-                    )}
-                    <button onClick={() => setShowCheckout(true)}
-                      className="mt-4 w-full py-3.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 hover:shadow-2xl hover:shadow-[#1E76B6]/30 active:scale-[0.98]"
-                      style={{ background: "linear-gradient(135deg,#1E76B6,#1668A0)" }}>
-                      Pagar
-                    </button>
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Aceptamos</p>
-                      <PaymentBadges variant="compact" className="!flex-row" />
-                    </div>
-                  </div>
-                ) : isLoggedIn && !editingDetails && !showCheckout ? (
+                {/* Merged checkout block. Two paths:
+                    - Logged-in + not-editing: short summary card with
+                      auto-filled details and a single Pay button.
+                    - Anyone else (guest, or logged-in but editing):
+                      the full form is rendered immediately. The
+                      previous intermediate "Pagar -> reveal form"
+                      step was removed for guests; one click less to
+                      checkout. */}
+                {isLoggedIn && !editingDetails && !showCheckout ? (
                   <div
                     className="rounded-2xl p-5 mb-5 space-y-3"
                     style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.15)" }}
@@ -848,33 +785,36 @@ export default function CartPage() {
                       </button>
                     )}
 
+                    {/* Stacked pay strategy: prominent gradient Pay
+                        button on top with the live total inline,
+                        followed by the accepted-methods strip
+                        below. The Bold logo lives there as a sibling
+                        badge with PSE / Visa / Mastercard / Nequi —
+                        renders cleanly at the same size as every
+                        other badge instead of looking like a
+                        stretched wordmark on the button. */}
                     <button
                       onClick={handlePay}
                       disabled={submitting || !canSubmit}
-                      className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
-                      style={{ border: "2px solid #0A0A0A" }}
+                      className="w-full py-4 rounded-2xl text-white font-black flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all hover:opacity-95 hover:shadow-xl hover:shadow-[#1E76B6]/30"
+                      style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
                     >
                       {submitting ? (
-                        <span className="w-full flex items-center justify-center gap-2 text-xl sm:text-2xl font-black">
+                        <>
                           <Loader2 className="w-5 h-5 animate-spin" />
-                          Procesando…
-                        </span>
+                          <span className="text-sm">Procesando…</span>
+                        </>
                       ) : (
-                        // Single, unmistakable CTA: huge "Pagar" + Bold
-                        // wordmark. Amount lives in the Total a pagar
-                        // block right above this button. Single
-                        // BoldLogo render — duplicating it for
-                        // mobile/desktop sizes was producing two
-                        // logos because inline styles on <img> beat
-                        // the responsive `hidden` / `sm:hidden`
-                        // utilities.
-                        <span className="w-full flex items-center justify-center gap-2 sm:gap-3 whitespace-nowrap">
-                          <span className="text-2xl sm:text-3xl font-black tracking-tight">Pagar</span>
-                          <span className="text-lg sm:text-2xl font-black text-gray-500">con</span>
-                          <BoldLogo height={28} />
-                        </span>
+                        <>
+                          <Zap className="w-5 h-5" fill="currentColor" />
+                          <span className="text-base">Pagar {fmtCOP(totalToCharge)}</span>
+                        </>
                       )}
                     </button>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <span className="text-[9px] uppercase font-bold tracking-widest text-gray-400 flex-shrink-0">Aceptamos</span>
+                      <PaymentBadges variant="compact" className="!flex-row !gap-1" />
+                    </div>
 
                     {hasPickupItems && (
                       <p className="text-[11px] text-emerald-700 text-center">
@@ -1004,12 +944,31 @@ export default function CartPage() {
                                 className={inputCls}
                               />
                             )}
+                            <AddressAutocomplete
+                              value={form.buyerAddress}
+                              onChange={(v) => setForm((f) => ({ ...f, buyerAddress: v }))}
+                              onCityResolved={(city) => {
+                                // Only auto-fill the city if it's empty,
+                                // OR if the user is currently typing a
+                                // new address (we trust the Places
+                                // result over their previous input).
+                                setForm((f) => ({ ...f, buyerCity: city || f.buyerCity }));
+                              }}
+                              placeholder="Calle 123 #45-67 *"
+                              className={inputCls}
+                            />
+                            {/* Apartment / interior detail Google Places
+                                can't see (apto, piso, oficina, "casa
+                                blanca al lado del CAI"). Concatenated
+                                onto buyerAddress at submit time so the
+                                courier gets one usable string. */}
                             <input
                               type="text"
-                              value={form.buyerAddress}
-                              onChange={(e) => setForm((f) => ({ ...f, buyerAddress: e.target.value }))}
-                              placeholder="Dirección (calle, número, piso, apto) *"
+                              value={form.addressDetail}
+                              onChange={(e) => setForm((f) => ({ ...f, addressDetail: e.target.value }))}
+                              placeholder="Apto, piso, oficina, referencia (opcional)"
                               className={inputCls}
+                              autoComplete="address-line2"
                             />
                           </div>
                         )}
@@ -1037,9 +996,16 @@ export default function CartPage() {
                       </div>
                     )}
 
-                    {/* Same white Pay button + ETA + payment-methods strip
-                        as the logged-in path. Repeated here so the form
-                        flow shares the same clean checkout block. */}
+                    {/* Pay block — stacked strategy: prominent brand-blue
+                        Pay button on top with the live total inline,
+                        then the accepted-methods strip (PSE / Visa /
+                        Mastercard / Nequi / Bold) below at smaller
+                        size. The previous black-bordered button with
+                        an inline Bold image rendered as a stretched
+                        placeholder on tablet sizes; this version
+                        keeps the Bold logo as a sibling badge in the
+                        method strip, where it scales properly with
+                        all the other payment-method icons. */}
                     <div
                       className="rounded-2xl p-4 space-y-3"
                       style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 8px 24px -16px rgba(10,24,58,0.15)" }}
@@ -1053,30 +1019,24 @@ export default function CartPage() {
                       <button
                         onClick={handlePay}
                         disabled={submitting || !canSubmit}
-                        className="w-full py-6 px-5 rounded-xl bg-white text-[#0A0A0A] disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:border-[#0A0A0A] hover:shadow-2xl hover:shadow-black/15 active:scale-[0.99] flex items-center justify-center"
-                        style={{ border: "2px solid #0A0A0A" }}
+                        className="w-full py-4 rounded-2xl text-white font-black flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all hover:opacity-95 hover:shadow-xl hover:shadow-[#1E76B6]/30"
+                        style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
                       >
                         {submitting ? (
-                          <span className="w-full flex items-center justify-center gap-2 text-sm font-bold">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Procesando…
-                          </span>
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <span className="text-sm">Procesando…</span>
+                          </>
                         ) : (
                           <>
-                            <span className="flex flex-col items-start leading-tight">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Pagar</span>
-                              <span className="text-lg font-black tracking-tight">{fmtCOP(totalToCharge)}</span>
-                            </span>
-                            <span className="flex items-center gap-1.5 text-sm font-bold text-gray-600">
-                              con
-                              <BoldLogo height={20} />
-                            </span>
+                            <Zap className="w-5 h-5" fill="currentColor" />
+                            <span className="text-base">Pagar {fmtCOP(totalToCharge)}</span>
                           </>
                         )}
                       </button>
-                      <div className="pt-1">
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Aceptamos</p>
-                        <PaymentBadges variant="compact" className="!flex-row" />
+                      <div className="flex items-center justify-center gap-2 pt-1">
+                        <span className="text-[9px] uppercase font-bold tracking-widest text-gray-400 flex-shrink-0">Aceptamos</span>
+                        <PaymentBadges variant="compact" className="!flex-row !gap-1" />
                       </div>
                     </div>
 
@@ -1098,6 +1058,58 @@ export default function CartPage() {
                 )}
               </div>
             </div>
+
+            {/* THIRD GRID CELL — También te podría gustar.
+                Mobile: order-3 puts it AFTER the payment summary, so
+                the buyer sees the price + Pay button before any
+                cross-sell. Desktop: lands at row-2 col-1-2, directly
+                under the items, with the right column's payment card
+                still visible alongside thanks to row-span. */}
+            {recommendations.length > 0 && (
+              <section className="order-3 lg:col-span-2 lg:col-start-1 lg:row-start-2 pt-2">
+                <div className="flex items-baseline justify-between mb-3">
+                  <h2 className="text-lg sm:text-xl font-black text-[#0A183A] tracking-tight">También te podría gustar</h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
+                  {recommendations.map((l) => {
+                    const imgs = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+                    const cover = imgs.length > 0 ? imgs[l.coverIndex ?? 0] ?? imgs[0] : null;
+                    const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+                    const price = hasPromo ? l.precioPromo! : l.precioCop;
+                    return (
+                      <div
+                        key={l.id}
+                        className="group bg-white rounded-2xl p-3 transition-all hover:shadow-xl hover:-translate-y-0.5"
+                        style={{ border: "1px solid rgba(10,24,58,0.08)" }}
+                      >
+                        <Link href={productHref({ id: l.id, marca: l.marca, modelo: l.modelo, dimension: l.dimension })} className="block">
+                          <div className="aspect-square w-full bg-[#fafafa] rounded-xl flex items-center justify-center overflow-hidden mb-2.5">
+                            {cover ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={cover} alt={`${l.marca} ${l.modelo}`} className="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition-transform" />
+                            ) : (
+                              <Package className="w-8 h-8 text-gray-300" />
+                            )}
+                          </div>
+                          <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest leading-none">{l.marca}</p>
+                          <p className="text-[12px] font-black text-[#0A183A] leading-tight mt-0.5 line-clamp-1">{l.modelo}</p>
+                          <p className="text-sm font-black text-[#1E76B6] tabular-nums tracking-tight mt-1">{l.dimension}</p>
+                        </Link>
+                        <div className="mt-1.5 flex items-end justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-black text-[#0A183A] tracking-tight tabular-nums leading-none">{fmtCOP(price)}</p>
+                            {hasPromo && (
+                              <p className="text-[10px] text-gray-400 line-through tabular-nums leading-none mt-0.5">{fmtCOP(l.precioCop)}</p>
+                            )}
+                          </div>
+                          <AddToCartButton listing={l as any} variant="icon" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
@@ -1188,55 +1200,51 @@ function PickupChooser({
   const activeCity = selectedCity ?? data.cities[0]?.city ?? null;
   const activeGroup = data.cities.find((c) => c.city === activeCity) ?? data.cities[0];
 
+  // Compact segmented control — single row, ~32 px high. The
+  // previous version stacked the toggle and the selected-store
+  // summary across two rows, eating ~70 px per cart item. With
+  // 4 items in the cart that's 200+ px of pickup chrome below
+  // the fold; the new layout collapses it to one tight strip.
+  // The store-picker modal lives as a sibling under the same
+  // fragment so it can portal-overlay without being scoped to the
+  // segmented control's compact box.
   return (
-    <div className="rounded-xl px-3 py-2.5"
-      style={{ background: "#F8FAFC", border: "1px solid rgba(10,24,58,0.06)" }}>
-      {/* Mode toggle */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onChoose(listingId, null)}
-          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all"
-          style={{
-            background: !isPickup ? "#1E76B6" : "white",
-            color:      !isPickup ? "white" : "#0A183A",
-            border:     !isPickup ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
-          }}
-        >
-          <Truck className="w-3 h-3" />
-          Envío a domicilio
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all"
-          style={{
-            background: isPickup ? "#1E76B6" : "white",
-            color:      isPickup ? "white" : "#0A183A",
-            border:     isPickup ? "1px solid transparent" : "1px solid rgba(10,24,58,0.10)",
-          }}
-        >
-          <MapPin className="w-3 h-3" />
-          Recoger en tienda
-        </button>
-      </div>
-
-      {/* Selected pickup point summary */}
-      {isPickup && (
-        <div className="mt-2 flex items-start justify-between gap-2">
-          <div className="text-[11px] text-[#0A183A] flex-1 min-w-0">
-            <p className="font-black truncate">{currentPickupPointName}</p>
-            <p className="text-gray-500 truncate">{currentPickupCity}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="text-[10px] font-bold text-[#1E76B6] hover:underline flex-shrink-0"
-          >
-            Cambiar
-          </button>
-        </div>
-      )}
+    <>
+    <div
+      className="rounded-lg flex items-center gap-1 p-0.5"
+      style={{ background: "#F1F5F9", border: "1px solid rgba(10,24,58,0.05)" }}
+    >
+      <button
+        type="button"
+        onClick={() => onChoose(listingId, null)}
+        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] font-black transition-all whitespace-nowrap"
+        style={{
+          background: !isPickup ? "white" : "transparent",
+          color:      !isPickup ? "#0A183A" : "#64748b",
+          boxShadow:  !isPickup ? "0 1px 2px rgba(10,24,58,0.06)" : "none",
+        }}
+      >
+        <Truck className="w-2.5 h-2.5" />
+        Envío
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] font-black transition-all whitespace-nowrap min-w-0"
+        style={{
+          background: isPickup ? "white" : "transparent",
+          color:      isPickup ? "#0A183A" : "#64748b",
+          boxShadow:  isPickup ? "0 1px 2px rgba(10,24,58,0.06)" : "none",
+        }}
+      >
+        <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+        <span className="truncate">
+          {isPickup && currentPickupPointName
+            ? `Recogo en ${currentPickupPointName}`
+            : "Recoger en tienda"}
+        </span>
+      </button>
+    </div>
 
       {/* City + store selector modal.
           Mobile: bottom-sheet at 92vh so the stores list is always
@@ -1335,6 +1343,6 @@ function PickupChooser({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

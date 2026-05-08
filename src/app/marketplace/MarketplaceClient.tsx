@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -9,8 +9,9 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Loader2, Package, Truck, X, Store, MapPin,
   ChevronLeft, ChevronRight, Star,
-  Recycle, Clock, Search, MessageCircle, Send, ArrowRight,
+  Recycle, Clock, Search, MessageCircle, Send, ArrowRight, ArrowLeft,
   Car, Factory, Shield, CreditCard, Wrench, Sparkles, Tag,
+  ShoppingCart, CheckCircle, Zap,
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
@@ -46,6 +47,88 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
 
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+
+// =============================================================================
+// Brand-tier classification — drives the 3-option Hick's-law picker on
+// the placa results view. The exact set of premium / mid brands is
+// authoritative (sourced from comparar/_lib/brand-pairs.ts); anything
+// not in either set is treated as "value" (Sailun / Triangle / Linglong
+// and the long tail of Chinese imports).
+// =============================================================================
+const PREMIUM_BRANDS = new Set([
+  "michelin", "bridgestone", "continental", "goodyear", "pirelli", "bfgoodrich",
+]);
+const MID_BRANDS = new Set([
+  "hankook", "yokohama", "firestone", "dunlop", "cooper",
+]);
+type BrandTier = "premium" | "mid" | "value";
+function brandTier(marca: string | null | undefined): BrandTier {
+  const m = (marca ?? "").toLowerCase().trim();
+  if (PREMIUM_BRANDS.has(m)) return "premium";
+  if (MID_BRANDS.has(m))     return "mid";
+  return "value";
+}
+
+/**
+ * Pick UP TO 3 options from a list of listings: a value-tier choice
+ * ("Económica"), a mid-tier ("Intermedia"), and a premium pick. The
+ * function adapts to the catalog — if only 2 distinct listings match
+ * the dimension we return 2; if 1 we return 1. Hick's law is still
+ * the goal (buyers shouldn't see 40 SKUs) but a half-empty result is
+ * better than a "no stock" dead-end when the buyer can SEE there's
+ * stock in the catalog.
+ */
+type PlacaPick = { tier: keyof typeof TIER_LABELS; listing: Listing };
+function pickThreeOptions(listings: Listing[]): PlacaPick[] {
+  const inStock = listings.filter((l) => (l.cantidadDisponible ?? 0) > 0 || l.precioCop > 0);
+  if (inStock.length === 0) return [];
+  const byPrice = [...inStock].sort((a, b) => a.precioCop - b.precioCop);
+
+  const value   = byPrice.filter((l) => brandTier(l.marca) === "value");
+  const mid     = byPrice.filter((l) => brandTier(l.marca) === "mid");
+  const premium = byPrice.filter((l) => brandTier(l.marca) === "premium");
+
+  const cheapest  = byPrice[0];
+  const median    = byPrice[Math.floor(byPrice.length / 2)];
+  const expensive = byPrice[byPrice.length - 1];
+
+  const economica  = value[0]   ?? cheapest;
+  const intermedia = mid[0]     ?? median ?? cheapest;
+  const premiumPick = premium.length > 0
+    ? [...premium].sort((a, b) => {
+        const ar = a._count?.reviews ?? 0;
+        const br = b._count?.reviews ?? 0;
+        if (br !== ar) return br - ar;
+        return b.precioCop - a.precioCop;
+      })[0]
+    : expensive;
+
+  // Walk the candidates in order, dedup by id, stop at 3.
+  const candidates: PlacaPick[] = [
+    { tier: "economica",  listing: economica },
+    { tier: "intermedia", listing: intermedia },
+    { tier: "premium",    listing: premiumPick },
+  ];
+  const seen = new Set<string>();
+  const result: PlacaPick[] = [];
+  for (const c of candidates) {
+    if (seen.has(c.listing.id)) continue;
+    seen.add(c.listing.id);
+    result.push(c);
+  }
+  // If two of the candidates collapsed onto the same listing, top up
+  // from byPrice so the buyer sees as many DIFFERENT products as the
+  // catalog can offer (capped at 3).
+  while (result.length < Math.min(3, inStock.length)) {
+    const next = byPrice.find((l) => !seen.has(l.id));
+    if (!next) break;
+    seen.add(next.id);
+    const usedTiers = new Set(result.map((r) => r.tier));
+    const missing = (["economica", "intermedia", "premium"] as const).find((t) => !usedTiers.has(t));
+    result.push({ tier: missing ?? "intermedia", listing: next });
+  }
+  return result;
+}
 
 interface Listing {
   id: string; marca: string; modelo: string; dimension: string;
@@ -425,7 +508,14 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
   // ?todos=1 explicitly bypasses the curated home view so users who clicked
   // "Todo" in the nav see the actual product grid, not categories again.
   const showAll = searchParams.get("todos") === "1";
-  const homeView = !search && !activeFilters && !showAll;
+  // ?placa=ABC123 is the focused-buyer mode — we hide the home view's
+  // categories / bestsellers / etc. and replace them with a tight
+  // 3-option grid (Económica / Intermedia / Premium) for the buyer's
+  // resolved vehicle dimensions. Hick's law: don't drown them in 40
+  // SKUs when intent is "fits my car, give me 3 prices".
+  const placaParam = (searchParams.get("placa") ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const placaActive = placaParam.length >= 5;
+  const homeView = !search && !activeFilters && !showAll && !placaActive;
 
   // ─── Featured strip data ───────────────────────────────────────────────
   // recommendations.listings is empty until we accumulate sales/orders.
@@ -517,6 +607,100 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
   // aggregate over active listings). The recommender / paginated listings
   // would only reflect what's loaded into the current page, which collapses
   // the strip to a single brand on a fresh marketplace.
+  // ─── Placa results state ───────────────────────────────────────────────
+  // Driven by the ?placa= URL param the hero pushes on submit. We do
+  // the plate-lookup here (single source of truth) and stash the
+  // resolved vehicle + dimensions for the PlacaResultsView that
+  // renders at the top of the marketplace when this is active.
+  const [placaInfo, setPlacaInfo] = useState<{
+    placa: string;
+    found: boolean;
+    marca?: string | null;
+    linea?: string | null;
+    modelo?: number | string | null;
+    clase?: string | null;
+    dimensions: string[];
+  } | null>(null);
+  const [placaListings, setPlacaListings] = useState<Listing[]>([]);
+  const [placaActiveDim, setPlacaActiveDim] = useState<string>("");
+  const [placaLoading, setPlacaLoading] = useState(false);
+
+  useEffect(() => {
+    if (!placaActive) {
+      setPlacaInfo(null);
+      setPlacaListings([]);
+      setPlacaActiveDim("");
+      return;
+    }
+    let cancelled = false;
+    setPlacaLoading(true);
+    setPlacaInfo(null);
+    setPlacaListings([]);
+    (async () => {
+      // Minimum 2-second loading window — the lookup itself can land
+      // in 200-800ms thanks to Redis + datos.gov.co, but a flash of
+      // results undersells the analysis. Race the actual fetch
+      // against a 2s floor; whichever takes longer wins. Buyer
+      // perceives "analyzing every tire for your vehicle" instead of
+      // "instant guess".
+      const minDelay = new Promise((r) => setTimeout(r, 2000));
+      try {
+        const fetchPromise = fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placaParam)}`)
+          .then(async (res) => (res.ok ? res.json() : null))
+          .catch(() => null);
+        const [data] = await Promise.all([fetchPromise, minDelay]);
+        if (cancelled) return;
+        if (!data) {
+          setPlacaInfo({ placa: placaParam, found: false, dimensions: [] });
+          return;
+        }
+        const dims: string[] = data.data?.dimensions ?? data.dimensions ?? [];
+        setPlacaInfo({
+          placa: placaParam,
+          found: !!data.found,
+          marca:  data.data?.make ?? data.marca ?? null,
+          linea:  data.data?.model ?? data.linea ?? null,
+          modelo: data.data?.year ?? data.modelo ?? null,
+          clase:  data.data?.clase ?? data.clase ?? null,
+          dimensions: dims,
+        });
+        if (dims.length > 0) setPlacaActiveDim(dims[0]);
+      } catch {
+        if (!cancelled) setPlacaInfo({ placa: placaParam, found: false, dimensions: [] });
+      } finally {
+        if (!cancelled) setPlacaLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [placaActive, placaParam]);
+
+  // When the active dimension changes (placa resolved or user picked a
+  // different size), fetch matching listings so the 3-option picker
+  // has data to bucket.
+  useEffect(() => {
+    if (!placaActiveDim) {
+      setPlacaListings([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          dimension: placaActiveDim,
+          limit:     "60",
+          sortBy:    "price_asc",
+        });
+        const res = await fetch(`${API_BASE}/marketplace/listings?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setPlacaListings(data.listings ?? []);
+      } catch { /* swallow — empty grid is the worst case */ }
+    })();
+    return () => { cancelled = true; };
+  }, [placaActiveDim]);
+
+  const placaThree = useMemo(() => pickThreeOptions(placaListings), [placaListings]);
+
   const stockedBrandSlugs = useMemo(() => {
     const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     const slugs = new Set<string>();
@@ -735,6 +919,30 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
         />
       )}
 
+      {/* ═══ PLACA RESULTS — focused 3-option Hick's-law view ═══
+            Active when the URL has ?placa=ABC123. Replaces the entire
+            home view with a tight banner + 3-card grid: Económica /
+            Intermedia / Premium. A buyer who knows their plate now
+            sees one screen with three sane prices instead of 40+ SKUs. */}
+      {placaActive && (
+        <PlacaResultsView
+          placa={placaParam}
+          info={placaInfo}
+          loading={placaLoading}
+          activeDim={placaActiveDim}
+          onChangeDim={setPlacaActiveDim}
+          three={placaThree}
+          allListings={placaListings}
+          brandsMap={brandsMap}
+          onClear={() => {
+            const usp = new URLSearchParams(window.location.search);
+            usp.delete("placa");
+            const next = usp.toString();
+            router.push(next ? `${pathname}?${next}` : pathname);
+          }}
+        />
+      )}
+
       {/* ═══ CÓMO FUNCIONA ═══ — moved up from below the bestsellers
             so the buyer sees the 3-step funnel right under the hero
             instead of buried at the bottom of the home view. */}
@@ -812,8 +1020,12 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
         </div>
       )}
 
-      {/* ═══ RESULTS ═══ */}
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6" style={{ display: homeView ? "none" : undefined }}>
+      {/* ═══ RESULTS ═══
+            Hidden in two cases: (1) the curated home view is active,
+            and (2) the placa-results takeover is active. The placa
+            view replaces the catalog grid entirely — we don't want
+            to dump 40+ SKUs underneath the focused 3-option deck. */}
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6" style={{ display: (homeView || placaActive) ? "none" : undefined }}>
         {rimSizes.length > 0 && categoryLabel && (
           <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold text-white"
             style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
@@ -1636,6 +1848,8 @@ function MarketplaceHero({
   onSearchDimension: (d: string) => void;
   onSearchText: (q: string) => void;
 }) {
+  const router   = useRouter();
+  const pathname = usePathname();
   // "placa" lands first because it's the most fleet-friendly entry
   // point for Colombian buyers — plug in your plate, we resolve the
   // matching tire dimensions for your specific vehicle. "medida" stays
@@ -1748,44 +1962,14 @@ function MarketplaceHero({
         return;
       }
       setPlacaError(null);
-      setPlacaLoading(true);
-      setPlacaResult(null);
-      setPlacaUnknown(null);
-      try {
-        const res = await fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(p)}`);
-        if (!res.ok) {
-          setPlacaError("No pudimos consultar tu placa. Intenta de nuevo en unos segundos.");
-          return;
-        }
-        const data = await res.json();
-        if (!data.found) {
-          // Plate not in any of our sources — drop the buyer into the
-          // community classifier so we still resolve dimensions and the
-          // next buyer with the same plate gets an instant cache hit.
-          setPlacaUnknown(p);
-          return;
-        }
-        setPlacaResult({
-          found: true,
-          marca: data.data?.make ?? data.marca ?? null,
-          linea: data.data?.model ?? data.linea ?? null,
-          modelo: data.data?.year ?? data.modelo ?? null,
-          clase: data.data?.clase ?? data.clase ?? null,
-          dimensions: data.data?.dimensions ?? data.dimensions ?? [],
-        });
-        // If we got exactly one dimension we apply it immediately —
-        // saves the buyer a click. Multiple dims render as chips
-        // below so the user picks the right size for their axle.
-        const dims: string[] = data.data?.dimensions ?? data.dimensions ?? [];
-        if (dims.length === 1) {
-          onSearchDimension(dims[0]);
-          if (typeof window !== "undefined") window.scrollTo({ top: 540, behavior: "smooth" });
-        }
-      } catch {
-        setPlacaError("Error de conexión. Revisa tu internet e intenta de nuevo.");
-      } finally {
-        setPlacaLoading(false);
-      }
+      // Push the placa to URL so the parent's URL-watcher does the
+      // lookup + renders the 3-option results view at the top of the
+      // page. Single source of truth — and a sharable / refreshable
+      // URL for the buyer who wants to come back.
+      const usp = new URLSearchParams(window.location.search);
+      usp.set("placa", p);
+      router.push(`${pathname}?${usp.toString()}`);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     if (mode === "texto") {
@@ -1851,6 +2035,17 @@ function MarketplaceHero({
           {/* Tab switcher — Placa default (fleet-friendly), Medida for
               power users, Texto for brand/model queries. */}
           <form onSubmit={handleSubmit} className="max-w-2xl">
+            {/* Value-prop nudge above the form when placa is the active
+                mode — directly tells the buyer what they're going to
+                get for typing 6 characters. Disappears when they
+                switch to medida/texto so power users aren't slowed
+                down. */}
+            {mode === "placa" && (
+              <p className="text-[13px] sm:text-sm font-bold text-[#62b8f0] mb-2 inline-flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Encuentra la llanta exacta para tu carro en 5 segundos
+              </p>
+            )}
             <div role="tablist" aria-label="Modo de búsqueda" className="flex gap-1 mb-2">
               {[
                 { k: "placa",  label: "Por placa" },
@@ -1878,10 +2073,15 @@ function MarketplaceHero({
               })}
             </div>
 
+            {/* When the user is on the "Por placa" tab we visually
+                elevate the input — bigger font, more padding. Hick's
+                law: lead with the single most valuable action, push
+                the alternatives (medida, marca) into smaller surfaces
+                below. */}
             <div className="flex flex-col sm:flex-row gap-2 p-2 rounded-2xl bg-white/95 backdrop-blur-sm shadow-2xl">
               {mode === "placa" ? (
-                <div className="flex items-center flex-1 px-3">
-                  <Car className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+                <div className="flex items-center flex-1 px-4 sm:px-5">
+                  <Car className="w-6 h-6 sm:w-7 sm:h-7 text-[#1E76B6] flex-shrink-0" />
                   <input
                     type="text"
                     value={placa}
@@ -1891,7 +2091,8 @@ function MarketplaceHero({
                     aria-label="Placa de tu vehículo"
                     autoCapitalize="characters"
                     spellCheck={false}
-                    className="w-full bg-transparent outline-none text-sm sm:text-base font-bold tracking-widest text-[#0A183A] placeholder-gray-300 px-2 py-2.5 uppercase"
+                    autoFocus
+                    className="w-full bg-transparent outline-none text-2xl sm:text-3xl font-black tracking-[0.25em] text-[#0A183A] placeholder-gray-300 px-3 py-3.5 uppercase"
                   />
                 </div>
               ) : mode === "medida" ? (
@@ -1925,10 +2126,18 @@ function MarketplaceHero({
               )}
               <button type="submit"
                 disabled={mode === "placa" && placaLoading}
-                className="px-5 sm:px-6 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className={`rounded-xl font-black text-white transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                  mode === "placa"
+                    ? "px-6 sm:px-8 py-4 sm:py-5 text-base sm:text-lg"
+                    : "px-5 sm:px-6 py-3 text-sm"
+                }`}
                 style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
-                {mode === "placa" && placaLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                {mode === "placa" && placaLoading ? "Buscando…" : "Buscar"}
+                {mode === "placa" && placaLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className={mode === "placa" ? "w-5 h-5" : "w-4 h-4"} />}
+                {mode === "placa" && placaLoading
+                  ? "Buscando…"
+                  : mode === "placa"
+                  ? "Encontrar mis llantas"
+                  : "Buscar"}
               </button>
             </div>
 
@@ -2461,6 +2670,700 @@ function SeoLinkBlock({ brandsMap }: { brandsMap: BrandsMap }) {
 
 // =============================================================================
 // Llantas más vendidas — horizontal scroller
+// =============================================================================
+
+// =============================================================================
+// PlacaResultsView — Hick's-law 3-option focused view.
+//
+// TWO LAYOUTS depending on viewport:
+//
+// Desktop (sm+): banner + grid of 3 PlacaOptionCards with Agregar/Comprar
+// dual CTAs per card. Power-user friendly.
+//
+// Mobile (<sm): full-screen TAKEOVER. The regular nav, categories, etc.
+// disappear behind a fixed-position overlay that locks the user into a
+// horizontal swipe deck (TikTok-style). 3 zones:
+//   1. minimal header (Atrás | logo | empty)
+//   2. snap-x scroll deck of 3 massive cards (85vw each, cards 1 + 3
+//      peek from the edges to teach the gesture)
+//   3. sticky footer with the centered card's live price + 2 pay
+//      buttons (Apple/Google Pay express + Bold)
+// On mount we auto-snap to card 2 ("Recomendada") so the buyer's
+// default option is the curated middle pick, not the cheapest.
+// =============================================================================
+
+
+// All three tiers are differentiated by SUBTITLE only — color stays
+// brand blue across the board so the trio reads as a clean curated
+// set, not a traffic-light scoring system.
+const TIER_LABELS = {
+  economica:  { label: "Económica",  sub: "Mejor precio del día" },
+  intermedia: { label: "Intermedia", sub: "Equilibrio precio · rendimiento" },
+  premium:    { label: "Premium",    sub: "Marca líder · máximo rendimiento" },
+} as const;
+
+// Shorter labels used on the mobile swipe deck — "Recomendada" is the
+// label for the centered/default card (intermedia tier) per the
+// product spec.
+const MOBILE_TIER_LABELS: Record<keyof typeof TIER_LABELS, string> = {
+  economica:  "Económica",
+  intermedia: "Recomendada",
+  premium:    "Premium",
+};
+
+function PlacaOptionCard({
+  tier,
+  listing,
+}: {
+  tier: keyof typeof TIER_LABELS;
+  listing: Listing;
+}) {
+  const meta = TIER_LABELS[tier];
+  const router = useRouter();
+  const cart   = useCart();
+  const [justAdded, setJustAdded] = useState(false);
+  const imgs = Array.isArray(listing.imageUrls) ? listing.imageUrls : [];
+  const cover = imgs[listing.coverIndex ?? 0] ?? imgs[0] ?? null;
+  const promoActive = listing.precioPromo != null && listing.promoHasta && new Date(listing.promoHasta) > new Date();
+  const price = promoActive ? listing.precioPromo! : listing.precioCop;
+  const grossPrice = Math.round(price * 1.19); // IVA-inclusive matches the cart's display
+
+  function addToCartItem() {
+    if (!listing.distributor) return;
+    cart.addItem({
+      listingId:       listing.id,
+      marca:           listing.marca,
+      modelo:          listing.modelo,
+      dimension:       listing.dimension,
+      precioCop:       listing.precioCop,
+      precioPromo:     listing.precioPromo,
+      promoHasta:      listing.promoHasta,
+      tipo:            listing.tipo,
+      imageUrl:        cover ?? null,
+      distributorId:   listing.distributor.id,
+      distributorName: listing.distributor.name,
+    }, 1);
+  }
+  function handleAdd(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCartItem();
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1500);
+  }
+  function handleBuy(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCartItem();
+    router.push("/marketplace/cart");
+  }
+
+  return (
+    <Link
+      href={productHref(listing)}
+      className="group flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all"
+      style={{ boxShadow: "0 8px 24px -12px rgba(10,24,58,0.12)" }}
+    >
+      <div className="relative px-3 pt-3">
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider text-white"
+          style={{ background: "#1E76B6" }}
+        >
+          {meta.label}
+        </span>
+      </div>
+      <div className="relative aspect-square mx-3 mt-2 bg-[#fafafa] rounded-xl overflow-hidden">
+        {cover ? (
+          <Image
+            src={cover}
+            alt={`${listing.marca} ${listing.modelo} ${listing.dimension}`}
+            fill
+            sizes="(max-width: 640px) 90vw, 320px"
+            style={{ objectFit: "contain", padding: "1.5rem" }}
+            className="group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <Package className="w-10 h-10 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-200" />
+        )}
+      </div>
+      <div className="px-4 pt-3 pb-4 flex flex-col flex-1">
+        <p className="text-[11px] font-bold text-[#1E76B6] uppercase tracking-wider">{listing.marca}</p>
+        <p className="text-sm sm:text-base font-bold text-[#0A183A] mt-0.5 leading-tight line-clamp-1">{listing.modelo}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{listing.dimension}</p>
+        <p className="text-[10px] text-gray-500 mt-1.5">{meta.sub}</p>
+        <div className="mt-3">
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider">Precio</p>
+          <p className="text-2xl sm:text-3xl font-black text-[#0A183A] leading-none tabular-nums">{fmtCOP(grossPrice)}</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">IVA incluido</p>
+        </div>
+        {/* Two-CTA pair — Agregar (queue more) vs Comprar ya (express
+            checkout). Mirrors the product-page hero so buyers who
+            land here know the same two paths are available. Both
+            stopPropagation so clicks don't bubble to the parent
+            <Link>. */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={handleAdd}
+            className="py-2.5 rounded-xl text-[12px] font-black text-[#1E76B6] border-2 border-[#1E76B6]/15 hover:bg-[#f0f7ff] active:scale-[0.97] transition-all flex items-center justify-center gap-1.5"
+          >
+            {justAdded ? (
+              <><CheckCircle className="w-3.5 h-3.5" /> Agregado</>
+            ) : (
+              <><ShoppingCart className="w-3.5 h-3.5" /> Agregar</>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleBuy}
+            className="py-2.5 rounded-xl text-[12px] font-black text-white transition-all hover:opacity-95 active:scale-[0.97] flex items-center justify-center gap-1.5"
+            style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+          >
+            <Zap className="w-3.5 h-3.5" fill="currentColor" />
+            Comprar ya
+          </button>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function PlacaResultsView({
+  placa,
+  info,
+  loading,
+  activeDim,
+  onChangeDim,
+  three,
+  allListings,
+  brandsMap,
+  onClear,
+}: {
+  placa: string;
+  info: { found: boolean; marca?: string | null; linea?: string | null; modelo?: number | string | null; clase?: string | null; dimensions: string[] } | null;
+  loading: boolean;
+  activeDim: string;
+  onChangeDim: (d: string) => void;
+  three: PlacaPick[];
+  allListings: Listing[];
+  brandsMap: BrandsMap;
+  onClear: () => void;
+}) {
+  const router    = useRouter();
+  const cart      = useCart();
+  // ── Mobile swipe-deck plumbing ─────────────────────────────────────
+  // centeredIdx is the card the user is currently viewing in the
+  // horizontal scroller. Drives the live-updating price + the
+  // "Comprar ya" / express buttons in the sticky footer.
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  // Always start the buyer on the FIRST card (Económica). Lets them
+  // discover the deck by swiping right from the most accessible
+  // price point, instead of being parachuted into the middle.
+  const [centeredIdx, setCenteredIdx] = useState<number>(0);
+
+  useEffect(() => {
+    if (three.length === 0) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      const card = el.children[0] as HTMLElement | undefined;
+      if (!card) return;
+      const offset = card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2;
+      el.scrollTo({ left: offset, behavior: "auto" });
+      setCenteredIdx(0);
+    });
+  }, [three.length, three.map((p) => p.listing.id).join(",")]); // re-run when the actual picks change
+
+  // Track which card is centered as the user swipes.
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const center = el.scrollLeft + el.clientWidth / 2;
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        Array.from(el.children).forEach((c, i) => {
+          const card = c as HTMLElement;
+          const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+          const d = Math.abs(center - cardCenter);
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        });
+        setCenteredIdx(bestIdx);
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Helper to add the centered listing to the cart + drive payment.
+  function addCenteredToCart(listing: Listing) {
+    if (!listing.distributor) return;
+    const imgs = Array.isArray(listing.imageUrls) ? listing.imageUrls : [];
+    const cover = imgs[listing.coverIndex ?? 0] ?? imgs[0] ?? null;
+    cart.addItem({
+      listingId:       listing.id,
+      marca:           listing.marca,
+      modelo:          listing.modelo,
+      dimension:       listing.dimension,
+      precioCop:       listing.precioCop,
+      precioPromo:     listing.precioPromo,
+      promoHasta:      listing.promoHasta,
+      tipo:            listing.tipo,
+      imageUrl:        cover,
+      distributorId:   listing.distributor.id,
+      distributorName: listing.distributor.name,
+    }, 1);
+  }
+  function handleBuyCentered() {
+    const pick = three[centeredIdx];
+    if (!pick) return;
+    addCenteredToCart(pick.listing);
+    router.push("/marketplace/cart");
+  }
+  // "Agregar al carrito" alternative — adds without leaving the
+  // takeover so the buyer can keep swiping / shopping. Brief 1.5 s
+  // confirmation flash on the button, then revert.
+  const [justAddedCentered, setJustAddedCentered] = useState(false);
+  function handleAddCentered() {
+    const pick = three[centeredIdx];
+    if (!pick) return;
+    addCenteredToCart(pick.listing);
+    setJustAddedCentered(true);
+    setTimeout(() => setJustAddedCentered(false), 1500);
+  }
+  // Branch on the unified state: loading / not-found / no-stock /
+  // results. We keep ALL branches inside both the mobile takeover
+  // and the desktop section so the buyer sees the analyzing tire
+  // (and the takeover chrome) the moment they submit, not after the
+  // lookup lands.
+  type DisplayState = "loading" | "notFound" | "results";
+  const displayState: DisplayState = loading || !info
+    ? "loading"
+    : (!info.found || info.dimensions.length === 0)
+      ? "notFound"
+      : "results";
+
+  const vehicleLabel = info ? [info.marca, info.linea, info.modelo].filter(Boolean).join(" ").trim() : "";
+  const centeredPick = three[centeredIdx] ?? three[0] ?? null;
+  const centeredGrossPrice = centeredPick ? (() => {
+    const promoActive = centeredPick.listing.precioPromo != null && centeredPick.listing.promoHasta && new Date(centeredPick.listing.promoHasta) > new Date();
+    const price = promoActive ? centeredPick.listing.precioPromo! : centeredPick.listing.precioCop;
+    return Math.round(price * 1.19);
+  })() : 0;
+
+  return (
+    <>
+      {/* ───────────── MOBILE TAKEOVER (sm:hidden) ─────────────
+            Keeps the regular MarketplaceNav (with the hamburger) at
+            the top of the page — we sit BELOW it as a tall section
+            that fills the rest of the viewport. The footer uses
+            sticky positioning so it stays at the visible bottom
+            without overlaying the nav. */}
+      <div
+        className="sm:hidden bg-white flex flex-col"
+        style={{ minHeight: "calc(100dvh - 64px)" }}
+      >
+        {/* Tiny context strip — only renders when we have something to say */}
+        {displayState === "results" && (
+          <div className="flex-shrink-0 px-4 py-2 text-center bg-gray-50 border-b border-gray-100">
+            <p className="text-[11px] text-gray-600">
+              <span className="font-bold text-[#0A183A]">{vehicleLabel || "Tu vehículo"}</span>
+              <span className="text-gray-400"> · {placa}</span>
+              <span className="text-gray-400"> · {activeDim}</span>
+            </p>
+          </div>
+        )}
+
+        {/* ── Loading state — rotating tire fills the swipe area ── */}
+        {displayState === "loading" && (
+          <div className="flex-1 flex flex-col items-center justify-center px-6">
+            <div className="relative w-24 h-24 mb-5">
+              <Image
+                src="/loading-tire.avif"
+                alt=""
+                fill
+                sizes="96px"
+                priority
+                className="animate-spin"
+                style={{ animationDuration: "1.6s" }}
+              />
+            </div>
+            <p className="text-base font-black text-[#0A183A] text-center">
+              Analizando llantas para tu placa<br />
+              <span className="tabular-nums tracking-widest">{placa}</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-2 text-center max-w-xs">
+              Identificando tu vehículo y comparando precios entre todos los distribuidores…
+            </p>
+          </div>
+        )}
+
+        {/* ── Not-found state — graceful exit to medida search ── */}
+        {displayState === "notFound" && (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+            <Car className="w-10 h-10 text-gray-300 mb-3" />
+            <h2 className="text-lg font-black text-[#0A183A]">No encontramos tu vehículo todavía</h2>
+            <p className="text-sm text-gray-500 mt-2 max-w-xs">
+              Prueba ingresando la dimensión de tu llanta — la encuentras en el flanco (ej. 205/55R16).
+            </p>
+            <button
+              type="button"
+              onClick={onClear}
+              className="mt-5 inline-flex items-center gap-1.5 px-5 py-3 rounded-full text-sm font-bold text-white"
+              style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Volver al catálogo
+            </button>
+          </div>
+        )}
+
+        {/* ── No stock state — when lookup succeeds but catalog is empty ── */}
+        {displayState === "results" && three.length === 0 && (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+            <Package className="w-10 h-10 text-gray-300 mb-3" />
+            <h2 className="text-lg font-black text-[#0A183A]">No hay stock para {activeDim} hoy</h2>
+            <p className="text-sm text-gray-500 mt-2 max-w-xs">
+              {info && info.dimensions.length > 1
+                ? "Prueba con otra de las medidas de tu vehículo."
+                : "Vuelve mañana o explora el catálogo completo."}
+            </p>
+            <button
+              type="button"
+              onClick={onClear}
+              className="mt-5 inline-flex items-center gap-1.5 px-5 py-3 rounded-full text-sm font-bold text-[#1E76B6] border-2 border-[#1E76B6]/20"
+            >
+              Ver catálogo completo
+            </button>
+          </div>
+        )}
+
+        {/* Zone 2: swipe deck — only on results.
+              80vw cards + 10vw scroll padding gives a clear "card in
+              focus + neighbors peeking" Tinder/TikTok rhythm. The
+              non-centered cards shrink to 0.9× and fade — strong
+              enough that the focused card is unambiguous. Tapping a
+              card navigates to the full product page (the buyer is
+              committed enough to want to see specs / reviews); the
+              footer's two CTAs cover express checkout. */}
+        {displayState === "results" && three.length > 0 && (
+          <div className="flex-1 flex flex-col justify-center min-h-0 py-2">
+            <div
+              ref={scrollerRef}
+              className="flex flex-row overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 px-[10vw]"
+              style={{
+                scrollPaddingLeft:    "10vw",
+                scrollPaddingRight:   "10vw",
+                overscrollBehaviorX:  "contain",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              {three.map((p, i) => {
+                const imgs = Array.isArray(p.listing.imageUrls) ? p.listing.imageUrls : [];
+                const cover = imgs[p.listing.coverIndex ?? 0] ?? imgs[0] ?? null;
+                const promoActive = p.listing.precioPromo != null && p.listing.promoHasta && new Date(p.listing.promoHasta) > new Date();
+                const price = promoActive ? p.listing.precioPromo! : p.listing.precioCop;
+                const gross = Math.round(price * 1.19);
+                const isCenter = i === centeredIdx;
+                return (
+                  <Link
+                    key={p.listing.id}
+                    href={productHref(p.listing)}
+                    className="snap-center flex-shrink-0 w-[80vw] flex flex-col bg-white rounded-3xl active:scale-[0.99]"
+                    style={{
+                      // `scrollSnapStop: always` forces the scroller
+                      // to settle on each card even on a fast flick,
+                      // never skipping past — the magnetic feel.
+                      scrollSnapStop: "always",
+                      // Layered box-shadow on the centered card adds
+                      // a 4px brand-blue ring (drawn via inset-style
+                      // 0 0 0 4px rgba) on top of the regular drop
+                      // shadow. Layout-neutral (no border), gives a
+                      // clear "this is the one" signal that
+                      // disambiguates the gesture every time.
+                      boxShadow: isCenter
+                        ? "0 0 0 4px rgba(30,118,182,0.5), 0 28px 52px -16px rgba(10,24,58,0.32)"
+                        : "0 0 0 1px rgba(10,24,58,0.06), 0 4px 12px -10px rgba(10,24,58,0.06)",
+                      transform: isCenter ? "scale(1.02) translateY(-4px)" : "scale(0.86)",
+                      opacity: isCenter ? 1 : 0.4,
+                      filter: isCenter ? "none" : "saturate(0.85)",
+                      transition:
+                        "transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1), " +
+                        "opacity 260ms cubic-bezier(0.22, 0.61, 0.36, 1), " +
+                        "box-shadow 260ms cubic-bezier(0.22, 0.61, 0.36, 1), " +
+                        "filter 260ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+                    }}
+                  >
+                    <div className="flex justify-between items-start p-4 pb-0">
+                      <span
+                        className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider text-white"
+                        style={{ background: "#1E76B6" }}
+                      >
+                        {MOBILE_TIER_LABELS[p.tier]}
+                      </span>
+                    </div>
+                    <div className="relative w-full aspect-square mt-1 mx-auto bg-[#fafafa]">
+                      {cover ? (
+                        <Image
+                          src={cover}
+                          alt={`${p.listing.marca} ${p.listing.modelo} ${p.listing.dimension}`}
+                          fill
+                          sizes="80vw"
+                          style={{ objectFit: "contain", padding: "1.5rem" }}
+                        />
+                      ) : (
+                        <Package className="w-16 h-16 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-200" />
+                      )}
+                    </div>
+                    <div className="px-5 pb-5 pt-2 flex flex-col items-center text-center">
+                      <p className="text-[12px] font-bold text-[#1E76B6] uppercase tracking-wider">{p.listing.marca}</p>
+                      <p className="text-base font-bold text-[#0A183A] mt-0.5 leading-tight">{p.listing.modelo}</p>
+                      <p className="text-4xl font-black text-[#0A183A] mt-3 tabular-nums leading-none">{fmtCOP(gross)}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">IVA incluido · toca para ver detalles</p>
+                      <span className="inline-flex items-center gap-1 mt-3 px-3 py-1 rounded-full text-[11px] font-bold text-emerald-700 bg-emerald-100">
+                        <Zap className="w-3 h-3" fill="currentColor" />
+                        Llega mañana
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            {/* Pagination dots — visual hint of which card is centered */}
+            {three.length > 1 && (
+              <div className="flex-shrink-0 flex items-center justify-center gap-1.5 mt-3" aria-hidden>
+                {three.map((_, i) => (
+                  <span
+                    key={i}
+                    className="block rounded-full transition-all"
+                    style={{
+                      width:  i === centeredIdx ? 18 : 6,
+                      height: 6,
+                      background: i === centeredIdx ? "#1E76B6" : "#cbd5e1",
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Zone 3: sticky footer — live price + Agregar / Comprar
+            pair. Sticky positioning keeps it pinned to the visible
+            bottom of the viewport while the user swipes the deck
+            above. Only renders on the results state so the loading
+            / not-found / empty-stock branches keep the screen calm. */}
+        {displayState === "results" && three.length > 0 && (
+          <footer
+            className="sticky bottom-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white border-t border-gray-100"
+            style={{ boxShadow: "0 -8px 24px -10px rgba(10,24,58,0.08)" }}
+          >
+            <div className="flex items-baseline justify-between mb-3">
+              <span className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Pagas hoy</span>
+              <span className="text-2xl font-black text-[#0A183A] tabular-nums leading-none">{fmtCOP(centeredGrossPrice)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleAddCentered}
+                disabled={justAddedCentered}
+                className="py-3 rounded-full text-[13px] font-black text-[#1E76B6] border-2 border-[#1E76B6]/20 active:scale-[0.97] transition-transform disabled:opacity-90 flex items-center justify-center gap-1.5"
+              >
+                {justAddedCentered ? (
+                  <><CheckCircle className="w-4 h-4" /> Agregado</>
+                ) : (
+                  <><ShoppingCart className="w-4 h-4" /> Agregar</>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleBuyCentered}
+                className="py-3 rounded-full text-white font-black text-[13px] active:scale-[0.97] transition-transform flex items-center justify-center gap-1.5"
+                style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+              >
+                <Zap className="w-4 h-4" fill="currentColor" />
+                Comprar ya
+              </button>
+            </div>
+          </footer>
+        )}
+      </div>
+
+      {/* ───────────── DESKTOP / TABLET (sm:block) ───────────── */}
+      <section className="hidden sm:block max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+
+      {/* Desktop loading state — same analyzing copy as mobile, single
+          card layout instead of the takeover. */}
+      {displayState === "loading" && (
+        <div
+          className="bg-white rounded-2xl px-6 py-10 border border-gray-100 text-center"
+          style={{ boxShadow: "0 8px 24px -12px rgba(10,24,58,0.10)" }}
+        >
+          <div className="relative w-20 h-20 mx-auto mb-4">
+            <Image
+              src="/loading-tire.avif"
+              alt=""
+              fill
+              sizes="80px"
+              priority
+              className="animate-spin"
+              style={{ animationDuration: "1.6s" }}
+            />
+          </div>
+          <p className="text-lg font-black text-[#0A183A]">
+            Analizando llantas para tu placa <span className="tabular-nums tracking-widest">{placa}</span>
+          </p>
+          <p className="text-sm text-gray-500 mt-1.5">
+            Identificando tu vehículo y comparando precios entre todos los distribuidores…
+          </p>
+        </div>
+      )}
+
+      {/* Desktop not-found state */}
+      {displayState === "notFound" && (
+        <div
+          className="bg-white rounded-2xl px-5 py-6 border border-gray-100"
+          style={{ boxShadow: "0 8px 24px -12px rgba(10,24,58,0.10)" }}
+        >
+          <p className="text-[11px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1">Placa {placa}</p>
+          <h2 className="text-lg font-black text-[#0A183A]">No encontramos tu vehículo todavía.</h2>
+          <p className="text-sm text-gray-600 mt-1.5">
+            Prueba ingresar la dimensión de tu llanta directamente — la encuentras en el flanco (ej. 205/55R16).
+          </p>
+          <button
+            type="button"
+            onClick={onClear}
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-[#1E76B6] hover:text-[#0A183A]"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Volver al catálogo completo
+          </button>
+        </div>
+      )}
+
+      {displayState === "results" && info && (<>
+      {/* ── Banner ──────────────────────────────────────────────────── */}
+      <div
+        className="bg-white rounded-2xl px-5 py-5 sm:py-6 border border-gray-100 mb-5 flex items-start gap-4"
+        style={{ boxShadow: "0 8px 24px -12px rgba(10,24,58,0.10)" }}
+      >
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#1E76B6]/10 border border-[#1E76B6]/20 flex items-center justify-center flex-shrink-0">
+          <Car className="w-5 h-5 sm:w-6 sm:h-6 text-[#1E76B6]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] sm:text-[11px] font-bold text-[#1E76B6] uppercase tracking-wider">
+            Llantas para tu vehículo · placa {placa}
+          </p>
+          <h2 className="text-lg sm:text-2xl font-black text-[#0A183A] leading-tight mt-0.5 truncate">
+            {vehicleLabel || "Vehículo identificado"}
+            {info.clase && <span className="text-gray-500 font-bold text-base ml-2">· {info.clase}</span>}
+          </h2>
+          {info.dimensions.length > 1 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="text-[11px] text-gray-500 self-center">Medida:</span>
+              {info.dimensions.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => onChangeDim(d)}
+                  className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all ${
+                    d === activeDim
+                      ? "bg-[#0A183A] text-white"
+                      : "bg-gray-100 text-[#0A183A] hover:bg-gray-200"
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
+          {info.dimensions.length === 1 && activeDim && (
+            <p className="text-[11px] text-gray-500 mt-1">Medida: <span className="font-bold text-[#0A183A]">{activeDim}</span></p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-[11px] sm:text-xs font-bold text-gray-500 hover:text-[#0A183A] flex-shrink-0 underline underline-offset-2 decoration-gray-300"
+        >
+          Cambiar placa
+        </button>
+      </div>
+
+      {/* ── Three options ─────────────────────────────────────────────── */}
+      {three.length > 0 ? (
+        <>
+          <div className="mb-3">
+            <h3 className="text-base sm:text-lg font-black text-[#0A183A]">
+              {three.length === 1
+                ? "Escogimos esta opción para ti"
+                : `Escogimos estas ${three.length} opciones para ti`}
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-500">
+              Analizamos varias llantas para darte la mejor opción para tu medida {activeDim}.
+            </p>
+          </div>
+          {/* Grid adapts to count: 3 cols when we have 3 picks, 2 when 2,
+              1 when 1. The narrower grids stay centered with a max-width
+              wrapper so a single card doesn't stretch full-screen. */}
+          <div
+            className={`grid grid-cols-1 gap-4 ${
+              three.length >= 3 ? "sm:grid-cols-3" :
+              three.length === 2 ? "sm:grid-cols-2 max-w-3xl mx-auto" :
+              "sm:grid-cols-1 max-w-md mx-auto"
+            }`}
+          >
+            {three.map((p) => (
+              <PlacaOptionCard key={p.listing.id} tier={p.tier} listing={p.listing} />
+            ))}
+          </div>
+          {/* "Quiero ver todas las llantas" — a single button that
+              links to the full filtered catalog. We deliberately
+              don't render the firehose of all SKUs inline; the
+              point of the 3-option view is exactly to NOT do that.
+              The button gives power users a one-click escape. */}
+          {allListings.length > three.length && (
+            <div className="mt-6 text-center">
+              <Link
+                href={`/marketplace?dimension=${encodeURIComponent(activeDim)}`}
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black text-[#1E76B6] border-2 border-[#1E76B6]/20 hover:bg-[#f0f7ff] transition-all"
+              >
+                Quiero ver todas las llantas
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <p className="text-[11px] text-gray-400 mt-2">
+                {allListings.length} opciones disponibles para {activeDim}
+              </p>
+            </div>
+          )}
+        </>
+      ) : (
+        // No matches in stock for this dimension — invite the buyer
+        // to widen the search.
+        <div
+          className="bg-white rounded-2xl px-5 py-6 border border-gray-100"
+          style={{ boxShadow: "0 8px 24px -12px rgba(10,24,58,0.10)" }}
+        >
+          <h3 className="text-base font-black text-[#0A183A]">No hay stock para {activeDim} hoy.</h3>
+          <p className="text-sm text-gray-600 mt-1.5">
+            {info.dimensions.length > 1
+              ? "Prueba con otra de las medidas sugeridas arriba."
+              : "Vuelve mañana o explora el catálogo completo."}
+          </p>
+        </div>
+      )}
+      </>)}
+      </section>
+    </>
+  );
+}
+
 // =============================================================================
 
 function BestSellersScroller({ listings, brandsMap, title, subtitle, viewAllHref }: { listings: Listing[]; brandsMap?: BrandsMap; title?: string; subtitle?: string; viewAllHref?: string }) {
