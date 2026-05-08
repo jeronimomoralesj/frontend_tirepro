@@ -1243,7 +1243,11 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
       <MarketplaceFooter />
 
       {/* ═══ FLOATING ASSISTANT BUTTON ═══ */}
-      <TireAssistant onSearch={(q) => setSearch(q)} />
+      {/* Placa view already gives the buyer a focused 3-option deck +
+          a sticky pay block — the floating "¿Necesitas ayuda?" bubble
+          would just overlap with the footer pills and add noise.
+          Hide it whenever the placa takeover is active. */}
+      {!placaActive && <TireAssistant onSearch={(q) => setSearch(q)} />}
 
     </div>
   );
@@ -2875,31 +2879,46 @@ function PlacaResultsView({
   }, [three.length, three.map((p) => p.listing.id).join(",")]); // re-run when the actual picks change
 
   // Track which card is centered as the user swipes.
+  // Re-runs when the deck length / picks change so we re-attach
+  // the listener once the deck actually mounts (the previous
+  // empty-deps effect ran on PlacaResultsView mount, when the
+  // scroller was still in the loading branch and ref was null —
+  // listener never fired, centeredIdx stayed at 0 forever, and the
+  // first card kept its "centered" highlight no matter how far the
+  // user swiped).
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
     let raf = 0;
+    const recompute = () => {
+      const center = el.scrollLeft + el.clientWidth / 2;
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      Array.from(el.children).forEach((c, i) => {
+        const card = c as HTMLElement;
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const d = Math.abs(center - cardCenter);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      });
+      setCenteredIdx(bestIdx);
+    };
     const onScroll = () => {
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const center = el.scrollLeft + el.clientWidth / 2;
-        let bestIdx = 0;
-        let bestDist = Infinity;
-        Array.from(el.children).forEach((c, i) => {
-          const card = c as HTMLElement;
-          const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-          const d = Math.abs(center - cardCenter);
-          if (d < bestDist) { bestDist = d; bestIdx = i; }
-        });
-        setCenteredIdx(bestIdx);
-      });
+      raf = requestAnimationFrame(recompute);
     };
-    el.addEventListener("scroll", onScroll, { passive: true });
+    el.addEventListener("scroll",     onScroll, { passive: true });
+    // Some iOS Safari builds don't fire `scroll` while a snap is
+    // settling but DO fire `scrollend`. Listening to both means
+    // centeredIdx always lands accurately even after a fast flick.
+    el.addEventListener("scrollend",  recompute, { passive: true } as AddEventListenerOptions);
+    el.addEventListener("touchend",   recompute, { passive: true });
     return () => {
-      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("scroll",    onScroll);
+      el.removeEventListener("scrollend", recompute as EventListener);
+      el.removeEventListener("touchend",  recompute);
       cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [three.length, three.map((p) => p.listing.id).join(",")]);
 
   // Helper to add the centered listing to the cart + drive payment.
   function addCenteredToCart(listing: Listing) {
@@ -3100,33 +3119,37 @@ function PlacaResultsView({
                         "filter 260ms cubic-bezier(0.22, 0.61, 0.36, 1)",
                     }}
                   >
-                    <div className="flex justify-between items-start p-4 pb-0">
+                    <div className="flex justify-between items-start px-3 pt-3">
                       <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider text-white"
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider text-white"
                         style={{ background: "#1E76B6" }}
                       >
                         {MOBILE_TIER_LABELS[p.tier]}
                       </span>
                     </div>
-                    <div className="relative w-full aspect-square mt-1 mx-auto bg-[#fafafa]">
+                    {/* Image height capped at 11rem (was full aspect-
+                        square ≈ 80vw / ~310 px on iPhone) so the whole
+                        deck + nav + dots + footer fits inside one
+                        viewport on mobile without scrolling. */}
+                    <div className="relative w-full h-44 mt-1 bg-[#fafafa]">
                       {cover ? (
                         <Image
                           src={cover}
                           alt={`${p.listing.marca} ${p.listing.modelo} ${p.listing.dimension}`}
                           fill
                           sizes="80vw"
-                          style={{ objectFit: "contain", padding: "1.5rem" }}
+                          style={{ objectFit: "contain", padding: "1rem" }}
                         />
                       ) : (
-                        <Package className="w-16 h-16 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-200" />
+                        <Package className="w-12 h-12 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-200" />
                       )}
                     </div>
-                    <div className="px-5 pb-5 pt-2 flex flex-col items-center text-center">
-                      <p className="text-[12px] font-bold text-[#1E76B6] uppercase tracking-wider">{p.listing.marca}</p>
-                      <p className="text-base font-bold text-[#0A183A] mt-0.5 leading-tight">{p.listing.modelo}</p>
-                      <p className="text-4xl font-black text-[#0A183A] mt-3 tabular-nums leading-none">{fmtCOP(gross)}</p>
+                    <div className="px-4 pb-4 pt-1.5 flex flex-col items-center text-center">
+                      <p className="text-[11px] font-bold text-[#1E76B6] uppercase tracking-wider">{p.listing.marca}</p>
+                      <p className="text-sm font-bold text-[#0A183A] mt-0.5 leading-tight line-clamp-1">{p.listing.modelo}</p>
+                      <p className="text-3xl font-black text-[#0A183A] mt-2 tabular-nums leading-none">{fmtCOP(gross)}</p>
                       <p className="text-[10px] text-gray-400 mt-1">IVA incluido · toca para ver detalles</p>
-                      <span className="inline-flex items-center gap-1 mt-3 px-3 py-1 rounded-full text-[11px] font-bold text-emerald-700 bg-emerald-100">
+                      <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-100">
                         <Zap className="w-3 h-3" fill="currentColor" />
                         Llega mañana
                       </span>
@@ -3135,33 +3158,45 @@ function PlacaResultsView({
                 );
               })}
             </div>
-            {/* Pagination dots — visual hint of which card is centered */}
+            {/* Pagination pills — louder visual signal that this is
+                a swipeable deck. Inactive: 8×8 muted dot. Active:
+                32×8 brand-blue capsule with a soft shadow + dark-
+                blue inner gradient so it reads as "you are HERE".
+                The width animation on its own is a secondary cue;
+                this version commits to a clear "active vs ghost"
+                contrast so first-time users get the affordance. */}
             {three.length > 1 && (
-              <div className="flex-shrink-0 flex items-center justify-center gap-1.5 mt-3" aria-hidden>
-                {three.map((_, i) => (
-                  <span
-                    key={i}
-                    className="block rounded-full transition-all"
-                    style={{
-                      width:  i === centeredIdx ? 18 : 6,
-                      height: 6,
-                      background: i === centeredIdx ? "#1E76B6" : "#cbd5e1",
-                    }}
-                  />
-                ))}
+              <div className="flex-shrink-0 flex items-center justify-center gap-2 mt-4" aria-hidden>
+                {three.map((_, i) => {
+                  const active = i === centeredIdx;
+                  return (
+                    <span
+                      key={i}
+                      className="block rounded-full transition-all duration-300"
+                      style={{
+                        width:  active ? 32 : 8,
+                        height: 8,
+                        background: active
+                          ? "linear-gradient(135deg,#1E76B6,#0A183A)"
+                          : "#d1d5db",
+                        boxShadow: active ? "0 2px 6px rgba(30,118,182,0.35)" : "none",
+                      }}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
-        {/* Zone 3: sticky footer — live price + Agregar / Comprar
-            pair. Sticky positioning keeps it pinned to the visible
-            bottom of the viewport while the user swipes the deck
-            above. Only renders on the results state so the loading
-            / not-found / empty-stock branches keep the screen calm. */}
+        {/* Zone 3: footer — live price + Agregar / Comprar pair.
+            Sits below the deck in normal flow (no sticky) so it
+            reads as a clean "next step" anchored after the swipe
+            cards, not a band that hovers over them. Only renders
+            on the results state. */}
         {displayState === "results" && three.length > 0 && (
           <footer
-            className="sticky bottom-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white border-t border-gray-100"
+            className="flex-shrink-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white border-t border-gray-100"
             style={{ boxShadow: "0 -8px 24px -10px rgba(10,24,58,0.08)" }}
           >
             <div className="flex items-baseline justify-between mb-3">
