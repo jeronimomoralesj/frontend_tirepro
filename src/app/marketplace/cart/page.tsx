@@ -498,13 +498,18 @@ export default function CartPage() {
   // the order would be created with no contact phone, blocking the
   // distributor from coordinating delivery. Phone is now required;
   // address only when a delivery item is in the cart.
+  // Guest buyers must explicitly tick the terms checkbox before paying;
+  // logged-in buyers accepted terms at signup so the gate doesn't
+  // re-fire on every checkout.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const canSubmit = useMemo(() => {
     if (!form.buyerName.trim())  return false;
     if (!form.buyerEmail.trim()) return false;
     if (!form.buyerPhone.trim()) return false;
     if (addressNeeded && (!form.buyerAddress.trim() || !form.buyerCity.trim())) return false;
+    if (!isLoggedIn && !acceptedTerms) return false;
     return true;
-  }, [form.buyerName, form.buyerEmail, form.buyerPhone, form.buyerAddress, form.buyerCity, addressNeeded]);
+  }, [form.buyerName, form.buyerEmail, form.buyerPhone, form.buyerAddress, form.buyerCity, addressNeeded, isLoggedIn, acceptedTerms]);
 
   // Tells the buyer in plain language WHICH field is missing — surfaced
   // above the disabled Pay button so they know what to do next.
@@ -514,8 +519,9 @@ export default function CartPage() {
     if (!form.buyerPhone.trim()) return "tu teléfono";
     if (addressNeeded && !form.buyerCity.trim())    return "tu ciudad";
     if (addressNeeded && !form.buyerAddress.trim()) return "tu dirección";
+    if (!isLoggedIn && !acceptedTerms) return "aceptar los términos";
     return null;
-  }, [form.buyerName, form.buyerEmail, form.buyerPhone, form.buyerAddress, form.buyerCity, addressNeeded]);
+  }, [form.buyerName, form.buyerEmail, form.buyerPhone, form.buyerAddress, form.buyerCity, addressNeeded, isLoggedIn, acceptedTerms]);
 
   // Saved addresses limited to the available delivery cities
   const validSavedAddresses = useMemo(
@@ -1016,6 +1022,36 @@ export default function CartPage() {
                           Entrega estimada: <span className="font-bold text-[#0A183A]">{etaLabel}</span>
                         </p>
                       )}
+                      {/* Guest-only T&C gate. The label uses native <label htmlFor>
+                          so tapping anywhere on the row toggles the checkbox —
+                          critical on mobile where a 16-px square is a tiny tap
+                          target. Hidden for logged-in buyers because they
+                          accepted terms at signup. */}
+                      {!isLoggedIn && (
+                        <label
+                          htmlFor="cart-accept-terms"
+                          className="flex items-start gap-2.5 cursor-pointer select-none px-1"
+                        >
+                          <input
+                            id="cart-accept-terms"
+                            type="checkbox"
+                            checked={acceptedTerms}
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            className="mt-0.5 w-4 h-4 flex-shrink-0 rounded accent-[#1E76B6] cursor-pointer"
+                          />
+                          <span className="text-[11px] text-gray-600 leading-snug">
+                            He leído y acepto los{" "}
+                            <Link href="/legal" target="_blank" className="font-bold text-[#1E76B6] underline-offset-2 hover:underline">
+                              términos y condiciones
+                            </Link>{" "}
+                            y la{" "}
+                            <Link href="/legal" target="_blank" className="font-bold text-[#1E76B6] underline-offset-2 hover:underline">
+                              política de privacidad
+                            </Link>{" "}
+                            de TirePro.
+                          </span>
+                        </label>
+                      )}
                       <button
                         onClick={handlePay}
                         disabled={submitting || !canSubmit}
@@ -1047,6 +1083,25 @@ export default function CartPage() {
                     <p className="text-[10px] text-gray-500 leading-relaxed text-center">
                       Bold abrirá una ventana segura para completar el pago. {addressNeeded ? "El distribuidor coordinará la entrega a la dirección indicada." : "Recoges en la tienda seleccionada cuando el distribuidor confirme tu pedido."}
                     </p>
+
+                    {/* Soft account suggestion — only for guests. Plain
+                        muted line, no card / icon / cta button. The buyer
+                        is in the middle of paying; we don't want to
+                        compete with the Pagar button. Worded as an
+                        afterthought ("opcional") so it can't be misread
+                        as a required step. */}
+                    {!isLoggedIn && (
+                      <p className="text-[10px] text-gray-400 leading-relaxed text-center">
+                        Opcional ·{" "}
+                        <Link
+                          href="/login"
+                          className="text-gray-500 underline-offset-2 hover:underline"
+                        >
+                          Crea una cuenta
+                        </Link>{" "}
+                        para guardar tus datos y seguir tus pedidos en el futuro.
+                      </p>
+                    )}
 
                     <button
                       onClick={() => { setShowCheckout(false); setEditingDetails(false); }}
