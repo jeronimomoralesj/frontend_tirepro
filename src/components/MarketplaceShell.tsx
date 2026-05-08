@@ -375,8 +375,12 @@ export function MarketplaceNav({
             previously had no internal links from the shell, so Google
             treated them as orphan landing pages with thin authority.
             Surfacing them on every marketplace page concentrates
-            site-wide PageRank on them. */}
-        <div className="border-t border-black/[0.04]">
+            site-wide PageRank on them.
+            Hidden below lg — the hamburger menu (also lg:hidden) already
+            lists every category, so on phones the bar was redundant
+            chrome eating vertical space. The footer's category links
+            still cover SEO crawling on mobile. */}
+        <div className="hidden lg:block border-t border-black/[0.04]">
           <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-0.5 py-2 overflow-x-auto scrollbar-hide">
               {[
