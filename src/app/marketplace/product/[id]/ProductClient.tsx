@@ -530,14 +530,14 @@ export default function ProductClient({
   const cobertura = Array.isArray(product.distributor.cobertura) ? product.distributor.cobertura : [];
   const palette = brandPalette(brandInfo);
 
-  // overflow-x-hidden only on mobile — `position: sticky` on the
-  // desktop image column requires every ancestor on the same axis
-  // to be `overflow: visible`, otherwise the browser silently
-  // downgrades the sticky to a static box. The horizontal-scroll
-  // guard is still useful on touch devices but unnecessary on
-  // desktop because we fixed the underlying -mx-4/px-3 mismatch.
+  // No overflow-x clamp on this page. Earlier we used overflow-x-hidden
+  // as a horizontal-scroll guard, but it silently breaks `position:
+  // sticky` on every descendant — including the marketplace nav and
+  // the desktop image column. The actual horizontal-overflow source
+  // (the -mx-4/px-3 mismatch on the similar/promo rails) is fixed at
+  // the root, so we don't need the clamp.
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden lg:overflow-x-visible">
+    <div className="min-h-screen bg-white">
       <MarketplaceNav />
 
       {/* HEADER — minimal nav strip with TirePro blue accents.
