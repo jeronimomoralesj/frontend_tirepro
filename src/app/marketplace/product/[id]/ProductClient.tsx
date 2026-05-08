@@ -2306,7 +2306,14 @@ function ProductIdentityBlock({
     .replace(/\s+/g, "-");
   return (
     <>
-      <div className="flex items-center gap-2 flex-wrap">
+      <h1
+        className={`font-black text-[#0A183A] leading-[1.05] tracking-tight ${
+          compact ? "text-[22px] sm:text-[28px]" : "text-[26px] sm:text-[36px]"
+        }`}
+      >
+        {product.modelo}
+      </h1>
+      <div className="flex items-center gap-2 flex-wrap mt-2.5">
         <Link
           href={`/marketplace/brand/${slug}`}
           className="inline-flex items-center gap-2 text-[11px] font-black tracking-widest uppercase px-3 py-1.5 rounded-full bg-white transition-colors shadow-sm"
@@ -2350,13 +2357,6 @@ function ProductIdentityBlock({
           </Link>
         )}
       </div>
-      <h1
-        className={`font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight ${
-          compact ? "text-[22px] sm:text-[28px]" : "text-[26px] sm:text-[36px]"
-        }`}
-      >
-        {product.modelo}
-      </h1>
       <p className="text-sm text-gray-500 mt-2 font-medium flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span className="inline-flex items-baseline gap-1.5">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">
