@@ -2929,22 +2929,21 @@ function PlacaResultsView({
       distributorName: listing.distributor.name,
     }, 1);
   }
-  function handleBuyCentered() {
-    const pick = three[centeredIdx];
-    if (!pick) return;
-    addCenteredToCart(pick.listing);
-    router.push("/marketplace/cart");
-  }
   // "Agregar al carrito" alternative — adds without leaving the
   // takeover so the buyer can keep swiping / shopping. Brief 1.5 s
   // confirmation flash on the button, then revert.
-  const [justAddedCentered, setJustAddedCentered] = useState(false);
-  function handleAddCentered() {
-    const pick = three[centeredIdx];
-    if (!pick) return;
-    addCenteredToCart(pick.listing);
-    setJustAddedCentered(true);
-    setTimeout(() => setJustAddedCentered(false), 1500);
+  // Tracked by listing id so the per-card button only flashes for
+  // the card that was tapped (multiple cards now have their own
+  // buttons; a single boolean would flash all of them).
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  function handleAddListing(listing: Listing) {
+    addCenteredToCart(listing);
+    setJustAddedId(listing.id);
+    setTimeout(() => setJustAddedId((id) => (id === listing.id ? null : id)), 1500);
+  }
+  function handleBuyListing(listing: Listing) {
+    addCenteredToCart(listing);
+    router.push("/marketplace/cart");
   }
   // Branch on the unified state: loading / not-found / no-stock /
   // results. We keep ALL branches inside both the mobile takeover
@@ -2959,12 +2958,6 @@ function PlacaResultsView({
       : "results";
 
   const vehicleLabel = info ? [info.marca, info.linea, info.modelo].filter(Boolean).join(" ").trim() : "";
-  const centeredPick = three[centeredIdx] ?? three[0] ?? null;
-  const centeredGrossPrice = centeredPick ? (() => {
-    const promoActive = centeredPick.listing.precioPromo != null && centeredPick.listing.promoHasta && new Date(centeredPick.listing.promoHasta) > new Date();
-    const price = promoActive ? centeredPick.listing.precioPromo! : centeredPick.listing.precioCop;
-    return Math.round(price * 1.19);
-  })() : 0;
 
   return (
     <>
@@ -3141,11 +3134,38 @@ function PlacaResultsView({
                         <p className="text-[11px] font-semibold text-gray-500 mt-0.5 tabular-nums">{p.listing.dimension}</p>
                       )}
                       <p className="text-3xl font-black text-[#0A183A] mt-2 tabular-nums leading-none">{fmtCOP(gross)}</p>
-                      <p className="text-[10px] text-gray-400 mt-1">IVA incluido · toca para ver detalles</p>
+                      <p className="text-[10px] text-gray-400 mt-1">IVA incluido</p>
                       <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-100">
                         <Zap className="w-3 h-3" fill="currentColor" />
                         Llega mañana
                       </span>
+                      {/* Per-card CTAs. preventDefault + stopPropagation
+                          so a button tap doesn't bubble up to the parent
+                          <Link> and trigger navigation to the product
+                          page — buttons act on this card directly. */}
+                      <div className="grid grid-cols-2 gap-2 w-full mt-3">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddListing(p.listing); }}
+                          disabled={justAddedId === p.listing.id}
+                          className="py-2.5 rounded-full text-[12px] font-black text-[#1E76B6] border-2 border-[#1E76B6]/20 active:scale-[0.97] transition-transform disabled:opacity-90 flex items-center justify-center gap-1.5"
+                        >
+                          {justAddedId === p.listing.id ? (
+                            <><CheckCircle className="w-3.5 h-3.5" /> Agregado</>
+                          ) : (
+                            <><ShoppingCart className="w-3.5 h-3.5" /> Agregar</>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleBuyListing(p.listing); }}
+                          className="py-2.5 rounded-full text-white font-black text-[12px] active:scale-[0.97] transition-transform flex items-center justify-center gap-1.5"
+                          style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                        >
+                          <Zap className="w-3.5 h-3.5" fill="currentColor" />
+                          Comprar ya
+                        </button>
+                      </div>
                     </div>
                   </Link>
                 );
@@ -3182,43 +3202,45 @@ function PlacaResultsView({
           </div>
         )}
 
-        {/* Zone 3: footer — live price + Agregar / Comprar pair.
-            Sits below the deck in normal flow (no sticky) so it
-            reads as a clean "next step" anchored after the swipe
-            cards, not a band that hovers over them. Only renders
-            on the results state. */}
+        {/* Zone 3: post-deck reassurance + help. The Agregar/Comprar
+            pair lives inside each card now, so this band's job is
+            psychological closure — explain WHY these three options
+            were picked, offer "see more" for the indecisive, and
+            surface a help button (placeholder) for buyers who want
+            human guidance before committing. */}
         {displayState === "results" && three.length > 0 && (
           <footer
-            className="flex-shrink-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white border-t border-gray-100"
+            className="flex-shrink-0 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white border-t border-gray-100"
             style={{ boxShadow: "0 -8px 24px -10px rgba(10,24,58,0.08)" }}
           >
-            <div className="flex items-baseline justify-between mb-3">
-              <span className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Pagas hoy</span>
-              <span className="text-2xl font-black text-[#0A183A] tabular-nums leading-none">{fmtCOP(centeredGrossPrice)}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+            <p className="text-[12px] text-gray-600 text-center leading-snug">
+              <Sparkles className="inline-block w-3.5 h-3.5 text-[#1E76B6] -mt-0.5 mr-1" />
+              Organizamos estas recomendaciones para tu vehículo.{" "}
               <button
                 type="button"
-                onClick={handleAddCentered}
-                disabled={justAddedCentered}
-                className="py-3 rounded-full text-[13px] font-black text-[#1E76B6] border-2 border-[#1E76B6]/20 active:scale-[0.97] transition-transform disabled:opacity-90 flex items-center justify-center gap-1.5"
+                onClick={() => {
+                  // Drop the placa filter so the buyer lands on the
+                  // full catalog with their dimension(s) prefilled.
+                  router.push("/marketplace");
+                }}
+                className="font-bold text-[#1E76B6] underline underline-offset-2"
               >
-                {justAddedCentered ? (
-                  <><CheckCircle className="w-4 h-4" /> Agregado</>
-                ) : (
-                  <><ShoppingCart className="w-4 h-4" /> Agregar</>
-                )}
+                Ver más opciones
               </button>
-              <button
-                type="button"
-                onClick={handleBuyCentered}
-                className="py-3 rounded-full text-white font-black text-[13px] active:scale-[0.97] transition-transform flex items-center justify-center gap-1.5"
-                style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
-              >
-                <Zap className="w-4 h-4" fill="currentColor" />
-                Comprar ya
-              </button>
-            </div>
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                // Placeholder — wired to a real assistant flow later.
+                // For now bring the floating TireAssistant into focus
+                // by scrolling to top so it's visible.
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="mt-3 w-full py-3 rounded-full text-[13px] font-black flex items-center justify-center gap-2 transition-transform active:scale-[0.97] text-[#1E76B6] border-2 border-[#1E76B6]/25 bg-[#F0F7FF]"
+            >
+              <MessageCircle className="w-4 h-4" />
+              ¿Necesitas ayuda? Habla con un asesor
+            </button>
           </footer>
         )}
       </div>
