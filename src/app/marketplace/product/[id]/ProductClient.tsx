@@ -587,12 +587,32 @@ export default function ProductClient({
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-6 pb-10 relative">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16">
-          {/* LEFT — Images */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6 pb-10 relative">
+        {/* Mobile-only title block — moved ABOVE the image so the
+            buyer reads "Bridgestone Dueler H/L 245/65R17" before the
+            tire photo. Reading order on first paint = brand → model →
+            dimension → image, mirroring how someone scanning a
+            shelf identifies a tire. The same block is duplicated
+            inside the right column on lg+ for the desktop layout. */}
+        <div className="lg:hidden mb-3">
+          <ProductIdentityBlock
+            product={product}
+            palette={palette}
+            brandInfo={brandInfo}
+            avgRating={avgRating}
+            compact
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-16">
+          {/* LEFT — Images. Mobile box capped tighter (max-h ≈ 32vh) so
+              the title above + price block below also fit in the
+              first viewport without scrolling. Inner padding tightened
+              from p-10 to p-4 on mobile so the tire fills the smaller
+              container. */}
           <div className="lg:sticky lg:top-20 lg:self-start">
             <div
-              className="relative aspect-[5/4] sm:aspect-square rounded-3xl overflow-hidden flex items-center justify-center mb-4 group max-h-[50vh] sm:max-h-none mx-auto w-full bg-[#f7f7f9]"
+              className="relative aspect-[5/4] sm:aspect-square rounded-3xl overflow-hidden flex items-center justify-center mb-4 group max-h-[32vh] sm:max-h-none mx-auto w-full bg-[#f7f7f9]"
               style={{
                 boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18), inset 0 0 0 1px rgba(10,24,58,0.05)",
               }}
@@ -610,7 +630,7 @@ export default function ProductClient({
                 <img
                   src={imgs[selectedImg] ?? imgs[0]}
                   alt={`Llanta ${product.marca} ${product.modelo} ${product.dimension}${product.tipo === "reencauche" ? " reencauche" : ""} — Comprar en Colombia | TirePro`}
-                  className="w-full h-full object-contain p-10 sm:p-14 transition-transform duration-500 group-hover:scale-[1.04]"
+                  className="w-full h-full object-contain p-4 sm:p-14 transition-transform duration-500 group-hover:scale-[1.04]"
                 />
               ) : (
                 <Package className="w-24 h-24 text-gray-200" />
@@ -631,93 +651,23 @@ export default function ProductClient({
 
           {/* RIGHT — Details */}
           <div className="pt-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link
-                href={`/marketplace/brand/${brandInfo?.slug ?? product.marca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-")}`}
-                className="inline-flex items-center gap-2 text-[11px] font-black tracking-widest uppercase px-3 py-1.5 rounded-full bg-white transition-colors shadow-sm"
-                style={{
-                  color:           palette.primary,
-                  borderWidth:     "1px",
-                  borderStyle:     "solid",
-                  borderColor:     `color-mix(in srgb, ${palette.primary} 35%, white)`,
-                  backgroundColor: "white",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = palette.tint06; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "white"; }}
-              >
-                {brandInfo?.logoUrl && (
-                  <span
-                    className="relative w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white"
-                    style={{ border: `1px solid color-mix(in srgb, ${palette.primary} 25%, white)` }}
-                  >
-                    <Image src={brandInfo.logoUrl} alt="" fill sizes="16px" style={{ objectFit: "contain" }} />
-                  </span>
-                )}
-                {product.marca}
-              </Link>
-              {brandInfo?.tier && BRAND_TIER_META[brandInfo.tier] && (
-                <span
-                  className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full text-white"
-                  style={{ background: BRAND_TIER_META[brandInfo.tier].bg, boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}
-                >
-                  <Shield className="w-3 h-3" />
-                  {BRAND_TIER_META[brandInfo.tier].label}
-                </span>
-              )}
-              {brandInfo?.country && brandFlag(brandInfo.country) && (
-                <Link
-                  href={`/marketplace/brand/${brandInfo.slug}`}
-                  className="inline-flex items-center gap-1.5 text-[10px] font-bold text-[#0A183A] px-2.5 py-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                  title={brandInfo.country}
-                >
-                  <span className="text-sm leading-none">{brandFlag(brandInfo.country)}</span>
-                  {brandInfo.country}
-                </Link>
-              )}
+            {/* Desktop title block. The same content lives in the
+                mobile-only block above the image; here it's hidden
+                on small screens to avoid duplication. */}
+            <div className="hidden lg:block">
+              <ProductIdentityBlock
+                product={product}
+                palette={palette}
+                brandInfo={brandInfo}
+                avgRating={avgRating}
+              />
             </div>
-            <h1 className="text-[26px] sm:text-[36px] font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight">{product.modelo}</h1>
-            <p className="text-sm text-gray-500 mt-2 font-medium flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="inline-flex items-baseline gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">
-                  {product.tipo === "reencauche" ? "Ancho" : "Dimensión"}
-                </span>
-                <span className="font-bold text-[#0A183A]">{product.dimension}</span>
-              </span>
-              {product.eje && (
-                <span className="inline-flex items-baseline gap-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">Eje</span>
-                  <span className="font-bold text-[#0A183A] capitalize">{product.eje}</span>
-                </span>
-              )}
-            </p>
 
-            {/* Trust signal — stars when reviews exist; otherwise a
-                "Producto nuevo en TirePro" badge so the absence of
-                reviews never reads as a negative signal to the buyer. */}
-            {product._count.reviews > 0 ? (
-              <div className="flex items-center gap-2 mt-3">
-                <div className="flex gap-0.5">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className="w-4 h-4" fill={s <= Math.round(avgRating) ? "#1E76B6" : "none"} style={{ color: s <= Math.round(avgRating) ? "#1E76B6" : "#d1d5db" }} />
-                  ))}
-                </div>
-                <span className="text-[13px] text-gray-500">
-                  {avgRating.toFixed(1)} ({product._count.reviews})
-                  {product.totalSold != null && product.totalSold >= 123 && <> · {product.totalSold} vendidos</>}
-                </span>
-              </div>
-            ) : (
-              brandInfo?.tier && (
-                <div className="flex items-center gap-2 mt-3 flex-wrap">
-                  <span className="text-[11px] text-gray-500">
-                    Marca {BRAND_TIER_META[brandInfo.tier]?.label?.toLowerCase() ?? "verificada"}
-                  </span>
-                </div>
-              )
-            )}
-
-            {/* Divider */}
-            <div className="h-px bg-gray-100 my-5" />
+            {/* Divider — hidden on mobile because the identity block
+                already lives above the image, so the divider would
+                land between the image and the price with nothing
+                above it. */}
+            <div className="hidden lg:block h-px bg-gray-100 my-5" />
 
             {/* Promo banner */}
             {hasPromo && (
@@ -2326,6 +2276,126 @@ export default function ProductClient({
 // (qty / setQty) with the right-side buy box on the page so they stay in
 // sync; bulk buyers can also type a quantity directly into the input.
 // =============================================================================
+
+// =============================================================================
+// ProductIdentityBlock — brand chips + model H1 + dimension + trust signal.
+// Rendered twice: once above the image on mobile, once inside the right
+// column on desktop. Co-located so the two layouts can't drift.
+//
+// `compact` shrinks the H1 a touch on mobile so brand+title+dimension
+// + image + price block all land inside the first viewport.
+// =============================================================================
+
+type Palette = ReturnType<typeof brandPalette>;
+
+function ProductIdentityBlock({
+  product, palette, brandInfo, avgRating, compact = false,
+}: {
+  product: Product;
+  palette: Palette;
+  brandInfo: BrandInfo | null | undefined;
+  avgRating: number;
+  compact?: boolean;
+}) {
+  const slug = brandInfo?.slug ?? product.marca
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+  return (
+    <>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Link
+          href={`/marketplace/brand/${slug}`}
+          className="inline-flex items-center gap-2 text-[11px] font-black tracking-widest uppercase px-3 py-1.5 rounded-full bg-white transition-colors shadow-sm"
+          style={{
+            color:           palette.primary,
+            borderWidth:     "1px",
+            borderStyle:     "solid",
+            borderColor:     `color-mix(in srgb, ${palette.primary} 35%, white)`,
+            backgroundColor: "white",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = palette.tint06; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "white"; }}
+        >
+          {brandInfo?.logoUrl && (
+            <span
+              className="relative w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-white"
+              style={{ border: `1px solid color-mix(in srgb, ${palette.primary} 25%, white)` }}
+            >
+              <Image src={brandInfo.logoUrl} alt="" fill sizes="16px" style={{ objectFit: "contain" }} />
+            </span>
+          )}
+          {product.marca}
+        </Link>
+        {brandInfo?.tier && BRAND_TIER_META[brandInfo.tier] && (
+          <span
+            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full text-white"
+            style={{ background: BRAND_TIER_META[brandInfo.tier].bg, boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}
+          >
+            <Shield className="w-3 h-3" />
+            {BRAND_TIER_META[brandInfo.tier].label}
+          </span>
+        )}
+        {brandInfo?.country && brandFlag(brandInfo.country) && (
+          <Link
+            href={`/marketplace/brand/${brandInfo.slug}`}
+            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-[#0A183A] px-2.5 py-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+            title={brandInfo.country}
+          >
+            <span className="text-sm leading-none">{brandFlag(brandInfo.country)}</span>
+            {brandInfo.country}
+          </Link>
+        )}
+      </div>
+      <h1
+        className={`font-black text-[#0A183A] mt-2 leading-[1.05] tracking-tight ${
+          compact ? "text-[22px] sm:text-[28px]" : "text-[26px] sm:text-[36px]"
+        }`}
+      >
+        {product.modelo}
+      </h1>
+      <p className="text-sm text-gray-500 mt-2 font-medium flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="inline-flex items-baseline gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">
+            {product.tipo === "reencauche" ? "Ancho" : "Dimensión"}
+          </span>
+          <span className="font-bold text-[#0A183A]">{product.dimension}</span>
+        </span>
+        {product.eje && (
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">Eje</span>
+            <span className="font-bold text-[#0A183A] capitalize">{product.eje}</span>
+          </span>
+        )}
+      </p>
+
+      {product._count.reviews > 0 ? (
+        <div className="flex items-center gap-2 mt-3">
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Star key={s} className="w-4 h-4" fill={s <= Math.round(avgRating) ? "#1E76B6" : "none"} style={{ color: s <= Math.round(avgRating) ? "#1E76B6" : "#d1d5db" }} />
+            ))}
+          </div>
+          <span className="text-[13px] text-gray-500">
+            {avgRating.toFixed(1)} ({product._count.reviews})
+            {product.totalSold != null && product.totalSold >= 123 && <> · {product.totalSold} vendidos</>}
+          </span>
+        </div>
+      ) : (
+        brandInfo?.tier && (
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <span className="text-[11px] text-gray-500">
+              Marca {BRAND_TIER_META[brandInfo.tier]?.label?.toLowerCase() ?? "verificada"}
+            </span>
+          </div>
+        )
+      )}
+    </>
+  );
+}
 
 function Stepper({
   qty,
