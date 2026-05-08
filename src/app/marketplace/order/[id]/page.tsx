@@ -266,25 +266,16 @@ export default function OrderTrackingPage() {
             style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18)" }}
           >
             <div
-              className="relative px-5 sm:px-6 pt-6 pb-5 flex items-center gap-4 overflow-hidden"
+              className="relative px-5 sm:px-6 pt-6 pb-5 overflow-hidden"
               style={{ background: "linear-gradient(135deg,#0A183A 0%,#173D68 60%,#1E76B6 100%)" }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/loading-tire.avif"
-                alt=""
-                className="w-16 h-16 sm:w-20 sm:h-20 object-contain animate-spin flex-shrink-0"
-                style={{ animationDuration: "2.4s", filter: "drop-shadow(0 6px 16px rgba(0,0,0,0.35))" }}
-              />
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Tu pedido</p>
-                <p className="text-lg sm:text-xl font-black text-white leading-tight mt-1">
-                  Tu llanta te está esperando
-                </p>
-                <p className="text-xs text-white/80 mt-1.5 leading-snug">
-                  Verifica tu correo para ver el avance.
-                </p>
-              </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Tu pedido</p>
+              <p className="text-xl sm:text-2xl font-black text-white leading-tight mt-1.5">
+                Tu llanta te está esperando
+              </p>
+              <p className="text-[13px] text-white/80 mt-2 leading-snug">
+                Verifica tu correo para ver el avance.
+              </p>
             </div>
             <div className="bg-white p-5 sm:p-6">
             <div className="flex items-start gap-3 mb-4">
@@ -367,11 +358,11 @@ export default function OrderTrackingPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Story-driven hero: status-aware narrative title + rotating tire.
-// Lives at the top of OrderCard so it's the first thing the buyer
-// reads. The tire animates while the order is in-flight (pendiente,
-// confirmado, enviado…) and freezes once terminal — instinctive
-// "still moving / arrived / cancelled" cue without parsing labels.
+// Story-driven hero: status-aware narrative title carrying the
+// emotional beat of where the order is right now. The rotating tire
+// itself doesn't live here (white image background clashes with the
+// dark gradient); it shows up further down as the active marker on
+// the journey timeline.
 // ─────────────────────────────────────────────────────────────────────
 
 function StoryHero({
@@ -389,66 +380,47 @@ function StoryHero({
   const isCancelled = order.status === "cancelado";
   const isDelivered = order.status === "entregado";
 
-  // Keep the gradient warm/positive for in-flight + delivered, switch
-  // to muted slate for cancelled so the visual mood matches the copy.
   const gradient = isCancelled
     ? "linear-gradient(135deg,#1f2937 0%,#374151 60%,#4b5563 100%)"
     : "linear-gradient(135deg,#0A183A 0%,#173D68 60%,#1E76B6 100%)";
 
   return (
     <header
-      className="relative px-5 sm:px-7 pt-7 pb-6 overflow-hidden"
+      className="relative px-5 sm:px-7 pt-7 pb-7 overflow-hidden"
       style={{ background: gradient }}
     >
-      <div className="flex items-center gap-4 sm:gap-5">
-        <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/loading-tire.avif"
-            alt=""
-            className={`w-full h-full object-contain ${story.spin ? "animate-spin" : ""}`}
-            style={{
-              animationDuration: "2.4s",
-              filter: isCancelled
-                ? "drop-shadow(0 6px 16px rgba(0,0,0,0.35)) grayscale(0.4)"
-                : "drop-shadow(0 6px 16px rgba(0,0,0,0.35))",
-              opacity: isCancelled ? 0.7 : 1,
-            }}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-white/60">
-            {orderNumber(order.id)}
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-widest text-white/60">
+          {orderNumber(order.id)}
+        </p>
+        <h2 className="text-xl sm:text-3xl font-black text-white leading-tight mt-1.5 max-w-[26ch]">
+          {story.title}
+        </h2>
+        <p className="text-[13px] sm:text-sm text-white/80 mt-2 leading-snug max-w-[42ch]">
+          {story.subtitle}
+        </p>
+        {order.etaDate && !isCancelled && !isDelivered && (
+          <p
+            className="inline-flex items-center gap-1.5 mt-4 px-3 py-1 rounded-full text-[11px] font-bold text-white"
+            style={{ background: "rgba(255,255,255,0.16)", backdropFilter: "blur(8px)" }}
+          >
+            <Truck className="w-3 h-3" />
+            Llega el{" "}
+            {new Date(order.etaDate).toLocaleDateString("es-CO", {
+              day: "numeric", month: "long", timeZone: "UTC",
+            })}
           </p>
-          <h2 className="text-lg sm:text-2xl font-black text-white leading-tight mt-1">
-            {story.title}
-          </h2>
-          <p className="text-[12px] sm:text-sm text-white/80 mt-1.5 leading-snug">
-            {story.subtitle}
-          </p>
-          {order.etaDate && !isCancelled && !isDelivered && (
-            <p
-              className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-[11px] font-bold text-white"
-              style={{ background: "rgba(255,255,255,0.16)", backdropFilter: "blur(8px)" }}
-            >
-              <Truck className="w-3 h-3" />
-              Llega el{" "}
-              {new Date(order.etaDate).toLocaleDateString("es-CO", {
-                day: "numeric", month: "long", timeZone: "UTC",
-              })}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={onRefresh}
-          disabled={refreshing}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center justify-center w-8 h-8 rounded-full text-white disabled:opacity-50 transition-colors"
-          style={{ background: "rgba(255,255,255,0.14)" }}
-          aria-label="Actualizar"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-        </button>
+        )}
       </div>
+      <button
+        onClick={onRefresh}
+        disabled={refreshing}
+        className="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center justify-center w-8 h-8 rounded-full text-white disabled:opacity-50 transition-colors"
+        style={{ background: "rgba(255,255,255,0.14)" }}
+        aria-label="Actualizar"
+      >
+        <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+      </button>
     </header>
   );
 }
@@ -553,24 +525,6 @@ function OrderCard({
         <p className="text-xs text-gray-500 mb-4">
           Cada paso aparece aquí en tiempo real. También te avisamos al correo.
         </p>
-        {order.etaDate && order.status !== "cancelado" && order.status !== "entregado" && (
-          <div
-            className="mb-5 flex items-center gap-3 px-4 py-3 rounded-xl"
-            style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.20)" }}
-          >
-            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
-              <Truck className="w-4 h-4 text-white" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#1E76B6]">
-                Entrega estimada
-              </p>
-              <p className="text-base font-black text-[#0A183A] leading-tight mt-0.5">
-                {new Date(order.etaDate).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}
-              </p>
-            </div>
-          </div>
-        )}
         <Journey events={history} currentStatus={order.status} cancelNote={order.notas} />
       </section>
 
@@ -789,6 +743,78 @@ function Row({
 
 const FUTURE_PIPELINE = ["pendiente", "confirmado", "enviado", "entregado"] as const;
 
+// ─────────────────────────────────────────────────────────────────────
+// Title derivation: the raw status name is rarely the most informative
+// thing about an event. A second `pendiente` row that shows up because
+// the buyer changed their address should READ as "Dirección actualizada"
+// — that's the real signal. Same for ETA reschedules ("Entrega
+// reprogramada") and payment confirmations. We pull these out of the
+// note + eta diff so the headline of each timeline row is the actual
+// thing that happened.
+// ─────────────────────────────────────────────────────────────────────
+
+type EventDisplay = {
+  /** Headline rendered as the timeline-node title. */
+  title: string;
+  /** Optional subline echoing the changed value (new address, etc.). */
+  highlight?: string;
+  /** When set, the row should read as a change beat, not a status. */
+  changeKind?: "address" | "phone" | "eta" | "payment";
+  /** Cleaned-up note minus structured prefixes we already lifted. */
+  remainingNote?: string;
+};
+
+function deriveEventDisplay(event: StatusEvent, prevEta: string | null): EventDisplay {
+  const note = (event.note ?? "").trim();
+  const baseLabel = STATUS_META[event.status]?.label ?? event.status;
+
+  // Address change — note format from the contact-edit endpoint:
+  //   "Comprador actualizó: dirección → Calle 87A 19-37"
+  // Multiple fields may be joined by " | ". We pluck the address
+  // and let phone fall through to its own branch when present.
+  const addrMatch = note.match(/dirección\s*→\s*([^|]+?)(?:\s*\||$)/i);
+  if (addrMatch) {
+    return {
+      title: "Dirección actualizada",
+      highlight: addrMatch[1].trim(),
+      changeKind: "address",
+    };
+  }
+
+  const phoneMatch = note.match(/teléfono\s*→\s*([^|]+?)(?:\s*\||$)/i);
+  if (phoneMatch) {
+    return {
+      title: "Teléfono actualizado",
+      highlight: phoneMatch[1].trim(),
+      changeKind: "phone",
+    };
+  }
+
+  // Payment-approved beats — the gateway webhook writes a
+  // "pendiente" event with a "Pago aprobado" note. Promote it to
+  // the headline so the buyer sees PAYMENT, not status.
+  if (/pago\s+aprobado/i.test(note)) {
+    return { title: "Pago aprobado", changeKind: "payment" };
+  }
+
+  // ETA reprogramming — when the dist pushes an event with a new
+  // ETA different from the most recent one, the news IS the change.
+  if (event.eta && prevEta && event.eta !== prevEta) {
+    return {
+      title: "Entrega reprogramada",
+      highlight: new Date(event.eta).toLocaleDateString("es-CO", {
+        day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+      }),
+      changeKind: "eta",
+      // Keep the dist's note ("hubo un cambio") so the buyer sees
+      // the reasoning alongside the date callout.
+      remainingNote: note || undefined,
+    };
+  }
+
+  return { title: baseLabel, remainingNote: note || undefined };
+}
+
 function Journey({
   events, currentStatus, cancelNote,
 }: {
@@ -806,20 +832,26 @@ function Journey({
     ? FUTURE_PIPELINE.filter((s) => !seen.has(s) && s !== "pendiente")
     : [];
 
+  // Walk the events in order so each row knows the most recent ETA
+  // *before* it; that's how we detect ETA reprogramming.
+  let runningEta: string | null = null;
+  const rows = events.map((evt) => {
+    const display = deriveEventDisplay(evt, runningEta);
+    if (evt.eta) runningEta = evt.eta;
+    return { evt, display };
+  });
+
   return (
     <ol className="relative">
-      {events.map((evt, i) => {
+      {rows.map(({ evt, display }, i) => {
         const isLast = i === events.length - 1;
-        const isCurrentMarker = isLast && remainingFuture.length === 0 && !isTerminal
-          ? false   // edge case: free-text most recent without future steps — still mark as current
-          : isLast;
         return (
           <JourneyNode
             key={`${evt.status}-${evt.at}-${i}`}
             event={evt}
+            display={display}
             current={isLast}
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            _placeholder={isCurrentMarker}
+            inFlight={!isTerminal}
             cancelNote={evt.status === "cancelado" ? cancelNote ?? evt.note ?? null : null}
             connector={!isLast || remainingFuture.length > 0}
           />
@@ -829,7 +861,9 @@ function Journey({
         <JourneyNode
           key={`future-${status}`}
           event={{ status, at: "" }}
+          display={{ title: STATUS_META[status]?.label ?? status }}
           ghost
+          inFlight={false}
           connector={i < remainingFuture.length - 1}
         />
       ))}
@@ -838,31 +872,35 @@ function Journey({
 }
 
 function JourneyNode({
-  event, current, ghost, connector, cancelNote,
+  event, display, current, ghost, inFlight, connector, cancelNote,
 }: {
   event: StatusEvent;
+  display: EventDisplay;
   current?: boolean;
   ghost?: boolean;
+  /** True when the order hasn't reached a terminal state yet — used
+   *  to decide whether the active marker should show the spinning
+   *  tire (still moving) or the canonical icon (already arrived). */
+  inFlight: boolean;
   connector: boolean;
   cancelNote?: string | null;
-  // Discarded — kept so the parent's spread doesn't blow up TS.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _placeholder?: boolean;
 }) {
   const meta = STATUS_META[event.status];
   const Icon = meta?.icon ?? Clock;
-  const label = meta?.label ?? event.status;
   const color = meta?.color ?? "#1E76B6";
   const bg    = meta?.bg ?? "rgba(30,118,182,0.10)";
+  const baseLabel = meta?.label ?? event.status;
+  const showStatusBadge = !ghost && display.changeKind !== undefined && baseLabel !== display.title;
+  const showCurrentTire = !ghost && current && inFlight;
 
   return (
-    <li className="relative pl-12 pb-5 last:pb-0">
+    <li className="relative pl-14 pb-5 last:pb-0">
       {/* Vertical connector line — sits behind the marker. Last node
           AND ghost-tail nodes don't render a trailing line. */}
       {connector && (
         <span
           aria-hidden
-          className="absolute left-[18px] top-9 bottom-0 w-px"
+          className="absolute left-[22px] top-11 bottom-0 w-px"
           style={{
             background: ghost
               ? "repeating-linear-gradient(to bottom, rgba(10,24,58,0.18) 0 4px, transparent 4px 8px)"
@@ -871,38 +909,57 @@ function JourneyNode({
         />
       )}
 
-      {/* Marker dot */}
+      {/* Marker. The current-in-flight node renders a spinning tire on
+          a white background — the tire's own white halo blends with
+          the marker bg, no clash. Past nodes get the canonical icon;
+          future nodes the dashed ghost. */}
       <span
-        className="absolute left-0 top-0 w-9 h-9 rounded-full flex items-center justify-center"
+        className="absolute left-0 top-0 w-11 h-11 rounded-full flex items-center justify-center"
         style={{
           background: ghost
             ? "white"
-            : current
-              ? "linear-gradient(135deg,#0A183A,#1E76B6)"
-              : bg,
+            : showCurrentTire
+              ? "white"
+              : current
+                ? "linear-gradient(135deg,#0A183A,#1E76B6)"
+                : bg,
           border: ghost
             ? "1.5px dashed rgba(10,24,58,0.20)"
+            : showCurrentTire
+              ? "2px solid #1E76B6"
+              : current
+                ? "none"
+                : `1px solid ${color}33`,
+          boxShadow: showCurrentTire
+            ? "0 0 0 4px rgba(30,118,182,0.22), 0 10px 22px -8px rgba(30,118,182,0.55)"
             : current
-              ? "none"
-              : `1px solid ${color}33`,
-          boxShadow: current ? `0 10px 24px -8px ${color}80` : "none",
+              ? `0 10px 24px -8px ${color}80`
+              : "none",
         }}
       >
-        <Icon
-          className="w-4 h-4"
-          style={{
-            color: ghost ? "#9ca3af" : current ? "white" : color,
-          }}
-        />
+        {showCurrentTire ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src="/loading-tire.avif"
+            alt=""
+            className="w-7 h-7 object-contain animate-spin"
+            style={{ animationDuration: "2.4s" }}
+          />
+        ) : (
+          <Icon
+            className="w-4 h-4"
+            style={{ color: ghost ? "#9ca3af" : current ? "white" : color }}
+          />
+        )}
       </span>
 
       {/* Body */}
-      <div className="pt-1">
+      <div className="pt-1.5">
         <div className="flex items-baseline justify-between gap-2 flex-wrap">
           <p
-            className={`text-sm font-black leading-tight ${ghost ? "text-gray-400" : "text-[#0A183A]"}`}
+            className={`text-base font-black leading-tight ${ghost ? "text-gray-400" : "text-[#0A183A]"}`}
           >
-            {label}
+            {display.title}
           </p>
           {!ghost && event.at && (
             <time
@@ -913,19 +970,78 @@ function JourneyNode({
             </time>
           )}
         </div>
-        {!ghost && current && (
+
+        {/* Tiny status pill when the headline isn't the status (e.g.
+            "Dirección actualizada" but the order row still says
+            pendiente). Keeps the underlying status visible without
+            stealing the headline. */}
+        {showStatusBadge && (
+          <span
+            className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+            style={{ background: bg, color }}
+          >
+            {baseLabel}
+          </span>
+        )}
+
+        {!ghost && current && !showStatusBadge && (
           <p className="text-[11px] font-bold mt-0.5" style={{ color }}>
             Estado actual
           </p>
         )}
-        {!ghost && event.eta && (
+
+        {/* Address / phone change callout — full new value rendered
+            in a soft brand-blue card so the buyer can verify at a
+            glance that the right address was saved. */}
+        {!ghost && display.highlight && (display.changeKind === "address" || display.changeKind === "phone") && (
+          <div
+            className="mt-2 px-3 py-2 rounded-xl flex items-start gap-2"
+            style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.20)" }}
+          >
+            {display.changeKind === "address"
+              ? <MapPin className="w-3.5 h-3.5 text-[#1E76B6] mt-0.5 flex-shrink-0" />
+              : <Phone  className="w-3.5 h-3.5 text-[#1E76B6] mt-0.5 flex-shrink-0" />}
+            <p className="text-[12px] font-bold text-[#0A183A] leading-snug">
+              {display.highlight}
+            </p>
+          </div>
+        )}
+
+        {/* ETA-change callout — new delivery date rendered prominently
+            so a reschedule never gets buried below the status name. */}
+        {!ghost && display.changeKind === "eta" && display.highlight && (
+          <div
+            className="mt-2 px-3 py-2 rounded-xl flex items-start gap-2"
+            style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.20)" }}
+          >
+            <Truck className="w-3.5 h-3.5 text-[#1E76B6] mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#1E76B6]">
+                Nueva entrega estimada
+              </p>
+              <p className="text-[13px] font-black text-[#0A183A] leading-tight mt-0.5">
+                {display.highlight}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* First-time ETA on this event (not a reschedule) — kept as a
+            quieter line because the hero already shows the headline
+            ETA up top. */}
+        {!ghost && event.eta && display.changeKind !== "eta" && (
           <p className="text-[11px] text-[#1E76B6] mt-1 font-bold">
             Entrega estimada: {new Date(event.eta).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}
           </p>
         )}
-        {!ghost && event.note && event.status !== "cancelado" && (
-          <p className="text-[11px] text-gray-600 mt-1 italic">{event.note}</p>
+
+        {/* Whatever's left of the dist's free-text note after we lift
+            structured fields out of it. Italicised, muted — secondary
+            colour to the structured callouts above. */}
+        {!ghost && display.remainingNote && event.status !== "cancelado" && (
+          <p className="text-[11px] text-gray-600 mt-1 italic">{display.remainingNote}</p>
         )}
+
         {!ghost && cancelNote && event.status === "cancelado" && (
           <div
             className="mt-2 p-2.5 rounded-lg text-[11px]"
