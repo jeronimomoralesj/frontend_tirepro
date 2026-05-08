@@ -1673,25 +1673,35 @@ function MarketplaceHero({
   const vehicleMatches = useMemo(() => searchVehicles(vehicleQuery, 6), [vehicleQuery]);
   const mayWeek = useMayWeek();
 
-  async function handleCommunityVehicle(match: { key: string; label: string; type: string; dims: string[] }) {
+  async function handleCommunityVehicle(match: {
+    key: string; label: string; type: string; dims: string[];
+    yearFrom?: number; yearTo?: number; trim?: string;
+  }) {
     if (!placaUnknown || communitySaving) return;
     setCommunitySaving(true);
     try {
       // Backend infers dimensions from `clase` via TIRE_MAP, but the
-      // VEHICLE_DB on the client has more precise per-model sizes.
-      // Send both: clase for the DB constraint, marca/linea/dimensions
-      // for the cache so the next buyer with the same plate gets the
-      // exact same vehicle resolution we just showed this buyer.
+      // VEHICLE_DB on the client has more precise per-model + per-year
+      // sizes. Send everything so the next buyer with the same plate
+      // gets back the exact same year-banded vehicle resolution we
+      // just showed this buyer.
       const [marca, ...rest] = match.key.split(" ");
       const linea = rest.join(" ");
       const clase = VEHICLE_TYPE_TO_CLASE[match.type] ?? "AUTOMOVIL";
+      // Pick a representative year for the modelo field — most buyers
+      // care about the latest production year of the variant. yearTo
+      // = 0 means "present" so we use the current year.
+      const repYear = match.yearTo === 0
+        ? new Date().getFullYear()
+        : match.yearTo ?? match.yearFrom;
       const res = await fetch(`${API_BASE}/marketplace/plate-lookup/${encodeURIComponent(placaUnknown)}/community`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clase,
-          marca: marca.toUpperCase(),
-          linea: linea.toUpperCase(),
+          marca:      marca.toUpperCase(),
+          linea:      linea.toUpperCase(),
+          modelo:     repYear ? String(repYear) : undefined,
           dimensions: match.dims,
         }),
       });
@@ -1704,10 +1714,17 @@ function MarketplaceHero({
       const dims = match.dims;
       setPlacaUnknown(null);
       setVehicleQuery("");
+      const yearLabel = match.yearFrom
+        ? (match.yearTo === 0 ? `${match.yearFrom}+` : `${match.yearFrom}-${match.yearTo}`)
+        : null;
       setPlacaResult({
         found: true,
         marca: marca.charAt(0).toUpperCase() + marca.slice(1),
-        linea: linea.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+        linea: [
+          linea.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+          yearLabel,
+          match.trim ? `(${match.trim})` : null,
+        ].filter(Boolean).join(" "),
         clase,
         dimensions: dims,
       });
