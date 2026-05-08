@@ -31,9 +31,12 @@ const API_BASES = [
 export const metadata: Metadata = {
   title:
     'Software de Gestión de Llantas con IA para Flotas | TirePro Colombia',
+  // Bing/Google truncate meta descriptions past ~160 chars and demote
+  // pages with descriptions outside the 120-160 sweet spot. Keep this
+  // tight + first-line-impactful — long-form pitch lives on the
+  // landing body, not in the SERP snippet.
   description:
-    'TirePro es la plataforma líder en Colombia y Latinoamérica de monitoreo y gestión de llantas con inteligencia artificial. ' +
-    'Reduce el CPK hasta 28%, predice reemplazos con 95% de precisión, evita fallas en ruta y centraliza inspecciones de toda tu flota — tractomulas, buses, camiones y operación regional.',
+    'Plataforma colombiana de gestión de llantas con IA para flotas. Reduce CPK 28%, predice reemplazos y evita fallas en ruta. Software + marketplace.',
   keywords: [
     'gestión de llantas para flotas',
     'monitoreo de llantas con IA',
@@ -55,7 +58,7 @@ export const metadata: Metadata = {
     siteName: 'TirePro',
     title: 'TirePro — Plataforma de monitoreo de llantas con IA para flotas',
     description:
-      'Plataforma colombiana de monitoreo de llantas con IA. Reduce CPK, predice reemplazos y elimina fallas en ruta en flotas de Colombia y LATAM.',
+      'Plataforma colombiana de gestión de llantas con IA. Reduce CPK, predice reemplazos y evita fallas en ruta. Software + marketplace.',
     images: [
       {
         url: 'https://www.tirepro.com.co/logo_full.png',
@@ -69,7 +72,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'TirePro — Monitoreo de llantas con IA para flotas',
     description:
-      'Plataforma de gestión y monitoreo de llantas con IA para flotas en Colombia y Latinoamérica.',
+      'Plataforma colombiana de gestión de llantas con IA + marketplace. Reduce CPK, predice reemplazos y evita fallas en ruta.',
   },
 }
 

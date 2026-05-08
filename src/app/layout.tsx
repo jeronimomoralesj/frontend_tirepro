@@ -18,10 +18,10 @@ export const metadata: Metadata = {
     template: '%s | TirePro',
   },
 
+  // Site-wide fallback for pages that don't override metadata.
+  // Trimmed to 155 chars so it survives Bing/Google SERP truncation.
   description:
-    'TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas. ' +
-    'Reduce costos hasta 25% con analisis de datos: CPK en tiempo real, prediccion de reemplazo, recomendaciones de compra. ' +
-    'Marketplace de llantas con distribuidores verificados en toda Colombia.',
+    'TirePro: software con IA para gestión de llantas en flotas y marketplace de llantas en Colombia. CPK en tiempo real, distribuidores verificados.',
 
   keywords: [
     // Fleet management (preserve existing positioning)
