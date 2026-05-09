@@ -24,6 +24,7 @@ import {
   Plus,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
+import { VehicleTireGrid } from "../../../components/dashboard/VehicleTireGrid";
 
 // =============================================================================
 // Constants
@@ -763,6 +764,17 @@ export default function TirePage() {
               selected={selectedVehicle}
               onSelect={setSelected}
               onClear={() => setSelected(null)}
+            />
+            {/* Visual position picker — shows occupied (green) vs missing
+                (dashed grey) positions for the chosen vehicle so the
+                operator can see at a glance where this new tire should
+                go. Clicking a position fills the form's posicion field;
+                clicking an occupied one prompts to move that tire to
+                inventory before claiming the spot. */}
+            <VehicleTireGrid
+              vehicle={selectedVehicle}
+              selectedPosition={form.posicion}
+              onSelectPosition={(pos) => setForm((f) => ({ ...f, posicion: pos }))}
             />
           </div>
 

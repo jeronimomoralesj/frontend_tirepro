@@ -8,6 +8,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
+import { VehicleTireGrid } from "../../../components/dashboard/VehicleTireGrid";
 
 // =============================================================================
 // Types
@@ -142,7 +143,7 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
     kilometrosRecorridos: "" as number | "",
     costo: "" as number | "",
     vida: "nueva",
-    posicion: "",
+    posicion: "" as number | "",
   });
 
   // -- Fetch companies on mount -----------------------------------------------
@@ -565,6 +566,15 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
                 <span className="text-[#173D68]">— {selectedVehicle.tipovhc}</span>
               </div>
             )}
+            {/* Visual position picker — same component used in
+                /dashboard/agregar/CrearLlanta. Color-codes occupied vs
+                missing positions and prompts to move the tire on a
+                claimed spot before allowing the new mount. */}
+            <VehicleTireGrid
+              vehicle={selectedVehicle}
+              selectedPosition={form.posicion}
+              onSelectPosition={(pos) => setForm((f: any) => ({ ...f, posicion: pos }))}
+            />
           </Card>
 
           {/* -- Form fields ----------------------------------------------- */}
