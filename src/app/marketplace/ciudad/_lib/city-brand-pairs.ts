@@ -26,8 +26,13 @@ const TOP_CITY_SLUGS = [
   "cucuta",
 ] as const;
 
-// 12 most-searched tire brands in Colombia. Slugs match the
-// /marketplace/brand/<slug> canonical paths.
+// Most-searched tire brands in Colombia. Slugs match the
+// /marketplace/brand/<slug> canonical paths. Each entry produces 8
+// city × brand landing pages (one per TOP_CITY) that internally link
+// back to the brand page — that internal-linking equity is what
+// lifts the brand page itself for navigational queries like
+// "llantas nexen", "comprar hankook", etc. Adding a new brand here
+// instantly creates 8 inbound links + 8 sitemap entries.
 export const TOP_BRANDS: Array<{ slug: string; name: string; tier: "premium" | "mid" | "value"; country?: string }> = [
   { slug: "michelin",     name: "Michelin",     tier: "premium", country: "Francia" },
   { slug: "bridgestone",  name: "Bridgestone",  tier: "premium", country: "Japón" },
@@ -38,9 +43,18 @@ export const TOP_BRANDS: Array<{ slug: string; name: string; tier: "premium" | "
   { slug: "yokohama",     name: "Yokohama",     tier: "mid",     country: "Japón" },
   { slug: "firestone",    name: "Firestone",    tier: "mid",     country: "Estados Unidos" },
   { slug: "dunlop",       name: "Dunlop",       tier: "mid",     country: "Reino Unido" },
+  { slug: "nexen",        name: "Nexen",        tier: "mid",     country: "Corea del Sur" },
+  { slug: "kumho",        name: "Kumho",        tier: "mid",     country: "Corea del Sur" },
+  { slug: "toyo",         name: "Toyo",         tier: "mid",     country: "Japón" },
+  { slug: "cooper",       name: "Cooper",       tier: "mid",     country: "Estados Unidos" },
+  { slug: "bfgoodrich",   name: "BFGoodrich",   tier: "mid",     country: "Estados Unidos" },
+  { slug: "maxxis",       name: "Maxxis",       tier: "mid",     country: "Taiwán" },
+  { slug: "gt-radial",    name: "GT Radial",    tier: "mid",     country: "Indonesia" },
   { slug: "sailun",       name: "Sailun",       tier: "value",   country: "China" },
   { slug: "linglong",     name: "Linglong",     tier: "value",   country: "China" },
   { slug: "triangle",     name: "Triangle",     tier: "value",   country: "China" },
+  { slug: "westlake",     name: "Westlake",     tier: "value",   country: "China" },
+  { slug: "doublestar",   name: "Doublestar",   tier: "value",   country: "China" },
 ];
 
 export interface CityBrandPair {

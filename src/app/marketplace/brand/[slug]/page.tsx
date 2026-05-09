@@ -7,6 +7,8 @@ import { ArrowLeft, Globe, Factory, Package, ArrowRight, Star, ShieldCheck, Shop
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import BrandListingsClient from "./BrandListingsClient";
 import { productHref } from "../../product/_lib/url";
+import { toDimensionSlug } from "../../dimension/_lib/dimensions";
+import { CITY_BRAND_PAIRS } from "../../ciudad/_lib/city-brand-pairs";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -1171,6 +1173,109 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
           </div>
         </section>
 
+        {/* Available dimensions for this brand — internal-linking gold.
+            Each chip routes to the canonical /marketplace/dimension/<slug>
+            page with anchor text "Llantas <dim> <brand>", which compounds
+            both the dimension page's authority AND the buyer's mental
+            "do they have my size?" check before they hit the catalog. */}
+        {(() => {
+          const dims = new Set<string>();
+          brand.listings.forEach((l) => { if (l.dimension) dims.add(l.dimension); });
+          const dimList = Array.from(dims).slice(0, 18);
+          if (dimList.length === 0) return null;
+          return (
+            <section
+              aria-labelledby="brand-dimensions"
+              className="bg-white rounded-3xl p-6 sm:p-8"
+              style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+            >
+              <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: PRIMARY }}>
+                Medidas disponibles
+              </p>
+              <h2 id="brand-dimensions" className="text-xl sm:text-2xl font-black text-[#0A183A] mb-4">
+                Medidas {brand.name} en stock
+              </h2>
+              <p className="text-xs text-gray-600 leading-relaxed mb-4 max-w-3xl">
+                Estas son las medidas {brand.name} con stock activo en distribuidores
+                verificados de TirePro. Haz click en una para ver opciones, comparar
+                precios y comprar con envío a toda Colombia.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {dimList.map((d) => (
+                  <Link
+                    key={d}
+                    href={`/marketplace/dimension/${toDimensionSlug(d)}`}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-bold transition-colors hover:underline"
+                    style={{
+                      background: rgba(PRIMARY, 0.08),
+                      color: ACCENT,
+                      border: `1px solid ${rgba(PRIMARY, 0.18)}`,
+                    }}
+                  >
+                    <span className="tabular-nums">{d}</span>
+                    <span className="text-gray-500">· {brand.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
+
+        {/* Long-form SEO body — Google rewards pages with dense unique
+            text on-topic for the brand. Every paragraph here name-checks
+            the brand, the country/cities, and at least one commercial-
+            intent verb (comprar, precio, distribuidor) so brand-name
+            queries see this as the canonical Spanish-language landing
+            page. Visible to readers and machine-readable for AI overviews. */}
+        <section
+          aria-labelledby="brand-about"
+          className="bg-white rounded-3xl p-6 sm:p-8"
+          style={{ boxShadow: "0 20px 60px -20px rgba(10,24,58,0.18)" }}
+        >
+          <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: PRIMARY }}>
+            Acerca de la marca
+          </p>
+          <h2 id="brand-about" className="text-xl sm:text-2xl font-black text-[#0A183A] mb-4">
+            Comprar llantas {brand.name} en Colombia
+          </h2>
+          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed space-y-3 text-[13px]">
+            <p>
+              <strong>{brand.name} en Colombia</strong> está disponible en TirePro
+              Marketplace con {brand.total} producto{brand.total !== 1 ? "s" : ""} de
+              distribuidores verificados.
+              {brand.country ? ` ${brand.name} es una marca de origen ${brand.country.toLowerCase()}` : ` ${brand.name} es una marca reconocida en el mercado colombiano`}
+              {brand.foundedYear ? ` con presencia desde ${brand.foundedYear}` : ""}
+              {brand.parentCompany ? `, parte del grupo ${brand.parentCompany}` : ""}.{" "}
+              {productFocus === "new"     && `Ofrece ${productNoun} para auto, camioneta, SUV, camión, bus y tractomula.`}
+              {productFocus === "retread" && `Está enfocada en reencauche y bandas de rodamiento para flotas de transporte.`}
+              {productFocus === "both"    && `Cubre tanto ${productNoun} para todo tipo de vehículo.`}
+            </p>
+            <p>
+              {fromPriceStr
+                ? <>El precio de las llantas {brand.name} en TirePro empieza desde <strong>{fromPriceStr}</strong> y varía según la medida, el modelo y el distribuidor.</>
+                : <>Los precios de las llantas {brand.name} en TirePro varían según la medida, el modelo y el distribuidor.</>}
+              {" "}Compara opciones directamente en el catálogo de la marca, revisa el detalle del producto y paga online de forma segura con tarjeta, PSE o transferencia.
+            </p>
+            <p>
+              <strong>Distribuidores {brand.name} en Colombia.</strong> En TirePro encuentras
+              vendedores verificados de {brand.name} con cobertura en Bogotá, Medellín, Cali,
+              Barranquilla, Bucaramanga, Cartagena, Pereira, Cúcuta y resto del país. Cada
+              pedido sale del distribuidor más cercano según tu dirección de entrega, con
+              tiempos estimados visibles antes de pagar.
+            </p>
+            <p>
+              <strong>¿Por qué comprar {brand.name} en TirePro?</strong> Centralizamos el
+              catálogo de {brand.name} de múltiples distribuidores para que compares precios,
+              medidas y modelos en un solo lugar. Las imágenes, fichas técnicas y reseñas son
+              reales — sin intermediarios que inflan precios. Si buscas{" "}
+              <em>llantas {brand.name} para camioneta</em>, <em>llantas {brand.name} para
+              tractomula</em>, <em>llantas {brand.name} 195/65R15</em>, <em>llantas{" "}
+              {brand.name} 265/70R16</em> u otra medida específica, filtra el catálogo de
+              arriba y encuentra exactamente lo que necesitas.
+            </p>
+          </div>
+        </section>
+
         {/* FAQ — marketplace-only facts so the FAQPage JSON-LD has
             matching visible text. Renders as native <details> for zero-JS
             accordion behaviour. Targets long-tail "{brand} colombia
@@ -1264,10 +1369,15 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 Medidas populares
               </h3>
               <ul className="space-y-1.5">
+                {/* Link to the canonical /marketplace/dimension/<slug>
+                    pages — full server-rendered pages with H1/schema/FAQ
+                    so internal-link equity actually accrues. The old
+                    /marketplace?q= URL was a faceted search Google
+                    treats as soft-404 / canonical-of-the-grid. */}
                 {["295/80R22.5", "11R22.5", "315/80R22.5", "265/70R16", "285/60R18", "205/55R16", "195/65R15", "225/45R17"].map((d) => (
                   <li key={d}>
                     <Link
-                      href={`/marketplace?q=${encodeURIComponent(d)}`}
+                      href={`/marketplace/dimension/${toDimensionSlug(d)}`}
                       className="text-xs text-gray-600 hover:underline"
                     >
                       Llantas {d}
@@ -1281,16 +1391,31 @@ export default async function BrandPage({ params }: { params: Promise<{ slug: st
                 {brand.name} en tu ciudad
               </h3>
               <ul className="space-y-1.5">
-                {["Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga", "Cartagena", "Pereira", "Cúcuta"].map((c) => (
-                  <li key={c}>
-                    <Link
-                      href={`/marketplace?q=${encodeURIComponent(brand.name + " " + c)}`}
-                      className="text-xs text-gray-600 hover:underline"
-                    >
-                      Llantas {brand.name} en {c}
-                    </Link>
-                  </li>
-                ))}
+                {/* Use the canonical city × brand landing page when one
+                    exists in CITY_BRAND_PAIRS (top brands × top cities);
+                    otherwise fall back to the city page. The brand
+                    chosen here may not be in TOP_BRANDS — that's fine,
+                    the city page itself is also indexed. */}
+                {["bogota", "medellin", "cali", "barranquilla", "bucaramanga", "cartagena", "pereira", "cucuta"].map((citySlug) => {
+                  const cityName = citySlug
+                    .replace(/^./, (c) => c.toUpperCase())
+                    .replace("Bogota", "Bogotá")
+                    .replace("Medellin", "Medellín")
+                    .replace("Cucuta", "Cúcuta");
+                  const pair = CITY_BRAND_PAIRS.find(
+                    (p) => p.citySlug === citySlug && p.brandSlug === brand.slug,
+                  );
+                  const href = pair
+                    ? `/marketplace/ciudad/${citySlug}/${brand.slug}`
+                    : `/marketplace/ciudad/${citySlug}`;
+                  return (
+                    <li key={citySlug}>
+                      <Link href={href} className="text-xs text-gray-600 hover:underline">
+                        Llantas {brand.name} en {cityName}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </div>
