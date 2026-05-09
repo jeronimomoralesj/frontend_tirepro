@@ -34,7 +34,14 @@ function defaultFetcher(url: string): Promise<Response> {
   const token = typeof window !== 'undefined'
     ? (localStorage.getItem('token') ?? '')
     : '';
+  // `cache: 'no-store'` bypasses the browser HTTP cache. Without it, a
+  // dashboard page that re-mounts (e.g. user navigates agregar →
+  // resumen) was being served the prior GET from the disk cache even
+  // though Redis on the backend had already invalidated. Backend
+  // already invalidates on every mutation (inspection, edit), so we
+  // just need to make sure the browser always re-asks.
   return fetch(url, {
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
