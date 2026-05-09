@@ -55,6 +55,7 @@ type Vehicle = {
   tipovhc: string;
   companyId: string;
   tireCount?: number;
+  configuracion?: string | null;
   _count?: { tires: number };
 };
 

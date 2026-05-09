@@ -3,24 +3,26 @@
 // =============================================================================
 // VehicleTireGrid — visual position picker for the "crear llanta" forms.
 //
-// When the user picks a vehicle in CrearLlanta, this grid renders every
-// position the vehicle expects (1..tireCount) color-coded by occupancy:
+// When the operator picks a vehicle in CrearLlanta, this grid renders the
+// vehicle's actual axle layout (matching the visual style used in
+// /dashboard/posicion + Inspeccion) and color-codes every position by
+// occupancy:
 //
 //   • dashed grey  — empty position (this is what's missing a tire)
-//   • solid green  — already has a tire
+//   • solid green  — already mounted
 //   • brand blue   — currently selected for the new tire
 //
-// Clicking an empty position selects it. Clicking an occupied one
-// opens a confirm modal asking whether to move the existing tire to
-// the inventory bucket (vehicleId = null) so the new tire can take
-// its place. This keeps the operator from blindly stacking two tires
-// on the same position — a long-standing source of cleanup work.
+// The form's typed posicion <input> stays — clicking a slot just fills
+// it. Clicking an occupied slot opens a confirm modal asking whether
+// to move the existing tire to the inventory bucket (vehicleId=null,
+// posicion=0) so the new tire can take its place.
 //
-// Used by both /dashboard/agregar/CrearLlanta and /dashboard/agregarDist/CrearLlanta.
+// Used by both /dashboard/agregar/CrearLlanta and
+// /dashboard/agregarDist/CrearLlanta.
 // =============================================================================
 
-import React, { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Disc } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, Loader2, Truck } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
@@ -38,6 +40,9 @@ export type GridVehicle = {
   id: string;
   placa: string;
   tipovhc?: string;
+  /** "2-2", "2-4", "4-4", "2-4-4", "6-4", "2-2-2", "4-4-4" — same
+   *  preset list used by /dashboard/posicion. */
+  configuracion?: string | null;
   tireCount?: number;
   _count?: { tires: number };
 };
@@ -52,14 +57,137 @@ type TireOnVehicle = {
 
 interface Props {
   vehicle: GridVehicle | null;
-  /** Position currently chosen for the new tire (1-based). 0 / "" means none. */
+  /** Position currently chosen for the new tire (1-based). 0 / "" = none. */
   selectedPosition: number | "";
-  /** Called when the user picks a position (any position — empty or freed). */
   onSelectPosition: (pos: number) => void;
-  /** Optional callback fired AFTER an existing tire is successfully moved
-   *  to inventory, so the parent can refresh whatever cache it holds. */
   onTireMoved?: (movedTireId: string) => void;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Layout helpers — mirror /dashboard/agregar/Posicion's parseConfig so
+// the same "2-4-4" string draws the same axle pattern everywhere.
+// ─────────────────────────────────────────────────────────────────────
+
+function parseConfig(cfg: string): number[][] {
+  const parts = cfg.split("-").map(Number).filter((n) => n > 0);
+  let pos = 1;
+  return parts.map((count) => Array.from({ length: count }, () => pos++));
+}
+
+/** When the vehicle has no configuracion field, fall back to a sensible
+ *  default based on tireCount. Same logic as Posicion's computedLayout. */
+function defaultLayout(tireCount: number): number[][] {
+  if (tireCount <= 0) return [];
+  if (tireCount <= 2) return [[1, 2].slice(0, tireCount)];
+  if (tireCount === 4) return parseConfig("2-2");
+  if (tireCount === 6) return parseConfig("2-4");
+  if (tireCount === 8) return parseConfig("4-4");
+  if (tireCount === 10) return parseConfig("2-4-4");
+  if (tireCount === 12) return parseConfig("4-4-4");
+  // Fallback: 2 on the front axle, the rest split across 2 rear axles.
+  const remaining = tireCount - 2;
+  const a = Math.ceil(remaining / 2);
+  const b = remaining - a;
+  return parseConfig(`2-${a}-${b}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Visual primitives — single-tire chip + axle bar.
+// ─────────────────────────────────────────────────────────────────────
+
+function PositionChip({
+  pos, occupying, isSelected, onClick,
+}: {
+  pos: number;
+  occupying: TireOnVehicle | undefined;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const styles: React.CSSProperties = isSelected
+    ? { background: "#1E76B6", borderColor: "#1E76B6", color: "white" }
+    : occupying
+      ? { background: "#10b981", borderColor: "#10b981", color: "white" }
+      : { background: "white", borderColor: "#9ca3af", borderStyle: "dashed", color: "#6b7280" };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full border-2 flex flex-col items-center justify-center text-[10px] font-black transition-transform active:scale-[0.94] hover:scale-[1.06]"
+      style={{ ...styles, width: 52, height: 52, lineHeight: 1.05 }}
+      title={
+        occupying
+          ? `${occupying.placa} · ${occupying.marca} ${occupying.diseno}`
+          : "Posición vacía — haz click para seleccionar"
+      }
+    >
+      <span className="tabular-nums">{pos}</span>
+      {occupying && (
+        <span className="text-[8px] font-semibold opacity-90 px-1 max-w-full truncate">
+          {occupying.marca.slice(0, 6)}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function AxleRow({
+  axleIdx, positions, byPos, selectedPosition, onClick,
+}: {
+  axleIdx: number;
+  positions: number[];
+  byPos: Map<number, TireOnVehicle>;
+  selectedPosition: number | "";
+  onClick: (pos: number) => void;
+}) {
+  // Even split: left half / right half. Odd counts give the extra slot
+  // to the right side (matches Posicion's Math.ceil(length / 2)).
+  const mid = Math.ceil(positions.length / 2);
+  const left  = positions.slice(0, mid);
+  const right = positions.slice(mid);
+
+  return (
+    <div className="flex flex-col items-center gap-1.5 w-full">
+      <span className="text-[9px] font-bold uppercase tracking-widest text-[#348CCB]">
+        Eje {axleIdx + 1}
+      </span>
+      <div className="flex items-center justify-center w-full">
+        <div className="h-2.5 w-2 rounded-l-md flex-shrink-0" style={{ background: "#0A183A" }} />
+        <div className="flex items-center gap-1.5">
+          {left.map((p) => (
+            <PositionChip
+              key={p}
+              pos={p}
+              occupying={byPos.get(p)}
+              isSelected={selectedPosition === p}
+              onClick={() => onClick(p)}
+            />
+          ))}
+        </div>
+        <div className="h-3 mx-1.5 rounded-full flex items-center justify-center flex-grow"
+          style={{ background: "#0A183A", minWidth: 32, maxWidth: 80 }}>
+          <div className="h-1 w-9/12 rounded-full" style={{ background: "#1E76B6" }} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          {right.map((p) => (
+            <PositionChip
+              key={p}
+              pos={p}
+              occupying={byPos.get(p)}
+              isSelected={selectedPosition === p}
+              onClick={() => onClick(p)}
+            />
+          ))}
+        </div>
+        <div className="h-2.5 w-2 rounded-r-md flex-shrink-0" style={{ background: "#0A183A" }} />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Main component
+// ─────────────────────────────────────────────────────────────────────
 
 export function VehicleTireGrid({
   vehicle, selectedPosition, onSelectPosition, onTireMoved,
@@ -67,15 +195,9 @@ export function VehicleTireGrid({
   const [tires, setTires] = useState<TireOnVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  // Confirm-move modal state. When the user clicks an occupied position
-  // we stash both the tire there and the position the user is trying
-  // to claim, so "Confirmar" can move + select in one action.
   const [moveTarget, setMoveTarget] = useState<{ tire: TireOnVehicle; position: number } | null>(null);
   const [moving, setMoving] = useState(false);
 
-  // Fetch the vehicle's tires whenever the vehicle changes. cache: 'no-store'
-  // matches the dashboard fetch pattern — backend invalidates on every
-  // mutation and we want the freshest occupancy map every time.
   useEffect(() => {
     if (!vehicle) { setTires([]); setError(""); return; }
     let cancelled = false;
@@ -89,8 +211,6 @@ export function VehicleTireGrid({
       .then((data: unknown) => {
         if (cancelled) return;
         const rows = Array.isArray(data) ? data : [];
-        // Project down to just the fields the grid renders so the row
-        // shape stays small and predictable.
         const mapped: TireOnVehicle[] = rows.map((t: any) => ({
           id:       String(t.id),
           placa:    String(t.placa ?? ""),
@@ -105,15 +225,32 @@ export function VehicleTireGrid({
     return () => { cancelled = true; };
   }, [vehicle?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Layout: prefer vehicle.configuracion. If absent, derive from tireCount.
+  // If even tireCount is missing (legacy vehicles), fall back to the highest
+  // occupied position so we still draw something useful.
+  const layout = useMemo<number[][]>(() => {
+    if (!vehicle) return [];
+    if (vehicle.configuracion) {
+      const parsed = parseConfig(vehicle.configuracion);
+      if (parsed.length > 0) return parsed;
+    }
+    const tireCount = vehicle.tireCount ?? vehicle._count?.tires ?? 0;
+    if (tireCount > 0) return defaultLayout(tireCount);
+    const maxPos = tires.reduce((m, t) => Math.max(m, t.posicion), 0);
+    if (maxPos > 0) return defaultLayout(maxPos);
+    return [];
+  }, [vehicle, tires]);
+
+  const positions = useMemo(() => layout.flat(), [layout]);
+  const byPos = useMemo(() => {
+    const m = new Map<number, TireOnVehicle>();
+    tires.forEach((t) => { if (t.posicion > 0) m.set(t.posicion, t); });
+    return m;
+  }, [tires]);
+
   if (!vehicle) return null;
 
-  const tireCount = vehicle.tireCount ?? vehicle._count?.tires ?? 0;
-  // Defensive: if the vehicle has no declared capacity, fall back to
-  // the number of tires currently mounted so we still render something
-  // sensible (this happens with legacy vehicles created before tireCount
-  // became required).
-  const positions = Math.max(tireCount, tires.length);
-  if (positions === 0) {
+  if (positions.length === 0) {
     return (
       <div className="mt-3 p-3 rounded-xl bg-[#F0F7FF] border border-[#348CCB]/20 text-[12px] text-[#173D68]">
         Este vehículo no tiene cantidad de llantas configurada.
@@ -121,16 +258,11 @@ export function VehicleTireGrid({
     );
   }
 
-  // Build a lookup: position → occupying tire (if any).
-  const byPos = new Map<number, TireOnVehicle>();
-  tires.forEach((t) => { if (t.posicion > 0) byPos.set(t.posicion, t); });
   const filled = byPos.size;
 
   function handleClick(position: number) {
     const occupying = byPos.get(position);
     if (occupying) {
-      // Don't navigate the form yet — let the operator confirm whether
-      // to displace the existing tire to inventory first.
       setMoveTarget({ tire: occupying, position });
       return;
     }
@@ -141,17 +273,12 @@ export function VehicleTireGrid({
     if (!moveTarget) return;
     setMoving(true);
     try {
-      // PATCH the existing tire to detach it from the vehicle and zero
-      // its posicion. editTire already invalidates the relevant caches
-      // (company + vehicle) so the grid re-fetch below sees fresh data.
       const res = await fetch(`${API_BASE}/tires/${moveTarget.tire.id}/edit`, {
         method: "PATCH",
         headers: authHeaders(),
         body: JSON.stringify({ vehicleId: null, posicion: 0 }),
       });
       if (!res.ok) throw new Error("No se pudo mover la llanta al inventario");
-      // Optimistically clear the position so the new-tire selection
-      // takes effect immediately; the next fetch will reconcile.
       setTires((prev) => prev.map((t) =>
         t.id === moveTarget.tire.id ? { ...t, posicion: 0 } : t,
       ));
@@ -168,16 +295,18 @@ export function VehicleTireGrid({
   return (
     <div className="mt-4 rounded-2xl p-4" style={{ background: "#F8FAFC", border: "1px solid rgba(52,140,203,0.18)" }}>
       <div className="flex items-baseline justify-between gap-2 mb-3">
-        <p className="text-[11px] font-black uppercase tracking-wider text-[#1E76B6]">
-          Posiciones del vehículo
-        </p>
-        <p className="text-[11px] text-gray-500 tabular-nums">
-          {filled}/{positions} ocupadas
+        <div className="flex items-center gap-2 min-w-0">
+          <Truck className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />
+          <p className="text-[11px] font-black uppercase tracking-wider text-[#1E76B6] truncate">
+            Posiciones del vehículo
+          </p>
+        </div>
+        <p className="text-[11px] text-gray-500 tabular-nums flex-shrink-0">
+          {filled}/{positions.length} ocupadas
         </p>
       </div>
 
-      {/* Legend — quick mental map for the colour code. */}
-      <div className="flex flex-wrap items-center gap-3 mb-3 text-[10px] text-gray-600">
+      <div className="flex flex-wrap items-center gap-3 mb-4 text-[10px] text-gray-600">
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-emerald-500" />
           Ocupada
@@ -198,37 +327,17 @@ export function VehicleTireGrid({
           <span className="ml-2 text-xs">Cargando posiciones…</span>
         </div>
       ) : (
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          {Array.from({ length: positions }, (_, i) => i + 1).map((pos) => {
-            const occupying = byPos.get(pos);
-            const isSelected = selectedPosition === pos;
-            // Three visual states. The styles are all inline so the
-            // colour cascade can't be defeated by Tailwind purge or
-            // a parent's prose class — these chips need to render
-            // exactly the same on every viewport.
-            const styles: React.CSSProperties = isSelected
-              ? { background: "#1E76B6", borderColor: "#1E76B6", color: "white" }
-              : occupying
-                ? { background: "#10b981", borderColor: "#10b981", color: "white" }
-                : { background: "white", borderColor: "#9ca3af", borderStyle: "dashed", color: "#6b7280" };
-            return (
-              <button
-                key={pos}
-                type="button"
-                onClick={() => handleClick(pos)}
-                className="relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center text-[11px] font-bold transition-transform active:scale-[0.97] hover:scale-[1.02]"
-                style={styles}
-                title={
-                  occupying
-                    ? `${occupying.placa} · ${occupying.marca} ${occupying.diseno}`
-                    : "Posición vacía — haz click para seleccionar"
-                }
-              >
-                <Disc className="w-3.5 h-3.5 mb-0.5 opacity-80" />
-                <span className="tabular-nums leading-none">{pos}</span>
-              </button>
-            );
-          })}
+        <div className="flex flex-col gap-5 items-center overflow-x-auto py-2">
+          {layout.map((axle, idx) => (
+            <AxleRow
+              key={idx}
+              axleIdx={idx}
+              positions={axle}
+              byPos={byPos}
+              selectedPosition={selectedPosition}
+              onClick={handleClick}
+            />
+          ))}
         </div>
       )}
 
@@ -236,7 +345,6 @@ export function VehicleTireGrid({
         <p className="mt-3 text-[11px] text-red-600 font-medium">{error}</p>
       )}
 
-      {/* Confirm move-to-inventory modal */}
       {moveTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
