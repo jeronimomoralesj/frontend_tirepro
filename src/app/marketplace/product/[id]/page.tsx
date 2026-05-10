@@ -223,6 +223,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     sku: product.id,
     mpn: product.id,
     productID: product.id,
+    // Freshness signal — Google ranks recently-updated commerce
+    // pages higher in QDF (Query Deserves Freshness) contexts like
+    // promo periods. Falls back to current time so a listing without
+    // updatedAt still gets a recent date.
+    dateModified: (product.updatedAt ?? new Date().toISOString()),
     category: "Vehicles & Parts > Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Tires",
     // Voice-search hint — tells Google Assistant / Siri / Alexa which
     // parts of the page to read aloud when a user asks "Hey Google,
