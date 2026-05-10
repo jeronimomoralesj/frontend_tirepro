@@ -8,7 +8,7 @@ import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
   Mail, Globe, Star, Clock, CheckCircle, Shield, Recycle, ChevronLeft,
   ChevronRight, ChevronDown, Minus, Plus, X, Check, Search, Zap, Info,
-  Weight, Scale, Gauge, Sparkles, Store,
+  Weight, Scale, Gauge, Sparkles, Store, MessageCircle, RotateCcw, Car,
 } from "lucide-react";
 import { buildProductFaqs } from "./faq";
 import { productHref } from "../_lib/url";
@@ -720,7 +720,25 @@ export default function ProductClient({
                   <span className="text-lg text-gray-400 line-through">{fmtCOP(product.precioCop)}</span>
                 )}
               </div>
-              <p className="text-[11px] text-gray-500 mt-1">+ IVA · {product.cantidadDisponible} disponibles</p>
+              {/* IVA transparency. Colombian buyers expect the all-in
+                  number up front; the surprise +19% at checkout is a
+                  primary abandonment trigger. When the distributor
+                  flags incluyeIva=true, say so. Otherwise show both
+                  the net price (already displayed above) AND the gross
+                  total with IVA computed, so the buyer's mental anchor
+                  is the real total they'll pay. */}
+              {product.incluyeIva ? (
+                <p className="text-[11px] text-gray-500 mt-1">
+                  <span className="font-bold text-emerald-700">Incluye IVA</span>
+                  {" · "}{product.cantidadDisponible} disponibles
+                </p>
+              ) : (
+                <p className="text-[11px] text-gray-500 mt-1">
+                  <span className="font-bold text-[#0A183A]">{fmtCOP(price * 1.19)}</span>{" "}
+                  <span className="text-gray-400">precio final con IVA</span>
+                  {" · "}{product.cantidadDisponible} disponibles
+                </p>
+              )}
             </div>
 
             {/* Tags */}
@@ -901,9 +919,35 @@ export default function ProductClient({
               </div>
             )}
 
+            {/* Trust strip — 4 above-the-fold reassurance signals. New
+                marketplace = trust deficit; these tell the buyer "you
+                won't lose your money here" before they look at price.
+                Horizontal scroll on mobile, full row on desktop. */}
+            <div className="mt-6 -mx-1 flex gap-1.5 overflow-x-auto pb-1 sm:overflow-visible">
+              <div className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                <Shield className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Pago seguro Bold</span>
+              </div>
+              <div className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-blue-50 text-[#1E76B6] border border-blue-100">
+                <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Distribuidor verificado</span>
+              </div>
+              <Link
+                href="/marketplace/return-policy"
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100 hover:bg-amber-100 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Devolución 15 días</span>
+              </Link>
+              <div className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                <Truck className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Envío a toda Colombia</span>
+              </div>
+            </div>
+
             {/* Buy box — Amazon-style sticky card */}
             <div
-              className="mt-6 rounded-3xl p-5 bg-white"
+              className="mt-3 rounded-3xl p-5 bg-white"
               style={{ boxShadow: "0 12px 32px -16px rgba(10,24,58,0.18), 0 0 0 1px rgba(30,118,182,0.08)" }}
             >
               <div className="flex items-center gap-2 mb-3">
@@ -1002,6 +1046,56 @@ export default function ProductClient({
                 )}
               </button>
 
+              {/* WhatsApp CTA — direct line to the distributor. In
+                  Colombia a $500k+ purchase from an unknown brand
+                  almost always passes through a WhatsApp conversation
+                  first. Conditionally rendered: only shows when the
+                  distributor exposes a phone number. The number is
+                  normalized to E.164 (country code 57 + digits) since
+                  wa.me rejects local-format inputs. Prefilled message
+                  carries marca/modelo/dimension so the seller has
+                  immediate context. */}
+              {(() => {
+                const raw = product.distributor?.telefono;
+                if (!raw) return null;
+                // Strip everything that isn't a digit, then ensure the
+                // 57 country code is prefixed exactly once.
+                const digits = String(raw).replace(/\D/g, "");
+                if (digits.length < 10) return null;
+                const e164 = digits.startsWith("57") ? digits : `57${digits}`;
+                const msg = encodeURIComponent(
+                  `Hola, estoy viendo la ${product.marca} ${product.modelo} ${product.dimension} en TirePro Marketplace. ¿Está disponible?`
+                );
+                return (
+                  <a
+                    href={`https://wa.me/${e164}?text=${msg}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full mt-2 py-3 rounded-2xl text-[13px] font-black border-2 flex items-center justify-center gap-2 transition-colors"
+                    style={{
+                      color: "#25D366",
+                      borderColor: "rgba(37, 211, 102, 0.25)",
+                      backgroundColor: "rgba(37, 211, 102, 0.05)",
+                    }}
+                    onClick={() => {
+                      try {
+                        // Lightweight conversion signal — same shape as
+                        // other tracked events so it joins the funnel.
+                        if (typeof window !== "undefined" && (window as any).gtag) {
+                          (window as any).gtag("event", "whatsapp_click", {
+                            listing_id: product.id,
+                            marca: product.marca,
+                          });
+                        }
+                      } catch {}
+                    }}
+                  >
+                    <MessageCircle className="w-4 h-4" fill="currentColor" strokeWidth={0} />
+                    Pregunta por WhatsApp
+                  </a>
+                );
+              })()}
+
               {/* Available delivery modes — surfaces upstream of the
                   cart so a buyer doesn't reach checkout to discover their
                   options. Always shows envío (the marketplace default);
@@ -1030,6 +1124,58 @@ export default function ProductClient({
                 {product.retailSource?.isActive && " Eliges envío o tienda al agregar al carrito."}
               </p>
             </div>
+
+            {/* Vehicle compatibility hint — answers "¿le sirve a mi
+                carro?" for B2C buyers without requiring login. Derived
+                from the dimension's rim diameter via the same
+                vehicleClass() helper that powers the SEO hub pages, so
+                the copy stays in lockstep with /marketplace/categoria/*.
+                Hidden when the dimension is malformed (parseDimension
+                returns null). The "Análisis por placa" link routes
+                fleet-curious buyers to TirePro Pro instead of dead-end
+                gating the existing analyzer. */}
+            {(() => {
+              const parsed = parseDimension(product.dimension);
+              if (!parsed) return null;
+              const vc = vehicleClass(parsed.rim);
+              const categorySlug =
+                vc.category === "truck" ? "tractomula"
+                : vc.category === "bus"   ? "bus"
+                : vc.category === "suv"   ? "suv"
+                : "auto";
+              const headline =
+                vc.category === "auto"  ? "Para automóviles y vehículos livianos"
+                : vc.category === "suv"  ? "Para camionetas, SUV y vans comerciales"
+                : vc.category === "bus"  ? "Para camiones medianos y buses intermunicipales"
+                : "Para tractomulas y camiones pesados";
+              return (
+                <div className="mt-4 p-4 rounded-2xl bg-white border border-gray-200">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#1E76B6]/10 flex items-center justify-center flex-shrink-0">
+                      <Car className="w-4 h-4 text-[#1E76B6]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">
+                        ¿Le sirve a tu carro?
+                      </p>
+                      <p className="text-sm font-bold text-[#0A183A] mt-0.5">
+                        {headline}
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                        Rin {parsed.rim}"{parsed.profile ? ` · ${parsed.width} mm de ancho · perfil ${parsed.profile}%` : ` · ${parsed.width}" de ancho (Light Truck)`}. Vehículos comunes: {vc.examples.slice(0, 3).join(", ")}.
+                      </p>
+                      <Link
+                        href={`/marketplace/categoria/${categorySlug}`}
+                        className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-[#1E76B6] hover:underline"
+                      >
+                        Ver todas las llantas para {vc.category === "auto" ? "automóvil" : vc.category === "suv" ? "camioneta y SUV" : vc.category === "bus" ? "bus" : "tractomula"}
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Distributor info */}
             <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
@@ -2209,6 +2355,9 @@ export default function ProductClient({
               <div className="flex items-baseline gap-2 min-w-0">
                 <span className="text-[20px] font-black text-[#0A183A] leading-none tabular-nums truncate">
                   {fmtCOP(price)}
+                </span>
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none whitespace-nowrap">
+                  {product.incluyeIva ? "IVA incl." : "+IVA"}
                 </span>
                 {hasPromo && (
                   <span className="text-[12px] text-gray-400 line-through leading-none">
