@@ -106,10 +106,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const sellerCity = product.distributor?.ciudad ? ` en ${product.distributor.ciudad}` : "";
   const sellerName = product.distributor?.name ?? "TirePro";
 
-  // Title leads with brand+modelo+dimension — these are the highest-intent
-  // keywords for product queries (e.g. "Michelin XZE2+ 295/80R22.5 precio").
-  const title = `${product.marca} ${product.modelo} ${product.dimension} — ${fmtCOP(price)} | ${tipoLabel} | TirePro`;
-  const description = `Compra ${product.marca} ${product.modelo} ${product.dimension} (${tipoLabel.toLowerCase()}) por ${fmtCOP(price)} COP de ${sellerName}${sellerCity}. Envio en Colombia. ${product.descripcion?.substring(0, 100) ?? "Distribuidor verificado en TirePro Marketplace."}`.slice(0, 300);
+  // Title leads with the Spanish noun "Llanta" (matches voice queries like
+  // "llantas 205/55R16") then brand+modelo+dimension. Price is intentionally
+  // out — it changes more often than Google reindexes the title and the
+  // SERP rewriter strips currency strings ~60% of the time anyway. Keeping
+  // ~60 chars so it survives Google's truncation on mobile SERP.
+  const title = product.tipo === "reencauche"
+    ? `Llanta ${product.marca} ${product.modelo} ${product.dimension} reencauche | TirePro Colombia`
+    : `Llanta ${product.marca} ${product.modelo} ${product.dimension} | Comprar en Colombia | TirePro`;
+  // Description: first 150 chars are what Google shows on mobile. Front-
+  // load "Llanta {marca} {modelo} {dimension}" + city/Colombia so the
+  // snippet always carries the highest-intent keywords even when truncated.
+  const description = `Llanta ${product.marca} ${product.modelo} ${product.dimension} ${tipoLabel.toLowerCase()} en Colombia. Precio ${fmtCOP(price)} con envío${sellerCity || " nacional"}. Distribuidor ${sellerName} verificado en TirePro Marketplace. ${product.descripcion?.substring(0, 80) ?? ""}`.slice(0, 300);
   // Canonical URL is always the slug-id form, regardless of how the page
   // was reached. Search engines de-duplicate to this URL.
   const url = `${SITE}${productHref(product)}`;
@@ -313,9 +321,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }} />
       )}
 
-      {/* SEO: server-rendered content for crawlers */}
+      {/* SEO: server-rendered content for crawlers. The H1 lives in
+          ProductClient as a *visible* element with the full keyword
+          phrase (Llanta {marca} {modelo} {dimension}) — Google deranks
+          pages whose only H1 is hidden, so we don't ship one here. */}
       <div className="sr-only" aria-hidden="false">
-        <h1>{product.marca} {product.modelo} — {product.dimension} | Comprar en TirePro</h1>
         <p>Comprar {product.marca} {product.modelo} {product.dimension} por {fmtCOP(price)} COP. {product.tipo === "reencauche" ? "Llanta reencauchada." : "Llanta nueva."} Distribuidor: {product.distributor?.name}{product.distributor?.ciudad ? `, ${product.distributor.ciudad}` : ""}. {product.descripcion ?? ""}</p>
         {product.catalog && (
           <ul>

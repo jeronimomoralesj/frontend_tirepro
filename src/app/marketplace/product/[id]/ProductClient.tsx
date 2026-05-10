@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { buildProductFaqs } from "./faq";
 import { productHref } from "../_lib/url";
+import { parseDimension, toDimensionSlug, vehicleClass } from "../../dimension/_lib/dimensions";
 import { useCart } from "../../../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import { PaymentBadges } from "../../../../components/marketplace/PaymentBadges";
@@ -633,10 +634,16 @@ export default function ProductClient({
                 </span>
               )}
               {imgs.length > 0 ? (
-                <img
+                // next/image with priority auto-emits a <link rel="preload">
+                // for the LCP element. Cuts ~0.5–1.0s off LCP on 4G mobile,
+                // which is the dominant Colombian device profile.
+                <Image
                   src={imgs[selectedImg] ?? imgs[0]}
                   alt={`Llanta ${product.marca} ${product.modelo} ${product.dimension}${product.tipo === "reencauche" ? " reencauche" : ""} — Comprar en Colombia | TirePro`}
-                  className="w-full h-full object-contain p-4 sm:p-14 transition-transform duration-500 group-hover:scale-[1.04]"
+                  fill
+                  priority
+                  sizes="(max-width: 640px) 92vw, (max-width: 1024px) 50vw, 480px"
+                  className="object-contain p-4 sm:p-14 transition-transform duration-500 group-hover:scale-[1.04]"
                 />
               ) : (
                 <Package className="w-24 h-24 text-gray-200" />
@@ -2040,7 +2047,28 @@ export default function ProductClient({
             s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
               .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
           const brandSlug = brandInfo?.slug ?? slugify(product.marca);
-          const dimEnc = encodeURIComponent(product.dimension);
+          // Indexable hub-page slugs. We point the SEO copy block at
+          // SSR routes (/marketplace/dimension/*, /categoria/*, /ciudad/*)
+          // instead of the legacy /marketplace?q= search URLs because
+          // Google won't crawl JS-rendered faceted search results — those
+          // links bled internal PageRank without credit. Hub pages let
+          // the product layer flow authority into the topical hubs that
+          // actually rank for "llantas {dimension}", "llantas SUV", etc.
+          const dimSlug = toDimensionSlug(product.dimension);
+          const parsed = parseDimension(product.dimension);
+          const vClassCategory = parsed ? vehicleClass(parsed.rim).category : "auto";
+          const vCategorySlug =
+            vClassCategory === "truck" ? "tractomula"
+            : vClassCategory === "bus"   ? "bus"
+            : vClassCategory === "suv"   ? "suv"
+            : "auto";
+          const vCategoryLabel =
+            vClassCategory === "truck" ? "tractomula"
+            : vClassCategory === "bus"   ? "bus"
+            : vClassCategory === "suv"   ? "camioneta y SUV"
+            : "automóvil";
+          const tipoCategorySlug = product.tipo === "reencauche" ? "reencauche" : "nueva";
+          const tipoCategoryLabel = product.tipo === "reencauche" ? "reencauchadas" : "nuevas";
           const c = product.catalog;
           const eje = (product.eje ?? c?.ejeTirePro ?? "").toLowerCase();
           const terr = (c?.terreno ?? "").toLowerCase();
@@ -2088,7 +2116,7 @@ export default function ProductClient({
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
-                    Más {product.marca}
+                    Más opciones {product.marca}
                   </h3>
                   <ul className="space-y-1.5 text-xs text-gray-600">
                     <li>
@@ -2097,40 +2125,30 @@ export default function ProductClient({
                       </Link>
                     </li>
                     <li>
-                      <Link href={`/marketplace?q=${encodeURIComponent(product.marca)}+tractomula`} className="hover:text-[#1E76B6] hover:underline">
-                        {product.marca} para tractomula
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href={`/marketplace?q=${encodeURIComponent(product.marca)}+camion`} className="hover:text-[#1E76B6] hover:underline">
-                        {product.marca} para camión
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href={`/marketplace?q=${encodeURIComponent(product.marca)}+camioneta`} className="hover:text-[#1E76B6] hover:underline">
-                        {product.marca} para camioneta
+                      <Link href="/marketplace/comparar" className="hover:text-[#1E76B6] hover:underline">
+                        Comparar {product.marca} con otras marcas
                       </Link>
                     </li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="text-[11px] font-black text-[#1E76B6] uppercase tracking-widest mb-2">
-                    Misma medida
+                    Misma medida {product.dimension}
                   </h3>
                   <ul className="space-y-1.5 text-xs text-gray-600">
                     <li>
-                      <Link href={`/marketplace?q=${dimEnc}`} className="hover:text-[#1E76B6] hover:underline">
-                        Llantas {product.dimension}
+                      <Link href={`/marketplace/dimension/${dimSlug}`} className="hover:text-[#1E76B6] hover:underline">
+                        Todas las llantas {product.dimension}
                       </Link>
                     </li>
                     <li>
-                      <Link href={`/marketplace?q=${dimEnc}+nueva`} className="hover:text-[#1E76B6] hover:underline">
-                        {product.dimension} nuevas
+                      <Link href={`/marketplace/categoria/${vCategorySlug}`} className="hover:text-[#1E76B6] hover:underline">
+                        Llantas para {vCategoryLabel}
                       </Link>
                     </li>
                     <li>
-                      <Link href={`/marketplace?q=${dimEnc}+reencauche`} className="hover:text-[#1E76B6] hover:underline">
-                        {product.dimension} reencauche
+                      <Link href={`/marketplace/categoria/${tipoCategorySlug}`} className="hover:text-[#1E76B6] hover:underline">
+                        Llantas {tipoCategoryLabel}
                       </Link>
                     </li>
                   </ul>
@@ -2140,13 +2158,20 @@ export default function ProductClient({
                     En tu ciudad
                   </h3>
                   <ul className="space-y-1.5 text-xs text-gray-600">
-                    {["Bogotá", "Medellín", "Cali", "Barranquilla", "Bucaramanga", "Cartagena"].map((c) => (
-                      <li key={c}>
+                    {[
+                      { name: "Bogotá",       slug: "bogota" },
+                      { name: "Medellín",     slug: "medellin" },
+                      { name: "Cali",         slug: "cali" },
+                      { name: "Barranquilla", slug: "barranquilla" },
+                      { name: "Bucaramanga",  slug: "bucaramanga" },
+                      { name: "Cartagena",    slug: "cartagena" },
+                    ].map((city) => (
+                      <li key={city.slug}>
                         <Link
-                          href={`/marketplace?q=${encodeURIComponent(`${product.marca} ${c}`)}`}
+                          href={`/marketplace/ciudad/${city.slug}/${brandSlug}`}
                           className="hover:text-[#1E76B6] hover:underline"
                         >
-                          {product.marca} en {c}
+                          {product.marca} en {city.name}
                         </Link>
                       </li>
                     ))}
@@ -2312,27 +2337,38 @@ function ProductIdentityBlock({
     .replace(/\s+/g, "-");
   return (
     <>
-      <h1
-        className={`font-black text-[#0A183A] leading-[1.05] tracking-tight ${
+      {/* H1 carries the full Spanish keyword phrase Google indexes:
+          "Llanta {marca} {modelo} {dimension}". Visually rendered as
+          three stacked spans (brand prefix → model hero → dimension)
+          so the existing visual hierarchy is preserved while crawlers
+          read every high-intent term in a single H1. */}
+      <h1 className="leading-[1.05] tracking-tight" itemProp="name">
+        <span className="block text-[10px] sm:text-[11px] font-black tracking-[0.18em] uppercase text-[#1E76B6] mb-1">
+          Llanta {product.marca}
+        </span>
+        <span className={`block font-black text-[#0A183A] ${
           compact ? "text-[22px] sm:text-[28px]" : "text-[26px] sm:text-[36px]"
-        }`}
-      >
-        {product.modelo}
-      </h1>
-      <p className="text-sm text-gray-500 mt-2 font-medium flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="inline-flex items-baseline gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">
+        }`}>
+          {product.modelo}
+        </span>
+        <span className="block text-[14px] sm:text-[16px] font-black text-[#0A183A] tabular-nums tracking-tight mt-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB] mr-1.5">
             {product.tipo === "reencauche" ? "Ancho" : "Dimensión"}
           </span>
-          <span className="font-bold text-[#0A183A]">{product.dimension}</span>
+          {product.dimension}
+          {product.tipo === "reencauche" && (
+            <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-amber-600">
+              Reencauche
+            </span>
+          )}
         </span>
-        {product.eje && (
-          <span className="inline-flex items-baseline gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">Eje</span>
-            <span className="font-bold text-[#0A183A] capitalize">{product.eje}</span>
-          </span>
-        )}
-      </p>
+      </h1>
+      {product.eje && (
+        <p className="text-sm text-gray-500 mt-2 font-medium flex items-baseline gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#348CCB]">Eje</span>
+          <span className="font-bold text-[#0A183A] capitalize">{product.eje}</span>
+        </p>
+      )}
       <div className="flex items-center gap-2 flex-wrap mt-3">
         <Link
           href={`/marketplace/brand/${slug}`}
