@@ -16,11 +16,28 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
 
 const BASE_URL = 'https://www.tirepro.com.co'
 
-// Popular search terms for marketplace
+// Popular search terms for marketplace. Each maps to /marketplace/buscar?q=
+// (SSR — crawlers see real products) and represents a high-volume Colombian
+// query. Splits roughly into: brand intent, vehicle-class intent, generic
+// passenger intent, and modifier intent (baratas, instalación, domicilio).
+// The vehicle-class side already overlaps with the `/categoria/[slug]`
+// hubs; the search-page entries pick up phrase variations like
+// "llantas para automóvil" that the category route doesn't canonicalize.
 const POPULAR_SEARCHES = [
+  // Brand intent
   'Michelin', 'Bridgestone', 'Continental', 'Goodyear', 'Firestone',
   'Hankook', 'Yokohama', 'Pirelli',
-  'reencauche', 'camion', 'camioneta', 'tractomula', 'bus',
+  // Vehicle-class intent — heavy
+  'reencauche', 'camion', 'tractomula', 'bus',
+  // Vehicle-class intent — passenger (SUV + small car: TirePro's declared
+  // marketplace focus for B2C buyers). Each picks up a separate cluster
+  // of voice + typed queries on Google.co
+  'llantas para automovil', 'llantas para carro', 'llantas para SUV',
+  'llantas para camioneta', 'llantas para 4x4',
+  // Modifier intent — high-volume long-tail
+  'llantas baratas', 'llantas economicas',
+  'llantas con instalacion', 'llantas a domicilio',
+  'llantas nuevas Colombia',
 ]
 
 function safeDate(value: string | null | undefined): Date {

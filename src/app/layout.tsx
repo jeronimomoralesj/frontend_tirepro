@@ -120,9 +120,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         "url": "https://www.tirepro.com.co/marketplace",
         "description": "Marketplace de llantas en Colombia. Compra llantas nuevas y reencauche para camiones, tractomulas, buses, camionetas y automóviles de distribuidores verificados a precios directos con envío a todo el país.",
         "brand": { "@id": "https://www.tirepro.com.co/#organization" },
+        // SearchAction points at the SSR /marketplace/buscar route, not
+        // /marketplace?q= — the latter filters client-side and Googlebot
+        // crawls the empty shell. Same fix on the WebSite SearchAction
+        // below; both need to agree or Google picks the wrong one for the
+        // sitelinks search box.
         "potentialAction": {
           "@type": "SearchAction",
-          "target": "https://www.tirepro.com.co/marketplace?q={search_term_string}",
+          "target": "https://www.tirepro.com.co/marketplace/buscar?q={search_term_string}",
           "query-input": "required name=search_term_string",
         },
         "areaServed": { "@type": "Country", "name": "Colombia" },
@@ -179,7 +184,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         "inLanguage": "es-CO",
         "potentialAction": {
           "@type": "SearchAction",
-          "target": "https://www.tirepro.com.co/marketplace?q={search_term_string}",
+          "target": "https://www.tirepro.com.co/marketplace/buscar?q={search_term_string}",
           "query-input": "required name=search_term_string",
         },
       },

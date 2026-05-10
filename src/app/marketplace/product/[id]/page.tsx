@@ -138,7 +138,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       `${product.marca} ${product.dimension} ${product.distributor?.ciudad ?? "colombia"}`,
       product.tipo === "reencauche" ? `reencauche ${product.dimension}` : `llanta nueva ${product.dimension}`,
     ].filter(Boolean),
-    alternates: { canonical: url },
+    // Canonical + hreflang. es-CO is the primary locale; the bare `es`
+    // tag picks up Spanish-speaking traffic from outside Colombia
+    // (Mexican / Peruvian buyers shipping to CO addresses, etc.) so
+    // Google routes them to the same canonical URL instead of guessing.
+    alternates: {
+      canonical: url,
+      languages: {
+        "es-CO": url,
+        "es":    url,
+        "x-default": url,
+      },
+    },
     openGraph: {
       title,
       description,
@@ -213,6 +224,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     mpn: product.id,
     productID: product.id,
     category: "Vehicles & Parts > Vehicle Parts & Accessories > Motor Vehicle Parts > Motor Vehicle Tires",
+    // Voice-search hint — tells Google Assistant / Siri / Alexa which
+    // parts of the page to read aloud when a user asks "Hey Google,
+    // search for Michelin XZE2+ 295/80R22.5". Targets the H1 (brand +
+    // model + dimension keyword phrase) plus the descriptive paragraph
+    // in the SEO copy block (aria-labelledby="product-seo"). Both are
+    // server-rendered so the snippets are present at first byte.
+    speakable: {
+      "@type": "SpeakableSpecification",
+      cssSelector: ["h1", "[aria-labelledby='product-seo'] p"],
+    },
     itemCondition: product.tipo === "reencauche"
       ? "https://schema.org/RefurbishedCondition"
       : "https://schema.org/NewCondition",
