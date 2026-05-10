@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { productHref } from "../product/_lib/url";
+import BuscarAnalytics from "./BuscarAnalytics";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -224,6 +225,20 @@ export default async function BuscarPage(
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionLd) }} />
       <Script id="search-breadcrumb-jsonld" type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+
+      {/* Fires GA4 `search` + `view_search_results` for this SSR
+          render. RouteTracker fires page_view; this adds the
+          commerce-relevant pair so GA's search reports populate. */}
+      <BuscarAnalytics
+        q={sp.q ?? null}
+        total={total}
+        filters={{
+          marca:     sp.marca,
+          dimension: sp.dimension,
+          tipo:      sp.tipo,
+          ciudad:    sp.ciudad,
+        }}
+      />
 
       <MarketplaceNav />
 

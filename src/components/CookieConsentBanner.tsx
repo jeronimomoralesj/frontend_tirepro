@@ -3,11 +3,7 @@
 import { useState, useEffect } from "react";
 import { Cookie, Check, X, Info } from "lucide-react";
 
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
+// Window.gtag global lives in src/lib/marketplaceAnalytics.ts.
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!;
 

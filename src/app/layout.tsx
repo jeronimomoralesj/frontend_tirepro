@@ -6,6 +6,7 @@ import { AuthProvider } from "./context/AuthProvider";
 import "./globals.css";
 import type { Metadata } from "next";
 import RouteTracker from "../components/RouteTracker";
+import CookieConsentBanner from "../components/CookieConsentBanner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID!;
@@ -210,6 +211,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             function gtag(){ dataLayer.push(arguments); }
             gtag('js', new Date());
             gtag('consent', 'default', { 'analytics_storage': 'denied', 'ad_storage': 'denied' });
+            // Disable gtag's auto page_view. RouteTracker fires page_view
+            // on every pathname change (including the first mount) so we
+            // capture the full URL with search params — gtag's default
+            // page_path drops query strings, which breaks attribution for
+            // /marketplace/buscar?q=... and other ?param routes.
+            gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
           `}</Script>
 
           <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -220,6 +227,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <RouteTracker />
           <SpeedInsights />
           {children}
+          {/* Cookie consent banner — built but previously not mounted,
+              meaning consent stayed denied and zero analytics events
+              fired. Mounting here makes it appear globally; user
+              choice persists 365 days via the tirepro_consent cookie. */}
+          <CookieConsentBanner />
         </body>
       </html>
     </AuthProvider>
