@@ -1438,7 +1438,14 @@ export default function InspeccionPage({ language }: { language?: string }) {
       }
     }
 
-    if (inspectionTires.length === 0 && !positionsChanged) {
+    // Anything happened? The submit is valid when there's at least one
+    // pending inspection to PATCH, at least one tire already saved via
+    // the modal optimistic path (inspectedIds), or a position rotation.
+    // Previously this only checked inspectionTires + positionsChanged,
+    // which falsely tripped after a user inspected every tire through
+    // the modal — the optimistic PATCH had already cleared each one
+    // out of inspectionTires by the time they hit Guardar.
+    if (inspectionTires.length === 0 && inspectedIds.size === 0 && !positionsChanged) {
       setError("Ingresa al menos una inspección o haz un cambio de posición");
       return;
     }
