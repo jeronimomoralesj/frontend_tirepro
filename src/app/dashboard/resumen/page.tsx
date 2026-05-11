@@ -38,6 +38,7 @@ import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 import LazyMount from "@/shared/LazyMount";
 import { AdvancedCondition, passAllAdvanced } from "@/shared/advancedFilters";
+import InspectionsDayReportCard from "@/shared/InspectionsDayReportCard";
 
 // -- Chart.js registration ----------------------------------------------------
 
@@ -274,6 +275,7 @@ export default function ResumenPage() {
   const [loadedTires, setLoadedTires] = useState(0);
   const [expectedTires, setExpectedTires] = useState(0);
   const [userName, setUserName] = useState("");
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -293,6 +295,7 @@ export default function ResumenPage() {
     try { user = JSON.parse(stored); } catch { router.push("/login"); return; }
     if (user.name) setUserName(user.name);
     if (!user.companyId) return;
+    setCompanyId(user.companyId);
 
     setLoading(true);
     setStreaming(true);
@@ -927,6 +930,13 @@ export default function ResumenPage() {
               </LazyMount>
             )}
           </>
+        )}
+
+        {/* Day-of-inspections report — bottom card so distribuidores
+            and pro accounts alike can pull a single-day PDF summary
+            without leaving the resumen page. */}
+        {!loading && (
+          <InspectionsDayReportCard companyId={companyId} />
         )}
       </div>
 

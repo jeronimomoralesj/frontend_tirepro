@@ -8,6 +8,7 @@ import {
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 import { AdvancedCondition, passAllAdvanced } from "@/shared/advancedFilters";
+import InspectionsDayReportCard from "@/shared/InspectionsDayReportCard";
 
 import SemaforoPie     from "../cards/semaforoPie";
 import SemaforoTabla   from "../cards/semaforoTabla";
@@ -1311,6 +1312,15 @@ export default function DistribuidorPage() {
                 <section>
                   <SectionHeader title="Detalles de Llantas" />
                   <ScrollCard><DetallesLlantas tires={filteredDetailTires} vehicles={allVehicles} /></ScrollCard>
+                </section>
+
+                {/* -- 8. Reporte de inspecciones del día ---------------------- */}
+                {/* Bottom-of-page CTA: pick a date, download every
+                    inspection landed on the selected client that day
+                    as a single PDF. The card shares its renderer with
+                    /dashboard/resumen. */}
+                <section>
+                  <InspectionsDayReportCard companyId={selectedClient.id} />
                 </section>
               </div>
             )}
