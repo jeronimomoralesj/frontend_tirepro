@@ -1053,6 +1053,14 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const originalPositions = useRef<Record<string, number>>({});
   const [freeTires,        setFreeTires]      = useState<Tire[]>([]);
   const [freeActionTireId, setFreeActionTireId] = useState<string | null>(null);
+  // Pending bucket assignment — captures (tireId, bucketId) the moment the
+  // technician picks an inventory destination so we can intercept with the
+  // desmount-data prompt before the tire is actually unassigned from the
+  // vehicle server-side. Null when no prompt is in flight.
+  const [pendingBucket, setPendingBucket] = useState<{ tireId: string; bucketId: string | null } | null>(null);
+  const [desmountVehicleKm, setDesmountVehicleKm] = useState<string>("");
+  const [desmountTireKm, setDesmountTireKm] = useState<string>("");
+  const [desmountSaving, setDesmountSaving] = useState(false);
   const [bucketData,       setBucketData]     = useState<{ disponible: number; buckets: { id: string; nombre: string; color?: string; icono?: string; tireCount: number }[] }>({ disponible: 0, buckets: [] });
 
   // Move the currently-selected tire onto a different position. The tire
@@ -1127,36 +1135,63 @@ export default function InspeccionPage({ language }: { language?: string }) {
     setFreeActionTireId(null);
   }
 
-  // Send a freed tire to one of the inventory buckets (or "disponible").
-  // Persists immediately via /inventory-buckets/move and removes the tire
-  // from the local pool.
-  async function assignFreeTireToBucket(freeTireId: string, bucketId: string | null) {
+  // Step 1 of the bucket-assignment flow: stash the destination and pop
+  // the desmount-data prompt. The actual unassign/move call runs in
+  // commitFreeTireToBucket once the technician submits (or skips) the
+  // modal. We pre-fill the vehicle km from whatever they entered for the
+  // inspection's "nuevo kilometraje" — most desmounts happen at the same
+  // odometer reading as the inspection.
+  function requestBucketAssignment(freeTireId: string, bucketId: string | null) {
+    setPendingBucket({ tireId: freeTireId, bucketId });
+    setDesmountVehicleKm(String(newKilometraje || vehicle?.kilometrajeActual || ""));
+    setDesmountTireKm("");
+    setFreeActionTireId(null);
+  }
+
+  // Step 2 of the bucket-assignment flow: persist the desmount data
+  // (or flag it as pending), then perform the unassign + bucket move.
+  // Skipping the data calls the same endpoint with an empty body so the
+  // tire is marked desmountDataPending = true for the inventory UI.
+  async function commitFreeTireToBucket(captureData: boolean) {
+    if (!pendingBucket) return;
+    const { tireId, bucketId } = pendingBucket;
     const cId = vehicle?.companyId;
     if (!cId) {
       setError("No se pudo determinar la empresa del vehículo");
       return;
     }
+    setDesmountSaving(true);
     try {
-      // Detach from the vehicle first so the tire is not stuck on it.
-      await fetch(`${API_BASE}/tires/unassign-vehicle`, {
-        method: "POST",
+      const body: { vehicleKmAtDesmount?: number; tireKm?: number } = {};
+      if (captureData) {
+        const v = Number(desmountVehicleKm);
+        const t = Number(desmountTireKm);
+        if (isFinite(v) && v > 0) body.vehicleKmAtDesmount = v;
+        if (isFinite(t) && t > 0) body.tireKm = t;
+      }
+      await fetch(`${API_BASE}/tires/${tireId}/desmount-data`, {
+        method:  "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ tireIds: [freeTireId] }),
+        body:    JSON.stringify(body),
+      });
+      await fetch(`${API_BASE}/tires/unassign-vehicle`, {
+        method:  "POST",
+        headers: authHeaders(),
+        body:    JSON.stringify({ tireIds: [tireId] }),
       });
       await fetch(`${API_BASE}/inventory-buckets/move`, {
-        method: "POST",
+        method:  "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ tireId: freeTireId, bucketId, companyId: cId }),
+        body:    JSON.stringify({ tireId, bucketId, companyId: cId }),
       });
-      setFreeTires((fp) => fp.filter((t) => t.id !== freeTireId));
+      setFreeTires((fp) => fp.filter((t) => t.id !== tireId));
       // Drop any pending inspection update for it — it's gone from this
       // vehicle now and shouldn't block submit.
       setTireUpdates((prev) => {
         const next = { ...prev };
-        delete next[freeTireId];
+        delete next[tireId];
         return next;
       });
-      // Refresh bucket counts.
       try {
         const bRes = await fetch(`${API_BASE}/inventory-buckets?companyId=${cId}`, { headers: authHeaders() });
         if (bRes.ok) setBucketData(await bRes.json());
@@ -1164,7 +1199,10 @@ export default function InspeccionPage({ language }: { language?: string }) {
     } catch {
       setError("No se pudo mover la llanta al grupo seleccionado");
     } finally {
-      setFreeActionTireId(null);
+      setDesmountSaving(false);
+      setPendingBucket(null);
+      setDesmountVehicleKm("");
+      setDesmountTireKm("");
     }
   }
 
@@ -2308,7 +2346,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
-                      onClick={() => assignFreeTireToBucket(free.id, null)}
+                      onClick={() => requestBucketAssignment(free.id, null)}
                       className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
                       style={{ background: "white", border: "1px solid rgba(30,118,182,0.4)", color: "#1E76B6" }}
                     >
@@ -2318,7 +2356,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
                       <button
                         key={b.id}
                         type="button"
-                        onClick={() => assignFreeTireToBucket(free.id, b.id)}
+                        onClick={() => requestBucketAssignment(free.id, b.id)}
                         className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:opacity-80"
                         style={{ background: "white", border: `1px solid ${b.color || "rgba(30,118,182,0.4)"}`, color: b.color || "#1E76B6" }}
                       >
@@ -2327,6 +2365,101 @@ export default function InspeccionPage({ language }: { language?: string }) {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Desmount-data prompt — opens between picking an inventory
+          destination and actually unassigning the tire. Capturing the
+          vehicle km at desmount is what lets downstream projections
+          (CPK, projected km) keep working. Skipping flags the tire as
+          desmountDataPending so the inventory UI can chase the missing
+          values later. */}
+      {pendingBucket && (() => {
+        const free = freeTires.find((t) => t.id === pendingBucket.tireId);
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(10,24,58,0.55)" }}
+          >
+            <div
+              className="bg-white rounded-2xl max-w-md w-full shadow-2xl"
+              style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+            >
+              <div className="px-5 py-4 border-b border-[#348CCB]/15">
+                <h3 className="text-sm font-bold text-[#0A183A]">
+                  Kilometraje al desmonte
+                  {free?.marca && <span className="text-[#93b8d4] font-normal"> — {free.marca}</span>}
+                </h3>
+                <p className="text-[11px] text-[#93b8d4] mt-1 leading-relaxed">
+                  ¿Cuántos kilómetros tenía el vehículo cuando bajaste esta llanta? Si no lo sabes, márcalo como datos faltantes — los podrás completar desde el inventario.
+                </p>
+              </div>
+
+              <div className="p-5 space-y-3">
+                <div>
+                  <label className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider">
+                    Km del vehículo al desmonte
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={desmountVehicleKm}
+                    onChange={(e) => setDesmountVehicleKm(e.target.value)}
+                    placeholder="ej. 123450"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider">
+                    Km totales de la llanta (opcional)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={desmountTireKm}
+                    onChange={(e) => setDesmountTireKm(e.target.value)}
+                    placeholder="Sobrescribe el acumulado si lo conoces"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+
+              <div className="px-5 py-4 border-t border-[#348CCB]/15 flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={desmountSaving || Number(desmountVehicleKm) <= 0}
+                  onClick={() => commitFreeTireToBucket(true)}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg,#1E76B6,#173D68)" }}
+                >
+                  {desmountSaving ? "Guardando…" : "Guardar y mover"}
+                </button>
+                <button
+                  type="button"
+                  disabled={desmountSaving}
+                  onClick={() => {
+                    if (window.confirm("Esta llanta se marcará como con datos faltantes. Podrás completarlos desde el inventario. ¿Continuar?")) {
+                      commitFreeTireToBucket(false);
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl text-xs font-bold text-[#1E76B6] disabled:opacity-40 transition-all hover:bg-[#F0F7FF]"
+                  style={{ border: "1px solid rgba(30,118,182,0.3)" }}
+                >
+                  Continuar sin datos
+                </button>
+                <button
+                  type="button"
+                  disabled={desmountSaving}
+                  onClick={() => setPendingBucket(null)}
+                  className="w-full px-4 py-2 text-[11px] text-[#93b8d4] hover:text-[#1E76B6] transition-colors"
+                >
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>

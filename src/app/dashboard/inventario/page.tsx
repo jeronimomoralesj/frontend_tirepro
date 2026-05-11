@@ -84,6 +84,11 @@ interface InventoryTire {
   lastVehiclePlaca: string | null;
   lastPosicion: number | null;
   inventoryEnteredAt: string | null;
+  // Set by the desmount flow when the technician skipped the km prompt.
+  // The inventory UI surfaces it as a "Datos faltantes" badge with a
+  // click-to-fill action; clearing happens server-side once the data is
+  // filled in (POST /tires/:id/desmount-data).
+  desmountDataPending?: boolean;
 }
 
 // =============================================================================
@@ -1086,6 +1091,45 @@ export default function InventarioPage() {
   // Assign-to-vehicle modal — only opens with exactly 1 selected tire.
   const [assignTire, setAssignTire] = useState<InventoryTire | null>(null);
 
+  // Fill-in modal for tires flagged as desmountDataPending. Opens when
+  // the user clicks the "Datos faltantes" badge on a row in the inventory
+  // table; submitting POSTs to /tires/:id/desmount-data and refreshes.
+  const [fillTire, setFillTire] = useState<InventoryTire | null>(null);
+  const [fillVehicleKm, setFillVehicleKm] = useState("");
+  const [fillTireKm, setFillTireKm] = useState("");
+  const [fillSaving, setFillSaving] = useState(false);
+  const [fillErr, setFillErr] = useState("");
+
+  async function submitFillDesmountData() {
+    if (!fillTire) return;
+    setFillErr("");
+    const body: { vehicleKmAtDesmount?: number; tireKm?: number } = {};
+    const v = Number(fillVehicleKm);
+    const t = Number(fillTireKm);
+    if (isFinite(v) && v > 0) body.vehicleKmAtDesmount = v;
+    if (isFinite(t) && t > 0) body.tireKm = t;
+    if (body.vehicleKmAtDesmount === undefined && body.tireKm === undefined) {
+      setFillErr("Ingresa al menos uno de los kilometrajes");
+      return;
+    }
+    setFillSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/tires/${fillTire.id}/desmount-data`, {
+        method: "POST",
+        body:   JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("No se pudo guardar");
+      setFillTire(null);
+      setFillVehicleKm("");
+      setFillTireKm("");
+      fetchTires();
+    } catch (e) {
+      setFillErr(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setFillSaving(false);
+    }
+  }
+
   // -- Auth --------------------------------------------------------------------
 
   useEffect(() => {
@@ -1567,9 +1611,32 @@ export default function InventarioPage() {
                               </div>
                             </td>
                             <td className="px-2 py-3">
-                              <span className="font-mono font-black text-[#0A183A] text-xs">
-                                {tire.placa}
-                              </span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-black text-[#0A183A] text-xs">
+                                  {tire.placa}
+                                </span>
+                                {tire.desmountDataPending && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFillTire(tire);
+                                      setFillVehicleKm("");
+                                      setFillTireKm("");
+                                      setFillErr("");
+                                    }}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider hover:opacity-90"
+                                    style={{
+                                      background: "rgba(247,167,52,0.12)",
+                                      color: "#b45309",
+                                      border: "1px solid rgba(247,167,52,0.45)",
+                                    }}
+                                    title="La llanta fue desmontada sin registrar el kilometraje. Clic para completar."
+                                  >
+                                    Datos faltantes
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="px-2 py-3 text-xs text-gray-600">
                               {tire.marca}
@@ -1677,6 +1744,88 @@ export default function InventarioPage() {
             fetchTires();
           }}
         />
+      )}
+
+      {fillTire && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(10,24,58,0.55)" }}
+          onClick={() => !fillSaving && setFillTire(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full shadow-2xl"
+            style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[#348CCB]/15">
+              <h3 className="text-sm font-bold text-[#0A183A]">
+                Completar datos al desmonte
+              </h3>
+              <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                Llanta <span className="font-mono font-bold text-[#0A183A]">{fillTire.placa}</span>
+                {fillTire.lastVehiclePlaca && (
+                  <> — desmontada de <span className="font-mono font-bold text-[#0A183A]">{fillTire.lastVehiclePlaca}</span></>
+                )}
+                . Registra al menos uno de los dos kilometrajes.
+              </p>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider">
+                  Km del vehículo al desmonte
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={fillVehicleKm}
+                  onChange={(e) => setFillVehicleKm(e.target.value)}
+                  placeholder="ej. 123450"
+                  className="w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider">
+                  Km totales de la llanta (opcional)
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={fillTireKm}
+                  onChange={(e) => setFillTireKm(e.target.value)}
+                  placeholder="Sobrescribe el acumulado si lo conoces"
+                  className="w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all"
+                />
+              </div>
+              {fillErr && (
+                <p className="text-xs font-bold text-red-600">{fillErr}</p>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-[#348CCB]/15 flex gap-2">
+              <button
+                type="button"
+                disabled={fillSaving}
+                onClick={() => setFillTire(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-[#1E76B6] disabled:opacity-40 hover:bg-[#F0F7FF]"
+                style={{ border: "1px solid rgba(30,118,182,0.3)" }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={fillSaving}
+                onClick={submitFillDesmountData}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 hover:opacity-90"
+                style={{ background: "linear-gradient(135deg,#1E76B6,#173D68)" }}
+              >
+                {fillSaving ? "Guardando…" : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
