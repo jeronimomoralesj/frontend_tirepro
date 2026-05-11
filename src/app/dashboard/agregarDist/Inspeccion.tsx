@@ -1534,18 +1534,52 @@ export default function InspeccionPage({ language }: { language?: string }) {
     setSuccess("");
 
     const allTires = [...tires, ...unionTires];
+    const emptyUpdate: TireUpdate = { profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null };
+    const safeUpdate = (id: string): TireUpdate => tireUpdates[id] ?? emptyUpdate;
 
-    const missing = allTires.filter((t) => {
-      const u = tireUpdates[t.id];
-      return u.profundidadInt === "" || u.profundidadCen === "" || u.profundidadExt === "";
-    });
-    if (missing.length > 0) {
-      setError("Por favor ingrese valores de profundidad para todos los neumáticos");
+    // A tire is "inspeccionable" only when ALL three depth fields are
+    // filled. Tires with no fills are skipped (the inspector chose not
+    // to measure them — e.g. a vehicle with empty slots, or a partial
+    // walk-around). Tires with PARTIAL fills are an obvious data-entry
+    // mistake and block the submit. Mirrors agregar/Inspeccion.
+    const isFull = (u: TireUpdate) =>
+      u.profundidadInt !== "" && u.profundidadCen !== "" && u.profundidadExt !== "";
+    const isPartial = (u: TireUpdate) =>
+      !isFull(u) && (u.profundidadInt !== "" || u.profundidadCen !== "" || u.profundidadExt !== "");
+
+    const partial = allTires.filter((t) => isPartial(safeUpdate(t.id)));
+    if (partial.length > 0) {
+      setError(`Completa las 3 profundidades en P${partial[0].posicion} o déjalas todas vacías para no inspeccionarla`);
       return;
     }
 
-    const zeroCount = allTires.reduce((n, t) => {
-      const u = tireUpdates[t.id];
+    // Set of tires we'll actually persist — anything fully filled and not
+    // already PATCH'd via the optimistic modal save.
+    const inspectionTires = allTires.filter(
+      (t) => isFull(safeUpdate(t.id)) && !inspectedIds.has(t.id),
+    );
+
+    // Detect whether a position rotation happened. Used together with
+    // inspection count below to decide if there's anything to save.
+    let positionsChanged = false;
+    if (vehicle) {
+      for (const t of tires) {
+        if (originalPositions.current[t.id] !== t.posicion) { positionsChanged = true; break; }
+      }
+      if (!positionsChanged) {
+        for (const id of Object.keys(originalPositions.current)) {
+          if (freeTires.find((t) => t.id === id)) { positionsChanged = true; break; }
+        }
+      }
+    }
+
+    if (inspectionTires.length === 0 && !positionsChanged) {
+      setError("Ingresa al menos una inspección o haz un cambio de posición");
+      return;
+    }
+
+    const zeroCount = inspectionTires.reduce((n, t) => {
+      const u = safeUpdate(t.id);
       return (
         n +
         (Number(u.profundidadInt) === 0 ? 1 : 0) +
@@ -1565,11 +1599,10 @@ export default function InspeccionPage({ language }: { language?: string }) {
     // technician confirm before we let the bad data skew CPK/projected
     // km downstream.
     const depthAnomalies: string[] = [];
-    for (const t of allTires) {
+    for (const t of inspectionTires) {
       const last = (t.inspecciones ?? [])[0];
       if (!last) continue;
-      const u = tireUpdates[t.id];
-      if (!u) continue;
+      const u = safeUpdate(t.id);
       const issues: string[] = [];
       if (Number(u.profundidadInt) > last.profundidadInt) issues.push(`Int ${u.profundidadInt}>${last.profundidadInt}`);
       if (Number(u.profundidadCen) > last.profundidadCen) issues.push(`Cen ${u.profundidadCen}>${last.profundidadCen}`);
@@ -1641,9 +1674,10 @@ export default function InspeccionPage({ language }: { language?: string }) {
       // fan out via Promise.all.
       const inspectorNombre = inspectorName.trim();
       const inspectorIdMatch = !!(user?.id && inspectorNombre === (user.name ?? "").trim());
-      const tiresToSubmit = allTires.filter((t) => !inspectedIds.has(t.id));
-      const payloads = await Promise.all(tiresToSubmit.map(async (tire) => {
-        const upd      = tireUpdates[tire.id];
+      // Only the fully-filled subset goes to the PATCH path. Tires the
+      // inspector left blank are skipped — matches the agregar flow.
+      const payloads = await Promise.all(inspectionTires.map(async (tire) => {
+        const upd      = safeUpdate(tire.id);
         const imageUrl = upd.image ? await convertFileToBase64(upd.image) : "";
         const payload: Record<string, unknown> = {
           profundidadInt: Number(upd.profundidadInt),
@@ -1673,13 +1707,15 @@ export default function InspeccionPage({ language }: { language?: string }) {
         }
       }));
 
-      // Build PDF data
+      // Build PDF data — only include tires that were actually
+      // inspected so the report doesn't print zero rows for the
+      // slots the inspector skipped.
       const iData: InspectionData = {
         vehicle:       vehicle!,
         unionVehicle:  unionVehicle ?? undefined,
         inspectorName: inspectorName.trim() || undefined,
-        tires: allTires.map((tire) => {
-          const upd      = tireUpdates[tire.id];
+        tires: inspectionTires.map((tire) => {
+          const upd      = safeUpdate(tire.id);
           const pInt     = Number(upd.profundidadInt);
           const pCen     = Number(upd.profundidadCen);
           const pExt     = Number(upd.profundidadExt);
