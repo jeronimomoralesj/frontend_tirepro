@@ -283,7 +283,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         returnFees: "https://schema.org/FreeReturn",
       },
     },
-    ...(product.reviews?.length > 0 && {
+    ...(product.reviews?.length >= 5 && {
       aggregateRating: {
         "@type": "AggregateRating",
         ratingValue: avgRating,

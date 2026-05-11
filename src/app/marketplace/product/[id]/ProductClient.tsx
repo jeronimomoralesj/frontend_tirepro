@@ -730,13 +730,13 @@ export default function ProductClient({
               {product.incluyeIva ? (
                 <p className="text-[11px] text-gray-500 mt-1">
                   <span className="font-bold text-emerald-700">Incluye IVA</span>
-                  {" · "}{product.cantidadDisponible} disponibles
+                  {effectiveStock > 0 && <>{" · "}{effectiveStock} disponibles</>}
                 </p>
               ) : (
                 <p className="text-[11px] text-gray-500 mt-1">
                   <span className="font-bold text-[#0A183A]">{fmtCOP(price * 1.19)}</span>{" "}
                   <span className="text-gray-400">precio final con IVA</span>
-                  {" · "}{product.cantidadDisponible} disponibles
+                  {effectiveStock > 0 && <>{" · "}{effectiveStock} disponibles</>}
                 </p>
               )}
             </div>
@@ -1967,12 +1967,14 @@ export default function ProductClient({
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-black text-[#0A183A]">
               Resenas y calificaciones
-              {product._count.reviews > 0 && <span className="text-gray-400 font-normal ml-2">({product._count.reviews})</span>}
+              {product._count.reviews >= 5 && <span className="text-gray-400 font-normal ml-2">({product._count.reviews})</span>}
             </h2>
           </div>
 
-          {/* Rating summary */}
-          {product.reviews.length > 0 && (
+          {/* Rating summary — gated at 5+ reviews so a single
+              low-volume rating doesn't anchor the listing's perceived
+              quality before there's enough signal. */}
+          {product.reviews.length >= 5 && (
             <div className="flex items-start gap-6 mb-6 p-5 bg-white rounded-2xl border border-gray-100">
               <div className="text-center flex-shrink-0">
                 <p className="text-4xl font-black text-[#0A183A]">{avgRating.toFixed(1)}</p>
@@ -2058,8 +2060,11 @@ export default function ProductClient({
             )}
           </div>
 
-          {/* Existing reviews */}
-          {product.reviews.length > 0 ? (
+          {/* Existing reviews — only surfaced once there are 5+, so
+              the listing isn't anchored by a single early rating. The
+              empty state was intentionally dropped: pushing buyers to
+              the write-a-review form above is enough. */}
+          {product.reviews.length >= 5 && (
             <div className="space-y-3">
               {product.reviews.map((r) => (
                 <div key={r.id} className="bg-white rounded-xl p-4 border border-gray-100">
@@ -2082,12 +2087,6 @@ export default function ProductClient({
                   {r.comment && <p className="text-sm text-gray-600 leading-relaxed ml-10">{r.comment}</p>}
                 </div>
               ))}
-            </div>
-          ) : !reviewSuccess && (
-            <div className="text-center py-8 text-gray-400">
-              <Star className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-bold text-[#0A183A]">Sin resenas todavia</p>
-              <p className="text-xs mt-1">Se el primero en calificar este producto.</p>
             </div>
           )}
         </div>
@@ -2545,7 +2544,7 @@ function ProductIdentityBlock({
         )}
       </div>
 
-      {product._count.reviews > 0 ? (
+      {product._count.reviews >= 5 ? (
         <div className="flex items-center gap-2 mt-3">
           <div className="flex gap-0.5">
             {[1, 2, 3, 4, 5].map((s) => (
