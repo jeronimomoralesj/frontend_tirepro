@@ -2233,6 +2233,29 @@ export default function InspeccionPage({ language }: { language?: string }) {
                 {/* Selected tire inspection form */}
                 {selectedTireId && tires.find((t) => t.id === selectedTireId) && (
                   <div className="mt-4 space-y-3">
+                    {/* Primary CTA — sits right under the diagram so a
+                        tap-then-edit flow doesn't require scrolling past
+                        the rotate/desmount controls to find the next
+                        action. */}
+                    <button
+                      type="button"
+                      onClick={() => setModalTireId(selectedTireId)}
+                      className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-base font-black text-white uppercase tracking-wide transition-all hover:scale-[1.01] active:scale-[0.99]"
+                      style={{
+                        background: "linear-gradient(135deg,#1E76B6,#173D68)",
+                        boxShadow: "0 8px 24px rgba(30,118,182,0.35)",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      <Gauge className="w-5 h-5" />
+                      {inspectedIds.has(selectedTireId) ? "Editar inspección" : "Inspeccionar llanta"}
+                    </button>
+                    {inspectedIds.has(selectedTireId) && (
+                      <p className="text-[11px] text-emerald-600 flex items-center gap-1.5 justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Inspección guardada
+                      </p>
+                    )}
+
                     {/* Mover de posición */}
                     {(() => {
                       const sel = tires.find((t) => t.id === selectedTireId)!;
@@ -2283,26 +2306,6 @@ export default function InspeccionPage({ language }: { language?: string }) {
                         </div>
                       );
                     })()}
-
-                    {/* Primary CTA — big, high-contrast button. */}
-                    <button
-                      type="button"
-                      onClick={() => setModalTireId(selectedTireId)}
-                      className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl text-base font-black text-white uppercase tracking-wide transition-all hover:scale-[1.01] active:scale-[0.99]"
-                      style={{
-                        background: "linear-gradient(135deg,#1E76B6,#173D68)",
-                        boxShadow: "0 8px 24px rgba(30,118,182,0.35)",
-                        letterSpacing: "0.04em",
-                      }}
-                    >
-                      <Gauge className="w-5 h-5" />
-                      {inspectedIds.has(selectedTireId) ? "Editar inspección" : "Inspeccionar llanta"}
-                    </button>
-                    {inspectedIds.has(selectedTireId) && (
-                      <p className="text-[11px] text-emerald-600 flex items-center gap-1.5 justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Inspección guardada
-                      </p>
-                    )}
                   </div>
                 )}
 
