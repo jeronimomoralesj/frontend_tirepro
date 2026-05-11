@@ -8,7 +8,7 @@ import {
   ArrowLeft, ShoppingCart, Loader2, Package, Truck, MapPin, Phone,
   Mail, Globe, Star, Clock, CheckCircle, Shield, Recycle, ChevronLeft,
   ChevronRight, ChevronDown, Minus, Plus, X, Check, Search, Zap, Info,
-  Weight, Scale, Gauge, Sparkles, Store, MessageCircle, RotateCcw, Car,
+  Weight, Scale, Gauge, Sparkles, Store, MessageCircle, RotateCcw,
 } from "lucide-react";
 import { buildProductFaqs } from "./faq";
 import { productHref } from "../_lib/url";
@@ -923,25 +923,25 @@ export default function ProductClient({
                 marketplace = trust deficit; these tell the buyer "you
                 won't lose your money here" before they look at price.
                 Horizontal scroll on mobile, full row on desktop. */}
-            <div className="mt-6 -mx-1 flex gap-1.5 overflow-x-auto pb-1 sm:overflow-visible">
-              <div className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                <Shield className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
-                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Pago seguro Bold</span>
+            <div className="mt-6 flex flex-wrap gap-1.5">
+              <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                <Shield className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider">Pago seguro</span>
               </div>
-              <div className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-blue-50 text-[#1E76B6] border border-blue-100">
-                <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
-                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Distribuidor verificado</span>
+              <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-[#1E76B6] border border-blue-100">
+                <CheckCircle className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider">Distribuidor verificado</span>
               </div>
               <Link
                 href="/marketplace/return-policy"
-                className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100 hover:bg-amber-100 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100 hover:bg-amber-100 transition-colors"
               >
-                <RotateCcw className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
-                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Devolución 15 días</span>
+                <RotateCcw className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider">Devolución 15 días</span>
               </Link>
-              <div className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
-                <Truck className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2.5} />
-                <span className="text-[10px] font-black uppercase tracking-wider whitespace-nowrap">Envío a toda Colombia</span>
+              <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                <Truck className="w-3 h-3 flex-shrink-0" strokeWidth={2.5} />
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider">Envío Colombia</span>
               </div>
             </div>
 
@@ -1125,58 +1125,6 @@ export default function ProductClient({
               </p>
             </div>
 
-            {/* Vehicle compatibility hint — answers "¿le sirve a mi
-                carro?" for B2C buyers without requiring login. Derived
-                from the dimension's rim diameter via the same
-                vehicleClass() helper that powers the SEO hub pages, so
-                the copy stays in lockstep with /marketplace/categoria/*.
-                Hidden when the dimension is malformed (parseDimension
-                returns null). The "Análisis por placa" link routes
-                fleet-curious buyers to TirePro Pro instead of dead-end
-                gating the existing analyzer. */}
-            {(() => {
-              const parsed = parseDimension(product.dimension);
-              if (!parsed) return null;
-              const vc = vehicleClass(parsed.rim);
-              const categorySlug =
-                vc.category === "truck" ? "tractomula"
-                : vc.category === "bus"   ? "bus"
-                : vc.category === "suv"   ? "suv"
-                : "auto";
-              const headline =
-                vc.category === "auto"  ? "Para automóviles y vehículos livianos"
-                : vc.category === "suv"  ? "Para camionetas, SUV y vans comerciales"
-                : vc.category === "bus"  ? "Para camiones medianos y buses intermunicipales"
-                : "Para tractomulas y camiones pesados";
-              return (
-                <div className="mt-4 p-4 rounded-2xl bg-white border border-gray-200">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#1E76B6]/10 flex items-center justify-center flex-shrink-0">
-                      <Car className="w-4 h-4 text-[#1E76B6]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest">
-                        ¿Le sirve a tu carro?
-                      </p>
-                      <p className="text-sm font-bold text-[#0A183A] mt-0.5">
-                        {headline}
-                      </p>
-                      <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-                        Rin {parsed.rim}"{parsed.profile ? ` · ${parsed.width} mm de ancho · perfil ${parsed.profile}%` : ` · ${parsed.width}" de ancho (Light Truck)`}. Vehículos comunes: {vc.examples.slice(0, 3).join(", ")}.
-                      </p>
-                      <Link
-                        href={`/marketplace/categoria/${categorySlug}`}
-                        className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-[#1E76B6] hover:underline"
-                      >
-                        Ver todas las llantas para {vc.category === "auto" ? "automóvil" : vc.category === "suv" ? "camioneta y SUV" : vc.category === "bus" ? "bus" : "tractomula"}
-                        <ChevronRight className="w-3 h-3" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
             {/* Distributor info */}
             <div className="mt-6 p-4 rounded-2xl bg-white border border-gray-200">
               <Link href={`/marketplace/distributor/${product.distributor.slug ?? product.distributor.id}`} className="flex items-center gap-3 group">
@@ -1314,7 +1262,41 @@ export default function ProductClient({
                 models per category. */}
             <div className="mt-6 p-5 rounded-2xl bg-white border border-gray-100" style={{ boxShadow: "0 8px 24px -16px rgba(10,24,58,0.1)" }}>
               <p className="text-[10px] font-black text-[#1E76B6] uppercase tracking-widest mb-1">Compatibilidad</p>
-              <p className="text-sm font-black text-[#0A183A] mb-3">Vehículos compatibles</p>
+              <p className="text-sm font-black text-[#0A183A] mb-1">¿Le sirve a tu carro?</p>
+
+              {/* Rim-derived headline + dimension breakdown — answers
+                  "le sirve a mi carro?" inline so the buyer gets a fit
+                  answer before the per-vehicle list below. */}
+              {(() => {
+                const parsed = parseDimension(product.dimension);
+                if (!parsed) return null;
+                const vc = vehicleClass(parsed.rim);
+                const categorySlug =
+                  vc.category === "truck" ? "tractomula"
+                  : vc.category === "bus"   ? "bus"
+                  : vc.category === "suv"   ? "suv"
+                  : "auto";
+                const headline =
+                  vc.category === "auto"  ? "Para automóviles y vehículos livianos"
+                  : vc.category === "suv"  ? "Para camionetas, SUV y vans comerciales"
+                  : vc.category === "bus"  ? "Para camiones medianos y buses intermunicipales"
+                  : "Para tractomulas y camiones pesados";
+                return (
+                  <div className="mb-3">
+                    <p className="text-xs font-bold text-[#0A183A]">{headline}</p>
+                    <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                      Rin {parsed.rim}"{parsed.profile ? ` · ${parsed.width} mm de ancho · perfil ${parsed.profile}%` : ` · ${parsed.width}" de ancho (Light Truck)`}. Vehículos comunes: {vc.examples.slice(0, 3).join(", ")}.
+                    </p>
+                    <Link
+                      href={`/marketplace/categoria/${categorySlug}`}
+                      className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-[#1E76B6] hover:underline"
+                    >
+                      Ver todas las llantas para {vc.category === "auto" ? "automóvil" : vc.category === "suv" ? "camioneta y SUV" : vc.category === "bus" ? "bus" : "tractomula"}
+                      <ChevronRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                );
+              })()}
 
               {/* Quick "Ideal para" chips — high-level fit summary
                   derived from rim, eje, terreno, tipo. Same heuristic
