@@ -260,6 +260,11 @@ export default function DetallePage() {
   });
   const [filterSearch, setFilterSearch] = useState("");
   const [advancedConditions, setAdvancedConditions] = useState<AdvancedCondition[]>([]);
+  // Inspection date-range filter — see resumen/page.tsx for the same
+  // mechanism. Filters tires to those with an inspection in the range
+  // and replaces `inspecciones` with [latest-in-range].
+  const [inspectionFrom, setInspectionFrom] = useState<string>("");
+  const [inspectionTo,   setInspectionTo]   = useState<string>("");
   const [selectedEje, setSelectedEje] = useState("");
 
   /* -- Fetch --------------------------------------------------------------- */
@@ -367,13 +372,39 @@ export default function DetallePage() {
   const deferredFilterValues = useDeferredValue(filterValues);
   const deferredFilterSearch = useDeferredValue(filterSearch);
   const deferredAdvanced     = useDeferredValue(advancedConditions);
+  const deferredInspectionFrom = useDeferredValue(inspectionFrom);
+  const deferredInspectionTo   = useDeferredValue(inspectionTo);
   const filterPending =
     filterValues       !== deferredFilterValues
     || filterSearch    !== deferredFilterSearch
-    || advancedConditions !== deferredAdvanced;
+    || advancedConditions !== deferredAdvanced
+    || inspectionFrom  !== deferredInspectionFrom
+    || inspectionTo    !== deferredInspectionTo;
 
   const filtered = useMemo(() => {
     let result = tires;
+
+    // Date-range filter — applied FIRST so the alert classifier, vida
+    // filter, and every downstream chart see the narrowed `inspecciones`
+    // array (latest-in-range only). Open-ended on a missing bound.
+    if (deferredInspectionFrom || deferredInspectionTo) {
+      const from = deferredInspectionFrom || "0000-00-00";
+      const to   = deferredInspectionTo   || "9999-12-31";
+      const narrowed: typeof tires = [];
+      for (const t of result) {
+        let latest: typeof t.inspecciones[number] | null = null;
+        let latestTs = -Infinity;
+        for (const i of t.inspecciones) {
+          const local = new Date(i.fecha).toLocaleDateString("en-CA");
+          if (local < from || local > to) continue;
+          const ts = new Date(i.fecha).getTime();
+          if (ts > latestTs) { latestTs = ts; latest = i; }
+        }
+        if (!latest) continue;
+        narrowed.push({ ...t, inspecciones: [latest] });
+      }
+      result = narrowed;
+    }
 
     // Exclude fin de vida unless explicitly selected
     if (!deferredFilterValues.vida || deferredFilterValues.vida === "Todos")
@@ -410,7 +441,7 @@ export default function DetallePage() {
     }
 
     return result;
-  }, [tires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, vehicleMap]);
+  }, [tires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, deferredInspectionFrom, deferredInspectionTo, vehicleMap]);
 
   /* -- Alert counts (same filtered set as all cards) --------------------- */
 
@@ -630,6 +661,10 @@ export default function DetallePage() {
           searchPlaceholder="Buscar por placa..."
           advancedConditions={advancedConditions}
           onAdvancedChange={setAdvancedConditions}
+          dateFrom={inspectionFrom}
+          dateTo={inspectionTo}
+          onDateRangeChange={(from, to) => { setInspectionFrom(from); setInspectionTo(to); }}
+          dateRangeLabel="Rango de inspecciones"
         />
       )}
     </div>

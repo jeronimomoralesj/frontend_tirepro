@@ -285,6 +285,13 @@ export default function ResumenPage() {
   });
   const [filterSearch, setFilterSearch] = useState("");
   const [advancedConditions, setAdvancedConditions] = useState<AdvancedCondition[]>([]);
+  // Inspection date-range filter. When either bound is set we keep only
+  // tires with at least one inspection in [from, to] and replace their
+  // `inspecciones` array with the SINGLE latest in-range record so
+  // downstream charts that read the last inspection see the right value
+  // without knowing about the filter.
+  const [inspectionFrom, setInspectionFrom] = useState<string>("");
+  const [inspectionTo,   setInspectionTo]   = useState<string>("");
 
   // -- Fetch ------------------------------------------------------------------
 
@@ -371,10 +378,14 @@ export default function ResumenPage() {
   const deferredFilterValues = useDeferredValue(filterValues);
   const deferredFilterSearch = useDeferredValue(filterSearch);
   const deferredAdvanced     = useDeferredValue(advancedConditions);
+  const deferredInspectionFrom = useDeferredValue(inspectionFrom);
+  const deferredInspectionTo   = useDeferredValue(inspectionTo);
   const filterPending =
     filterValues       !== deferredFilterValues
     || filterSearch    !== deferredFilterSearch
-    || advancedConditions !== deferredAdvanced;
+    || advancedConditions !== deferredAdvanced
+    || inspectionFrom  !== deferredInspectionFrom
+    || inspectionTo    !== deferredInspectionTo;
 
   const filterOptions: FilterOption[] = useMemo(() => [
     { key: "marca", label: "Marca", options: ["Todos", ...Array.from(new Set(tires.map((t) => t.marca))).sort()] },
@@ -383,8 +394,34 @@ export default function ResumenPage() {
   ], [tires]);
 
   const filtered = useMemo(() => {
+    let result: RawTire[] = tires;
+
+    // Date-range filter — applied FIRST so downstream charts and the
+    // vida/marca/eje filters all see the narrowed `inspecciones` list
+    // (just the latest inspection per tire that falls inside the range).
+    // Open-ended on a missing bound; comparison done in local time so
+    // "2025-12-24" matches inspections recorded that day in the user's
+    // timezone.
+    if (deferredInspectionFrom || deferredInspectionTo) {
+      const from = deferredInspectionFrom || "0000-00-00";
+      const to   = deferredInspectionTo   || "9999-12-31";
+      const narrowed: RawTire[] = [];
+      for (const t of result) {
+        let latest: RawInspeccion | null = null;
+        let latestTs = -Infinity;
+        for (const i of t.inspecciones) {
+          const local = new Date(i.fecha).toLocaleDateString("en-CA");
+          if (local < from || local > to) continue;
+          const ts = new Date(i.fecha).getTime();
+          if (ts > latestTs) { latestTs = ts; latest = i; }
+        }
+        if (!latest) continue;
+        narrowed.push({ ...t, inspecciones: [latest] });
+      }
+      result = narrowed;
+    }
+
     // Exclude fin de vida unless explicitly selected
-    let result = tires;
     if (!deferredFilterValues.vida || deferredFilterValues.vida === "Todos")
       result = result.filter((t) => t.vidaActual !== "fin");
     else
@@ -401,7 +438,7 @@ export default function ResumenPage() {
       result = result.filter((t) => passAllAdvanced(t, deferredAdvanced));
     }
     return result;
-  }, [tires, deferredFilterValues, deferredFilterSearch, deferredAdvanced]);
+  }, [tires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, deferredInspectionFrom, deferredInspectionTo]);
 
   // Fin-de-vida tires (for dinero perdido — applies marca/eje/search but always keeps only fin)
   const finTires = useMemo(() => {
@@ -950,6 +987,10 @@ export default function ResumenPage() {
           searchPlaceholder="Buscar por placa o marca..."
           advancedConditions={advancedConditions}
           onAdvancedChange={setAdvancedConditions}
+          dateFrom={inspectionFrom}
+          dateTo={inspectionTo}
+          onDateRangeChange={(from, to) => { setInspectionFrom(from); setInspectionTo(to); }}
+          dateRangeLabel="Rango de inspecciones"
         />
       )}
     </div>

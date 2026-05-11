@@ -624,6 +624,12 @@ export default function DistribuidorPage() {
   // `inspecciones` is narrowed to that day so charts/cards that look at the
   // "latest" inspection automatically render that day's values.
   const [inspectionDate, setInspectionDate] = useState<string>("");
+  // Date-range variant — when either bound is set we keep only tires that
+  // have an inspection in [from, to] and replace their `inspecciones`
+  // list with [latest-in-range] so downstream charts/cards continue to
+  // read the "latest" inspection without knowing about the filter.
+  const [inspectionFrom, setInspectionFrom] = useState<string>("");
+  const [inspectionTo,   setInspectionTo]   = useState<string>("");
 
   // -- Auth user --------------------------------------------------------------
   useEffect(() => {
@@ -707,6 +713,8 @@ export default function DistribuidorPage() {
   setFilterValues({ alert: "Todos", marca: "Todos", dimension: "Todos", eje: "Todos", vida: "Todos" });
   setFilterSearch("");
   setInspectionDate("");
+  setInspectionFrom("");
+  setInspectionTo("");
   setLoadedTires(0); setStreaming(false);
 }, []);
 
@@ -889,6 +897,8 @@ export default function DistribuidorPage() {
   const deferredFilterSearch = useDeferredValue(filterSearch);
   const deferredAdvanced     = useDeferredValue(advancedConditions);
   const deferredInspectionDate = useDeferredValue(inspectionDate);
+  const deferredInspectionFrom = useDeferredValue(inspectionFrom);
+  const deferredInspectionTo   = useDeferredValue(inspectionTo);
 
   const filteredTires: NormTire[] = useMemo(() => {
     // Filter the chartTires snapshot (NOT allTires). During streaming,
@@ -914,6 +924,27 @@ export default function DistribuidorPage() {
         // `NormTire.inspecciones` collides with `RawTire.inspecciones`, making
         // it an intersection type — cast through unknown so the override works.
         narrowed.push({ ...t, inspecciones: dayInsps } as unknown as NormTire);
+      }
+      result = narrowed;
+    } else if (deferredInspectionFrom || deferredInspectionTo) {
+      // Range filter: keep each tire's LATEST inspection in [from, to].
+      // Open-ended on a missing bound. Compared in local time so a date
+      // like "2025-12-24" matches inspections recorded that day in the
+      // user's timezone (UTC ISO converted via toLocaleDateString).
+      const from = deferredInspectionFrom || "0000-00-00";
+      const to   = deferredInspectionTo   || "9999-12-31";
+      const narrowed: NormTire[] = [];
+      for (const t of result) {
+        let latest: typeof t.inspecciones[number] | null = null;
+        let latestTs = -Infinity;
+        for (const i of t.inspecciones) {
+          const local = new Date(i.fecha).toLocaleDateString("en-CA");
+          if (local < from || local > to) continue;
+          const ts = new Date(i.fecha).getTime();
+          if (ts > latestTs) { latestTs = ts; latest = i; }
+        }
+        if (!latest) continue;
+        narrowed.push({ ...t, inspecciones: [latest] } as unknown as NormTire);
       }
       result = narrowed;
     }
@@ -958,7 +989,7 @@ export default function DistribuidorPage() {
       result = result.filter((t) => passAllAdvanced(t, deferredAdvanced));
     }
     return result;
-  }, [chartTires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, deferredInspectionDate, vehicleMap]);
+  }, [chartTires, deferredFilterValues, deferredFilterSearch, deferredAdvanced, deferredInspectionDate, deferredInspectionFrom, deferredInspectionTo, vehicleMap]);
 
   // True while React is catching up a deferred filter change — used for a
   // subtle overlay hint so the user knows the charts are about to update.
@@ -966,7 +997,9 @@ export default function DistribuidorPage() {
     filterValues       !== deferredFilterValues
     || filterSearch    !== deferredFilterSearch
     || advancedConditions !== deferredAdvanced
-    || inspectionDate  !== deferredInspectionDate;
+    || inspectionDate  !== deferredInspectionDate
+    || inspectionFrom  !== deferredInspectionFrom
+    || inspectionTo    !== deferredInspectionTo;
 
   // Filter dropdown options derived from the chart snapshot — same
   // rationale as filteredTires above: mid-stream chunks shouldn't rebuild
@@ -1341,6 +1374,17 @@ export default function DistribuidorPage() {
           date={inspectionDate}
           onDateChange={setInspectionDate}
           dateLabel="Fecha de inspección"
+          dateFrom={inspectionFrom}
+          dateTo={inspectionTo}
+          onDateRangeChange={(from, to) => {
+            setInspectionFrom(from);
+            setInspectionTo(to);
+            // Single date and range are mutually exclusive — picking a
+            // range clears the single-day filter so the consumer doesn't
+            // have to reason about both at once.
+            if (from || to) setInspectionDate("");
+          }}
+          dateRangeLabel="Rango de inspecciones"
         />
       )}
     </div>

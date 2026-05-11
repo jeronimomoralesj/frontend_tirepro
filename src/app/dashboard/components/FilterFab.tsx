@@ -36,6 +36,16 @@ interface FilterFabProps {
   date?: string;
   onDateChange?: (next: string) => void;
   dateLabel?: string;
+  // Optional date-range filter. When `onDateRangeChange` is wired the
+  // panel renders a Desde/Hasta pair instead of (or in addition to) the
+  // single-date input. Either bound may be "" to mean "open-ended"; if
+  // both are set the consumer should treat it as inclusive `[from, to]`.
+  // Filter logic in the consumer page reduces each tire to its LATEST
+  // inspection inside the range.
+  dateFrom?: string;
+  dateTo?: string;
+  onDateRangeChange?: (from: string, to: string) => void;
+  dateRangeLabel?: string;
 }
 
 const ALL = 'Todos';
@@ -52,18 +62,25 @@ export default function FilterFab({
   date,
   onDateChange,
   dateLabel = 'Fecha de inspección',
+  dateFrom,
+  dateTo,
+  onDateRangeChange,
+  dateRangeLabel = 'Rango de inspección',
 }: FilterFabProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const advEnabled = Array.isArray(advancedConditions) && !!onAdvancedChange;
   const adv = advancedConditions ?? [];
-  const dateEnabled = !!onDateChange;
+  const dateEnabled  = !!onDateChange;
+  const rangeEnabled = !!onDateRangeChange;
+  const rangeActive  = !!(dateFrom || dateTo);
 
   const activeCount =
     Object.values(values).filter((v) => v && v !== ALL).length
     + (search?.trim() ? 1 : 0)
     + adv.length
-    + (date ? 1 : 0);
+    + (date ? 1 : 0)
+    + (rangeActive ? 1 : 0);
 
   function updateAdv(next: AdvancedCondition[]) {
     onAdvancedChange?.(next);
@@ -95,6 +112,7 @@ export default function FilterFab({
     onSearchChange?.('');
     if (advEnabled) onAdvancedChange?.([]);
     if (dateEnabled) onDateChange?.('');
+    if (rangeEnabled) onDateRangeChange?.('', '');
   }
 
   return (
@@ -148,6 +166,21 @@ export default function FilterFab({
               &quot;{search}&quot;
               <button
                 onClick={(e) => { e.stopPropagation(); onSearchChange?.(''); }}
+                className="hover:opacity-70"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </span>
+          )}
+          {rangeActive && (
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white"
+              style={{ background: 'rgba(30,118,182,0.9)', backdropFilter: 'blur(8px)' }}
+            >
+              <Calendar className="w-2.5 h-2.5" />
+              {dateFrom || '…'} → {dateTo || '…'}
+              <button
+                onClick={(e) => { e.stopPropagation(); onDateRangeChange?.('', ''); }}
                 className="hover:opacity-70"
               >
                 <X className="w-2.5 h-2.5" />
@@ -274,6 +307,66 @@ export default function FilterFab({
                     Mostrando solo llantas inspeccionadas ese día con sus valores de ese día.
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Inspection date-range filter — when both bounds are set we
+                show every tire that has at least one inspection in the
+                range, using its LATEST inspection within the window. A
+                single bound is open-ended on the other side. */}
+            {rangeEnabled && (
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">
+                  {dateRangeLabel}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={dateFrom ?? ''}
+                      max={dateTo || undefined}
+                      onChange={(e) => onDateRangeChange?.(e.target.value, dateTo ?? '')}
+                      placeholder="Desde"
+                      className="w-full pl-7 pr-2 py-2 rounded-xl text-[11px] font-medium transition-all focus:outline-none focus:ring-1 focus:ring-[#348CCB]/30"
+                      style={{
+                        background: dateFrom ? 'rgba(30,118,182,0.06)' : '#f9fafb',
+                        border:     dateFrom ? '1px solid rgba(30,118,182,0.3)' : '1px solid #e5e7eb',
+                        color:      dateFrom ? '#1E76B6' : '#0A183A',
+                      }}
+                    />
+                  </div>
+                  <div className="relative">
+                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={dateTo ?? ''}
+                      min={dateFrom || undefined}
+                      onChange={(e) => onDateRangeChange?.(dateFrom ?? '', e.target.value)}
+                      placeholder="Hasta"
+                      className="w-full pl-7 pr-2 py-2 rounded-xl text-[11px] font-medium transition-all focus:outline-none focus:ring-1 focus:ring-[#348CCB]/30"
+                      style={{
+                        background: dateTo ? 'rgba(30,118,182,0.06)' : '#f9fafb',
+                        border:     dateTo ? '1px solid rgba(30,118,182,0.3)' : '1px solid #e5e7eb',
+                        color:      dateTo ? '#1E76B6' : '#0A183A',
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-[10px] text-gray-400">
+                    Una inspección por llanta (la más reciente del rango).
+                  </p>
+                  {rangeActive && (
+                    <button
+                      type="button"
+                      onClick={() => onDateRangeChange?.('', '')}
+                      className="text-[10px] font-semibold text-[#1E76B6] hover:opacity-70"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
