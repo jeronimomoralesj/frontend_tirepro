@@ -1075,6 +1075,37 @@ const AjustesPage: React.FC = () => {
   // Default role is "viewer" — "regular" isn't a value in the Prisma
   // UserRole enum and submissions with it 400 at the validation pipe.
   const [newUserData, setNewUserData] = useState({ name: "", email: "", password: "", role: "viewer" });
+  // Optional per-user vehicle scoping for the new user. Empty list = no
+  // restriction (current behavior — user can inspect any company vehicle).
+  // A non-empty list installs UserVehicleAccess rows on the backend.
+  const [newUserVehicleIds, setNewUserVehicleIds] = useState<string[]>([]);
+  const [allVehicles, setAllVehicles] = useState<{ id: string; placa: string; tipovhc?: string | null }[]>([]);
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+
+  // Lazy-load the company vehicle list the first time the addUser tab opens.
+  // We only need it for the optional vehicle picker; loading on initial page
+  // mount would burn bandwidth for everyone who never visits this tab.
+  useEffect(() => {
+    if (activeTab !== "addUser") return;
+    if (!user?.companyId) return;
+    if (allVehicles.length > 0) return;
+    setLoadingVehicles(true);
+    authFetch(`${API_BASE}/vehicles/inspectable?companyId=${encodeURIComponent(user.companyId)}`)
+      .then(async (r) => (r.ok ? r.json() : []))
+      .then((data: any[]) => {
+        const items = Array.isArray(data) ? data : [];
+        setAllVehicles(
+          items
+            .map((v) => ({ id: v.id, placa: v.placa, tipovhc: v.tipovhc }))
+            .sort((a, b) => (a.placa ?? "").localeCompare(b.placa ?? "")),
+        );
+      })
+      .catch(() => setAllVehicles([]))
+      .finally(() => setLoadingVehicles(false));
+    // authFetch is a stable module-level fn; safe to omit from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user?.companyId]);
   const [notifChannel, setNotifChannel] = useState<string>("none");
   const [notifContact, setNotifContact] = useState("");
   const [savingNotif, setSavingNotif] = useState(false);
@@ -1291,6 +1322,13 @@ const AjustesPage: React.FC = () => {
     if (!user) return;
     setSavingUser(true);
     try {
+      // Only include vehicleIds when the role is one that does inspection
+      // work — picking vehicles for a catalogo / catalogo_admin /
+      // marketplace_tracker user would be confusing (those roles don't
+      // touch the inspection flow). Empty list keeps the existing
+      // "user can inspect any company vehicle" default.
+      const inspectorRole = newUserData.role === "viewer" || newUserData.role === "technician";
+      const vehicleIds = inspectorRole ? newUserVehicleIds : [];
       const res = await authFetch(`${API_BASE}/users/register`, {
         method: "POST",
         body: JSON.stringify({
@@ -1298,6 +1336,7 @@ const AjustesPage: React.FC = () => {
           companyId: user.companyId,
           email: newUserData.email.toLowerCase().trim(),
           name: newUserData.name.trim(),
+          ...(vehicleIds.length > 0 && { vehicleIds }),
         }),
       });
       if (!res.ok) {
@@ -1308,6 +1347,8 @@ const AjustesPage: React.FC = () => {
       toast(result.message || "Usuario creado exitosamente", "success");
       fetchUsers(user.companyId);
       setNewUserData({ name: "", email: "", password: "", role: "regular" });
+      setNewUserVehicleIds([]);
+      setVehicleSearch("");
       setActiveTab("users");
     } catch (e) {
       toast(e instanceof Error ? e.message : "Error inesperado", "error");
@@ -2491,6 +2532,102 @@ const AjustesPage: React.FC = () => {
                   )}
                 </select>
               </Field>
+
+              {/* Optional vehicle scoping — only meaningful for the
+                  inspection-capable roles. If the admin picks at least
+                  one vehicle, the new user can ONLY inspect those
+                  vehicles; leaving it empty preserves the existing
+                  default of full company-wide access. */}
+              {(newUserData.role === "viewer" || newUserData.role === "technician") && (
+                <Field label="Vehículos asignados (opcional)">
+                  <p className="text-[11px] text-gray-500 mb-2">
+                    Si seleccionas vehículos, el usuario sólo podrá inspeccionar esos. Déjalo vacío para darle acceso a todos los vehículos de la empresa.
+                  </p>
+                  <div className="relative mb-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder={loadingVehicles ? "Cargando vehículos…" : "Buscar por placa…"}
+                      value={vehicleSearch}
+                      onChange={(e) => setVehicleSearch(e.target.value)}
+                      disabled={loadingVehicles}
+                      className={`${inputCls} pl-9`}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  {/* Results — only render when actively searching so the
+                      tab doesn't show an N-row list by default. */}
+                  {vehicleSearch.trim().length >= 1 && (() => {
+                    const q = vehicleSearch.trim().toLowerCase();
+                    const matches = allVehicles
+                      .filter((v) => !newUserVehicleIds.includes(v.id))
+                      .filter((v) => v.placa.toLowerCase().includes(q))
+                      .slice(0, 20);
+                    if (matches.length === 0) {
+                      return (
+                        <p className="text-xs text-gray-400 py-2">
+                          {loadingVehicles ? "Cargando…" : "Sin resultados"}
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
+                        {matches.map((v) => (
+                          <button
+                            type="button"
+                            key={v.id}
+                            onClick={() => {
+                              setNewUserVehicleIds((prev) => prev.includes(v.id) ? prev : [...prev, v.id]);
+                              setVehicleSearch("");
+                            }}
+                            className="w-full flex items-center justify-between gap-2 p-2 rounded-lg text-left transition-all hover:bg-[#F0F7FF]"
+                            style={{ border: "1px solid rgba(52,140,203,0.15)" }}
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-[#0A183A] truncate">{v.placa.toUpperCase()}</p>
+                              {v.tipovhc && <p className="text-[10px] text-gray-400 truncate">{v.tipovhc}</p>}
+                            </div>
+                            <PlusCircle className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Selected vehicles */}
+                  {newUserVehicleIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {newUserVehicleIds.map((id) => {
+                        const v = allVehicles.find((x) => x.id === id);
+                        const label = v ? v.placa.toUpperCase() : id.slice(0, 6);
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
+                            style={{
+                              background: "rgba(30,118,182,0.08)",
+                              border: "1px solid rgba(30,118,182,0.18)",
+                              color: "#1E76B6",
+                            }}
+                          >
+                            {label}
+                            <button
+                              type="button"
+                              onClick={() => setNewUserVehicleIds((prev) => prev.filter((x) => x !== id))}
+                              className="hover:opacity-70"
+                              aria-label={`Quitar ${label}`}
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Field>
+              )}
+
               <div className="pt-2 flex gap-2">
                 <GhostBtn onClick={() => setActiveTab("users")} className="flex-1">Cancelar</GhostBtn>
                 <PrimaryBtn type="submit" disabled={savingUser} className="flex-1">
