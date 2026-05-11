@@ -32,6 +32,7 @@ import FastMode from "./FastMode";
 import { AGENTS } from "../../../lib/agents";
 import { useAuth } from "../../context/AuthProvider";
 import TireInspectionModal, { type InspectionDraft } from "../../../components/TireInspectionModal";
+import MoveFreeTireToVehicleModal from "@/shared/MoveFreeTireToVehicleModal";
 
 // =============================================================================
 // Constants
@@ -1206,6 +1207,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [desmountVehicleKm, setDesmountVehicleKm] = useState<string>("");
   const [desmountTireKm, setDesmountTireKm] = useState<string>("");
   const [desmountSaving, setDesmountSaving] = useState(false);
+  const [moveTireId, setMoveTireId] = useState<string | null>(null);
 
   // Move the currently-selected tire onto a different position. The tire
   // that previously occupied that slot becomes "free" (lands in the
@@ -2475,9 +2477,52 @@ export default function InspeccionPage({ language }: { language?: string }) {
                     ))}
                   </div>
                 </div>
+
+                {/* Move-to-other-vehicle path — mirrors agregar/Inspeccion. */}
+                <div>
+                  <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">Otro vehículo</p>
+                  <button
+                    type="button"
+                    onClick={() => { setMoveTireId(free.id); setFreeActionTireId(null); }}
+                    className="w-full px-3 py-2 rounded-lg text-[11px] font-bold transition-all hover:opacity-80 inline-flex items-center justify-center gap-2"
+                    style={{ background: "white", border: "1px solid rgba(30,118,182,0.4)", color: "#1E76B6" }}
+                  >
+                    <Truck className="w-3.5 h-3.5" />
+                    Asignar a otro vehículo…
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+        );
+      })()}
+
+      {/* Move-to-other-vehicle modal */}
+      {moveTireId && (() => {
+        const free = freeTires.find((t) => t.id === moveTireId);
+        if (!free || !vehicle) return null;
+        return (
+          <MoveFreeTireToVehicleModal
+            freeTire={{ id: free.id, marca: free.marca, diseno: free.diseno ?? null, placa: free.placa }}
+            sourceVehicle={{
+              id:                vehicle.id,
+              placa:             vehicle.placa,
+              kilometrajeActual: vehicle.kilometrajeActual,
+              companyId:         vehicle.companyId ?? null,
+            }}
+            inspectionKm={newKilometraje}
+            buckets={bucketData.buckets}
+            onClose={() => setMoveTireId(null)}
+            onDone={() => {
+              setFreeTires((fp) => fp.filter((t) => t.id !== moveTireId));
+              setTireUpdates((prev) => {
+                const next = { ...prev };
+                delete next[moveTireId];
+                return next;
+              });
+              setMoveTireId(null);
+            }}
+          />
         );
       })()}
 

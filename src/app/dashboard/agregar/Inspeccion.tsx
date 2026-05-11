@@ -30,6 +30,7 @@ import FastMode from "./FastMode";
 import { AGENTS } from "../../../lib/agents";
 import { useAuth } from "../../context/AuthProvider";
 import TireInspectionModal, { type InspectionDraft } from "../../../components/TireInspectionModal";
+import MoveFreeTireToVehicleModal from "@/shared/MoveFreeTireToVehicleModal";
 
 // =============================================================================
 // Constants
@@ -1061,6 +1062,9 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [desmountVehicleKm, setDesmountVehicleKm] = useState<string>("");
   const [desmountTireKm, setDesmountTireKm] = useState<string>("");
   const [desmountSaving, setDesmountSaving] = useState(false);
+  // Tire being moved to a different vehicle (via the new "Otro vehículo"
+  // action in the free-tire picker). Null when no transfer is in flight.
+  const [moveTireId, setMoveTireId] = useState<string | null>(null);
   const [bucketData,       setBucketData]     = useState<{ disponible: number; buckets: { id: string; nombre: string; color?: string; icono?: string; tireCount: number }[] }>({ disponible: 0, buckets: [] });
 
   // Move the currently-selected tire onto a different position. The tire
@@ -2365,9 +2369,61 @@ export default function InspeccionPage({ language }: { language?: string }) {
                     ))}
                   </div>
                 </div>
+
+                {/* Move-to-other-vehicle path. Opens a dedicated modal
+                    (placa search → position pick → blocker resolution)
+                    mirroring the /dashboard/inventario flow so the user
+                    can transfer a tire between vehicles without leaving
+                    the inspection screen. */}
+                <div>
+                  <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">Otro vehículo</p>
+                  <button
+                    type="button"
+                    onClick={() => { setMoveTireId(free.id); setFreeActionTireId(null); }}
+                    className="w-full px-3 py-2 rounded-lg text-[11px] font-bold transition-all hover:opacity-80 inline-flex items-center justify-center gap-2"
+                    style={{ background: "white", border: "1px solid rgba(30,118,182,0.4)", color: "#1E76B6" }}
+                  >
+                    <Truck className="w-3.5 h-3.5" />
+                    Asignar a otro vehículo…
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+        );
+      })()}
+
+      {/* Move-to-other-vehicle modal — full placa search + position
+          picker + blocker resolution. Refetches the inspection on done
+          so the local "free pool" no longer shows the moved tire. */}
+      {moveTireId && (() => {
+        const free = freeTires.find((t) => t.id === moveTireId);
+        if (!free || !vehicle) return null;
+        return (
+          <MoveFreeTireToVehicleModal
+            freeTire={{ id: free.id, marca: free.marca, diseno: free.diseno ?? null, placa: free.placa }}
+            sourceVehicle={{
+              id:                vehicle.id,
+              placa:             vehicle.placa,
+              kilometrajeActual: vehicle.kilometrajeActual,
+              companyId:         vehicle.companyId ?? null,
+            }}
+            inspectionKm={newKilometraje}
+            buckets={bucketData.buckets}
+            onClose={() => setMoveTireId(null)}
+            onDone={() => {
+              // Tire is gone from the source vehicle server-side — drop
+              // it from the local free pool + any pending inspection
+              // update so it doesn't block submit.
+              setFreeTires((fp) => fp.filter((t) => t.id !== moveTireId));
+              setTireUpdates((prev) => {
+                const next = { ...prev };
+                delete next[moveTireId];
+                return next;
+              });
+              setMoveTireId(null);
+            }}
+          />
         );
       })()}
 
