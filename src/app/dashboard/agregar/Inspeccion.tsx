@@ -1416,6 +1416,43 @@ export default function InspeccionPage({ language }: { language?: string }) {
     )
       return;
 
+    // Depth-increase guard — tires wear down, so any new reading above
+    // the previous inspection's value is almost always a typo or a
+    // wrong-tire measurement. Flag every offending position and let the
+    // technician confirm before we let the bad data skew CPK/projected
+    // km downstream.
+    const depthAnomalies: string[] = [];
+    for (const t of inspectionTires) {
+      const last = (t.inspecciones ?? [])[0];
+      if (!last) continue;
+      const u = safeUpdate(t.id);
+      const issues: string[] = [];
+      if (Number(u.profundidadInt) > last.profundidadInt) issues.push(`Int ${u.profundidadInt}>${last.profundidadInt}`);
+      if (Number(u.profundidadCen) > last.profundidadCen) issues.push(`Cen ${u.profundidadCen}>${last.profundidadCen}`);
+      if (Number(u.profundidadExt) > last.profundidadExt) issues.push(`Ext ${u.profundidadExt}>${last.profundidadExt}`);
+      if (issues.length > 0) depthAnomalies.push(`P${t.posicion}: ${issues.join(", ")}`);
+    }
+    if (
+      depthAnomalies.length > 0 &&
+      !window.confirm(
+        `La profundidad ingresada es mayor que la última registrada en ${depthAnomalies.length} llanta(s):\n\n${depthAnomalies.join("\n")}\n\nLas llantas se desgastan con el uso, verifique los valores. ¿Desea continuar?`,
+      )
+    )
+      return;
+
+    // Km-decrease guard — a kilometraje lower than the last reading
+    // means we can't compute a real kmDelta for this inspection;
+    // projections will fall back to an estimate. Warn so a typo gets
+    // caught before the estimate cascades into the analytics.
+    if (
+      vehicle &&
+      Number(newKilometraje) < vehicle.kilometrajeActual &&
+      !window.confirm(
+        `El kilometraje ingresado (${Number(newKilometraje).toLocaleString()} km) es menor al último registrado (${vehicle.kilometrajeActual.toLocaleString()} km). Al ser menor, los kilómetros recorridos se estimarán. ¿Desea continuar?`,
+      )
+    )
+      return;
+
     setSubmitting(true);
     try {
       const kmDiff = vehicle ? Number(newKilometraje) - vehicle.kilometrajeActual : 0;
