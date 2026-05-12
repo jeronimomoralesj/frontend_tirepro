@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
-import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,25 +20,6 @@ import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession
 import { productHref } from "./product/_lib/url";
 import { CATEGORIES as SEO_CATEGORIES } from "./categoria/_lib/categories";
 import { searchVehicles, VEHICLE_TYPE_TO_CLASE } from "./_islands/vehicle-db";
-
-// TireAssistant lives in a lazy island so its ~14 KB of vehicle-DB +
-// chat state stays out of the initial /marketplace bundle. Until the
-// chunk loads, the floating "¿Necesitas ayuda?" CTA below renders a
-// static placeholder so there's no flash of nothing.
-const TireAssistant = dynamic(() => import("./_islands/TireAssistant"), {
-  ssr: false,
-  loading: () => (
-    <button
-      type="button"
-      className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg"
-      style={{ background: "#0A183A", color: "white" }}
-      aria-label="Cargando asistente"
-    >
-      <MessageCircle className="w-4 h-4" />
-      <span className="text-xs font-bold">¿Necesitas ayuda?</span>
-    </button>
-  ),
-});
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -1235,9 +1215,7 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
       {/* ═══ FLOATING ASSISTANT BUTTON ═══ */}
       {/* Placa view already gives the buyer a focused 3-option deck +
           a sticky pay block — the floating "¿Necesitas ayuda?" bubble
-          would just overlap with the footer pills and add noise.
-          Hide it whenever the placa takeover is active. */}
-      {!placaActive && <TireAssistant onSearch={(q) => setSearch(q)} />}
+          would just overlap with the footer pills and add noise. */}
 
     </div>
   );
@@ -3228,19 +3206,13 @@ function PlacaResultsView({
                 Ver más opciones
               </button>
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                // Placeholder — wired to a real assistant flow later.
-                // For now bring the floating TireAssistant into focus
-                // by scrolling to top so it's visible.
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+            <Link
+              href="/contact"
               className="mt-3 w-full py-3 rounded-full text-[13px] font-black flex items-center justify-center gap-2 transition-transform active:scale-[0.97] text-[#1E76B6] border-2 border-[#1E76B6]/25 bg-[#F0F7FF]"
             >
               <MessageCircle className="w-4 h-4" />
               ¿Necesitas ayuda? Habla con un asesor
-            </button>
+            </Link>
           </footer>
         )}
       </div>
