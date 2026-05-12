@@ -1127,7 +1127,11 @@ export default function InspeccionPage({ language }: { language?: string }) {
       } else {
         setFreeTires((fp) => fp.filter((t) => t.id !== freeTireId));
       }
-      return [...cleaned, { ...free, posicion: targetPos }];
+      // Re-sort by position so a freed tire that gets re-mounted ends up
+      // in the right slot of the rendered list — previously it was just
+      // appended to the end, which is what produced the "12, 13, 14, 11"
+      // ordering the user reported when they rotated P11 out and back in.
+      return [...cleaned, { ...free, posicion: targetPos }].sort((a, b) => a.posicion - b.posicion);
     });
     // Make sure tireUpdates has an entry for the re-introduced tire.
     setTireUpdates((prev) =>
