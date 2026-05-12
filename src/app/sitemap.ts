@@ -9,6 +9,7 @@ import { BRAND_PAIRS, pairSlug } from './marketplace/comparar/_lib/brand-pairs'
 import { GUIDES } from './guias/_lib/guides'
 import { CITY_BRAND_PAIRS } from './marketplace/ciudad/_lib/city-brand-pairs'
 import { productHref } from './marketplace/product/_lib/url'
+import { categorySlug } from './blog/_lib/category'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -151,6 +152,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: post.featured ? 0.85 : 0.75,
       images: safeImages([post.coverImage]),
     }))
+
+  // -- Blog category hubs ------------------------------------------------------
+  // /blog/category/<slug> per unique free-text category derived from the
+  // published posts. Each hub is a sub-aggregation page Google can attach
+  // authority to instead of just the root /blog — these typically rank
+  // better than individual posts for category-level queries.
+  const categoryCounts = new Map<string, number>()
+  for (const p of sortedPosts) {
+    if (p.published === false) continue
+    if (!p.slug) continue
+    const slug = categorySlug(p.category)
+    categoryCounts.set(slug, (categoryCounts.get(slug) ?? 0) + 1)
+  }
+  const blogCategoryEntries: MetadataRoute.Sitemap = Array.from(categoryCounts.entries()).map(
+    ([slug, count]) => ({
+      url: `${BASE_URL}/blog/category/${slug}`,
+      lastModified: mostRecentPostDate,
+      changeFrequency: 'weekly' as const,
+      // Boost categories with more posts — they're stronger hubs and we
+      // want Google to crawl them first.
+      priority: count >= 3 ? 0.75 : 0.6,
+    }),
+  )
 
   // -- Marketplace index -------------------------------------------------------
   const marketplaceStatic: MetadataRoute.Sitemap = [
@@ -331,5 +355,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...distributorEntries,
     ...productEntries,
     ...postEntries,
+    ...blogCategoryEntries,
   ]
 }

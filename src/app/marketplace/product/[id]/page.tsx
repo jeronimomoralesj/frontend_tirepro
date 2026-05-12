@@ -1,9 +1,11 @@
 import React from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
 import ProductClient from "./ProductClient";
 import { buildProductFaqs } from "./faq";
 import { extractListingId, isCanonicalParam, productHref, productSlug } from "../_lib/url";
+import { toDimensionSlug } from "../../dimension/_lib/dimensions";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -62,6 +64,31 @@ async function fetchProduct(id: string) {
 function brandSlugify(name: string): string {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+}
+
+// Other listings with the same dimension — the strongest signal for
+// "you might also want." Same-dimension is the buyer's first filter
+// (their car physically fits one set of sizes), so cross-linking here
+// gives crawlers a dense internal-link graph AND gives a buyer who
+// landed on a sold-out / dim-unavailable product an immediate
+// alternative. Falls back to an empty list on any network blip — the
+// product page itself must never block on this.
+async function fetchRelatedByDimension(dimension: string | null | undefined, excludeId: string) {
+  if (!dimension) return [];
+  try {
+    const res = await fetch(
+      `${API_BASE}/marketplace/listings?limit=120&sortBy=newest`,
+      { next: { revalidate: 1800 } },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const listings: any[] = Array.isArray(data?.listings) ? data.listings : [];
+    return listings
+      .filter((l) => l?.id && l.id !== excludeId && l.dimension === dimension)
+      .slice(0, 6);
+  } catch {
+    return [];
+  }
 }
 
 async function fetchBrandInfo(marca: string | null | undefined) {
@@ -199,8 +226,12 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     permanentRedirect(productHref(product));
   }
 
-  // Brand info — fetched in parallel-friendly way for the clickable brand pill
-  const brandInfo = await fetchBrandInfo(product.marca);
+  // Brand info + related-by-dimension — fetched in parallel so the
+  // related-products block doesn't serially extend TTFB.
+  const [brandInfo, relatedListings] = await Promise.all([
+    fetchBrandInfo(product.marca),
+    fetchRelatedByDimension(product.dimension, product.id),
+  ]);
 
   const imgs = Array.isArray(product.imageUrls) ? product.imageUrls : [];
   const cover = imgs.length > 0 ? imgs[product.coverIndex ?? 0] ?? imgs[0] : null;
@@ -367,6 +398,98 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
       {/* Interactive client component */}
       <ProductClient initialProduct={product} brandInfo={brandInfo} />
+
+      {/* Related-by-dimension — server-rendered so Googlebot sees the
+          internal links on first hit (no client-side fetch waterfall).
+          Same-dimension is the user's first filter when shopping, so
+          cross-linking from here both feeds the crawl graph and gives
+          buyers an instant alternative on sold-out / out-of-budget
+          products. */}
+      {relatedListings.length > 0 && (
+        <section
+          aria-labelledby="related-products"
+          className="bg-gray-50 border-t border-gray-100 px-6 lg:px-8 py-12"
+        >
+          <div className="max-w-6xl mx-auto">
+            <h2
+              id="related-products"
+              className="text-2xl font-black text-[#0A183A] tracking-tight mb-6"
+            >
+              Otras llantas {product.dimension} en TirePro
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {relatedListings.map((l: any) => {
+                const imgs: string[] = Array.isArray(l.imageUrls) ? l.imageUrls : [];
+                const cover = imgs[l.coverIndex ?? 0] ?? imgs[0] ?? null;
+                const altText = `Llanta ${l.marca ?? ""} ${l.modelo ?? ""} ${l.dimension ?? ""}`.trim();
+                const hasPromo = l.precioPromo != null && l.promoHasta && new Date(l.promoHasta) > new Date();
+                const priceForCard = hasPromo ? l.precioPromo : l.precioCop;
+                return (
+                  <Link
+                    key={l.id}
+                    href={productHref(l)}
+                    className="group block bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:border-[#348CCB]/40 transition-all"
+                  >
+                    <div className="aspect-square bg-gray-50 overflow-hidden">
+                      {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={cover}
+                          alt={altText}
+                          className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full" />
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="text-[11px] uppercase tracking-wide font-bold text-[#1E76B6] truncate">
+                        {l.marca}
+                      </p>
+                      <p className="text-sm font-bold text-[#0A183A] line-clamp-2 mt-0.5">
+                        {l.modelo}
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">{l.dimension}</p>
+                      {priceForCard != null && (
+                        <p className="text-sm font-black text-[#0A183A] mt-2">
+                          {fmtCOP(priceForCard)}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Lateral links — same dimension hub + the parent dimension
+                listing page. Gives the crawler a path back up the
+                taxonomy from any product detail. */}
+            <div className="mt-8 flex flex-wrap gap-3 text-sm">
+              {product.dimension && (
+                <Link
+                  href={`/marketplace/dimension/${toDimensionSlug(product.dimension)}`}
+                  className="px-4 py-2 rounded-full bg-white border border-gray-200 text-[#0A183A] font-semibold hover:bg-[#F0F7FF] hover:border-[#348CCB] transition-colors"
+                >
+                  Ver todas las llantas {product.dimension} →
+                </Link>
+              )}
+              {/* Brand link only when we have the canonical brand slug from
+                  the API — brandInfo.slug is authoritative (vs. naively
+                  slugifying the listing's marca string, which can drift on
+                  names like "B.F. Goodrich"). */}
+              {brandInfo?.slug && (
+                <Link
+                  href={`/marketplace/brand/${brandInfo.slug}`}
+                  className="px-4 py-2 rounded-full bg-white border border-gray-200 text-[#0A183A] font-semibold hover:bg-[#F0F7FF] hover:border-[#348CCB] transition-colors"
+                >
+                  Todas las llantas {brandInfo.name ?? product.marca} →
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
     </>
   );
 }
