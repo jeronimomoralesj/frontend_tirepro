@@ -504,20 +504,15 @@ export default function ArticleClient({
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 mb-8 sm:mb-12">
             <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center space-x-3 mb-4">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: "#1E76B6" }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2" />
-                    <circle cx="12" cy="12" r="3" fill="white" />
-                  </svg>
-                </div>
-                <span className="font-semibold text-white">TirePro Colombia</span>
-              </div>
+              <Image
+                src="/logo_full.png"
+                alt="TirePro"
+                width={120}
+                height={36}
+                className="h-8 w-auto mb-4 brightness-0 invert"
+              />
               <p className="text-xs sm:text-sm mb-4" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Software de optimización inteligente de llantas para flotas en Colombia.
+                El futuro de tu rodaje.
               </p>
               <div className="flex space-x-3">
                 {['in', 'ig'].map(label => (

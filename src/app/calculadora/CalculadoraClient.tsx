@@ -916,17 +916,15 @@ export default function CalculadoraCPK() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
             <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2"/>
-                    <circle cx="12" cy="12" r="3" fill="white"/>
-                  </svg>
-                </div>
-                <span className="font-semibold">TirePro Colombia</span>
-              </div>
+              <Image
+                src="/logo_full.png"
+                alt="TirePro"
+                width={120}
+                height={36}
+                className="h-8 w-auto mb-4 brightness-0 invert"
+              />
               <p className="text-xs sm:text-sm text-gray-500">
-                Software de optimización inteligente de llantas para flotas en Colombia y Latinoamérica.
+                El futuro de tu rodaje.
               </p>
             </div>
             <nav aria-labelledby="ft-product">

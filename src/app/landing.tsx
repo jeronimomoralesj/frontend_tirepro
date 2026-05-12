@@ -1611,11 +1611,15 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
         <div className="max-w-7xl mx-auto w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 mb-8 sm:mb-12">
             <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center space-x-3 mb-4">
-                <span className="font-semibold text-white">TirePro</span>
-              </div>
+              <Image
+                src="/logo_full.png"
+                alt="TirePro"
+                width={120}
+                height={36}
+                className="h-8 w-auto mb-4 brightness-0 invert"
+              />
               <p className="text-xs sm:text-sm mb-4 sm:mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Software de optimización inteligente de llantas para flotas de vehículos en Colombia
+                El futuro de tu rodaje.
               </p>
               <nav aria-label="Redes sociales">
                 <div className="flex space-x-4">
@@ -1647,7 +1651,9 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
                 <li><a href="/calculadora" className="hover:text-white transition-colors">Calculadora de CPK</a></li>
                 <li><a href="/glosario" className="hover:text-white transition-colors">Glosario de llantas</a></li>
                 <li><a href="/blog" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="/mision" className="hover:text-white transition-colors">Misión y visión</a></li>
                 <li><a href="/equipo" className="hover:text-white transition-colors">Nosotros</a></li>
+                <li><a href="/trabaja-con-nosotros" className="hover:text-white transition-colors">Trabaja con nosotros</a></li>
                 <li><a href="/developers" className="hover:text-white transition-colors">Desarrolladores</a></li>
               </ul>
             </nav>

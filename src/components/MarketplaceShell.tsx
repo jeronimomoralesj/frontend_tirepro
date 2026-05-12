@@ -497,8 +497,7 @@ export function MarketplaceFooter() {
           <div>
             <Image src="/logo_full.png" alt="TirePro" width={90} height={27} className="h-6 w-auto brightness-0 invert mb-3" />
             <p className="text-xs text-white/40 leading-relaxed">
-              El marketplace de llantas mas grande de Colombia. Compra para tu auto,
-              camioneta, SUV o flota con distribuidores verificados y envio nacional.
+              El futuro de tu rodaje.
             </p>
           </div>
           {/* Por vehículo — every marketplace page links to these category
@@ -522,7 +521,10 @@ export function MarketplaceFooter() {
             <div className="space-y-2">
               <Link href="/" className="block text-xs text-white/40 hover:text-white transition-colors">Inicio</Link>
               <Link href="/marketplace" className="block text-xs text-white/40 hover:text-white transition-colors">Marketplace</Link>
+              <Link href="/glosario" className="block text-xs text-white/40 hover:text-white transition-colors">Glosario</Link>
               <Link href="/blog" className="block text-xs text-white/40 hover:text-white transition-colors">Blog</Link>
+              <Link href="/mision" className="block text-xs text-white/40 hover:text-white transition-colors">Misión y visión</Link>
+              <Link href="/trabaja-con-nosotros" className="block text-xs text-white/40 hover:text-white transition-colors">Trabaja con nosotros</Link>
               <Link href="/marketplace/return-policy" className="block text-xs text-white/40 hover:text-white transition-colors">Política de devoluciones</Link>
               <Link href="/login" className="block text-xs text-white/40 hover:text-white transition-colors">Ingresar</Link>
             </div>
