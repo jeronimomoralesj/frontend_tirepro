@@ -19,6 +19,7 @@
 // -----------------------------------------------------------------------------
 
 import { useMemo } from "react";
+import { fallbackAxleLayout } from "@/shared/axleLayoutFallback";
 
 export type GridTire = {
   id: string;
@@ -75,20 +76,7 @@ export function VehicleTireGrid<T extends GridTire>({
         }
       }
     }
-    if (axles.length === 0) {
-      if (maxPos <= 2)       axles = [[1, 2]];
-      else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
-      else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
-      else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
-      else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
-      else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
-      else {
-        axles = [];
-        for (let i = 1; i <= maxPos; i += 2) {
-          axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
-        }
-      }
-    }
+    if (axles.length === 0) axles = fallbackAxleLayout(maxPos);
     // Append any positions the chosen layout missed so every real tire is
     // visible even when configuracion lies about the truck's shape.
     const covered = new Set<number>();

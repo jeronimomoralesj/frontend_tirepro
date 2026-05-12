@@ -8,6 +8,7 @@ import {
 import CatalogAutocomplete from "../components/CatalogAutocomplete";
 import AgentCardHeader from "../components/AgentCardHeader";
 import { AGENTS } from "../lib/agents";
+import { fallbackAxleLayout } from "./axleLayoutFallback";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -127,18 +128,7 @@ function FastVehicleDiagram({
 
     let axles: number[][] = [];
     if (configuracion) axles = parseConfig(configuracion);
-    if (axles.length === 0) {
-      if (maxPos <= 2)       axles = [[1, 2]];
-      else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
-      else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
-      else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
-      else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
-      else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
-      else {
-        axles = [];
-        for (let i = 1; i <= maxPos; i += 2) axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
-      }
-    }
+    if (axles.length === 0) axles = fallbackAxleLayout(maxPos);
 
     // Leftover safety net — never hide a real tire.
     const covered = new Set<number>();
@@ -282,11 +272,19 @@ export default function FastMode({ language }: { language: string }) {
         const tRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${v.id}`, { headers: authHeaders() });
         if (tRes.ok) {
           const tires = await tRes.json();
-          setExistingTires(tires.map((t: any) => ({
-            id: t.id, placa: t.placa, marca: t.marca, posicion: t.posicion,
-            profundidadInicial: t.profundidadInicial, vehicleId: t.vehicleId,
-            profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null,
-          })));
+          // Sort by position so the inspector sees P1, P2, P3… top-to-
+          // bottom instead of whatever order the API returned (which is
+          // ID-asc, not position-asc — the user reported P12, P13, P14,
+          // P11 ordering when modo rápido didn't sort).
+          setExistingTires(
+            tires
+              .map((t: any) => ({
+                id: t.id, placa: t.placa, marca: t.marca, posicion: t.posicion,
+                profundidadInicial: t.profundidadInicial, vehicleId: t.vehicleId,
+                profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null,
+              }))
+              .sort((a: { posicion: number }, b: { posicion: number }) => a.posicion - b.posicion),
+          );
         }
         setStep("tires");
       } else {

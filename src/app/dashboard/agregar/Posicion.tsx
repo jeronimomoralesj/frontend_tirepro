@@ -16,6 +16,7 @@ import {
   Save,
   Eye,
 } from "lucide-react";
+import { fallbackAxleLayout } from "@/shared/axleLayoutFallback";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import CroquisPdf from "./croquisPdf";
@@ -537,19 +538,13 @@ function VehicleVisualization({ tires, onTireDrop, fixedLayout, onLayoutChange, 
       const active = tires.filter((t) => t.position && t.position !== "0");
       if (active.length === 0) return [["1", "2"]];
       const maxPos = Math.max(...active.map((t) => parseInt(t.position!)));
-      let axleSizes: number[];
-      if      (maxPos <= 2)  axleSizes = [2];
-      else if (maxPos <= 4)  axleSizes = [2, maxPos - 2];
-      else if (maxPos <= 6)  axleSizes = [2, 2, maxPos - 4];
-      else if (maxPos <= 8)  axleSizes = [2, Math.floor((maxPos - 2) / 2), maxPos - 2 - Math.floor((maxPos - 2) / 2)];
-      else if (maxPos <= 10) axleSizes = [2, 4, maxPos - 6];
-      else                   axleSizes = [4, 4, 4];
-      let counter = 1;
-      base = axleSizes.map((size) => {
-        const a = Array.from({ length: size }, (_, j) => (counter + j).toString());
-        counter += size;
-        return a;
-      });
+      // Shared "first axle = 2 (steering), then 4 each, last gets the
+      // remainder" algorithm. Replaces a per-page tuned cascade that
+      // produced 3-axle rows of 2 tires for 6-tire vehicles instead of
+      // the desired "[2] + [4]" layout.
+      base = fallbackAxleLayout(maxPos).map((axle) =>
+        axle.map((p) => p.toString()),
+      );
     }
 
     // CRITICAL: if any real tire has a position higher than the slots

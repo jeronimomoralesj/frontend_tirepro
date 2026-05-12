@@ -33,6 +33,7 @@ import { AGENTS } from "../../../lib/agents";
 import { useAuth } from "../../context/AuthProvider";
 import TireInspectionModal, { type InspectionDraft } from "../../../components/TireInspectionModal";
 import MoveFreeTireToVehicleModal from "@/shared/MoveFreeTireToVehicleModal";
+import { fallbackAxleLayout } from "@/shared/axleLayoutFallback";
 
 // =============================================================================
 // Constants
@@ -99,18 +100,7 @@ function computeAllPositions(
   const maxPos = Math.max(0, ...tires.map((t) => t.posicion));
   let axles: number[][] = [];
   if (configuracion) axles = parseConfig(configuracion);
-  if (axles.length === 0) {
-    if (maxPos <= 2)       axles = [[1, 2]];
-    else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
-    else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
-    else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
-    else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
-    else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
-    else {
-      axles = [];
-      for (let i = 1; i <= maxPos; i += 2) axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
-    }
-  }
+  if (axles.length === 0) axles = fallbackAxleLayout(maxPos);
   const covered = new Set<number>();
   axles.forEach((a) => a.forEach((p) => covered.add(p)));
   const leftover = tires
@@ -526,18 +516,7 @@ function InspectionDiagram({
     }
 
     // Fallback if no config or parsing failed
-    if (axles.length === 0) {
-      if (maxPos <= 2)       axles = [[1, 2]];
-      else if (maxPos <= 4)  axles = [[1, 2], [3, 4]];
-      else if (maxPos <= 6)  axles = [[1, 2], [3, 4], [5, 6]];
-      else if (maxPos <= 8)  axles = [[1, 2], [3, 4, 5, 6], [7, 8]];
-      else if (maxPos <= 10) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10]];
-      else if (maxPos <= 12) axles = [[1, 2], [3, 4, 5, 6], [7, 8, 9, 10], [11, 12]];
-      else {
-        axles = [];
-        for (let i = 1; i <= maxPos; i += 2) axles.push(i + 1 <= maxPos ? [i, i + 1] : [i]);
-      }
-    }
+    if (axles.length === 0) axles = fallbackAxleLayout(maxPos);
 
     // CRITICAL: ensure every real tire is shown. If the chosen layout (from
     // configuracion or fallback) doesn't cover a tire's position, append it
