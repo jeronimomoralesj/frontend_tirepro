@@ -407,6 +407,16 @@ export default function FastMode({ language }: { language: string }) {
         }
         const created = await createRes.json();
 
+        // Compute kmDelta ONCE up front from the vehicle's km at the
+        // start of this submit — never re-read it per tire, otherwise
+        // tire #2 onward sees vehicle.kilometrajeActual already bumped
+        // by tire #1's write and falls into the wear-based estimate
+        // (the "some tires got 8 000 km, others got 14 815 km on the
+        // same batch" bug). Sending kmDelta explicitly takes the
+        // backend's "guess from vehicle.km" code path out of the loop.
+        const vehicleStartingKm = Number(vehicleForm.kilometrajeActual) || 0;
+        const kmDelta = Math.max(Number(newKilometraje) - vehicleStartingKm, 0);
+
         // Submit inspection (always — profundidades are required)
         const imageUrl = nt.image ? await convertFileToBase64(nt.image) : "";
         const payload: Record<string, unknown> = {
@@ -414,6 +424,7 @@ export default function FastMode({ language }: { language: string }) {
           profundidadCen: Number(nt.profundidadCen),
           profundidadExt: Number(nt.profundidadExt),
           newKilometraje: Number(newKilometraje),
+          ...(kmDelta > 0 && { kmDelta }),
           imageUrl,
         };
         if (nt.presionPsi !== "" && nt.presionPsi !== 0) payload.presionPsi = Number(nt.presionPsi);
@@ -424,6 +435,11 @@ export default function FastMode({ language }: { language: string }) {
         });
       }
 
+      // Same kmDelta math for the existing-tire batch — capture the
+      // vehicle's pre-batch km once so every tire gets the same delta.
+      const existingVehicleStartingKm = Number(vehicleForm.kilometrajeActual) || 0;
+      const existingKmDelta = Math.max(Number(newKilometraje) - existingVehicleStartingKm, 0);
+
       // 3. Submit inspections for existing tires
       for (const et of existingTires) {
         if (et.profundidadInt === "" || et.profundidadCen === "" || et.profundidadExt === "") continue;
@@ -433,6 +449,7 @@ export default function FastMode({ language }: { language: string }) {
           profundidadCen: Number(et.profundidadCen),
           profundidadExt: Number(et.profundidadExt),
           newKilometraje: Number(newKilometraje),
+          ...(existingKmDelta > 0 && { kmDelta: existingKmDelta }),
           imageUrl,
         };
         if (et.presionPsi !== "" && et.presionPsi !== 0) payload.presionPsi = Number(et.presionPsi);
