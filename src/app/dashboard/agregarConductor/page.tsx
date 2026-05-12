@@ -42,7 +42,13 @@ function convertFileToBase64(file: File): Promise<string> {
 
 const UserPlateInspection: React.FC = () => {
   const [user, setUser] = useState<UserData | null>(null);
-  const [users, setUsers] = useState<UserData[]>([]);
+  // Inspectable placas resolved from /users/:id/vehicles — that endpoint is
+  // plan-aware: pro/plus users get their UserVehicleAccess set, distribuidor
+  // users get the union of every assigned client's vehicles. Replaces the
+  // previous email-match + user.plates path, which never picked up users
+  // created via the new UserVehicleAccess flow (only the legacy plates[]
+  // path) and had no concept of distribuidor client scoping at all.
+  const [inspectablePlates, setInspectablePlates] = useState<string[]>([]);
   const [userLoading, setUserLoading] = useState(true);
   const [userError, setUserError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,23 +67,27 @@ const UserPlateInspection: React.FC = () => {
       try {
         const parsedUser: UserData = JSON.parse(storedUser);
         setUser(parsedUser);
-        if (parsedUser.companyId) fetchUsers(parsedUser.companyId);
-        else { setUserError("No company assigned"); setUserLoading(false); }
+        if (parsedUser.id) fetchInspectablePlates(parsedUser.id);
+        else { setUserError("No user id"); setUserLoading(false); }
       } catch { setUserError("Error parsing user"); setUserLoading(false); }
     } else { setUserError("User not found"); setUserLoading(false); }
   }, []);
 
-  async function fetchUsers(companyId: string) {
+  async function fetchInspectablePlates(userId: string) {
     try {
-      // Auth header was missing — backend rejected with 401 and the page
-      // surfaced "Error fetching users" every time.
-      const res = await fetch(`${API_BASE}/users?companyId=${companyId}`, {
+      const res = await fetch(`${API_BASE}/users/${userId}/vehicles`, {
         headers: authHeaders(),
       });
       if (!res.ok) throw new Error("Failed");
-      const data = await res.json();
-      setUsers(data); setUserLoading(false);
-    } catch { setUserError("Error fetching users"); setUserLoading(false); }
+      const data: { placa?: string }[] = await res.json();
+      // De-dupe + drop blanks before render — the union of direct + client-
+      // scoped vehicles can in theory repeat a placa across companies.
+      const placas = Array.from(
+        new Set((data ?? []).map((v) => v.placa).filter((p): p is string => !!p)),
+      );
+      setInspectablePlates(placas);
+      setUserLoading(false);
+    } catch { setUserError("Error fetching plates"); setUserLoading(false); }
   }
 
   async function handlePlateSelection(plate: string) {
@@ -143,9 +153,9 @@ const UserPlateInspection: React.FC = () => {
   if (userError) return <div className="max-w-md mx-auto mt-8 p-4 bg-red-50 rounded-xl text-red-600 text-sm">{userError}</div>;
   if (!user) return null;
 
-  const filteredUsers = users.filter((u) => u.email === user.email);
-  const availablePlates = filteredUsers[0]?.plates ?? [];
-  const filteredPlates = searchQuery.trim() ? availablePlates.filter((p) => p.toLowerCase().includes(searchQuery.toLowerCase())) : availablePlates;
+  const filteredPlates = searchQuery.trim()
+    ? inspectablePlates.filter((p) => p.toLowerCase().includes(searchQuery.toLowerCase()))
+    : inspectablePlates;
 
   return (
     <div className="min-h-screen">

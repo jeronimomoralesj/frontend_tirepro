@@ -1082,6 +1082,15 @@ const AjustesPage: React.FC = () => {
   const [allVehicles, setAllVehicles] = useState<{ id: string; placa: string; tipovhc?: string | null }[]>([]);
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+  // Distribuidor-side per-user scoping: the new user is assigned a set of
+  // client companies (via UserClientAccess) instead of individual vehicles.
+  // Inspection access fans out at read time to every vehicle owned by any
+  // assigned client — so a vehicle added to that client later is also
+  // inspectable without re-syncing the user.
+  const [newUserClientIds, setNewUserClientIds] = useState<string[]>([]);
+  const [allClients, setAllClients] = useState<{ id: string; name: string }[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [loadingClients, setLoadingClients] = useState(false);
 
   // Lazy-load the company vehicle list the first time the addUser tab opens.
   // We only need it for the optional vehicle picker; loading on initial page
@@ -1106,6 +1115,30 @@ const AjustesPage: React.FC = () => {
     // authFetch is a stable module-level fn; safe to omit from deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, user?.companyId]);
+
+  // Lazy-load the distribuidor's client list — only on distribuidor plans.
+  // Fleet (pro/plus) plans don't have clients in this sense, so the picker
+  // and the fetch are both gated to keep the addUser surface tight.
+  useEffect(() => {
+    if (activeTab !== "addUser") return;
+    if (company?.plan !== "distribuidor") return;
+    if (allClients.length > 0) return;
+    setLoadingClients(true);
+    authFetch(`${API_BASE}/companies/me/clients`)
+      .then(async (r) => (r.ok ? r.json() : []))
+      .then((data: any[]) => {
+        const items = Array.isArray(data) ? data : [];
+        setAllClients(
+          items
+            .map((c) => ({ id: c.id, name: c.name }))
+            .filter((c) => c.id && c.name)
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        );
+      })
+      .catch(() => setAllClients([]))
+      .finally(() => setLoadingClients(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, company?.plan]);
   const [notifChannel, setNotifChannel] = useState<string>("none");
   const [notifContact, setNotifContact] = useState("");
   const [savingNotif, setSavingNotif] = useState(false);
@@ -1328,7 +1361,11 @@ const AjustesPage: React.FC = () => {
       // touch the inspection flow). Empty list keeps the existing
       // "user can inspect any company vehicle" default.
       const inspectorRole = newUserData.role === "viewer" || newUserData.role === "technician";
-      const vehicleIds = inspectorRole ? newUserVehicleIds : [];
+      const isDistribuidor = company?.plan === "distribuidor";
+      // Distribuidor admins assign clients (multi); fleet (pro/plus) admins
+      // assign individual vehicles. Both default to empty = no scoping.
+      const vehicleIds = inspectorRole && !isDistribuidor ? newUserVehicleIds : [];
+      const clientIds  = inspectorRole &&  isDistribuidor ? newUserClientIds  : [];
       const res = await authFetch(`${API_BASE}/users/register`, {
         method: "POST",
         body: JSON.stringify({
@@ -1337,6 +1374,7 @@ const AjustesPage: React.FC = () => {
           email: newUserData.email.toLowerCase().trim(),
           name: newUserData.name.trim(),
           ...(vehicleIds.length > 0 && { vehicleIds }),
+          ...(clientIds.length  > 0 && { clientIds  }),
         }),
       });
       if (!res.ok) {
@@ -1349,6 +1387,8 @@ const AjustesPage: React.FC = () => {
       setNewUserData({ name: "", email: "", password: "", role: "regular" });
       setNewUserVehicleIds([]);
       setVehicleSearch("");
+      setNewUserClientIds([]);
+      setClientSearch("");
       setActiveTab("users");
     } catch (e) {
       toast(e instanceof Error ? e.message : "Error inesperado", "error");
@@ -2537,8 +2577,11 @@ const AjustesPage: React.FC = () => {
                   inspection-capable roles. If the admin picks at least
                   one vehicle, the new user can ONLY inspect those
                   vehicles; leaving it empty preserves the existing
-                  default of full company-wide access. */}
-              {(newUserData.role === "viewer" || newUserData.role === "technician") && (
+                  default of full company-wide access.
+                  Distribuidor plans scope by client (below) instead, since
+                  their inspection surface fans out across other companies'
+                  vehicles. */}
+              {(newUserData.role === "viewer" || newUserData.role === "technician") && company?.plan !== "distribuidor" && (
                 <Field label="Vehículos asignados (opcional)">
                   <p className="text-[11px] text-gray-500 mb-2">
                     Si seleccionas vehículos, el usuario sólo podrá inspeccionar esos. Déjalo vacío para darle acceso a todos los vehículos de la empresa.
@@ -2615,6 +2658,94 @@ const AjustesPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setNewUserVehicleIds((prev) => prev.filter((x) => x !== id))}
+                              className="hover:opacity-70"
+                              aria-label={`Quitar ${label}`}
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Field>
+              )}
+
+              {/* Distribuidor-side scoping: pick one or more clients. The
+                  new user can inspect any vehicle belonging to any selected
+                  client, resolved dynamically at read time (vehicles added
+                  to that client later become inspectable automatically). */}
+              {(newUserData.role === "viewer" || newUserData.role === "technician") && company?.plan === "distribuidor" && (
+                <Field label="Clientes asignados (opcional)">
+                  <p className="text-[11px] text-gray-500 mb-2">
+                    Si seleccionas clientes, el usuario sólo podrá inspeccionar vehículos de esos clientes. Déjalo vacío para no aplicar restricción.
+                  </p>
+                  <div className="relative mb-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder={loadingClients ? "Cargando clientes…" : "Buscar por nombre…"}
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                      disabled={loadingClients}
+                      className={`${inputCls} pl-9`}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  {clientSearch.trim().length >= 1 && (() => {
+                    const q = clientSearch.trim().toLowerCase();
+                    const matches = allClients
+                      .filter((c) => !newUserClientIds.includes(c.id))
+                      .filter((c) => c.name.toLowerCase().includes(q))
+                      .slice(0, 20);
+                    if (matches.length === 0) {
+                      return (
+                        <p className="text-xs text-gray-400 py-2">
+                          {loadingClients ? "Cargando…" : "Sin resultados"}
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="space-y-1 mb-3 max-h-48 overflow-y-auto">
+                        {matches.map((c) => (
+                          <button
+                            type="button"
+                            key={c.id}
+                            onClick={() => {
+                              setNewUserClientIds((prev) => prev.includes(c.id) ? prev : [...prev, c.id]);
+                              setClientSearch("");
+                            }}
+                            className="w-full flex items-center justify-between gap-2 p-2 rounded-lg text-left transition-all hover:bg-[#F0F7FF]"
+                            style={{ border: "1px solid rgba(52,140,203,0.15)" }}
+                          >
+                            <p className="text-sm font-bold text-[#0A183A] truncate min-w-0">{c.name}</p>
+                            <PlusCircle className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {newUserClientIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {newUserClientIds.map((id) => {
+                        const c = allClients.find((x) => x.id === id);
+                        const label = c ? c.name : id.slice(0, 6);
+                        return (
+                          <span
+                            key={id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
+                            style={{
+                              background: "rgba(30,118,182,0.08)",
+                              border: "1px solid rgba(30,118,182,0.18)",
+                              color: "#1E76B6",
+                            }}
+                          >
+                            {label}
+                            <button
+                              type="button"
+                              onClick={() => setNewUserClientIds((prev) => prev.filter((x) => x !== id))}
                               className="hover:opacity-70"
                               aria-label={`Quitar ${label}`}
                             >
