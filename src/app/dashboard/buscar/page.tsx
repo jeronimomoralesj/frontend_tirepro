@@ -949,6 +949,14 @@ function VidaHistory({ tire }: { tire: Tire }) {
           ? Math.max(tire.profundidadInicial - ((currentLast.profundidadInt + currentLast.profundidadCen + currentLast.profundidadExt) / 3), 0)
           : null;
         const liveCost   = isOpenLife ? tire.costo.reduce((s, c) => s + c.valor, 0) : null;
+        // Days in the OPEN life — count from when this vida started
+        // (entry.fecha) instead of leaving it null. Without this, the
+        // "Días" stat collapsed to "-" while the Resumen tab read
+        // tire.diasAcumulados and showed a real number, so the same
+        // tire reported two different "days" values across tabs.
+        const liveDias = isOpenLife
+          ? Math.max(1, Math.floor((Date.now() - new Date(entry.fecha).getTime()) / (24 * 60 * 60 * 1000)))
+          : null;
 
         const brand  = snap?.marca ?? (entry.valor === "nueva" ? tire.marca : tire.marca);
         const band   = snap?.diseno ?? snap?.bandaNombre ?? tire.diseno;
@@ -1018,7 +1026,7 @@ function VidaHistory({ tire }: { tire: Tire }) {
             <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3"
               style={{ borderTop: "1px solid rgba(10,24,58,0.05)" }}>
               <VidaStat label="Km rodados" value={fmtInt(snap?.kmTotales ?? liveKm, " km")} />
-              <VidaStat label="Días"        value={fmtInt(snap?.diasTotales ?? null, " d")} />
+              <VidaStat label="Días"        value={fmtInt(snap?.diasTotales ?? liveDias, " d")} />
               <VidaStat label="CPK"         value={fmtCpk(snap?.cpkFinal ?? liveCpk)} />
               <VidaStat label="Costo total" value={fmtCop(snap?.costoTotal ?? liveCost)} />
               <VidaStat label="RTD inicial" value={fmtMm(snap?.profundidadInicial ?? (entry.valor === "nueva" ? tire.profundidadInicial : null))} />

@@ -89,7 +89,16 @@ export default function TireInspectionModal({
     setImages((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  // Saving lock — uses a ref instead of just the `saving` state because
+  // React state updates are async, so a fast double-tap on "Guardar
+  // inspección" could re-enter handleSave before the disabled prop on
+  // the button reflected `saving=true`. The previous code relied only
+  // on `disabled={saving}`, which is what produced the duplicate
+  // Inspeccion rows — same kmDelta written twice for the same tire on
+  // a single user action.
+  const savingRef = useRef(false);
   async function handleSave() {
+    if (savingRef.current) return;
     setError("");
     const pInt = Number(profInt), pCen = Number(profCen), pExt = Number(profExt);
     if ([pInt, pCen, pExt].some((v) => !Number.isFinite(v) || v < 0)) {
@@ -100,6 +109,7 @@ export default function TireInspectionModal({
       setError("Presión inválida");
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       await onSave({
@@ -113,6 +123,7 @@ export default function TireInspectionModal({
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al guardar");
       setSaving(false);
+      savingRef.current = false;
     }
   }
 
