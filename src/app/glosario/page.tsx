@@ -1,55 +1,52 @@
 // =============================================================================
 // /glosario — entry point of the tire-glossary entity hub.
 //
-// Server-rendered list of all 30 glossary terms grouped by category, with
-// DefinedTermSet JSON-LD that lets Google's knowledge-graph parser
-// connect every entry as an entity in the same vocabulary. Each card
-// links to /glosario/<slug> for the long-form definition + FAQ.
+// Server-rendered list of all glossary terms grouped by category, plus a
+// curated "Preguntas más buscadas" section that maps the literal Spanish
+// questions users type into Google to the canonical /glosario/<slug>
+// pages. The search field is a small client island; the index itself
+// stays SSR so Googlebot sees every entry on first byte.
 //
-// Why this matters for SEO:
-//   - "qué es CPK en llantas", "qué es reencauche", "indice de carga
-//     llantas tabla" etc. are all very-low-competition Spanish queries
-//     with steady search volume, especially from fleet operators
-//     researching purchase decisions.
-//   - DefinedTerm + DefinedTermSet schema is the canonical signal for
-//     glossary content. Google rewards it with knowledge panels and AI
-//     overview citations.
-//   - Each term cross-links to the marketplace, so glossary traffic
-//     funnels into commercial intent.
+// Schema emitted: DefinedTermSet + BreadcrumbList + ItemList of the
+// popular-questions block (each entry's `name` is the literal user
+// query, which AI search engines pick up as a citation source).
 // =============================================================================
 
 import React from "react";
 import Link from "next/link";
 import Script from "next/script";
 import type { Metadata } from "next";
+import { ArrowRight, BookOpen, Sparkles } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
-import { GLOSSARY_TERMS, GLOSSARY_CATEGORIES, type GlossaryCategory } from "./_lib/terms";
+import { GLOSSARY_TERMS, GLOSSARY_CATEGORIES, type GlossaryCategory, termFromSlug } from "./_lib/terms";
+import { POPULAR_QUESTIONS } from "./_lib/popular-questions";
+import GlosarioSearch from "./GlosarioSearch";
 
 const SITE = "https://www.tirepro.com.co";
 
-export const revalidate = 86400; // glossary content is evergreen
+export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "Glosario de llantas en Colombia | TirePro",
+  title: "Glosario de llantas Colombia — ¿Qué es el DOT, índice de carga, CPK? | TirePro",
   description:
-    "Glosario completo de términos sobre llantas en Colombia: reencauche, CPK, RTD, índice de carga, índice de velocidad, DOT, alineación, balanceo, TPMS y más. " +
-    "Definiciones técnicas claras pensadas para flotas y conductores que quieren entender lo que están comprando.",
+    "Glosario completo de llantas en Colombia: qué es el DOT, cómo leer el índice de velocidad y de carga, qué es el CPK, el reencauche, la dimensión 205/55R16, alineación, balanceo, TPMS y más. Definiciones técnicas claras con ejemplos.",
   keywords: [
     "glosario llantas",
     "diccionario llantas",
-    "términos técnicos llantas",
-    "qué es reencauche",
-    "qué es cpk en llantas",
-    "qué es rtd",
-    "indice de carga llantas",
-    "indice de velocidad llantas",
-    "dot llantas fecha",
+    "qué es el dot en llantas",
+    "cómo leer índice de velocidad llanta",
+    "cuáles son los tipos de llantas",
+    "qué es el cpk en llantas",
+    "qué es el reencauche",
+    "cómo leer la medida de una llanta",
+    "qué presión deben tener mis llantas",
+    "cada cuánto se alinea el carro",
   ],
   alternates: { canonical: `${SITE}/glosario` },
   openGraph: {
-    title: "Glosario de llantas — TirePro",
+    title: "Glosario de llantas — TirePro Colombia",
     description:
-      "30 términos clave sobre llantas, reencauche, mantenimiento y compras de flota. Lenguaje claro para Colombia.",
+      "Definiciones claras de los términos técnicos de las llantas: DOT, CPK, índice de carga, índice de velocidad, reencauche, alineación, balanceo y más.",
     url: `${SITE}/glosario`,
     siteName: "TirePro",
     locale: "es_CO",
@@ -65,7 +62,6 @@ export const metadata: Metadata = {
 };
 
 export default function GlosarioPage() {
-  // Group by category, preserving the canonical order defined in terms.ts.
   const byCategory = (Object.keys(GLOSSARY_CATEGORIES) as GlossaryCategory[])
     .map((cat) => ({
       category: cat,
@@ -74,14 +70,28 @@ export default function GlosarioPage() {
     }))
     .filter((group) => group.terms.length > 0);
 
-  // DefinedTermSet schema — this is the entity-hub signal for Google.
-  // Each child is a DefinedTerm with @id pointing at its dedicated page.
+  // Resolve popular questions → live terms (drops any that point to a
+  // slug that's been removed, so the section is always valid).
+  const popular = POPULAR_QUESTIONS
+    .map((p) => ({ ...p, term: termFromSlug(p.slug) }))
+    .filter((p): p is typeof p & { term: NonNullable<typeof p.term> } => !!p.term);
+
+  // Search payload — minimal shape, lowercase synonyms.
+  const searchableTerms = GLOSSARY_TERMS.map((t) => ({
+    slug: t.slug,
+    name: t.name,
+    shortDef: t.shortDef,
+    synonyms: t.synonyms ?? [],
+  }));
+
+  // ── Structured data ────────────────────────────────────────────────────
   const definedTermSetLd = {
     "@context": "https://schema.org",
     "@type": "DefinedTermSet",
     "@id": `${SITE}/glosario#termset`,
     name: "Glosario de llantas TirePro",
-    description: "Definiciones técnicas de llantas, reencauche y mantenimiento en español, contextualizadas a Colombia.",
+    description:
+      "Definiciones técnicas de llantas, reencauche, mantenimiento y mediciones en español, contextualizadas a Colombia.",
     inLanguage: "es-CO",
     hasDefinedTerm: GLOSSARY_TERMS.map((t) => ({
       "@type": "DefinedTerm",
@@ -102,52 +112,58 @@ export default function GlosarioPage() {
     ],
   };
 
+  // ItemList of popular questions — gives AI overview / Perplexity /
+  // ChatGPT browsing a clean (question, url) table when they ingest the
+  // page. The name is the literal user query, which they cite verbatim.
+  const popularQuestionsLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "@id": `${SITE}/glosario#popular-questions`,
+    name: "Preguntas más buscadas sobre llantas en Colombia",
+    itemListElement: popular.map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE}/glosario/${p.slug}`,
+      name: p.q,
+    })),
+  };
+
   return (
     <>
       <Script id="glosario-set-jsonld" type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(definedTermSetLd) }} />
       <Script id="glosario-breadcrumb-jsonld" type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <Script id="glosario-popular-jsonld" type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(popularQuestionsLd) }} />
 
-      <div className="min-h-screen bg-[#f5f5f7]">
+      <div className="min-h-screen bg-[#F5F5F7]">
         <MarketplaceNav />
 
-        {/* Hero — keyword-rich H1 + category nav anchors. */}
-        <section
-          style={{
-            background: "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)",
-            color: "#fff",
-            padding: "56px 16px 40px",
-          }}
-        >
-          <div style={{ maxWidth: 1080, margin: "0 auto" }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", opacity: 0.7 }}>
+        {/* HERO ------------------------------------------------------------- */}
+        <section className="bg-gradient-to-br from-[#0A183A] via-[#173D68] to-[#1E76B6] text-white pt-14 pb-12 sm:pt-20 sm:pb-16 px-4 sm:px-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/75">
+              <Sparkles size={13} />
               Recurso técnico
-            </p>
-            <h1 style={{ fontSize: 36, fontWeight: 900, margin: "8px 0 12px", lineHeight: 1.1 }}>
+            </div>
+            <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.05] tracking-tight">
               Glosario de llantas
             </h1>
-            <p style={{ fontSize: 16, lineHeight: 1.6, opacity: 0.92, maxWidth: 720 }}>
-              30 términos clave sobre llantas, reencauche, mantenimiento y compras de flota. Definiciones claras
-              pensadas para conductores, flotas y compradores en Colombia.
+            <p className="mt-5 text-lg sm:text-xl text-white/85 max-w-2xl leading-relaxed">
+              Todo lo que aparece en el flanco de una llanta, explicado en lenguaje claro:
+              DOT, índices de carga y velocidad, dimensión, CPK, reencauche y más.
+              Pensado para conductores, flotas y compradores en Colombia.
             </p>
-            <nav aria-label="Categorías del glosario" style={{ marginTop: 24 }}>
-              <ul style={{ display: "flex", flexWrap: "wrap", gap: 8, listStyle: "none", padding: 0, margin: 0 }}>
+
+            {/* Category jump nav */}
+            <nav aria-label="Categorías del glosario" className="mt-7">
+              <ul className="flex flex-wrap gap-2 list-none m-0 p-0">
                 {byCategory.map((g) => (
                   <li key={g.category}>
                     <a
                       href={`#${g.category}`}
-                      style={{
-                        display: "inline-block",
-                        padding: "8px 14px",
-                        background: "rgba(255,255,255,0.12)",
-                        color: "#fff",
-                        textDecoration: "none",
-                        fontWeight: 700,
-                        fontSize: 13,
-                        borderRadius: 999,
-                        border: "1px solid rgba(255,255,255,0.18)",
-                      }}
+                      className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold text-white bg-white/12 border border-white/20 hover:bg-white/20 transition-colors"
                     >
                       {g.label}
                     </a>
@@ -158,45 +174,74 @@ export default function GlosarioPage() {
           </div>
         </section>
 
-        {/* Terms by category. */}
-        <section style={{ maxWidth: 1080, margin: "0 auto", padding: "40px 16px 80px" }}>
+        {/* SEARCH ----------------------------------------------------------- */}
+        <section className="px-4 sm:px-6 -mt-8 pb-12 relative z-10">
+          <GlosarioSearch terms={searchableTerms} />
+        </section>
+
+        {/* POPULAR QUESTIONS — the actual user queries in plain Spanish ----- */}
+        {popular.length > 0 && (
+          <section className="px-4 sm:px-6 pb-14">
+            <div className="max-w-5xl mx-auto">
+              <div className="flex items-end justify-between mb-5">
+                <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#0A183A]">
+                  Preguntas más buscadas
+                </h2>
+                <span className="text-xs text-gray-500 hidden sm:inline">
+                  Lo que los conductores escriben en Google
+                </span>
+              </div>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 list-none m-0 p-0">
+                {popular.map((p) => (
+                  <li key={p.q}>
+                    <Link
+                      href={`/glosario/${p.slug}`}
+                      className="group flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl bg-white border border-[#0A183A]/8 hover:border-[#1E76B6]/40 hover:shadow-[0_4px_18px_rgba(30,118,182,0.1)] transition-all"
+                    >
+                      <span className="text-sm font-semibold text-[#0A183A] leading-snug">
+                        {p.q}
+                      </span>
+                      <ArrowRight
+                        className="w-4 h-4 text-[#1E76B6] flex-shrink-0 group-hover:translate-x-0.5 transition-transform"
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {/* TERMS BY CATEGORY ------------------------------------------------ */}
+        <section className="px-4 sm:px-6 pb-20 max-w-5xl mx-auto">
           {byCategory.map((g) => (
-            <div key={g.category} id={g.category} style={{ marginBottom: 40, scrollMarginTop: 80 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0A183A", marginBottom: 16 }}>
-                {g.label}
-              </h2>
-              <ul
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                  gap: 12,
-                  listStyle: "none",
-                  padding: 0,
-                  margin: 0,
-                }}
-              >
+            <div key={g.category} id={g.category} className="mb-12 scroll-mt-20">
+              <div className="flex items-center gap-3 mb-5">
+                <BookOpen className="w-4 h-4 text-[#1E76B6]" />
+                <h2 className="text-xl sm:text-2xl font-black text-[#0A183A] tracking-tight">
+                  {g.label}
+                </h2>
+                <span className="text-xs text-gray-400 font-semibold">
+                  {g.terms.length} {g.terms.length === 1 ? "término" : "términos"}
+                </span>
+              </div>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 list-none m-0 p-0">
                 {g.terms.map((t) => (
                   <li key={t.slug}>
                     <Link
                       href={`/glosario/${t.slug}`}
-                      style={{
-                        display: "block",
-                        padding: 16,
-                        background: "#fff",
-                        border: "1px solid rgba(10,24,58,0.10)",
-                        borderRadius: 14,
-                        textDecoration: "none",
-                        color: "inherit",
-                        height: "100%",
-                        transition: "transform 120ms ease",
-                      }}
+                      className="group block h-full p-5 bg-white rounded-2xl border border-[#0A183A]/8 hover:border-[#1E76B6]/35 hover:shadow-[0_8px_24px_rgba(30,118,182,0.1)] transition-all"
                     >
-                      <div style={{ fontWeight: 800, color: "#0A183A", fontSize: 15, marginBottom: 6 }}>
+                      <h3 className="text-[15px] font-bold text-[#0A183A] mb-2 leading-snug">
                         {t.name}
-                      </div>
-                      <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>
+                      </h3>
+                      <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
                         {t.shortDef}
-                      </div>
+                      </p>
+                      <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#1E76B6] group-hover:text-[#0A183A] transition-colors">
+                        Leer definición
+                        <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                      </span>
                     </Link>
                   </li>
                 ))}

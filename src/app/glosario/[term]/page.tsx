@@ -1,15 +1,18 @@
 // =============================================================================
 // /glosario/[term] — long-form glossary entry.
 //
-// Server-rendered with three pieces of structured data:
-//   - DefinedTerm (the canonical signal — Google maps this to its
-//     knowledge graph as a vocabulary entity).
-//   - FAQPage (each entry's faqs array drives an FAQ rich result).
-//   - BreadcrumbList (TirePro → Glosario → <term>).
+// SEO surfaces emitted server-side:
+//   - DefinedTerm   (canonical entity signal — Google Knowledge Graph)
+//   - FAQPage       (each entry's faqs array drives an FAQ rich result)
+//   - BreadcrumbList
+//   - SpeakableSpecification on the DefinedTerm so Google Assistant /
+//     Siri / Alexa read the H1 + lead paragraph aloud for voice queries
+//     like "OK Google, qué es el DOT en llantas".
 //
-// Each entry visibly renders the long-form definition body, examples,
-// related-terms grid (mesh-of-internal-links), and marketplace CTAs
-// that funnel research traffic into commercial intent.
+// Title + H1 prefer the term-level `seoTitle` / `h1Question` overrides
+// when present (high-volume terms have them tuned to the literal
+// question users type — "¿Qué es el DOT en una llanta y cómo se lee?").
+// Falls back to a "¿Qué es {name}?" template otherwise.
 // =============================================================================
 
 import React from "react";
@@ -17,13 +20,13 @@ import Link from "next/link";
 import Script from "next/script";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, BookOpen } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, ChevronDown } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../../components/MarketplaceShell";
 import { GLOSSARY_TERMS, GLOSSARY_CATEGORIES, termFromSlug } from "../_lib/terms";
 
 const SITE = "https://www.tirepro.com.co";
 
-export const revalidate = 86400; // glossary copy is evergreen
+export const revalidate = 86400;
 
 export async function generateStaticParams() {
   return GLOSSARY_TERMS.map((t) => ({ term: t.slug }));
@@ -37,8 +40,13 @@ export async function generateMetadata(
   const t = termFromSlug(term);
   if (!t) return { title: "Término no encontrado · TirePro" };
 
-  const title = `${t.name} — Glosario de llantas | TirePro Colombia`;
-  const description = `${t.shortDef} Definición completa, ejemplos y términos relacionados en el glosario de llantas TirePro.`;
+  // Prefer the hand-tuned title for high-volume terms; fall back to a
+  // question-form template so even the long tail gets a query-shaped
+  // <title> instead of just the bare term name.
+  const title = t.seoTitle ?? `¿Qué es ${t.name}? — Glosario de llantas | TirePro Colombia`;
+  const description =
+    t.metaDescription ??
+    `${t.shortDef} Definición completa, ejemplos y términos relacionados en el glosario de llantas TirePro.`;
   const url = `${SITE}/glosario/${t.slug}`;
 
   return {
@@ -79,11 +87,12 @@ export default async function GlossaryTermPage(
   if (!t) notFound();
 
   const url = `${SITE}/glosario/${t.slug}`;
+  const h1 = t.h1Question ?? `¿Qué es ${t.name}?`;
   const related = (t.relatedTerms ?? [])
     .map((s) => GLOSSARY_TERMS.find((x) => x.slug === s))
     .filter((x): x is NonNullable<typeof x> => !!x);
 
-  // ── Structured data ─────────────────────────────────────────────────
+  // ── Structured data ────────────────────────────────────────────────────
   const definedTermLd = {
     "@context": "https://schema.org",
     "@type": "DefinedTerm",
@@ -94,6 +103,13 @@ export default async function GlossaryTermPage(
     url,
     inDefinedTermSet: `${SITE}/glosario#termset`,
     inLanguage: "es-CO",
+    // SpeakableSpecification — selectors to the H1 + lead paragraph so
+    // voice assistants (Google, Siri, Alexa) read the question + the
+    // short definition aloud for voice queries.
+    speakable: {
+      "@type": "SpeakableSpecification",
+      cssSelector: ["h1", "[data-speakable-lead]"],
+    },
   };
 
   const breadcrumbLd = {
@@ -118,6 +134,7 @@ export default async function GlossaryTermPage(
       }
     : null;
 
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <>
       <Script id="glos-term-jsonld" type="application/ld+json"
@@ -129,73 +146,66 @@ export default async function GlossaryTermPage(
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       )}
 
-      <div className="min-h-screen bg-[#f5f5f7]">
+      <div className="min-h-screen bg-[#F5F5F7]">
         <MarketplaceNav />
 
-        <section style={{ maxWidth: 820, margin: "0 auto", padding: "32px 16px 80px" }}>
-          <Link
-            href="/glosario"
-            className="inline-flex items-center gap-1.5"
-            style={{ fontSize: 12, color: "#0A183A99", fontWeight: 700, textDecoration: "none", marginBottom: 16 }}
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Glosario
-          </Link>
+        <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 pb-20">
+          {/* Breadcrumb back-link */}
+          <nav aria-label="Breadcrumb" className="mb-6">
+            <Link
+              href="/glosario"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A183A]/60 hover:text-[#0A183A] transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Glosario de llantas
+            </Link>
+          </nav>
 
-          <p style={{ fontSize: 11, fontWeight: 800, color: "#1E76B6", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>
-            {GLOSSARY_CATEGORIES[t.category]}
-          </p>
-          <h1 style={{ fontSize: 36, fontWeight: 900, color: "#0A183A", lineHeight: 1.1, marginBottom: 16 }}>
-            {t.name}
+          {/* Eyebrow with category + canonical term name */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#1E76B6]">
+              {GLOSSARY_CATEGORIES[t.category]}
+            </span>
+            <span className="text-[11px] text-gray-400">·</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+              {t.name}
+            </span>
+          </div>
+
+          {/* H1 — question form, exactly what users type into Google */}
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-[1.08] tracking-tight text-[#0A183A] mb-5">
+            {h1}
           </h1>
-          <p style={{ fontSize: 18, color: "#334155", lineHeight: 1.6, marginBottom: 24 }}>
+
+          {/* Lead — flagged as speakable so voice assistants read it */}
+          <p
+            data-speakable-lead
+            className="text-lg sm:text-xl text-gray-700 leading-relaxed mb-10"
+          >
             {t.shortDef}
           </p>
 
-          {/* Long-form definition. Whitespace-pre-wrap so paragraph breaks
-              encoded as \n\n in the data file render correctly. */}
-          <article
-            style={{
-              background: "#fff",
-              border: "1px solid rgba(10,24,58,0.08)",
-              borderRadius: 16,
-              padding: "24px 24px",
-              marginBottom: 24,
-            }}
-          >
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0A183A", marginBottom: 12 }}>
-              Definición completa
+          {/* Long-form definition */}
+          <article className="bg-white rounded-2xl border border-[#0A183A]/8 p-6 sm:p-8 mb-6 shadow-[0_2px_16px_rgba(10,24,58,0.04)]">
+            <h2 className="text-base font-extrabold uppercase tracking-wider text-[#0A183A] mb-4">
+              Definición técnica
             </h2>
-            <div style={{ color: "#1f2937", lineHeight: 1.7, fontSize: 15, whiteSpace: "pre-wrap" }}>
+            <div className="text-[15px] sm:text-base leading-[1.75] text-gray-800 whitespace-pre-wrap">
               {t.definition}
             </div>
           </article>
 
+          {/* Synonyms */}
           {t.synonyms && t.synonyms.length > 0 && (
-            <article
-              style={{
-                background: "#fff",
-                border: "1px solid rgba(10,24,58,0.08)",
-                borderRadius: 16,
-                padding: "20px 24px",
-                marginBottom: 24,
-              }}
-            >
-              <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0A183A", marginBottom: 10 }}>
+            <article className="bg-white rounded-2xl border border-[#0A183A]/8 p-6 sm:p-7 mb-6 shadow-[0_2px_16px_rgba(10,24,58,0.04)]">
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#0A183A] mb-3">
                 También se conoce como
               </h2>
-              <ul style={{ display: "flex", flexWrap: "wrap", gap: 8, listStyle: "none", padding: 0, margin: 0 }}>
+              <ul className="flex flex-wrap gap-2 m-0 p-0 list-none">
                 {t.synonyms.map((s) => (
                   <li
                     key={s}
-                    style={{
-                      padding: "6px 12px",
-                      background: "#F1F5F9",
-                      color: "#0A183A",
-                      borderRadius: 999,
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
+                    className="px-3 py-1.5 rounded-full bg-[#F0F7FF] border border-[#1E76B6]/15 text-[#0A183A] text-xs font-semibold"
                   >
                     {s}
                   </li>
@@ -204,33 +214,17 @@ export default async function GlossaryTermPage(
             </article>
           )}
 
+          {/* Examples */}
           {t.examples && t.examples.length > 0 && (
-            <article
-              style={{
-                background: "#fff",
-                border: "1px solid rgba(10,24,58,0.08)",
-                borderRadius: 16,
-                padding: "20px 24px",
-                marginBottom: 24,
-              }}
-            >
-              <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0A183A", marginBottom: 12 }}>
+            <article className="bg-white rounded-2xl border border-[#0A183A]/8 p-6 sm:p-7 mb-6 shadow-[0_2px_16px_rgba(10,24,58,0.04)]">
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#0A183A] mb-4">
                 Ejemplos
               </h2>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              <ul className="space-y-2 m-0 p-0 list-none">
                 {t.examples.map((ex, i) => (
                   <li
                     key={i}
-                    style={{
-                      padding: "10px 12px",
-                      background: "#F8FAFC",
-                      borderLeft: "3px solid #1E76B6",
-                      borderRadius: 6,
-                      marginBottom: 8,
-                      color: "#0A183A",
-                      fontSize: 14,
-                      lineHeight: 1.5,
-                    }}
+                    className="px-4 py-3 rounded-lg bg-[#F8FAFC] border-l-[3px] border-[#1E76B6] text-[#0A183A] text-sm leading-relaxed"
                   >
                     {ex}
                   </li>
@@ -239,80 +233,52 @@ export default async function GlossaryTermPage(
             </article>
           )}
 
+          {/* FAQ — visible Q&A mirrors the FAQPage JSON-LD */}
           {t.faqs && t.faqs.length > 0 && (
-            <article
-              style={{
-                background: "#fff",
-                border: "1px solid rgba(10,24,58,0.08)",
-                borderRadius: 16,
-                padding: "20px 24px",
-                marginBottom: 24,
-              }}
-            >
-              <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0A183A", marginBottom: 12 }}>
+            <article className="bg-white rounded-2xl border border-[#0A183A]/8 p-6 sm:p-7 mb-6 shadow-[0_2px_16px_rgba(10,24,58,0.04)]">
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#0A183A] mb-4">
                 Preguntas frecuentes
               </h2>
-              {t.faqs.map((f, i) => (
-                <details
-                  key={i}
-                  style={{
-                    background: "#F8FAFC",
-                    border: "1px solid rgba(10,24,58,0.08)",
-                    borderRadius: 10,
-                    padding: "10px 14px",
-                    marginBottom: 8,
-                  }}
-                >
-                  <summary style={{ cursor: "pointer", fontWeight: 700, color: "#0A183A", fontSize: 14 }}>
-                    {f.q}
-                  </summary>
-                  <p style={{ color: "#334155", lineHeight: 1.6, marginTop: 8, marginBottom: 0, fontSize: 14 }}>
-                    {f.a}
-                  </p>
-                </details>
-              ))}
+              <div className="space-y-2">
+                {t.faqs.map((f, i) => (
+                  <details
+                    key={i}
+                    className="group bg-[#F8FAFC] border border-[#0A183A]/8 rounded-xl overflow-hidden transition-colors hover:border-[#1E76B6]/30"
+                  >
+                    <summary className="cursor-pointer list-none flex items-start justify-between gap-3 px-4 py-3 font-bold text-[#0A183A] text-sm">
+                      <span>{f.q}</span>
+                      <ChevronDown
+                        className="w-4 h-4 text-[#1E76B6] flex-shrink-0 transition-transform group-open:rotate-180 mt-0.5"
+                      />
+                    </summary>
+                    <p className="px-4 pb-4 pt-0 text-gray-700 leading-relaxed text-sm">
+                      {f.a}
+                    </p>
+                  </details>
+                ))}
+              </div>
             </article>
           )}
 
+          {/* Related terms — internal-link mesh */}
           {related.length > 0 && (
-            <article
-              style={{
-                background: "#fff",
-                border: "1px solid rgba(10,24,58,0.08)",
-                borderRadius: 16,
-                padding: "20px 24px",
-                marginBottom: 24,
-              }}
-            >
-              <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0A183A", marginBottom: 12 }}>
+            <article className="bg-white rounded-2xl border border-[#0A183A]/8 p-6 sm:p-7 mb-6 shadow-[0_2px_16px_rgba(10,24,58,0.04)]">
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#0A183A] mb-4">
                 Términos relacionados
               </h2>
-              <ul
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                  gap: 8,
-                  listStyle: "none",
-                  padding: 0,
-                  margin: 0,
-                }}
-              >
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 m-0 p-0 list-none">
                 {related.map((r) => (
                   <li key={r.slug}>
                     <Link
                       href={`/glosario/${r.slug}`}
-                      style={{
-                        display: "block",
-                        padding: "10px 14px",
-                        background: "#F1F5F9",
-                        borderRadius: 10,
-                        color: "#0A183A",
-                        textDecoration: "none",
-                        fontWeight: 700,
-                        fontSize: 13,
-                      }}
+                      className="group flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-[#F0F7FF] border border-[#1E76B6]/12 hover:bg-[#1E76B6] hover:border-[#1E76B6] transition-colors"
                     >
-                      {r.name}
+                      <span className="text-sm font-bold text-[#0A183A] group-hover:text-white truncate">
+                        {r.name}
+                      </span>
+                      <ArrowRight
+                        className="w-3.5 h-3.5 flex-shrink-0 text-[#1E76B6] group-hover:text-white"
+                      />
                     </Link>
                   </li>
                 ))}
@@ -320,41 +286,22 @@ export default async function GlossaryTermPage(
             </article>
           )}
 
+          {/* Marketplace CTAs */}
           {t.marketplaceLinks && t.marketplaceLinks.length > 0 && (
-            <article
-              style={{
-                background: "linear-gradient(135deg,#0A183A 0%,#173D68 55%,#1E76B6 100%)",
-                color: "#fff",
-                borderRadius: 16,
-                padding: "24px 24px",
-                marginBottom: 24,
-              }}
-            >
-              <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <article className="rounded-2xl p-6 sm:p-8 mb-6 text-white bg-gradient-to-br from-[#0A183A] via-[#173D68] to-[#1E76B6] shadow-[0_4px_24px_rgba(10,24,58,0.15)]">
+              <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
                 <BookOpen className="w-4 h-4" />
                 Continuar en el marketplace
               </h2>
-              <p style={{ fontSize: 14, opacity: 0.92, lineHeight: 1.5, marginBottom: 14 }}>
+              <p className="text-sm leading-relaxed text-white/85 mb-5">
                 Aplica este conocimiento eligiendo entre los productos disponibles en TirePro.
               </p>
-              <ul style={{ display: "flex", flexDirection: "column", gap: 8, listStyle: "none", padding: 0, margin: 0 }}>
+              <ul className="flex flex-wrap gap-2 m-0 p-0 list-none">
                 {t.marketplaceLinks.map((l) => (
                   <li key={l.href}>
                     <Link
                       href={l.href}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "10px 14px",
-                        background: "rgba(255,255,255,0.15)",
-                        color: "#fff",
-                        textDecoration: "none",
-                        fontWeight: 700,
-                        fontSize: 13,
-                        borderRadius: 999,
-                        border: "1px solid rgba(255,255,255,0.25)",
-                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-bold transition-colors"
                     >
                       {l.label}
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -364,7 +311,7 @@ export default async function GlossaryTermPage(
               </ul>
             </article>
           )}
-        </section>
+        </main>
 
         <MarketplaceFooter />
       </div>

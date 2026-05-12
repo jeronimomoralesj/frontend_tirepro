@@ -41,6 +41,15 @@ export interface GlossaryTerm {
   relatedTerms?: string[];
   marketplaceLinks?: Array<{ label: string; href: string }>;
   faqs?: GlossaryFaq[];
+
+  // ---- SEO overrides ------------------------------------------------------
+  // Default is "¿Qué es {name}? — Glosario de llantas | TirePro Colombia"
+  // (assembled in [term]/page.tsx). For high-volume queries we hand-tune
+  // these so the literal user query appears verbatim in the <title> and
+  // <h1>. Empty/omitted → fall back to defaults.
+  seoTitle?: string;        // Overrides <title>
+  h1Question?: string;      // Overrides visible <h1>
+  metaDescription?: string; // Overrides <meta description>
 }
 
 export const GLOSSARY_CATEGORIES: Record<GlossaryCategory, string> = {
@@ -56,6 +65,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "reencauche",
     name: "Reencauche",
+    seoTitle: "¿Qué es el reencauche de llantas? Proceso, ventajas y precios | TirePro",
+    h1Question: "¿Qué es el reencauche de una llanta?",
+    metaDescription:
+      "El reencauche es un proceso industrial certificado que renueva la banda de una llanta cuyo casco está en buen estado. Reduce el CPK hasta un 40% en flotas de tractomula, camión y bus. Conoce el proceso y los precios en Colombia.",
     shortDef:
       "Proceso industrial certificado que renueva la banda de rodamiento de una llanta cuyo casco está en buen estado.",
     definition:
@@ -83,6 +96,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "cpk",
     name: "CPK (Costo por kilómetro)",
+    seoTitle: "¿Qué es el CPK de una llanta y cómo se calcula? | TirePro Colombia",
+    h1Question: "¿Qué es el CPK (costo por kilómetro) de una llanta?",
+    metaDescription:
+      "El CPK divide el costo total de una llanta entre los kilómetros que recorre antes de su descarte. Aprende a calcularlo, qué valor es bueno para tractomula en Colombia y cómo reducirlo con reencauche.",
     shortDef:
       "Métrica que divide el costo total de una llanta entre los kilómetros que recorre antes de su reemplazo.",
     definition:
@@ -108,6 +125,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "rtd",
     name: "RTD (Profundidad de banda)",
+    seoTitle: "¿Cuál es la profundidad mínima legal de una llanta en Colombia? | TirePro",
+    h1Question: "¿Qué es el RTD (profundidad remanente) de una llanta?",
+    metaDescription:
+      "El RTD es la profundidad remanente de la banda, medida en milímetros con galga. El mínimo legal en Colombia es 1.6 mm; las flotas profesionales retiran las llantas entre 3 y 5 mm para reencauche.",
     shortDef:
       "Profundidad remanente de la banda de rodamiento, medida en milímetros (Remaining Tread Depth).",
     definition:
@@ -130,6 +151,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "indice-de-carga",
     name: "Índice de carga",
+    seoTitle: "¿Qué es el índice de carga de una llanta? Tabla y ejemplos | TirePro",
+    h1Question: "¿Qué es el índice de carga de una llanta?",
+    metaDescription:
+      "El índice de carga es el número estampado en el flanco que indica la carga máxima por llanta a presión nominal. Aprende a leerlo, la tabla de equivalencias en kg y por qué nunca debes usar uno inferior al recomendado.",
     shortDef:
       "Número estampado en el flanco que indica la carga máxima que la llanta soporta a su presión nominal.",
     definition:
@@ -152,6 +177,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "indice-de-velocidad",
     name: "Índice de velocidad",
+    seoTitle: "¿Cómo leer el índice de velocidad de una llanta? Tabla completa | TirePro",
+    h1Question: "¿Qué es el índice de velocidad de una llanta y cómo se lee?",
+    metaDescription:
+      "El índice de velocidad es la letra que aparece después del índice de carga en el flanco (ej. 91V). Indica la velocidad máxima sostenida que tolera la llanta. Tabla completa de letras (L, T, H, V, W) con sus equivalencias en km/h.",
     shortDef:
       "Letra estampada en el flanco que indica la velocidad máxima sostenida que la llanta tolera.",
     definition:
@@ -174,6 +203,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "dot",
     name: "DOT (Fecha de fabricación)",
+    seoTitle: "¿Qué es el DOT en llantas? Cómo leer la fecha de fabricación | TirePro",
+    h1Question: "¿Qué es el DOT en una llanta y cómo se lee?",
+    metaDescription:
+      "El DOT es el código del Department of Transportation impreso en el flanco de cada llanta. Sus 4 últimos dígitos indican la semana y año de fabricación (DOT 2723 = semana 27 de 2023). Aprende a leerlo y a evitar llantas vencidas.",
     shortDef:
       "Código grabado en el flanco que indica el lugar y la semana/año de fabricación de la llanta.",
     definition:
@@ -232,6 +265,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "psi",
     name: "PSI (Presión de inflado)",
+    seoTitle: "¿Qué presión de aire debo poner a las llantas? Guía PSI | TirePro",
+    h1Question: "¿Qué es el PSI y qué presión deben tener mis llantas?",
+    metaDescription:
+      "El PSI es la unidad de presión de aire dentro de la llanta. Aprende qué PSI usar según tu vehículo (carro, camioneta, tractomula), cómo medirlo y por qué la presión correcta extiende la vida útil de la llanta y reduce consumo.",
     shortDef:
       "Unidad de presión de aire dentro de la llanta — Pounds per Square Inch.",
     definition:
@@ -254,6 +291,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "alineacion",
     name: "Alineación",
+    seoTitle: "¿Cada cuánto se debe alinear el carro? Guía de alineación | TirePro",
+    h1Question: "¿Qué es la alineación y cada cuánto se hace?",
+    metaDescription:
+      "La alineación ajusta los ángulos camber, caster y toe de las ruedas para que rueden paralelas. Se recomienda cada 10.000 km, al cambiar llantas o tras cualquier golpe contra hueco. Evita desgaste irregular y mayor consumo.",
     shortDef:
       "Ajuste de los ángulos de las ruedas (camber, caster, toe) para que rueden paralelas al chasis.",
     definition:
@@ -269,6 +310,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "balanceo",
     name: "Balanceo",
+    seoTitle: "¿Qué es el balanceo de llantas y cada cuánto se hace? | TirePro",
+    h1Question: "¿Qué es el balanceo de llantas y cuándo se hace?",
+    metaDescription:
+      "El balanceo iguala el peso del conjunto llanta-rin sobre su eje de rotación para eliminar vibraciones. Se hace al montar una llanta nueva, después de una pinchada o cada 15.000-20.000 km. Evita desgaste irregular.",
     shortDef:
       "Igualación del peso de la llanta + rin sobre el eje para eliminar vibraciones.",
     definition:
@@ -280,6 +325,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "rotacion-de-llantas",
     name: "Rotación de llantas",
+    seoTitle: "¿Cada cuánto se rotan las llantas y por qué? | TirePro Colombia",
+    h1Question: "¿Qué es la rotación de llantas y cada cuánto se hace?",
+    metaDescription:
+      "La rotación es el cambio sistemático de posición de las llantas para igualar el desgaste y maximizar la vida útil del juego completo. Se recomienda cada 8.000-10.000 km según el patrón del fabricante.",
     shortDef:
       "Cambio sistemático de posición de las llantas para igualar el desgaste entre los 4 vehículos.",
     definition:
@@ -322,6 +371,57 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     relatedTerms: ["flanco", "tubeless"],
   },
   {
+    slug: "tipos-de-llantas",
+    name: "Tipos de llantas",
+    seoTitle: "¿Cuáles son los tipos de llantas que existen? Guía completa | TirePro",
+    h1Question: "¿Cuáles son los tipos de llantas que existen?",
+    metaDescription:
+      "Tipos de llantas: por construcción (radial, diagonal), por terreno (highway, all-terrain, mud-terrain), por estación (all-season, invierno, verano), por vehículo (carro, camioneta, SUV, camión, tractomula, bus) y por tecnología (tubeless, run-flat, reencauche). Guía completa.",
+    shortDef:
+      "Clasificación de las llantas por construcción, terreno, estación, vehículo y tecnología — guía rápida para elegir.",
+    definition:
+      "Los tipos de llantas se clasifican según cinco dimensiones independientes: construcción (radial vs. diagonal), terreno (highway H/T, all-terrain A/T, mud-terrain M/T), estación (all-season, verano, invierno), vehículo objetivo (pasajero, camioneta/SUV, camión, tractomula, bus, agro/off-road) y tecnología (tubeless, tube-type, run-flat, reencauche). Elegir bien implica entender qué clasificación importa para tu uso real.\n\nPara la mayoría de aplicaciones en Colombia: pasajero usa llantas radiales tubeless all-season para carretera; camioneta SUV usa A/T si combina pavimento con destapado, H/T si solo pavimenta; flotas pesadas (tractomula, bus) usan radiales tubeless por posición (dirección, tracción, libre, remolque), y las flotas optimizan CPK mezclando llantas nuevas y reencauchadas en las posiciones correctas. Llantas de invierno y diagonal son raras en Colombia, reservadas a casos muy específicos.",
+    category: "tipos",
+    synonyms: ["clases de llantas", "categorías de llantas"],
+    examples: [
+      "Pasajero Bogotá → llanta radial tubeless all-season H/T (ej. 205/55R16 91V)",
+      "Camioneta 4x4 ruta + destapado → llanta A/T radial (ej. 265/65R17)",
+      "Tractomula carretera → llanta radial tubeless de carga 295/80R22.5 152L por posición",
+      "Bus urbano TransMilenio → llanta de bus 295/80R22.5 reencauchada en tracción y libres",
+    ],
+    relatedTerms: [
+      "llanta-radial",
+      "llanta-diagonal",
+      "llanta-de-tractomula",
+      "llanta-de-bus",
+      "llanta-all-season",
+      "llanta-off-road",
+      "tipos-de-terreno",
+      "tubeless",
+      "run-flat",
+      "reencauche",
+    ],
+    marketplaceLinks: [
+      { label: "Llantas para carro",       href: "/marketplace/categoria/automovil" },
+      { label: "Llantas para camioneta",   href: "/marketplace/categoria/camioneta" },
+      { label: "Llantas para tractomula",  href: "/marketplace/categoria/tractomula" },
+      { label: "Llantas para bus",         href: "/marketplace/categoria/bus" },
+      { label: "Llantas reencauchadas",    href: "/marketplace/categoria/reencauche" },
+    ],
+    faqs: [
+      { q: "¿Cuáles son los principales tipos de llantas?",
+        a: "Por construcción: radial (estándar moderna) y diagonal (bias-ply, hoy reservada a agro/industrial). Por terreno: highway (H/T) para pavimento, all-terrain (A/T) mixto, mud-terrain (M/T) destapado puro. Por estación: all-season (la dominante en Colombia), invierno y verano. Por vehículo: pasajero, SUV/camioneta, camión, tractomula, bus, agro. Por tecnología: tubeless, run-flat, reencauche." },
+      { q: "¿Qué tipo de llanta es mejor para una camioneta?",
+        a: "Depende del uso. Si rueda solo en pavimento (Bogotá, autopista), una llanta H/T radial all-season ofrece máximo confort y consumo eficiente. Si combina pavimento con destapado o ruta de finca, una llanta A/T (All-Terrain) radial da mejor agarre fuera de pavimento sin sacrificar mucho en carretera. M/T (Mud Terrain) solo si la camioneta es 4x4 dedicada a senderos." },
+      { q: "¿Qué diferencia hay entre una llanta nueva y una reencauchada?",
+        a: "Una llanta nueva tiene casco y banda originales con la máxima profundidad. Una llanta reencauchada reaprovecha un casco en buen estado al que se le aplica una banda nueva mediante vulcanización certificada. La reencauchada cuesta 30-45% menos y se usa principalmente en tracción, libres y remolque de flotas pesadas. La dirección de vehículos de pasajero siempre va con llanta nueva." },
+      { q: "¿Las llantas all-season sirven todo el año en Colombia?",
+        a: "Sí. Colombia tiene clima tropical sin invierno real, por lo que las llantas all-season cubren las dos estaciones (seco y lluvia). Las llantas exclusivas de invierno (winter, nieve) solo aplican si el vehículo opera en zonas paramunas a más de 3.500 m con riesgo de hielo." },
+      { q: "¿Qué tipo de llanta usa una tractomula?",
+        a: "Llanta radial tubeless de carga, dimensiones típicas 295/80R22.5, 11R22.5 o 315/80R22.5, con índice de carga 152-156 e índice de velocidad L o M. Se elige el modelo específico por posición del eje: dirección (banda lisa), tracción (tacos profundos), libre (intermedio) y remolque (alta resistencia al desgaste por arrastre)." },
+    ],
+  },
+  {
     slug: "llanta-radial",
     name: "Llanta radial",
     shortDef:
@@ -330,7 +430,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Una llanta radial tiene las telas del casco dispuestas perpendiculares al eje de rodaje (a 90°) y refuerzos diagonales (cinturones) por debajo de la banda. Esta arquitectura ofrece menor resistencia al rodamiento, mayor durabilidad de la banda y mejor agarre comparada con la construcción diagonal (bias-ply).\n\nDesde los años 80, prácticamente todas las llantas de pasajero, camioneta, camión y tractomula son radiales. La marca radial se identifica con la letra \"R\" en la dimensión: \"205/55R16\" o \"295/80R22.5\".",
     category: "tipos",
     synonyms: ["radial", "construcción radial"],
-    relatedTerms: ["llanta-diagonal", "casco-de-la-llanta", "dimension-llanta"],
+    relatedTerms: ["tipos-de-llantas", "llanta-diagonal", "casco-de-la-llanta", "dimension-llanta"],
   },
   {
     slug: "llanta-diagonal",
@@ -341,7 +441,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Una llanta diagonal o bias-ply tiene las telas del casco dispuestas en cruz a un ángulo de 30°-40° respecto al sentido de rodaje. Es la arquitectura más antigua, hoy reservada a aplicaciones agrícolas, industriales pesadas y algunos remolques agrícolas.\n\nVentajas: flanco más rígido (mejor para terreno accidentado), menor costo de fabricación. Desventajas: mayor resistencia al rodamiento (más consumo), banda y flanco se deforman juntos al frenar (peor agarre), menor vida útil. Se identifica por una letra \"D\" o por la ausencia de \"R\" en la dimensión.",
     category: "tipos",
     synonyms: ["bias-ply", "convencional"],
-    relatedTerms: ["llanta-radial", "casco-de-la-llanta"],
+    relatedTerms: ["tipos-de-llantas", "llanta-radial", "casco-de-la-llanta"],
   },
   {
     slug: "llanta-de-tractomula",
@@ -352,7 +452,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Una llanta de tractomula está diseñada para soportar las cargas y velocidades de un tractocamión: 152-156 índice de carga, 100-120 PSI de presión nominal, dimensiones típicas 295/80R22.5, 11R22.5 o 315/80R22.5 según configuración del eje.\n\nSe especifican por posición — dirección (banda lisa, surcos longitudinales para estabilidad), tracción (tacos profundos para agarre en arranque), libre (intermedio), remolque (muy resistente al desgaste por arrastre). Cada posición tiene un modelo óptimo y un patrón de rotación distinto.",
     category: "tipos",
     synonyms: ["llanta de tracto", "llanta truck", "llanta de carga pesada"],
-    relatedTerms: ["llanta-de-bus", "indice-de-carga", "reencauche", "rotacion-de-llantas"],
+    relatedTerms: ["tipos-de-llantas", "llanta-de-bus", "indice-de-carga", "reencauche", "rotacion-de-llantas"],
     marketplaceLinks: [
       { label: "Llantas para tractomula en Colombia", href: "/marketplace/categoria/tractomula" },
     ],
@@ -365,7 +465,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     definition:
       "Una llanta de bus (urban bus, intermunicipal o turismo) prioriza confort de marcha, bajo nivel de ruido, alta resistencia al desgaste por carga frecuente y tolerancia a las altas temperaturas operativas (paradas frecuentes, frenadas continuas). Las dimensiones más comunes son 275/70R22.5, 295/80R22.5 y 11R22.5.\n\nEn Colombia, las flotas de transporte público (TransMilenio, busetas) operan con llantas de bus reencauchadas para reducir CPK — un solo bus puede consumir más de 24 llantas al año entre las 6-12 ruedas y la rotación.",
     category: "tipos",
-    relatedTerms: ["llanta-de-tractomula", "reencauche", "cpk"],
+    relatedTerms: ["tipos-de-llantas", "llanta-de-tractomula", "reencauche", "cpk"],
     marketplaceLinks: [
       { label: "Llantas para bus en Colombia", href: "/marketplace/categoria/bus" },
     ],
@@ -379,7 +479,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Una llanta all-season balancea propiedades de llanta de verano (agarre en seco, durabilidad) y de invierno (agarre en mojado, en pavimento frío, sin riesgo en nieve ligera). Es la categoría dominante en mercados con inviernos suaves o tropicales como Colombia.\n\nEn aplicaciones colombianas, prácticamente todas las llantas vendidas a usuarios particulares son all-season; las llantas de invierno (winter / nieve) o verano puro son raras y aplican solo a vehículos importados a zonas paramunas o de exportación.",
     category: "tipos",
     synonyms: ["llanta para todo clima", "llanta 4 estaciones"],
-    relatedTerms: ["llanta-off-road", "tipos-de-terreno"],
+    relatedTerms: ["tipos-de-llantas", "llanta-off-road", "tipos-de-terreno"],
   },
   {
     slug: "llanta-off-road",
@@ -390,7 +490,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Una llanta off-road (M/T — Mud Terrain) o mixta (A/T — All Terrain) tiene un dibujo de banda con tacos profundos y separados que clavan en superficies blandas (barro, arena, gravilla). El compromiso es ruido, mayor desgaste en pavimento y menor confort vs. llanta de carretera.\n\nLas mixtas (A/T) sirven para 60% pavimento / 40% destapado típico de camionetas en zonas rurales. Las puramente off-road (M/T) son para vehículos 4x4 dedicados a senderos. En Colombia, marcas como Goodyear Wrangler, BFGoodrich All-Terrain y Cooper Discoverer dominan este segmento.",
     category: "tipos",
     synonyms: ["llanta off-road", "M/T", "A/T", "All Terrain", "Mud Terrain"],
-    relatedTerms: ["llanta-all-season", "tipos-de-terreno", "banda-de-rodamiento"],
+    relatedTerms: ["tipos-de-llantas", "llanta-all-season", "tipos-de-terreno", "banda-de-rodamiento"],
   },
   {
     slug: "tipos-de-terreno",
@@ -406,6 +506,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "dimension-llanta",
     name: "Dimensión de llanta",
+    seoTitle: "¿Cómo leer la medida de una llanta? Significado de 205/55R16 | TirePro",
+    h1Question: "¿Cómo se lee la dimensión de una llanta (ej. 205/55R16)?",
+    metaDescription:
+      "La dimensión de una llanta combina ancho en mm, perfil como % del ancho, tipo de construcción (R = radial) y diámetro de rin en pulgadas. Aprende a leerla con ejemplos para carro, camioneta y tractomula.",
     shortDef:
       "Código que combina ancho, perfil, construcción y rin de la llanta (ej. 205/55R16).",
     definition:
@@ -433,6 +537,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   {
     slug: "hidroplaneo",
     name: "Hidroplaneo",
+    seoTitle: "¿Qué es el hidroplaneo y cómo evitarlo? | TirePro Colombia",
+    h1Question: "¿Qué es el hidroplaneo y cómo evitarlo en lluvia?",
+    metaDescription:
+      "El hidroplaneo ocurre cuando una capa de agua se interpone entre la llanta y el pavimento, haciendo que la banda flote y se pierda agarre. Aprende los factores de riesgo (RTD bajo, llantas anchas, baja presión) y cómo prevenirlo.",
     shortDef:
       "Pérdida de contacto con el pavimento por una capa de agua entre llanta y suelo.",
     definition:
