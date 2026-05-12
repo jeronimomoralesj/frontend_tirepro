@@ -90,6 +90,11 @@ export default function DashboardPage() {
       if (role === 'marketplace_tracker') {
         return router.replace('/dashboard/marketplace/perfil');
       }
+      // Regular users (viewer / legacy regular) are drivers — their entire
+      // surface is the inspection capture flow, on any plan.
+      if (role === 'viewer' || role === 'regular') {
+        return router.replace('/dashboard/agregarConductor');
+      }
 
       // 4) Fetch company via the shared cache — dedupes with the concurrent
       //    sidebar + RouteGuard fetches that used to trip the 429 rate limit.

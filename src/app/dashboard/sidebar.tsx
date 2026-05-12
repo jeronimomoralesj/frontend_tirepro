@@ -34,6 +34,17 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
 // =============================================================================
 
 function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
+  // "Regular" users (viewer / legacy regular) are drivers/operators — they
+  // only inspect the vehicles assigned to them. Same flow regardless of
+  // whether their company is on a fleet (plus/pro) or distribuidor plan.
+  // Without this gate they'd see the full admin nav (Resumen, Pedidos,
+  // Vehículos, etc.) and reach surfaces meant for fleet managers.
+  if (role === "viewer" || role === "regular") {
+    return [
+      { name: "Agregar", path: "/dashboard/agregarConductor", icon: Plus },
+    ];
+  }
+
   if (plan === "distribuidor") {
     // Catalog-only roles: sales reps (catalogo) and sales managers
     // (catalogo_admin) see ONLY the SKU catalog — not Pedidos / Desechos

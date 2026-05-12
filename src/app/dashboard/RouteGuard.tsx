@@ -14,6 +14,11 @@ const CATALOG_ROLES = ["catalogo", "catalogo_admin"] as const;
 // surfaces (it has no business on Pedidos/Desechos/Gestión/Vehículos
 // either).
 const SCOPED_DIST_ROLES = [...CATALOG_ROLES, "marketplace_tracker"] as const;
+// "Regular" users (viewer / legacy regular) are drivers — their entire
+// surface is the inspection capture flow at /dashboard/agregarConductor.
+// They have no business on fleet-manager or distribuidor pages, on any
+// plan, so we deny them across both surfaces.
+const REGULAR_ROLES = ["viewer", "regular"] as const;
 
 interface RouteRule {
   plans: string[];
@@ -26,34 +31,34 @@ const ROUTE_ACCESS: Record<string, RouteRule> = {
   // excluded (marketplace-only users have no fleet to manage — they
   // live on /marketplace). Admin-only destructive actions still gate
   // per-page (e.g. /agregar, /cupones).
-  "/dashboard/resumen":      { plans: ["plus", "pro"] },
-  "/dashboard/analista":     { plans: ["plus", "pro"] },
-  "/dashboard/detalle":      { plans: ["plus", "pro"] },
-  "/dashboard/inventario":   { plans: ["plus", "pro"] },
-  "/dashboard/vehiculo":     { plans: ["plus", "pro"] },
+  "/dashboard/resumen":      { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
+  "/dashboard/analista":     { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
+  "/dashboard/detalle":      { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
+  "/dashboard/inventario":   { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
+  "/dashboard/vehiculo":     { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
   "/dashboard/agregar":      { plans: ["plus", "pro"], roles: ["admin"] },
-  "/dashboard/buscar":       { plans: ["plus", "pro"] },
-  "/dashboard/desechos":     { plans: ["plus", "pro"] },
-  "/dashboard/semaforo":     { plans: ["plus", "pro"] },
-  "/dashboard/flota":        { plans: ["plus", "pro"] },
-  "/dashboard/trips":        { plans: ["plus", "pro"] },
+  "/dashboard/buscar":       { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
+  "/dashboard/desechos":     { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
+  "/dashboard/semaforo":     { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
+  "/dashboard/flota":        { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
+  "/dashboard/trips":        { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
   "/dashboard/cupones":      { plans: ["pro"], roles: ["admin"] },
-  "/dashboard/resumenMini":  { plans: ["plus", "pro"] },
+  "/dashboard/resumenMini":  { plans: ["plus", "pro"], deniedRoles: [...REGULAR_ROLES] },
 
   // Distributor pages — visible to everyone on a distribuidor plan EXCEPT
   // catalog/marketplace-tracker scoped users (they live on /catalogoSku
   // and /dashboard/marketplace/*). Sidebar already hides these links;
   // this is the URL-typing defense.
-  "/dashboard/distribuidor":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/analistaDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/pedidosDist":    { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/desechosDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/clientes":       { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/vehiculoDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/buscarDist":     { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/agregarDist":    { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/catalogoDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
-  "/dashboard/ventasDist":     { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES] },
+  "/dashboard/distribuidor":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/analistaDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/pedidosDist":    { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/desechosDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/clientes":       { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/vehiculoDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/buscarDist":     { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/agregarDist":    { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/catalogoDist":   { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
+  "/dashboard/ventasDist":     { plans: ["distribuidor"], deniedRoles: [...SCOPED_DIST_ROLES, ...REGULAR_ROLES] },
 
   // SKU catalog — distribuidor-only, but accessible to all distribuidor
   // roles (admin / catalogo / catalogo_admin / marketplace_tracker).
@@ -138,6 +143,10 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
           router.replace("/dashboard/marketplace/perfil");
           return;
         }
+        if (role === "viewer" || role === "regular") {
+          router.replace("/dashboard/agregarConductor");
+          return;
+        }
       } catch { /* fall through to optimistic allow */ }
       setAllowed(true);
       return;
@@ -211,6 +220,10 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
       }
       if (role === "marketplace_tracker") {
         router.replace("/dashboard/marketplace/perfil");
+        return;
+      }
+      if (role === "viewer" || role === "regular") {
+        router.replace("/dashboard/agregarConductor");
         return;
       }
       if (plan === "distribuidor")      router.replace("/dashboard/distribuidor");
