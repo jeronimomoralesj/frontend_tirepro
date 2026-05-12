@@ -16,7 +16,13 @@
 import type { Metadata } from 'next'
 import MarketplaceClient from './MarketplaceClient'
 
-export const revalidate = 86400 // 24 hours — marketplace content moves slowly
+// 1-hour ISR window. Was 86400 (24h) but that cached the SSG HTML for a
+// full day after every deploy, which created a deploy-skew window where
+// stale HTML loaded freshly-deployed JS chunks and React hydration died
+// with "This page couldn't load". 1 hour is short enough to clear that
+// window quickly while still giving the marketplace home most of the
+// SSG benefit.
+export const revalidate = 3600
 
 // ─────────────────────────────────────────────────────────────────────────
 // METADATA

@@ -213,10 +213,20 @@ export interface MarketplaceClientProps {
 }
 
 export default function PublicMarketplaceWrapper(props: MarketplaceClientProps) {
+  // The interactive marketplace body suspends on useSearchParams during
+  // SSR, so it can only stream in after hydration. The footer doesn't
+  // depend on any client state, so we render it outside the boundary:
+  // even during the suspended window the visitor sees the brand chrome
+  // (footer links, payment badges, AXON announcement strip), which also
+  // makes deploy-skew issues much less visible — stale SSG HTML loading
+  // fresh chunks would otherwise paint a totally empty page.
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f5f5f7]" />}>
-      <PublicMarketplace {...props} />
-    </Suspense>
+    <>
+      <Suspense fallback={<div className="min-h-screen bg-[#f5f5f7]" />}>
+        <PublicMarketplace {...props} />
+      </Suspense>
+      <MarketplaceFooter />
+    </>
   );
 }
 
@@ -1210,7 +1220,10 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
           orphaned content below the footer. */}
       {seoFooter}
 
-      <MarketplaceFooter />
+      {/* MarketplaceFooter rendered by the wrapper outside the Suspense
+          boundary — see PublicMarketplaceWrapper at the top of this
+          file. Keeps the brand chrome visible during the
+          useSearchParams-driven SSR suspend. */}
 
       {/* ═══ FLOATING ASSISTANT BUTTON ═══ */}
       {/* Placa view already gives the buyer a focused 3-option deck +
