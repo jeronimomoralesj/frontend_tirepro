@@ -17,18 +17,20 @@ export interface AxleConfig {
   description: string;
 }
 
+// Curated to the configurations actually seen on Colombian fleets — the
+// 2-2-4 / 6-4 / 2-4-4-4 / 2-4-4-4-4 entries were stub placeholders that
+// don't correspond to a real-world vehicle and only confused the picker.
+// Restore them only with concrete supporting data; the picker accepts any
+// dash-separated string anyway via the free-text fallback in the
+// "Sin definir" path.
 export const AXLE_CONFIGS: AxleConfig[] = [
   { value: "",        label: "Sin definir",  description: "Elegir más tarde" },
   { value: "2-2",     label: "2-2",          description: "Auto · 4 llantas" },
   { value: "2-4",     label: "2-4",          description: "Camión 2 ejes · 6 llantas" },
   { value: "4-4",     label: "4-4",          description: "Dobletroque · 8 llantas" },
   { value: "2-2-2",   label: "2-2-2",        description: "Bus 3 ejes · 6 llantas" },
-  { value: "2-2-4",   label: "2-2-4",        description: "Camión 3 ejes · 8 llantas" },
-  { value: "6-4",     label: "6-4",          description: "Tractomula 2 ejes · 10 llantas" },
   { value: "2-4-4",   label: "2-4-4",        description: "Tractomula 3 ejes · 10 llantas" },
   { value: "4-4-4",   label: "4-4-4",        description: "3 ejes con duales · 12 llantas" },
-  { value: "2-4-4-4", label: "2-4-4-4",      description: "Tractomula + trailer · 14 llantas" },
-  { value: "2-4-4-4-4", label: "2-4-4-4-4",  description: "Doble trailer · 18 llantas" },
 ];
 
 export function describeAxleConfig(value: string | null | undefined): string {
