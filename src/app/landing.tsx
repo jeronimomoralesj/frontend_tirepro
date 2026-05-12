@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { trackPlateSearch, trackPlateVehicleSelect } from '../lib/marketplaceAnalytics'
 import {
-  Calendar,
   BarChart3,
   Clock,
   MapPin,
@@ -12,12 +11,10 @@ import {
   Check,
   ChevronDown,
   Zap,
-  ChevronRight,
   DollarSign,
   Target,
   Activity,
   Tag,
-  User,
   Eye,
   TrendingDown,
   Shield,
@@ -579,12 +576,11 @@ function BestSellers({ items }: { items: any[] }) {
   )
 }
 
-const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArticles?: any[]; bestSellers?: any[] }) => {
+const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [activeQuestion, setActiveQuestion] = useState<number | null>(null)
   const [activePlan, setActivePlan] = useState(1)
-  const [activeTestimonial, setActiveTestimonial] = useState(0)
   const [countersStarted, setCountersStarted] = useState(false)
   const [counter1, setCounter1] = useState(0)
   const [counter2, setCounter2] = useState(0)
@@ -593,19 +589,10 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
   const statsRef = useRef<HTMLDivElement>(null)
   const heroRef = useRef<HTMLDivElement>(null)
 
-  const articles = initialArticles
-
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20)
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveTestimonial((prev) => (prev + 1) % testimonials.length)
-    }, 5000)
-    return () => clearInterval(interval)
   }, [])
 
   // Animated counters
@@ -735,33 +722,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
       ],
       cta: 'Contactar ventas',
       popular: false,
-    },
-  ]
-
-  const testimonials = [
-    {
-      quote: 'TirePro nos ayudó a reducir nuestros costos en llantas en un 23% en solo 6 meses. Las inspecciones que antes tomaban medio día ahora las hacemos en minutos.',
-      author: 'Carlos Méndez',
-      role: 'Director de Operaciones',
-      company: 'TransLogística SA',
-      rating: 5,
-      metric: '-23% CPK',
-    },
-    {
-      quote: 'Las predicciones de reemplazo son increíblemente precisas. Ya no tenemos fallas en ruta. El ahorro en llantas pagó el software en el primer mes.',
-      author: 'María González',
-      role: 'Gerente de Flota',
-      company: 'Distribuidora Nacional',
-      rating: 5,
-      metric: '0 fallas en ruta',
-    },
-    {
-      quote: 'Ahora sabemos exactamente cuándo cambiar cada llanta y cuánto cuesta cada kilómetro recorrido. La IA de TirePro es la herramienta más poderosa de nuestra flota.',
-      author: 'Juan Rodríguez',
-      role: 'Jefe de Mantenimiento',
-      company: 'Cargas Express',
-      rating: 5,
-      metric: '+3 vidas por llanta',
     },
   ]
 
@@ -1170,156 +1130,10 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
         </div>
       </section>
 
-      {/* -- TESTIMONIALS -------------------------------------------------------- */}
+      {/* -- MOBILE APP ---------------------------------------------------------- */}
       <section
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
         style={{ background: '#0A183A' }}
-        aria-labelledby="testimonials-heading"
-      >
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.16em' }}>
-              Casos de éxito
-            </p>
-            <h2
-              id="testimonials-heading"
-              className="font-bold text-white"
-              style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)' }}
-            >
-              Flotas colombianas que ya redujeron su CPK con TirePro
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-3 gap-5">
-            {testimonials.map((testimonial, index) => (
-              <article
-                key={index}
-                className="relative p-7 rounded-2xl transition-all duration-300"
-                style={{
-                  background: activeTestimonial === index ? 'rgba(30,118,182,0.15)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${activeTestimonial === index ? 'rgba(30,118,182,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                  cursor: 'pointer',
-                }}
-                onClick={() => setActiveTestimonial(index)}
-              >
-                <div
-                  className="inline-block px-3 py-1 rounded-full text-xs font-bold mb-4"
-                  style={{ background: 'rgba(30,118,182,0.2)', color: '#62b8f0' }}
-                >
-                  {testimonial.metric}
-                </div>
-
-                <blockquote
-                  className="text-sm leading-relaxed mb-5"
-                  style={{ color: 'rgba(255,255,255,0.7)' }}
-                >
-                  &ldquo;{testimonial.quote}&rdquo;
-                </blockquote>
-
-                <footer>
-                  <div className="font-semibold text-sm text-white">
-                    <span>{testimonial.author}</span>
-                  </div>
-                  <div className="text-xs mt-0.5" style={{ color: '#1E76B6' }}>{testimonial.role}</div>
-                  <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{testimonial.company}</div>
-                </footer>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* -- BLOG ---------------------------------------------------------------- */}
-      <section
-        className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
-        style={{ background: 'linear-gradient(180deg, #f7fafd 0%, #ffffff 100%)' }}
-        aria-labelledby="blog-heading"
-      >
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14 sm:mb-20">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.16em' }}>
-              Conocimiento
-            </p>
-            <h2
-              id="blog-heading"
-              className="font-bold leading-tight mb-4"
-              style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)', color: '#0A183A' }}
-            >
-              Guías de gestión de llantas
-              <br />para flotas en Colombia
-            </h2>
-            <p className="text-lg text-gray-500 max-w-xl mx-auto">
-              Estrategias de CPK, reencauche inteligente y mantenimiento preventivo de neumáticos para transportadores colombianos.
-            </p>
-          </div>
-
-          {articles.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {articles.map((article) => (
-                <Link key={article.id} href={`/blog/${article.slug}`}>
-                  <article className="group relative bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 hover:border-[#1E76B6]/40 transition-all duration-300 hover:-translate-y-1 shadow-sm hover:shadow-xl">
-                    <div className="relative h-48 sm:h-56 overflow-hidden">
-                      <Image
-                        src={article.image}
-                        alt={`Imagen de portada para el artículo: ${article.title}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        width={800}
-                        height={400}
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                    </div>
-                    <div className="p-6">
-                      <div className="flex items-center gap-3 text-xs text-gray-400 mb-3">
-                        <div className="flex items-center gap-1">
-                          <Calendar size={12} />
-                          <span>{new Date(article.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock size={12} />
-                          <span>{article.readTime}</span>
-                        </div>
-                      </div>
-                      <h3 className="text-base font-bold mb-2 line-clamp-2 group-hover:text-[#1E76B6] transition-colors" style={{ color: '#0A183A' }}>
-                        {article.title}
-                      </h3>
-                      <p className="text-sm text-gray-500 line-clamp-2 mb-4">{article.excerpt}</p>
-                      <div className="flex items-center justify-between">
-                        <span
-                          className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                          style={{ background: 'rgba(30,118,182,0.08)', color: '#1E76B6' }}
-                        >
-                          {article.category.charAt(0).toUpperCase() + article.category.slice(1)}
-                        </span>
-                        <ChevronRight size={15} className="text-gray-300 group-hover:text-[#1E76B6] transition-colors" />
-                      </div>
-                    </div>
-                  </article>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center text-gray-400 py-12">No hay artículos disponibles en este momento.</div>
-          )}
-
-          <div className="mt-12 text-center">
-            <a href="/blog">
-              <button
-                className="text-white px-8 py-3.5 rounded-full font-semibold transition-all inline-flex items-center gap-2 text-sm"
-                style={{ background: '#1E76B6', boxShadow: '0 4px 20px rgba(30,118,182,0.25)' }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#173D68')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#1E76B6')}
-              >
-                Ver todos los artículos <ArrowRight size={16} />
-              </button>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* -- MOBILE APP ---------------------------------------------------------- */}
-      <section
-        className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full bg-white"
         aria-labelledby="mobile-app-heading"
       >
         <div className="max-w-6xl mx-auto">
@@ -1361,20 +1175,20 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
 
             <div className="order-1 lg:order-2 space-y-7">
               <div>
-                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.16em' }}>
+                <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#62b8f0', letterSpacing: '0.16em' }}>
                   App móvil
                 </p>
                 <h2
                   id="mobile-app-heading"
-                  className="font-bold leading-tight"
-                  style={{ fontSize: 'clamp(1.8rem, 3.5vw, 3rem)', color: '#0A183A' }}
+                  className="font-bold leading-tight text-white"
+                  style={{ fontSize: 'clamp(1.8rem, 3.5vw, 3rem)' }}
                 >
                   Controla tus llantas
                   <br />
-                  <span style={{ color: '#1E76B6' }}>desde cualquier patio. Offline.</span>
+                  <span style={{ color: '#62b8f0' }}>desde cualquier patio. Offline.</span>
                 </h2>
               </div>
-              <p className="text-base leading-relaxed text-gray-500">
+              <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 App de seguimiento de llantas para iOS y Android. Inspecciona neumáticos en patios, terminales y vías sin importar si tienes señal. Los datos de CPK, profundidad y presión sincronizan automáticamente.
               </p>
               <ul className="space-y-3.5">
@@ -1391,31 +1205,31 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
                     >
                       <Check size={12} className="text-white" />
                     </div>
-                    <span className="text-sm text-gray-700">{item}</span>
+                    <span className="text-sm" style={{ color: 'rgba(255,255,255,0.85)' }}>{item}</span>
                   </li>
                 ))}
               </ul>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <a href="https://apps.apple.com/us/app/tirepro/id6741497732" className="w-full sm:w-auto">
                   <button
-                    className="w-full sm:w-auto text-white px-7 py-3.5 rounded-full font-semibold transition-all flex items-center justify-center gap-2 text-sm"
-                    style={{ background: '#0A183A', boxShadow: '0 4px 16px rgba(10,24,58,0.2)' }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#173D68')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#0A183A')}
+                    className="w-full sm:w-auto px-7 py-3.5 rounded-full font-semibold transition-all flex items-center justify-center gap-2 text-sm"
+                    style={{ background: 'white', color: '#0A183A', boxShadow: '0 4px 16px rgba(0,0,0,0.25)' }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#e8f3fa')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'white')}
                   >
                     <Download size={16} /> App Store
                   </button>
                 </a>
                 <button
                   className="w-full sm:w-auto px-7 py-3.5 rounded-full font-semibold transition-all flex items-center justify-center gap-2 text-sm"
-                  style={{ border: '1.5px solid #1E76B6', color: '#1E76B6', background: 'transparent' }}
+                  style={{ border: '1.5px solid rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(8px)' }}
                   onMouseEnter={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = '#1E76B6'
-                    ;(e.currentTarget as HTMLButtonElement).style.color = 'white'
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)'
+                    ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.4)'
                   }}
                   onMouseLeave={e => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                    ;(e.currentTarget as HTMLButtonElement).style.color = '#1E76B6'
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'
+                    ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.25)'
                   }}
                 >
                   <Download size={16} /> Google Play
@@ -1498,41 +1312,6 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
           </div>
         </div>
       </section>
-
-      {/* -- CALCULADORA --------------------------------------------------------- */}
-      <section
-        id="calculadora"
-        className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 w-full"
-        style={{ background: '#173D68' }}
-        aria-labelledby="calculadora-heading"
-      >
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.16em' }}>
-            Herramienta gratuita
-          </p>
-          <h2
-            id="calculadora-heading"
-            className="font-bold text-white mb-4"
-            style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.8rem)' }}
-          >
-            Calculadora de CPK de llantas gratuita
-          </h2>
-          <p className="mb-8" style={{ color: 'rgba(255,255,255,0.55)', fontSize: '1.05rem' }}>
-            Descubre cuánto te cuesta cada kilómetro recorrido en neumáticos y dónde está el margen de ahorro para tu flota de camiones o buses.
-          </p>
-          <a href="/calculadora">
-            <button
-              className="bg-white px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-bold transition-all inline-flex items-center gap-2 text-base"
-              style={{ color: '#173D68', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#e8f3fa')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'white')}
-            >
-              Ir a la calculadora <ArrowRight size={18} />
-            </button>
-          </a>
-        </div>
-      </section>
-
 
       {/* -- FINAL CTA ----------------------------------------------------------- */}
       <section
@@ -1865,6 +1644,8 @@ const TireProLanding = ({ initialArticles = [], bestSellers = [] }: { initialArt
               <ul className="space-y-2 text-xs sm:text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 <li><a href="#producto" className="hover:text-white transition-colors">Características</a></li>
                 <li><a href="https://apps.apple.com/us/app/tirepro/id6741497732" className="hover:text-white transition-colors">Descargar app</a></li>
+                <li><a href="/calculadora" className="hover:text-white transition-colors">Calculadora de CPK</a></li>
+                <li><a href="/glosario" className="hover:text-white transition-colors">Glosario de llantas</a></li>
                 <li><a href="/blog" className="hover:text-white transition-colors">Blog</a></li>
                 <li><a href="/equipo" className="hover:text-white transition-colors">Nosotros</a></li>
                 <li><a href="/developers" className="hover:text-white transition-colors">Desarrolladores</a></li>

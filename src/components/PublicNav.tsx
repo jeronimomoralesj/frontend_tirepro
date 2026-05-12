@@ -10,6 +10,7 @@ import logo from "../../public/logo_full.png";
 const NAV_LINKS = [
   { label: "Marketplace", href: "/marketplace" },
   { label: "Plataforma",  href: "/#producto" },
+  { label: "Glosario",    href: "/glosario" },
   { label: "Blog",        href: "/blog" },
 ];
 
