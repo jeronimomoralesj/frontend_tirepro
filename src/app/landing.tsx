@@ -790,11 +790,6 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
       {/* -- NAVBAR (unchanged) ----------------------------------------------- */}
       <PublicNav />
 
-      {/* -- AXON PRE-LAUNCH TEASER ------------------------------------------ */}
-      {/* Full-viewport announcement above the existing TirePro hero. First
-          thing every landing visitor sees until launch in September 2026. */}
-      <AxonTeaser variant="hero" />
-
       {/* -- HERO --------------------------------------------------------------- */}
       <header
         ref={heroRef}
@@ -1404,6 +1399,11 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
           </div>
         </div>
       </section>
+
+      {/* -- AXON PRE-LAUNCH TEASER ------------------------------------------ */}
+      {/* Closing announcement — after the TirePro CTA, before the SEO copy
+          and footer. Last thing a visitor sees on the way out. */}
+      <AxonTeaser variant="hero" />
 
       {/* -- JSON-LD STRUCTURED DATA --------------------------------------------- */}
       <script

@@ -22,7 +22,7 @@ import AxonWaitlistForm from "../../components/axon/AxonWaitlistForm";
 const SITE = "https://www.tirepro.com.co";
 
 export const metadata: Metadata = {
-  title: "AXON by TirePro — The Pulse of the Road",
+  title: "AXON · de TirePro — El pulso del camino",
   description:
     "AXON es el TPMS de próxima generación: instalación de 60 segundos, BLE 5.4 Neural Mesh, predicción de vida útil con IA y telemetría en tiempo real. Lanzamiento septiembre 2026.",
   alternates: { canonical: `${SITE}/axon` },
@@ -31,14 +31,14 @@ export const metadata: Metadata = {
     url: `${SITE}/axon`,
     siteName: "TirePro",
     locale: "es_CO",
-    title: "AXON by TirePro — The Pulse of the Road",
+    title: "AXON · de TirePro — El pulso del camino",
     description:
-      "Intelligence on the Edge. Telemetría en tiempo real para cada llanta. Septiembre 2026.",
+      "Inteligencia que rueda. Telemetría en tiempo real para cada llanta. Septiembre 2026.",
     images: [{ url: `${SITE}/axon/prototype.png`, width: 1200, height: 1200, alt: "AXON v0 prototype" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "AXON by TirePro — The Pulse of the Road",
+    title: "AXON · de TirePro — El pulso del camino",
     description: "El TPMS de próxima generación. BLE 5.4. 60 segundos. Septiembre 2026.",
     images: [`${SITE}/axon/prototype.png`],
   },
@@ -71,14 +71,14 @@ const FEATURES = [
   {
     icon: Zap,
     kicker: "60 segundos",
-    title: "Instant Deployment",
+    title: "Despliegue instantáneo",
     body:
       "Handshake de 60 segundos. Sin herramientas, sin talleres, sin fricción. Lo instala el conductor; está activo antes del primer kilómetro.",
   },
   {
     icon: Brain,
     kicker: "1% de precisión",
-    title: "Predictive Longevity",
+    title: "Longevidad predictiva",
     body:
       "AXON no monitorea presión: analiza vibración de ruta y delta térmico para predecir la vida útil de la banda dentro de un margen del 1%.",
   },
@@ -146,18 +146,18 @@ export default function AxonPage() {
               className="mt-7 font-black leading-[0.92] tracking-tight"
               style={{ fontSize: "clamp(2.8rem, 8vw, 7rem)" }}
             >
-              Intelligence
+              Inteligencia
               <br />
-              <span className="text-[#62b8f0]">on the Edge.</span>
+              <span className="text-[#62b8f0]">que rueda.</span>
             </h1>
             <p className="mt-7 max-w-xl text-white/65 leading-relaxed text-lg">
-              <span className="text-white font-bold">AXON by TirePro.</span> El sensor
-              que convierte cada llanta en parte del sistema nervioso digital del
-              vehículo. Telemetría en tiempo real, antes reservada a equipos de
-              Fórmula 1.
+              <span className="text-white font-bold">AXON · de TirePro.</span> El
+              sensor que convierte cada llanta en parte del sistema nervioso digital
+              del vehículo. Telemetría en tiempo real, antes reservada a los equipos
+              de Fórmula 1.
             </p>
             <p className="mt-8 text-[10px] uppercase tracking-[0.32em] text-white/40">
-              The Pulse of the Road
+              El pulso del camino
             </p>
           </div>
 

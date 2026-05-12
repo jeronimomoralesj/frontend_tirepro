@@ -492,6 +492,30 @@ export function MarketplaceNav({
 export function MarketplaceFooter() {
   return (
     <footer className="bg-[#0A183A] mt-16">
+      {/* AXON pre-launch strip — small, low-key, lives inside the footer
+          chrome itself instead of as a section above. Single line,
+          single CTA, one click to the full page. */}
+      <Link
+        href="/axon"
+        className="group block border-b border-white/8 bg-gradient-to-r from-transparent via-[#62b8f0]/[0.06] to-transparent hover:via-[#62b8f0]/[0.12] transition-colors"
+      >
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
+          <span className="inline-flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#62b8f0] animate-pulse" />
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-[#62b8f0]">
+              AXON · Próximamente
+            </span>
+          </span>
+          <span className="text-[11px] text-white/55">
+            El pulso del camino. Septiembre 2026.
+          </span>
+          <span className="text-[11px] font-bold text-white/75 group-hover:text-white inline-flex items-center gap-1">
+            Únete a la lista
+            <span aria-hidden="true" className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </span>
+        </div>
+      </Link>
+
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>

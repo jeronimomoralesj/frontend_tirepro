@@ -65,9 +65,9 @@ export default function AxonTeaser({ variant }: Props) {
                 : "clamp(2.2rem, 5.5vw, 4.5rem)",
             }}
           >
-            Intelligence
+            Inteligencia
             <br />
-            <span className="text-[#62b8f0]">on the Edge.</span>
+            <span className="text-[#62b8f0]">que rueda.</span>
           </h2>
 
           <p
@@ -75,9 +75,9 @@ export default function AxonTeaser({ variant }: Props) {
               isHero ? "max-w-xl text-lg" : "max-w-lg text-base"
             }`}
           >
-            <span className="text-white font-bold">AXON by TirePro.</span> Un upgrade
-            digital para el mundo físico — telemetría en tiempo real para cada llanta,
-            antes reservada a equipos de Fórmula 1.
+            <span className="text-white font-bold">AXON · de TirePro.</span> Una
+            actualización digital al mundo físico: telemetría en tiempo real para
+            cada llanta, antes reservada a los equipos de Fórmula 1.
           </p>
 
           {/* Mini-spec strip */}
@@ -113,7 +113,7 @@ export default function AxonTeaser({ variant }: Props) {
           </div>
 
           <p className="mt-8 text-[10px] uppercase tracking-[0.32em] text-white/35">
-            The Pulse of the Road
+            El pulso del camino
           </p>
         </div>
 
