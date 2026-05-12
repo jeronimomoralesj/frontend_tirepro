@@ -44,60 +44,24 @@ interface RelatedArticle {
   image: string
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
-  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
-  : 'http://localhost:6001/api'
-
 const calculateReadTime = (content: string) => {
   const words = content?.replace(/<[^>]*>/g, '').split(' ').length || 0
   return `${Math.ceil(words / 200)} min`
 }
 
-const extractTextFromHTML = (html: string, maxLength = 155) => {
-  if (!html) return ''
-  const text = html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
-  return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text
-}
-
-export default function ArticleClient({ article }: { article: Article }) {
+export default function ArticleClient({
+  article,
+  relatedArticles = [],
+}: {
+  article: Article
+  relatedArticles?: RelatedArticle[]
+}) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showScrollToTop, setShowScrollToTop] = useState(false)
-  const [relatedArticles, setRelatedArticles] = useState<RelatedArticle[]>([])
   const [copied, setCopied] = useState(false)
 
   const readTime = calculateReadTime(article.content)
-
-  useEffect(() => {
-    fetch(`${API_URL}/blog`)
-      .then(r => r.json())
-      .then((data: Article[]) => {
-        const related = data
-          .filter(a => a.category === article.category && a.id !== article.id)
-          .slice(0, 3)
-          .map(a => ({
-            id: a.id,
-            title: a.title,
-            slug: a.slug,
-            excerpt: a.subtitle || extractTextFromHTML(a.content, 120),
-            category: a.category,
-            date: a.createdAt,
-            readTime: calculateReadTime(a.content),
-            image: a.coverImage || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop',
-          }))
-        setRelatedArticles(related)
-      })
-      .catch(() => {})
-  }, [article.id, article.category])
 
   useEffect(() => {
     if (!article) return
