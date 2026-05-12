@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../../lib/useCart";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
+import AxonTeaser from "../../components/axon/AxonTeaser";
 import { AddToCartButton } from "../../components/marketplace/AddToCartButton";
 import { MayWeekBanner, MayWeekStars, useMayWeek } from "../../components/marketplace/MayWeekBanner";
 import { trackMarketplaceHome, trackSearch, trackFilter, trackMarketplaceSession } from "../../lib/marketplaceAnalytics";
@@ -1209,6 +1210,10 @@ function PublicMarketplace({ initialCiudad, initialCategory, seoFooter }: Market
           a natural article-style "about this page" section instead of
           orphaned content below the footer. */}
       {seoFooter}
+
+      {/* AXON pre-launch teaser — sits between the marketplace body and
+          the footer so every shopper hits the announcement on scroll. */}
+      <AxonTeaser variant="band" />
 
       <MarketplaceFooter />
 

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import PublicNav from '../components/PublicNav'
+import AxonTeaser from '../components/axon/AxonTeaser'
 import phoneImage from '../../public/phoneImg.png'
 import feature1 from '../../public/feat1.png'
 import feature2 from '../../public/feat1.png'
@@ -788,6 +789,11 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
 
       {/* -- NAVBAR (unchanged) ----------------------------------------------- */}
       <PublicNav />
+
+      {/* -- AXON PRE-LAUNCH TEASER ------------------------------------------ */}
+      {/* Full-viewport announcement above the existing TirePro hero. First
+          thing every landing visitor sees until launch in September 2026. */}
+      <AxonTeaser variant="hero" />
 
       {/* -- HERO --------------------------------------------------------------- */}
       <header
