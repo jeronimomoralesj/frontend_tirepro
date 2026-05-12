@@ -218,7 +218,7 @@ export default function DeveloperPager() {
               <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base text-white">Contacto TirePro</h4>
               <ul className="space-y-2 text-xs sm:text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 <li><a href="mailto:info@tirepro.com.co" className="hover:text-white transition-colors">info@tirepro.com.co</a></li>
-                <li><a href="tel:+573151349122" className="hover:text-white transition-colors">+57 315 134 9122</a></li>
+                <li><a href="tel:+573172169790" className="hover:text-white transition-colors">+57 317 2169790</a></li>
                 <li>Bogotá, Colombia</li>
               </ul>
             </address>

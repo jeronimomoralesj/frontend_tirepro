@@ -33,7 +33,7 @@ const contactLd = {
       {
         '@type': 'ContactPoint',
         email: 'info@tirepro.com.co',
-        telephone: '+57-315-134-9122',
+        telephone: '+57-317-216-9790',
         contactType: 'customer support',
         areaServed: 'CO',
         availableLanguage: ['Spanish', 'English'],
@@ -76,7 +76,7 @@ export default function ContactPage() {
             </p>
             <ul className="list-disc pl-5 space-y-1 text-sm">
               <li>Email: <a href="mailto:info@tirepro.com.co" className="text-[#1E76B6] hover:underline">info@tirepro.com.co</a></li>
-              <li>WhatsApp / Teléfono: <a href="tel:+573151349122" className="text-[#1E76B6] hover:underline">+57 315 134 9122</a></li>
+              <li>WhatsApp / Teléfono: <a href="tel:+573172169790" className="text-[#1E76B6] hover:underline">+57 317 2169790</a></li>
               <li>Ubicación: Bogotá, Colombia</li>
             </ul>
           </div>

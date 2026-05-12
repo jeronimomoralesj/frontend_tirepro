@@ -75,7 +75,7 @@ const PLATFORM_TERMS: Doc = {
       title: "Identificación del titular de la plataforma",
       blocks: [
         { kind: "p", text: "Los presentes Términos y Condiciones de Uso (en adelante, los \"Términos\") regulan el acceso, navegación, registro y utilización de la plataforma tecnológica TirePro, incluyendo el sitio web, aplicaciones, interfaces API, herramientas de software, servicios SaaS, marketplace, módulos de telemetría, sistemas de inteligencia artificial y demás funcionalidades asociadas (en adelante, la \"Plataforma\")." },
-        { kind: "p", text: "La Plataforma es operada por TIREPRO S.A.S., identificada con NIT 901964511-7, sociedad comercial constituida conforme a las leyes de la República de Colombia, con domicilio principal en Bogotá D.C., Colombia, teléfono de contacto +57 317 2169790 y correo electrónico matemoral@gmail.com (en adelante, \"TirePro\")." },
+        { kind: "p", text: "La Plataforma es operada por TIREPRO S.A.S., identificada con NIT 901964511-7, sociedad comercial constituida conforme a las leyes de la República de Colombia, con domicilio principal en Bogotá D.C., Colombia, teléfono de contacto +57 317 2169790 y correo electrónico info@tirepro.com.co (en adelante, \"TirePro\")." },
         { kind: "p", text: "El acceso, navegación, uso o registro en la Plataforma implica la aceptación expresa, informada, previa e inequívoca de los presentes Términos." },
       ],
     },
@@ -430,7 +430,7 @@ const PLATFORM_TERMS: Doc = {
           "Razón social: TIREPRO S.A.S.",
           "NIT: 901964511-7",
           "Teléfono: +57 317 2169790",
-          "Correo electrónico: matemoral@gmail.com",
+          "Correo electrónico: info@tirepro.com.co",
           "Domicilio principal: Bogotá D.C., Colombia",
         ] },
       ],
@@ -613,7 +613,7 @@ const MARKETPLACE_TERMS: Doc = {
           "Razón social: TIREPRO S.A.S.",
           "NIT: 901964511-7",
           "Teléfono: +57 317 2169790",
-          "Correo electrónico: matemoral@gmail.com",
+          "Correo electrónico: info@tirepro.com.co",
           "Domicilio principal: Bogotá D.C., Colombia",
         ] },
       ],
@@ -652,7 +652,7 @@ const PRIVACY_POLICY: Doc = {
       id: "responsable",
       title: "Identificación del responsable",
       blocks: [
-        { kind: "p", text: "TIREPRO S.A.S., identificada con NIT 901964511-7, teléfono +57 317 2169790 y correo electrónico matemoral@gmail.com, actúa como Responsable del Tratamiento de Datos Personales respecto de los usuarios directos de la Plataforma." },
+        { kind: "p", text: "TIREPRO S.A.S., identificada con NIT 901964511-7, teléfono +57 317 2169790 y correo electrónico info@tirepro.com.co, actúa como Responsable del Tratamiento de Datos Personales respecto de los usuarios directos de la Plataforma." },
         { kind: "p", text: "En ciertos escenarios, TirePro podrá actuar como Encargado del Tratamiento cuando procese datos suministrados por Distribuidores respecto de sus propios clientes." },
       ],
     },
@@ -909,7 +909,7 @@ const PRIVACY_POLICY: Doc = {
           "Razón social: TIREPRO S.A.S.",
           "NIT: 901964511-7",
           "Teléfono: +57 317 2169790",
-          "Correo electrónico: matemoral@gmail.com",
+          "Correo electrónico: info@tirepro.com.co",
           "Domicilio principal: Bogotá D.C., Colombia",
         ] },
       ],
@@ -1145,7 +1145,7 @@ export default function LegalPage() {
             </p>
             <p className="flex items-center gap-2">
               <Mail className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />
-              <a href="mailto:matemoral@gmail.com" className="hover:text-[#1E76B6]">matemoral@gmail.com</a>
+              <a href="mailto:info@tirepro.com.co" className="hover:text-[#1E76B6]">info@tirepro.com.co</a>
             </p>
             <p className="flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5 text-[#1E76B6] flex-shrink-0" />

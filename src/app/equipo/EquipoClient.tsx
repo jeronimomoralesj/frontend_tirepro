@@ -226,7 +226,7 @@ export default function Equipo() {
               <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base text-white">Contacto TirePro</h4>
               <ul className="space-y-2 text-xs sm:text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 <li><a href="mailto:info@tirepro.com.co" className="hover:text-white transition-colors">info@tirepro.com.co</a></li>
-                <li><a href="tel:+573151349122" className="hover:text-white transition-colors">+57 315 134 9122</a></li>
+                <li><a href="tel:+573172169790" className="hover:text-white transition-colors">+57 317 2169790</a></li>
                 <li>Bogotá, Colombia</li>
               </ul>
             </address>
@@ -243,7 +243,7 @@ export default function Equipo() {
 
       {/* WhatsApp */}
       <a
-        href="https://wa.me/3151349122?text=Hola,%20me%20gustaría%20saber%20más%20sobre%20TirePro"
+        href="https://wa.me/573172169790?text=Hola,%20me%20gustaría%20saber%20más%20sobre%20TirePro"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-2xl transition-all hover:scale-110 z-50"

@@ -137,7 +137,7 @@ const storeLd = {
   priceRange: '$',
   currenciesAccepted: 'COP',
   paymentAccepted: 'Tarjeta de crédito, Tarjeta de débito, PSE, Nequi, Transferencia bancaria, Crédito empresarial',
-  telephone: '+57-310-660-5563',
+  telephone: '+57-317-216-9790',
   email: 'info@tirepro.com.co',
   address: {
     '@type': 'PostalAddress',
@@ -372,7 +372,7 @@ const localBusinessLd = {
   description:
     'Marketplace de llantas en Colombia con distribuidores verificados, instalación, alineación, balanceo y entrega a domicilio.',
   priceRange: '$',
-  telephone: '+57-310-660-5563',
+  telephone: '+57-317-216-9790',
   email: 'info@tirepro.com.co',
   address: {
     '@type': 'PostalAddress',

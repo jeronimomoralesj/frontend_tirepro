@@ -92,7 +92,7 @@ const localBusinessLd = {
     'Marketplace de llantas y software de gestión de llantas para flotas en Colombia. ' +
     'Compra llantas a distribuidores verificados con instalación incluida.',
   priceRange: '$$',
-  telephone: '+57-310-660-5563',
+  telephone: '+57-317-216-9790',
   email: 'info@tirepro.com.co',
   address: {
     '@type': 'PostalAddress',

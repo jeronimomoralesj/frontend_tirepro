@@ -13,6 +13,7 @@ import {
 import { MarketplaceNav, MarketplaceFooter } from "../../../../components/MarketplaceShell";
 import { AddToCartButton } from "../../../../components/marketplace/AddToCartButton";
 import { trackDistributorView } from "../../../../lib/marketplaceAnalytics";
+import { BRAND_WHATSAPP_NUMBER } from "../../../../lib/brand";
 import { productHref } from "../../product/_lib/url";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -292,14 +293,17 @@ export default function DistributorStorefront() {
   const activeFiltersCount = activeChips.length;
 
   // WhatsApp link — Colombia phone numbers in TirePro come in many shapes
-  // ("+57 315 134 9122", "315 134 9122", "+573151349122"). Strip every
+  // ("+57 317 2169790", "317 2169790", "+573172169790"). Strip every
   // non-digit and prepend 57 if it's missing so wa.me works regardless.
+  // Falls back to TirePro's brand number when the distributor hasn't
+  // configured one, so the CTA still renders. TODO: switch to a routing
+  // inbox that hands the lead back to the original distributor.
   const whatsappHref = useMemo(() => {
-    if (!profile?.telefono) return null;
-    const raw = profile.telefono.replace(/\D+/g, "");
-    if (!raw) return null;
-    const e164 = raw.startsWith("57") ? raw : `57${raw}`;
-    const msg = `Hola ${profile.name}, vengo desde TirePro Marketplace y quisiera más información sobre sus llantas.`;
+    const raw = profile?.telefono?.replace(/\D+/g, "");
+    const e164 = raw && raw.length >= 10
+      ? (raw.startsWith("57") ? raw : `57${raw}`)
+      : BRAND_WHATSAPP_NUMBER;
+    const msg = `Hola ${profile?.name ?? "TirePro"}, vengo desde TirePro Marketplace y quisiera más información sobre sus llantas.`;
     return `https://wa.me/${e164}?text=${encodeURIComponent(msg)}`;
   }, [profile?.telefono, profile?.name]);
 

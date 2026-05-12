@@ -59,7 +59,7 @@ const translations = {
     success: "¡Mensaje Enviado!",
     successMsg: "Hemos recibido tu información correctamente. Nuestro equipo se pondrá en contacto contigo en las próximas 24 horas.",
     error: "Error al Enviar",
-    errorMsg: "Hubo un problema al enviar tu mensaje. Por favor, intenta de nuevo o contáctanos directamente al +57 310 660 5563.",
+    errorMsg: "Hubo un problema al enviar tu mensaje. Por favor, intenta de nuevo o contáctanos directamente al +57 317 2169790.",
     perfect: "¡Perfecto!",
     understood: "Entendido",
     navItems: ['Plataforma', 'Blog', 'Planes', 'Contacto'],
@@ -387,7 +387,7 @@ const ContactPage = () => {
                   {
                     icon: Phone,
                     title: t.phone,
-                    info: isUSLocation ? "+1 (555) 123-4567" : "+57 310 660 5563",
+                    info: isUSLocation ? "+1 (555) 123-4567" : "+57 317 2169790",
                   },
                   {
                     icon: MapPin,
@@ -618,7 +618,7 @@ const ContactPage = () => {
               <h4 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base text-white">Contacto TirePro</h4>
               <ul className="space-y-2 text-xs sm:text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 <li><a href="mailto:info@tirepro.com.co" className="hover:text-white transition-colors">info@tirepro.com.co</a></li>
-                <li><a href="tel:+573151349122" className="hover:text-white transition-colors">+57 315 134 9122</a></li>
+                <li><a href="tel:+573172169790" className="hover:text-white transition-colors">+57 317 2169790</a></li>
                 <li>Bogotá, Colombia</li>
               </ul>
             </address>
@@ -635,7 +635,7 @@ const ContactPage = () => {
 
       {/* WhatsApp floating button */}
       <a
-        href="https://wa.me/3151349122?text=Hola,%20me%20gustaría%20saber%20más%20sobre%20TirePro"
+        href="https://wa.me/573172169790?text=Hola,%20me%20gustaría%20saber%20más%20sobre%20TirePro"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 w-14 h-14 sm:w-16 sm:h-16 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-2xl transition-all hover:scale-110 z-50"

@@ -18,6 +18,7 @@ import { MarketplaceNav, MarketplaceFooter } from "../../../../components/Market
 import { PaymentBadges } from "../../../../components/marketplace/PaymentBadges";
 import { useMayWeek } from "../../../../components/marketplace/MayWeekBanner";
 import { trackProductView, trackAddToCart, trackReviewSubmit, trackProductDwell } from "../../../../lib/marketplaceAnalytics";
+import { BRAND_WHATSAPP_NUMBER } from "../../../../lib/brand";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -1056,13 +1057,21 @@ export default function ProductClient({
                   carries marca/modelo/dimension so the seller has
                   immediate context. */}
               {(() => {
+                // Prefer the distributor's own WhatsApp number when they
+                // expose one; fall back to TirePro's brand number so the
+                // CTA always renders. TODO: switch the fallback to a
+                // shared TirePro inbox once we have a routing system that
+                // hands these leads back to the original distributor.
                 const raw = product.distributor?.telefono;
-                if (!raw) return null;
-                // Strip everything that isn't a digit, then ensure the
-                // 57 country code is prefixed exactly once.
-                const digits = String(raw).replace(/\D/g, "");
-                if (digits.length < 10) return null;
-                const e164 = digits.startsWith("57") ? digits : `57${digits}`;
+                let e164: string;
+                if (raw) {
+                  const digits = String(raw).replace(/\D/g, "");
+                  e164 = digits.length < 10
+                    ? BRAND_WHATSAPP_NUMBER
+                    : digits.startsWith("57") ? digits : `57${digits}`;
+                } else {
+                  e164 = BRAND_WHATSAPP_NUMBER;
+                }
                 const msg = encodeURIComponent(
                   `Hola, estoy viendo la ${product.marca} ${product.modelo} ${product.dimension} en TirePro Marketplace. ¿Está disponible?`
                 );
