@@ -286,15 +286,24 @@ export default async function GlossaryTermPage(
             </article>
           )}
 
-          {/* Marketplace CTAs */}
-          {t.marketplaceLinks && t.marketplaceLinks.length > 0 && (
+          {/* CTA block — heading + subtitle adapt to ctaKind. Shopping
+              terms (default) point to /marketplace; operational terms
+              (CPK, RTD, alineación, etc.) point to the SaaS platform
+              where TirePro actually tracks the metric. */}
+          {t.marketplaceLinks && t.marketplaceLinks.length > 0 && (() => {
+            const isPlatform = t.ctaKind === "platform";
+            const ctaTitle = isPlatform ? "Iniciar en plataforma" : "Ver en marketplace";
+            const ctaSubtitle = isPlatform
+              ? "Lleva el control de esta métrica en TirePro: alertas automáticas, histórico por vehículo y CPK por llanta."
+              : "Aplica este conocimiento eligiendo entre los productos disponibles en TirePro.";
+            return (
             <article className="rounded-2xl p-6 sm:p-8 mb-6 text-white bg-gradient-to-br from-[#0A183A] via-[#173D68] to-[#1E76B6] shadow-[0_4px_24px_rgba(10,24,58,0.15)]">
               <h2 className="flex items-center gap-2 text-base font-extrabold mb-2">
                 <BookOpen className="w-4 h-4" />
-                Continuar en el marketplace
+                {ctaTitle}
               </h2>
               <p className="text-sm leading-relaxed text-white/85 mb-5">
-                Aplica este conocimiento eligiendo entre los productos disponibles en TirePro.
+                {ctaSubtitle}
               </p>
               <ul className="flex flex-wrap gap-2 m-0 p-0 list-none">
                 {t.marketplaceLinks.map((l) => (
@@ -310,7 +319,8 @@ export default async function GlossaryTermPage(
                 ))}
               </ul>
             </article>
-          )}
+            );
+          })()}
         </main>
 
         <MarketplaceFooter />

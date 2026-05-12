@@ -16,7 +16,7 @@ import React from "react";
 import Link from "next/link";
 import Script from "next/script";
 import type { Metadata } from "next";
-import { ArrowRight, BookOpen, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen } from "lucide-react";
 import { MarketplaceNav, MarketplaceFooter } from "../../components/MarketplaceShell";
 import { GLOSSARY_TERMS, GLOSSARY_CATEGORIES, type GlossaryCategory, termFromSlug } from "./_lib/terms";
 import { POPULAR_QUESTIONS } from "./_lib/popular-questions";
@@ -143,11 +143,7 @@ export default function GlosarioPage() {
         {/* HERO ------------------------------------------------------------- */}
         <section className="bg-gradient-to-br from-[#0A183A] via-[#173D68] to-[#1E76B6] text-white pt-14 pb-12 sm:pt-20 sm:pb-16 px-4 sm:px-6">
           <div className="max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.2em] text-white/75">
-              <Sparkles size={13} />
-              Recurso técnico
-            </div>
-            <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.05] tracking-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.05] tracking-tight">
               Glosario de llantas
             </h1>
             <p className="mt-5 text-lg sm:text-xl text-white/85 max-w-2xl leading-relaxed">

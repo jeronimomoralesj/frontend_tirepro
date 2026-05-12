@@ -11,29 +11,105 @@ interface SearchableTerm {
   synonyms: string[];
 }
 
+// Accent + case fold. "Índice" → "indice", "Reencauché" → "reencauche".
+// Without this the search box only finds the precisely-accented form,
+// but users on Spanish keyboards often skip accents entirely.
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+// Iterative Levenshtein with a single-row buffer. We only call this on
+// short strings (single words ≤ ~25 chars) so the O(n·m) cost is
+// negligible inside the search loop.
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  let prev = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  const curr = new Array(b.length + 1);
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(
+        curr[j - 1] + 1,        // insertion
+        prev[j] + 1,            // deletion
+        prev[j - 1] + cost,     // substitution
+      );
+    }
+    prev = curr.slice();
+  }
+  return prev[b.length];
+}
+
+// Per-token typo tolerance. Tokens of length ≤ 3 must match exactly
+// (otherwise "psi" matches anything 1 edit away — too noisy). Tokens of
+// length 4-6 tolerate 1 edit, longer tokens tolerate 2.
+function fuzzyThreshold(needle: string): number {
+  if (needle.length <= 3) return 0;
+  if (needle.length <= 6) return 1;
+  return 2;
+}
+
+// One token's contribution to the term's overall match score.
+// 0 = no match, higher is better. Substring matches outrank fuzzy
+// hits so "índice" beats "indici" when both are present.
+function scoreToken(haystackWords: string[], needle: string): number {
+  // Substring against any word in the haystack
+  for (const w of haystackWords) {
+    if (w.startsWith(needle)) return 3;
+    if (w.includes(needle)) return 2;
+  }
+  // Levenshtein fallback for typos
+  const threshold = fuzzyThreshold(needle);
+  if (threshold === 0) return 0;
+  for (const w of haystackWords) {
+    if (Math.abs(w.length - needle.length) > threshold) continue;
+    if (levenshtein(w, needle) <= threshold) return 1;
+  }
+  return 0;
+}
+
 // Client-only search island. The full index is server-rendered (so
 // Googlebot sees every term as anchor text on first byte); this widget
 // just lets users filter without a page reload.
 export default function GlosarioSearch({ terms }: { terms: SearchableTerm[] }) {
   const [query, setQuery] = useState("");
 
+  // Precompute the searchable haystack per term, normalized + tokenized
+  // once across renders. Cheap, but avoids redoing it for each keystroke.
+  const indexed = useMemo(
+    () =>
+      terms.map((t) => {
+        const haystack = `${t.name} ${t.shortDef} ${t.synonyms.join(" ")}`;
+        const words = normalize(haystack).split(/[^a-z0-9]+/).filter(Boolean);
+        return { term: t, words };
+      }),
+    [terms],
+  );
+
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    const tokens = q.split(/\s+/).filter(Boolean);
-    return terms
-      .map((t) => {
-        const haystack = `${t.name} ${t.shortDef} ${t.synonyms.join(" ")}`.toLowerCase();
-        const score = tokens.reduce(
-          (acc, tok) => (haystack.includes(tok) ? acc + 1 : acc),
-          0,
-        );
-        return { t, score };
+    const raw = query.trim();
+    if (!raw) return [];
+    const tokens = normalize(raw).split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return [];
+    return indexed
+      .map(({ term, words }) => {
+        // Each token contributes its score; missing-token = 0 means the
+        // term fails the conjunctive filter below.
+        const tokenScores = tokens.map((tok) => scoreToken(words, tok));
+        const allMatch = tokenScores.every((s) => s > 0);
+        const totalScore = allMatch ? tokenScores.reduce((a, b) => a + b, 0) : 0;
+        return { term, score: totalScore };
       })
       .filter((m) => m.score > 0)
-      .sort((a, b) => b.score - a.score || a.t.name.localeCompare(b.t.name))
+      .sort((a, b) => b.score - a.score || a.term.name.localeCompare(b.term.name))
       .slice(0, 10);
-  }, [query, terms]);
+  }, [query, indexed]);
 
   return (
     <div className="relative max-w-2xl mx-auto">
@@ -62,7 +138,7 @@ export default function GlosarioSearch({ terms }: { terms: SearchableTerm[] }) {
             </p>
           ) : (
             <ul className="m-0 p-0 list-none divide-y divide-gray-100">
-              {matches.map(({ t }) => (
+              {matches.map(({ term: t }) => (
                 <li key={t.slug}>
                   <Link
                     href={`/glosario/${t.slug}`}

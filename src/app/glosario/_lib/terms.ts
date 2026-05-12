@@ -50,6 +50,16 @@ export interface GlossaryTerm {
   seoTitle?: string;        // Overrides <title>
   h1Question?: string;      // Overrides visible <h1>
   metaDescription?: string; // Overrides <meta description>
+
+  // ---- CTA configuration --------------------------------------------------
+  // Drives the heading + subtitle of the marketplaceLinks block on the
+  // term page. "marketplace" → "Ver en marketplace" (shopping terms like
+  // tipos-de-llantas, reencauche, marcas). "platform" → "Iniciar en
+  // plataforma" (operational terms where the TirePro SaaS adds value:
+  // CPK, RTD, alineación, balanceo, rotación, PSI, TPMS, vida útil).
+  // Defaults to "marketplace" when marketplaceLinks is set but ctaKind
+  // is not.
+  ctaKind?: "marketplace" | "platform";
 }
 
 export const GLOSSARY_CATEGORIES: Record<GlossaryCategory, string> = {
@@ -111,9 +121,11 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Llanta de $1.200.000 que rinde 50.000 km → CPK = $24/km (peor rentabilidad pese al menor precio).",
     ],
     relatedTerms: ["reencauche", "vida-util-de-llanta", "rtd", "rotacion-de-llantas"],
+    ctaKind: "platform",
     marketplaceLinks: [
-      { label: "Calculadora de CPK", href: "/calculadora" },
-      { label: "Catálogo con CPK", href: "/marketplace" },
+      { label: "Calculadora de CPK gratis",   href: "/calculadora" },
+      { label: "Empezar con TirePro",         href: "/companyregister" },
+      { label: "Catálogo con CPK por modelo", href: "/marketplace" },
     ],
     faqs: [
       { q: "¿Cómo se calcula el CPK de una llanta?",
@@ -141,6 +153,11 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Mínimo legal en Colombia: 1.6 mm.",
     ],
     relatedTerms: ["banda-de-rodamiento", "vida-util-de-llanta", "reencauche", "cpk"],
+    ctaKind: "platform",
+    marketplaceLinks: [
+      { label: "Registrar RTD por vehículo en TirePro", href: "/companyregister" },
+      { label: "Comprar llantas nuevas",                href: "/marketplace/categoria/nueva" },
+    ],
     faqs: [
       { q: "¿Cuál es el RTD mínimo legal en Colombia?",
         a: "1.6 mm. Por debajo de ese valor la llanta no es legal para circular y la frenada en mojado pierde efectividad." },
@@ -167,6 +184,9 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "152 → 3.550 kg por llanta (típico tractomula).",
     ],
     relatedTerms: ["indice-de-velocidad", "psi", "flanco", "dimension-llanta"],
+    marketplaceLinks: [
+      { label: "Buscar llantas por medida en el marketplace", href: "/marketplace/buscar" },
+    ],
     faqs: [
       { q: "¿Dónde encuentro el índice de carga de mi llanta?",
         a: "Estampado en el flanco, junto al índice de velocidad. Por ejemplo en \"205/55R16 91V\", el 91 es el índice de carga." },
@@ -195,6 +215,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "W: 270 km/h (deportivo alto rendimiento)",
     ],
     relatedTerms: ["indice-de-carga", "dimension-llanta", "flanco"],
+    marketplaceLinks: [
+      { label: "Buscar llantas para auto", href: "/marketplace/categoria/automovil" },
+      { label: "Buscar llantas para SUV",  href: "/marketplace/categoria/camioneta" },
+    ],
     faqs: [
       { q: "¿Qué pasa si uso una llanta con índice de velocidad inferior?",
         a: "A velocidades sostenidas superiores al límite, la llanta acumula temperatura, debilita el casco y puede sufrir separación de banda. Es peligroso." },
@@ -218,6 +242,9 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "DOT XXXX 0824 → fabricada en la semana 8 de 2024.",
     ],
     relatedTerms: ["flanco", "vida-util-de-llanta"],
+    marketplaceLinks: [
+      { label: "Ver llantas nuevas con DOT reciente", href: "/marketplace/categoria/nueva" },
+    ],
     faqs: [
       { q: "¿Cómo leer el DOT de una llanta?",
         a: "Los últimos 4 dígitos son la semana y el año. \"2723\" significa semana 27 de 2023. Si solo hay 3 dígitos, la llanta es anterior al 2000 y debe descartarse." },
@@ -281,6 +308,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Tractomula: 100-120 PSI",
     ],
     relatedTerms: ["tpms", "balanceo", "rotacion-de-llantas", "vida-util-de-llanta"],
+    ctaKind: "platform",
+    marketplaceLinks: [
+      { label: "Control diario de presión en TirePro", href: "/companyregister" },
+    ],
     faqs: [
       { q: "¿Con qué frecuencia debo revisar la presión de mis llantas?",
         a: "Una vez al mes para vehículos de pasajeros, diariamente para vehículos de carga pesada. La presión se mide siempre en frío, antes de rodar." },
@@ -302,6 +333,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "mantenimiento",
     synonyms: ["alineamiento", "alignment"],
     relatedTerms: ["balanceo", "rotacion-de-llantas", "vida-util-de-llanta"],
+    ctaKind: "platform",
+    marketplaceLinks: [
+      { label: "Programar alineación en TirePro", href: "/companyregister" },
+    ],
     faqs: [
       { q: "¿Cada cuánto debo alinear mi vehículo?",
         a: "Cada 10.000 km, al cambiar llantas, después de cualquier golpe contra hueco o si notas que la dirección se ladea sola." },
@@ -321,6 +356,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "mantenimiento",
     synonyms: ["balancing", "balanceo de ruedas"],
     relatedTerms: ["alineacion", "rotacion-de-llantas"],
+    ctaKind: "platform",
+    marketplaceLinks: [
+      { label: "Programar balanceo en TirePro", href: "/companyregister" },
+    ],
   },
   {
     slug: "rotacion-de-llantas",
@@ -336,6 +375,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "mantenimiento",
     synonyms: ["rotación", "rotation", "rotación de neumáticos"],
     relatedTerms: ["alineacion", "balanceo", "cpk", "vida-util-de-llanta"],
+    ctaKind: "platform",
+    marketplaceLinks: [
+      { label: "Programar rotaciones automáticas con TirePro", href: "/companyregister" },
+    ],
   },
   {
     slug: "tpms",
@@ -347,6 +390,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "tecnologia",
     synonyms: ["sistema de monitoreo de presión", "Tire Pressure Monitoring System"],
     relatedTerms: ["psi", "balanceo"],
+    ctaKind: "platform",
+    marketplaceLinks: [
+      { label: "Monitorear presión digital con TirePro", href: "/companyregister" },
+    ],
   },
   {
     slug: "tubeless",
@@ -431,6 +478,9 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "tipos",
     synonyms: ["radial", "construcción radial"],
     relatedTerms: ["tipos-de-llantas", "llanta-diagonal", "casco-de-la-llanta", "dimension-llanta"],
+    marketplaceLinks: [
+      { label: "Ver llantas radiales", href: "/marketplace" },
+    ],
   },
   {
     slug: "llanta-diagonal",
@@ -480,6 +530,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "tipos",
     synonyms: ["llanta para todo clima", "llanta 4 estaciones"],
     relatedTerms: ["tipos-de-llantas", "llanta-off-road", "tipos-de-terreno"],
+    marketplaceLinks: [
+      { label: "Llantas para carro all-season",     href: "/marketplace/categoria/automovil" },
+      { label: "Llantas para camioneta all-season", href: "/marketplace/categoria/camioneta" },
+    ],
   },
   {
     slug: "llanta-off-road",
@@ -491,6 +545,9 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "tipos",
     synonyms: ["llanta off-road", "M/T", "A/T", "All Terrain", "Mud Terrain"],
     relatedTerms: ["tipos-de-llantas", "llanta-all-season", "tipos-de-terreno", "banda-de-rodamiento"],
+    marketplaceLinks: [
+      { label: "Llantas A/T y M/T para 4x4", href: "/marketplace/categoria/camioneta" },
+    ],
   },
   {
     slug: "tipos-de-terreno",
@@ -522,6 +579,12 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
       "295/80R22.5: tractomula",
     ],
     relatedTerms: ["aspecto", "indice-de-carga", "indice-de-velocidad"],
+    marketplaceLinks: [
+      { label: "Llantas 205/55R16",     href: "/marketplace/dimension/205-55r16" },
+      { label: "Llantas 265/65R17",     href: "/marketplace/dimension/265-65r17" },
+      { label: "Llantas 295/80R22-5",   href: "/marketplace/dimension/295-80r22-5" },
+      { label: "Ver todas las medidas", href: "/marketplace" },
+    ],
   },
   {
     slug: "aspecto",
@@ -548,6 +611,9 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "seguridad",
     synonyms: ["aquaplaning", "hidroplaning"],
     relatedTerms: ["rtd", "banda-de-rodamiento", "psi"],
+    marketplaceLinks: [
+      { label: "Llantas con buen agarre en mojado", href: "/marketplace/categoria/automovil" },
+    ],
   },
   {
     slug: "vida-util-de-llanta",
@@ -559,6 +625,11 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "comercial",
     synonyms: ["durabilidad de llanta", "kilometraje de llanta"],
     relatedTerms: ["cpk", "rtd", "reencauche", "psi", "rotacion-de-llantas"],
+    ctaKind: "platform",
+    marketplaceLinks: [
+      { label: "Predecir vida útil con IA en TirePro", href: "/companyregister" },
+      { label: "Comprar llantas con CPK conocido",     href: "/marketplace" },
+    ],
   },
   {
     slug: "tpms-vs-presion-manual",
@@ -570,6 +641,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     category: "mantenimiento",
     synonyms: [],
     relatedTerms: ["tpms", "psi"],
+    ctaKind: "platform",
+    marketplaceLinks: [
+      { label: "Registrar lecturas de presión en TirePro", href: "/companyregister" },
+    ],
   },
   {
     slug: "marcas-de-llantas",
