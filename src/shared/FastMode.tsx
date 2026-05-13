@@ -67,6 +67,8 @@ type ExistingTire = {
   posicion: number;
   profundidadInicial: number;
   vehicleId: string;
+  kilometrosRecorridos: number;
+  costos: { valor: number }[];
   // Inspection
   profundidadInt: number | "";
   profundidadCen: number | "";
@@ -74,6 +76,45 @@ type ExistingTire = {
   presionPsi: number | "";
   image: File | null;
 };
+
+// Mirror of backend calcCpkMetrics (tire.service.ts). Keep in sync —
+// frontend preview must show the same number the backend will store.
+function previewCpk(
+  totalCost: number,
+  totalKm: number,
+  profInicial: number,
+  minDepth: number,
+) {
+  const LIMITE_LEGAL_MM = 2;
+  const EXPECTED_LIFETIME_KM = 80_000;
+  const MIN_MEANINGFUL_KM = 5_000;
+
+  const usableDepth = profInicial - LIMITE_LEGAL_MM;
+  const mmWorn      = profInicial - minDepth;
+  const mmLeft      = Math.max(minDepth - LIMITE_LEGAL_MM, 0);
+
+  let projectedKm = 0;
+  if (usableDepth > 0) {
+    if (totalKm > 0) {
+      const wearEstimate = mmWorn > 0 ? totalKm + (totalKm / mmWorn) * mmLeft : 0;
+      const fallback     = totalKm + (mmLeft / usableDepth) * EXPECTED_LIFETIME_KM;
+      if (mmWorn <= 0) projectedKm = fallback;
+      else {
+        const c = Math.min(mmWorn / usableDepth, 1);
+        projectedKm = wearEstimate * c + fallback * (1 - c);
+      }
+    } else {
+      projectedKm = EXPECTED_LIFETIME_KM;
+    }
+  }
+
+  let cpk = 0;
+  if (totalKm >= MIN_MEANINGFUL_KM) cpk = totalCost / totalKm;
+  else if (projectedKm > 0 && totalCost > 0) cpk = totalCost / projectedKm;
+
+  const cpkProyectado = projectedKm > 0 ? totalCost / projectedKm : 0;
+  return { cpk, cpkProyectado, projectedKm: Math.round(projectedKm) };
+}
 
 function convertFileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -281,6 +322,8 @@ export default function FastMode({ language }: { language: string }) {
               .map((t: any) => ({
                 id: t.id, placa: t.placa, marca: t.marca, posicion: t.posicion,
                 profundidadInicial: t.profundidadInicial, vehicleId: t.vehicleId,
+                kilometrosRecorridos: t.kilometrosRecorridos ?? 0,
+                costos: Array.isArray(t.costos) ? t.costos : Array.isArray(t.costo) ? t.costo : [],
                 profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null,
               }))
               .sort((a: { posicion: number }, b: { posicion: number }) => a.posicion - b.posicion),
@@ -673,12 +716,29 @@ export default function FastMode({ language }: { language: string }) {
           {existingTires.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-wider">Llantas existentes ({existingTires.length})</p>
-              {existingTires.map((t) => (
-                <TireCard key={t.id} label={`${t.placa} — P${t.posicion} — ${t.marca}`} isNew={false}
-                  profInt={t.profundidadInt} profCen={t.profundidadCen} profExt={t.profundidadExt}
-                  presion={t.presionPsi} image={t.image}
-                  onChange={(f, v) => updateExistingTire(t.id, f, v)} />
-              ))}
+              {existingTires.map((t) => {
+                const kmDiff = Math.max(Number(newKilometraje) - Number(vehicleForm.kilometrajeActual || 0), 0);
+                const intN = Number(t.profundidadInt);
+                const cenN = Number(t.profundidadCen);
+                const extN = Number(t.profundidadExt);
+                const filled =
+                  t.profundidadInt !== "" && t.profundidadCen !== "" && t.profundidadExt !== "" &&
+                  intN > 0 && cenN > 0 && extN > 0;
+                let preview: { cpk: number; cpkProyectado: number; projectedKm: number } | null = null;
+                if (filled) {
+                  const minDepth = Math.min(intN, cenN, extN);
+                  const totalCost = (t.costos ?? []).reduce((s, c) => s + (c.valor ?? 0), 0);
+                  const totalKm = (t.kilometrosRecorridos || 0) + kmDiff;
+                  preview = previewCpk(totalCost, totalKm, t.profundidadInicial || 8, minDepth);
+                }
+                return (
+                  <TireCard key={t.id} label={`${t.placa} — P${t.posicion} — ${t.marca}`} isNew={false}
+                    profInt={t.profundidadInt} profCen={t.profundidadCen} profExt={t.profundidadExt}
+                    presion={t.presionPsi} image={t.image}
+                    preview={preview}
+                    onChange={(f, v) => updateExistingTire(t.id, f, v)} />
+                );
+              })}
             </div>
           )}
 
@@ -717,12 +777,13 @@ export default function FastMode({ language }: { language: string }) {
 // -- Tire inspection card (existing) ------------------------------------------
 
 function TireCard({
-  label, isNew, profInt, profCen, profExt, presion, image,
+  label, isNew, profInt, profCen, profExt, presion, image, preview,
   onChange,
 }: {
   label: string; isNew: boolean;
   profInt: number | ""; profCen: number | ""; profExt: number | "";
   presion: number | ""; image: File | null;
+  preview?: { cpk: number; cpkProyectado: number; projectedKm: number } | null;
   onChange: (field: string, value: any) => void;
 }) {
   const [showExtras, setShowExtras] = useState(false);
@@ -745,6 +806,25 @@ function TireCard({
             </div>
           ))}
         </div>
+
+        {/* CPK preview */}
+        {preview && (
+          <div className="grid grid-cols-3 gap-2 px-3 py-2 rounded-xl"
+            style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(52,140,203,0.18)" }}>
+            <div className="text-center">
+              <p className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider">CPK</p>
+              <p className="text-xs font-bold text-[#0A183A]">${preview.cpk.toFixed(2)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider">CPK Proy.</p>
+              <p className="text-xs font-bold text-[#0A183A]">${preview.cpkProyectado.toFixed(2)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] font-bold text-[#1E76B6] uppercase tracking-wider">Km Proy.</p>
+              <p className="text-xs font-bold text-[#0A183A]">{preview.projectedKm.toLocaleString()}</p>
+            </div>
+          </div>
+        )}
 
         {/* Image upload */}
         <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all text-sm font-medium"

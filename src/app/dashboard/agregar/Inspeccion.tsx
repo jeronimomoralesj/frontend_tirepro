@@ -198,25 +198,52 @@ function convertFileToBase64(file: File): Promise<string> {
   });
 }
 
+// Mirror of backend calcCpkMetrics (tire.service.ts). Keep in sync —
+// frontend preview must match what the backend will actually store, or
+// users see one number on screen and a different one in the dashboard.
 function calculateCpk(tire: Tire, minDepth: number, kmDiff: number) {
+  const LIMITE_LEGAL_MM = 2;
+  const EXPECTED_LIFETIME_KM = 80_000;
+  const MIN_MEANINGFUL_KM = 5_000;
+
   const costoArr   = tire.costos ?? tire.costo ?? [];
   const totalCost  = costoArr.reduce((s, c) => s + (c.valor ?? 0), 0);
-  const totalKm        = (tire.kilometrosRecorridos || 0) + kmDiff;
-  const cpk            = totalKm > 0 ? totalCost / totalKm : 0;
-  const profInicial    = tire.profundidadInicial || 8;
-  const denominator    = (totalKm / Math.max(profInicial - minDepth, 0.01)) * profInicial;
-  const cpkProyectado  = denominator > 0 ? totalCost / denominator : 0;
-  const minLegal       = 2;
-  let projectedKm      = 0;
-  if (minDepth > minLegal && totalKm > 0) {
-    const mmWorn   = profInicial - minDepth;
-    const wearRate = mmWorn > 0 ? totalKm / mmWorn : 0;
-    if (wearRate > 0) projectedKm = Math.round((minDepth - minLegal) * wearRate);
+  const totalKm    = (tire.kilometrosRecorridos || 0) + kmDiff;
+
+  const profInicial = tire.profundidadInicial || 8;
+  const usableDepth = profInicial - LIMITE_LEGAL_MM;
+  const mmWorn      = profInicial - minDepth;
+  const mmLeft      = Math.max(minDepth - LIMITE_LEGAL_MM, 0);
+
+  let projectedKm = 0;
+  if (usableDepth > 0) {
+    if (totalKm > 0) {
+      const wearEstimate = mmWorn > 0 ? totalKm + (totalKm / mmWorn) * mmLeft : 0;
+      const fallback     = totalKm + (mmLeft / usableDepth) * EXPECTED_LIFETIME_KM;
+      if (mmWorn <= 0) {
+        projectedKm = fallback;
+      } else {
+        const confidence = Math.min(mmWorn / usableDepth, 1);
+        projectedKm = wearEstimate * confidence + fallback * (1 - confidence);
+      }
+    } else {
+      projectedKm = EXPECTED_LIFETIME_KM;
+    }
   }
+
+  let cpk = 0;
+  if (totalKm >= MIN_MEANINGFUL_KM) {
+    cpk = totalCost / totalKm;
+  } else if (projectedKm > 0 && totalCost > 0) {
+    cpk = totalCost / projectedKm;
+  }
+
+  const cpkProyectado = projectedKm > 0 ? totalCost / projectedKm : 0;
+
   return {
     cpk:           cpk.toFixed(3),
     cpkProyectado: cpkProyectado.toFixed(3),
-    projectedKm,
+    projectedKm:   Math.round(projectedKm),
   };
 }
 
