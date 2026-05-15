@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   images: {
+    // Bypass Vercel's Image Optimization (/_next/image) — backend already
+    // serves pre-normalized PNGs via CloudFront, and routing every variant
+    // through Vercel's transformer was exhausting the monthly quota (402).
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "tireproimages.s3.us-east-1.amazonaws.com" },
       { protocol: "https", hostname: "tirepro.com.co" },
