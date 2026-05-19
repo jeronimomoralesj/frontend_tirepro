@@ -8,7 +8,6 @@ import { Menu, X, ArrowRight } from "lucide-react";
 import logo from "../../public/logo_full.png";
 
 const NAV_LINKS = [
-  { label: "AXON",        href: "/axon" },
   { label: "Marketplace", href: "/marketplace" },
   { label: "Plataforma",  href: "/#producto" },
   { label: "Glosario",    href: "/glosario" },
