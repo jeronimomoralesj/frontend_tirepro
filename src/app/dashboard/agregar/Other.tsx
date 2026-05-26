@@ -192,6 +192,11 @@ const EventosPage: React.FC = () => {
   // -- Submit event -----------------------------------------------------------
   async function handleAddEvent() {
     if (!newEventText.trim()) { setModalError("Ingrese el texto del evento."); return; }
+    const VIDA_VALUES = ["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"];
+    if (VIDA_VALUES.includes(newEventText.trim().toLowerCase())) {
+      setModalError("Para cambiar la vida de la llanta, use la pestaña 'Vida'.");
+      return;
+    }
     if (!selectedTire) return;
 
     setSaving(true);

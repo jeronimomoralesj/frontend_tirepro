@@ -167,14 +167,16 @@ const VidaPage: React.FC = () => {
 
     setLoading(true);
     try {
-      // Prefer the active distribuidor client (set on agregarDist/page.tsx);
-      // fall back to the user's own companyId only if no client is selected.
       let targetCompanyId = "";
       try {
         const raw = localStorage.getItem("distClient");
         if (raw) targetCompanyId = JSON.parse(raw).id ?? "";
       } catch {/* ignore */}
-      if (!targetCompanyId) targetCompanyId = localStorage.getItem("companyId") ?? "";
+      if (!targetCompanyId) {
+        setError("Selecciona un cliente primero.");
+        setLoading(false);
+        return;
+      }
 
       const vRes = await authFetch(
         `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}${targetCompanyId ? `&companyId=${targetCompanyId}` : ""}`
@@ -256,7 +258,8 @@ const VidaPage: React.FC = () => {
     if (!selectedVida) return setModalError("Seleccione un valor de vida.");
     if (selectedVida !== "fin" && !bandaValue.trim()) return setModalError("Ingrese la banda/diseño.");
 
-    const body: Record<string, unknown> = { valor: selectedVida, banda: bandaValue.trim() };
+    const body: Record<string, unknown> = { valor: selectedVida };
+    if (bandaValue.trim()) body.banda = bandaValue.trim();
 
     if (selectedVida.startsWith("reencauche")) {
       const n = parseFloat(costValue);

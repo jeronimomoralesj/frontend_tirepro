@@ -36,6 +36,7 @@ const EJE_OPTIONS = [
   { value: "traccion", label: "Tracción" },
   { value: "libre", label: "Libre" },
   { value: "remolque", label: "Remolque" },
+  { value: "repuesto", label: "Repuesto" },
 ];
 
 // -- Types --------------------------------------------------------------------
@@ -300,8 +301,12 @@ export default function FastMode({ language }: { language: string }) {
   // Inspection date
   const [inspectionDate, setInspectionDate] = useState(() => new Date().toISOString().split("T")[0]);
 
-  // Company
+  // Company — prefer distClient (distributor viewing a client) over own companyId
   const [companyId, setCompanyId] = useState(() => {
+    try {
+      const distRaw = localStorage.getItem("distClient");
+      if (distRaw) { const dc = JSON.parse(distRaw); if (dc?.id) return dc.id; }
+    } catch {/* ignore */}
     try { return JSON.parse(localStorage.getItem("user") ?? "{}").companyId ?? ""; } catch { return ""; }
   });
 
@@ -314,7 +319,7 @@ export default function FastMode({ language }: { language: string }) {
 
     setError(""); setSuccess(""); setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa)}`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(placa)}&companyId=${companyId}`, { headers: authHeaders() });
       if (res.ok) {
         // Vehicle exists — load its tires
         const v = await res.json();

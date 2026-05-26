@@ -351,8 +351,15 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
       );
 
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || `Error ${res.status} en la carga masiva`);
+        let errMsg = `Error ${res.status} en la carga masiva`;
+        try {
+          const errBody = await res.json();
+          errMsg = errBody.message ?? errMsg;
+        } catch {
+          const errText = await res.text();
+          if (errText) errMsg = errText;
+        }
+        throw new Error(errMsg);
       }
 
       const data = await res.json();

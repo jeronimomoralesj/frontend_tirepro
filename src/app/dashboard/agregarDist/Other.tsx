@@ -155,16 +155,16 @@ const EventosPage: React.FC = () => {
 
     setLoading(true);
     try {
-      // Scope to the active distribuidor client (set by agregarDist/page.tsx).
       let distClientId = "";
       try {
         const raw = localStorage.getItem("distClient");
         if (raw) distClientId = JSON.parse(raw).id ?? "";
       } catch {/* ignore */}
+      if (!distClientId) { setError("Selecciona un cliente primero."); setLoading(false); return; }
 
       const vRes = await authFetch(
         `${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(searchTerm.trim().toLowerCase())}`
-        + (distClientId ? `&companyId=${distClientId}` : "")
+        + `&companyId=${distClientId}`
       );
       if (!vRes.ok) throw new Error("Vehículo no encontrado");
       const vData: Vehicle = await vRes.json();
@@ -200,6 +200,11 @@ const EventosPage: React.FC = () => {
   // -- Submit event -----------------------------------------------------------
   async function handleAddEvent() {
     if (!newEventText.trim()) { setModalError("Ingrese el texto del evento."); return; }
+    const VIDA_VALUES = ["nueva", "reencauche1", "reencauche2", "reencauche3", "fin"];
+    if (VIDA_VALUES.includes(newEventText.trim().toLowerCase())) {
+      setModalError("Para cambiar la vida de la llanta, use la pestaña 'Vida'.");
+      return;
+    }
     if (!selectedTire) return;
 
     setSaving(true);

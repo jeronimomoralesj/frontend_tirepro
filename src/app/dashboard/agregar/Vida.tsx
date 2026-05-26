@@ -411,10 +411,8 @@ function UpdateModal({
       if (isNaN(mm) || mm < 0)  return setModalError("Ingrese los milímetros finales válidos");
     }
 
-    const body: Record<string, unknown> = {
-      valor: selectedVida,
-      banda: bandaValue.trim(),
-    };
+    const body: Record<string, unknown> = { valor: selectedVida };
+    if (bandaValue.trim()) body.banda = bandaValue.trim();
 
     if (isReencauche && bandaMarcaValue.trim()) body.bandaMarca = bandaMarcaValue.trim();
     if (isReencauche)         body.costo             = parseFloat(costValue);
