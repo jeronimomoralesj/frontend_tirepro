@@ -1035,8 +1035,15 @@ export default function VehiculoPage() {
         body: JSON.stringify({ placa }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? "Error al unir");
-      const vehicle = await res.json();
-      setVehicles((prev) => prev.map((v) => v.id === vehicle.id ? normalise(vehicle) : v));
+      const updated = await res.json();
+      setVehicles((prev) => {
+        let next = prev.map((v) => v.id === updated.id ? normalise(updated) : v);
+        const peer = next.find((v) => v.placa.toUpperCase() === placa.toUpperCase());
+        if (peer && !peer.union.some((u) => u.toUpperCase() === updated.placa.toUpperCase())) {
+          next = next.map((v) => v.id === peer.id ? { ...v, union: [...v.union, updated.placa.toUpperCase()] } : v);
+        }
+        return next;
+      });
       setPlateInputs((p) => ({ ...p, [vehicleId]: "" }));
       setShowUnionInput((p) => ({ ...p, [vehicleId]: false }));
     } catch (err: unknown) {
@@ -1053,8 +1060,19 @@ export default function VehiculoPage() {
         body: JSON.stringify({ placa: targetPlaca }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? "Error al eliminar unión");
-      const vehicle = await res.json();
-      setVehicles((prev) => prev.map((v) => v.id === vehicle.id ? normalise(vehicle) : v));
+      const updated = await res.json();
+      const sourcePlaca = updated.placa?.toUpperCase() ?? "";
+      setVehicles((prev) => {
+        let next = prev.map((v) => v.id === updated.id ? normalise(updated) : v);
+        const peer = next.find((v) => v.placa.toUpperCase() === targetPlaca.toUpperCase());
+        if (peer) {
+          next = next.map((v) => v.id === peer.id
+            ? { ...v, union: v.union.filter((u) => u.toUpperCase() !== sourcePlaca) }
+            : v
+          );
+        }
+        return next;
+      });
       setUnionToDelete(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error inesperado");
@@ -1077,16 +1095,30 @@ export default function VehiculoPage() {
       .slice(0, 8);
   }
 
-  function handleSelectPlate(vehicleId: string, placa: string) {
+  async function handleSelectPlate(vehicleId: string, placa: string) {
     setPlateInputs((p) => ({ ...p, [vehicleId]: placa }));
-    // Auto-submit after selecting
-    setTimeout(() => {
-      setPlateInputs((prev) => {
-        const current = prev[vehicleId]?.trim().toUpperCase();
-        if (current === placa) handleAddUnion(vehicleId);
-        return prev;
+    setShowUnionInput((p) => ({ ...p, [vehicleId]: false }));
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/union/add`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ placa }),
       });
-    }, 0);
+      if (!res.ok) throw new Error((await res.json()).message ?? "Error al unir");
+      const updated = await res.json();
+      setVehicles((prev) => {
+        let next = prev.map((v) => v.id === updated.id ? normalise(updated) : v);
+        const peer = next.find((v) => v.placa.toUpperCase() === placa.toUpperCase());
+        if (peer && !peer.union.some((u) => u.toUpperCase() === updated.placa.toUpperCase())) {
+          next = next.map((v) => v.id === peer.id ? { ...v, union: [...v.union, updated.placa.toUpperCase()] } : v);
+        }
+        return next;
+      });
+      setPlateInputs((p) => ({ ...p, [vehicleId]: "" }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error inesperado");
+    }
   }
 
   function renderCard(vehicle: Vehicle, indexInGroup: number, onRemoveLeft: (() => void) | null) {

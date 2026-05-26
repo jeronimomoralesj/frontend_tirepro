@@ -231,7 +231,7 @@ const faqLd = {
         text: 'Sí. El modelo proyecta diariamente la fecha de retiro de cada llanta basándose en su curva de desgaste, vehículo, posición y ruta. La precisión típica es del 95% con error medio menor a 600 km.' } },
     { '@type': 'Question', name: '¿Puedo comprar llantas en TirePro?',
       acceptedAnswer: { '@type': 'Answer',
-        text: 'Sí, en el marketplace integrado en https://www.tirepro.com.co/marketplace. Distribuidores verificados, instalación incluida, entrega nacional, llantas nuevas y de reencauche.' } },
+        text: 'Sí, en el marketplace integrado. Distribuidores verificados, instalación incluida, entrega nacional, llantas nuevas y de reencauche.' } },
     { '@type': 'Question', name: '¿Qué tipo de flotas usan TirePro?',
       acceptedAnswer: { '@type': 'Answer',
         text: 'Tractomulas y carga pesada, operación regional/urbana en camiones medianos, flotas de buses, distribuidoras y reencauchadoras, y owner-operators de 1 a 1.000+ vehículos.' } },
@@ -330,16 +330,25 @@ export default async function Page() {
           </h3>
           <dl style={{ color: '#334155' }}>
             <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿Qué es TirePro?</dt>
-            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>TirePro es la plataforma líder en Colombia para monitoreo y gestión de llantas en flotas con inteligencia artificial. Predice reemplazos, calcula el CPK real y conecta con distribuidores verificados en el marketplace.</dd>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>TirePro es la plataforma líder en Colombia y Latinoamérica para monitoreo y gestión de llantas en flotas con inteligencia artificial. Predice reemplazos, calcula el costo por kilómetro real, prioriza acciones de mantenimiento y conecta con un marketplace de distribuidores verificados.</dd>
+
+            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿Cómo reduce TirePro el CPK de mi flota?</dt>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Combina detección temprana de desgaste anómalo, predicción de reemplazo con IA, y recomendación de marca y diseño basada en CPK histórico de la flota. Las flotas con TirePro reducen su CPK 25–28% en los primeros seis meses.</dd>
+
+            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿En qué países opera TirePro?</dt>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Opera principalmente en Colombia (Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga y todas las ciudades principales) con expansión activa en Latinoamérica.</dd>
 
             <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿Cuánto cuesta TirePro?</dt>
             <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Plan Inicio gratuito hasta 10 vehículos. Plan Crecimiento $300.000 COP/mes para 10–50 vehículos. Plan Empresarial personalizado para flotas grandes. Sin contrato de permanencia.</dd>
 
-            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿En qué ciudades opera TirePro?</dt>
-            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Opera en toda Colombia: Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga, Pereira y todas las ciudades principales, con expansión activa en Latinoamérica.</dd>
+            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿La IA realmente predice cuándo cambiar una llanta?</dt>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Sí. El modelo proyecta diariamente la fecha de retiro de cada llanta basándose en su curva de desgaste, vehículo, posición y ruta. La precisión típica es del 95% con error medio menor a 600 km.</dd>
 
             <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿Puedo comprar llantas en TirePro?</dt>
             <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Sí, en el marketplace integrado. Distribuidores verificados, instalación incluida, entrega nacional, llantas nuevas y de reencauche.</dd>
+
+            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿Qué tipo de flotas usan TirePro?</dt>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Tractomulas y carga pesada, operación regional/urbana en camiones medianos, flotas de buses, distribuidoras y reencauchadoras, y owner-operators de 1 a 1.000+ vehículos.</dd>
           </dl>
         </div>
       </section>
