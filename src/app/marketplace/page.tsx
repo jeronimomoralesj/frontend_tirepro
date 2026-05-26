@@ -30,12 +30,17 @@ export const revalidate = 3600
 
 export const metadata: Metadata = {
   title:
-    'Comprar Llantas en Colombia | Marketplace #1 de Llantas Online — TirePro',
+    'TirePro Marketplace — Comprar Llantas Online en Colombia | Distribuidores Verificados',
   description:
     'Compra llantas online en Colombia: Michelin, Bridgestone, Continental, Goodyear, Pirelli, Hankook, Firestone, Yokohama y más, ' +
     'directo de distribuidores verificados con instalación incluida y entrega nacional. Llantas para carro, camioneta, camión, tractomula y bus en ' +
     'Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga, Pereira y todo el país. Mejores precios, financiación, comparativa de CPK.',
   keywords: [
+    // Brand
+    'TirePro',
+    'tirepro',
+    'TirePro Marketplace',
+    'tirepro marketplace',
     // Buy intent — Spanish
     'comprar llantas Colombia',
     'llantas online Colombia',

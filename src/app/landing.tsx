@@ -815,16 +815,11 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
 
             <h1 className="font-bold leading-[1.08] tracking-tight mb-5"
               style={{ fontSize: 'clamp(2.2rem, 5.5vw, 4.5rem)', color: '#ffffff' }}>
-              Software de Gestion de Llantas con IA para Flotas
+              TirePro — Software de Llantas para Flotas con IA
             </h1>
 
             <p className="mx-auto mb-8 leading-relaxed" style={{ fontSize: 'clamp(0.95rem, 1.8vw, 1.15rem)', color: 'rgba(255,255,255,0.55)', maxWidth: '600px' }}>
               Reduce hasta un 25% el costo de tus llantas. Analizamos cada dato para decirte exactamente que hacer, cuando hacerlo y que comprar — para que cada peso invertido en neumaticos rinda al maximo.
-            </p>
-
-            {/* SEO sr-only */}
-            <p className="sr-only">
-              TirePro es el software de seguimiento y control de llantas con inteligencia artificial para flotas y el marketplace de llantas mas grande de Colombia. Plataforma de analisis de datos para gestion de neumaticos. Compra llantas nuevas y de reencauche para camiones, buses, volquetas, tractocamiones, camionetas y automoviles a los mejores precios de distribuidores verificados en Bogota, Medellin, Cali, Barranquilla, Bucaramanga, Pereira y toda Colombia. Software de llantas, control de neumaticos, gestion de flotas pesadas, CPK en tiempo real, prediccion de fallas con IA, marketplace de llantas Colombia, comprar llantas online.
             </p>
 
             {/* CTA buttons */}
@@ -1566,49 +1561,7 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
         }}
       />
 
-      {/* -- HIDDEN SEO CONTENT (visible to crawlers, sr-only visually) ---------- */}
-      <section aria-label="Información sobre TirePro" className="sr-only">
-        <h2>Software de gestión de llantas con IA para flotas en Colombia</h2>
-        <p>
-          TirePro es la plataforma líder de control de llantas para flotas pesadas en Colombia.
-          Diseñado específicamente para empresas de transporte de carga, buses, volquetas y tractocamiones,
-          TirePro digitaliza y automatiza el seguimiento de neumáticos para reducir el costo por kilómetro (CPK)
-          y extender la vida útil de cada llanta mediante reencauche inteligente.
-        </p>
-        <h3>Control de CPK de llantas para flotas de camiones</h3>
-        <p>
-          El costo por kilómetro (CPK) de llantas es el indicador clave para cualquier gerente de flota en Colombia.
-          TirePro calcula el CPK real y proyectado de cada neumático, identifica qué llantas tienen el peor desempeño
-          y genera alertas de reemplazo antes de que ocurran fallas en ruta.
-        </p>
-        <h3>Reencauche inteligente de llantas para flotas colombianas</h3>
-        <p>
-          El reencauche permite extender la vida útil de las llantas hasta 3 veces adicionales,
-          reduciendo el costo total por kilómetro hasta un 45%. TirePro predice el momento óptimo
-          de reencauche para cada llanta según su desgaste real, marca, diseño y condición de operación.
-        </p>
-        <h3>Seguimiento de neumáticos offline — app para iOS y Android</h3>
-        <p>
-          La app móvil de TirePro funciona sin conexión a internet, ideal para patios, terminales y rutas
-          con señal limitada. Compatible con iOS y Android, permite registrar inspecciones de profundidad
-          de banda, presión y estado de desgaste en segundos.
-        </p>
-        <h3>Mantenimiento preventivo de llantas para transporte en Colombia</h3>
-        <p>
-          TirePro usa inteligencia artificial para predecir fallas de llantas antes de que ocurran,
-          generando alertas automáticas de mantenimiento preventivo. Esto reduce las paradas no programadas,
-          mejora la seguridad vial y optimiza la disponibilidad de la flota en ciudades como Bogotá,
-          Medellín, Cali, Barranquilla, Bucaramanga y Cartagena.
-        </p>
-        <h3>Software de gestión de flotas pesadas Colombia — TirePro vs. Excel</h3>
-        <p>
-          A diferencia del control manual con hojas de cálculo Excel, TirePro centraliza toda la información
-          de llantas en tiempo real, calcula CPK automáticamente y genera reportes de ahorro en pesos colombianos.
-          Es la alternativa digital a Ruedata, VEC Fleet y la gestión manual de neumáticos para flotas en Colombia.
-        </p>
-      </section>
-
-      {/* -- FOOTER (unchanged) -------------------------------------------------- */}
+      {/* -- FOOTER -------------------------------------------------- */}
       <footer
         className="border-t py-8 sm:py-12 px-4 sm:px-6 lg:px-8 w-full"
         style={{ borderColor: 'rgba(30,118,182,0.15)', backgroundColor: '#0A183A' }}

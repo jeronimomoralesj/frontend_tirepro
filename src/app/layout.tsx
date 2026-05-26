@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://www.tirepro.com.co'),
 
   title: {
-    default: 'TirePro — Software de Seguimiento y Control de Llantas con IA para Flotas | Marketplace',
+    default: 'TirePro — Software de Llantas para Flotas con IA | Marketplace de Llantas Colombia',
     template: '%s | TirePro',
   },
 
@@ -78,9 +78,7 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true, 'max-video-preview': -1, 'max-image-preview': 'large', 'max-snippet': -1 },
   },
 
-  verification: {
-    google: 'your-google-verification-code',
-  },
+  // verification: { google: 'ADD_YOUR_REAL_GSC_TOKEN_HERE' },
 
   alternates: {
     canonical: 'https://www.tirepro.com.co',

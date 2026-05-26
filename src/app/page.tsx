@@ -30,25 +30,27 @@ const API_BASES = [
 // marketplace owns "comprar llantas" queries via /marketplace's own SEO.
 export const metadata: Metadata = {
   title:
-    'Software de Gestión de Llantas con IA para Flotas | TirePro Colombia',
-  // Bing/Google truncate meta descriptions past ~160 chars and demote
-  // pages with descriptions outside the 120-160 sweet spot. Keep this
-  // tight + first-line-impactful — long-form pitch lives on the
-  // landing body, not in the SERP snippet.
+    'TirePro — Software de Llantas para Flotas con IA | Colombia',
   description:
-    'Plataforma colombiana de gestión de llantas con IA para flotas. Reduce CPK 28%, predice reemplazos y evita fallas en ruta. Software + marketplace.',
+    'TirePro es el software de llantas para flotas en Colombia. Gestión con IA, reduce CPK 28%, predice reemplazos, evita fallas en ruta y conecta con marketplace de distribuidores verificados.',
   keywords: [
+    'TirePro',
+    'tirepro',
+    'software de llantas para flotas',
+    'software de llantas',
+    'software llantas flotas',
     'gestión de llantas para flotas',
+    'control de llantas',
     'monitoreo de llantas con IA',
-    'software para llantas',
+    'software para llantas Colombia',
     'reducir CPK flotas',
     'predicción de reemplazo de llantas',
     'control de neumáticos camión',
     'plataforma llantas Colombia',
-    'tire management platform',
+    'gestión de flotas llantas',
+    'tire management software',
     'fleet tire monitoring',
     'inspección digital de llantas',
-    'TirePro',
   ],
   alternates: { canonical: 'https://www.tirepro.com.co' },
   openGraph: {
@@ -56,23 +58,23 @@ export const metadata: Metadata = {
     locale: 'es_CO',
     url: 'https://www.tirepro.com.co',
     siteName: 'TirePro',
-    title: 'TirePro — Plataforma de monitoreo de llantas con IA para flotas',
+    title: 'TirePro — Software de Llantas para Flotas con IA',
     description:
-      'Plataforma colombiana de gestión de llantas con IA. Reduce CPK, predice reemplazos y evita fallas en ruta. Software + marketplace.',
+      'TirePro: software de llantas para flotas en Colombia. Reduce CPK, predice reemplazos con IA, evita fallas en ruta. Marketplace de distribuidores verificados.',
     images: [
       {
         url: 'https://www.tirepro.com.co/logo_full.png',
         width: 934,
         height: 368,
-        alt: 'TirePro — Plataforma de monitoreo de llantas con IA',
+        alt: 'TirePro — Software de llantas para flotas con IA en Colombia',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TirePro — Monitoreo de llantas con IA para flotas',
+    title: 'TirePro — Software de Llantas para Flotas con IA',
     description:
-      'Plataforma colombiana de gestión de llantas con IA + marketplace. Reduce CPK, predice reemplazos y evita fallas en ruta.',
+      'TirePro: software de llantas para flotas en Colombia con IA. Reduce CPK, predice reemplazos y conecta con marketplace de distribuidores verificados.',
   },
 }
 
@@ -273,11 +275,75 @@ export default async function Page() {
     <>
       <TireProLanding bestSellers={bestSellers} />
 
-      {/*
-        JSON-LD payloads — each in its own <script> so search engines + AI
-        crawlers can pick exactly the schema they want. Keep these in sync
-        with the visible content (FAQ answers below, HowTo steps, etc.).
-      */}
+      {/* Server-rendered content section — visible to users AND crawlers.
+          This is critical because <TireProLanding> is a client component
+          and Google prioritizes server-rendered HTML for indexing. */}
+      <section
+        style={{
+          background: '#F8FAFC',
+          padding: '4rem 1.5rem',
+          color: '#0A183A',
+          lineHeight: 1.7,
+        }}
+      >
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 700, marginBottom: '1rem' }}>
+            ¿Qué es TirePro?
+          </h2>
+          <p style={{ marginBottom: '1.5rem', color: '#334155' }}>
+            TirePro es el software de llantas para flotas líder en Colombia. Nuestra plataforma con inteligencia artificial permite a flotas de transporte, camiones, buses, tractomulas y vehículos de carga monitorear el estado de cada llanta en tiempo real, reducir el costo por kilómetro (CPK) hasta un 28% y predecir reemplazos antes de que ocurran fallas en ruta.
+          </p>
+
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+            Software de llantas para flotas con IA
+          </h3>
+          <p style={{ marginBottom: '1.5rem', color: '#334155' }}>
+            Con TirePro, cada inspección de llantas alimenta un modelo de inteligencia artificial que detecta desgaste anómalo, recomienda rotaciones, proyecta la vida útil restante de cada neumático y sugiere la marca y diseño óptimos para cada posición. Las flotas que usan TirePro reducen sus costos de llantas significativamente en los primeros seis meses de operación.
+          </p>
+
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+            ¿Cómo funciona TirePro?
+          </h3>
+          <ol style={{ marginBottom: '1.5rem', color: '#334155', paddingLeft: '1.25rem' }}>
+            <li style={{ marginBottom: '0.5rem' }}><strong>Captura:</strong> Inspecciona cada llanta desde la app móvil o el panel web. Funciona offline.</li>
+            <li style={{ marginBottom: '0.5rem' }}><strong>Analiza:</strong> La IA analiza profundidad, desgaste y patrón. Detecta problemas antes de que generen fallas.</li>
+            <li style={{ marginBottom: '0.5rem' }}><strong>Decide:</strong> Ves CPK proyectado, vida útil restante y ahorro estimado en pesos colombianos.</li>
+            <li style={{ marginBottom: '0.5rem' }}><strong>Optimiza:</strong> Cada inspección y cada compra mejoran los modelos. Tu flota baja CPK mes tras mes.</li>
+          </ol>
+
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+            Marketplace de llantas integrado
+          </h3>
+          <p style={{ marginBottom: '1.5rem', color: '#334155' }}>
+            Además del software de gestión, TirePro incluye un marketplace donde puedes comprar llantas nuevas y de reencauche de distribuidores verificados en toda Colombia. Envío a Bogotá, Medellín, Cali, Barranquilla, Bucaramanga, Pereira y todo el país. Marcas como Michelin, Bridgestone, Continental, Goodyear y muchas más.
+          </p>
+
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+            ¿Para quién es TirePro?
+          </h3>
+          <p style={{ marginBottom: '1.5rem', color: '#334155' }}>
+            TirePro está diseñado para flotas de transporte de carga pesada, tractomulas, buses interurbanos, distribución urbana, operaciones logísticas y cualquier empresa que necesite controlar el costo de sus llantas. Desde 1 hasta más de 1.000 vehículos, con planes que van desde gratuito hasta empresarial.
+          </p>
+
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 600, marginBottom: '0.75rem' }}>
+            Preguntas frecuentes
+          </h3>
+          <dl style={{ color: '#334155' }}>
+            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿Qué es TirePro?</dt>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>TirePro es la plataforma líder en Colombia para monitoreo y gestión de llantas en flotas con inteligencia artificial. Predice reemplazos, calcula el CPK real y conecta con distribuidores verificados en el marketplace.</dd>
+
+            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿Cuánto cuesta TirePro?</dt>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Plan Inicio gratuito hasta 10 vehículos. Plan Crecimiento $300.000 COP/mes para 10–50 vehículos. Plan Empresarial personalizado para flotas grandes. Sin contrato de permanencia.</dd>
+
+            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿En qué ciudades opera TirePro?</dt>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Opera en toda Colombia: Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga, Pereira y todas las ciudades principales, con expansión activa en Latinoamérica.</dd>
+
+            <dt style={{ fontWeight: 600, marginBottom: '0.25rem' }}>¿Puedo comprar llantas en TirePro?</dt>
+            <dd style={{ marginBottom: '1rem', paddingLeft: 0 }}>Sí, en el marketplace integrado. Distribuidores verificados, instalación incluida, entrega nacional, llantas nuevas y de reencauche.</dd>
+          </dl>
+        </div>
+      </section>
+
       <script type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareLd) }} />
       <script type="application/ld+json"
