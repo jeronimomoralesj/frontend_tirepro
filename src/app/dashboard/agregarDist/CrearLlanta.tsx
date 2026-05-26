@@ -630,6 +630,9 @@ const [duplicateInfo, setDuplicateInfo] = useState<{
                 >
                   <option value="direccion">Dirección</option>
                   <option value="traccion">Tracción</option>
+                  <option value="libre">Libre</option>
+                  <option value="remolque">Remolque</option>
+                  <option value="repuesto">Repuesto</option>
                 </select>
               </Field>
 

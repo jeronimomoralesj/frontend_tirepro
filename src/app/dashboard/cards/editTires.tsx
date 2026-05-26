@@ -87,11 +87,10 @@ const EditTires: React.FC<EditTiresProps> = ({ isOpen, onClose, vehicle, apiBase
       const updateData = {
         marca: editMarca,
         posicion: editPosicion,
-        placa: `${vehicle.placa}-${editPosicion}` // Update placa if position changed
       };
 
-      const res = await fetch(`${apiBase}/tires/${editingTire.id}`, {
-        method: "PUT",
+      const res = await fetch(`${apiBase}/tires/${editingTire.id}/edit`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updateData),
       });
@@ -153,10 +152,13 @@ const EditTires: React.FC<EditTiresProps> = ({ isOpen, onClose, vehicle, apiBase
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+      <div
+        className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+        style={{ boxShadow: '0 24px 60px -18px rgba(10,24,58,0.35)', border: '1px solid rgba(10,24,58,0.08)' }}
+      >
         {/* Header */}
-        <div className="bg-[#173D68] text-white p-5 flex justify-between items-center">
+        <div className="text-white px-5 py-4 flex justify-between items-center" style={{ background: 'linear-gradient(135deg, #0A183A 0%, #173D68 100%)' }}>
           <div>
             <h2 className="text-xl font-bold">Editar Llantas</h2>
             <p className="text-sm text-gray-300">Vehículo: {vehicle.placa.toUpperCase()}</p>

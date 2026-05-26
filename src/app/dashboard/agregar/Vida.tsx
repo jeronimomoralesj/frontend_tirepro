@@ -391,7 +391,7 @@ function UpdateModal({
     setModalError("");
 
     if (!selectedVida)          return setModalError("Seleccione un valor de vida");
-    if (!bandaValue.trim())     return setModalError("Ingrese la banda/diseño");
+    if (!isFin && !bandaValue.trim()) return setModalError("Ingrese la banda/diseño");
 
     if (isReencauche) {
       const n = parseFloat(costValue);

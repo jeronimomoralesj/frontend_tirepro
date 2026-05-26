@@ -254,7 +254,7 @@ const VidaPage: React.FC = () => {
   async function handleUpdate() {
     if (!selectedTire) return;
     if (!selectedVida) return setModalError("Seleccione un valor de vida.");
-    if (!bandaValue.trim()) return setModalError("Ingrese la banda/diseño.");
+    if (selectedVida !== "fin" && !bandaValue.trim()) return setModalError("Ingrese la banda/diseño.");
 
     const body: Record<string, unknown> = { valor: selectedVida, banda: bandaValue.trim() };
 

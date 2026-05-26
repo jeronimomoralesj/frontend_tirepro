@@ -89,6 +89,7 @@ const EJE_OPTIONS = [
   { value: "direccion", label: "Dirección" },
   { value: "traccion",  label: "Tracción"  },
   { value: "libre",     label: "Libre"      },
+  { value: "remolque",  label: "Remolque"   },
   { value: "repuesto",  label: "Repuesto"   },
 ];
 

@@ -1654,9 +1654,9 @@ export default function InventarioPage() {
                                   color:
                                     tire.currentProfundidad == null
                                       ? "#94a3b8"
-                                      : tire.currentProfundidad > 6
+                                      : tire.currentProfundidad > 4
                                         ? "#27AE60"
-                                        : tire.currentProfundidad > 3
+                                        : tire.currentProfundidad > 2
                                           ? "#E67E22"
                                           : "#e53e3e",
                                 }}

@@ -40,14 +40,14 @@ const t = {
   vehicles: "vehículos",
 };
 
-// Thresholds (mm of min depth across int/cen/ext):
-// > 6 mm  → OK (green)
-// 3-6 mm  → Watch (amber)
-// ≤ 3 mm  → Critical (red)
+// Thresholds aligned with backend LIMITE_LEGAL_MM = 2mm:
+// > 4 mm  → OK (green)
+// 2-4 mm  → Watch (amber)
+// ≤ 2 mm  → Critical (red) — legal limit in Colombia
 const depthColor = (v: number | null) => {
   if (v === null) return { bg: "rgba(0,0,0,0.03)", color: "#94a3b8", border: "transparent" };
-  if (v <= 3)     return { bg: "#fee2e2", color: "#991b1b", border: "#fca5a5" };
-  if (v <= 6)     return { bg: "#fef3c7", color: "#92400e", border: "#fcd34d" };
+  if (v <= 2)     return { bg: "#fee2e2", color: "#991b1b", border: "#fca5a5" };
+  if (v <= 4)     return { bg: "#fef3c7", color: "#92400e", border: "#fcd34d" };
   return           { bg: "#d1fae5", color: "#065f46", border: "#6ee7b7" };
 };
 
@@ -126,29 +126,32 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
   }, [rows, searchTerm]);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col w-full min-w-0"
-         style={{ boxShadow: "0 4px 24px rgba(10,24,58,0.06)" }}>
+    <div
+      className="bg-white rounded-2xl overflow-hidden flex flex-col w-full min-w-0 transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Header */}
       <div
         className="text-white px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2 shrink-0"
-        style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)" }}
+        style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
+          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(255,255,255,0.12)" }}>
             <LayoutGrid size={16} className="text-white" />
           </div>
           <h2 className="text-sm sm:text-base lg:text-lg font-bold truncate">{t.title}</h2>
         </div>
         <div className="group relative cursor-pointer flex-shrink-0">
-          <HelpCircle className="text-white/80 hover:text-white transition-colors" size={18} />
-          <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity w-56 pointer-events-none shadow-xl">
+          <HelpCircle className="text-white/70 hover:text-white transition-colors" size={18} />
+          <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 pointer-events-none shadow-xl"
+               style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
             {t.tooltip}
           </div>
         </div>
       </div>
 
       {/* Controls: search + legend */}
-      <div className="px-3 sm:px-5 py-3 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 shrink-0">
+      <div className="px-3 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 shrink-0" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
           <input
@@ -156,8 +159,8 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
             placeholder={t.search}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-xl text-xs sm:text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/40 focus:bg-white transition-all"
-            style={{ border: "1px solid rgba(52,140,203,0.18)" }}
+            className="w-full pl-9 pr-3 py-2 rounded-xl text-xs sm:text-sm bg-gray-50/60 focus:outline-none focus:ring-2 focus:ring-[#173D68]/20 focus:bg-white transition-all"
+            style={{ border: "1px solid rgba(10,24,58,0.08)" }}
             aria-label="Buscar por placa"
           />
         </div>
@@ -294,7 +297,7 @@ function VehicleCard({ row, activePositions }: { row: Row; activePositions: numb
         aria-expanded={open}
       >
         <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-             style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
+             style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
           <Truck size={14} className="text-white" />
         </div>
         <div className="flex-1 min-w-0 text-left">

@@ -196,11 +196,11 @@ export default function DesechosFastMode({ onDone }: { onDone: () => void }) {
             valor: "fin",
             motivoFin: "desgaste",
             notasRetiro: causal,
-            desechoData: {
+            desechos: {
               causales: causal,
               milimetrosDesechados: parseFloat(d.milimetros) || 0,
-              imageUrls: d.images,
             },
+            imageUrls: d.images,
           }),
         });
       }

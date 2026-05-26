@@ -151,9 +151,9 @@ function getSemaforoCondition(tire: Tire): SemaforoCondition | null {
   const last = getLatestInsp(tire);
   if (!last) return null;
   const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
-  if (minDepth > 7) return "buenEstado";
-  if (minDepth > 6) return "dias60";
-  if (minDepth > 3) return "dias30";
+  if (minDepth > 5) return "buenEstado";
+  if (minDepth > 4) return "dias60";
+  if (minDepth > 2) return "dias30";
   return "cambioInmediato";
 }
 
@@ -224,15 +224,15 @@ function getProjectedKm(tire: Tire): string {
 }
 
 function depthColor(d: number): string {
-  if (d > 7) return "#22c55e";
-  if (d > 6) return "#2D95FF";
-  if (d > 3) return "#f97316";
+  if (d > 5) return "#22c55e";
+  if (d > 4) return "#2D95FF";
+  if (d > 2) return "#f97316";
   return "#ef4444";
 }
 function depthBg(d: number): string {
-  if (d > 7) return "rgba(34,197,94,0.12)";
-  if (d > 6) return "rgba(45,149,255,0.12)";
-  if (d > 3) return "rgba(249,115,22,0.12)";
+  if (d > 5) return "rgba(34,197,94,0.12)";
+  if (d > 4) return "rgba(45,149,255,0.12)";
+  if (d > 2) return "rgba(249,115,22,0.12)";
   return "rgba(239,68,68,0.12)";
 }
 
