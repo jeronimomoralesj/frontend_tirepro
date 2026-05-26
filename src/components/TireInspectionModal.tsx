@@ -25,6 +25,7 @@ export interface InspectionDraft {
   profundidadExt: string;
   presionPsi: string;
   imageUrls: string[]; // data: URIs or existing https URLs, up to 2
+  observacion: string;
   inspected?: boolean;
 }
 
@@ -56,6 +57,7 @@ export default function TireInspectionModal({
   const [profExt, setProfExt] = useState(initial?.profundidadExt ?? "");
   const [presion, setPresion] = useState(initial?.presionPsi ?? "");
   const [images,  setImages]  = useState<string[]>(initial?.imageUrls ?? []);
+  const [observacion, setObservacion] = useState(initial?.observacion ?? "");
   const [error,   setError]   = useState("");
   const [saving,  setSaving]  = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -118,6 +120,7 @@ export default function TireInspectionModal({
         profundidadExt: profExt,
         presionPsi: presion,
         imageUrls: images,
+        observacion,
       });
       onClose();
     } catch (e: unknown) {
@@ -259,6 +262,21 @@ export default function TireInspectionModal({
                 onChange={handlePickImage}
               />
             </div>
+          </div>
+
+          {/* Observation */}
+          <div>
+            <label className="block text-[10px] font-black text-[#173D68] uppercase tracking-wider mb-1">
+              Observación <span className="text-[#348CCB] font-normal">(opcional)</span>
+            </label>
+            <textarea
+              value={observacion}
+              onChange={(e) => setObservacion(e.target.value)}
+              placeholder="Ej: desgaste irregular, daño en el flanco…"
+              rows={2}
+              maxLength={500}
+              className={inputCls + " resize-none"}
+            />
           </div>
 
           {/* Actions */}

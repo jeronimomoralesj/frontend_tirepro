@@ -58,6 +58,7 @@ type NewTire = {
   profundidadExt: number | "";
   presionPsi: number | "";
   image: File | null;
+  observacion: string;
 };
 
 type ExistingTire = {
@@ -75,6 +76,7 @@ type ExistingTire = {
   profundidadExt: number | "";
   presionPsi: number | "";
   image: File | null;
+  observacion: string;
 };
 
 // Mirror of backend calcCpkMetrics (tire.service.ts). Keep in sync —
@@ -324,7 +326,7 @@ export default function FastMode({ language }: { language: string }) {
                 profundidadInicial: t.profundidadInicial, vehicleId: t.vehicleId,
                 kilometrosRecorridos: t.kilometrosRecorridos ?? 0,
                 costos: Array.isArray(t.costos) ? t.costos : Array.isArray(t.costo) ? t.costo : [],
-                profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null,
+                profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null, observacion: "",
               }))
               .sort((a: { posicion: number }, b: { posicion: number }) => a.posicion - b.posicion),
           );
@@ -377,7 +379,7 @@ export default function FastMode({ language }: { language: string }) {
         tempId: makeTempId(), placa: "", marca: "", diseno: "", dimension: "",
         eje: "traccion", posicion: 0, profundidadInicial: 16, costo: 0,
         vidaActual: "nueva", kilometrosRecorridos: "", fechaInstalacion: new Date().toISOString().split("T")[0],
-        profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null,
+        profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null, observacion: "",
       },
     ]);
   }
@@ -471,6 +473,7 @@ export default function FastMode({ language }: { language: string }) {
           imageUrl,
         };
         if (nt.presionPsi !== "" && nt.presionPsi !== 0) payload.presionPsi = Number(nt.presionPsi);
+        if (nt.observacion.trim()) payload.observacion = nt.observacion.trim();
 
         await fetch(`${API_BASE}/tires/${created.id}/inspection`, {
           method: "PATCH", headers: authHeaders(),
@@ -496,6 +499,7 @@ export default function FastMode({ language }: { language: string }) {
           imageUrl,
         };
         if (et.presionPsi !== "" && et.presionPsi !== 0) payload.presionPsi = Number(et.presionPsi);
+        if (et.observacion.trim()) payload.observacion = et.observacion.trim();
 
         const res = await fetch(`${API_BASE}/tires/${et.id}/inspection`, {
           method: "PATCH", headers: authHeaders(),
@@ -735,7 +739,7 @@ export default function FastMode({ language }: { language: string }) {
                   <TireCard key={t.id} label={`${t.placa} — P${t.posicion} — ${t.marca}`} isNew={false}
                     profInt={t.profundidadInt} profCen={t.profundidadCen} profExt={t.profundidadExt}
                     presion={t.presionPsi} image={t.image}
-                    preview={preview}
+                    preview={preview} observacion={t.observacion}
                     onChange={(f, v) => updateExistingTire(t.id, f, v)} />
                 );
               })}
@@ -777,13 +781,14 @@ export default function FastMode({ language }: { language: string }) {
 // -- Tire inspection card (existing) ------------------------------------------
 
 function TireCard({
-  label, isNew, profInt, profCen, profExt, presion, image, preview,
+  label, isNew, profInt, profCen, profExt, presion, image, preview, observacion,
   onChange,
 }: {
   label: string; isNew: boolean;
   profInt: number | ""; profCen: number | ""; profExt: number | "";
   presion: number | ""; image: File | null;
   preview?: { cpk: number; cpkProyectado: number; projectedKm: number } | null;
+  observacion: string;
   onChange: (field: string, value: any) => void;
 }) {
   const [showExtras, setShowExtras] = useState(false);
@@ -854,6 +859,16 @@ function TireCard({
             <span className="text-xs text-[#348CCB]">PSI</span>
           </div>
         )}
+
+        {/* Observation */}
+        <textarea
+          value={observacion}
+          onChange={(e) => onChange("observacion", e.target.value)}
+          placeholder="Observación (opcional)"
+          rows={2}
+          maxLength={500}
+          className={inputCls + " resize-none"}
+        />
       </div>
     </div>
   );
@@ -998,6 +1013,16 @@ function NewTireCard({
             <span className="text-xs text-[#348CCB]">PSI</span>
           </div>
         )}
+
+        {/* Observation */}
+        <textarea
+          value={tire.observacion}
+          onChange={(e) => onUpdate("observacion", e.target.value)}
+          placeholder="Observación (opcional)"
+          rows={2}
+          maxLength={500}
+          className={inputCls + " resize-none"}
+        />
       </div>
     </div>
   );

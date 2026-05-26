@@ -1366,6 +1366,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
       imageUrls: draft.imageUrls.slice(0, 3),
     };
     if (draft.presionPsi !== "") payload.presionPsi = Number(draft.presionPsi);
+    if (draft.observacion?.trim()) payload.observacion = draft.observacion.trim();
     if (inspectorName.trim()) {
       payload.inspeccionadoPorNombre = inspectorName.trim();
       if (user?.id && inspectorName.trim() === (user.name ?? "").trim()) {
