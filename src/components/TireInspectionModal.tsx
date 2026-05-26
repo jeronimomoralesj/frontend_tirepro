@@ -17,6 +17,9 @@ export interface InspectionTire {
   posicion?: number | string;
   eje?: string;
   profundidadInicial?: number;
+  lastProfundidadInt?: number;
+  lastProfundidadCen?: number;
+  lastProfundidadExt?: number;
 }
 
 export interface InspectionDraft {
@@ -180,9 +183,9 @@ export default function TireInspectionModal({
             </p>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: "Interior", val: profInt, set: setProfInt },
-                { label: "Centro",   val: profCen, set: setProfCen },
-                { label: "Exterior", val: profExt, set: setProfExt },
+                { label: "Interior", val: profInt, set: setProfInt, last: tire.lastProfundidadInt },
+                { label: "Centro",   val: profCen, set: setProfCen, last: tire.lastProfundidadCen },
+                { label: "Exterior", val: profExt, set: setProfExt, last: tire.lastProfundidadExt },
               ].map((f) => (
                 <div key={f.label}>
                   <label className="block text-[9px] font-bold text-[#348CCB] uppercase mb-1">{f.label}</label>
@@ -193,7 +196,7 @@ export default function TireInspectionModal({
                     inputMode="decimal"
                     value={f.val}
                     onChange={(e) => f.set(e.target.value)}
-                    placeholder={tire.profundidadInicial?.toString() ?? "0.0"}
+                    placeholder={f.last?.toString() ?? tire.profundidadInicial?.toString() ?? "0.0"}
                     className={inputCls}
                     autoFocus={f.label === "Interior"}
                   />

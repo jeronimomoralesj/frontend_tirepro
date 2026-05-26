@@ -350,20 +350,22 @@ function DepthInputs({
   tireId,
   updates,
   onChange,
+  lastInsp,
 }: {
   tireId:   string;
   updates:  TireUpdate;
   onChange: (id: string, field: keyof TireUpdate, value: number | File | null) => void;
+  lastInsp?: Inspeccion;
 }) {
-  const fields: { key: "profundidadInt" | "profundidadCen" | "profundidadExt"; label: string }[] = [
-    { key: "profundidadInt", label: "Interior" },
-    { key: "profundidadCen", label: "Central"  },
-    { key: "profundidadExt", label: "Exterior" },
+  const fields: { key: "profundidadInt" | "profundidadCen" | "profundidadExt"; label: string; last?: number }[] = [
+    { key: "profundidadInt", label: "Interior", last: lastInsp?.profundidadInt },
+    { key: "profundidadCen", label: "Central",  last: lastInsp?.profundidadCen },
+    { key: "profundidadExt", label: "Exterior", last: lastInsp?.profundidadExt },
   ];
 
   return (
     <div className="grid grid-cols-3 gap-2">
-      {fields.map(({ key, label }) => (
+      {fields.map(({ key, label, last }) => (
         <div key={key}>
           <label className="block text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider text-center mb-1">
             {label}
@@ -377,7 +379,7 @@ function DepthInputs({
             onChange={(e) =>
               onChange(tireId, key, e.target.value === "" ? 0 : Number(e.target.value))
             }
-            placeholder="mm"
+            placeholder={last != null ? String(last) : "mm"}
             className={`${inputCls} text-center`}
           />
         </div>
@@ -847,7 +849,7 @@ function TireInspectionCard({
             <Gauge className="w-3.5 h-3.5 text-[#1E76B6]" />
             Profundidad (mm)
           </p>
-          <DepthInputs tireId={tire.id} updates={updates} onChange={onChange} />
+          <DepthInputs tireId={tire.id} updates={updates} onChange={onChange} lastInsp={lastInsp} />
         </div>
 
         {/* Optional: pressure */}
@@ -2298,6 +2300,9 @@ export default function InspeccionPage({ language }: { language?: string }) {
               posicion:  t.posicion,
               eje:       t.eje,
               profundidadInicial: t.profundidadInicial,
+              lastProfundidadInt: t.inspecciones?.[0]?.profundidadInt,
+              lastProfundidadCen: t.inspecciones?.[0]?.profundidadCen,
+              lastProfundidadExt: t.inspecciones?.[0]?.profundidadExt,
             }}
             initial={{
               profundidadInt: u?.profundidadInt !== undefined && u.profundidadInt !== "" ? String(u.profundidadInt) : "",

@@ -70,6 +70,9 @@ type ExistingTire = {
   vehicleId: string;
   kilometrosRecorridos: number;
   costos: { valor: number }[];
+  lastProfundidadInt?: number;
+  lastProfundidadCen?: number;
+  lastProfundidadExt?: number;
   // Inspection
   profundidadInt: number | "";
   profundidadCen: number | "";
@@ -321,13 +324,19 @@ export default function FastMode({ language }: { language: string }) {
           // P11 ordering when modo rápido didn't sort).
           setExistingTires(
             tires
-              .map((t: any) => ({
-                id: t.id, placa: t.placa, marca: t.marca, posicion: t.posicion,
-                profundidadInicial: t.profundidadInicial, vehicleId: t.vehicleId,
-                kilometrosRecorridos: t.kilometrosRecorridos ?? 0,
-                costos: Array.isArray(t.costos) ? t.costos : Array.isArray(t.costo) ? t.costo : [],
-                profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null, observacion: "",
-              }))
+              .map((t: any) => {
+                const lastInsp = Array.isArray(t.inspecciones) ? t.inspecciones[0] : undefined;
+                return {
+                  id: t.id, placa: t.placa, marca: t.marca, posicion: t.posicion,
+                  profundidadInicial: t.profundidadInicial, vehicleId: t.vehicleId,
+                  kilometrosRecorridos: t.kilometrosRecorridos ?? 0,
+                  costos: Array.isArray(t.costos) ? t.costos : Array.isArray(t.costo) ? t.costo : [],
+                  lastProfundidadInt: lastInsp?.profundidadInt,
+                  lastProfundidadCen: lastInsp?.profundidadCen,
+                  lastProfundidadExt: lastInsp?.profundidadExt,
+                  profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null, observacion: "",
+                };
+              })
               .sort((a: { posicion: number }, b: { posicion: number }) => a.posicion - b.posicion),
           );
         }
@@ -740,6 +749,7 @@ export default function FastMode({ language }: { language: string }) {
                     profInt={t.profundidadInt} profCen={t.profundidadCen} profExt={t.profundidadExt}
                     presion={t.presionPsi} image={t.image}
                     preview={preview} observacion={t.observacion}
+                    lastProfundidadInt={t.lastProfundidadInt} lastProfundidadCen={t.lastProfundidadCen} lastProfundidadExt={t.lastProfundidadExt}
                     onChange={(f, v) => updateExistingTire(t.id, f, v)} />
                 );
               })}
@@ -782,6 +792,7 @@ export default function FastMode({ language }: { language: string }) {
 
 function TireCard({
   label, isNew, profInt, profCen, profExt, presion, image, preview, observacion,
+  lastProfundidadInt, lastProfundidadCen, lastProfundidadExt,
   onChange,
 }: {
   label: string; isNew: boolean;
@@ -789,6 +800,7 @@ function TireCard({
   presion: number | ""; image: File | null;
   preview?: { cpk: number; cpkProyectado: number; projectedKm: number } | null;
   observacion: string;
+  lastProfundidadInt?: number; lastProfundidadCen?: number; lastProfundidadExt?: number;
   onChange: (field: string, value: any) => void;
 }) {
   const [showExtras, setShowExtras] = useState(false);
@@ -802,10 +814,11 @@ function TireCard({
       <div className="p-4 space-y-3 bg-white">
         {/* Depth inputs */}
         <div className="grid grid-cols-3 gap-2">
-          {([["profundidadInt", "Interior", profInt], ["profundidadCen", "Central", profCen], ["profundidadExt", "Exterior", profExt]] as const).map(([field, lbl, val]) => (
+          {([["profundidadInt", "Interior", profInt, lastProfundidadInt], ["profundidadCen", "Central", profCen, lastProfundidadCen], ["profundidadExt", "Exterior", profExt, lastProfundidadExt]] as const).map(([field, lbl, val, last]) => (
             <div key={field}>
               <label className="block text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider text-center mb-1">{lbl}</label>
-              <input type="number" min={0} max={30} step={0.1} value={val === "" ? "" : val} placeholder="mm"
+              <input type="number" min={0} max={30} step={0.1} value={val === "" ? "" : val}
+                placeholder={last != null ? String(last) : "mm"}
                 onChange={(e) => onChange(field, e.target.value === "" ? "" : Number(e.target.value))}
                 className={`${inputCls} text-center`} />
             </div>
