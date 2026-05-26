@@ -2324,39 +2324,37 @@ export default function InspeccionPage({ language }: { language?: string }) {
               <Card>
                 <CardHeader
                   icon={Link2}
-                  title="Neumáticos — Vehículo en Unión"
-                  subtitle={`${unionVehicle.placa.toUpperCase()} · ${unionTires.length} llantas`}
+                  title="Vehículo en Unión"
+                  subtitle={`${unionVehicle.placa.toUpperCase()} · ${unionTires.length} llantas · Mismo Δkm`}
                   accent
                 />
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {unionTires.map((t) => {
-                    const done = inspectedIds.has(t.id);
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setModalTireId(t.id)}
-                        className="rounded-xl px-3 py-3 text-left transition-all hover:shadow-md"
-                        style={{
-                          border: done ? "1px solid #10b981" : "1px solid rgba(52,140,203,0.25)",
-                          background: done ? "rgba(16,185,129,0.05)" : "white",
-                        }}
-                      >
-                        <p className="font-black tracking-widest text-[11px] text-[#0A183A] truncate">
-                          {t.placa?.toUpperCase() ?? "—"}
-                        </p>
-                        <p className="text-[10px] text-[#348CCB] mt-0.5 truncate">
-                          Pos. {t.posicion} · {t.marca ?? "—"}
-                        </p>
-                        {done && (
-                          <p className="text-[10px] font-bold text-emerald-600 mt-1 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Inspeccionada
-                          </p>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+
+                <VehicleBanner vehicle={unionVehicle} isUnion tireCountNum={unionTires.length} />
+
+                <InspectionDiagram
+                  tires={unionTires}
+                  tireUpdates={tireUpdates}
+                  selectedTireId={unionTires.find((t) => t.id === selectedTireId) ? selectedTireId : null}
+                  onSelect={setSelectedTireId}
+                  configuracion={unionVehicle.configuracion}
+                />
+
+                {selectedTireId && unionTires.find((t) => t.id === selectedTireId) && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setModalTireId(selectedTireId)}
+                      className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl text-sm font-black text-white uppercase tracking-wide transition-all hover:scale-[1.01] active:scale-[0.99]"
+                      style={{
+                        background: "linear-gradient(135deg,#1E76B6,#173D68)",
+                        boxShadow: "0 6px 20px rgba(30,118,182,0.3)",
+                      }}
+                    >
+                      <Gauge className="w-4 h-4" />
+                      {inspectedIds.has(selectedTireId) ? "Editar inspección" : "Inspeccionar llanta"}
+                    </button>
+                  </div>
+                )}
               </Card>
             )}
 
