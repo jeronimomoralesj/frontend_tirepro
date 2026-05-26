@@ -350,10 +350,12 @@ type CardProps = {
   connectionIndex: number;
   showUnion: boolean;
   plateInput: string;
+  plateSuggestions: string[];
   onEdit: () => void;
   onDelete: () => void;
   onToggleUnion: () => void;
   onPlateChange: (v: string) => void;
+  onSelectPlate: (placa: string) => void;
   onAddUnion: () => void;
   onRemoveLeft: (() => void) | null;
   onEditDrivers: () => void;
@@ -364,10 +366,12 @@ function VehicleCard({
   connectionIndex,
   showUnion,
   plateInput,
+  plateSuggestions,
   onEdit,
   onDelete,
   onToggleUnion,
   onPlateChange,
+  onSelectPlate,
   onAddUnion,
   onRemoveLeft,
   onEditDrivers,
@@ -376,23 +380,7 @@ function VehicleCard({
   const drivers = vehicle.drivers ?? [];
 
   return (
-    <div className="relative flex-shrink-0 flex flex-col w-full">
-      {/* Connector bar */}
-      {connectionIndex > 0 && (
-        <button
-          title="Eliminar conexión"
-          onClick={onRemoveLeft ?? undefined}
-          className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center group"
-          style={{ width: "36px", height: "24px", zIndex: 10 }}
-        >
-          <span
-            className="block h-0.5 w-full group-hover:bg-[#348CCB] transition-colors"
-            style={{ background: "rgba(30,118,182,0.5)" }}
-          />
-          <Unlink className="absolute hidden group-hover:block w-3.5 h-3.5 text-[#348CCB]" />
-        </button>
-      )}
-
+    <div className="relative flex flex-col w-full">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
         {/* Header */}
         <div className="bg-[#173D68] px-4 py-3 flex items-center justify-between">
@@ -471,7 +459,21 @@ function VehicleCard({
           {vehicle.union.length > 0 && (
             <div className="pt-2 border-t border-gray-50">
               <span className="text-gray-400 text-[10px]">Conectado con</span>
-              <p className="text-xs font-semibold text-[#1E76B6]">{vehicle.union.map(p => p.toUpperCase()).join(", ")}</p>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {vehicle.union.map((p) => (
+                  <span key={p} className="inline-flex items-center gap-1 text-xs font-semibold text-[#1E76B6] bg-[#1E76B6]/8 px-2 py-0.5 rounded-lg">
+                    {p.toUpperCase()}
+                    <button
+                      type="button"
+                      title="Desconectar"
+                      onClick={() => setUnionToDelete({ sourceId: vehicle.id, targetPlaca: p.toUpperCase() })}
+                      className="text-[#1E76B6]/50 hover:text-red-500 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -504,24 +506,41 @@ function VehicleCard({
           </button>
         </div>
 
-        {/* Union input */}
+        {/* Union input — autocomplete from user's vehicles */}
         {showUnion && (
-          <div className="px-3 pb-3 flex gap-2 border-t border-gray-50 pt-2">
-            <input
-              type="text"
-              placeholder="Placa a unir"
-              value={plateInput}
-              onChange={(e) => onPlateChange(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === "Enter" && onAddUnion()}
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs text-[#0A183A] bg-gray-50 focus:outline-none focus:border-[#1E76B6] transition-colors"
-              style={{ textTransform: "uppercase" }}
-            />
-            <button
-              onClick={onAddUnion}
-              className="px-3 rounded-lg text-white text-sm font-bold bg-[#1E76B6] hover:opacity-90 transition-opacity"
-            >
-              +
-            </button>
+          <div className="px-3 pb-3 border-t border-gray-50 pt-2">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar placa…"
+                value={plateInput}
+                onChange={(e) => onPlateChange(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && plateSuggestions.length === 1) onSelectPlate(plateSuggestions[0]);
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-[#0A183A] bg-gray-50 focus:outline-none focus:border-[#1E76B6] transition-colors"
+                style={{ textTransform: "uppercase" }}
+              />
+              {plateInput.length > 0 && plateSuggestions.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                  {plateSuggestions.map((placa) => (
+                    <button
+                      key={placa}
+                      type="button"
+                      onClick={() => onSelectPlate(placa)}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-[#0A183A] hover:bg-[#1E76B6]/5 transition-colors"
+                    >
+                      {placa}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {plateInput.length > 0 && plateSuggestions.length === 0 && (
+                <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2">
+                  <p className="text-xs text-gray-400">No se encontró placa "{plateInput}"</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1044,6 +1063,30 @@ export default function VehiculoPage() {
   // Render card
   // ===========================================================================
 
+  function getPlacaSuggestions(vehicleId: string): string[] {
+    const query = (plateInputs[vehicleId] ?? "").trim().toUpperCase();
+    if (!query) return [];
+    const self = vehicles.find((v) => v.id === vehicleId);
+    const selfPlaca = self?.placa.toUpperCase() ?? "";
+    const selfUnion = new Set((self?.union ?? []).map((p) => p.toUpperCase()));
+    return vehicles
+      .map((v) => v.placa.toUpperCase())
+      .filter((p) => p !== selfPlaca && !selfUnion.has(p) && p.includes(query))
+      .slice(0, 8);
+  }
+
+  function handleSelectPlate(vehicleId: string, placa: string) {
+    setPlateInputs((p) => ({ ...p, [vehicleId]: placa }));
+    // Auto-submit after selecting
+    setTimeout(() => {
+      setPlateInputs((prev) => {
+        const current = prev[vehicleId]?.trim().toUpperCase();
+        if (current === placa) handleAddUnion(vehicleId);
+        return prev;
+      });
+    }, 0);
+  }
+
   function renderCard(vehicle: Vehicle, indexInGroup: number, onRemoveLeft: (() => void) | null) {
     return (
       <VehicleCard
@@ -1052,10 +1095,12 @@ export default function VehiculoPage() {
         connectionIndex={indexInGroup}
         showUnion={!!showUnionInput[vehicle.id]}
         plateInput={plateInputs[vehicle.id] ?? ""}
+        plateSuggestions={getPlacaSuggestions(vehicle.id)}
         onEdit={() => openEdit(vehicle)}
         onDelete={() => setVehicleToDelete(vehicle)}
         onToggleUnion={() => setShowUnionInput((p) => ({ ...p, [vehicle.id]: !p[vehicle.id] }))}
         onPlateChange={(val) => setPlateInputs((p) => ({ ...p, [vehicle.id]: val }))}
+        onSelectPlate={(placa) => handleSelectPlate(vehicle.id, placa)}
         onAddUnion={() => handleAddUnion(vehicle.id)}
         onRemoveLeft={onRemoveLeft}
         onEditDrivers={() => setDriverModalVehicle(vehicle)}
@@ -1135,22 +1180,11 @@ export default function VehiculoPage() {
                   {connectedGroups.map((group, gi) => (
                     <div
                       key={`group-${gi}`}
-                      className="flex flex-row flex-nowrap overflow-x-auto pb-3 items-center"
-                      style={{ gap: "36px" }}
+                      className="rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                      style={{ background: "rgba(30,118,182,0.04)", border: "1px dashed rgba(30,118,182,0.25)" }}
                     >
                       {group.map((vehicle, vi) =>
-                        renderCard(
-                          vehicle,
-                          vi,
-                          vi > 0
-                            ? () => {
-                                const prev = group[vi - 1];
-                                const src  = prev.union.some(p => p.toUpperCase() === vehicle.placa.toUpperCase()) ? prev : vehicle;
-                                const tgt  = src === prev ? vehicle.placa.toUpperCase() : prev.placa.toUpperCase();
-                                setUnionToDelete({ sourceId: src.id, targetPlaca: tgt });
-                              }
-                            : null
-                        )
+                        renderCard(vehicle, vi, null)
                       )}
                     </div>
                   ))}

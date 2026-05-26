@@ -144,12 +144,14 @@ const inputStyle = { border: "1.5px solid rgba(52,140,203,0.2)", color: "#0A183A
 
 function VehicleCard({
   vehicle,
+  allPlacas,
   onEdit,
   onDelete,
   onAddUnion,
   onRemoveUnion,
 }: {
   vehicle: Vehicle;
+  allPlacas: string[];
   onEdit: () => void;
   onDelete: () => void;
   onAddUnion: (placa: string) => void;
@@ -157,6 +159,11 @@ function VehicleCard({
 }) {
   const [showUnionInput, setShowUnionInput] = useState(false);
   const [unionPlaca, setUnionPlaca]         = useState("");
+  const selfPlaca = vehicle.placa.toUpperCase();
+  const selfUnion = new Set(vehicle.union.map(p => p.toUpperCase()));
+  const suggestions = unionPlaca.trim()
+    ? allPlacas.filter(p => p !== selfPlaca && !selfUnion.has(p) && p.includes(unionPlaca.trim().toUpperCase())).slice(0, 8)
+    : [];
 
   const rows = [
     { label: "Kilometraje", value: `${vehicle.kilometrajeActual.toLocaleString("es-CO")} km` },
@@ -252,27 +259,41 @@ function VehicleCard({
           </button>
         </div>
 
-        {/* Union input */}
+        {/* Union input — autocomplete */}
         {showUnionInput && (
-          <div className="flex gap-2 mt-1">
+          <div className="relative mt-1">
             <input
               type="text"
-              placeholder="Placa del otro vehículo"
+              placeholder="Buscar placa…"
               value={unionPlaca}
-              onChange={(e) => setUnionPlaca(e.target.value)}
+              onChange={(e) => setUnionPlaca(e.target.value.toUpperCase())}
               onKeyDown={(e) => {
-                if (e.key === "Enter") { onAddUnion(unionPlaca.trim()); setUnionPlaca(""); setShowUnionInput(false); }
+                if (e.key === "Enter" && suggestions.length === 1) {
+                  onAddUnion(suggestions[0]); setUnionPlaca(""); setShowUnionInput(false);
+                }
               }}
-              className={`${inputCls} flex-1`}
-              style={{ ...inputStyle, fontSize: "12px" }}
+              className={`${inputCls} w-full`}
+              style={{ ...inputStyle, fontSize: "12px", textTransform: "uppercase" }}
             />
-            <button
-              onClick={() => { onAddUnion(unionPlaca.trim()); setUnionPlaca(""); setShowUnionInput(false); }}
-              className="px-3 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-            >
-              ➕
-            </button>
+            {unionPlaca.length > 0 && suggestions.length > 0 && (
+              <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                {suggestions.map((placa) => (
+                  <button
+                    key={placa}
+                    type="button"
+                    onClick={() => { onAddUnion(placa); setUnionPlaca(""); setShowUnionInput(false); }}
+                    className="w-full text-left px-3 py-2 text-xs font-semibold text-[#0A183A] hover:bg-[#1E76B6]/5 transition-colors"
+                  >
+                    {placa}
+                  </button>
+                ))}
+              </div>
+            )}
+            {unionPlaca.length > 0 && suggestions.length === 0 && (
+              <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2">
+                <p className="text-xs text-gray-400">No se encontró placa &ldquo;{unionPlaca}&rdquo;</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -931,25 +952,22 @@ export default function VehiculoPage() {
                   </div>
                   <div className="space-y-6">
                     {connectedGroups.map((group, gi) => (
-                      <div key={`cg-${gi}`} className="relative">
-                        {/* Connection line */}
-                        <div
-                          className="absolute top-[72px] left-[calc(theme(spacing.4)+160px)] right-[calc(theme(spacing.4)+160px)] h-0.5 hidden md:block"
-                          style={{ background: "linear-gradient(90deg, #1E76B6, #0A183A)", opacity: 0.3, zIndex: 0 }}
-                        />
-                        <div className="flex flex-wrap gap-4 relative z-10">
-                          {group.map((vehicle) => (
-                            <div key={vehicle.id} className="flex-shrink-0">
-                              <VehicleCard
-                                vehicle={vehicle}
-                                onEdit={() => setVehicleToEdit(vehicle)}
-                                onDelete={() => setVehicleToDel(vehicle)}
-                                onAddUnion={(p) => handleAddUnion(vehicle.id, p)}
-                                onRemoveUnion={(p) => setUnionToDel({ sourceId: vehicle.id, targetPlaca: p })}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                      <div
+                        key={`cg-${gi}`}
+                        className="rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                        style={{ background: "rgba(30,118,182,0.04)", border: "1px dashed rgba(30,118,182,0.25)" }}
+                      >
+                        {group.map((vehicle) => (
+                          <VehicleCard
+                            key={vehicle.id}
+                            vehicle={vehicle}
+                            allPlacas={vehicles.map(v => v.placa.toUpperCase())}
+                            onEdit={() => setVehicleToEdit(vehicle)}
+                            onDelete={() => setVehicleToDel(vehicle)}
+                            onAddUnion={(p) => handleAddUnion(vehicle.id, p)}
+                            onRemoveUnion={(p) => setUnionToDel({ sourceId: vehicle.id, targetPlaca: p })}
+                          />
+                        ))}
                       </div>
                     ))}
                   </div>
@@ -978,6 +996,7 @@ export default function VehiculoPage() {
                       <VehicleCard
                         key={group[0].id}
                         vehicle={group[0]}
+                        allPlacas={vehicles.map(v => v.placa.toUpperCase())}
                         onEdit={() => setVehicleToEdit(group[0])}
                         onDelete={() => setVehicleToDel(group[0])}
                         onAddUnion={(p) => handleAddUnion(group[0].id, p)}
