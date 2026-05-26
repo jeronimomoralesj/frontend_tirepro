@@ -6,6 +6,7 @@ import {
   Truck, Gauge, Wind, CheckCircle2, Loader2, ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { fallbackAxleLayout } from "../../../shared/axleLayoutFallback";
+import InspectionDatePicker from "../../../shared/InspectionDatePicker";
 
 export type UserData = {
   id: string;
@@ -321,6 +322,7 @@ const UserPlateInspection: React.FC = () => {
   const [tires, setTires] = useState<Tire[]>([]);
   const [tireUpdates, setTireUpdates] = useState<Record<string, TireUpdate>>({});
   const [newKilometraje, setNewKilometraje] = useState(0);
+  const [inspectionDate, setInspectionDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -420,6 +422,7 @@ const UserPlateInspection: React.FC = () => {
       const vehicleStartingKm = vehicle?.kilometrajeActual ?? 0;
       const kmDelta = Math.max(Number(newKilometraje) - vehicleStartingKm, 0);
 
+      const conductorTodayStr = new Date().toISOString().split("T")[0];
       for (const tire of toSubmit) {
         const u = tireUpdates[tire.id];
         const payload: Record<string, unknown> = {
@@ -428,6 +431,7 @@ const UserPlateInspection: React.FC = () => {
           profundidadExt: Number(u.profundidadExt),
           newKilometraje: Number(newKilometraje),
           ...(kmDelta > 0 && { kmDelta }),
+          ...(inspectionDate !== conductorTodayStr && { fecha: inspectionDate }),
           imageUrl: u.image ? await convertFileToBase64(u.image) : "",
         };
         if (u.presionPsi !== "" && u.presionPsi !== 0) payload.presionPsi = Number(u.presionPsi);
@@ -570,6 +574,9 @@ const UserPlateInspection: React.FC = () => {
                 />
               </div>
             )}
+
+            {/* Inspection date */}
+            <InspectionDatePicker value={inspectionDate} onChange={setInspectionDate} />
 
             {/* Vehicle diagram */}
             {tires.length > 0 && (

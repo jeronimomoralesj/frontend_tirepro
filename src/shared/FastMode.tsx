@@ -9,6 +9,7 @@ import CatalogAutocomplete from "../components/CatalogAutocomplete";
 import AgentCardHeader from "../components/AgentCardHeader";
 import { AGENTS } from "../lib/agents";
 import { fallbackAxleLayout } from "./axleLayoutFallback";
+import InspectionDatePicker from "./InspectionDatePicker";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
@@ -292,6 +293,9 @@ export default function FastMode({ language }: { language: string }) {
   // Kilometraje
   const [newKilometraje, setNewKilometraje] = useState(0);
 
+  // Inspection date
+  const [inspectionDate, setInspectionDate] = useState(() => new Date().toISOString().split("T")[0]);
+
   // Company
   const [companyId, setCompanyId] = useState(() => {
     try { return JSON.parse(localStorage.getItem("user") ?? "{}").companyId ?? ""; } catch { return ""; }
@@ -473,12 +477,14 @@ export default function FastMode({ language }: { language: string }) {
 
         // Submit inspection (always — profundidades are required)
         const imageUrl = nt.image ? await convertFileToBase64(nt.image) : "";
+        const todayStr = new Date().toISOString().split("T")[0];
         const payload: Record<string, unknown> = {
           profundidadInt: Number(nt.profundidadInt),
           profundidadCen: Number(nt.profundidadCen),
           profundidadExt: Number(nt.profundidadExt),
           newKilometraje: Number(newKilometraje),
           ...(kmDelta > 0 && { kmDelta }),
+          ...(inspectionDate !== todayStr && { fecha: inspectionDate }),
           imageUrl,
         };
         if (nt.presionPsi !== "" && nt.presionPsi !== 0) payload.presionPsi = Number(nt.presionPsi);
@@ -496,6 +502,7 @@ export default function FastMode({ language }: { language: string }) {
       const existingKmDelta = Math.max(Number(newKilometraje) - existingVehicleStartingKm, 0);
 
       // 3. Submit inspections for existing tires
+      const existingTodayStr = new Date().toISOString().split("T")[0];
       for (const et of existingTires) {
         if (et.profundidadInt === "" || et.profundidadCen === "" || et.profundidadExt === "") continue;
         const imageUrl = et.image ? await convertFileToBase64(et.image) : "";
@@ -505,6 +512,7 @@ export default function FastMode({ language }: { language: string }) {
           profundidadExt: Number(et.profundidadExt),
           newKilometraje: Number(newKilometraje),
           ...(existingKmDelta > 0 && { kmDelta: existingKmDelta }),
+          ...(inspectionDate !== existingTodayStr && { fecha: inspectionDate }),
           imageUrl,
         };
         if (et.presionPsi !== "" && et.presionPsi !== 0) payload.presionPsi = Number(et.presionPsi);
@@ -705,6 +713,9 @@ export default function FastMode({ language }: { language: string }) {
             <input type="number" value={newKilometraje} onChange={(e) => setNewKilometraje(Number(e.target.value))}
               className={inputCls} min={0} />
           </div>
+
+          {/* Inspection date */}
+          <InspectionDatePicker value={inspectionDate} onChange={setInspectionDate} />
 
           {/* Vehicle diagram — same layout logic as Inspeccion */}
           {(existingTires.length > 0 || newTires.some((t) => t.posicion > 0)) && (

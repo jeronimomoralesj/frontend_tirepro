@@ -31,6 +31,7 @@ import { AGENTS } from "../../../lib/agents";
 import { useAuth } from "../../context/AuthProvider";
 import TireInspectionModal, { type InspectionDraft } from "../../../components/TireInspectionModal";
 import MoveFreeTireToVehicleModal from "@/shared/MoveFreeTireToVehicleModal";
+import InspectionDatePicker from "@/shared/InspectionDatePicker";
 import { fallbackAxleLayout } from "@/shared/axleLayoutFallback";
 
 // =============================================================================
@@ -1012,6 +1013,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
   const [placaInput,      setPlacaInput]      = useState("");
   const [newKilometraje,  setNewKilometraje]  = useState(0);
   const [inspectorName,   setInspectorName]   = useState("");   // NEW
+  const [inspectionDate,  setInspectionDate]  = useState(() => new Date().toISOString().split("T")[0]);
 
   // Pre-fill the inspector name with the logged-in user's name the first
   // time it becomes available. Only fills when still empty so we never
@@ -1359,6 +1361,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
     const tire = [...tires, ...unionTires].find((t) => t.id === tireId);
     if (!tire) throw new Error("Tire not found");
     const kmDelta = Math.max(Number(newKilometraje) - (vehicle?.kilometrajeActual ?? 0), 0);
+    const todayStr = new Date().toISOString().split("T")[0];
     const payload: Record<string, unknown> = {
       profundidadInt: Number(draft.profundidadInt),
       profundidadCen: Number(draft.profundidadCen),
@@ -1367,6 +1370,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
       kmDelta: kmDelta > 0 ? kmDelta : undefined,
       imageUrls: draft.imageUrls.slice(0, 3),
     };
+    if (inspectionDate !== todayStr) payload.fecha = inspectionDate;
     if (draft.presionPsi !== "") payload.presionPsi = Number(draft.presionPsi);
     if (draft.observacion?.trim()) payload.observacion = draft.observacion.trim();
     if (inspectorName.trim()) {
@@ -1557,6 +1561,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
       // Both phases now fan out, then we await the lot.
       const inspectorNombre = inspectorName.trim();
       const inspectorIdMatch = !!(user?.id && inspectorNombre === (user.name ?? "").trim());
+      const batchTodayStr = new Date().toISOString().split("T")[0];
       const payloads = await Promise.all(inspectionTires.map(async (tire) => {
         const upd      = safeUpdate(tire.id);
         const imageUrl = upd.image ? await convertFileToBase64(upd.image) : "";
@@ -1568,6 +1573,7 @@ export default function InspeccionPage({ language }: { language?: string }) {
           kmDelta:        kmDiff,
           imageUrl,
         };
+        if (inspectionDate !== batchTodayStr) payload.fecha = inspectionDate;
         if (upd.presionPsi !== "" && upd.presionPsi !== 0) {
           payload.presionPsi = Number(upd.presionPsi);
         }
@@ -1958,6 +1964,14 @@ export default function InspeccionPage({ language }: { language?: string }) {
                 <p className="text-[10px] text-[#93b8d4] mt-1.5">
                   Se registrará en todas las inspecciones de esta sesión.
                 </p>
+              </div>
+            </div>
+
+            {/* -- Inspection date -------------------------------------------- */}
+            <div className="mt-5">
+              <SectionDivider label="Fecha de inspección" />
+              <div className="mt-4">
+                <InspectionDatePicker value={inspectionDate} onChange={setInspectionDate} />
               </div>
             </div>
           </Card>
