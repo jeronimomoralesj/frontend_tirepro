@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  Users, Tag, Search, Timer, Camera, AlertTriangle, ArrowLeft,
+  Users, Tag, Search, Timer, Camera, AlertTriangle, ArrowLeft, Link2,
   Truck, Gauge, Wind, CheckCircle2, Loader2, ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { fallbackAxleLayout } from "../../../shared/axleLayoutFallback";
@@ -320,6 +320,8 @@ const UserPlateInspection: React.FC = () => {
   const [selectedPlate, setSelectedPlate] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [tires, setTires] = useState<Tire[]>([]);
+  const [unionVehiclePlaca, setUnionVehiclePlaca] = useState<string | null>(null);
+  const [unionTires, setUnionTires] = useState<Tire[]>([]);
   const [tireUpdates, setTireUpdates] = useState<Record<string, TireUpdate>>({});
   const [newKilometraje, setNewKilometraje] = useState(0);
   const [inspectionDate, setInspectionDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -396,6 +398,37 @@ const UserPlateInspection: React.FC = () => {
       sorted.forEach((t) => {
         init[t.id] = { profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", observacion: "", image: null };
       });
+
+      // Load union vehicle tires
+      const unionPlacas: string[] = Array.isArray(v.union) ? v.union : [];
+      if (unionPlacas.length > 0) {
+        try {
+          const uRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(unionPlacas[0])}`, { headers: authHeaders() });
+          if (uRes.ok) {
+            const uVehicle = await uRes.json();
+            setUnionVehiclePlaca(uVehicle.placa?.toUpperCase() ?? unionPlacas[0].toUpperCase());
+            const utRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${uVehicle.id}`, { headers: authHeaders() });
+            if (utRes.ok) {
+              const uTires: any[] = await utRes.json();
+              const uSorted = uTires
+                .map((t) => ({
+                  id: t.id, placa: t.placa, marca: t.marca, posicion: t.posicion,
+                  profundidadInicial: t.profundidadInicial,
+                  inspecciones: Array.isArray(t.inspecciones) ? t.inspecciones : [],
+                }))
+                .sort((a, b) => a.posicion - b.posicion);
+              setUnionTires(uSorted);
+              uSorted.forEach((t) => {
+                init[t.id] = { profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", observacion: "", image: null };
+              });
+            }
+          }
+        } catch { /* non-fatal */ }
+      } else {
+        setUnionVehiclePlaca(null);
+        setUnionTires([]);
+      }
+
       setTireUpdates(init);
     } catch (e: any) { setError(e.message); }
     setLoading(false);
@@ -412,7 +445,8 @@ const UserPlateInspection: React.FC = () => {
     setError(""); setSuccess("");
 
     try {
-      const toSubmit = tires.filter((t) => {
+      const allTires = [...tires, ...unionTires];
+      const toSubmit = allTires.filter((t) => {
         const u = tireUpdates[t.id];
         return u && u.profundidadInt !== "" && u.profundidadCen !== "" && u.profundidadExt !== "";
       });
@@ -453,7 +487,7 @@ const UserPlateInspection: React.FC = () => {
       }
 
       setSuccess(`${toSubmit.length} inspección${toSubmit.length > 1 ? "es" : ""} guardada${toSubmit.length > 1 ? "s" : ""} exitosamente`);
-      setSelectedPlate(""); setVehicle(null); setTires([]); setNewKilometraje(0);
+      setSelectedPlate(""); setVehicle(null); setTires([]); setUnionVehiclePlaca(null); setUnionTires([]); setNewKilometraje(0);
     } catch (e: any) { setError(e.message); }
     setSubmitting(false);
   }
@@ -470,7 +504,8 @@ const UserPlateInspection: React.FC = () => {
     ? inspectablePlates.filter((p) => p.toLowerCase().includes(searchQuery.toLowerCase()))
     : inspectablePlates;
 
-  const filledCount = tires.filter((t) => {
+  const allDisplayTires = [...tires, ...unionTires];
+  const filledCount = allDisplayTires.filter((t) => {
     const u = tireUpdates[t.id];
     return u && u.profundidadInt !== "" && u.profundidadCen !== "" && u.profundidadExt !== "";
   }).length;
@@ -541,7 +576,7 @@ const UserPlateInspection: React.FC = () => {
           <>
             {/* Back button */}
             <button
-              onClick={() => { setSelectedPlate(""); setVehicle(null); setTires([]); setError(""); setSuccess(""); setSearchQuery(""); }}
+              onClick={() => { setSelectedPlate(""); setVehicle(null); setTires([]); setUnionVehiclePlaca(null); setUnionTires([]); setError(""); setSuccess(""); setSearchQuery(""); }}
               className="flex items-center gap-1.5 text-sm font-semibold text-[#1E76B6] hover:text-[#0A183A] transition-colors"
             >
               <ArrowLeft className="w-4 h-4" /> Volver a mis placas
@@ -591,7 +626,7 @@ const UserPlateInspection: React.FC = () => {
             {tires.length > 0 && (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-wider">
-                  Llantas ({filledCount}/{tires.length} completadas)
+                  Llantas ({filledCount}/{allDisplayTires.length} completadas)
                 </p>
 
                 {tires.map((tire) => (
@@ -602,6 +637,28 @@ const UserPlateInspection: React.FC = () => {
                     onChange={(f, v) => handleInputChange(tire.id, f, v)}
                   />
                 ))}
+
+                {/* Union vehicle tires */}
+                {unionVehiclePlaca && unionTires.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-2 pt-2">
+                      <div className="p-1 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+                        <Link2 className="w-3.5 h-3.5 text-[#1E76B6]" />
+                      </div>
+                      <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-wider">
+                        Vehículo en unión — {unionVehiclePlaca} ({unionTires.length} llantas)
+                      </p>
+                    </div>
+                    {unionTires.map((tire) => (
+                      <TireCard
+                        key={tire.id}
+                        tire={tire}
+                        update={tireUpdates[tire.id] ?? { profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", observacion: "", image: null }}
+                        onChange={(f, v) => handleInputChange(tire.id, f, v)}
+                      />
+                    ))}
+                  </>
+                )}
 
                 <button
                   type="submit"

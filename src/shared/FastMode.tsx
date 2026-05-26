@@ -290,6 +290,10 @@ export default function FastMode({ language }: { language: string }) {
   const [existingTires, setExistingTires] = useState<ExistingTire[]>([]);
   const [newTires, setNewTires] = useState<NewTire[]>([]);
 
+  // Union vehicle + tires
+  const [unionVehiclePlaca, setUnionVehiclePlaca] = useState<string | null>(null);
+  const [unionTires, setUnionTires] = useState<ExistingTire[]>([]);
+
   // Kilometraje
   const [newKilometraje, setNewKilometraje] = useState(0);
 
@@ -344,6 +348,43 @@ export default function FastMode({ language }: { language: string }) {
               .sort((a: { posicion: number }, b: { posicion: number }) => a.posicion - b.posicion),
           );
         }
+
+        // Load union vehicle tires
+        const unionPlacas: string[] = Array.isArray(v.union) ? v.union : [];
+        if (unionPlacas.length > 0) {
+          try {
+            const uRes = await fetch(`${API_BASE}/vehicles/by-placa?placa=${encodeURIComponent(unionPlacas[0])}`, { headers: authHeaders() });
+            if (uRes.ok) {
+              const uVehicle = await uRes.json();
+              setUnionVehiclePlaca(uVehicle.placa?.toUpperCase() ?? unionPlacas[0].toUpperCase());
+              const utRes = await fetch(`${API_BASE}/tires/vehicle?vehicleId=${uVehicle.id}`, { headers: authHeaders() });
+              if (utRes.ok) {
+                const uTires = await utRes.json();
+                setUnionTires(
+                  uTires
+                    .map((t: any) => {
+                      const lastInsp = Array.isArray(t.inspecciones) ? t.inspecciones[0] : undefined;
+                      return {
+                        id: t.id, placa: t.placa, marca: t.marca, posicion: t.posicion,
+                        profundidadInicial: t.profundidadInicial, vehicleId: t.vehicleId,
+                        kilometrosRecorridos: t.kilometrosRecorridos ?? 0,
+                        costos: Array.isArray(t.costos) ? t.costos : Array.isArray(t.costo) ? t.costo : [],
+                        lastProfundidadInt: lastInsp?.profundidadInt,
+                        lastProfundidadCen: lastInsp?.profundidadCen,
+                        lastProfundidadExt: lastInsp?.profundidadExt,
+                        profundidadInt: "", profundidadCen: "", profundidadExt: "", presionPsi: "", image: null, observacion: "",
+                      };
+                    })
+                    .sort((a: { posicion: number }, b: { posicion: number }) => a.posicion - b.posicion),
+                );
+              }
+            }
+          } catch { /* non-fatal */ }
+        } else {
+          setUnionVehiclePlaca(null);
+          setUnionTires([]);
+        }
+
         setStep("tires");
       } else {
         // Vehicle doesn't exist — offer to create
@@ -353,6 +394,8 @@ export default function FastMode({ language }: { language: string }) {
         setNewKilometraje(0);
         setExistingTires([]);
         setNewTires([]);
+        setUnionVehiclePlaca(null);
+        setUnionTires([]);
         setStep("vehicle");
       }
     } catch { setError("Error de conexión"); }
@@ -407,6 +450,10 @@ export default function FastMode({ language }: { language: string }) {
 
   function updateExistingTire(id: string, field: string, value: any) {
     setExistingTires((prev) => prev.map((t) => t.id === id ? { ...t, [field]: value } : t));
+  }
+
+  function updateUnionTire(id: string, field: string, value: any) {
+    setUnionTires((prev) => prev.map((t) => t.id === id ? { ...t, [field]: value } : t));
   }
 
   // -- Submit everything ----------------------------------------------------
@@ -528,6 +575,33 @@ export default function FastMode({ language }: { language: string }) {
         }
       }
 
+      // 4. Submit inspections for union tires (same kmDelta as main vehicle)
+      for (const ut of unionTires) {
+        if (ut.profundidadInt === "" || ut.profundidadCen === "" || ut.profundidadExt === "") continue;
+        const imageUrl = ut.image ? await convertFileToBase64(ut.image) : "";
+        const utTodayStr = new Date().toISOString().split("T")[0];
+        const payload: Record<string, unknown> = {
+          profundidadInt: Number(ut.profundidadInt),
+          profundidadCen: Number(ut.profundidadCen),
+          profundidadExt: Number(ut.profundidadExt),
+          newKilometraje: Number(newKilometraje),
+          ...(existingKmDelta > 0 && { kmDelta: existingKmDelta }),
+          ...(inspectionDate !== utTodayStr && { fecha: inspectionDate }),
+          imageUrl,
+        };
+        if (ut.presionPsi !== "" && ut.presionPsi !== 0) payload.presionPsi = Number(ut.presionPsi);
+        if (ut.observacion.trim()) payload.observacion = ut.observacion.trim();
+
+        const res = await fetch(`${API_BASE}/tires/${ut.id}/inspection`, {
+          method: "PATCH", headers: authHeaders(),
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const b = await res.json().catch(() => ({}));
+          throw new Error(b.message ?? `Error al inspeccionar ${ut.placa} (unión)`);
+        }
+      }
+
       setSuccess(`Todo listo. ${newTires.length > 0 ? `${newTires.length} llantas creadas. ` : ""}Inspecciones guardadas.`);
       // Reset
       setStep("search");
@@ -535,6 +609,8 @@ export default function FastMode({ language }: { language: string }) {
       setVehicleId(null);
       setExistingTires([]);
       setNewTires([]);
+      setUnionVehiclePlaca(null);
+      setUnionTires([]);
     } catch (e: any) { setError(e.message); }
     setSubmitting(false);
   }
@@ -775,6 +851,28 @@ export default function FastMode({ language }: { language: string }) {
                 <NewTireCard key={t.tempId} tire={t}
                   onUpdate={(f, v) => updateNewTire(t.tempId, f, v)}
                   onRemove={() => removeNewTire(t.tempId)} />
+              ))}
+            </div>
+          )}
+
+          {/* Union tires */}
+          {unionVehiclePlaca && unionTires.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
+                  <Zap className="w-3.5 h-3.5 text-[#1E76B6]" />
+                </div>
+                <p className="text-xs font-bold text-[#1E76B6] uppercase tracking-wider">
+                  Vehículo en unión — {unionVehiclePlaca} ({unionTires.length})
+                </p>
+              </div>
+              {unionTires.map((t) => (
+                <TireCard key={t.id} label={`${t.placa} — P${t.posicion} — ${t.marca}`} isNew={false}
+                  profInt={t.profundidadInt} profCen={t.profundidadCen} profExt={t.profundidadExt}
+                  presion={t.presionPsi} image={t.image}
+                  preview={null} observacion={t.observacion}
+                  lastProfundidadInt={t.lastProfundidadInt} lastProfundidadCen={t.lastProfundidadCen} lastProfundidadExt={t.lastProfundidadExt}
+                  onChange={(f, v) => updateUnionTire(t.id, f, v)} />
               ))}
             </div>
           )}
