@@ -8,6 +8,7 @@ import {
   LogOut, Glasses, LifeBuoy, User, Menu, X,
   ChevronLeft, ChevronRight, Truck, User2, Trash2,
   Trash, ClipboardList, Package, ShoppingCart, BookOpen, BarChart3,
+  Sparkles, Zap,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -34,11 +35,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
 // =============================================================================
 
 function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
-  // "Regular" users (viewer / legacy regular) are drivers/operators — they
-  // only inspect the vehicles assigned to them. Same flow regardless of
-  // whether their company is on a fleet (plus/pro) or distribuidor plan.
-  // Without this gate they'd see the full admin nav (Resumen, Pedidos,
-  // Vehículos, etc.) and reach surfaces meant for fleet managers.
   if (role === "viewer" || role === "regular") {
     return [
       { name: "Agregar", path: "/dashboard/agregarConductor", icon: Plus },
@@ -46,22 +42,11 @@ function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
   }
 
   if (plan === "distribuidor") {
-    // Catalog-only roles: sales reps (catalogo) and sales managers
-    // (catalogo_admin) see ONLY the SKU catalog — not Pedidos / Desechos
-    // / Gestión / Vehículos etc. They're hired to push product, not to
-    // manage fleets.
-    // Catálogo (sales rep) + Catálogo Admin (sales manager) only get the
-    // SKU catalog — they're hired to push product, not to manage the
-    // storefront.
     if (role === "catalogo" || role === "catalogo_admin") {
       return [
         { name: "Catálogo", path: "/dashboard/catalogoSku", icon: BookOpen },
       ];
     }
-    // Marketplace Tracker — catalog browsing + the three marketplace
-    // operations pages (storefront profile, orders, listings). Excluded
-    // from the fleet-management sections (Pedidos / Desechos / Gestión /
-    // Vehículos) so the sidebar stays focused.
     if (role === "marketplace_tracker") {
       return [
         { name: "Catálogo",     path: "/dashboard/catalogoSku",                 icon: BookOpen      },
@@ -71,12 +56,6 @@ function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
         { name: "Estadísticas", path: "/dashboard/marketplace/estadisticas",    icon: BarChart3     },
       ];
     }
-    // Dist admin nav. Estadísticas is intentionally NOT a standalone
-    // entry here — admins reach it as a tab inside /dashboard/pedidosDist
-    // alongside Pedidos / Marketplace / Catálogo / Perfil, so the order
-    // surface and the analytics that describe it live together.
-    // marketplace_tracker users still see Estadísticas in their sidebar
-    // because they don't have the tabbed pedidosDist surface.
     return [
       { name: "Resumen",   path: "/dashboard/distribuidor", icon: LayoutDashboard },
       { name: "Pedidos",   path: "/dashboard/pedidosDist",  icon: ShoppingCart    },
@@ -89,22 +68,27 @@ function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
     ];
   }
 
-  // Fleet nav — plus + pro. Role distinction only affects "Agregar":
-  // admins see the full /dashboard/agregar, everyone else the
-  // lightweight /agregarConductor (inspection capture flow).
   if (plan === "plus" || plan === "pro") {
-    return [
+    const links: NavLink[] = [
       { name: "Resumen",    path: "/dashboard/resumen",    icon: LayoutDashboard },
+    ];
+    if (isAdmin) {
+      links.push(
+        { name: "Modo IA",  path: "/chat",          icon: Sparkles },
+        { name: "Agentes",  path: "/chat/agentes",  icon: Zap      },
+      );
+    }
+    links.push(
       { name: "Analista",   path: "/dashboard/analista",   icon: Glasses         },
       { name: "Detalle",    path: "/dashboard/detalle",    icon: ClipboardList   },
       { name: "Inventario", path: "/dashboard/inventario", icon: Package         },
       { name: "Vehículos",  path: "/dashboard/vehiculo",   icon: Car             },
       { name: "Agregar",    path: isAdmin ? "/dashboard/agregar" : "/dashboard/agregarConductor", icon: Plus },
       { name: "Buscar",     path: "/dashboard/buscar",     icon: Search          },
-    ];
+    );
+    return links;
   }
 
-  // Marketplace / unknown plan — inspection-only flow.
   return [
     { name: "Agregar", path: "/dashboard/agregarConductor", icon: Plus },
   ];
@@ -125,7 +109,7 @@ function CompanyAvatar({
   return (
     <div
       className={`${dim} rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center`}
-      style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+      style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}
     >
       {company.profileImage ? (
         <img
@@ -150,8 +134,6 @@ function NavItem({
   link, active, collapsed, onClick, badge,
 }: {
   link: NavLink; active: boolean; collapsed: boolean; onClick?: () => void;
-  // Optional notification count. Anything > 0 renders a small red bubble
-  // over the icon; numeric values 1–99 are shown, 99+ collapses to "99+".
   badge?: number;
 }) {
   const Icon = link.icon;
@@ -165,9 +147,9 @@ function NavItem({
       style={
         active
           ? {
-              background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)",
+              background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
               color: "white",
-              boxShadow: "0 4px 12px rgba(10,24,58,0.25)",
+              boxShadow: "0 4px 16px -4px rgba(10,24,58,0.3)",
             }
           : {
               color: "#173D68",
@@ -176,7 +158,7 @@ function NavItem({
       }
       onMouseEnter={e => {
         if (!active) {
-          (e.currentTarget as HTMLElement).style.background = "rgba(30,118,182,0.08)";
+          (e.currentTarget as HTMLElement).style.background = "rgba(10,24,58,0.04)";
         }
       }}
       onMouseLeave={e => {
@@ -188,7 +170,7 @@ function NavItem({
       <div
         className="relative flex-shrink-0 p-1.5 rounded-lg transition-all duration-200"
         style={{
-          background: active ? "rgba(255,255,255,0.15)" : "rgba(30,118,182,0.08)",
+          background: active ? "rgba(255,255,255,0.15)" : "rgba(10,24,58,0.05)",
         }}
       >
         <Icon className="w-4 h-4" />
@@ -205,8 +187,6 @@ function NavItem({
       {!collapsed && (
         <span className="leading-none truncate flex-1">{link.name}</span>
       )}
-      {/* Text-row badge when not collapsed — mirrors the icon dot so it's
-          visible at a glance even when the icon area is crowded. */}
       {!collapsed && showBadge && (
         <span
           className="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white tabular-nums"
@@ -237,27 +217,10 @@ export default function Sidebar({
   const pathname = usePathname();
   const [user,          setUser]          = useState<UserData | null>(null);
   const [company,       setCompany]       = useState<CompanyData | null>(null);
-  // Open bid requests available to this dist — drives the red bubble on
-  // the "Pedidos" sidebar item. Polled every 60s so new invitations show
-  // up without a page refresh. Zero for non-dist users.
   const [openBidsCount,      setOpenBidsCount]      = useState<number>(0);
-  // Cotizaciones waiting for the fleet to accept/reject — drives the red
-  // bubble on the "Analista" nav item for non-dist (fleet) users.
   const [pendingQuotesCount, setPendingQuotesCount] = useState<number>(0);
-  // Marketplace orders sitting in `pendiente` — drives the red bubble on
-  // the "Pedidos" nav item (both /dashboard/pedidosDist for dist admins
-  // and /dashboard/marketplace/pedidos for marketplace_tracker users).
-  // Polled at the same 60s cadence as the others.
   const [pendingMarketplaceCount, setPendingMarketplaceCount] = useState<number>(0);
 
-  // -- Bootstrap: load user from localStorage, then refresh from server -------
-  // We hydrate the sidebar immediately from localStorage so the nav
-  // doesn't blank on every navigation, but in the background we hit
-  // /users/me to check for role/plan drift. If the server returns a
-  // different role (e.g. admin → marketplace_tracker promotion that
-  // happened after the JWT was minted), we update both localStorage
-  // and the in-memory state so the sidebar re-renders the correct
-  // links without forcing a logout.
   useEffect(() => {
     const raw   = localStorage.getItem("user");
     const token = localStorage.getItem("token");
@@ -290,28 +253,21 @@ export default function Sidebar({
             userPlan: fresh.userPlan ?? stored.userPlan ?? "free",
             company: fresh.company ?? stored.company ?? null,
           }));
-        } catch { /* ignore — state is the source of truth this render */ }
+        } catch { /* ignore */ }
         setUser(reconciled);
-      } catch { /* network blip — sidebar keeps the cached value */ }
+      } catch { /* network blip */ }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  // -- Fetch company once we have the id ---------------------------------------
   useEffect(() => {
     if (!user?.companyId) return;
-    // Uses the shared cache so the root /dashboard + RouteGuard + this
-    // sidebar share one network call per minute. Without dedupe, every
-    // navigation hit /api/companies/:id three times in parallel and
-    // triggered 429 Too Many Requests on rate-limited tenants.
     import("@/shared/fetchCompany")
       .then(({ fetchCompany }) => fetchCompany(user.companyId))
       .then((c) => setCompany(c as CompanyData))
       .catch((err) => console.error("Error fetching company:", err));
   }, [user?.companyId]);
 
-  // Lock body scroll only while the mobile drawer is open.
-  // IMPORTANT: must be declared before any early return to keep hook order stable.
   useEffect(() => {
     if (typeof document === "undefined" || !isMobileOpen) return;
     const prev = document.body.style.overflow;
@@ -319,10 +275,6 @@ export default function Sidebar({
     return () => { document.body.style.overflow = prev; };
   }, [isMobileOpen]);
 
-  // Poll open bid requests for distribuidores — feeds the red bubble on
-  // the Pedidos nav item so open licitaciones surface without a manual
-  // page load. 60s cadence is a sane balance between freshness and
-  // request volume; the endpoint is cheap (single indexed query).
   useEffect(() => {
     if (!user?.companyId || company?.plan !== "distribuidor") {
       setOpenBidsCount(0);
@@ -339,21 +291,13 @@ export default function Sidebar({
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setOpenBidsCount(Array.isArray(data) ? data.length : 0);
-      } catch { /* silent — keep the last known count */ }
+      } catch { /* silent */ }
     }
     tick();
     const id = setInterval(tick, 60_000);
     return () => { cancelled = true; clearInterval(id); };
   }, [user?.companyId, company?.plan]);
 
-  // Fleet (plus/pro) side — bubble on the Analista nav item counts three
-  // distinct "things that need attention":
-  //   1. Cotizaciones the dist has sent back (order.status = cotizacion_recibida)
-  //   2. Tires currently in the reencauche flow (items where tipo='reencauche'
-  //      and status ∈ {en_reencauche_bucket, aprobada})
-  //   3. Licitaciones with at least one new dist response (status=cotizada),
-  //      not yet adjudicated — same "react now" surface as cotizaciones.
-  // Summed into one badge so the fleet has a single "attention" counter.
   useEffect(() => {
     if (!user?.companyId || company?.plan === "distribuidor") {
       setPendingQuotesCount(0);
@@ -387,9 +331,6 @@ export default function Sidebar({
           const bids = await bidsRes.json();
           if (Array.isArray(bids)) {
             for (const b of bids as Array<{ status?: string; responses?: Array<{ status?: string }> }>) {
-              // Only open bids where at least one dist has already quoted
-              // — adjudicada/cerrada/cancelada are not actionable, and
-              // bids still waiting for every dist need no user attention.
               if (b.status !== "abierta") continue;
               if ((b.responses ?? []).some((r) => r.status === "cotizada")) count += 1;
             }
@@ -403,11 +344,6 @@ export default function Sidebar({
     return () => { cancelled = true; clearInterval(id); };
   }, [user?.companyId, company?.plan]);
 
-  // Marketplace pending-orders bubble — only meaningful for distribuidor
-  // companies (they're the ones receiving marketplace orders). 60s
-  // poll matches the other counters; the dist's "Refresh" button on
-  // /dashboard/marketplace/pedidos refreshes the page list separately
-  // — this only feeds the sidebar bubble.
   useEffect(() => {
     if (!user?.companyId || company?.plan !== "distribuidor") {
       setPendingMarketplaceCount(0);
@@ -435,14 +371,9 @@ export default function Sidebar({
     return () => { cancelled = true; clearInterval(id); };
   }, [user?.companyId, company?.plan]);
 
-  // Still loading
   if (!user || !company) return null;
 
   const isAdmin = user.role === "admin";
-  // Catálogo (sales rep), Catálogo Admin (sales manager), and
-  // Marketplace Tracker need the Ajustes link too — they each get a
-  // single Profile tab inside, but need somewhere to update their
-  // password and personal data.
   const canSeeSettings =
     isAdmin ||
     user.role === "catalogo" ||
@@ -479,14 +410,16 @@ export default function Sidebar({
         <div
           className="flex items-center gap-2.5 pl-2 pr-1.5 rounded-2xl"
           style={{
-            background: "white",
-            border: "1px solid rgba(52,140,203,0.18)",
-            boxShadow: "0 4px 18px rgba(10,24,58,0.08)",
+            background: "rgba(255,255,255,0.85)",
+            backdropFilter: "saturate(180%) blur(12px)",
+            WebkitBackdropFilter: "saturate(180%) blur(12px)",
+            border: "1px solid rgba(10,24,58,0.08)",
+            boxShadow: "0 4px 24px -8px rgba(10,24,58,0.1)",
             height: 50,
           }}
         >
-          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center"
-               style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}>
+          <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
+               style={{ background: "linear-gradient(135deg,#0A183A,#173D68)" }}>
             {company.profileImage ? (
               <img src={company.profileImage} alt={company.name} className="w-full h-full object-contain p-0.5" />
             ) : (
@@ -506,13 +439,13 @@ export default function Sidebar({
             style={{
               width: 36,
               height: 36,
-              background: "rgba(30,118,182,0.08)",
-              border: "1px solid rgba(52,140,203,0.15)",
+              background: "rgba(10,24,58,0.04)",
+              border: "1px solid rgba(10,24,58,0.08)",
             }}
           >
             {isMobileOpen
-              ? <X className="w-4 h-4 text-[#1E76B6]" />
-              : <Menu className="w-4 h-4 text-[#1E76B6]" />
+              ? <X className="w-4 h-4 text-[#173D68]" />
+              : <Menu className="w-4 h-4 text-[#173D68]" />
             }
           </button>
         </div>
@@ -523,9 +456,11 @@ export default function Sidebar({
         className="fixed inset-y-0 right-0 z-50 flex flex-col lg:hidden transition-transform duration-300 ease-out w-[88%] max-w-sm"
         style={{
           transform: isMobileOpen ? "translateX(0)" : "translateX(105%)",
-          background: "white",
-          borderLeft: "1px solid rgba(52,140,203,0.15)",
-          boxShadow: "-12px 0 40px rgba(10,24,58,0.18)",
+          background: "rgba(255,255,255,0.95)",
+          backdropFilter: "saturate(180%) blur(16px)",
+          WebkitBackdropFilter: "saturate(180%) blur(16px)",
+          borderLeft: "1px solid rgba(10,24,58,0.08)",
+          boxShadow: "-12px 0 48px rgba(10,24,58,0.15)",
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
@@ -583,9 +518,6 @@ export default function Sidebar({
               collapsed={false}
               onClick={closeMobile}
               badge={
-                // /pedidosDist is the dist admin's unified inbox — surface
-                // BOTH open bids and pending marketplace orders so the
-                // bubble matches "things to action in Pedidos".
                 link.path === "/dashboard/pedidosDist"           ? openBidsCount + pendingMarketplaceCount
                 : link.path === "/dashboard/marketplace/pedidos" ? pendingMarketplaceCount
                 : link.path === "/dashboard/analista"            ? pendingQuotesCount
@@ -598,32 +530,32 @@ export default function Sidebar({
         {/* Mobile footer */}
         <div
           className="px-3 pb-4 pt-3 space-y-1"
-          style={{ borderTop: "1px solid rgba(52,140,203,0.1)" }}
+          style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}
         >
           {company.plan !== "mini" && canSeeSettings && (
             <Link
               href="/settings"
               onClick={closeMobile}
-              className="flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-[#173D68] transition-all hover:bg-[rgba(30,118,182,0.08)]"
+              className="flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-[#173D68] transition-all hover:bg-[rgba(10,24,58,0.04)]"
             >
-              <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.08)" }}>
-                <Settings className="w-4 h-4 text-[#1E76B6]" />
+              <div className="p-1.5 rounded-lg" style={{ background: "rgba(10,24,58,0.05)" }}>
+                <Settings className="w-4 h-4 text-[#173D68]" />
               </div>
               Ajustes
             </Link>
           )}
           <a href="/marketplace" onClick={closeMobile}
-            className="flex items-center gap-3 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#348CCB]/70 hover:bg-[rgba(30,118,182,0.06)]">
-            <div className="p-1 rounded-md" style={{ background: "rgba(30,118,182,0.06)" }}>
-              <ShoppingCart className="w-3.5 h-3.5 text-[#348CCB]/60" />
+            className="flex items-center gap-3 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#173D68]/50 hover:bg-[rgba(10,24,58,0.03)]">
+            <div className="p-1 rounded-md" style={{ background: "rgba(10,24,58,0.04)" }}>
+              <ShoppingCart className="w-3.5 h-3.5 text-[#173D68]/40" />
             </div>
             Marketplace
           </a>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-red-500 transition-all hover:bg-red-50"
+            className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-red-400 transition-all hover:bg-red-50/60"
           >
-            <div className="p-1.5 rounded-lg bg-red-50">
+            <div className="p-1.5 rounded-lg" style={{ background: "rgba(239,68,68,0.06)" }}>
               <LogOut className="w-4 h-4" />
             </div>
             Cerrar sesión
@@ -633,7 +565,7 @@ export default function Sidebar({
         {/* TirePro logo */}
         <div
           className="flex items-center justify-center px-4 py-3"
-          style={{ borderTop: "1px solid rgba(52,140,203,0.1)" }}
+          style={{ borderTop: "1px solid rgba(10,24,58,0.05)" }}
         >
           <Image src={logo} alt="TirePro" className="h-7 w-auto" />
         </div>
@@ -645,9 +577,11 @@ export default function Sidebar({
         style={{
           height: "calc(100vh - 2rem)",
           width: collapsed ? 64 : 224,
-          background: "white",
-          border: "1px solid rgba(52,140,203,0.15)",
-          boxShadow: "0 4px 32px rgba(10,24,58,0.08)",
+          background: "rgba(255,255,255,0.8)",
+          backdropFilter: "saturate(180%) blur(14px)",
+          WebkitBackdropFilter: "saturate(180%) blur(14px)",
+          border: "1px solid rgba(10,24,58,0.08)",
+          boxShadow: "0 4px 32px -8px rgba(10,24,58,0.1)",
           borderRadius: 20,
           transition: "width 300ms ease",
           overflow: "hidden",
@@ -704,13 +638,13 @@ export default function Sidebar({
             onClick={() => setCollapsed(!collapsed)}
             className="p-1.5 rounded-lg transition-all hover:scale-105"
             style={{
-              background: "rgba(30,118,182,0.08)",
-              border: "1px solid rgba(52,140,203,0.15)",
+              background: "rgba(10,24,58,0.04)",
+              border: "1px solid rgba(10,24,58,0.08)",
             }}
           >
             {collapsed
-              ? <ChevronRight className="w-3.5 h-3.5 text-[#1E76B6]" />
-              : <ChevronLeft  className="w-3.5 h-3.5 text-[#1E76B6]" />
+              ? <ChevronRight className="w-3.5 h-3.5 text-[#173D68]" />
+              : <ChevronLeft  className="w-3.5 h-3.5 text-[#173D68]" />
             }
           </button>
         </div>
@@ -724,9 +658,6 @@ export default function Sidebar({
               active={pathname === link.path}
               collapsed={collapsed}
               badge={
-                // /pedidosDist is the dist admin's unified inbox — surface
-                // BOTH open bids and pending marketplace orders so the
-                // bubble matches "things to action in Pedidos".
                 link.path === "/dashboard/pedidosDist"           ? openBidsCount + pendingMarketplaceCount
                 : link.path === "/dashboard/marketplace/pedidos" ? pendingMarketplaceCount
                 : link.path === "/dashboard/analista"            ? pendingQuotesCount
@@ -739,24 +670,24 @@ export default function Sidebar({
         {/* Desktop footer */}
         <div
           className="flex-shrink-0 px-2 pb-3 pt-2 space-y-0.5"
-          style={{ borderTop: "1px solid rgba(52,140,203,0.1)" }}
+          style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}
         >
           <a
             href="/marketplace"
-            className="group flex items-center gap-3 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#348CCB]/70 transition-all hover:bg-[rgba(30,118,182,0.06)] hover:text-[#1E76B6]"
+            className="group flex items-center gap-3 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#173D68]/50 transition-all hover:bg-[rgba(10,24,58,0.03)] hover:text-[#173D68]"
           >
-            <div className="flex-shrink-0 p-1 rounded-md" style={{ background: "rgba(30,118,182,0.06)" }}>
-              <ShoppingCart className="w-3.5 h-3.5 text-[#348CCB]/60" />
+            <div className="flex-shrink-0 p-1 rounded-md" style={{ background: "rgba(10,24,58,0.04)" }}>
+              <ShoppingCart className="w-3.5 h-3.5 text-[#173D68]/40" />
             </div>
             {!collapsed && <span className="truncate">Marketplace</span>}
           </a>
           {company.plan !== "mini" && canSeeSettings && (
             <Link
               href="/settings"
-              className="group flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-[#173D68] transition-all hover:bg-[rgba(30,118,182,0.08)]"
+              className="group flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-[#173D68] transition-all hover:bg-[rgba(10,24,58,0.04)]"
             >
-              <div className="flex-shrink-0 p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.08)" }}>
-                <Settings className="w-4 h-4 text-[#1E76B6]" />
+              <div className="flex-shrink-0 p-1.5 rounded-lg" style={{ background: "rgba(10,24,58,0.05)" }}>
+                <Settings className="w-4 h-4 text-[#173D68]" />
               </div>
               {!collapsed && <span className="truncate">Ajustes</span>}
             </Link>
@@ -764,9 +695,9 @@ export default function Sidebar({
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-red-500 transition-all hover:bg-red-50"
+            className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-bold text-red-400 transition-all hover:bg-red-50/60"
           >
-            <div className="flex-shrink-0 p-1.5 rounded-lg bg-red-50">
+            <div className="flex-shrink-0 p-1.5 rounded-lg" style={{ background: "rgba(239,68,68,0.06)" }}>
               <LogOut className="w-4 h-4" />
             </div>
             {!collapsed && <span className="truncate">Cerrar sesión</span>}
@@ -775,7 +706,7 @@ export default function Sidebar({
           {/* TirePro logo */}
           <div
             className="flex items-center justify-center pt-2 mt-1"
-            style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}
+            style={{ borderTop: "1px solid rgba(10,24,58,0.05)" }}
           >
             <Image
               src={logo}
