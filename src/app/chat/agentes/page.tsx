@@ -155,6 +155,7 @@ function AgentsPage() {
   const [flows, setFlows] = useState<ApiFlow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [view, setView] = useState<'flows' | 'manage'>('flows');
 
   // Floating Ana state
   const [anaOpen, setAnaOpen] = useState(false);
@@ -219,6 +220,15 @@ function AgentsPage() {
     } catch {}
   };
 
+  const disconnectIntegration = async (id: string) => {
+    if (id === 'calendar') {
+      try {
+        const res = await authFetch('/integrations/google/disconnect', { method: 'DELETE' });
+        if (res.ok) { setIntegrations(prev => prev.map(i => i.id === id ? { ...i, connected: false } : i)); setConnectToast('Google Calendar desconectado'); setTimeout(() => setConnectToast(null), 3000); }
+      } catch {}
+    }
+  };
+
   if (!allowed) return (
     <div className="flex h-screen w-full items-center justify-center" style={{ background: '#F0F2F5' }}>
       <div className="w-6 h-6 border-2 border-gray-200 border-t-[#A374FF] rounded-full animate-spin" />
@@ -247,20 +257,83 @@ function AgentsPage() {
       {/* ══════ Main ══════ */}
       <main className="relative z-10 flex h-full min-w-0 flex-1 flex-col">
         {/* Header bar */}
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-[#E4E7EB] bg-white px-4 sm:px-5">
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setMobileNavOpen(true)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#525866] hover:bg-[#F0F2F5] md:hidden"><PanelLeft className="h-4 w-4" /></button>
-            <BoltIcon className="h-4 w-4 text-[#A374FF]" />
-            <span className="text-[14px] font-semibold text-[#1A1D21]">Flujos</span>
-            <span className="ml-1 rounded-md bg-[#F0F2F5] px-1.5 py-0.5 text-[11px] font-medium text-[#525866]">{flows.length}</span>
+        <header className="shrink-0 border-b border-[#E4E7EB] bg-white">
+          <div className="flex h-12 items-center justify-between px-4 sm:px-5">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setMobileNavOpen(true)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#525866] hover:bg-[#F0F2F5] md:hidden"><PanelLeft className="h-4 w-4" /></button>
+              <BoltIcon className="h-4 w-4 text-[#A374FF]" />
+              <span className="text-[14px] font-semibold text-[#1A1D21]">Agentes</span>
+            </div>
+            {view === 'flows' && (
+              <button type="button" onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1A1D21] px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-[#2D3138] transition-colors">
+                <Plus className="h-3.5 w-3.5" /> Nuevo flujo
+              </button>
+            )}
           </div>
-          <button type="button" onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1A1D21] px-3.5 py-1.5 text-[12px] font-semibold text-white hover:bg-[#2D3138] transition-colors">
-            <Plus className="h-3.5 w-3.5" /> Nuevo flujo
-          </button>
+          <div className="flex gap-0 px-4 sm:px-5">
+            <button type="button" onClick={() => setView('flows')} className={cn('relative px-3 pb-2 text-[13px] font-medium transition-colors', view === 'flows' ? 'text-[#1A1D21]' : 'text-[#525866]/60 hover:text-[#525866]')}>
+              Flujos <span className="ml-1 text-[11px] text-[#525866]/40">{flows.length}</span>
+              {view === 'flows' && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#1A1D21]" />}
+            </button>
+            <button type="button" onClick={() => setView('manage')} className={cn('relative px-3 pb-2 text-[13px] font-medium transition-colors', view === 'manage' ? 'text-[#1A1D21]' : 'text-[#525866]/60 hover:text-[#525866]')}>
+              Gestionar
+              {view === 'manage' && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#1A1D21]" />}
+            </button>
+          </div>
         </header>
 
-        {/* Canvas area */}
+        {/* Content area */}
         <div className="flex-1 overflow-y-auto pb-24">
+          {view === 'manage' ? (
+            <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+              <h2 className="text-[16px] font-bold text-[#1A1D21] mb-1">Integraciones</h2>
+              <p className="text-[13px] text-[#525866]/60 mb-5">Conecta y administra tus servicios externos.</p>
+
+              <div className="space-y-3">
+                {integrations.map(integ => {
+                  const Icon = integ.icon;
+                  const isSystem = integ.id === 'email' || integ.id === 'whatsapp';
+                  return (
+                    <div key={integ.id} className="flex items-center gap-4 rounded-xl border border-[#E4E7EB] bg-white p-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: integ.bg }}>
+                        <Icon className="h-5 w-5" style={{ color: integ.color } as React.CSSProperties} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] font-semibold text-[#1A1D21]">{integ.name}</p>
+                        <p className="text-[12px] text-[#525866]/50">
+                          {isSystem ? 'Integración del sistema — siempre activa' : integ.connected ? 'Conectado' : 'No conectado'}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        {isSystem ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Activo
+                          </span>
+                        ) : integ.connected ? (
+                          <button type="button" onClick={() => disconnectIntegration(integ.id)} className="rounded-lg border border-red-200 px-3 py-1.5 text-[12px] font-medium text-red-500 hover:bg-red-50 transition-colors">
+                            Desconectar
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (integ.id === 'calendar') {
+                                try { const res = await authFetch('/integrations/google/auth'); if (res.ok) { const { url } = await res.json(); window.location.href = url; } } catch {}
+                              }
+                            }}
+                            className={cn('rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors', integ.id === 'calendar' ? 'bg-[#1A1D21] text-white hover:bg-[#2D3138]' : 'border border-[#E4E7EB] text-[#525866]/50 cursor-not-allowed')}
+                            disabled={integ.id !== 'calendar'}
+                          >
+                            {integ.id === 'calendar' ? 'Conectar' : 'Próximamente'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
           <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
 
             {/* Integrations bar */}
@@ -377,6 +450,7 @@ function AgentsPage() {
             </div>
 
           </div>
+          )}
         </div>
       </main>
 
