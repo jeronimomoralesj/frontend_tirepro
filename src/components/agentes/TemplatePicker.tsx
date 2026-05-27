@@ -15,6 +15,7 @@ type Props = {
 export default function TemplatePicker({ onPick, onClose }: Props) {
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { const el = textareaRef.current; if (!el) return; el.style.height = '0px'; el.style.height = Math.min(el.scrollHeight, 80) + 'px'; }, [aiInput]);
@@ -22,20 +23,27 @@ export default function TemplatePicker({ onPick, onClose }: Props) {
   const handleAiSubmit = async () => {
     if (!aiInput.trim() || aiLoading) return;
     setAiLoading(true);
+    setAiError(null);
     const result = await askAiBuilder(aiInput.trim());
     setAiLoading(false);
-    if (result) {
-      onPick({
-        id: 'ai-generated',
-        name: result.name,
-        description: '',
-        icon: 'notification',
-        triggerType: result.triggerType,
-        triggerConfig: result.triggerConfig,
-        actionType: result.actionType,
-        actionConfig: result.actionConfig,
-      });
+    if (!result) {
+      setAiError('No se pudo procesar la solicitud. Intenta de nuevo.');
+      return;
     }
+    if ((result as any).impossible) {
+      setAiError((result as any).reason || 'Esta automatizacion no es posible con las opciones disponibles.');
+      return;
+    }
+    onPick({
+      id: 'ai-generated',
+      name: result.name,
+      description: '',
+      icon: 'notification',
+      triggerType: result.triggerType,
+      triggerConfig: result.triggerConfig,
+      actionType: result.actionType,
+      actionConfig: result.actionConfig,
+    });
   };
 
   return (
@@ -81,9 +89,21 @@ export default function TemplatePicker({ onPick, onClose }: Props) {
                 )}
               </button>
             </div>
+            {aiError && (
+              <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/70 px-3 py-2.5">
+                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 mt-0.5 text-red-500"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" /><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium text-red-800">No es posible crear este flujo</p>
+                  <p className="mt-0.5 text-[11px] text-red-600/80">{aiError}</p>
+                </div>
+                <button type="button" onClick={() => setAiError(null)} className="shrink-0 text-red-400 hover:text-red-600">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap gap-1.5 mt-2.5">
               {['Alertar llantas criticas por WhatsApp', 'Reporte semanal por email'].map(s => (
-                <button key={s} type="button" onClick={() => setAiInput(s)}
+                <button key={s} type="button" onClick={() => { setAiInput(s); setAiError(null); }}
                   className="rounded-full border border-[#0A183A]/6 px-2.5 py-1 text-[10px] font-medium text-[#0A183A]/40 hover:border-[#A374FF]/30 hover:text-[#A374FF] transition-colors">{s}</button>
               ))}
             </div>
