@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -112,7 +112,11 @@ const getIcon = (at: string) => INTEGRATIONS.find(x => x.id === (ACTION_INTEGRAT
    PAGE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-export default function AgentsPage() {
+export default function AgentsPageWrapper() {
+  return <Suspense><AgentsPage /></Suspense>;
+}
+
+function AgentsPage() {
   const router = useRouter();
   const [allowed, setAllowed] = useState<boolean | null>(null);
 
@@ -134,9 +138,20 @@ export default function AgentsPage() {
     })();
   }, [router]);
 
+  const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [integrations, setIntegrations] = useState(INTEGRATIONS);
+  const [connectToast, setConnectToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    if (connected === 'google_calendar') {
+      setConnectToast('Google Calendar conectado');
+      setTimeout(() => setConnectToast(null), 4000);
+      window.history.replaceState({}, '', '/chat/agentes');
+    }
+  }, [searchParams]);
   const [flows, setFlows] = useState<ApiFlow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -250,15 +265,32 @@ export default function AgentsPage() {
 
             {/* Integrations bar */}
             <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="shrink-0 text-[11px] font-medium text-[#525866]/70 uppercase tracking-wider mr-1">Conectado:</span>
+              <span className="shrink-0 text-[11px] font-medium text-[#525866]/70 uppercase tracking-wider mr-1">Integraciones:</span>
               {integrations.map(integ => {
                 const Icon = integ.icon;
+                const canConnect = integ.id === 'calendar' && !integ.connected;
                 return (
-                  <div key={integ.id} className={cn('flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors', integ.connected ? 'border-emerald-200 bg-emerald-50/60 text-emerald-700' : 'border-[#E4E7EB] bg-white text-[#525866]/60')}>
+                  <button
+                    key={integ.id}
+                    type="button"
+                    onClick={async () => {
+                      if (canConnect) {
+                        try {
+                          const res = await authFetch('/integrations/google/auth');
+                          if (res.ok) { const { url } = await res.json(); window.location.href = url; }
+                        } catch {}
+                      }
+                    }}
+                    className={cn(
+                      'flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors',
+                      integ.connected ? 'border-emerald-200 bg-emerald-50/60 text-emerald-700' : 'border-[#E4E7EB] bg-white text-[#525866]/60',
+                      canConnect && 'hover:border-[#A374FF]/30 hover:text-[#A374FF] cursor-pointer',
+                    )}
+                  >
                     <Icon className="h-3.5 w-3.5" style={integ.connected ? undefined : { color: integ.color } as React.CSSProperties} />
                     {integ.name}
-                    {integ.connected && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                  </div>
+                    {integ.connected ? <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> : canConnect ? <span className="text-[9px] opacity-60">Conectar</span> : null}
+                  </button>
                 );
               })}
             </div>
@@ -426,6 +458,15 @@ export default function AgentsPage() {
             onClose={() => setCreating(false)}
             onCreated={(flow) => { setFlows(prev => [flow, ...prev]); setCreating(false); }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Toast */}
+      <AnimatePresence>
+        {connectToast && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+            {connectToast}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
