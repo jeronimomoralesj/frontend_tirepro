@@ -216,9 +216,41 @@ function ActionForm({ data, onUpdate }: { data: ActionNodeData; onUpdate: (d: Pa
             <input value={(data.actionConfig.summary as string) ?? ''}
               onChange={e => onUpdate({ actionConfig: { ...data.actionConfig, summary: e.target.value } })}
               className={inputCls} />
+            <p className="mt-1 text-[10px] text-[#0A183A]/30">Variables: {'{{vehiclePlaca}}'}, {'{{tireMarca}}'}, {'{{tireDepth}}'}</p>
           </div>
           <div>
-            <label className={labelCls}>Duración (minutos)</label>
+            <label className={labelCls}>Descripción del evento</label>
+            <textarea value={(data.actionConfig.description as string) ?? ''}
+              onChange={e => onUpdate({ actionConfig: { ...data.actionConfig, description: e.target.value } })}
+              rows={3} placeholder="Llanta {{tireMarca}} {{tireDiseno}} — {{tireDepth}}mm en {{vehiclePlaca}}"
+              className={inputCls} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Programar para</label>
+              <select value={(data.actionConfig.delayDays as number) ?? 0}
+                onChange={e => onUpdate({ actionConfig: { ...data.actionConfig, delayDays: parseInt(e.target.value) } })}
+                className={inputCls}>
+                <option value={0}>Mismo dia</option>
+                <option value={1}>Siguiente dia</option>
+                <option value={2}>En 2 dias</option>
+                <option value={3}>En 3 dias</option>
+                <option value={7}>En 1 semana</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Hora</label>
+              <select value={(data.actionConfig.startHour as number) ?? 9}
+                onChange={e => onUpdate({ actionConfig: { ...data.actionConfig, startHour: parseInt(e.target.value) } })}
+                className={inputCls}>
+                {Array.from({ length: 14 }, (_, i) => i + 6).map(h => (
+                  <option key={h} value={h}>{h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Duración</label>
             <select value={(data.actionConfig.durationMinutes as number) ?? 60}
               onChange={e => onUpdate({ actionConfig: { ...data.actionConfig, durationMinutes: parseInt(e.target.value) } })}
               className={inputCls}>

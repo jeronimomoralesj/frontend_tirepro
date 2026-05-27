@@ -13,14 +13,14 @@ import {
   type Node,
   type Edge,
 } from '@xyflow/react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import TriggerNode from './nodes/TriggerNode';
 import ActionNode from './nodes/ActionNode';
 import AddStepNode from './nodes/AddStepNode';
 import AnimatedEdge from './AnimatedEdge';
 import FlowToolbar from './FlowToolbar';
 import NodeConfigPanel from './NodeConfigPanel';
-import { getFlow, createFlow, updateFlow, toggleFlow as apiToggle, deleteFlow as apiDelete } from './api';
+import { getFlow, createFlow, updateFlow, toggleFlow as apiToggle, deleteFlow as apiDelete, askAiBuilder } from './api';
 import { getActionColor } from './constants';
 import type { ApiFlow, FlowTemplate, TriggerNodeData, ActionNodeData } from './types';
 
@@ -170,6 +170,37 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
   const selectedNodeType = selectedNodeId === 'trigger' ? 'trigger' as const : 'action' as const;
 
+  // Floating AI assistant
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [aiMessageType, setAiMessageType] = useState<'success' | 'error' | 'clarification'>('success');
+  const aiRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { const el = aiRef.current; if (!el) return; el.style.height = '0px'; el.style.height = Math.min(el.scrollHeight, 80) + 'px'; }, [aiInput]);
+
+  const handleAiSubmit = async () => {
+    if (!aiInput.trim() || aiLoading) return;
+    setAiLoading(true);
+    setAiMessage(null);
+    const result = await askAiBuilder(aiInput.trim());
+    setAiLoading(false);
+    if (!result) { setAiMessage('No se pudo procesar. Intenta de nuevo.'); setAiMessageType('error'); return; }
+    if ((result as any).impossible) { setAiMessage((result as any).reason); setAiMessageType('error'); return; }
+    if ((result as any).clarification) { setAiMessage((result as any).question); setAiMessageType('clarification'); return; }
+    // Apply the AI suggestion to the canvas
+    setNodes(prev => prev.map(n => {
+      if (n.id === 'trigger') return { ...n, data: { ...n.data, triggerType: result.triggerType, triggerConfig: result.triggerConfig } };
+      if (n.id === 'action') return { ...n, data: { ...n.data, actionType: result.actionType, actionConfig: result.actionConfig } };
+      return n;
+    }));
+    if (result.name) setFlowName(result.name);
+    setAiMessage(`Flujo actualizado: ${result.name}`);
+    setAiMessageType('success');
+    setAiInput('');
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -236,6 +267,53 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
             />
           )}
         </AnimatePresence>
+
+        {/* Floating AI assistant */}
+        <div className="absolute bottom-4 right-4 z-30 flex flex-col items-end gap-2">
+          <AnimatePresence>
+            {aiOpen && (
+              <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                className="w-[340px] rounded-xl border border-[#0A183A]/8 bg-white shadow-2xl">
+                <div className="flex items-center gap-2 border-b border-[#0A183A]/4 px-3.5 py-2.5">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-[#0A183A] to-[#A374FF]">
+                    <svg viewBox="0 0 24 24" fill="none" className="h-2.5 w-2.5 text-white"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                  </div>
+                  <span className="flex-1 text-[12px] font-semibold text-[#0A183A]">Modificar con Ana</span>
+                  <button type="button" onClick={() => setAiOpen(false)} className="h-5 w-5 flex items-center justify-center rounded text-[#0A183A]/25 hover:bg-[#F8FAFC]">
+                    <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                  </button>
+                </div>
+                {aiMessage && (
+                  <div className={`mx-3 mt-2.5 rounded-lg px-3 py-2 text-[11px] leading-relaxed ${
+                    aiMessageType === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
+                    : aiMessageType === 'clarification' ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}>{aiMessage}</div>
+                )}
+                <div className="p-3">
+                  <div className="flex items-end gap-1.5">
+                    <textarea ref={aiRef} value={aiInput} onChange={e => setAiInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSubmit(); } }}
+                      rows={1} placeholder="Ej: Cambia la accion a WhatsApp..."
+                      className="flex-1 resize-none rounded-lg border border-[#0A183A]/8 bg-[#F8FAFC] px-2.5 py-1.5 text-[12px] text-[#0A183A] placeholder:text-[#0A183A]/25 focus:border-[#A374FF] focus:outline-none" />
+                    <button type="button" onClick={handleAiSubmit} disabled={!aiInput.trim() || aiLoading}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${aiInput.trim() && !aiLoading ? 'bg-[#0A183A] text-white' : 'bg-[#0A183A]/5 text-[#0A183A]/15'}`}>
+                      {aiLoading ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        : <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <button type="button" onClick={() => setAiOpen(v => !v)}
+            className={`flex h-10 items-center gap-2 rounded-full px-3.5 shadow-lg transition-all hover:shadow-xl hover:scale-105 ${aiOpen ? 'bg-[#0A183A] text-white' : 'bg-gradient-to-r from-[#0A183A] to-[#A374FF] text-white'}`}>
+            {aiOpen
+              ? <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              : <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>}
+            <span className="text-[12px] font-semibold">{aiOpen ? 'Cerrar' : 'Ana'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );
