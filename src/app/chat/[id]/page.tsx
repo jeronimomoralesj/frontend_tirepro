@@ -57,7 +57,7 @@ const cn = (...a: (string | boolean | undefined | null)[]) => a.filter(Boolean).
 export default function ConversationPage() {
   const params = useParams();
   const conversationId = params.id as string;
-  const { refreshConversations } = useChatLayout();
+  const { refreshConversations, pendingMessage, setPendingMessage } = useChatLayout();
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -77,15 +77,52 @@ export default function ConversationPage() {
   const greetedRef = useRef(false);
   const ttsBlockRef = useRef(false);
   const convIdRef = useRef(conversationId);
+  const pendingHandled = useRef(false);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { const el = textareaRef.current; if (!el) return; el.style.height = '0px'; el.style.height = Math.min(el.scrollHeight, 220) + 'px'; }, [input]);
   useEffect(() => { const el = scrollRef.current; if (!el) return; requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })); }, [messages]);
   useEffect(() => { document.body.style.overflow = voiceOpen ? 'hidden' : ''; return () => { document.body.style.overflow = ''; }; }, [voiceOpen]);
 
-  // Load conversation from DB
+  // Load conversation from DB — or bootstrap from pending message
   useEffect(() => {
     convIdRef.current = conversationId;
+
+    if (pendingMessage && !pendingHandled.current) {
+      pendingHandled.current = true;
+      const text = pendingMessage;
+      setPendingMessage(null);
+      setLoading(false);
+      // Fire the first message immediately — sendMessage is defined below
+      // so we inline the logic here to avoid stale closures
+      const id = Math.random().toString(36).slice(2);
+      const pendingId = id + '-r';
+      setMessages([
+        { id, role: 'user', text },
+        { id: pendingId, role: 'assistant', text: '', pending: true },
+      ]);
+      (async () => {
+        let reply: { text: string; blocks?: AnaBlock[]; suggestions?: Suggestion[]; error?: boolean };
+        try {
+          const res = await fetch(ANA_API, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ message: text, history: [], conversationId }),
+          });
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          reply = {
+            text: data.text || 'No pude procesar tu solicitud.',
+            blocks: Array.isArray(data.blocks) && data.blocks.length ? data.blocks : undefined,
+            suggestions: Array.isArray(data.suggestions) && data.suggestions.length ? data.suggestions : undefined,
+          };
+        } catch { reply = { text: 'Hubo un error conectando con Ana.', error: true }; }
+        setMessages(prev => prev.map(m => m.id === pendingId ? { ...m, pending: false, text: reply.text, blocks: reply.blocks as AnaBlock[] | undefined, suggestions: reply.suggestions, error: reply.error } : m));
+        refreshConversations();
+      })();
+      return;
+    }
+
     (async () => {
       setLoading(true);
       try {
@@ -375,7 +412,16 @@ function ChatMessages({ messages, onSuggestion, onRetry, liveTranscript, compact
                 </div>
               ) : (
                 <>
-                  <div className={`text-[14.5px] leading-relaxed ${m.error ? 'text-red-800' : 'text-[#0A183A]/85'}`}>{m.text.split('\n').map((line, i) => <p key={i} className="m-0 mb-1.5 last:mb-0">{line}</p>)}</div>
+                  {/^procesando\.{0,3}$/i.test(m.text.trim()) ? (
+                    <div className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 animate-pulse-subtle rounded-full bg-[#A374FF]" />
+                      <span className="h-1.5 w-1.5 animate-pulse-subtle rounded-full bg-[#A374FF]" style={{ animationDelay: '0.15s' }} />
+                      <span className="h-1.5 w-1.5 animate-pulse-subtle rounded-full bg-[#A374FF]" style={{ animationDelay: '0.3s' }} />
+                      <span className="ai-shimmer-text text-[14px] font-medium text-[#0A183A]/60">Procesando tu solicitud…</span>
+                    </div>
+                  ) : (
+                    <div className={`text-[14.5px] leading-relaxed ${m.error ? 'text-red-800' : 'text-[#0A183A]/85'}`}>{m.text.split('\n').map((line, i) => <p key={i} className="m-0 mb-1.5 last:mb-0">{line}</p>)}</div>
+                  )}
                   {m.error && onRetry && (
                     <button type="button" onClick={onRetry} className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-red-700 px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-red-800 transition-colors">
                       <ArrowUp className="h-3 w-3" /> Reintentar

@@ -2,7 +2,7 @@
 
 import { Fragment } from 'react';
 import {
-  Bar, BarChart, CartesianGrid, Cell, Line, LineChart,
+  Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart,
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 
@@ -82,22 +82,32 @@ function Kpis({ block }: { block: KpisBlock }) {
 function BarBlockView({ block }: { block: BarBlock }) {
   const data = Array.isArray(block.data) ? block.data : [];
   if (!data.length) return null;
-  const horizontal = block.orientation === 'horizontal';
+  const horizontal = block.orientation === 'horizontal' || data.length > 5;
   const unit = block.unit || '';
+  const longestLabel = Math.max(...data.map(d => (d.label || '').length));
+  const yAxisWidth = horizontal ? Math.min(Math.max(longestLabel * 6.5, 60), 120) : (unit ? 60 : 48);
+  const chartHeight = horizontal ? Math.max(220, data.length * 36 + 40) : 240;
   return (
     <Card title={block.title} subtitle={unit}>
-      <div style={{ height: 220 }}>
+      <div style={{ height: chartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ top: 8, right: 16, bottom: 8, left: horizontal ? 56 : 4 }}>
+          <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ top: 8, right: 24, bottom: horizontal ? 8 : 28, left: horizontal ? 4 : 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={!horizontal} horizontal={horizontal} />
             {horizontal ? (
-              <><XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} unit={unit ? ` ${unit}` : ''} /><YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: '#6b7280' }} width={80} /></>
+              <>
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                <YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: '#374151' }} width={yAxisWidth} tickLine={false} axisLine={false} />
+              </>
             ) : (
-              <><XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} /><YAxis tick={{ fontSize: 11, fill: '#6b7280' }} unit={unit ? ` ${unit}` : ''} width={unit ? 60 : 40} /></>
+              <>
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#374151', dy: 4 }} angle={data.length > 4 ? -35 : 0} textAnchor={data.length > 4 ? 'end' : 'middle'} interval={0} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} height={data.length > 4 ? 52 : 30} />
+                <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={yAxisWidth} />
+              </>
             )}
             <Tooltip cursor={{ fill: 'rgba(30,118,182,0.08)' }} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} formatter={(v: number) => [`${v}${unit ? ' ' + unit : ''}`, '']} />
-            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+            <Bar dataKey="value" radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} barSize={horizontal ? 20 : undefined} maxBarSize={48}>
               {data.map((d, i) => <Cell key={i} fill={d.color || PALETTE[i % PALETTE.length]} />)}
+              <LabelList dataKey="value" position={horizontal ? 'right' : 'top'} style={{ fontSize: 11, fontWeight: 600, fill: '#374151' }} formatter={(v: number) => `${v}${unit ? ' ' + unit : ''}`} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

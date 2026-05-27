@@ -12,10 +12,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/api`
   : 'https://api.tirepro.com.co/api';
 
-const ANA_API = process.env.NEXT_PUBLIC_API_URL
-  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/api/ana/chat`
-  : 'https://api.tirepro.com.co/api/ana/chat';
-
 function authHeaders(): Record<string, string> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') ?? '' : '';
   return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
@@ -32,7 +28,7 @@ const greetingFor = () => { const h = new Date().getHours(); return h < 12 ? 'Bu
 
 export default function ChatWelcomePage() {
   const router = useRouter();
-  const { refreshConversations } = useChatLayout();
+  const { refreshConversations, setPendingMessage } = useChatLayout();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -45,20 +41,6 @@ export default function ChatWelcomePage() {
     setSending(true);
     setInput('');
     try {
-      const res = await fetch(ANA_API, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ message: trimmed }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.conversationId) {
-          await refreshConversations();
-          router.push(`/chat/${data.conversationId}`);
-          return;
-        }
-      }
-      // Fallback: create a conversation directly
       const convRes = await fetch(`${API_BASE}/ana/conversations`, {
         method: 'POST',
         headers: authHeaders(),
@@ -66,8 +48,10 @@ export default function ChatWelcomePage() {
       });
       if (convRes.ok) {
         const conv = await convRes.json();
-        await refreshConversations();
+        setPendingMessage(trimmed);
+        refreshConversations();
         router.push(`/chat/${conv.id}`);
+        return;
       }
     } catch {}
     setSending(false);

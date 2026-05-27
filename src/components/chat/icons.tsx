@@ -94,3 +94,15 @@ export const UserIcon = ({ className }: P) => (
     <path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
   </svg>
 );
+
+export const Pencil = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" fill="none" className={className ?? 'h-4 w-4'}>
+    <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const Check = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" fill="none" className={className ?? 'h-4 w-4'}>
+    <path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);

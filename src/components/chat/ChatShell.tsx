@@ -1,12 +1,12 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Sparkle, Plus, Close, Chart, PanelLeft,
-  SettingsGear, LogOut,
+  SettingsGear, LogOut, Pencil, Check,
 } from '@/components/chat/icons';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -21,12 +21,18 @@ type ChatLayoutCtx = {
   conversations: ConvSummary[];
   refreshConversations: () => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
+  renameConversation: (id: string, title: string) => Promise<void>;
+  pendingMessage: string | null;
+  setPendingMessage: (msg: string | null) => void;
 };
 
 const ChatCtx = createContext<ChatLayoutCtx>({
   conversations: [],
   refreshConversations: async () => {},
   deleteConversation: async () => {},
+  renameConversation: async () => {},
+  pendingMessage: null,
+  setPendingMessage: () => {},
 });
 
 export function useChatLayout() { return useContext(ChatCtx); }
@@ -62,6 +68,7 @@ export function ChatShell({ children }: { children: React.ReactNode }) {
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
   useEffect(() => { document.body.style.overflow = mobileNavOpen ? 'hidden' : ''; return () => { document.body.style.overflow = ''; }; }, [mobileNavOpen]);
 
@@ -98,6 +105,19 @@ export function ChatShell({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [pathname, router]);
 
+  const renameConversation = useCallback(async (id: string, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    try {
+      await fetch(`${API_BASE}/ana/conversations/${id}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ title: trimmed }),
+      });
+      setConversations(prev => prev.map(c => c.id === id ? { ...c, title: trimmed } : c));
+    } catch {}
+  }, []);
+
   useEffect(() => { if (allowed) refreshConversations(); }, [allowed, refreshConversations]);
 
   const grouped = useMemo(() => groupByDate(conversations), [conversations]);
@@ -109,7 +129,7 @@ export function ChatShell({ children }: { children: React.ReactNode }) {
 
   const isAgentes = pathname.startsWith('/chat/agentes');
 
-  const ctx = useMemo(() => ({ conversations, refreshConversations, deleteConversation }), [conversations, refreshConversations, deleteConversation]);
+  const ctx = useMemo(() => ({ conversations, refreshConversations, deleteConversation, renameConversation, pendingMessage, setPendingMessage }), [conversations, refreshConversations, deleteConversation, renameConversation, pendingMessage]);
 
   if (!allowed) {
     return (
@@ -133,6 +153,7 @@ export function ChatShell({ children }: { children: React.ReactNode }) {
             onNewChat={() => router.push('/chat')}
             onOpenChat={(id) => router.push(`/chat/${id}`)}
             onDeleteChat={deleteConversation}
+            onRenameChat={renameConversation}
             onGoBack={() => router.push('/dashboard/resumen')}
           />
         </aside>
@@ -152,6 +173,7 @@ export function ChatShell({ children }: { children: React.ReactNode }) {
                   onNewChat={() => { router.push('/chat'); setMobileNavOpen(false); }}
                   onOpenChat={(id) => { router.push(`/chat/${id}`); setMobileNavOpen(false); }}
                   onDeleteChat={deleteConversation}
+                  onRenameChat={renameConversation}
                   onGoBack={() => router.push('/dashboard/resumen')}
                   isMobile
                 />
@@ -185,10 +207,10 @@ export function ChatShell({ children }: { children: React.ReactNode }) {
 
 /* ═══════════════ Sidebar content ═══════════════ */
 
-function SidebarContent({ collapsed, grouped, activeId, isAgentes, onToggle, onNewChat, onOpenChat, onDeleteChat, onGoBack, isMobile }: {
+function SidebarContent({ collapsed, grouped, activeId, isAgentes, onToggle, onNewChat, onOpenChat, onDeleteChat, onRenameChat, onGoBack, isMobile }: {
   collapsed: boolean; grouped: [string, ConvSummary[]][]; activeId: string | null; isAgentes: boolean;
   onToggle: () => void; onNewChat: () => void; onOpenChat: (id: string) => void;
-  onDeleteChat: (id: string) => void; onGoBack: () => void; isMobile?: boolean;
+  onDeleteChat: (id: string) => void; onRenameChat: (id: string, title: string) => void; onGoBack: () => void; isMobile?: boolean;
 }) {
   const [userData, setUserData] = useState<{ name: string; role: string; companyId: string } | null>(null);
   const [companyData, setCompanyData] = useState<{ name: string; profileImage?: string; plan: string } | null>(null);
@@ -250,14 +272,14 @@ function SidebarContent({ collapsed, grouped, activeId, isAgentes, onToggle, onN
             <div className="px-2 pb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-[#0A183A]/35">{label}</div>
             <ul>
               {items.map(c => (
-                <li key={c.id} className="group flex items-center">
-                  <button type="button" onClick={() => onOpenChat(c.id)} className={cn('flex-1 min-w-0 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors', activeId === c.id ? 'bg-[#F8FAFC] text-[#0A183A]' : 'text-[#0A183A]/70 hover:bg-[#F8FAFC]')}>
-                    <span className="block truncate">{c.title}</span>
-                  </button>
-                  <button type="button" onClick={() => onDeleteChat(c.id)} className="hidden group-hover:flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#0A183A]/30 hover:text-red-500 hover:bg-red-50" aria-label="Eliminar">
-                    <Close className="h-3 w-3" />
-                  </button>
-                </li>
+                <ConversationItem
+                  key={c.id}
+                  conv={c}
+                  isActive={activeId === c.id}
+                  onOpen={() => onOpenChat(c.id)}
+                  onDelete={() => onDeleteChat(c.id)}
+                  onRename={(title) => onRenameChat(c.id, title)}
+                />
               ))}
             </ul>
           </div>
@@ -301,5 +323,57 @@ function SidebarContent({ collapsed, grouped, activeId, isAgentes, onToggle, onN
         </div>
       )}
     </div>
+  );
+}
+
+/* ═══════════════ Conversation item (editable title) ═══════════════ */
+
+function ConversationItem({ conv, isActive, onOpen, onDelete, onRename }: {
+  conv: ConvSummary; isActive: boolean;
+  onOpen: () => void; onDelete: () => void; onRename: (title: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(conv.title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+  useEffect(() => { setDraft(conv.title); }, [conv.title]);
+
+  const commitRename = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== conv.title) onRename(trimmed);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <li className="flex items-center">
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setDraft(conv.title); setEditing(false); } }}
+          onBlur={commitRename}
+          className="flex-1 min-w-0 rounded-md border border-[#A374FF]/40 bg-white px-2 py-1 text-[13px] text-[#0A183A] outline-none focus:border-[#A374FF]"
+        />
+        <button type="button" onMouseDown={e => e.preventDefault()} onClick={commitRename} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#A374FF] hover:bg-[#A374FF]/10" aria-label="Guardar">
+          <Check className="h-3 w-3" />
+        </button>
+      </li>
+    );
+  }
+
+  return (
+    <li className="group flex items-center">
+      <button type="button" onClick={onOpen} className={cn('flex-1 min-w-0 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors', isActive ? 'bg-[#F8FAFC] text-[#0A183A]' : 'text-[#0A183A]/70 hover:bg-[#F8FAFC]')}>
+        <span className="block truncate">{conv.title}</span>
+      </button>
+      <button type="button" onClick={() => setEditing(true)} className="hidden group-hover:flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#0A183A]/30 hover:text-[#A374FF] hover:bg-[#A374FF]/10" aria-label="Renombrar">
+        <Pencil className="h-3 w-3" />
+      </button>
+      <button type="button" onClick={onDelete} className="hidden group-hover:flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#0A183A]/30 hover:text-red-500 hover:bg-red-50" aria-label="Eliminar">
+        <Close className="h-3 w-3" />
+      </button>
+    </li>
   );
 }
