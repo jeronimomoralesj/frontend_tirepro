@@ -1,10 +1,19 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import {
   Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart,
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/api`
+  : 'https://api.tirepro.com.co/api';
+
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') ?? '' : '';
+  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+}
 
 export type AnaTone = 'good' | 'warn' | 'bad' | 'neutral' | 'info';
 
@@ -16,8 +25,9 @@ type TableBlock = { kind: 'table'; title?: string; columns: string[]; rows: (str
 type GaugeBlock = { kind: 'gauge'; title?: string; label?: string; value: number; max?: number; unit?: string; tone?: AnaTone };
 type CalloutBlock = { kind: 'callout'; tone?: AnaTone; title?: string; text: string };
 type CalendarBlock = { kind: 'calendar'; title?: string; date?: string; events: { summary: string; start: string; end: string }[] };
+type CalendarPreviewBlock = { kind: 'calendarPreview'; title: string; date: string; time: string; startTimeISO: string; durationMinutes: number; description?: string; attendees?: string[]; conflicts?: string[] };
 
-export type AnaBlock = KpisBlock | BarBlock | LineBlock | PieBlock | TableBlock | GaugeBlock | CalloutBlock | CalendarBlock;
+export type AnaBlock = KpisBlock | BarBlock | LineBlock | PieBlock | TableBlock | GaugeBlock | CalloutBlock | CalendarBlock | CalendarPreviewBlock;
 
 const PALETTE = ['#1E76B6', '#0A183A', '#10b981', '#f59e0b', '#ef4444', '#0ea5e9', '#8b5cf6', '#14b8a6'];
 
@@ -56,6 +66,7 @@ function renderBlock(b: AnaBlock) {
     case 'gauge': return <GaugeBlockView block={b} />;
     case 'callout': return <CalloutBlockView block={b} />;
     case 'calendar': return <CalendarBlockView block={b} />;
+    case 'calendarPreview': return <CalendarPreviewView block={b} />;
     default: return null;
   }
 }
@@ -302,6 +313,141 @@ function CalendarBlockView({ block }: { block: CalendarBlock }) {
             </div>
           );
         })}
+      </div>
+    </Card>
+  );
+}
+
+/* ═══════ Calendar preview (confirm/cancel) ═══════ */
+
+function CalendarPreviewView({ block }: { block: CalendarPreviewBlock }) {
+  const [status, setStatus] = useState<'idle' | 'confirming' | 'confirmed' | 'error'>('idle');
+  const [resultMsg, setResultMsg] = useState('');
+  const durationLabel = block.durationMinutes >= 60
+    ? `${Math.floor(block.durationMinutes / 60)}h${block.durationMinutes % 60 > 0 ? ` ${block.durationMinutes % 60}m` : ''}`
+    : `${block.durationMinutes}m`;
+
+  const handleConfirm = async () => {
+    setStatus('confirming');
+    try {
+      const res = await fetch(`${API_BASE}/ana/calendar/confirm`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          title: block.title,
+          startTimeISO: block.startTimeISO,
+          durationMinutes: block.durationMinutes,
+          description: block.description,
+          attendees: block.attendees,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setResultMsg(data.message || 'Evento creado.');
+      setStatus('confirmed');
+    } catch {
+      setResultMsg('No se pudo crear el evento. Intenta de nuevo.');
+      setStatus('error');
+    }
+  };
+
+  if (status === 'confirmed') {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <div className="flex items-center gap-2 mb-1">
+          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-emerald-600"><path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="text-[13px] font-semibold text-emerald-700">Evento creado</span>
+        </div>
+        <p className="text-[13px] text-emerald-700/80">{resultMsg}</p>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+        <p className="text-[13px] text-red-700">{resultMsg}</p>
+        <button type="button" onClick={handleConfirm} className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-red-700 px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-red-800 transition-colors">Reintentar</button>
+      </div>
+    );
+  }
+
+  return (
+    <Card title="Nuevo evento" noPad>
+      <div className="px-4 py-3 space-y-2.5">
+        {/* Title */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#0A183A] to-[#A374FF]">
+            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-white">
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[15px] font-semibold text-[#0A183A]">{block.title}</p>
+            <p className="text-[12px] text-[#0A183A]/50">{block.date}</p>
+          </div>
+        </div>
+
+        {/* Details grid */}
+        <div className="grid grid-cols-2 gap-2 rounded-lg bg-[#F8FAFC] p-3">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[#0A183A]/35">Hora</p>
+            <p className="text-[13px] font-medium text-[#0A183A]">{block.time}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[#0A183A]/35">Duración</p>
+            <p className="text-[13px] font-medium text-[#0A183A]">{durationLabel}</p>
+          </div>
+        </div>
+
+        {/* Attendees */}
+        {block.attendees && block.attendees.length > 0 && (
+          <div className="rounded-lg bg-[#F8FAFC] p-3">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[#0A183A]/35 mb-1">Invitados</p>
+            <div className="flex flex-wrap gap-1.5">
+              {block.attendees.map(email => (
+                <span key={email} className="inline-flex items-center gap-1 rounded-full bg-white border border-[#0A183A]/10 px-2.5 py-1 text-[11px] text-[#0A183A]/70">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3 text-[#0A183A]/40"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.6" /><path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+                  {email}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Conflicts warning */}
+        {block.conflicts && block.conflicts.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-[11px] font-semibold text-amber-700 mb-0.5">Conflicto de horario</p>
+            <p className="text-[12px] text-amber-700/80">Se cruza con: {block.conflicts.join(', ')}</p>
+          </div>
+        )}
+
+        {/* Description preview */}
+        {block.description && block.description.length > 30 && (
+          <details className="group">
+            <summary className="cursor-pointer text-[11px] font-medium text-[#A374FF] hover:text-[#A374FF]/80">Ver descripción del evento</summary>
+            <div className="mt-1.5 rounded-lg bg-[#F8FAFC] p-3 text-[12px] text-[#0A183A]/60 whitespace-pre-line max-h-40 overflow-y-auto">{block.description}</div>
+          </details>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 border-t border-[#0A183A]/6 px-4 py-3">
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={status === 'confirming'}
+          className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-[#0A183A] to-[#A374FF] py-2.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+        >
+          {status === 'confirming' ? (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          )}
+          {status === 'confirming' ? 'Creando…' : 'Confirmar'}
+        </button>
       </div>
     </Card>
   );
