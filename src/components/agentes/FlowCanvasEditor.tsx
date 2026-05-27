@@ -268,52 +268,56 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
           )}
         </AnimatePresence>
 
-        {/* Floating AI assistant */}
-        <div className="absolute bottom-4 right-4 z-30 flex flex-col items-end gap-2">
-          <AnimatePresence>
-            {aiOpen && (
-              <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                className="w-[340px] rounded-xl border border-[#0A183A]/8 bg-white shadow-2xl">
-                <div className="flex items-center gap-2 border-b border-[#0A183A]/4 px-3.5 py-2.5">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-[#0A183A] to-[#A374FF]">
-                    <svg viewBox="0 0 24 24" fill="none" className="h-2.5 w-2.5 text-white"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                  </div>
-                  <span className="flex-1 text-[12px] font-semibold text-[#0A183A]">Modificar con Ana</span>
-                  <button type="button" onClick={() => setAiOpen(false)} className="h-5 w-5 flex items-center justify-center rounded text-[#0A183A]/25 hover:bg-[#F8FAFC]">
-                    <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+      </div>
+
+      {/* Floating AI assistant — outside ReactFlow container so it's always clickable */}
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+        <AnimatePresence>
+          {aiOpen && (
+            <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              className="w-[360px] max-w-[calc(100vw-2.5rem)] rounded-xl border border-[#0A183A]/10 bg-white shadow-2xl">
+              <div className="flex items-center gap-2 border-b border-[#0A183A]/6 px-4 py-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-[#0A183A] to-[#A374FF]">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3 text-white"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                </div>
+                <div className="flex-1">
+                  <span className="text-[13px] font-semibold text-[#0A183A]">Modificar con Ana</span>
+                  <p className="text-[10px] text-[#0A183A]/35">Describe que quieres cambiar en el flujo</p>
+                </div>
+                <button type="button" onClick={() => setAiOpen(false)} className="h-6 w-6 flex items-center justify-center rounded-lg text-[#0A183A]/25 hover:bg-[#F8FAFC]">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                </button>
+              </div>
+              {aiMessage && (
+                <div className={`mx-3.5 mt-3 rounded-lg px-3 py-2.5 text-[12px] leading-relaxed ${
+                  aiMessageType === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
+                  : aiMessageType === 'clarification' ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                }`}>{aiMessage}</div>
+              )}
+              <div className="p-3.5">
+                <div className="flex items-end gap-2 rounded-xl border border-[#0A183A]/8 bg-[#F8FAFC] px-3 py-2">
+                  <textarea ref={aiRef} value={aiInput} onChange={e => setAiInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSubmit(); } }}
+                    rows={1} placeholder="Ej: Cambia la accion a WhatsApp..."
+                    className="flex-1 resize-none border-0 bg-transparent py-0.5 text-[13px] text-[#0A183A] placeholder:text-[#0A183A]/25 focus:outline-none" />
+                  <button type="button" onClick={handleAiSubmit} disabled={!aiInput.trim() || aiLoading}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${aiInput.trim() && !aiLoading ? 'bg-[#0A183A] text-white hover:bg-[#173D68]' : 'bg-[#0A183A]/5 text-[#0A183A]/15'}`}>
+                    {aiLoading ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      : <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                   </button>
                 </div>
-                {aiMessage && (
-                  <div className={`mx-3 mt-2.5 rounded-lg px-3 py-2 text-[11px] leading-relaxed ${
-                    aiMessageType === 'error' ? 'bg-red-50 text-red-700 border border-red-200'
-                    : aiMessageType === 'clarification' ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}>{aiMessage}</div>
-                )}
-                <div className="p-3">
-                  <div className="flex items-end gap-1.5">
-                    <textarea ref={aiRef} value={aiInput} onChange={e => setAiInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSubmit(); } }}
-                      rows={1} placeholder="Ej: Cambia la accion a WhatsApp..."
-                      className="flex-1 resize-none rounded-lg border border-[#0A183A]/8 bg-[#F8FAFC] px-2.5 py-1.5 text-[12px] text-[#0A183A] placeholder:text-[#0A183A]/25 focus:border-[#A374FF] focus:outline-none" />
-                    <button type="button" onClick={handleAiSubmit} disabled={!aiInput.trim() || aiLoading}
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${aiInput.trim() && !aiLoading ? 'bg-[#0A183A] text-white' : 'bg-[#0A183A]/5 text-[#0A183A]/15'}`}>
-                      {aiLoading ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                        : <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <button type="button" onClick={() => setAiOpen(v => !v)}
-            className={`flex h-10 items-center gap-2 rounded-full px-3.5 shadow-lg transition-all hover:shadow-xl hover:scale-105 ${aiOpen ? 'bg-[#0A183A] text-white' : 'bg-gradient-to-r from-[#0A183A] to-[#A374FF] text-white'}`}>
-            {aiOpen
-              ? <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-              : <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>}
-            <span className="text-[12px] font-semibold">{aiOpen ? 'Cerrar' : 'Ana'}</span>
-          </button>
-        </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <button type="button" onClick={() => setAiOpen(v => !v)}
+          className={`flex h-11 items-center gap-2 rounded-full px-4 shadow-lg transition-all hover:shadow-xl hover:scale-105 ${aiOpen ? 'bg-[#0A183A] text-white' : 'bg-gradient-to-r from-[#0A183A] to-[#A374FF] text-white'}`}>
+          {aiOpen
+            ? <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            : <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>}
+          <span className="text-[13px] font-semibold">{aiOpen ? 'Cerrar' : 'Ana'}</span>
+        </button>
       </div>
     </div>
   );
