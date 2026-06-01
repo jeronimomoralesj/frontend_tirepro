@@ -18,12 +18,6 @@ const cn = (...a: (string | boolean | undefined | null)[]) => a.filter(Boolean).
 const EmailIcon = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
   <svg viewBox="0 0 24 24" fill="none" className={className ?? 'h-5 w-5'} style={style}><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" /><path d="m3 7 9 5 9-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
-const WhatsAppIcon = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
-  <svg viewBox="0 0 24 24" fill="none" className={className ?? 'h-5 w-5'} style={style}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347Z" stroke="currentColor" strokeWidth="1.3" /><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l4.9-1.4A10 10 0 1 0 12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-);
-const PhoneIcon = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
-  <svg viewBox="0 0 24 24" fill="none" className={className ?? 'h-5 w-5'} style={style}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-);
 const CalendarIcon = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
   <svg viewBox="0 0 24 24" fill="none" className={className ?? 'h-5 w-5'} style={style}><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" /><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
 );
@@ -31,8 +25,7 @@ const CalendarIcon = ({ className, style }: { className?: string; style?: React.
 type IntegrationItem = { id: string; name: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string; connected: boolean; accountEmail?: string | null; system?: boolean };
 const INTEGRATIONS: IntegrationItem[] = [
   { id: 'email', name: 'Email', icon: EmailIcon, color: '#1E76B6', connected: true, system: true },
-  { id: 'whatsapp', name: 'WhatsApp', icon: WhatsAppIcon, color: '#25D366', connected: true, system: true },
-  { id: 'phone', name: 'Llamadas', icon: PhoneIcon, color: '#F59E0B', connected: false },
+  // WhatsApp + Llamadas hidden until those channels actually ship.
   { id: 'calendar', name: 'Google Calendar', icon: CalendarIcon, color: '#EA4335', connected: false },
 ];
 

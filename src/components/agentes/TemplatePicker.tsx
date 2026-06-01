@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FLOW_TEMPLATES } from './constants';
+import { FLOW_TEMPLATES, HIDDEN_ACTION_TYPES } from './constants';
 import { TEMPLATE_ICON_MAP, GearIcon } from './icons';
 import { askAiBuilder } from './api';
 import type { FlowTemplate } from './types';
@@ -166,7 +166,7 @@ export default function TemplatePicker({ onPick, onClose }: Props) {
 
           {/* Templates */}
           <div className="grid grid-cols-1 gap-2.5 px-5 pb-3 sm:grid-cols-2">
-            {FLOW_TEMPLATES.map(t => {
+            {FLOW_TEMPLATES.filter(t => !HIDDEN_ACTION_TYPES.has(t.actionType)).map(t => {
               const Icon = TEMPLATE_ICON_MAP[t.icon] ?? GearIcon;
               return (
                 <button key={t.id} type="button" onClick={() => onPick(t)}

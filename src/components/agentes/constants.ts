@@ -24,6 +24,11 @@ export const ACTION_LABELS: Record<string, string> = {
   create_notification: 'Notificación',
 };
 
+// Action channels we don't ship yet — kept in ACTION_LABELS so existing flows
+// still render a label, but hidden from the action picker and the template
+// list so users can't create new flows with them.
+export const HIDDEN_ACTION_TYPES = new Set(['send_whatsapp', 'make_phone_call', 'create_notification']);
+
 export const ACTION_COLORS: Record<string, { color: string; bg: string }> = {
   send_email: { color: '#1E76B6', bg: 'rgba(30,118,182,0.08)' },
   send_whatsapp: { color: '#25D366', bg: 'rgba(37,211,102,0.08)' },

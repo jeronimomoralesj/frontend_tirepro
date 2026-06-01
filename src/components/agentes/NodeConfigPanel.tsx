@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { TRIGGER_LABELS, TRIGGER_DESCRIPTIONS, ACTION_LABELS, getActionColor } from './constants';
+import { TRIGGER_LABELS, TRIGGER_DESCRIPTIONS, ACTION_LABELS, HIDDEN_ACTION_TYPES, getActionColor } from './constants';
 import { TRIGGER_ICON_MAP, ACTION_ICON_MAP, BoltIcon, GearIcon } from './icons';
 import type { TriggerNodeData, ActionNodeData } from './types';
 
@@ -176,7 +176,7 @@ function ActionForm({ data, onUpdate }: { data: ActionNodeData; onUpdate: (d: Pa
       <div>
         <label className={labelCls}>Tipo de accion</label>
         <select value={data.actionType} onChange={e => setType(e.target.value)} className={inputCls}>
-          {Object.entries(ACTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {Object.entries(ACTION_LABELS).filter(([k]) => !HIDDEN_ACTION_TYPES.has(k)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
       {data.actionType === 'send_email' && <EmailActionForm data={data} onUpdate={onUpdate} />}
