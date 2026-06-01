@@ -16,31 +16,32 @@ const Addfloat = () => {
   return (
     <div className="fixed bottom-6 left-10 z-50">
       {!isOpen && (
-        <button 
+        <button
           onClick={toggleChat}
-          className="bg-[#0A183A] hover:bg-[#348CCB] cursor-pointer transition-all duration-300 text-white 
-                     rounded-full p-4 shadow-2xl hover:scale-110 transform"
+          className="cursor-pointer transition-all duration-300 text-white
+                     rounded-full p-4 hover:scale-110 transform"
+          style={{ background: 'linear-gradient(135deg, #0A183A, #173D68)', boxShadow: '0 8px 32px -8px rgba(10,24,58,0.4)' }}
         >
           <Plus className="w-6 h-6" />
         </button>
       )}
 
       {isOpen && (
-        <div 
-          className="flex flex-col bg-[#0A183A] rounded-2xl shadow-2xl 
-                     w-96 h-[500px] max-h-[90vh] overflow-hidden"
+        <div
+          className="flex flex-col rounded-2xl w-96 h-[500px] max-h-[90vh] overflow-hidden"
+          style={{ background: '#0A183A', boxShadow: '0 24px 60px -18px rgba(10,24,58,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
           {/* Header */}
-          <div 
-            className="bg-[#173D68] text-white p-4 flex justify-between 
-                       items-center rounded-t-2xl"
+          <div
+            className="text-white p-4 flex justify-between items-center rounded-t-2xl"
+            style={{ background: 'linear-gradient(135deg, #0A183A 0%, #173D68 100%)' }}
           >
-            <h3 className="text-lg font-semibold">Soporte</h3>
-            <button 
-              onClick={toggleChat} 
-              className="hover:bg-[#1E76B6] cursor-pointer rounded-full p-1 transition-colors"
+            <h3 className="text-lg font-bold">Soporte</h3>
+            <button
+              onClick={toggleChat}
+              className="hover:bg-white/10 cursor-pointer rounded-full p-1.5 transition-colors"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 

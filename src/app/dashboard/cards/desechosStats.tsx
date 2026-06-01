@@ -132,25 +132,34 @@ const DesechosStats: React.FC = () => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-md">
-      <h2 className="text-xl font-semibold mb-4">Estadísticas de Desechos</h2>
+    <div
+      className="bg-white rounded-2xl overflow-hidden transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
+      <div className="px-4 sm:px-5 py-3.5" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+        <h2 className="text-sm font-bold text-[#0A183A]">Estadísticas de Desechos</h2>
+      </div>
 
+      <div className="p-4 sm:p-6">
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setView('causales')}
-          className={`px-4 py-2 rounded-lg text-sm ${view === 'causales' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${view === 'causales' ? 'text-white' : 'text-gray-500 bg-gray-50/60'}`}
+          style={view === 'causales' ? { background: 'linear-gradient(135deg, #0A183A, #173D68)' } : { border: '1px solid rgba(10,24,58,0.06)' }}
         >
           Causales
         </button>
         <button
           onClick={() => setView('remanente')}
-          className={`px-4 py-2 rounded-lg text-sm ${view === 'remanente' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${view === 'remanente' ? 'text-white' : 'text-gray-500 bg-gray-50/60'}`}
+          style={view === 'remanente' ? { background: 'linear-gradient(135deg, #0A183A, #173D68)' } : { border: '1px solid rgba(10,24,58,0.06)' }}
         >
           Prom. Remanente
         </button>
         <button
           onClick={() => setView('milimetros')}
-          className={`px-4 py-2 rounded-lg text-sm ${view === 'milimetros' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${view === 'milimetros' ? 'text-white' : 'text-gray-500 bg-gray-50/60'}`}
+          style={view === 'milimetros' ? { background: 'linear-gradient(135deg, #0A183A, #173D68)' } : { border: '1px solid rgba(10,24,58,0.06)' }}
         >
           Prom. mm Desechados
         </button>
@@ -162,6 +171,7 @@ const DesechosStats: React.FC = () => {
         ) : (
           <p className="text-gray-500">No hay datos disponibles.</p>
         )}
+      </div>
       </div>
     </div>
   );

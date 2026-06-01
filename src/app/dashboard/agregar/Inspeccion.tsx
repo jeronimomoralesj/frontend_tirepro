@@ -1358,37 +1358,6 @@ export default function InspeccionPage({ language }: { language?: string }) {
   // waiting for a batch submit. Subsequent re-saves for the same tire
   // use the edit endpoint, which diffs old vs new photos on S3.
   async function submitSingleInspection(tireId: string, draft: InspectionDraft) {
-    const tire = [...tires, ...unionTires].find((t) => t.id === tireId);
-    if (!tire) throw new Error("Tire not found");
-    const kmDelta = Math.max(Number(newKilometraje) - (vehicle?.kilometrajeActual ?? 0), 0);
-    const todayStr = new Date().toISOString().split("T")[0];
-    const payload: Record<string, unknown> = {
-      profundidadInt: Number(draft.profundidadInt),
-      profundidadCen: Number(draft.profundidadCen),
-      profundidadExt: Number(draft.profundidadExt),
-      newKilometraje: Number(newKilometraje) || undefined,
-      kmDelta: kmDelta > 0 ? kmDelta : undefined,
-      imageUrls: draft.imageUrls.slice(0, 3),
-    };
-    if (inspectionDate !== todayStr) payload.fecha = inspectionDate;
-    if (draft.presionPsi !== "") payload.presionPsi = Number(draft.presionPsi);
-    if (draft.observacion?.trim()) payload.observacion = draft.observacion.trim();
-    if (inspectorName.trim()) {
-      payload.inspeccionadoPorNombre = inspectorName.trim();
-      if (user?.id && inspectorName.trim() === (user.name ?? "").trim()) {
-        payload.inspeccionadoPorId = user.id;
-      }
-    }
-    const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
-      method: "PATCH",
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.message ?? "Error al guardar inspección");
-    }
-    // Sync local state so "Guardar todas" doesn't double-submit.
     setTireUpdates((prev) => ({
       ...prev,
       [tireId]: {
@@ -1434,10 +1403,8 @@ export default function InspeccionPage({ language }: { language?: string }) {
       return;
     }
 
-    // Skip tires already persisted via the modal's optimistic PATCH —
-    // otherwise the batch path would create a duplicate inspection row.
     const inspectionTires = allTires.filter(
-      (t) => isFull(safeUpdate(t.id)) && !inspectedIds.has(t.id),
+      (t) => isFull(safeUpdate(t.id)),
     );
 
     // Detect whether the technician made a position change. Used together

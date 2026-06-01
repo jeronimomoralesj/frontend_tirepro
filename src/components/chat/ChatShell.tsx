@@ -183,7 +183,7 @@ export function ChatShell({ children }: { children: React.ReactNode }) {
         </AnimatePresence>
 
         {/* ══════ Main ══════ */}
-        <main className="relative z-10 flex h-full min-w-0 flex-1 flex-col">
+        <main className="relative z-10 flex min-w-0 flex-col" style={{ flex: '1 1 0%', height: '100%', minHeight: 0 }}>
           {/* Header */}
           <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#0A183A]/6 px-4 sm:px-6">
             <div className="flex items-center gap-2">

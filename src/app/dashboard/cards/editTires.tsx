@@ -158,14 +158,14 @@ const EditTires: React.FC<EditTiresProps> = ({ isOpen, onClose, vehicle, apiBase
         style={{ boxShadow: '0 24px 60px -18px rgba(10,24,58,0.35)', border: '1px solid rgba(10,24,58,0.08)' }}
       >
         {/* Header */}
-        <div className="text-white px-5 py-4 flex justify-between items-center" style={{ background: 'linear-gradient(135deg, #0A183A 0%, #173D68 100%)' }}>
+        <div className="px-5 py-4 flex justify-between items-center" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
           <div>
-            <h2 className="text-xl font-bold">Editar Llantas</h2>
-            <p className="text-sm text-gray-300">Vehículo: {vehicle.placa.toUpperCase()}</p>
+            <h2 className="text-sm font-bold text-[#0A183A]">Editar Llantas</h2>
+            <p className="text-[11px] text-[#173D68]/40">Vehículo: {vehicle.placa.toUpperCase()}</p>
           </div>
           <button 
             onClick={onClose}
-            className="text-white hover:text-gray-200 transition-colors duration-200"
+            className="text-[#173D68]/40 hover:text-[#173D68] transition-colors duration-200"
           >
             <X size={24} />
           </button>

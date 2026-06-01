@@ -101,6 +101,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/legal`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
     { url: `${BASE_URL}/equipo`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE_URL}/glosario`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/login`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.5 },
+    { url: `${BASE_URL}/mision`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.5 },
+    { url: `${BASE_URL}/developers`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE_URL}/trabaja-con-nosotros`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
   ]
 
   // -- Glossary entries --------------------------------------------------------

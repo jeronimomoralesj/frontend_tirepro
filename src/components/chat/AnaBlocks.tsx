@@ -2,8 +2,10 @@
 
 import { Fragment, useState } from 'react';
 import {
-  Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart,
-  Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Label, LabelList,
+  Line, LineChart, Pie, PieChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis,
+  Radar, RadarChart, ResponsiveContainer, Scatter, ScatterChart,
+  Tooltip, XAxis, YAxis, ZAxis,
 } from 'recharts';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -25,9 +27,12 @@ type TableBlock = { kind: 'table'; title?: string; columns: string[]; rows: (str
 type GaugeBlock = { kind: 'gauge'; title?: string; label?: string; value: number; max?: number; unit?: string; tone?: AnaTone };
 type CalloutBlock = { kind: 'callout'; tone?: AnaTone; title?: string; text: string };
 type CalendarBlock = { kind: 'calendar'; title?: string; date?: string; events: { summary: string; start: string; end: string }[] };
+type ScatterBlock = { kind: 'scatter'; title?: string; xLabel?: string; yLabel?: string; xUnit?: string; yUnit?: string; data: { x: number; y: number; label?: string; color?: string }[] };
+type RadarBlock = { kind: 'radar'; title?: string; data: { label: string; value: number; fullMark?: number }[] };
+type AreaBlock = { kind: 'area'; title?: string; unit?: string; data: { label: string; value: number }[] };
 type CalendarPreviewBlock = { kind: 'calendarPreview'; title: string; date: string; time: string; startTimeISO: string; durationMinutes: number; description?: string; attendees?: string[]; conflicts?: string[] };
 
-export type AnaBlock = KpisBlock | BarBlock | LineBlock | PieBlock | TableBlock | GaugeBlock | CalloutBlock | CalendarBlock | CalendarPreviewBlock;
+export type AnaBlock = KpisBlock | BarBlock | LineBlock | PieBlock | TableBlock | GaugeBlock | CalloutBlock | CalendarBlock | CalendarPreviewBlock | ScatterBlock | RadarBlock | AreaBlock;
 
 const PALETTE = ['#1E76B6', '#0A183A', '#10b981', '#f59e0b', '#ef4444', '#0ea5e9', '#8b5cf6', '#14b8a6'];
 
@@ -64,6 +69,9 @@ function renderBlock(b: AnaBlock) {
     case 'pie': return <PieBlockView block={b} />;
     case 'table': return <TableBlockView block={b} />;
     case 'gauge': return <GaugeBlockView block={b} />;
+    case 'scatter': return <ScatterBlockView block={b} />;
+    case 'radar': return <RadarBlockView block={b} />;
+    case 'area': return <AreaBlockView block={b} />;
     case 'callout': return <CalloutBlockView block={b} />;
     case 'calendar': return <CalendarBlockView block={b} />;
     case 'calendarPreview': return <CalendarPreviewView block={b} />;
@@ -96,23 +104,39 @@ function BarBlockView({ block }: { block: BarBlock }) {
   const horizontal = block.orientation === 'horizontal' || data.length > 5;
   const unit = block.unit || '';
   const longestLabel = Math.max(...data.map(d => (d.label || '').length));
-  const yAxisWidth = horizontal ? Math.min(Math.max(longestLabel * 6.5, 60), 120) : (unit ? 60 : 48);
-  const chartHeight = horizontal ? Math.max(220, data.length * 36 + 40) : 240;
+  const yAxisWidth = horizontal ? Math.min(Math.max(longestLabel * 7, 64), 140) : (unit ? 64 : 52);
+  const needsAngle = !horizontal && (data.length > 4 || longestLabel > 8);
+  const xAxisHeight = needsAngle ? Math.min(longestLabel * 4 + 16, 80) : 36;
+  const chartHeight = horizontal ? Math.max(240, data.length * 38 + 60) : Math.max(260, 240 + (needsAngle ? 20 : 0));
   return (
     <Card title={block.title} subtitle={unit}>
       <div style={{ height: chartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ top: 8, right: 24, bottom: horizontal ? 8 : 28, left: horizontal ? 4 : 4 }}>
+          <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ top: 8, right: 28, bottom: horizontal ? 12 : xAxisHeight > 36 ? 12 : 8, left: horizontal ? 4 : 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={!horizontal} horizontal={horizontal} />
             {horizontal ? (
               <>
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
-                <YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: '#374151' }} width={yAxisWidth} tickLine={false} axisLine={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }}>
+                  {unit && <Label value={unit} position="insideBottomRight" offset={-4} style={{ fontSize: 10, fill: '#9ca3af' }} />}
+                </XAxis>
+                <YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: '#374151' }} width={yAxisWidth} tickLine={false} axisLine={false} interval={0} />
               </>
             ) : (
               <>
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#374151', dy: 4 }} angle={data.length > 4 ? -35 : 0} textAnchor={data.length > 4 ? 'end' : 'middle'} interval={0} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} height={data.length > 4 ? 52 : 30} />
-                <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={yAxisWidth} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: '#374151' }}
+                  angle={needsAngle ? -40 : 0}
+                  textAnchor={needsAngle ? 'end' : 'middle'}
+                  interval={0}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e5e7eb' }}
+                  height={xAxisHeight}
+                  dy={4}
+                />
+                <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={yAxisWidth}>
+                  {unit && <Label value={unit} angle={-90} position="insideLeft" offset={4} style={{ fontSize: 10, fill: '#9ca3af', textAnchor: 'middle' }} />}
+                </YAxis>
               </>
             )}
             <Tooltip cursor={{ fill: 'rgba(30,118,182,0.08)' }} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} formatter={(v: number) => [`${v}${unit ? ' ' + unit : ''}`, '']} />
@@ -131,14 +155,29 @@ function LineBlockView({ block }: { block: LineBlock }) {
   const data = Array.isArray(block.data) ? block.data : [];
   if (!data.length) return null;
   const unit = block.unit || '';
+  const longestLabel = Math.max(...data.map(d => (d.label || '').length));
+  const needsAngle = data.length > 6 || longestLabel > 8;
+  const xAxisHeight = needsAngle ? Math.min(longestLabel * 4 + 16, 70) : 32;
   return (
     <Card title={block.title} subtitle={unit}>
-      <div style={{ height: 200 }}>
+      <div style={{ height: 220 + (needsAngle ? 20 : 0) }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 4 }}>
+          <LineChart data={data} margin={{ top: 8, right: 16, bottom: needsAngle ? 8 : 4, left: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} />
-            <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} unit={unit ? ` ${unit}` : ''} width={unit ? 60 : 40} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: '#6b7280' }}
+              interval={0}
+              angle={needsAngle ? -35 : 0}
+              textAnchor={needsAngle ? 'end' : 'middle'}
+              height={xAxisHeight}
+              tickLine={false}
+              axisLine={{ stroke: '#e5e7eb' }}
+              dy={4}
+            />
+            <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={unit ? 64 : 44}>
+              {unit && <Label value={unit} angle={-90} position="insideLeft" offset={4} style={{ fontSize: 10, fill: '#9ca3af', textAnchor: 'middle' }} />}
+            </YAxis>
             <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} formatter={(v: number) => [`${v}${unit ? ' ' + unit : ''}`, '']} />
             <Line type="monotone" dataKey="value" stroke="#1E76B6" strokeWidth={2.5} dot={{ r: 3, fill: '#1E76B6' }} activeDot={{ r: 5 }} />
           </LineChart>
@@ -230,6 +269,118 @@ function GaugeBlockView({ block }: { block: GaugeBlock }) {
           </div>
         </div>
         {block.label && <div className="min-w-0 flex-1 text-[13px] leading-relaxed text-gray-500">{block.label}</div>}
+      </div>
+    </Card>
+  );
+}
+
+function ScatterBlockView({ block }: { block: ScatterBlock }) {
+  const data = Array.isArray(block.data) ? block.data : [];
+  if (!data.length) return null;
+  const xUnit = block.xUnit || '';
+  const yUnit = block.yUnit || '';
+  return (
+    <Card title={block.title}>
+      <div style={{ height: 280 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ScatterChart margin={{ top: 8, right: 20, bottom: 16, left: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis type="number" dataKey="x" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }}>
+              <Label value={block.xLabel || (xUnit ? xUnit : '')} position="insideBottom" offset={-8} style={{ fontSize: 11, fill: '#6b7280', fontWeight: 500 }} />
+            </XAxis>
+            <YAxis type="number" dataKey="y" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={56}>
+              <Label value={block.yLabel || (yUnit ? yUnit : '')} angle={-90} position="insideLeft" offset={4} style={{ fontSize: 11, fill: '#6b7280', fontWeight: 500, textAnchor: 'middle' }} />
+            </YAxis>
+            <ZAxis range={[48, 48]} />
+            <Tooltip
+              cursor={{ strokeDasharray: '3 3' }}
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+              formatter={(val: number, name: string) => {
+                if (name === 'x') return [`${val}${xUnit ? ' ' + xUnit : ''}`, block.xLabel || 'X'];
+                return [`${val}${yUnit ? ' ' + yUnit : ''}`, block.yLabel || 'Y'];
+              }}
+              labelFormatter={(_: unknown, payload: { payload?: { label?: string } }[]) => payload?.[0]?.payload?.label || ''}
+            />
+            <Scatter data={data} fill="#1E76B6">
+              {data.map((d, i) => <Cell key={i} fill={d.color || PALETTE[i % PALETTE.length]} />)}
+            </Scatter>
+          </ScatterChart>
+        </ResponsiveContainer>
+      </div>
+      {data.some(d => d.label) && (
+        <ul className="mt-2 space-y-1 text-[12px]">
+          {data.map((d, i) => d.label ? (
+            <li key={i} className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color || PALETTE[i % PALETTE.length] }} />
+              <span className="text-gray-500">{d.label}</span>
+              <span className="text-gray-400 ml-auto tabular-nums">{d.x}{xUnit ? ` ${xUnit}` : ''} / {d.y}{yUnit ? ` ${yUnit}` : ''}</span>
+            </li>
+          ) : null)}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function RadarBlockView({ block }: { block: RadarBlock }) {
+  const data = Array.isArray(block.data) ? block.data : [];
+  if (!data.length) return null;
+  const maxVal = Math.max(...data.map(d => d.fullMark ?? d.value));
+  const normalized = data.map(d => ({ ...d, fullMark: d.fullMark ?? maxVal }));
+  return (
+    <Card title={block.title}>
+      <div style={{ height: 260 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={normalized} cx="50%" cy="50%" outerRadius="72%">
+            <PolarGrid stroke="#e5e7eb" />
+            <PolarAngleAxis dataKey="label" tick={{ fontSize: 11, fill: '#374151' }} />
+            <PolarRadiusAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} />
+            <Radar dataKey="value" stroke="#1E76B6" fill="#1E76B6" fillOpacity={0.2} strokeWidth={2} />
+            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
+
+function AreaBlockView({ block }: { block: AreaBlock }) {
+  const data = Array.isArray(block.data) ? block.data : [];
+  if (!data.length) return null;
+  const unit = block.unit || '';
+  const longestLabel = Math.max(...data.map(d => (d.label || '').length));
+  const needsAngle = data.length > 6 || longestLabel > 8;
+  const xAxisHeight = needsAngle ? Math.min(longestLabel * 4 + 16, 70) : 32;
+  return (
+    <Card title={block.title} subtitle={unit}>
+      <div style={{ height: 220 + (needsAngle ? 20 : 0) }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 8, right: 16, bottom: needsAngle ? 8 : 4, left: 8 }}>
+            <defs>
+              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#1E76B6" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#1E76B6" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: '#6b7280' }}
+              interval={0}
+              angle={needsAngle ? -35 : 0}
+              textAnchor={needsAngle ? 'end' : 'middle'}
+              height={xAxisHeight}
+              tickLine={false}
+              axisLine={{ stroke: '#e5e7eb' }}
+              dy={4}
+            />
+            <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={unit ? 64 : 44}>
+              {unit && <Label value={unit} angle={-90} position="insideLeft" offset={4} style={{ fontSize: 10, fill: '#9ca3af', textAnchor: 'middle' }} />}
+            </YAxis>
+            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} formatter={(v: number) => [`${v}${unit ? ' ' + unit : ''}`, '']} />
+            <Area type="monotone" dataKey="value" stroke="#1E76B6" strokeWidth={2.5} fill="url(#areaGrad)" dot={{ r: 3, fill: '#1E76B6' }} activeDot={{ r: 5 }} />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
     </Card>
   );

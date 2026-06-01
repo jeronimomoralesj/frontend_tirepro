@@ -91,18 +91,25 @@ const ProyeccionVida: React.FC<ProyeccionVidaProps> = ({ tires }) => {
   const maxCount = Math.max(1, ...bars.map((b) => b.count));
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden w-full">
+    <div
+      className="bg-white rounded-2xl overflow-hidden w-full transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Header */}
-      <div className="bg-[#173D68] text-white px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-2">
+      <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
         <div className="flex items-center gap-2 min-w-0">
-          <h2 className="text-base sm:text-xl font-bold leading-tight truncate">
-            Proyeccion de Vida
+          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: 'rgba(163,116,255,0.08)' }}>
+            <Clock className="w-3.5 h-3.5 text-[#A374FF]" />
+          </div>
+          <h2 className="text-sm font-bold text-[#0A183A] leading-tight truncate">
+            Proyección de Vida
           </h2>
         </div>
         <div className="group relative cursor-pointer flex-shrink-0">
-          <HelpCircle className="text-white hover:text-gray-200 transition-colors" size={20} />
-          <div className="absolute z-10 top-full mt-2 right-0 sm:-top-2 sm:right-full sm:top-auto sm:mt-0 sm:mr-2 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 sm:w-60 pointer-events-none shadow-xl">
-            <p>Dias estimados hasta alcanzar el punto de retiro optimo (3mm). Otis calcula esto usando la tasa de desgaste por inspeccion.</p>
+          <HelpCircle className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" size={18} />
+          <div className="absolute z-10 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 pointer-events-none shadow-xl"
+               style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+            <p>Días estimados hasta alcanzar el punto de retiro óptimo (3mm). Otis calcula esto usando la tasa de desgaste por inspección.</p>
           </div>
         </div>
       </div>

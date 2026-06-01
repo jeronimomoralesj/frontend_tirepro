@@ -9,6 +9,7 @@ import CargaMasiva from "./CargaMasiva";
 import VidaPage from "./Vida";
 import Posicion from "./Posicion";
 import EventosPage from "./Other";
+import AnaChatFab from "../components/AnaChatFab";
 
 type Option = "crear" | "inspeccion" | "evento" | "cargamasiva" | "vida" | "rotacion";
 
@@ -34,18 +35,18 @@ export default function AgregarPage() {
           <p className="text-sm text-[#348CCB] mt-1">Seleccione una opción para comenzar</p>
         </div>
 
-        {/* Option pills — scrollable on mobile */}
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap scrollbar-hide">
+        {/* Option pills */}
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap scrollbar-none">
           {OPTIONS.map(({ key, label, Icon }) => (
             <button
               key={key}
               onClick={() => setSelected(key)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0"
               style={{
-                background: selected === key ? "linear-gradient(135deg, #0A183A, #173D68)" : "white",
+                background: selected === key ? "#0A183A" : "white",
                 color: selected === key ? "#fff" : "#173D68",
-                border: selected === key ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)",
-                boxShadow: selected === key ? "0 2px 8px rgba(10,24,58,0.2)" : "0 1px 3px rgba(0,0,0,0.04)",
+                border: selected === key ? "1px solid #0A183A" : "1px solid rgba(10,24,58,0.08)",
+                boxShadow: selected === key ? "0 2px 8px rgba(10,24,58,0.15)" : "0 1px 4px rgba(10,24,58,0.04)",
               }}
             >
               <Icon className="w-4 h-4" />
@@ -54,25 +55,16 @@ export default function AgregarPage() {
           ))}
         </div>
 
-        {/* Form container */}
-        <div className="bg-white rounded-xl overflow-hidden"
-          style={{ border: "1px solid rgba(52,140,203,0.15)", boxShadow: "0 1px 8px rgba(10,24,58,0.06)" }}>
-          <div className="px-5 sm:px-6 py-4" style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-            <h2 className="text-sm font-semibold text-white uppercase tracking-wide">
-              {OPTIONS.find((o) => o.key === selected)?.label}
-            </h2>
-            <p className="text-xs text-white/60 mt-0.5">Complete el formulario para continuar</p>
-          </div>
-          <div className="p-5 sm:p-6">
-            {selected === "crear" && <CrearLlanta language="es" />}
-            {selected === "cargamasiva" && <CargaMasiva language="es" />}
-            {selected === "inspeccion" && <Inspeccion language="es" />}
-            {selected === "vida" && <VidaPage language="es" />}
-            {selected === "rotacion" && <Posicion language="es" />}
-            {selected === "evento" && <EventosPage language="es" />}
-          </div>
-        </div>
+        {/* Content */}
+        {selected === "crear" && <CrearLlanta language="es" />}
+        {selected === "cargamasiva" && <CargaMasiva language="es" />}
+        {selected === "inspeccion" && <Inspeccion language="es" />}
+        {selected === "vida" && <VidaPage language="es" />}
+        {selected === "rotacion" && <Posicion language="es" />}
+        {selected === "evento" && <EventosPage language="es" />}
       </div>
+
+      <AnaChatFab tab={selected} tabLabel={OPTIONS.find((o) => o.key === selected)?.label ?? selected} />
     </div>
   );
 }

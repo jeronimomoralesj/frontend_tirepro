@@ -25,6 +25,8 @@ type Vehicle = {
   tireCount: number;
   union: string[];
   cliente: string | null;
+  presionMin: number | null;
+  presionMax: number | null;
 };
 
 // =============================================================================
@@ -42,6 +44,15 @@ const VEHICLE_TYPES: Record<string, string> = {
   "3_ejes_trailer":  "Trailer 3 ejes",
   "1_eje_cabezote":  "Cabezote 1 eje",
   furgon:            "Furgón",
+  volqueta:          "Volqueta",
+  camion_sencillo:   "Camión sencillo",
+  doble_troque:      "Doble troque",
+  tractomula:        "Tractomula",
+  minimula:          "Minimula",
+  camioneta:         "Camioneta",
+  bus:               "Bus",
+  buseta:            "Buseta",
+  turbo:             "Turbo",
 };
 
 // =============================================================================
@@ -323,6 +334,8 @@ function VehicleForm({
     placa: string; kilometrajeActual: number; carga: string;
     pesoCarga: number; tipovhc: string; cliente: string;
     configuracion?: string | null;
+    presionMin?: number | null;
+    presionMax?: number | null;
   };
   submitLabel: string;
   onSubmit: (data: any) => Promise<void>;
@@ -336,6 +349,8 @@ function VehicleForm({
     tipovhc:           initialData?.tipovhc           ?? "2_ejes_trailer",
     cliente:           initialData?.cliente           ?? "",
     configuracion:     initialData?.configuracion     ?? "",
+    presionMin:        initialData?.presionMin != null ? String(initialData.presionMin) : "",
+    presionMax:        initialData?.presionMax != null ? String(initialData.presionMax) : "",
     companyName:       defaultCompanyName             ?? "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -423,6 +438,22 @@ function VehicleForm({
               {describeAxleConfig(form.configuracion)}
             </p>
           )}
+        </Field>
+
+        {/* Inflation pressure range (PSI) — drives the baja/correcta/alta
+            label in the inspection report. Blank → defaults to 100–120 PSI. */}
+        <Field label="Rango de presión de inflado (PSI)">
+          <div className="grid grid-cols-2 gap-3">
+            <input type="number" min={0} value={form.presionMin}
+              onChange={(e) => set("presionMin", e.target.value)}
+              placeholder="Mín. (100)" className={inputCls} style={inputStyle} />
+            <input type="number" min={0} value={form.presionMax}
+              onChange={(e) => set("presionMax", e.target.value)}
+              placeholder="Máx. (120)" className={inputCls} style={inputStyle} />
+          </div>
+          <p className="text-[10px] text-gray-500 mt-1.5">
+            Si lo dejas vacío, se usa el rango por defecto 100–120 PSI.
+          </p>
         </Field>
 
         <Field label="Dueño (opcional)">
@@ -564,6 +595,8 @@ export default function VehiculoPage() {
         companyId:         data.companyId,
         cliente:           data.cliente.trim() || null,
         configuracion:     data.configuracion?.trim() || null,
+        ...(data.presionMin !== "" && data.presionMin != null ? { presionMin: Number(data.presionMin) } : {}),
+        ...(data.presionMax !== "" && data.presionMax != null ? { presionMax: Number(data.presionMax) } : {}),
       }),
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.message || "Error al crear vehículo"); }
@@ -741,6 +774,9 @@ export default function VehiculoPage() {
         tipovhc:           data.tipovhc,
         cliente:           data.cliente.trim() || null,
         configuracion:     data.configuracion?.trim() || null,
+        // "" clears the override → report falls back to the 100–120 default.
+        presionMin:        data.presionMin === "" || data.presionMin == null ? null : Number(data.presionMin),
+        presionMax:        data.presionMax === "" || data.presionMax == null ? null : Number(data.presionMax),
       }),
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.message || "Error al actualizar vehículo"); }
@@ -1180,6 +1216,8 @@ export default function VehiculoPage() {
             tipovhc:           vehicleToEdit.tipovhc,
             cliente:           vehicleToEdit.cliente ?? "",
             configuracion:     (vehicleToEdit as any).configuracion ?? "",
+            presionMin:        vehicleToEdit.presionMin ?? null,
+            presionMax:        vehicleToEdit.presionMax ?? null,
           }}
           submitLabel="Guardar Cambios"
           onSubmit={handleEdit}

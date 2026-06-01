@@ -10,6 +10,13 @@ import {
   AlertCircle,
   X,
   HelpCircle,
+  Pencil,
+  ChevronUp,
+  ChevronDown,
+  EyeOff,
+  Eye,
+  GripVertical,
+  RotateCcw,
 } from "lucide-react";
 import {
   Chart as ChartJS,
@@ -34,11 +41,23 @@ import {
 } from "../components/chartConfig";
 import PorVida from "../cards/porVida";
 import PorMarca from "../cards/porMarca";
+import PorBanda from "../cards/porBanda";
+import PorDimension from "../cards/porDimension";
+import SemaforoPie from "../cards/semaforoPie";
+import PromedioEje from "../cards/promedioEje";
+import TipoVehiculo from "../cards/tipoVehiculo";
+import HistoricChart from "../cards/historicChart";
+import ReencaucheHistorico from "../cards/reencaucheHistorico";
+import TanqueMilimetro from "../cards/tanqueMilimetro";
+import ProyeccionVida from "../cards/ProyeccionVida";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
+import AnaFab from "../components/AnaFab";
 import LazyMount from "@/shared/LazyMount";
 import { AdvancedCondition, passAllAdvanced } from "@/shared/advancedFilters";
 import InspectionsDayReportCard from "@/shared/InspectionsDayReportCard";
+import ExportModal from "./ExportModal";
+import { buildResumenReportData, type ReportFilterOpts } from "@/shared/buildResumenReport";
 
 // -- Chart.js registration ----------------------------------------------------
 
@@ -138,14 +157,22 @@ function CardWrap({
   return (
     <div className="relative w-full">
       <div
-        className="relative z-10 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full"
+        className="relative z-10 bg-white rounded-2xl overflow-hidden w-full transition-all duration-200"
+        style={{
+          border: '1px solid rgba(10,24,58,0.08)',
+          boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)',
+        }}
       >
-        <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between gap-2">
-          <h2 className="text-base sm:text-lg font-bold truncate">{title}</h2>
+        <div
+          className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2"
+          style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}
+        >
+          <h2 className="text-sm font-bold text-[#0A183A] truncate">{title}</h2>
           {description && (
             <div className="group relative cursor-pointer shrink-0 print:hidden">
-              <HelpCircle className="text-white hover:text-gray-200 transition-colors" size={20} />
-              <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-52 pointer-events-none shadow-xl">
+              <HelpCircle className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" size={18} />
+              <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-52 pointer-events-none shadow-xl"
+                   style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
                 <p>{description}</p>
               </div>
             </div>
@@ -276,6 +303,9 @@ export default function ResumenPage() {
   const [expectedTires, setExpectedTires] = useState(0);
   const [userName, setUserName] = useState("");
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState("");
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -298,9 +328,10 @@ export default function ResumenPage() {
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (!stored) { router.push("/login"); return; }
-    let user: { companyId?: string; name?: string };
+    let user: { companyId?: string; name?: string; role?: string };
     try { user = JSON.parse(stored); } catch { router.push("/login"); return; }
     if (user.name) setUserName(user.name);
+    if (user.role === "admin") setIsAdmin(true);
     if (!user.companyId) return;
     setCompanyId(user.companyId);
 
@@ -317,6 +348,8 @@ export default function ResumenPage() {
       .then((c) => {
         const total = c?._count?.tires ?? c?.stats?.tires ?? 0;
         if (typeof total === "number" && total > 0) setExpectedTires(total);
+        if (c?.name) setCompanyName(c.name);
+        if (c?.profileImage) setCompanyLogo(c.profileImage);
       })
       .catch(() => {});
 
@@ -590,6 +623,35 @@ export default function ResumenPage() {
     return m;
   }, [filtered]);
 
+  const bandaData = useMemo(() => {
+    const m: Record<string, number> = {};
+    filtered.forEach((t) => { m[t.diseno] = (m[t.diseno] ?? 0) + 1; });
+    return m;
+  }, [filtered]);
+
+  const dimensionData = useMemo(() => {
+    const m: Record<string, number> = {};
+    filtered.forEach((t) => { const d = t.dimension?.trim(); if (d) m[d] = (m[d] ?? 0) + 1; });
+    return m;
+  }, [filtered]);
+
+  const [vehicles, setVehicles] = useState<{ id: string; placa: string; tipovhc?: string }[]>([]);
+  const [selectedEje, setSelectedEje] = useState("");
+
+  useEffect(() => {
+    if (!companyId) return;
+    authFetch(`${API_BASE}/vehicles?companyId=${companyId}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((v) => setVehicles(v))
+      .catch(() => {});
+  }, [companyId]);
+
+  const vehiclesWithCount = useMemo(() => {
+    const countByVehicle: Record<string, number> = {};
+    filtered.forEach((t) => { if (t.vehicleId) countByVehicle[t.vehicleId] = (countByVehicle[t.vehicleId] ?? 0) + 1; });
+    return vehicles.map((v) => ({ ...v, tireCount: countByVehicle[v.id] ?? 0 })).filter((v) => v.tireCount > 0);
+  }, [vehicles, filtered]);
+
   // Best CPK combinations (nueva only)
   const topCpkCombinations = useMemo(() => {
     const groups: Record<string, { marca: string; diseno: string; dimension: string; cpks: number[]; count: number }> = {};
@@ -727,43 +789,174 @@ export default function ResumenPage() {
 
   // -- Export ------------------------------------------------------------------
 
-  const handleExport = useCallback(() => {
-    const style = document.createElement("style");
-    style.innerHTML = `@media print { body * { visibility: hidden } #resumen-print, #resumen-print * { visibility: visible } #resumen-print { position: absolute; left: 0; top: 0; width: 100% } }`;
-    document.head.appendChild(style);
-    if (contentRef.current) contentRef.current.id = "resumen-print";
-    setTimeout(() => { window.print(); setTimeout(() => { document.head.removeChild(style); if (contentRef.current) contentRef.current.removeAttribute("id"); }, 500); }, 300);
-  }, []);
+  // Export is a real, co-branded vector PDF (jsPDF) built by resumenReportPdf,
+  // NOT a screenshot of the on-screen charts. The dashboard charts are chart.js
+  // canvases tuned for a dark interactive UI, and the app is on Tailwind v4
+  // (oklch theme) which html2canvas can't parse — both make for ugly,
+  // page-splitting printouts. Clicking Exportar opens a modal where the user
+  // picks a template, an accent color, the sections, edits the title/company/
+  // note, and — crucially — RE-FILTERS the data (brand / axle / life / date
+  // range) so the same dashboard can produce, say, a 2027 board review.
+  //
+  // The modal owns its own filter state and re-derives the data via
+  // buildResumenReportData (which mirrors the dashboard's aggregation math but
+  // with a dynamic month window). We just hand it the raw tire snapshot and a
+  // builder bound to the current company branding.
+  const [exportOpen, setExportOpen] = useState(false);
+
+  // Default the export filters to whatever the dashboard is currently showing.
+  // Memoised so the modal doesn't reset the user's in-modal tweaks on every
+  // parent re-render.
+  const exportDefaultFilters = useMemo<ReportFilterOpts>(() => ({
+    marca:    filterValues.marca || "Todos",
+    eje:      filterValues.eje   || "Todos",
+    vida:     filterValues.vida  || "Todos",
+    search:   filterSearch,
+    dateFrom: inspectionFrom,
+    dateTo:   inspectionTo,
+  }), [filterValues, filterSearch, inspectionFrom, inspectionTo]);
+
+  const buildExportData = useCallback(
+    (opts: ReportFilterOpts) =>
+      buildResumenReportData(tires, opts, { name: companyName, logo: companyLogo }, tires.length),
+    [tires, companyName, companyLogo],
+  );
 
   const rankColors = ["#D4AF37", "#94A3B8", "#CD7F32", "#348CCB", "#348CCB"];
   const chartKey = `${Object.values(filterValues).join("-")}-${filterSearch}-${filtered.length}`;
 
+  // ===========================================================================
+  // Dashboard layout — customizable widget order + visibility
+  // ===========================================================================
+
+  type WidgetDef = { id: string; label: string; fullWidth?: boolean };
+
+  const ALL_WIDGETS: WidgetDef[] = [
+    // -- Resumen native --
+    { id: "cpk_evolution",       label: "CPK Proyectado" },
+    { id: "por_vida",            label: "Llantas por Vida" },
+    { id: "inversion_mensual",   label: "Inversión Mensual" },
+    { id: "por_marca",           label: "Llantas por Marca" },
+    { id: "dinero_perdido",      label: "Dinero Perdido" },
+    { id: "inversion_categoria", label: "Inversión por Categoría" },
+    { id: "mejores_cpk",         label: "Mejores Combinaciones CPK", fullWidth: true },
+    { id: "inspecciones_dia",    label: "Reporte de Inspecciones",   fullWidth: true },
+    // -- From Detalle (hidden by default) --
+    { id: "semaforo_pie",        label: "Semáforo" },
+    { id: "por_banda",           label: "Llantas por Banda" },
+    { id: "por_dimension",       label: "Llantas por Dimensión" },
+    { id: "promedio_eje",        label: "Profundidad por Eje" },
+    { id: "tipo_vehiculo",       label: "Tipo de Vehículo" },
+    { id: "historic_chart",      label: "Histórico Inspecciones" },
+    { id: "reencauche_hist",     label: "Reencauche Histórico" },
+    { id: "tanque_milimetro",    label: "Tanque Milimétrico" },
+    { id: "proyeccion_vida",     label: "Proyección de Vida" },
+  ];
+
+  const STORAGE_KEY = "tirepro_dashboard_layout";
+
+  type LayoutState = { order: string[]; hidden: string[] };
+
+  const DETALLE_WIDGET_IDS = ["semaforo_pie", "por_banda", "por_dimension", "promedio_eje", "tipo_vehiculo", "historic_chart", "reencauche_hist", "tanque_milimetro", "proyeccion_vida"];
+
+  const defaultLayout: LayoutState = {
+    order: ALL_WIDGETS.map((w) => w.id),
+    hidden: DETALLE_WIDGET_IDS,
+  };
+
+  function loadLayout(): LayoutState {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultLayout;
+      const parsed = JSON.parse(raw) as Partial<LayoutState>;
+      const allIds = new Set(ALL_WIDGETS.map((w) => w.id));
+      const order = (parsed.order ?? []).filter((id: string) => allIds.has(id));
+      ALL_WIDGETS.forEach((w) => { if (!order.includes(w.id)) order.push(w.id); });
+      return { order, hidden: (parsed.hidden ?? []).filter((id: string) => allIds.has(id)) };
+    } catch { return defaultLayout; }
+  }
+
+  const [layout, setLayout] = useState<LayoutState>(defaultLayout);
+  const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => { setLayout(loadLayout()); }, []);
+
+  function saveLayout(next: LayoutState) {
+    setLayout(next);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* */ }
+  }
+
+  function moveWidget(id: string, dir: -1 | 1) {
+    const idx = layout.order.indexOf(id);
+    if (idx < 0) return;
+    const target = idx + dir;
+    if (target < 0 || target >= layout.order.length) return;
+    const next = [...layout.order];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    saveLayout({ ...layout, order: next });
+  }
+
+  function toggleHidden(id: string) {
+    const isHidden = layout.hidden.includes(id);
+    const next = isHidden
+      ? layout.hidden.filter((h) => h !== id)
+      : [...layout.hidden, id];
+    saveLayout({ ...layout, hidden: next });
+  }
+
+  function resetLayout() {
+    saveLayout(defaultLayout);
+  }
+
+  const visibleWidgets = layout.order.filter((id) => !layout.hidden.includes(id));
+  const hiddenWidgets = layout.order.filter((id) => layout.hidden.includes(id));
+
   // -- Render -----------------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
       {/* -- HEADER ---------------------------------------------------------- */}
       <div
         className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center justify-between gap-3"
-        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(52,140,203,0.15)" }}
+        style={{
+          background: "rgba(248,250,252,0.85)",
+          backdropFilter: "saturate(180%) blur(14px)",
+          WebkitBackdropFilter: "saturate(180%) blur(14px)",
+          borderBottom: "1px solid rgba(10,24,58,0.06)",
+        }}
       >
         <div className="flex items-center gap-3">
           <div>
             <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Mi Resumen</h1>
-            <p className="text-xs text-[#348CCB] mt-0.5 flex items-center gap-1">
+            <p className="text-xs text-[#173D68]/50 mt-0.5 flex items-center gap-1">
               <Calendar className="w-3 h-3" />
               Actualizado: {new Date().toLocaleDateString("es-CO")}
               {userName && <> &middot; Bienvenido, {userName}</>}
             </p>
           </div>
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-        >
-          <Download className="w-4 h-4" /> Exportar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setEditMode((v) => !v)}
+            className={[
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors",
+              editMode
+                ? "bg-[#0A183A] text-white"
+                : "text-[#173D68]/60 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68]",
+            ].join(" ")}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{editMode ? "Listo" : "Editar"}</span>
+          </button>
+          <button
+            onClick={() => setExportOpen(true)}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-[#173D68]/60 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Exportar</span>
+          </button>
+        </div>
       </div>
 
       {/* Streaming progress bar — sticky under the header while tires load */}
@@ -811,7 +1004,7 @@ export default function ResumenPage() {
           </div>
         ) : (
           <>
-            {/* KPI Cards */}
+            {/* KPI Cards — always visible, not part of widget system */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <MetricCard label="Total Llantas" value={filtered.length.toLocaleString("es-CO")} subtitle={filtered.length !== tires.length ? `de ${tires.length} totales` : undefined} />
               <MetricCard label="Inversion del Mes" value={fmtCOPCompact(inversionMes)} subtitle={inversionMes >= 1000 ? fmtCOP(inversionMes) : undefined} />
@@ -819,180 +1012,253 @@ export default function ResumenPage() {
               <MetricCard label="Llantas Analizadas" value={llantasAnalizadas.toLocaleString("es-CO")} subtitle={`de ${filtered.length.toLocaleString("es-CO")} filtradas`} />
             </div>
 
-            {/* Row 1: CPK Evolution + Por Vida — eager (first-above-fold). */}
-            <LazyMount eager minHeight={360}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <CardWrap
-                title="CPK Proyectado"
-                description="Promedio ponderado por km del CPK proyectado de la flota en los ultimos 12 meses. Un valor menor indica mejor rendimiento por kilometro."
+            {/* Hidden widgets restore panel — only in edit mode */}
+            {editMode && hiddenWidgets.length > 0 && (
+              <div
+                className="rounded-2xl p-4"
+                style={{ border: '1px dashed rgba(10,24,58,0.15)', background: 'rgba(10,24,58,0.02)' }}
               >
-                <Bar
-                  key={`cpk-${chartKey}`}
-                  data={makeBarData(cpkEvolution, COLORS.accent)}
-                  options={makeBarOpts(cpkEvolution, (v) => fmtCOP(v), (v) => `CPK Proy: ${fmtCOP(v)}`)}
-                />
-              </CardWrap>
-              <PorVida tires={filtered.map((t) => ({ id: t.id, vida: [{ valor: t.vidaActual ?? "nueva", fecha: new Date().toISOString() }] }))} />
-            </div>
-            </LazyMount>
-
-            {/* Row 2: Inversion Mensual + Por Marca */}
-            <LazyMount minHeight={360}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-              <CardWrap
-                title="Inversion Mensual"
-                description="Total invertido en llantas por mes incluyendo compras nuevas, reencauches y reparaciones."
-              >
-                <Bar
-                  key={`inv-${chartKey}`}
-                  data={makeBarData(inversionMensual, COLORS.accent)}
-                  options={makeBarOpts(inversionMensual, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => fmtCOP(v))}
-                />
-              </CardWrap>
-              <PorMarca groupData={marcaData} />
-            </div>
-            </LazyMount>
-
-            {/* Row 3: Dinero Perdido + Inversion por Categoria */}
-            <LazyMount minHeight={360}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <CardWrap
-                title="Dinero Perdido por Desecho"
-                description="Dinero estimado perdido cuando llantas se desechan con profundidad remanente. Calculado como la proporcion de profundidad restante sobre el costo total."
-              >
-                <Line
-                  key={`perdido-${chartKey}`}
-                  data={makeLineData(dineroPerdido, "#f97316")}
-                  options={makeLineOpts(dineroPerdido, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => `Perdida: ${fmtCOP(v)}`)}
-                />
-              </CardWrap>
-
-              {/* Inversion por Categoria este mes */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full">
-                <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center justify-between gap-2">
-                  <h2 className="text-base sm:text-lg font-bold truncate">Inversión del Mes por Categoría</h2>
-                  <div className="group relative cursor-pointer shrink-0 print:hidden">
-                    <HelpCircle className="text-white hover:text-gray-200 transition-colors" size={20} />
-                    <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-52 pointer-events-none shadow-xl">
-                      <p>Desglose de costos registrados este mes agrupados por etapa de vida de la llanta (nueva, reencauche 1-3, fin de vida).</p>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <EyeOff className="w-3.5 h-3.5 text-[#173D68]/40" />
+                  <p className="text-[11px] font-medium text-[#173D68]/50 uppercase tracking-wider">Widgets ocultos</p>
+                  <button
+                    onClick={resetLayout}
+                    className="ml-auto flex items-center gap-1 text-[11px] font-medium text-[#A374FF] hover:text-[#0A183A] transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Restablecer todo
+                  </button>
                 </div>
-                <div className="p-4 sm:p-6">
-                  {inversionByVida.entries.length === 0 ? (
-                    <div className="h-64 sm:h-72 flex items-center justify-center">
-                      <p className="text-sm text-gray-400">Sin costos registrados este mes.</p>
-                    </div>
-                  ) : (
-                    <div className="h-64 sm:h-72 flex flex-col justify-between">
-                      {/* Total header */}
-                      <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-gray-100">
-                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total del mes</span>
-                        <span className="text-xl font-black text-[#0A183A]">{fmtCOP(inversionByVida.grandTotal)}</span>
-                      </div>
-
-                      {/* Category bars */}
-                      <div className="flex-1 space-y-3 overflow-y-auto">
-                        {inversionByVida.entries.map((entry) => {
-                          const pct = inversionByVida.grandTotal > 0
-                            ? Math.max(2, (entry.total / inversionByVida.grandTotal) * 100)
-                            : 0;
-                          return (
-                            <div key={entry.vida}>
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: entry.color }} />
-                                  <span className="text-xs font-bold text-[#0A183A]">{entry.label}</span>
-                                  <span className="text-[10px] text-gray-400">({entry.count} llanta{entry.count !== 1 ? "s" : ""})</span>
-                                </div>
-                                <span className="text-xs font-black text-[#0A183A]">{fmtCOP(entry.total)}</span>
-                              </div>
-                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all duration-500"
-                                  style={{ width: `${pct}%`, background: entry.color }}
-                                />
-                              </div>
-                              <div className="text-right mt-0.5">
-                                <span className="text-[9px] text-gray-400">
-                                  {inversionByVida.grandTotal > 0 ? Math.round((entry.total / inversionByVida.grandTotal) * 100) : 0}% del total
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            </LazyMount>
-
-            {/* Mejores Combinaciones CPK */}
-            {topCpkCombinations.length > 0 && (
-              <LazyMount minHeight={280}>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Award className="w-4 h-4 text-[#348CCB]" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#348CCB]">
-                    Mejores Combinaciones CPK Proyectado
-                  </h3>
-                </div>
-                <div className="flex flex-col gap-2.5">
-                  {topCpkCombinations.map((combo, i) => (
-                    <div
-                      key={`${combo.marca}-${combo.diseno}-${combo.dimension}`}
-                      className="flex items-center gap-4 px-4 py-3 rounded-xl border-l-4"
-                      style={{ borderLeftColor: rankColors[i], background: "rgba(10,24,58,0.015)" }}
-                    >
-                      <div
-                        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white"
-                        style={{ background: rankColors[i] }}
+                <div className="flex flex-wrap gap-2">
+                  {hiddenWidgets.map((id) => {
+                    const w = ALL_WIDGETS.find((w) => w.id === id);
+                    if (!w) return null;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => toggleHidden(id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-[#173D68]/60 hover:text-[#0A183A] hover:bg-white transition-colors"
+                        style={{ border: '1px solid rgba(10,24,58,0.08)' }}
                       >
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#0A183A] truncate">{combo.marca} {combo.diseno}</p>
-                        <p className="text-xs text-gray-400">{combo.dimension}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-base font-black text-[#0A183A]">{fmtCOP(+combo.avgCpk.toFixed(1))}</p>
-                        <p className="text-[10px] text-gray-400">{combo.count} {combo.count === 1 ? "llanta" : "llantas"}</p>
-                      </div>
-                    </div>
-                  ))}
+                        <Eye className="w-3 h-3" /> {w.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              </LazyMount>
             )}
-          </>
-        )}
 
-        {/* Day-of-inspections report — bottom card so distribuidores
-            and pro accounts alike can pull a single-day PDF summary
-            without leaving the resumen page. */}
-        {!loading && (
-          <InspectionsDayReportCard companyId={companyId} />
+            {/* Customizable widget grid */}
+            <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${editMode ? "pt-3" : ""}`} style={editMode ? { overflow: 'visible' } : undefined}>
+              {visibleWidgets.map((id, idx) => {
+                const def = ALL_WIDGETS.find((w) => w.id === id);
+                if (!def) return null;
+                const isFirst = idx === 0;
+                const isLast = idx === visibleWidgets.length - 1;
+
+                const widgetContent = (() => {
+                  switch (id) {
+                    case "cpk_evolution":
+                      return (
+                        <CardWrap title="CPK Proyectado" description="Promedio ponderado por km del CPK proyectado de la flota en los ultimos 12 meses.">
+                          <Bar key={`cpk-${chartKey}`} data={makeBarData(cpkEvolution, COLORS.accent)} options={makeBarOpts(cpkEvolution, (v) => fmtCOP(v), (v) => `CPK Proy: ${fmtCOP(v)}`)} />
+                        </CardWrap>
+                      );
+                    case "por_vida":
+                      return <PorVida tires={filtered.map((t) => ({ id: t.id, vida: [{ valor: t.vidaActual ?? "nueva", fecha: new Date().toISOString() }] }))} />;
+                    case "inversion_mensual":
+                      return (
+                        <CardWrap title="Inversión Mensual" description="Total invertido en llantas por mes incluyendo compras nuevas, reencauches y reparaciones.">
+                          <Bar key={`inv-${chartKey}`} data={makeBarData(inversionMensual, COLORS.accent)} options={makeBarOpts(inversionMensual, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => fmtCOP(v))} />
+                        </CardWrap>
+                      );
+                    case "por_marca":
+                      return <PorMarca groupData={marcaData} />;
+                    case "dinero_perdido":
+                      return (
+                        <CardWrap title="Dinero Perdido por Desecho" description="Dinero estimado perdido cuando llantas se desechan con profundidad remanente.">
+                          <Line key={`perdido-${chartKey}`} data={makeLineData(dineroPerdido, "#f97316")} options={makeLineOpts(dineroPerdido, (v) => `${(v / 1e6).toFixed(1)}M`, (v) => `Perdida: ${fmtCOP(v)}`)} />
+                        </CardWrap>
+                      );
+                    case "inversion_categoria":
+                      return (
+                        <div className="bg-white rounded-2xl overflow-hidden w-full transition-all duration-200" style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}>
+                          <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+                            <h2 className="text-sm font-bold text-[#0A183A] truncate">Inversión por Categoría</h2>
+                          </div>
+                          <div className="p-4 sm:p-6">
+                            {inversionByVida.entries.length === 0 ? (
+                              <div className="h-64 sm:h-72 flex items-center justify-center"><p className="text-sm text-gray-400">Sin costos este mes.</p></div>
+                            ) : (
+                              <div className="h-64 sm:h-72 flex flex-col justify-between">
+                                <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-gray-100">
+                                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total del mes</span>
+                                  <span className="text-xl font-black text-[#0A183A]">{fmtCOP(inversionByVida.grandTotal)}</span>
+                                </div>
+                                <div className="flex-1 space-y-3 overflow-y-auto">
+                                  {inversionByVida.entries.map((entry) => {
+                                    const pct = inversionByVida.grandTotal > 0 ? Math.max(2, (entry.total / inversionByVida.grandTotal) * 100) : 0;
+                                    return (
+                                      <div key={entry.vida}>
+                                        <div className="flex items-center justify-between mb-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: entry.color }} />
+                                            <span className="text-xs font-bold text-[#0A183A]">{entry.label}</span>
+                                            <span className="text-[10px] text-gray-400">({entry.count})</span>
+                                          </div>
+                                          <span className="text-xs font-black text-[#0A183A]">{fmtCOP(entry.total)}</span>
+                                        </div>
+                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: entry.color }} />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    case "mejores_cpk":
+                      return topCpkCombinations.length > 0 ? (
+                        <div className="bg-white rounded-2xl p-4 sm:p-5 transition-all duration-200" style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}>
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="p-1.5 rounded-lg" style={{ background: 'rgba(163,116,255,0.08)' }}><Award className="w-3.5 h-3.5 text-[#A374FF]" /></div>
+                            <h3 className="text-sm font-bold text-[#0A183A]">Mejores Combinaciones CPK</h3>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            {topCpkCombinations.map((combo, i) => (
+                              <div key={`${combo.marca}-${combo.diseno}-${combo.dimension}`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-[#F8FAFC]" style={{ border: '1px solid rgba(10,24,58,0.05)' }}>
+                                <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: rankColors[i] }}>{i + 1}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[13px] font-semibold text-[#0A183A] truncate">{combo.marca} {combo.diseno}</p>
+                                  <p className="text-[11px] text-[#173D68]/40">{combo.dimension} · {combo.count} {combo.count === 1 ? "llanta" : "llantas"}</p>
+                                </div>
+                                <p className="text-sm font-bold text-[#0A183A] tabular-nums flex-shrink-0">{fmtCOP(+combo.avgCpk.toFixed(1))}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null;
+                    case "inspecciones_dia":
+                      return <InspectionsDayReportCard companyId={companyId} />;
+                    // -- Detalle widgets --
+                    case "semaforo_pie":
+                      return <SemaforoPie tires={filtered as any} language="es" />;
+                    case "por_banda":
+                      return <PorBanda groupData={bandaData} />;
+                    case "por_dimension":
+                      return <PorDimension groupData={dimensionData} />;
+                    case "promedio_eje":
+                      return <PromedioEje tires={filtered as any} onSelectEje={(eje: string | null) => setSelectedEje(eje ?? "")} selectedEje={selectedEje} />;
+                    case "tipo_vehiculo":
+                      return <TipoVehiculo vehicles={vehiclesWithCount as any} />;
+                    case "historic_chart":
+                      return <HistoricChart tires={filtered as any} language="es" />;
+                    case "reencauche_hist":
+                      return <ReencaucheHistorico tires={filtered as any} language="es" />;
+                    case "tanque_milimetro":
+                      return <TanqueMilimetro tires={filtered as any} language="es" />;
+                    case "proyeccion_vida":
+                      return <ProyeccionVida tires={filtered as any} />;
+                    default: return null;
+                  }
+                })();
+
+                if (!widgetContent) return null;
+
+                return (
+                  <div
+                    key={id}
+                    className={`${def.fullWidth ? "lg:col-span-2" : ""} ${editMode ? "relative z-0" : ""}`}
+                    style={editMode ? { overflow: "visible" } : undefined}
+                  >
+                    {/* Edit controls */}
+                    {editMode && (
+                      <div
+                        className="absolute flex items-center gap-0.5 rounded-lg p-0.5"
+                        style={{
+                          top: -10,
+                          right: -4,
+                          zIndex: 30,
+                          background: 'white',
+                          border: '1px solid rgba(10,24,58,0.1)',
+                          boxShadow: '0 4px 12px rgba(10,24,58,0.12)',
+                        }}
+                      >
+                        <button
+                          onClick={() => moveWidget(id, -1)}
+                          disabled={isFirst}
+                          className="p-1.5 rounded-md hover:bg-[#F8FAFC] disabled:opacity-20 transition-colors"
+                          title="Mover arriba"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5 text-[#0A183A]" />
+                        </button>
+                        <button
+                          onClick={() => moveWidget(id, 1)}
+                          disabled={isLast}
+                          className="p-1.5 rounded-md hover:bg-[#F8FAFC] disabled:opacity-20 transition-colors"
+                          title="Mover abajo"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5 text-[#0A183A]" />
+                        </button>
+                        <div className="w-px h-4 bg-[#0A183A]/10 mx-0.5" />
+                        <button
+                          onClick={() => toggleHidden(id)}
+                          className="p-1.5 rounded-md hover:bg-red-50 transition-colors"
+                          title="Ocultar widget"
+                        >
+                          <EyeOff className="w-3.5 h-3.5 text-red-400" />
+                        </button>
+                      </div>
+                    )}
+                    {/* Dashed border overlay */}
+                    {editMode && (
+                      <div
+                        className="absolute inset-0 rounded-2xl pointer-events-none"
+                        style={{ border: '2px dashed rgba(163,116,255,0.3)', zIndex: 20 }}
+                      />
+                    )}
+                    {widgetContent}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
       {!loading && (
-        <FilterFab
-          filters={filterOptions}
-          values={filterValues}
-          onChange={(key, value) => setFilterValues((prev) => ({ ...prev, [key]: value }))}
-          search={filterSearch}
-          onSearchChange={setFilterSearch}
-          searchPlaceholder="Buscar por placa o marca..."
-          advancedConditions={advancedConditions}
-          onAdvancedChange={setAdvancedConditions}
-          dateFrom={inspectionFrom}
-          dateTo={inspectionTo}
-          onDateRangeChange={(from, to) => { setInspectionFrom(from); setInspectionTo(to); }}
-          dateRangeLabel="Rango de inspecciones"
-        />
+        <>
+          {isAdmin && <AnaFab />}
+          <FilterFab
+            filters={filterOptions}
+            values={filterValues}
+            onChange={(key, value) => setFilterValues((prev) => ({ ...prev, [key]: value }))}
+            search={filterSearch}
+            onSearchChange={setFilterSearch}
+            searchPlaceholder="Buscar por placa o marca..."
+            advancedConditions={advancedConditions}
+            onAdvancedChange={setAdvancedConditions}
+            dateFrom={inspectionFrom}
+            dateTo={inspectionTo}
+            onDateRangeChange={(from, to) => { setInspectionFrom(from); setInspectionTo(to); }}
+            dateRangeLabel="Rango de inspecciones"
+          />
+        </>
       )}
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        buildData={buildExportData}
+        defaultFilters={exportDefaultFilters}
+        marcaOptions={filterOptions.find((f) => f.key === "marca")?.options ?? []}
+        ejeOptions={filterOptions.find((f) => f.key === "eje")?.options ?? []}
+        defaultTitle="Reporte de Resumen"
+        defaultCompany={companyName}
+        defaultPreparedBy={userName}
+      />
     </div>
   );
 }

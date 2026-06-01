@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  Search, Car, X, Info, ChevronDown, Eye, BarChart3,
+  Search, Car, X, Info, ChevronDown, BarChart3,
   Calendar, Ruler, Repeat, Trash2, Building2, Loader2,
-  AlertCircle, Pencil, CheckCircle2, Circle, TrendingUp,
-  Activity, DollarSign, Gauge, AlertTriangle, Shield,
-  ChevronRight, Zap, Layers, Timer, AlertOctagon,
+  AlertCircle, Pencil, CheckCircle2, Circle,
+  Activity, DollarSign, Gauge, Shield,
+  ChevronRight, Layers, Timer, AlertOctagon,
   RotateCcw, CheckCircle, Check,
 } from "lucide-react";
 import {
@@ -14,6 +14,7 @@ import {
   LineElement, Title, Tooltip, Filler, BarElement,
 } from "chart.js";
 import { Line, Bar } from "react-chartjs-2";
+import MetricCard from "../components/MetricCard";
 import { VehicleTireGrid, TireGridLegend } from "../components/VehicleTireGrid";
 
 ChartJS.register(
@@ -514,54 +515,56 @@ function CpkChart({ inspecciones }: { inspecciones: Inspection[] }) {
 function VehicleFleetOverview({ tires, companyName }: { tires: Tire[]; companyName?: string }) {
   const stats = useMemo(() => calcFleetStats(tires), [tires]);
 
+  const kpis = [
+    { label: "CPK Promedio",      value: stats.avgCpk  ? `$${Math.round(stats.avgCpk).toLocaleString("es-CO")}` : "--", sub: "por kilómetro" },
+    { label: "Profundidad Prom.", value: stats.avgDepth ? `${stats.avgDepth.toFixed(1)} mm` : "--",                     sub: "banda de rodamiento" },
+    { label: "Salud Flota",       value: stats.avgHealth != null ? `${stats.avgHealth}%` : "--",                        sub: "mm restantes" },
+    { label: "Inversión Total",   value: stats.totalCost > 0 ? `$${(stats.totalCost / 1_000_000).toFixed(1)}M` : "--",  sub: "costo acumulado" },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.2)" }}>
-        <div className="p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Car className="w-5 h-5 text-white/70" />
-            <span className="text-white font-black text-base">Análisis de Flota</span>
-            {companyName && <span className="text-white/40 text-xs ml-1">· {companyName}</span>}
-            <span className="ml-auto text-white/50 text-xs">{tires.length} llantas</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: "CPK Promedio",      value: stats.avgCpk  ? `$${Math.round(stats.avgCpk).toLocaleString("es-CO")}` : "N/A", sub: "por kilómetro",            icon: DollarSign },
-              { label: "Profundidad Prom.", value: stats.avgDepth ? `${stats.avgDepth.toFixed(1)} mm` : "N/A",                       sub: "banda de rodamiento",      icon: Gauge },
-              { label: "Salud Flota",       value: stats.avgHealth != null ? `${stats.avgHealth}%` : "N/A",                          sub: "mm restantes vs inicial",  icon: Activity },
-              { label: "Inversión Total",   value: stats.totalCost > 0 ? `$${(stats.totalCost / 1_000_000).toFixed(1)}M` : "N/A",   sub: "costo acumulado",          icon: DollarSign },
-            ].map(s => (
-              <div key={s.label} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.08)" }}>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <s.icon className="w-3.5 h-3.5 text-white/50" />
-                  <span className="text-[10px] text-white/50 font-bold uppercase tracking-wider">{s.label}</span>
-                </div>
-                <p className="text-lg font-black text-white leading-none">{s.value}</p>
-                <p className="text-[10px] text-white/40 mt-0.5">{s.sub}</p>
-              </div>
-            ))}
-          </div>
+      {/* KPI cards — clean light treatment matching the resumen dashboard */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {kpis.map(k => (
+          <MetricCard key={k.label} label={k.label} value={k.value} subtitle={k.sub} />
+        ))}
+      </div>
+
+      {/* Semaforo distribution */}
+      <div
+        className="bg-white rounded-2xl p-4 sm:p-5"
+        style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(180deg, #1E76B6, #A374FF)" }} />
+          <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Estado de la flota</p>
+          {companyName && <span className="text-[11px] text-gray-400 truncate">· {companyName}</span>}
+          <span className="ml-auto text-[11px] text-gray-400 tabular-nums">{tires.length} llantas</span>
         </div>
-        <div className="px-4 sm:px-6 pb-4 grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {(["buenEstado", "dias60", "dias30", "cambioInmediato"] as SemaforoCondition[]).map(key => {
             const m = SEMAFORO_META[key];
             return (
-              <div key={key} className="rounded-xl p-2 text-center" style={{ background: `${m.color}22` }}>
-                <p className="text-xl font-black" style={{ color: m.color }}>{stats.counts[key]}</p>
-                <p className="text-[10px] font-bold" style={{ color: m.color, opacity: 0.85 }}>{m.label}</p>
+              <div key={key} className="rounded-xl px-3 py-3 text-center" style={{ background: `${m.color}0F` }}>
+                <p className="text-2xl font-black tabular-nums" style={{ color: m.color }}>{stats.counts[key]}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: m.color }}>{m.label}</p>
               </div>
             );
           })}
         </div>
       </div>
 
+      {/* Urgent tires */}
       {stats.urgent.length > 0 && (
-        <div className="rounded-2xl p-4" style={{ border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.03)" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            <span className="text-sm font-black text-red-700">Requieren Acción</span>
-            <span className="ml-auto text-xs font-bold text-red-500">
+        <div
+          className="bg-white rounded-2xl p-4 sm:p-5"
+          style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1 h-4 rounded-full" style={{ background: "#ef4444" }} />
+            <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Requieren acción</p>
+            <span className="ml-auto text-[11px] font-bold text-red-500 tabular-nums">
               {stats.urgent.length} llanta{stats.urgent.length > 1 ? "s" : ""}
             </span>
           </div>
@@ -572,8 +575,8 @@ function VehicleFleetOverview({ tires, companyName }: { tires: Tire[]; companyNa
               const last = getLatestInsp(t);
               const minD = last ? Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt) : null;
               return (
-                <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-white"
-                  style={{ border: "1px solid rgba(239,68,68,0.12)" }}>
+                <div key={t.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-[#F8FAFC]"
+                  style={{ border: "1px solid rgba(10,24,58,0.05)" }}>
                   <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: m?.color ?? "#94a3b8" }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-[#0A183A] truncate">{t.placa.toUpperCase()} · Pos. {t.posicion}</p>
@@ -803,10 +806,10 @@ function CostoEditor({ tire, onUpdated }: { tire: Tire; onUpdated: (t: Tire) => 
           </div>
         );
       })}
-      <div className="flex items-center justify-between p-3 rounded-xl mt-2"
-        style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
-        <span className="text-white font-bold text-sm">Total Invertido</span>
-        <span className="text-white font-black text-lg">${totalCost.toLocaleString("es-CO")}</span>
+      <div className="flex items-center justify-between px-3 py-3 rounded-xl mt-2"
+        style={{ background: "#F8FAFC", border: "1px solid rgba(10,24,58,0.06)" }}>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Total Invertido</span>
+        <span className="text-[#0A183A] font-black text-lg tabular-nums">${totalCost.toLocaleString("es-CO")}</span>
       </div>
     </div>
   );
@@ -1119,20 +1122,17 @@ function TireDetailModal({
         style={{ background: "#f8fafc", boxShadow: "0 32px 80px rgba(10,24,58,0.35)" }}>
 
         {/* Header */}
-        <div className="relative overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)" }}>
-          <div className="absolute inset-0 pointer-events-none"
-            style={{ backgroundImage: "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
-          <div className="relative px-4 sm:px-6 py-5">
+        <div className="bg-white" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
+          <div className="px-4 sm:px-6 py-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)" }}>
-                  <Circle className="w-6 h-6 text-white" />
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(10,24,58,0.04)", border: "1px solid rgba(10,24,58,0.08)" }}>
+                  <Circle className="w-5 h-5 text-[#1E76B6]" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-white font-black text-xl leading-none">{tire.placa.toUpperCase()}</h2>
+                    <h2 className="text-[#0A183A] font-black text-xl leading-none tracking-tight">{tire.placa.toUpperCase()}</h2>
                     {condMeta && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                         style={{ background: condMeta.bg, color: condMeta.color }}>
@@ -1140,56 +1140,59 @@ function TireDetailModal({
                       </span>
                     )}
                   </div>
-                  <p className="text-white/60 text-sm mt-0.5">{tire.marca} {tire.diseno} · {tire.dimension}</p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <p className="text-gray-500 text-sm mt-1">{tire.marca} {tire.diseno} · {tire.dimension}</p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <VidaBadge valor={currentVida} />
-                    <span className="text-white/40 text-[11px]">Posición {tire.posicion} · Eje {tire.eje}</span>
+                    <span className="text-gray-400 text-[11px]">Posición {tire.posicion} · Eje {tire.eje}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button onClick={() => { setEditMode(!editMode); setEditSuccess(""); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
-                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "white" }}>
+                  className={[
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors",
+                    editMode
+                      ? "bg-[#0A183A] text-white"
+                      : "text-[#173D68]/60 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68]",
+                  ].join(" ")}>
                   {editMode ? <><X className="w-3.5 h-3.5" />Cancelar</> : <><Pencil className="w-3.5 h-3.5" />Editar</>}
                 </button>
-                <button onClick={onClose} className="p-1.5 rounded-xl"
-                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
-                  <X className="w-4 h-4 text-white" />
+                <button onClick={onClose}
+                  className="p-1.5 rounded-lg text-[#173D68]/50 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68] transition-colors">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4">
               {[
-                { label: "Profundidad Prom.", value: avgDepth ? `${avgDepth.toFixed(1)} mm` : "N/A", color: avgDepth ? depthColor(avgDepth) : "#94a3b8" },
-                { label: "CPK Actual",        value: last?.cpk ? `$${Math.round(last.cpk).toLocaleString("es-CO")}` : "N/A", color: "#60a5fa" },
-                { label: "Km Recorridos",     value: tire.kilometrosRecorridos.toLocaleString("es-CO"), color: "#a78bfa" },
-                { label: "Km Proyectados",    value: projKm, color: "#34d399" },
+                { label: "Profundidad Prom.", value: avgDepth ? `${avgDepth.toFixed(1)} mm` : "--", color: avgDepth ? depthColor(avgDepth) : "#0A183A" },
+                { label: "CPK Actual",        value: last?.cpk ? `$${Math.round(last.cpk).toLocaleString("es-CO")}` : "--", color: "#0A183A" },
+                { label: "Km Recorridos",     value: tire.kilometrosRecorridos.toLocaleString("es-CO"), color: "#0A183A" },
+                { label: "Km Proyectados",    value: projKm, color: "#0A183A" },
               ].map(k => (
-                <div key={k.label} className="rounded-xl p-2.5 text-center" style={{ background: "rgba(255,255,255,0.07)" }}>
-                  <p className="text-base font-black" style={{ color: k.color }}>{k.value}</p>
-                  <p className="text-[10px] text-white/50 font-semibold mt-0.5">{k.label}</p>
+                <div key={k.label} className="rounded-xl px-3 py-2.5 text-center" style={{ background: "#F8FAFC", border: "1px solid rgba(10,24,58,0.05)" }}>
+                  <p className="text-base font-black tabular-nums" style={{ color: k.color }}>{k.value}</p>
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">{k.label}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex border-t border-white/10">
+          <div className="flex px-2 sm:px-4" style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
                 className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-bold transition-all"
                 style={{
-                  color: activeTab === t.id ? "white" : "rgba(255,255,255,0.45)",
-                  borderBottom: activeTab === t.id ? "2px solid white" : "2px solid transparent",
-                  background: activeTab === t.id ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: activeTab === t.id ? "#0A183A" : "#94a3b8",
+                  borderBottom: activeTab === t.id ? "2px solid #1E76B6" : "2px solid transparent",
                 }}>
                 <t.icon className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="hidden sm:inline">{t.label}</span>
                 {t.count != null && t.count > 0 && (
                   <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full font-black"
-                    style={{ background: activeTab === t.id ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)", color: "white" }}>
+                    style={{ background: activeTab === t.id ? "rgba(30,118,182,0.1)" : "rgba(10,24,58,0.05)", color: activeTab === t.id ? "#1E76B6" : "#94a3b8" }}>
                     {t.count}
                   </span>
                 )}
@@ -1526,25 +1529,26 @@ const BuscarDist: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+    <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
       {/* Header */}
-      <div className="sticky top-0 z-40 px-3 sm:px-6 py-3 sm:py-4 flex items-center gap-3"
-        style={{ background: "rgba(241,245,249,0.95)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(10,24,58,0.08)" }}>
-        <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-          <Search className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <h1 className="font-black text-[#0A183A] text-base sm:text-lg leading-none tracking-tight">Buscar Llanta</h1>
-          <p className="text-xs text-[#1E76B6] mt-0.5">Búsqueda por cliente y placa de vehículo</p>
-        </div>
+      <div
+        className="sticky top-0 z-40 px-4 sm:px-6 py-4"
+        style={{
+          background: "rgba(248,250,252,0.85)",
+          backdropFilter: "saturate(180%) blur(14px)",
+          WebkitBackdropFilter: "saturate(180%) blur(14px)",
+          borderBottom: "1px solid rgba(10,24,58,0.06)",
+        }}
+      >
+        <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Buscar Llanta</h1>
+        <p className="text-xs text-[#173D68]/50 mt-1">Búsqueda por cliente y placa de vehículo</p>
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-5">
 
         {/* Search form */}
         <div className="rounded-2xl p-4 sm:p-5"
-          style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 4px 20px rgba(10,24,58,0.04)" }}>
+          style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}>
           <form onSubmit={handleSearch}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -1671,7 +1675,7 @@ const BuscarDist: React.FC = () => {
                 const unpositioned = tires.filter((t) => !t.posicion || t.posicion <= 0);
                 return (
                   <div className="rounded-2xl p-4 sm:p-6"
-                    style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)" }}>
+                    style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}>
                     <VehicleTireGrid
                       tires={tires}
                       configuracion={vehicle.configuracion}

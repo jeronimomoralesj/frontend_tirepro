@@ -57,7 +57,7 @@ export default function FlowToolbar({ name, onNameChange, status, dirty, saving,
           {saving ? (
             <><div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" /> Guardando</>
           ) : (
-            <>{dirty || isNew ? 'Guardar' : '✓ Guardado'}</>
+            <>{dirty || isNew ? 'Guardar' : <><svg viewBox="0 0 24 24" fill="none" className="h-3 w-3"><path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> Guardado</>}</>
           )}
         </button>
       </div>

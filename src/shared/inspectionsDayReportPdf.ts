@@ -33,8 +33,13 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export type InspectionsDayReport = {
-  date: string;
+  // Date range the report covers (inclusive). When from === to it's a single day.
+  from: string;
+  to: string;
   company: { id: string; name: string; profileImage: string | null };
+  // Present when the inspections were performed/managed by a distributor — used
+  // to co-brand the PDF with the distributor's logo alongside the company's.
+  distributor?: { id: string; name: string; profileImage: string | null } | null;
   inspectorNames: string[];
   totals: {
     vehiclesInspected: number;
@@ -84,12 +89,6 @@ const COLOR_SEM = {
   proyectado_30:    "#fff1d6",
   proyectado_60:    "#fff8d6",
   buen_estado:      "#d6f5d6",
-};
-const COLOR_SEM_DOT = {
-  cambio_inmediato: "#ef4444",
-  proyectado_30:    "#f59e0b",
-  proyectado_60:    "#facc15",
-  buen_estado:      "#22c55e",
 };
 const SEM_LABEL: Record<keyof typeof COLOR_SEM, string> = {
   cambio_inmediato: "Cambio Inmediato",
@@ -170,61 +169,108 @@ function pct(n: number, total: number): string {
   return `${((n / total) * 100).toFixed(1).replace(".", ",")} %`;
 }
 
-function referenceCode(date: string, companyId: string): string {
-  // Stable, human-friendly: DIA-YYYYMMDD-XXXX where XXXX is a 4-char hash
-  // of companyId so two reports for the same day across different
-  // tenants get distinct codes without a server round-trip.
+function referenceCode(from: string, to: string, companyId: string): string {
+  // Stable, human-friendly hash tag of companyId so two reports across
+  // different tenants get distinct codes without a server round-trip.
   let h = 0;
   for (let i = 0; i < companyId.length; i++) h = ((h << 5) - h + companyId.charCodeAt(i)) | 0;
   const tag = (Math.abs(h) % 0xffff).toString(16).toUpperCase().padStart(4, "0");
-  return `DIA-${date.replace(/-/g, "")}-${tag}`;
+  return from === to
+    ? `DIA-${from.replace(/-/g, "")}-${tag}`
+    : `RNG-${from.replace(/-/g, "")}-${to.replace(/-/g, "")}-${tag}`;
+}
+
+// Human-readable range, e.g. "15/01/2025" or "15/01/2025 — 20/01/2025".
+function formatRange(from: string, to: string): string {
+  const fmt = (iso: string) => {
+    const [y, m, d] = iso.split("-");
+    return d && m && y ? `${d}/${m}/${y}` : iso;
+  };
+  return from === to ? fmt(from) : `${fmt(from)} — ${fmt(to)}`;
 }
 
 // -----------------------------------------------------------------------------
 // Header band — gray tile + logo, then title + meta cell
 // -----------------------------------------------------------------------------
 
+// Draw a logo inside a gray tile (with caption band when labelled). The gray
+// tile is always rendered so a white/transparent logo still reads.
+async function drawLogoTile(
+  doc: jsPDF,
+  logoDataUrl: string | null,
+  x: number, y: number, w: number, h: number,
+  caption?: string,
+) {
+  setHexFill(doc, COLOR_GRAY_TILE);
+  doc.rect(x, y, w, h, "F");
+
+  const captionH = caption ? 4 : 0;
+  const logoAreaH = h - captionH;
+
+  if (logoDataUrl) {
+    try {
+      const dims = await imageDims(logoDataUrl);
+      const pad = 3;
+      const innerW = w - pad * 2;
+      const innerH = logoAreaH - pad * 2;
+      const ratio = dims.w / dims.h;
+      let lw = innerW, lh = innerW / ratio;
+      if (lh > innerH) { lh = innerH; lw = innerH * ratio; }
+      doc.addImage(
+        logoDataUrl,
+        detectFormat(logoDataUrl),
+        x + (w - lw) / 2,
+        y + (logoAreaH - lh) / 2,
+        lw, lh,
+      );
+    } catch {
+      // ignore — gray tile alone is a fine fallback
+    }
+  }
+
+  if (caption) {
+    setHexText(doc, COLOR_MUTED);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5.5);
+    doc.text(caption.toUpperCase(), x + w / 2, y + h - 1.2, { align: "center" });
+  }
+}
+
 async function drawHeader(
   doc: jsPDF,
   report: InspectionsDayReport,
   logoDataUrl: string | null,
+  distLogoDataUrl: string | null,
   marginX: number,
   topY: number,
   contentW: number,
 ): Promise<number> {
   const HEADER_H = 26;
-  const LEFT_W   = 50;
+  const LEFT_W   = 45;
+  const hasDist  = !!report.distributor;
+  const RIGHT_W  = hasDist ? 45 : 0;
+  const centerX  = marginX + LEFT_W;
+  const centerW  = contentW - LEFT_W - RIGHT_W;
+
   // Outer border
   setHexDraw(doc, COLOR_BORDER);
   doc.setLineWidth(0.3);
   doc.rect(marginX, topY, contentW, HEADER_H);
-  // Vertical separator between logo tile and meta cell
-  doc.line(marginX + LEFT_W, topY, marginX + LEFT_W, topY + HEADER_H);
+  // Vertical separators around the center cell
+  doc.line(centerX, topY, centerX, topY + HEADER_H);
+  if (hasDist) doc.line(centerX + centerW, topY, centerX + centerW, topY + HEADER_H);
 
-  // Always-on gray tile behind the logo
-  setHexFill(doc, COLOR_GRAY_TILE);
-  doc.rect(marginX, topY, LEFT_W, HEADER_H, "F");
-
-  // Logo, scaled inside the tile with 3mm padding
-  if (logoDataUrl) {
-    try {
-      const dims = await imageDims(logoDataUrl);
-      const pad = 3;
-      const innerW = LEFT_W - pad * 2;
-      const innerH = HEADER_H - pad * 2;
-      const ratio = dims.w / dims.h;
-      let w = innerW, h = innerW / ratio;
-      if (h > innerH) { h = innerH; w = innerH * ratio; }
-      doc.addImage(
-        logoDataUrl,
-        detectFormat(logoDataUrl),
-        marginX + (LEFT_W - w) / 2,
-        topY  + (HEADER_H - h) / 2,
-        w, h,
-      );
-    } catch {
-      // ignore — gray tile alone is fine fallback
-    }
+  // Company logo (left tile)
+  await drawLogoTile(
+    doc, logoDataUrl, marginX, topY, LEFT_W, HEADER_H,
+    hasDist ? "Empresa" : undefined,
+  );
+  // Distributor logo (right tile) — only when co-branded
+  if (hasDist) {
+    await drawLogoTile(
+      doc, distLogoDataUrl, centerX + centerW, topY, RIGHT_W, HEADER_H,
+      "Distribuidor",
+    );
   }
 
   // Title row
@@ -232,19 +278,19 @@ async function drawHeader(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   const titleY = topY + 6;
-  doc.text("REPORTES DE INSPECCIÓN", marginX + LEFT_W + (contentW - LEFT_W) / 2, titleY, { align: "center" });
+  doc.text("REPORTES DE INSPECCIÓN", centerX + centerW / 2, titleY, { align: "center" });
 
   // Horizontal divider beneath the title
   setHexDraw(doc, COLOR_BORDER);
-  doc.line(marginX + LEFT_W, topY + 9, marginX + contentW, topY + 9);
+  doc.line(centerX, topY + 9, centerX + centerW, topY + 9);
 
-  // Meta block (two columns: CLIENTE/REFERENCIA  |  ASESOR/TECNICO/FECHA)
+  // Meta block (two columns: CLIENTE/REFERENCIA  |  ASESOR/TECNICO/PERÍODO)
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   setHexText(doc, COLOR_TEXT);
-  const metaX1 = marginX + LEFT_W + 4;
-  const metaX2 = marginX + LEFT_W + (contentW - LEFT_W) / 2 + 4;
-  let mY = topY + 14;
+  const metaX1 = centerX + 4;
+  const metaX2 = centerX + centerW / 2 + 4;
+  const mY = topY + 14;
 
   function field(x: number, y: number, label: string, value: string) {
     doc.setFont("helvetica", "bold");
@@ -254,12 +300,15 @@ async function drawHeader(
   }
 
   field(metaX1, mY,     "CLIENTE",    report.company.name);
-  field(metaX1, mY + 4, "REFERENCIA", referenceCode(report.date, report.company.id));
+  field(metaX1, mY + 4, "REFERENCIA", referenceCode(report.from, report.to, report.company.id));
+  if (report.distributor) {
+    field(metaX1, mY + 8, "DISTRIBUIDOR", report.distributor.name);
+  }
 
   const inspector = report.inspectorNames[0] ?? "—";
   field(metaX2, mY,     "ASESOR",  inspector);
   field(metaX2, mY + 4, "TECNICO", inspector);
-  field(metaX2, mY + 8, "FECHA",   report.date);
+  field(metaX2, mY + 8, report.from === report.to ? "FECHA" : "PERÍODO", formatRange(report.from, report.to));
 
   return topY + HEADER_H + 4;
 }
@@ -383,10 +432,13 @@ export async function generateInspectionsDayReportPdf(report: InspectionsDayRepo
   const MARGIN = 10;
   const CONTENT_W = PAGE_W - MARGIN * 2;
 
-  const logo = await loadImageAsDataUrl(report.company.profileImage);
+  const [logo, distLogo] = await Promise.all([
+    loadImageAsDataUrl(report.company.profileImage),
+    loadImageAsDataUrl(report.distributor?.profileImage ?? null),
+  ]);
 
   // ─── Page 1 ────────────────────────────────────────────────────────────────
-  let cursorY = await drawHeader(doc, report, logo, MARGIN, MARGIN, CONTENT_W);
+  let cursorY = await drawHeader(doc, report, logo, distLogo, MARGIN, MARGIN, CONTENT_W);
 
   // 2×2 grid of stat cards
   const COL_W = (CONTENT_W - 4) / 2;
@@ -467,7 +519,7 @@ export async function generateInspectionsDayReportPdf(report: InspectionsDayRepo
   // ─── Page 2 — Composición de Flotas ───────────────────────────────────────
   if (report.composicionFlota.length > 0) {
     doc.addPage();
-    cursorY = await drawHeader(doc, report, logo, MARGIN, MARGIN, CONTENT_W);
+    cursorY = await drawHeader(doc, report, logo, distLogo, MARGIN, MARGIN, CONTENT_W);
 
     cardFrame(doc, MARGIN, cursorY, CONTENT_W, 8 + 6, "Composición de Flotas");
     cursorY += 12;
@@ -523,7 +575,7 @@ export async function generateInspectionsDayReportPdf(report: InspectionsDayRepo
   if (report.vehicles.length > 0) {
     for (const v of report.vehicles) {
       doc.addPage();
-      cursorY = await drawHeader(doc, report, logo, MARGIN, MARGIN, CONTENT_W);
+      cursorY = await drawHeader(doc, report, logo, distLogo, MARGIN, MARGIN, CONTENT_W);
 
       setHexText(doc, COLOR_TEXT);
       doc.setFont("helvetica", "bold");
@@ -634,5 +686,6 @@ export async function generateInspectionsDayReportPdf(report: InspectionsDayRepo
     doc.text(`Generado por TirePro · ${new Date().toLocaleString("es-CO")}`, MARGIN, PAGE_H - 5);
   }
 
-  doc.save(`Inspeccion-${report.company.name.replace(/\s+/g, "_")}-${report.date}.pdf`);
+  const rangeTag = report.from === report.to ? report.from : `${report.from}_a_${report.to}`;
+  doc.save(`Inspeccion-${report.company.name.replace(/\s+/g, "_")}-${rangeTag}.pdf`);
 }

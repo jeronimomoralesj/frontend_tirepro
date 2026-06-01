@@ -131,18 +131,15 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
       style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
     >
       {/* Header */}
-      <div
-        className="text-white px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2 shrink-0"
-        style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 100%)" }}
-      >
+      <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2 shrink-0" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(255,255,255,0.12)" }}>
-            <LayoutGrid size={16} className="text-white" />
+          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(163,116,255,0.08)" }}>
+            <LayoutGrid size={14} className="text-[#A374FF]" />
           </div>
-          <h2 className="text-sm sm:text-base lg:text-lg font-bold truncate">{t.title}</h2>
+          <h2 className="text-sm font-bold text-[#0A183A] truncate">{t.title}</h2>
         </div>
         <div className="group relative cursor-pointer flex-shrink-0">
-          <HelpCircle className="text-white/70 hover:text-white transition-colors" size={18} />
+          <HelpCircle className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" size={18} />
           <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 pointer-events-none shadow-xl"
                style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
             {t.tooltip}

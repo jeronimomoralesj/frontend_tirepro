@@ -105,11 +105,11 @@ function VehicleGroup({
   sendCounts: Record<string, number>;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(10,24,58,0.08)' }}>
       {/* Vehicle header */}
-      <div className="bg-[#173D68] px-4 py-2.5 flex items-center gap-2">
-        <Truck className="w-3.5 h-3.5 text-[#348CCB]" />
-        <span className="font-mono font-bold text-white text-xs tracking-wider">
+      <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+        <Truck className="w-3.5 h-3.5 text-[#173D68]/40" />
+        <span className="font-mono font-bold text-[#0A183A] text-xs tracking-wider">
           {vehiclePlaca.toUpperCase()}
         </span>
         {drivers.length > 0 && (
@@ -452,10 +452,10 @@ export default function NotificacionesTab() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
-        <div className="bg-[#173D68] text-white p-4 rounded-t-xl">
-          <p className="text-sm font-bold leading-tight">Alertas y Notificaciones</p>
-          <p className="text-[10px] text-white/50">{pending.length} pendientes · {sentCount} enviadas · {confirmedCount} confirmadas</p>
+      <div className="bg-white rounded-2xl overflow-visible" style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}>
+        <div className="px-4 py-3.5" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+          <p className="text-sm font-bold text-[#0A183A] leading-tight">Alertas y Notificaciones</p>
+          <p className="text-[11px] text-[#173D68]/40 mt-0.5">{pending.length} pendientes · {sentCount} enviadas · {confirmedCount} confirmadas</p>
         </div>
       </div>
 

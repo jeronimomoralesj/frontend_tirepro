@@ -63,6 +63,8 @@ export default function ConversationPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeAction, setActiveAction] = useState<'inspection' | 'upload' | 'rotation' | null>(null);
+  // True once the company/user crosses ~80% of an AI quota (backend flag).
+  const [usageWarning, setUsageWarning] = useState(false);
 
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [voiceStage, setVoiceStage] = useState<'listening' | 'thinking' | 'transcript'>('listening');
@@ -93,6 +95,17 @@ export default function ConversationPage() {
       const text = pendingMessage;
       setPendingMessage(null);
       setLoading(false);
+
+      // If the first message matches an action intent (upload / inspection / rotation),
+      // skip the Ana round-trip and open the action widget directly with the local
+      // detailed intro — otherwise the model returns a generic "here's the form" reply
+      // with no instructions and the widget never appears.
+      const intent = detectActionIntent(text);
+      if (intent) {
+        startAction(intent);
+        return;
+      }
+
       // Fire the first message immediately — sendMessage is defined below
       // so we inline the logic here to avoid stale closures
       const id = Math.random().toString(36).slice(2);
@@ -109,8 +122,15 @@ export default function ConversationPage() {
             headers: authHeaders(),
             body: JSON.stringify({ message: text, history: [], conversationId }),
           });
+          if (res.status === 429) {
+            const qb = await res.json().catch(() => ({} as { message?: string }));
+            reply = { text: qb?.message || 'Has alcanzado el límite de consultas de IA de tu plan.', error: true };
+            setMessages(prev => prev.map(m => m.id === pendingId ? { ...m, pending: false, text: reply.text, error: true } : m));
+            return;
+          }
           if (!res.ok) throw new Error();
           const data = await res.json();
+          setUsageWarning(!!data.usageWarning);
           reply = {
             text: data.text || 'No pude procesar tu solicitud.',
             blocks: Array.isArray(data.blocks) && data.blocks.length ? data.blocks : undefined,
@@ -167,7 +187,7 @@ export default function ConversationPage() {
     const labels: Record<string, string> = { inspection: 'Registrar inspección', upload: 'Subir datos de llantas', rotation: 'Mover / rotar llantas' };
     const intros: Record<string, string> = {
       inspection: '¡Vamos a registrar una inspección! Ingresa la placa del vehículo y selecciona la llanta en el diagrama. Luego registra las profundidades (interior, centro, exterior). Opcionalmente puedes agregar presión, foto y observaciones.',
-      upload: '¡Perfecto! Para la carga masiva necesitas un archivo Excel (.xlsx) o CSV con estos datos mínimos por llanta:\n\n• Placa del vehículo\n• Marca\n• Diseño / modelo\n• Dimensión (ej: 295/80R22.5)\n• Posición en el vehículo\n• Profundidad actual (mm)\n\nNo te preocupes por el formato exacto — el sistema reconoce columnas como "fabricante", "prof_interna", "medida_llanta" automáticamente y corrige marcas y diseños al vuelo.',
+      upload: '¡Perfecto! Vamos con la carga masiva. Necesitas un archivo Excel (.xlsx, .xls) o CSV con una llanta por fila.\n\nDatos mínimos por llanta:\n• Placa del vehículo (ej: ABC123)\n• Marca (ej: Continental, Michelin)\n• Diseño / modelo (ej: HDR2)\n• Dimensión (ej: 295/80R22.5)\n• Posición en el vehículo (1, 2, 3…)\n• Profundidad actual en mm (interior, centro, exterior)\n\nDatos opcionales pero recomendados:\n• Eje (direccion, traccion, libre, remolque)\n• Vida (nueva, reencauche1/2/3)\n• Costo, kilómetros de la llanta y del vehículo\n• Fecha de instalación, presión PSI\n\nTip: si no sabes el formato exacto, usa el botón "Descargar plantilla Excel" abajo — trae todas las columnas correctas y un ejemplo de fila. El sistema también reconoce variaciones como "fabricante", "prof_interna" o "medida_llanta" y corrige marcas y diseños automáticamente. En la vista previa puedes hacer clic en cualquier celda para editarla antes de subir.',
       rotation: '¡Listo! Selecciona el vehículo y la llanta que quieres mover. Puedes rotarla a otra posición, enviarla a inventario o darle fin de vida.',
     };
     setMessages(prev => [
@@ -214,8 +234,20 @@ export default function ConversationPage() {
         headers: authHeaders(),
         body: JSON.stringify({ message: trimmed, history, conversationId: convIdRef.current }),
       });
+      // AI quota reached (company monthly or user daily) — show the backend's
+      // friendly message instead of a generic connection error.
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({} as { message?: string }));
+        reply = {
+          text: body?.message || 'Has alcanzado el límite de consultas de IA de tu plan. Intenta más tarde o contacta a soporte.',
+          error: true,
+        };
+        setMessages(prev => prev.map(m => m.id === pendingId ? { ...m, pending: false, text: reply.text, error: true } : m));
+        return reply;
+      }
       if (!res.ok) throw new Error();
       const data = await res.json();
+      setUsageWarning(!!data.usageWarning);
       reply = {
         text: data.text || 'No pude procesar tu solicitud.',
         blocks: Array.isArray(data.blocks) && data.blocks.length ? data.blocks : undefined,
@@ -321,6 +353,13 @@ export default function ConversationPage() {
             <button type="button" onClick={() => startAction('rotation')} className="inline-flex items-center gap-1.5 rounded-full border border-[#0A183A]/10 bg-white px-3 py-1.5 text-[11px] font-medium text-[#0A183A]/65 hover:border-[#A374FF]/30 hover:text-[#A374FF] transition-colors">
               <Chart className="h-3 w-3" /> Mover llanta
             </button>
+          </div>
+        )}
+        {usageWarning && (
+          <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2 rounded-xl px-3 py-2 text-[11px]"
+            style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.25)', color: '#b45309' }}>
+            <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 shrink-0"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span>Estás cerca del límite de consultas de IA de tu plan este mes.</span>
           </div>
         )}
         <div className="ai-bar-border mx-auto max-w-2xl overflow-hidden rounded-3xl">

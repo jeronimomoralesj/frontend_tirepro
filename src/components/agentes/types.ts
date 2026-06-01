@@ -1,3 +1,8 @@
+export type ActionEntry = {
+  actionType: string;
+  actionConfig: Record<string, unknown>;
+};
+
 export type ApiFlow = {
   id: string;
   name: string;
@@ -7,6 +12,7 @@ export type ApiFlow = {
   triggerConfig: Record<string, unknown>;
   actionType: string;
   actionConfig: Record<string, unknown>;
+  additionalActions?: ActionEntry[] | null;
   runCount: number;
   errorCount: number;
   lastRunAt?: string | null;
@@ -22,6 +28,7 @@ export type FlowTemplate = {
   triggerConfig: Record<string, unknown>;
   actionType: string;
   actionConfig: Record<string, unknown>;
+  additionalActions?: ActionEntry[];
 };
 
 export type TriggerNodeData = {
@@ -38,6 +45,8 @@ export type ActionNodeData = {
 
 export type AddStepNodeData = {
   nodeType: 'addStep';
+  onAddAction?: () => void;
+  disabled?: boolean;
 };
 
 export type FlowNodeData = TriggerNodeData | ActionNodeData | AddStepNodeData;

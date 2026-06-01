@@ -49,7 +49,8 @@ export function triggerSummary(type: string, config: Record<string, unknown>): s
 }
 
 export function actionSummary(type: string, config: Record<string, unknown>): string {
-  if (type === 'send_email' || type === 'send_whatsapp' || type === 'make_phone_call') return `${config.to ?? 'Sin destino'}`;
+  if (type === 'send_email') return `${config.to ?? 'Sin destino'}`;
+  if (type === 'send_whatsapp' || type === 'make_phone_call') return `${config.to ?? 'Sin destino'}`;
   if (type === 'create_calendar_event') return (config.summary as string) ?? (config.title as string) ?? 'Evento';
   if (type === 'create_notification') return `Prioridad ${config.priority ?? 2}`;
   return '';

@@ -1,7 +1,7 @@
 'use client';
 
 import { TRIGGER_LABELS, ACTION_LABELS, getActionColor } from './constants';
-import { TRIGGER_ICON_MAP, ACTION_ICON_MAP, TEMPLATE_ICON_MAP, BoltIcon, GearIcon } from './icons';
+import { TEMPLATE_ICON_MAP, BoltIcon, GearIcon } from './icons';
 import type { ApiFlow, FlowTemplate } from './types';
 import { FLOW_TEMPLATES } from './constants';
 
@@ -103,9 +103,6 @@ function FlowCard({ flow, onOpen, onToggle, onDelete }: { flow: ApiFlow; onOpen:
   const isActive = flow.status === 'active';
   const isError = flow.status === 'error';
   const { color } = getActionColor(flow.actionType);
-  const TriggerIcon = TRIGGER_ICON_MAP[flow.triggerType] ?? BoltIcon;
-  const ActionIcon = ACTION_ICON_MAP[flow.actionType] ?? GearIcon;
-
   return (
     <div
       className={cn('group relative rounded-xl border bg-white transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-pointer overflow-hidden', isError ? 'border-red-200' : 'border-[#0A183A]/8')}
@@ -143,7 +140,7 @@ function FlowCard({ flow, onOpen, onToggle, onDelete }: { flow: ApiFlow; onOpen:
           <rect x="20" y="15" width="110" height="50" rx="8" fill="rgba(163,116,255,0.12)" stroke="rgba(163,116,255,0.3)" strokeWidth="1" />
           <rect x="20" y="15" width="110" height="3" rx="1.5" fill="#A374FF" />
           <circle cx="46" cy="42" r="10" fill="rgba(163,116,255,0.15)" />
-          <foreignObject x="38" y="34" width="16" height="16"><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TriggerIcon className="h-3 w-3" style={{ color: '#A374FF' }} /></div></foreignObject>
+          <circle cx="46" cy="42" r="5" fill="rgba(163,116,255,0.4)" />
           <text x="62" y="38" fontSize="8" fill="rgba(255,255,255,0.7)" fontWeight="600">{TRIGGER_LABELS[flow.triggerType] ?? 'Trigger'}</text>
           <text x="62" y="50" fontSize="7" fill="rgba(255,255,255,0.3)" fontWeight="400">Trigger</text>
 
@@ -158,7 +155,7 @@ function FlowCard({ flow, onOpen, onToggle, onDelete }: { flow: ApiFlow; onOpen:
           <rect x="210" y="15" width="110" height="50" rx="8" fill={`${color}18`} stroke={`${color}40`} strokeWidth="1" />
           <rect x="210" y="15" width="110" height="3" rx="1.5" fill={color} />
           <circle cx="236" cy="42" r="10" fill={`${color}20`} />
-          <foreignObject x="228" y="34" width="16" height="16"><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ActionIcon className="h-3 w-3" style={{ color }} /></div></foreignObject>
+          <circle cx="236" cy="42" r="5" fill={`${color}60`} />
           <text x="252" y="38" fontSize="8" fill="rgba(255,255,255,0.7)" fontWeight="600">{ACTION_LABELS[flow.actionType] ?? 'Accion'}</text>
           <text x="252" y="50" fontSize="7" fill="rgba(255,255,255,0.3)" fontWeight="400">Accion</text>
         </svg>

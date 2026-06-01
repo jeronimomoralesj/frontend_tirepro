@@ -179,53 +179,11 @@ const storeLd = {
     '@type': 'OfferCatalog',
     name: 'Catálogo completo de llantas',
     itemListElement: [
-      {
-        '@type': 'OfferCatalog', name: 'Llantas para automóvil',
-        itemListElement: [
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 175/70R13' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 185/65R15' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 195/65R15' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 205/55R16' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 215/55R17' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 225/45R17' } },
-        ],
-      },
-      {
-        '@type': 'OfferCatalog', name: 'Llantas para SUV y camioneta',
-        itemListElement: [
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 235/75R15' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 245/70R16' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 265/70R16' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 265/65R17' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 285/60R18' } },
-        ],
-      },
-      {
-        '@type': 'OfferCatalog', name: 'Llantas para camión y tractomula',
-        itemListElement: [
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 295/80R22.5' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 11R22.5' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 12R22.5' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 315/80R22.5' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 275/80R22.5' } },
-        ],
-      },
-      {
-        '@type': 'OfferCatalog', name: 'Llantas para bus',
-        itemListElement: [
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 215/75R17.5' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 235/75R17.5' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Llantas 9.5R17.5' } },
-        ],
-      },
-      {
-        '@type': 'OfferCatalog', name: 'Llantas reencauchadas',
-        itemListElement: [
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Reencauche 295/80R22.5' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Reencauche 11R22.5' } },
-          { '@type': 'Offer', itemOffered: { '@type': 'Product', name: 'Reencauche 12R22.5' } },
-        ],
-      },
+      { '@type': 'OfferCatalog', name: 'Llantas para automóvil' },
+      { '@type': 'OfferCatalog', name: 'Llantas para SUV y camioneta' },
+      { '@type': 'OfferCatalog', name: 'Llantas para camión y tractomula' },
+      { '@type': 'OfferCatalog', name: 'Llantas para bus' },
+      { '@type': 'OfferCatalog', name: 'Llantas reencauchadas' },
     ],
   },
   brand: [

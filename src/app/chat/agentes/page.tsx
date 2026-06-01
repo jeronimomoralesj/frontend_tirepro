@@ -28,12 +28,12 @@ const CalendarIcon = ({ className, style }: { className?: string; style?: React.
   <svg viewBox="0 0 24 24" fill="none" className={className ?? 'h-5 w-5'} style={style}><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" /><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
 );
 
-type IntegrationItem = { id: string; name: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string; connected: boolean };
+type IntegrationItem = { id: string; name: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color: string; connected: boolean; accountEmail?: string | null; system?: boolean };
 const INTEGRATIONS: IntegrationItem[] = [
-  { id: 'email', name: 'Email', icon: EmailIcon, color: '#1E76B6', connected: false },
-  { id: 'whatsapp', name: 'WhatsApp', icon: WhatsAppIcon, color: '#25D366', connected: false },
+  { id: 'email', name: 'Email', icon: EmailIcon, color: '#1E76B6', connected: true, system: true },
+  { id: 'whatsapp', name: 'WhatsApp', icon: WhatsAppIcon, color: '#25D366', connected: true, system: true },
   { id: 'phone', name: 'Llamadas', icon: PhoneIcon, color: '#F59E0B', connected: false },
-  { id: 'calendar', name: 'Calendar', icon: CalendarIcon, color: '#EA4335', connected: false },
+  { id: 'calendar', name: 'Google Calendar', icon: CalendarIcon, color: '#EA4335', connected: false },
 ];
 
 /* ═══════ Page ═══════ */
@@ -75,7 +75,13 @@ function AgentsPage() {
       setIntegrations(prev => prev.map(i => {
         const key = i.id === 'calendar' ? 'google_calendar' : i.id === 'phone' ? 'twilio_phone' : i.id;
         const status = data[key];
-        return status ? { ...i, connected: status.connected ?? false } : i;
+        if (!status) return i;
+        return {
+          ...i,
+          connected: status.connected ?? false,
+          accountEmail: status.accountEmail ?? null,
+          system: status.system ?? i.system,
+        };
       }));
     } catch {}
   }, []);
@@ -152,29 +158,64 @@ function AgentsPage() {
             <div className="space-y-3">
               {integrations.map(integ => {
                 const Icon = integ.icon;
-                const isSystem = integ.id === 'email' || integ.id === 'whatsapp';
+                const isSystem = !!integ.system;
                 return (
-                  <div key={integ.id} className="flex items-center gap-4 rounded-xl border border-[#0A183A]/8 bg-white p-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `${integ.color}12` }}>
-                      <Icon className="h-5 w-5" style={{ color: integ.color }} />
+                  <div key={integ.id} className={cn('rounded-xl border bg-white p-4', integ.connected ? 'border-[#0A183A]/8' : 'border-[#0A183A]/6')}>
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: `${integ.color}12` }}>
+                        <Icon className="h-5 w-5" style={{ color: integ.color }} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[14px] font-semibold text-[#0A183A]">{integ.name}</p>
+                          {integ.connected && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Conectado
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[12px] text-[#0A183A]/40">
+                          {isSystem ? 'Integracion del sistema — siempre activa' : !integ.connected ? 'No conectado' : null}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        {isSystem ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-600"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Activo</span>
+                        ) : integ.connected ? (
+                          <button type="button" onClick={() => disconnectIntegration(integ.id)} className="rounded-lg border border-red-200 px-3 py-1.5 text-[12px] font-medium text-red-500 hover:bg-red-50">Desconectar</button>
+                        ) : (
+                          <button type="button" onClick={async () => { if (integ.id === 'calendar') { try { const res = await authFetch('/integrations/google/auth'); if (res.ok) { const { url } = await res.json(); window.location.href = url; } } catch {} } }}
+                            className={cn('rounded-lg px-3 py-1.5 text-[12px] font-medium', integ.id === 'calendar' ? 'bg-[#0A183A] text-white hover:bg-[#173D68]' : 'border border-[#0A183A]/10 text-[#0A183A]/35 cursor-not-allowed')}
+                            disabled={integ.id !== 'calendar'}>
+                            {integ.id === 'calendar' ? 'Conectar' : 'Proximamente'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-semibold text-[#0A183A]">{integ.name}</p>
-                      <p className="text-[12px] text-[#0A183A]/40">{isSystem ? 'Integracion del sistema' : integ.connected ? 'Conectado' : 'No conectado'}</p>
-                    </div>
-                    <div className="shrink-0">
-                      {isSystem ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-600"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Activo</span>
-                      ) : integ.connected ? (
-                        <button type="button" onClick={() => disconnectIntegration(integ.id)} className="rounded-lg border border-red-200 px-3 py-1.5 text-[12px] font-medium text-red-500 hover:bg-red-50">Desconectar</button>
-                      ) : (
-                        <button type="button" onClick={async () => { if (integ.id === 'calendar') { try { const res = await authFetch('/integrations/google/auth'); if (res.ok) { const { url } = await res.json(); window.location.href = url; } } catch {} } }}
-                          className={cn('rounded-lg px-3 py-1.5 text-[12px] font-medium', integ.id === 'calendar' ? 'bg-[#0A183A] text-white hover:bg-[#173D68]' : 'border border-[#0A183A]/10 text-[#0A183A]/35 cursor-not-allowed')}
-                          disabled={integ.id !== 'calendar'}>
-                          {integ.id === 'calendar' ? 'Conectar' : 'Proximamente'}
+                    {/* Connected account details */}
+                    {integ.connected && !isSystem && integ.accountEmail && (
+                      <div className="mt-3 flex items-center gap-3 rounded-lg bg-[#F8FAFC] px-3.5 py-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white border border-[#0A183A]/8">
+                          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-[#0A183A]/40"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] font-medium text-[#0A183A]">Cuenta conectada</p>
+                          <p className="text-[11px] text-[#0A183A]/50 truncate">{integ.accountEmail}</p>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-emerald-500"><path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </div>
+                    )}
+                    {integ.connected && !isSystem && !integ.accountEmail && (
+                      <div className="mt-3 flex items-center gap-3 rounded-lg bg-amber-50 px-3.5 py-2.5">
+                        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-amber-500"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" /><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                        <p className="min-w-0 flex-1 text-[11px] text-amber-700">No se pudo verificar la cuenta. Reconecta para vincular tu email.</p>
+                        <button type="button" onClick={async () => {
+                          try { const res = await authFetch('/integrations/google/auth'); if (res.ok) { const { url } = await res.json(); window.location.href = url; } } catch {}
+                        }} className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-amber-700 transition-colors">
+                          Reconectar
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

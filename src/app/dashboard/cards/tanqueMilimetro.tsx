@@ -61,29 +61,20 @@ const TanqueMilimetro: React.FC<TanqueMilimetroProps> = ({
   const progressPercentage = (averageProgress * 100).toFixed(2);
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden w-full">
+    <div
+      className="bg-white rounded-2xl overflow-hidden w-full transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Header */}
-      <div className="bg-[#173D68] text-white px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-2">
-        <h2 className="text-base sm:text-xl font-bold leading-tight truncate">
+      <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+        <h2 className="text-sm font-bold text-[#0A183A] leading-tight truncate">
           {t.title}
         </h2>
         <div className="group relative cursor-pointer flex-shrink-0">
-          <HelpCircle
-            className="text-white hover:text-gray-200 transition-colors"
-            size={20}
-          />
-          {/* Tooltip — flips to left on small screens */}
+          <HelpCircle className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" size={18} />
           <div
-            className="
-              absolute z-10 top-full mt-2 right-0
-              sm:-top-2 sm:right-full sm:top-auto sm:mt-0 sm:mr-2
-              bg-[#0A183A] text-white
-              text-xs p-3 rounded-lg
-              opacity-0 group-hover:opacity-100
-              transition-opacity duration-300
-              w-56 sm:w-60 pointer-events-none
-              shadow-xl
-            "
+            className="absolute z-10 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 pointer-events-none shadow-xl"
+            style={{ border: '1px solid rgba(255,255,255,0.1)' }}
           >
             <p>{t.tooltipText}</p>
           </div>

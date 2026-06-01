@@ -187,6 +187,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           "query-input": "required name=search_term_string",
         },
       },
+      {
+        "@type": "ItemList",
+        "@id": "https://www.tirepro.com.co/#site-navigation",
+        "name": "Navegación principal",
+        "itemListElement": [
+          { "@type": "SiteNavigationElement", "position": 1, "name": "Inicio", "url": "https://www.tirepro.com.co" },
+          { "@type": "SiteNavigationElement", "position": 2, "name": "Marketplace de Llantas", "url": "https://www.tirepro.com.co/marketplace" },
+          { "@type": "SiteNavigationElement", "position": 3, "name": "Iniciar Sesión", "url": "https://www.tirepro.com.co/login" },
+          { "@type": "SiteNavigationElement", "position": 4, "name": "Blog", "url": "https://www.tirepro.com.co/blog" },
+          { "@type": "SiteNavigationElement", "position": 5, "name": "Glosario de Llantas", "url": "https://www.tirepro.com.co/glosario" },
+          { "@type": "SiteNavigationElement", "position": 6, "name": "Calculadora de CPK", "url": "https://www.tirepro.com.co/calculadora" },
+          { "@type": "SiteNavigationElement", "position": 7, "name": "Crear Cuenta Gratis", "url": "https://www.tirepro.com.co/signup" },
+          { "@type": "SiteNavigationElement", "position": 8, "name": "Guías", "url": "https://www.tirepro.com.co/guias" },
+          { "@type": "SiteNavigationElement", "position": 9, "name": "Contacto", "url": "https://www.tirepro.com.co/contact" },
+        ],
+      },
     ],
   };
 

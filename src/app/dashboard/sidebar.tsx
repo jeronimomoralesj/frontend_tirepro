@@ -8,7 +8,7 @@ import {
   LogOut, Glasses, LifeBuoy, User, Menu, X,
   ChevronLeft, ChevronRight, Truck, User2, Trash2,
   Trash, ClipboardList, Package, ShoppingCart, BookOpen, BarChart3,
-  Sparkles, Zap,
+  Sparkles,
 } from "lucide-react";
 import logo from "../../../public/logo_full.png";
 import Image from "next/image";
@@ -75,7 +75,6 @@ function buildLinks(plan: string, isAdmin: boolean, role?: string): NavLink[] {
     if (isAdmin) {
       links.push(
         { name: "Modo IA",  path: "/chat",          icon: Sparkles },
-        { name: "Agentes",  path: "/chat/agentes",  icon: Zap      },
       );
     }
     links.push(

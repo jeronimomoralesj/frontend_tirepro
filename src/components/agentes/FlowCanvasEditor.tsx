@@ -22,24 +22,78 @@ import FlowToolbar from './FlowToolbar';
 import NodeConfigPanel from './NodeConfigPanel';
 import { getFlow, createFlow, updateFlow, toggleFlow as apiToggle, deleteFlow as apiDelete, askAiBuilder } from './api';
 import { getActionColor } from './constants';
-import type { ApiFlow, FlowTemplate, TriggerNodeData, ActionNodeData } from './types';
+import type { ApiFlow, FlowTemplate, TriggerNodeData, ActionNodeData, ActionEntry } from './types';
 
 const nodeTypes = { trigger: TriggerNode, action: ActionNode, addStep: AddStepNode };
 const edgeTypes = { animated: AnimatedEdge };
 
+const MAX_ACTIONS = 3;
+
+// Fan-out layout: trigger on the left, each action stacked vertically on the
+// right and connected straight from the trigger's source handle. Plus button
+// sits below the bottom action when there's room for more.
+const TRIGGER_X = 80;
+const ACTION_X = 520;
+const ACTION_GAP_Y = 140;         // vertical distance between action nodes
+const ACTION_HEIGHT_HALF = 50;    // ~half of a typical action card so the trigger lines up with the visual center
+const CANVAS_TOP = 120;
+
+function actionY(idx: number) {
+  return CANVAS_TOP + idx * ACTION_GAP_Y;
+}
+
+function triggerY(totalActions: number) {
+  // Center the trigger vertically against the action stack so the fan-out
+  // looks balanced (centerline of all actions = centerline of trigger).
+  return CANVAS_TOP + ((totalActions - 1) * ACTION_GAP_Y) / 2;
+}
+
 function buildNodes(
-  triggerType: string, triggerConfig: Record<string, unknown>,
-  actionType: string, actionConfig: Record<string, unknown>,
+  triggerType: string,
+  triggerConfig: Record<string, unknown>,
+  actions: ActionEntry[],
+  onAddAction?: () => void,
 ): { nodes: Node[]; edges: Edge[] } {
+  const safe = actions.length > 0 ? actions : [{ actionType: 'send_email', actionConfig: { to: '', subject: 'Alerta TirePro' } }];
+  const total = safe.length;
+  const tY = triggerY(total);
+
   const nodes: Node[] = [
-    { id: 'trigger', type: 'trigger', position: { x: 80, y: 200 }, data: { nodeType: 'trigger', triggerType, triggerConfig } },
-    { id: 'addStep', type: 'addStep', position: { x: 420, y: 222 }, draggable: false, data: { nodeType: 'addStep' } },
-    { id: 'action', type: 'action', position: { x: 620, y: 200 }, data: { nodeType: 'action', actionType, actionConfig } },
+    { id: 'trigger', type: 'trigger', position: { x: TRIGGER_X, y: tY }, data: { nodeType: 'trigger', triggerType, triggerConfig } },
   ];
-  const edges: Edge[] = [
-    { id: 'e-trigger-add', source: 'trigger', target: 'addStep', type: 'animated' },
-    { id: 'e-add-action', source: 'addStep', target: 'action', type: 'animated' },
-  ];
+
+  safe.forEach((a, i) => {
+    nodes.push({
+      id: `action-${i}`,
+      type: 'action',
+      position: { x: ACTION_X, y: actionY(i) },
+      data: { nodeType: 'action', actionType: a.actionType, actionConfig: a.actionConfig },
+    });
+  });
+
+  const canAddMore = total < MAX_ACTIONS;
+  // Plus button stacks below the last action in the same column.
+  const addBtnY = CANVAS_TOP + total * ACTION_GAP_Y + ACTION_HEIGHT_HALF / 2;
+  nodes.push({
+    id: 'addStep',
+    type: 'addStep',
+    position: { x: ACTION_X + 90, y: addBtnY },
+    draggable: false,
+    selectable: false,
+    data: { nodeType: 'addStep', onAddAction, disabled: !canAddMore },
+  });
+
+  // Every action edge originates from the trigger — clean fan-out.
+  const edges: Edge[] = safe.map((_, i) => ({
+    id: `e-trigger-a${i}`,
+    source: 'trigger',
+    target: `action-${i}`,
+    type: 'animated',
+  }));
+  if (canAddMore) {
+    edges.push({ id: 'e-trigger-add', source: 'trigger', target: 'addStep', type: 'animated' });
+  }
+
   return { nodes, edges };
 }
 
@@ -58,18 +112,49 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
   const [savedId, setSavedId] = useState<string | null>(isNew ? null : flowId);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
+  // Stable ref to the latest setNodes — used inside callbacks passed to node data
+  // so we can mutate the action list without triggering full rebuilds.
+  const nodesRef = useRef<Node[]>([]);
+
+  const handleAddAction = useCallback(() => {
+    const actions = extractActions(nodesRef.current);
+    if (actions.length >= MAX_ACTIONS) return;
+    const next: ActionEntry[] = [...actions, { actionType: 'send_email', actionConfig: { to: '', subject: 'Alerta TirePro' } }];
+    const trigger = nodesRef.current.find(n => n.id === 'trigger')?.data as TriggerNodeData | undefined;
+    const { nodes: n, edges: e } = buildNodes(
+      trigger?.triggerType ?? 'tire_alert_level',
+      trigger?.triggerConfig ?? {},
+      next,
+      handleAddAction,
+    );
+    setNodes(n);
+    setEdges(e);
+    setSelectedNodeId(`action-${next.length - 1}`);
+  }, []);
+
+  const initialActions: ActionEntry[] = useMemo(() => {
+    const base: ActionEntry = {
+      actionType: template?.actionType ?? 'send_email',
+      actionConfig: template?.actionConfig ?? { to: '', subject: 'Alerta TirePro' },
+    };
+    const extras = Array.isArray(template?.additionalActions) ? template!.additionalActions! : [];
+    return [base, ...extras].slice(0, MAX_ACTIONS);
+  }, [template]);
+
   const initial = useMemo(() => buildNodes(
     template?.triggerType ?? 'tire_alert_level',
     template?.triggerConfig ?? { alertLevels: ['critical'] },
-    template?.actionType ?? 'send_email',
-    template?.actionConfig ?? { to: '', subject: 'Alerta TirePro' },
-  ), [template]);
+    initialActions,
+    handleAddAction,
+  ), [template, initialActions, handleAddAction]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
 
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+
   const snapshotRef = useRef('');
-  const currentSnapshot = JSON.stringify({ flowName, nodes: nodes.map(n => n.data) });
+  const currentSnapshot = JSON.stringify({ flowName, nodes: nodes.filter(n => n.id !== 'addStep').map(n => n.data) });
   const dirty = currentSnapshot !== snapshotRef.current;
 
   useEffect(() => {
@@ -86,32 +171,37 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
       if (flow) {
         setFlowName(flow.name);
         setFlowStatus(flow.status as any);
-        const { nodes: n, edges: e } = buildNodes(flow.triggerType, flow.triggerConfig, flow.actionType, flow.actionConfig);
+        const extras = Array.isArray(flow.additionalActions) ? flow.additionalActions : [];
+        const loadedActions: ActionEntry[] = [
+          { actionType: flow.actionType, actionConfig: flow.actionConfig },
+          ...extras,
+        ].slice(0, MAX_ACTIONS);
+        const { nodes: n, edges: e } = buildNodes(flow.triggerType, flow.triggerConfig, loadedActions, handleAddAction);
         setNodes(n);
         setEdges(e);
         setTimeout(() => {
-          snapshotRef.current = JSON.stringify({ flowName: flow.name, nodes: n.map(nd => nd.data) });
+          snapshotRef.current = JSON.stringify({ flowName: flow.name, nodes: n.filter(nd => nd.id !== 'addStep').map(nd => nd.data) });
         }, 0);
       }
       setLoading(false);
     })();
-  }, [flowId, isNew, setNodes, setEdges]);
+  }, [flowId, isNew, setNodes, setEdges, handleAddAction]);
 
-  // Re-center the addStep node when trigger/action are dragged
+  // Keep the addStep button stacked below the last action when nodes drag.
   const handleNodesChange: typeof onNodesChange = useCallback((changes) => {
     onNodesChange(changes);
     setNodes(prev => {
-      const trigger = prev.find(n => n.id === 'trigger');
-      const action = prev.find(n => n.id === 'action');
-      if (!trigger || !action) return prev;
-      const midX = (trigger.position.x + 220 + action.position.x) / 2 - 20;
-      const midY = (trigger.position.y + action.position.y) / 2 + 22;
-      return prev.map(n => n.id === 'addStep' ? { ...n, position: { x: midX, y: midY } } : n);
+      const actionNodes = prev.filter(n => n.id.startsWith('action-'));
+      if (actionNodes.length === 0) return prev;
+      const last = actionNodes.reduce((acc, n) => (n.position.y > acc.position.y ? n : acc), actionNodes[0]);
+      const targetX = last.position.x + 90;
+      const targetY = last.position.y + ACTION_GAP_Y;
+      return prev.map(n => n.id === 'addStep' ? { ...n, position: { x: targetX, y: targetY } } : n);
     });
   }, [onNodesChange, setNodes]);
 
   const onNodeClick = useCallback((_: unknown, node: Node) => {
-    if (node.id === 'trigger' || node.id === 'action') setSelectedNodeId(node.id);
+    if (node.id === 'trigger' || node.id.startsWith('action-')) setSelectedNodeId(node.id);
   }, []);
 
   const onPaneClick = useCallback(() => setSelectedNodeId(null), []);
@@ -120,34 +210,68 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
     setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n));
   }, [setNodes]);
 
-  const handleSave = async () => {
-    if (!flowName.trim()) return;
-    setSaving(true);
-    const trigger = nodes.find(n => n.id === 'trigger')?.data as TriggerNodeData;
-    const action = nodes.find(n => n.id === 'action')?.data as ActionNodeData;
-    if (!trigger || !action) { setSaving(false); return; }
+  const handleDeleteAction = useCallback((nodeId: string) => {
+    const idx = parseInt(nodeId.split('-')[1] ?? '-1', 10);
+    if (Number.isNaN(idx) || idx <= 0) return; // never delete the primary action
+    const actions = extractActions(nodesRef.current);
+    if (idx >= actions.length) return;
+    const next = actions.filter((_, i) => i !== idx);
+    const trigger = nodesRef.current.find(n => n.id === 'trigger')?.data as TriggerNodeData | undefined;
+    const { nodes: n, edges: e } = buildNodes(
+      trigger?.triggerType ?? 'tire_alert_level',
+      trigger?.triggerConfig ?? {},
+      next,
+      handleAddAction,
+    );
+    setNodes(n);
+    setEdges(e);
+    setSelectedNodeId(null);
+  }, [handleAddAction, setEdges, setNodes]);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!flowName.trim()) { setSaveError('Pon un nombre al flujo antes de guardar.'); return; }
+    setSaving(true);
+    setSaveError(null);
+    const trigger = nodes.find(n => n.id === 'trigger')?.data as TriggerNodeData;
+    const actions = extractActions(nodes);
+    if (!trigger || actions.length === 0) {
+      setSaving(false);
+      setSaveError('Debes definir al menos una accion.');
+      return;
+    }
+
+    const [primary, ...extras] = actions;
     const payload = {
       name: flowName,
       triggerType: trigger.triggerType,
       triggerConfig: trigger.triggerConfig,
-      actionType: action.actionType,
-      actionConfig: action.actionConfig,
+      actionType: primary.actionType,
+      actionConfig: primary.actionConfig,
+      ...(extras.length > 0 ? { additionalActions: extras } : {}),
     };
 
-    let result: ApiFlow | null;
-    if (savedId) {
-      result = await updateFlow(savedId, payload);
-    } else {
-      result = await createFlow(payload);
-      if (result) setSavedId(result.id);
-    }
-
-    if (result) {
+    try {
+      const result: ApiFlow = savedId
+        ? await updateFlow(savedId, payload)
+        : await createFlow(payload);
+      if (!savedId) setSavedId(result.id);
       setFlowStatus(result.status as any);
-      snapshotRef.current = JSON.stringify({ flowName, nodes: nodes.map(n => n.data) });
+      snapshotRef.current = JSON.stringify({ flowName, nodes: nodes.filter(n => n.id !== 'addStep').map(n => n.data) });
+    } catch (err: any) {
+      const msg = err?.message ?? 'No se pudo guardar.';
+      const status = err?.status;
+      // When the server rejects `additionalActions` (older deploy / migration),
+      // give the user something more actionable than a raw 400.
+      if (status === 400 && /additional/i.test(String(msg))) {
+        setSaveError('El servidor todavia no acepta varias acciones. Pide al admin desplegar la ultima version del backend (incluye la migracion automation_flows.additionalActions).');
+      } else {
+        setSaveError(`No se pudo guardar${status ? ` (${status})` : ''}: ${msg}`);
+      }
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleToggle = async () => {
@@ -168,7 +292,11 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
   };
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
-  const selectedNodeType = selectedNodeId === 'trigger' ? 'trigger' as const : 'action' as const;
+  const selectedNodeType: 'trigger' | 'action' = selectedNodeId === 'trigger' ? 'trigger' : 'action';
+  const actionCount = nodes.filter(n => n.id.startsWith('action-')).length;
+  const selectedActionIndex = selectedNodeId && selectedNodeId.startsWith('action-')
+    ? parseInt(selectedNodeId.split('-')[1] ?? '0', 10)
+    : undefined;
 
   // Floating AI assistant
   const [aiOpen, setAiOpen] = useState(false);
@@ -184,17 +312,30 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
     if (!aiInput.trim() || aiLoading) return;
     setAiLoading(true);
     setAiMessage(null);
-    const result = await askAiBuilder(aiInput.trim());
+    const triggerNode = nodes.find(n => n.id === 'trigger')?.data as TriggerNodeData | undefined;
+    const currentActions = extractActions(nodes);
+    const currentFlow = triggerNode ? {
+      name: flowName,
+      triggerType: triggerNode.triggerType,
+      triggerConfig: triggerNode.triggerConfig,
+      actionType: currentActions[0]?.actionType,
+      actionConfig: currentActions[0]?.actionConfig,
+      ...(currentActions.length > 1 ? { additionalActions: currentActions.slice(1) } : {}),
+    } : undefined;
+    const result = await askAiBuilder(aiInput.trim(), currentFlow);
     setAiLoading(false);
     if (!result) { setAiMessage('No se pudo procesar. Intenta de nuevo.'); setAiMessageType('error'); return; }
     if ((result as any).impossible) { setAiMessage((result as any).reason); setAiMessageType('error'); return; }
     if ((result as any).clarification) { setAiMessage((result as any).question); setAiMessageType('clarification'); return; }
-    // Apply the AI suggestion to the canvas
-    setNodes(prev => prev.map(n => {
-      if (n.id === 'trigger') return { ...n, data: { ...n.data, triggerType: result.triggerType, triggerConfig: result.triggerConfig } };
-      if (n.id === 'action') return { ...n, data: { ...n.data, actionType: result.actionType, actionConfig: result.actionConfig } };
-      return n;
-    }));
+    // Apply the AI suggestion to the canvas (trigger + 1..3 actions)
+    const aiExtras = Array.isArray((result as any).additionalActions) ? (result as any).additionalActions as ActionEntry[] : [];
+    const aiActions: ActionEntry[] = [
+      { actionType: result.actionType, actionConfig: result.actionConfig },
+      ...aiExtras,
+    ].slice(0, MAX_ACTIONS);
+    const { nodes: n, edges: e } = buildNodes(result.triggerType, result.triggerConfig, aiActions, handleAddAction);
+    setNodes(n);
+    setEdges(e);
     if (result.name) setFlowName(result.name);
     setAiMessage(`Flujo actualizado: ${result.name}`);
     setAiMessageType('success');
@@ -210,7 +351,7 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0%', overflow: 'hidden', minHeight: 0 }}>
       <FlowToolbar
         name={flowName}
         onNameChange={setFlowName}
@@ -224,7 +365,22 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
         onDelete={savedId ? handleDelete : undefined}
       />
 
-      <div className="relative flex-1">
+      <div style={{ position: 'relative', flex: '1 1 0%', minHeight: 0, overflow: 'hidden', background: '#ebf0fc' }}>
+        {saveError && (
+          <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 30, maxWidth: 560 }}>
+            <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 shadow-md">
+              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 mt-0.5 text-red-500">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              <div className="flex-1 text-[12.5px] leading-relaxed text-red-700">{saveError}</div>
+              <button type="button" onClick={() => setSaveError(null)} className="shrink-0 text-red-300 hover:text-red-500">
+                <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              </button>
+            </div>
+          </div>
+        )}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -243,7 +399,7 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
           deleteKeyCode={null}
           selectionKeyCode={null}
         >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(10,24,58,0.07)" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(10,24,58,0.1)" />
           <Controls position="bottom-left" showInteractive={false} />
           <MiniMap
             position="bottom-right"
@@ -252,26 +408,32 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
               if (n.type === 'action') return getActionColor((n.data as ActionNodeData)?.actionType).color;
               return '#D1D5DB';
             }}
-            maskColor="rgba(248,250,252,0.85)"
-            style={{ border: '1px solid rgba(10,24,58,0.08)', borderRadius: 8 }}
+            maskColor="rgba(235,240,252,0.85)"
+            style={{ border: '1px solid rgba(10,24,58,0.1)', borderRadius: 8, background: 'rgba(255,255,255,0.9)' }}
           />
         </ReactFlow>
+        </div>
 
         <AnimatePresence>
-          {selectedNode && (selectedNodeId === 'trigger' || selectedNodeId === 'action') && (
+          {selectedNode && (selectedNodeId === 'trigger' || (selectedNodeId && selectedNodeId.startsWith('action-'))) && (
             <NodeConfigPanel
               nodeType={selectedNodeType}
               data={selectedNode.data as any}
-              onUpdate={(data) => updateNodeData(selectedNodeId, data as Record<string, unknown>)}
+              onUpdate={(data) => updateNodeData(selectedNodeId!, data as Record<string, unknown>)}
               onClose={() => setSelectedNodeId(null)}
+              onDelete={selectedNodeType === 'action' && typeof selectedActionIndex === 'number' && selectedActionIndex > 0
+                ? () => handleDeleteAction(selectedNodeId!)
+                : undefined}
+              actionIndex={selectedActionIndex}
+              actionTotal={actionCount}
             />
           )}
         </AnimatePresence>
 
       </div>
 
-      {/* Floating AI assistant — outside ReactFlow container so it's always clickable */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+      {/* Floating AI assistant — centered at bottom */}
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
         <AnimatePresence>
           {aiOpen && (
             <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.95 }}
@@ -321,4 +483,16 @@ export default function FlowCanvasEditor({ flowId, template, onClose }: Props) {
       </div>
     </div>
   );
+}
+
+function extractActions(allNodes: Node[]): ActionEntry[] {
+  return allNodes
+    .filter(n => n.id.startsWith('action-'))
+    .map(n => {
+      const idx = parseInt(n.id.split('-')[1] ?? '0', 10);
+      const d = n.data as ActionNodeData;
+      return { idx, entry: { actionType: d.actionType, actionConfig: d.actionConfig } };
+    })
+    .sort((a, b) => a.idx - b.idx)
+    .map(({ entry }) => entry);
 }

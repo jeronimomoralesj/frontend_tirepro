@@ -13,7 +13,7 @@ function AnimatedEdge({
         id={id}
         d={path}
         fill="none"
-        stroke={selected ? '#A374FF' : 'rgba(10,24,58,0.15)'}
+        stroke={selected ? '#A374FF' : 'rgba(10,24,58,0.2)'}
         strokeWidth={selected ? 2 : 1.5}
         strokeDasharray="6 4"
         className="animated-edge"

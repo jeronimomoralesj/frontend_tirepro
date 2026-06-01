@@ -150,30 +150,33 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full flex flex-col print:shadow-none print:border-gray-300">
-      <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity size={20} className="text-white/90" />
-            <h2 className="text-base sm:text-lg font-semibold">{t.title}</h2>
+    <div
+      className="bg-white rounded-2xl overflow-hidden h-full flex flex-col print:shadow-none print:border-gray-300 transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
+      <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: 'rgba(163,116,255,0.08)' }}>
+            <Activity size={14} className="text-[#A374FF]" />
           </div>
-          <div className="relative print:hidden">
-            <button
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
-              onClick={() => setShowTooltip(!showTooltip)}
-              className="hover:bg-white/10 p-1.5 rounded-lg transition-colors"
-              aria-label="Ayuda"
-            >
-              <HelpCircle size={18} className="text-white/90" />
-            </button>
-            {showTooltip && (
-              <div className="absolute z-20 right-0 top-full mt-2 w-64 bg-gray-900/95 backdrop-blur-sm text-white text-xs p-3 rounded-lg shadow-xl border border-white/10">
-                <p className="leading-relaxed">{t.tooltip}</p>
-                <div className="absolute -top-1 right-4 w-2 h-2 bg-gray-900/95 transform rotate-45 border-l border-t border-white/10"></div>
-              </div>
-            )}
-          </div>
+          <h2 className="text-sm font-bold text-[#0A183A]">{t.title}</h2>
+        </div>
+        <div className="relative print:hidden">
+          <button
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            onClick={() => setShowTooltip(!showTooltip)}
+            className="hover:bg-[#F8FAFC] p-1.5 rounded-lg transition-colors"
+            aria-label="Ayuda"
+          >
+            <HelpCircle size={18} className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" />
+          </button>
+          {showTooltip && (
+            <div className="absolute z-20 right-0 top-full mt-2 w-64 bg-[#0A183A] text-white text-xs p-3 rounded-xl shadow-xl"
+                 style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+              <p className="leading-relaxed">{t.tooltip}</p>
+            </div>
+          )}
         </div>
       </div>
       

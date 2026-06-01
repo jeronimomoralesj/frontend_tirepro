@@ -120,10 +120,10 @@ export default function FilterFab({
       {/* FAB button */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-sm transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95"
         style={{
-          background: 'linear-gradient(135deg, #1E76B6, #0A183A)',
-          boxShadow: '0 8px 32px rgba(10,24,58,0.3)',
+          background: 'linear-gradient(135deg, #0A183A, #173D68)',
+          boxShadow: '0 8px 32px -8px rgba(10,24,58,0.35)',
         }}
       >
         <SlidersHorizontal className="w-4 h-4" />
@@ -217,13 +217,19 @@ export default function FilterFab({
       {open && (
         <div
           ref={panelRef}
-          className="fixed bottom-6 right-6 z-50 w-80 max-h-[70vh] bg-white rounded-xl shadow-sm overflow-hidden flex flex-col"
-          style={{ border: '1px solid rgba(52,140,203,0.15)' }}
+          className="fixed bottom-6 right-6 z-50 w-80 max-h-[70vh] rounded-2xl overflow-hidden flex flex-col"
+          style={{
+            background: 'rgba(255,255,255,0.9)',
+            backdropFilter: 'saturate(180%) blur(14px)',
+            WebkitBackdropFilter: 'saturate(180%) blur(14px)',
+            border: '1px solid rgba(10,24,58,0.08)',
+            boxShadow: '0 12px 48px -12px rgba(10,24,58,0.2)',
+          }}
         >
           {/* Header */}
           <div
             className="px-5 py-4 flex items-center justify-between flex-shrink-0"
-            style={{ borderBottom: '1px solid rgba(52,140,203,0.1)' }}
+            style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}
           >
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-[#1E76B6]" />

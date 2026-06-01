@@ -133,18 +133,21 @@ export default function ManageUsers() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
-        <div className="bg-gradient-to-r from-[#0A183A] to-[#173D68] p-6">
+      <div
+        className="bg-white rounded-2xl overflow-hidden transition-all duration-200"
+        style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+      >
+        <div className="p-5 sm:p-6" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-white">Miembros equipo</h2>
-              <p className="text-[#348CCB] mt-1 text-sm">Maneja tus usuarios y permisos</p>
+              <h2 className="text-sm font-bold text-[#0A183A]">Miembros equipo</h2>
+              <p className="text-[#173D68]/40 mt-1 text-[13px]">Maneja tus usuarios y permisos</p>
             </div>
           </div>
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <div className="p-4 bg-gray-50/40" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-grow">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">

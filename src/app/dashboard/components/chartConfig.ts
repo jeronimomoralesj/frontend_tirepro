@@ -7,16 +7,17 @@ export const COLORS = {
   secondary: '#173D68',
   accent:    '#1E76B6',
   highlight: '#348CCB',
+  purple:    '#A374FF',
 
-  /* 8 chart series — blues → teals → warm grays → amber accent */
+  /* 8 chart series — blues → purple → teals → warm grays */
   series: [
     '#348CCB', // bright blue
     '#1E76B6', // mid blue
+    '#A374FF', // purple accent
     '#0F5A8E', // deep blue
     '#14B8A6', // teal
     '#0D9488', // dark teal
     '#64748B', // slate gray
-    '#94A3B8', // cool gray
     '#F59E0B', // amber (warnings / attention)
   ] as const,
 

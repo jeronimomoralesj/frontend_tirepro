@@ -162,20 +162,20 @@ function BucketModal({
       style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}
     >
       <div
-        className="bg-white rounded-xl shadow-sm w-full max-w-sm overflow-hidden"
-        style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+        className="bg-white rounded-2xl w-full max-w-sm overflow-hidden"
+        style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 24px 60px rgba(10,24,58,0.25)" }}
       >
         <div
-          className="px-6 py-4 flex justify-between items-center"
-          style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)" }}
+          className="px-5 py-4 flex justify-between items-center bg-white"
+          style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}
         >
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-white" />
-            <span className="font-black text-white text-sm uppercase tracking-widest">
+            <Layers className="w-4 h-4 text-[#1E76B6]" />
+            <span className="font-black text-[#0A183A] text-sm tracking-tight">
               {initial ? "Editar grupo" : "Nuevo grupo"}
             </span>
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-[#173D68]/50 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68] transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -319,8 +319,8 @@ function DeleteModal({
       style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}
     >
       <div
-        className="bg-white rounded-xl shadow-sm w-full max-w-sm p-6"
-        style={{ border: "1px solid rgba(52,140,203,0.2)" }}
+        className="bg-white rounded-2xl w-full max-w-sm p-6"
+        style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 24px 60px rgba(10,24,58,0.25)" }}
       >
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-xl bg-red-50">
@@ -351,7 +351,7 @@ function DeleteModal({
             onClick={onConfirm}
             disabled={loading}
             className="flex-1 py-2.5 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg, #e53e3e, #c53030)" }}
+            style={{ background: "#ef4444" }}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Eliminar"}
           </button>
@@ -810,7 +810,7 @@ function AssignToVehicleModal({
                   onClick={verifyPosition}
                   disabled={!vehicleId || !posicion.trim() || checking}
                   className="flex-1 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
-                  style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                  style={{ background: "#0A183A" }}
                 >
                   {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
                   {checking ? "Verificando..." : "Verificar y asignar"}
@@ -852,7 +852,7 @@ function AssignToVehicleModal({
                           onChange={(e) => setBlockerBucketId(e.target.value)}
                           className="mt-2 w-full px-2 py-1.5 rounded-lg border border-gray-200 text-[11px] font-bold text-[#0A183A] bg-white focus:border-[#1E76B6] outline-none"
                         >
-                          <option value="__disponible__">📦 Disponible</option>
+                          <option value="__disponible__">Disponible</option>
                           {moveBuckets.map((b) => (
                             <option key={b.id} value={b.id}>
                               {b.icono} {b.nombre}
@@ -880,7 +880,7 @@ function AssignToVehicleModal({
                       disabled={!reencaucheBucket}
                       className="mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-[12px] font-black text-[#0A183A]">♻️ Reencauchar</p>
+                      <p className="text-[12px] font-black text-[#0A183A] inline-flex items-center gap-1.5"><RotateCcw className="w-3.5 h-3.5 text-purple-500" />Reencauchar</p>
                       <p className="text-[10px] text-gray-500">
                         {reencaucheBucket
                           ? "Avanza la vida y envía al bucket de Reencauche."
@@ -1048,7 +1048,7 @@ function AssignToVehicleModal({
                   onClick={() => submit(blocker)}
                   disabled={submitting}
                   className="flex-1 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
-                  style={{ background: "linear-gradient(135deg,#0A183A,#1E76B6)" }}
+                  style={{ background: "#0A183A" }}
                 >
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   {submitting ? "Procesando..." : "Confirmar"}
@@ -1304,17 +1304,19 @@ export default function InventarioPage() {
   // -- Render -----------------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
       {/* Header */}
       <div
-        className="px-4 sm:px-6 py-5"
+        className="sticky top-0 z-40 px-4 sm:px-6 py-4"
         style={{
-          background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)",
+          background: "rgba(248,250,252,0.85)",
+          backdropFilter: "saturate(180%) blur(14px)",
+          WebkitBackdropFilter: "saturate(180%) blur(14px)",
+          borderBottom: "1px solid rgba(10,24,58,0.06)",
         }}
       >
-        <h1 className="font-black text-white text-lg tracking-tight">
-          Inventario
-        </h1>
+        <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Inventario</h1>
+        <p className="text-xs text-[#173D68]/50 mt-1">Grupos y disponibilidad de llantas</p>
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-5">
@@ -1330,7 +1332,7 @@ export default function InventarioPage() {
               {/* Disponible */}
               <button
                 onClick={() => setActiveBucket("disponible")}
-                className="flex-shrink-0 rounded-xl p-4 transition-all min-w-[140px]"
+                className="flex-shrink-0 rounded-2xl p-4 transition-all min-w-[140px]"
                 style={{
                   background:
                     activeBucket === "disponible"
@@ -1339,12 +1341,12 @@ export default function InventarioPage() {
                   border:
                     activeBucket === "disponible"
                       ? "2px solid #1E76B6"
-                      : "1px solid rgba(52,140,203,0.15)",
-                  boxShadow: "0 2px 8px rgba(10,24,58,0.04)",
+                      : "1px solid rgba(10,24,58,0.08)",
+                  boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)",
                 }}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📦</span>
+                  <Package className="w-4 h-4 text-[#1E76B6]" />
                   <span className="text-xs font-black text-[#0A183A]">Disponible</span>
                 </div>
                 <p className="text-2xl font-black text-[#1E76B6]">{disponibleCount}</p>
@@ -1355,15 +1357,15 @@ export default function InventarioPage() {
                 <button
                   key={b.id}
                   onClick={() => setActiveBucket(b.id)}
-                  className="flex-shrink-0 rounded-xl p-4 transition-all min-w-[140px] relative group"
+                  className="flex-shrink-0 rounded-2xl p-4 transition-all min-w-[140px] relative group"
                   style={{
                     background:
                       activeBucket === b.id ? `${b.color}12` : "white",
                     border:
                       activeBucket === b.id
                         ? `2px solid ${b.color}`
-                        : "1px solid rgba(52,140,203,0.15)",
-                    boxShadow: "0 2px 8px rgba(10,24,58,0.04)",
+                        : "1px solid rgba(10,24,58,0.08)",
+                    boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)",
                   }}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -1407,9 +1409,9 @@ export default function InventarioPage() {
               {/* Create new */}
               <button
                 onClick={() => setShowCreate(true)}
-                className="flex-shrink-0 rounded-xl p-4 min-w-[140px] flex flex-col items-center justify-center gap-2 transition-all hover:bg-gray-50"
+                className="flex-shrink-0 rounded-2xl p-4 min-w-[140px] flex flex-col items-center justify-center gap-2 transition-all hover:bg-[#0A183A]/[0.02]"
                 style={{
-                  border: "2px dashed rgba(52,140,203,0.25)",
+                  border: "2px dashed rgba(10,24,58,0.15)",
                 }}
               >
                 <Plus className="w-5 h-5 text-[#348CCB]" />
@@ -1419,13 +1421,13 @@ export default function InventarioPage() {
 
             {/* -- Active bucket content ------------------------------- */}
             <div
-              className="bg-white rounded-xl shadow-sm overflow-hidden"
-              style={{ border: "1px solid rgba(52,140,203,0.12)" }}
+              className="bg-white rounded-2xl overflow-hidden"
+              style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}
             >
               {/* Toolbar */}
               <div
                 className="px-4 py-3 flex flex-wrap items-center gap-3"
-                style={{ borderBottom: "1px solid rgba(52,140,203,0.08)" }}
+                style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}
               >
                 <h2 className="text-sm font-black text-[#0A183A]">
                   {activeBucketName}
@@ -1512,9 +1514,10 @@ export default function InventarioPage() {
                           {activeBucket !== "disponible" && (
                             <button
                               onClick={() => handleMove(null)}
-                              className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-[#F0F7FF] text-[#0A183A]"
+                              className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-[#F0F7FF] text-[#0A183A] inline-flex items-center gap-2"
                             >
-                              📦 Disponible
+                              <Package className="w-3.5 h-3.5 text-[#1E76B6]" />
+                              Disponible
                             </button>
                           )}
                           {buckets

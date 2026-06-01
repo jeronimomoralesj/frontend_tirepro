@@ -44,7 +44,7 @@ const ReencaucheHistorico: React.FC<ReencaucheHistoricoProps> = ({ tires, langua
     const counts: Record<string, number> = {};
     months.forEach((m) => (counts[m] = 0));
     tires.forEach((tire) => {
-      tire.vida
+      (tire.vida ?? [])
         .filter((v) => v.valor.toLowerCase().startsWith("reencauche"))
         .forEach((v) => {
           const m = format(new Date(v.fecha), "MMM yyyy");
@@ -72,26 +72,32 @@ const ReencaucheHistorico: React.FC<ReencaucheHistoricoProps> = ({ tires, langua
   );
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col w-full min-w-0">
+    <div
+      className="bg-white rounded-2xl overflow-hidden flex flex-col w-full min-w-0 transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white px-4 py-3">
+      <div className="px-4 sm:px-5 py-3.5" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
         <div className="flex items-center justify-between mb-3 gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <History size={17} className="text-white/90 shrink-0" />
-            <h2 className="text-sm font-semibold truncate">{t.title}</h2>
+            <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: 'rgba(163,116,255,0.08)' }}>
+              <History size={14} className="text-[#A374FF]" />
+            </div>
+            <h2 className="text-sm font-bold text-[#0A183A] truncate">{t.title}</h2>
           </div>
           <div className="relative shrink-0">
             <button
               onMouseEnter={() => setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
               onClick={() => setShowTooltip((v) => !v)}
-              className="hover:bg-white/10 p-1.5 rounded-lg transition-colors"
+              className="hover:bg-[#F8FAFC] p-1.5 rounded-lg transition-colors"
               aria-label="Ayuda"
             >
-              <HelpCircle size={17} className="text-white/90" />
+              <HelpCircle size={18} className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" />
             </button>
             {showTooltip && (
-              <div className="absolute z-20 right-0 top-full mt-2 w-52 bg-gray-900/95 text-white text-xs p-3 rounded-lg shadow-xl border border-white/10">
+              <div className="absolute z-20 right-0 top-full mt-2 w-52 bg-[#0A183A] text-white text-xs p-3 rounded-xl shadow-xl"
+                   style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
                 <p className="leading-relaxed">
                   {t.tooltipIndividual}
                   {mode === "acumulado" && t.tooltipCumulative}

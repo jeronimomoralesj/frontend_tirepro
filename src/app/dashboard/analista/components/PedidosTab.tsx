@@ -211,7 +211,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
   completada:          { label: "Completada",  color: "#64748b", bg: "rgba(100,116,139,0.08)" },
 };
 
-const inputCls = "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20";
+const inputCls = "w-full px-3 py-2.5 border border-[#0A183A]/[0.08] rounded-xl text-sm text-[#0A183A] bg-[#F8FAFC] focus:outline-none focus:border-[#0A183A]/20 focus:ring-2 focus:ring-[#0A183A]/[0.06]";
 
 // ===============================================================================
 // Print helper
@@ -493,7 +493,7 @@ function OfertasPrelude({
               const items = Array.isArray(o.items) ? o.items as any[] : [];
               const isExpanded = expandedOfertas.has(o.id);
               return (
-                <div key={o.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: "1px solid rgba(249,115,22,0.2)" }}>
+                <div key={o.id} className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(10,24,58,0.08)" }}>
                   <button type="button" onClick={() => toggleOferta(o.id)}
                     className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[rgba(249,115,22,0.08)] transition-colors"
                     style={{ background: "rgba(249,115,22,0.05)" }}>
@@ -598,7 +598,7 @@ function OfertasPrelude({
               const hoursLeft = deadline ? Math.max(0, Math.round((deadline.getTime() - Date.now()) / (1000 * 60 * 60))) : null;
 
               return (
-                <div key={bid.id} className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ border: `1px solid ${isOpen ? "rgba(139,92,246,0.2)" : "rgba(0,0,0,0.06)"}` }}>
+                <div key={bid.id} className="bg-white rounded-2xl overflow-hidden" style={{ border: `1px solid ${isOpen ? "rgba(10,24,58,0.08)" : "rgba(10,24,58,0.06)"}` }}>
                   <div className="px-4 py-3 flex items-center justify-between" style={{ background: isOpen ? "rgba(139,92,246,0.04)" : "rgba(0,0,0,0.02)" }}>
                     <div>
                       <div className="flex items-center gap-2">
@@ -882,15 +882,13 @@ function AgentView({ orders, budget, tires }: { orders: PurchaseOrder[]; budget:
 
   return (
     <div className="space-y-5">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="bg-[#173D68] text-white p-5">
-          <div className="flex items-center gap-2.5 mb-1">
-            <div>
-              <h2 className="text-lg font-bold">Pedidos del mes</h2>
-              <p className="text-[10px] uppercase tracking-wider text-white/40">Ordenes generadas y enviadas a tus distribuidores</p>
-            </div>
-          </div>
-          <p className="text-sm text-white/60 mt-1">Ha procesado {thisMonth.length} solicitudes este mes</p>
+      <div
+        className="bg-white rounded-2xl overflow-hidden transition-all duration-200"
+        style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+      >
+        <div className="px-5 py-4">
+          <h2 className="text-sm font-bold text-[#0A183A]">Pedidos del mes</h2>
+          <p className="text-[11px] text-[#173D68]/40 mt-0.5">{thisMonth.length} solicitudes procesadas</p>
         </div>
         {budget > 0 && (
           <div className="p-5">
@@ -909,7 +907,7 @@ function AgentView({ orders, budget, tires }: { orders: PurchaseOrder[]; budget:
           {orders.map((o) => {
             const st = STATUS_LABELS[o.status] ?? STATUS_LABELS.solicitud_enviada;
             return (
-              <div key={o.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-4">
+              <div key={o.id} className="bg-white rounded-2xl p-4 flex items-center gap-4" style={{ border: '1px solid rgba(10,24,58,0.08)' }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-[#0A183A]">{o.distributor?.name ?? "Distribuidor"}</p>
                   <p className="text-xs text-gray-400">{fmtDate(o.createdAt)} - {o.items?.length ?? 0} llantas</p>
@@ -1286,69 +1284,73 @@ function ManualView({
           OfertasPrelude at the PedidosTab level so they also appear in
           agent_auto mode, not only manual. */}
       {/* Recommendations header + budget */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
-        <div className="bg-[#173D68] text-white p-4 rounded-t-xl flex items-center gap-3">
+      <div
+        className="bg-white rounded-2xl overflow-visible transition-all duration-200"
+        style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+      >
+        <div className="px-4 py-4 flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold leading-tight">Recomendaciones de compra</p>
-            <p className="text-[10px] text-white/50">{recs.length} llantas analizadas · {orders.length} ordenes este mes</p>
+            <p className="text-sm font-bold text-[#0A183A] leading-tight">Recomendaciones</p>
+            <p className="text-[11px] text-[#173D68]/40 mt-0.5">{recs.length} llantas analizadas · {orders.length} órdenes este mes</p>
           </div>
         </div>
         {budget > 0 && (
-          <div className="px-4 py-3">
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-gray-400">Gastado este mes: {fmtCOP(monthSpent)}</span>
-              <span className="font-bold text-[#0A183A]">Presupuesto: {fmtCOP(budget)}</span>
+          <div className="px-4 pb-4">
+            <div className="flex items-center justify-between text-[11px] mb-1.5">
+              <span className="text-[#173D68]/40">Gastado: {fmtCOP(monthSpent)}</span>
+              <span className="font-semibold text-[#0A183A]">Presupuesto: {fmtCOP(budget)}</span>
             </div>
-            <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${budgetPct}%`, background: budgetPct > 80 ? "#ef4444" : "linear-gradient(90deg, #22c55e, #348CCB)" }} />
+            <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{ width: `${budgetPct}%`, background: budgetPct > 80 ? "#ef4444" : "#0A183A" }} />
             </div>
           </div>
         )}
       </div>
 
-      {/* Type tabs */}
-      <div className="flex items-center gap-2">
+      {/* Type tabs + Urgency filters — single clean row */}
+      <div className="flex items-center gap-2 flex-wrap">
         {(["reencauche", "nueva"] as const).map((t) => {
           const count = visibleRecs.filter((r) => r.type === t).length;
           return (
             <button key={t} onClick={() => { setTab(t); setSelected(new Set()); setUrgencyFilter("all"); setOverrides({}); }}
-              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-all"
-              style={{ background: tab === t ? "#0A183A" : "transparent", color: tab === t ? "#fff" : "#173D68", border: tab === t ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}
+              className={[
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+                tab === t ? "bg-[#0A183A] text-white" : "text-[#173D68]/60 hover:bg-[#0A183A]/[0.04]",
+              ].join(" ")}
             >
               {t === "reencauche" ? <RotateCcw className="w-3.5 h-3.5" /> : <Package className="w-3.5 h-3.5" />}
-              {t === "reencauche" ? "Reencauche" : "Llanta Nueva"}
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: tab === t ? "rgba(255,255,255,0.2)" : "rgba(52,140,203,0.1)" }}>{count}</span>
+              {t === "reencauche" ? "Reencauche" : "Nueva"}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${tab === t ? "bg-white/20" : "bg-[#0A183A]/[0.06]"}`}>{count}</span>
             </button>
           );
         })}
-      </div>
 
-      {/* Urgency filter + Select All */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <button onClick={() => setUrgencyFilter("all")}
-          className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
-          style={{ background: urgencyFilter === "all" ? "rgba(10,24,58,0.08)" : "transparent", color: "#0A183A", border: "1px solid rgba(0,0,0,0.08)" }}>
-          Todos ({byType.length})
-        </button>
-        <button onClick={() => setUrgencyFilter("urgent")}
-          className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
-          style={{ background: urgencyFilter === "urgent" ? "rgba(239,68,68,0.1)" : "transparent", color: urgencyFilter === "urgent" ? "#ef4444" : "#64748b", border: `1px solid ${urgencyFilter === "urgent" ? "rgba(239,68,68,0.3)" : "rgba(0,0,0,0.08)"}` }}>
-          Urgentes ({urgencyCounts.critical + urgencyCounts.immediate})
-        </button>
-        <button onClick={() => setUrgencyFilter("next_month")}
-          className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
-          style={{ background: urgencyFilter === "next_month" ? "rgba(234,179,8,0.1)" : "transparent", color: urgencyFilter === "next_month" ? "#eab308" : "#64748b", border: `1px solid ${urgencyFilter === "next_month" ? "rgba(234,179,8,0.3)" : "rgba(0,0,0,0.08)"}` }}>
-          Proximo mes ({urgencyCounts.next_month})
-        </button>
-        <button onClick={() => setUrgencyFilter("plan")}
-          className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
-          style={{ background: urgencyFilter === "plan" ? "rgba(52,140,203,0.1)" : "transparent", color: urgencyFilter === "plan" ? "#348CCB" : "#64748b", border: `1px solid ${urgencyFilter === "plan" ? "rgba(52,140,203,0.3)" : "rgba(0,0,0,0.08)"}` }}>
-          Planificar ({urgencyCounts.plan})
-        </button>
+        <div className="w-px h-5 bg-[#173D68]/10 mx-1" />
+
+        {/* Urgency filters */}
+        {([
+          { key: "all",        label: `Todos (${byType.length})`,                                    color: "#0A183A" },
+          { key: "urgent",     label: `Urgentes (${urgencyCounts.critical + urgencyCounts.immediate})`, color: "#ef4444" },
+          { key: "next_month", label: `Próx. mes (${urgencyCounts.next_month})`,                      color: "#eab308" },
+          { key: "plan",       label: `Planificar (${urgencyCounts.plan})`,                            color: "#173D68" },
+        ] as const).map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setUrgencyFilter(f.key)}
+            className="text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors"
+            style={{
+              background: urgencyFilter === f.key ? `${f.color}10` : "transparent",
+              color: urgencyFilter === f.key ? f.color : "#94a3b8",
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+
         {filtered.length > 0 && (
           <button onClick={toggleSelectAll}
-            className="ml-auto flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full transition-all"
-            style={{ color: allTabSelected ? "#1E76B6" : "#64748b", background: allTabSelected ? "rgba(30,118,182,0.08)" : "transparent", border: "1px solid rgba(0,0,0,0.08)" }}
+            className="ml-auto flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors"
+            style={{ color: allTabSelected ? "#0A183A" : "#94a3b8", background: allTabSelected ? "rgba(10,24,58,0.06)" : "transparent" }}
           >
             {allTabSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
             {allTabSelected ? "Quitar" : "Selec. todo"}
@@ -1360,10 +1362,10 @@ function ManualView({
           selection. Gives the analista a glance at what the order will look
           like (e.g. "20 Continental · 30 Michelin") before it's sent. */}
       {selectedRecs.length > 0 && (
-        <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-3">
+        <div className="rounded-2xl bg-white p-3" style={{ border: '1px solid rgba(10,24,58,0.08)' }}>
           <div className="flex items-center gap-2 mb-2">
-            <Package className="w-3.5 h-3.5 text-[#1E76B6]" />
-            <p className="text-[11px] font-black uppercase tracking-wider text-[#0A183A]">
+            <Package className="w-3.5 h-3.5 text-[#173D68]/50" />
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#0A183A]">
               Resumen del pedido
             </p>
             <span className="text-[10px] text-gray-400">
@@ -1470,7 +1472,7 @@ function ManualView({
           </button>
           {showSolicitudes && <div className="space-y-2">
             {orders.filter((o) => o.status === "solicitud_enviada").map((o) => (
-              <div key={o.id} className="bg-white rounded-xl shadow-sm p-4" style={{ border: "1px solid rgba(52,140,203,0.12)" }}>
+              <div key={o.id} className="bg-white rounded-2xl p-4" style={{ border: "1px solid rgba(10,24,58,0.08)" }}>
                 <div className="flex items-center gap-3">
                   <Send className="w-4 h-4 text-[#1E76B6]" />
                   <div className="flex-1 min-w-0">
@@ -1502,7 +1504,7 @@ function ManualView({
             {orders.filter((o) => o.status === "aceptada" || o.status === "rechazada").map((o) => {
               const isAccepted = o.status === "aceptada";
               return (
-                <div key={o.id} className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3" style={{ border: "1px solid rgba(52,140,203,0.08)" }}>
+                <div key={o.id} className="bg-white rounded-2xl p-3 flex items-center gap-3" style={{ border: "1px solid rgba(10,24,58,0.06)" }}>
                   <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: isAccepted ? "#22c55e" : "#ef4444" }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-[#0A183A]">{o.distributor?.name ?? "Dist."}</p>
@@ -1519,7 +1521,7 @@ function ManualView({
       {/* ============== Sticky footer with multiple actions ============== */}
       {selected.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-30 px-4 sm:px-6 py-3"
-          style={{ background: "linear-gradient(135deg, #0A183A, #173D68)", boxShadow: "0 -4px 24px rgba(10,24,58,0.3)" }}>
+          style={{ background: "#0A183A", boxShadow: "0 -4px 24px rgba(10,24,58,0.3)" }}>
           <div className="flex items-center justify-between gap-3 max-w-4xl mx-auto">
             <div className="text-white min-w-0">
               <p className="text-sm font-bold">{selected.size} llanta{selected.size !== 1 ? "s" : ""}</p>
@@ -1553,10 +1555,10 @@ function ManualView({
       {actionModal === "send" && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
           <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
-            <div className="bg-[#173D68] text-white px-5 py-3.5 flex justify-between items-center flex-shrink-0">
+            <div className="px-5 py-3.5 flex justify-between items-center flex-shrink-0" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
               <div>
-                <h2 className="font-bold text-sm">Solicitar Cotizaciones</h2>
-                <p className="text-[10px] text-white/50">{selected.size} llantas — Total estimado: {fmtCOP(totalEstimated)}</p>
+                <h2 className="font-bold text-sm text-[#0A183A]">Solicitar Cotizaciones</h2>
+                <p className="text-[11px] text-[#173D68]/40">{selected.size} llantas — Total estimado: {fmtCOP(totalEstimated)}</p>
               </div>
               <button onClick={() => setActionModal(null)} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
@@ -1658,9 +1660,9 @@ function ManualView({
       {actionModal === "bucket" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(10,24,58,0.6)", backdropFilter: "blur(6px)" }}>
           <div className="bg-white rounded-xl shadow-sm w-full max-w-md overflow-hidden" style={{ border: "1px solid rgba(52,140,203,0.2)" }}>
-            <div className="bg-[#173D68] text-white px-6 py-4 flex justify-between items-center">
-              <h2 className="font-bold text-sm">Mover a Inventario</h2>
-              <button onClick={() => setActionModal(null)} className="text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+            <div className="px-6 py-4 flex justify-between items-center" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+              <h2 className="font-bold text-sm text-[#0A183A]">Mover a Inventario</h2>
+              <button onClick={() => setActionModal(null)} className="text-[#173D68]/40 hover:text-[#173D68]"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-5 space-y-4">
               <p className="text-xs text-gray-400">Mover {selected.size} llanta{selected.size !== 1 ? "s" : ""} a un bucket de inventario</p>
@@ -2003,12 +2005,15 @@ function VehicleRecGroup({
   onEdit: (tireId: string) => void;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div
+      className="bg-white rounded-2xl overflow-hidden transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)' }}
+    >
       {/* Vehicle header */}
-      <div className="bg-[#173D68] px-4 py-2.5 flex items-center gap-2">
-        <Truck className="w-3.5 h-3.5 text-[#348CCB]" />
-        <span className="font-mono font-bold text-white text-xs tracking-wider">{placa.toUpperCase()}</span>
-        <span className="text-[10px] text-white/40 ml-auto">{recs.length} llanta{recs.length !== 1 ? "s" : ""}</span>
+      <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+        <Truck className="w-3.5 h-3.5 text-[#173D68]/40" />
+        <span className="font-mono font-bold text-[#0A183A] text-xs tracking-wider">{placa.toUpperCase()}</span>
+        <span className="text-[10px] text-[#173D68]/35 ml-auto">{recs.length} llanta{recs.length !== 1 ? "s" : ""}</span>
       </div>
 
       {/* Tire rows */}

@@ -104,22 +104,16 @@ const InspeccionVencidaPage: React.FC = () => {
   const tableHeight = Math.min(400, Math.max(200, tiresWithExpiredInspections.length * 50 + 100));
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-      <div className="bg-[#173D68] text-white p-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold">{t.title}</h2>
+    <div
+      className="bg-white rounded-2xl overflow-hidden transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
+      <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+        <h2 className="text-sm font-bold text-[#0A183A]">{t.title}</h2>
         <div className="group relative cursor-pointer">
-          <HelpCircle
-            className="text-white hover:text-gray-200 transition-colors"
-            size={24}
-          />
-          <div className="
-            absolute z-10 -top-2 right-full 
-            bg-[#0A183A] text-white 
-            text-xs p-3 rounded-lg 
-            opacity-0 group-hover:opacity-100 
-            transition-opacity duration-300 
-            w-60 pointer-events-none
-          ">
+          <HelpCircle className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" size={18} />
+          <div className="absolute z-10 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 pointer-events-none shadow-xl"
+               style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
             <p>{t.tooltip}</p>
           </div>
         </div>
@@ -149,7 +143,7 @@ const InspeccionVencidaPage: React.FC = () => {
                 </div>
               ) : (
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-[#173D68] text-white sticky top-0 z-10">
+                  <thead className="text-[#0A183A] sticky top-0 z-10 bg-[#F8FAFC]" style={{ borderBottom: '1px solid rgba(10,24,58,0.08)' }}>
                     <tr>
                       <th className="px-4 py-3 text-left text-sm font-semibold">{t.tireId}</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold">{t.position}</th>

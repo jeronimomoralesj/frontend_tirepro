@@ -152,25 +152,24 @@ const TipoVehiculo: React.FC<TipoVehiculoProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden print:shadow-none print:border-gray-300"
-         style={{ boxShadow: "0 4px 24px rgba(10,24,58,0.06)" }}>
+    <div
+      className="bg-white rounded-2xl overflow-hidden print:shadow-none print:border-gray-300 transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Header */}
-      <div
-        className="text-white px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2"
-        style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)" }}
-      >
+      <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 rounded-lg flex-shrink-0"
-               style={{ background: "rgba(255,255,255,0.14)" }}>
-            <Truck size={16} className="text-white" />
+          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(163,116,255,0.08)" }}>
+            <Truck size={14} className="text-[#A374FF]" />
           </div>
-          <h2 className="text-sm sm:text-base lg:text-lg font-bold truncate">
+          <h2 className="text-sm font-bold text-[#0A183A] truncate">
             Llantas por Tipo de Vehículo
           </h2>
         </div>
         <div className="group relative cursor-pointer flex-shrink-0 print:hidden">
-          <HelpCircle className="text-white/80 hover:text-white transition-colors" size={18} />
-          <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity w-56 pointer-events-none shadow-xl">
+          <HelpCircle className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" size={18} />
+          <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 pointer-events-none shadow-xl"
+               style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
             Distribución de llantas por tipo de vehículo. Los sectores muestran la proporción; toca uno para filtrar el resto del tablero.
           </div>
         </div>

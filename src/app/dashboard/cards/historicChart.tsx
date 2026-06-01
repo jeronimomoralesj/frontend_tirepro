@@ -260,28 +260,30 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
   };
 
   const headerContent = (
-    <div className="bg-gradient-to-r from-[#173D68] to-[#1E76B6] text-white p-3 sm:p-4">
+    <div className="p-3 sm:p-4" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
       <div className="flex items-center justify-between mb-3 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <TrendingUp size={18} className="text-white/90 flex-shrink-0" />
-          <h2 className="text-sm sm:text-lg font-semibold truncate">
+          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: 'rgba(163,116,255,0.08)' }}>
+            <TrendingUp size={14} className="text-[#A374FF]" />
+          </div>
+          <h2 className="text-sm font-bold text-[#0A183A] truncate">
             {t.title}
           </h2>
         </div>
         <button
           onClick={handleHelpClick}
-          className="hover:bg-white/10 p-1.5 rounded-lg transition-colors flex-shrink-0"
+          className="hover:bg-[#F8FAFC] p-1.5 rounded-lg transition-colors flex-shrink-0"
           aria-label="Ayuda sobre el histórico de inspecciones"
         >
-          <HelpCircle size={18} className="text-white/90" />
+          <HelpCircle size={18} className="text-[#173D68]/40" />
         </button>
       </div>
       <div className="relative">
         <select
           value={selectedVariable}
           onChange={handleVariableChange}
-          className="w-full bg-white/10 backdrop-blur-sm text-white text-xs sm:text-sm rounded-lg px-3 py-2
-                   border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30
+          className="w-full bg-[#F8FAFC] text-[#0A183A] text-xs sm:text-sm rounded-lg px-3 py-2
+                   border border-[#0A183A]/[0.08] focus:outline-none focus:ring-2 focus:ring-[#0A183A]/[0.06]
                    transition-all cursor-pointer appearance-none pr-8"
         >
           <option value="cpk" className="text-gray-800 bg-white">
@@ -332,7 +334,8 @@ const HistoricChart: React.FC<HistoricChartProps> = ({ tires, language }) => {
 
   return (
     <div
-      className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full flex flex-col"
+      className="bg-white rounded-2xl overflow-hidden w-full flex flex-col transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
       data-analytics-component="historic-chart"
     >
       {headerContent}

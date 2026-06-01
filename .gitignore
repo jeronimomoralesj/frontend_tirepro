@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# promo / demo pages (kept local only)
+/src/app/demochat
+/src/app/demoagentes
+/src/app/dashboarddemo

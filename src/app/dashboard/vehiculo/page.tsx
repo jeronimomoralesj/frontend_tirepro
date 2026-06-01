@@ -35,6 +35,15 @@ const VEHICLE_TYPES: Record<string, string> = {
   "3_ejes_trailer":  "Trailer 3 ejes",
   "1_eje_cabezote":  "Cabezote 1 eje",
   furgon:            "Furgón",
+  volqueta:          "Volqueta",
+  camion_sencillo:   "Camión sencillo",
+  doble_troque:      "Doble troque",
+  tractomula:        "Tractomula",
+  minimula:          "Minimula",
+  camioneta:         "Camioneta",
+  bus:               "Bus",
+  buseta:            "Buseta",
+  turbo:             "Turbo",
 };
 
 // =============================================================================
@@ -59,6 +68,8 @@ type Vehicle = {
   cliente: string | null;
   tipoOperacion: string | null;
   configuracion: string | null;
+  presionMin: number | null;
+  presionMax: number | null;
   union: string[];
   drivers?: Driver[];
   _count: { tires: number };
@@ -73,6 +84,8 @@ type VehicleFormData = {
   cliente: string;
   pctPavimento: number;
   configuracion: string;
+  presionMin: number | "";
+  presionMax: number | "";
 };
 
 const BLANK_FORM: VehicleFormData = {
@@ -84,6 +97,8 @@ const BLANK_FORM: VehicleFormData = {
   cliente: "",
   pctPavimento: 90,
   configuracion: "",
+  presionMin: "",
+  presionMax: "",
 };
 
 // Axle configs now live in AxleConfigPicker (canonical + shared).
@@ -309,6 +324,32 @@ function VehicleForm({
         />
       </FieldRow>
 
+      {/* Inflation pressure range — drives the baja/correcta/alta label in
+          the inspection report. Left blank → defaults to 100–120 PSI. */}
+      <FieldRow label="Rango de presión de inflado (PSI)">
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            type="number"
+            value={data.presionMin}
+            onChange={set("presionMin")}
+            min={0}
+            placeholder="Mín. (100)"
+            className={inputCls}
+          />
+          <input
+            type="number"
+            value={data.presionMax}
+            onChange={set("presionMax")}
+            min={0}
+            placeholder="Máx. (120)"
+            className={inputCls}
+          />
+        </div>
+        <p className="text-[10px] text-gray-400 mt-1.5">
+          Si lo dejas vacío, se usa el rango por defecto 100–120 PSI.
+        </p>
+      </FieldRow>
+
       {existingTireCount !== undefined && (
         <div
           className="flex items-center justify-between rounded-xl px-4 py-3 text-sm"
@@ -383,14 +424,14 @@ function VehicleCard({
 
   return (
     <div className="relative flex flex-col w-full">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full">
+      <div className="bg-white rounded-2xl flex flex-col h-full" style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}>
         {/* Header */}
-        <div className="bg-[#173D68] px-4 py-3 flex items-center justify-between rounded-t-xl">
+        <div className="px-4 py-3 flex items-center justify-between rounded-t-2xl" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
           <div>
-            <p className="font-black tracking-widest text-white text-lg">
+            <p className="font-black tracking-widest text-[#0A183A] text-lg">
               {vehicle.placa.toUpperCase()}
             </p>
-            <p className="text-[#348CCB] text-xs font-medium">{labelFor(vehicle.tipovhc)}</p>
+            <p className="text-[#173D68]/40 text-xs font-medium">{labelFor(vehicle.tipovhc)}</p>
           </div>
           <div className="flex items-center gap-2">
             {drivers.length > 0 && (
@@ -939,7 +980,7 @@ export default function VehiculoPage() {
     setError("");
     try {
       const validDrivers = createDrivers.filter((d) => d.nombre.trim() && d.telefono.trim());
-      const { pctPavimento, configuracion, ...restCreate } = createForm;
+      const { pctPavimento, configuracion, presionMin, presionMax, ...restCreate } = createForm;
       const res = await fetch(`${API_BASE}/vehicles/create`, {
         method: "POST",
         headers: authHeaders(),
@@ -949,6 +990,8 @@ export default function VehiculoPage() {
           cliente:        restCreate.cliente.trim() || null,
           tipoOperacion:  `${pctPavimento}-${100 - pctPavimento}`,
           configuracion:  configuracion || null,
+          ...(presionMin !== "" ? { presionMin: Number(presionMin) } : {}),
+          ...(presionMax !== "" ? { presionMax: Number(presionMax) } : {}),
           companyId,
           ...(validDrivers.length > 0 ? { drivers: validDrivers } : {}),
         }),
@@ -980,6 +1023,8 @@ export default function VehiculoPage() {
       cliente:           vehicle.cliente ?? "",
       pctPavimento:      pctPav,
       configuracion:     vehicle.configuracion ?? "",
+      presionMin:        vehicle.presionMin ?? "",
+      presionMax:        vehicle.presionMax ?? "",
     });
   }
 
@@ -988,7 +1033,7 @@ export default function VehiculoPage() {
     if (!vehicleToEdit) return;
     setError("");
     try {
-      const { pctPavimento, configuracion, ...rest } = editForm;
+      const { pctPavimento, configuracion, presionMin, presionMax, ...rest } = editForm;
       const res = await fetch(`${API_BASE}/vehicles/${vehicleToEdit.id}`, {
         method: "PATCH",
         headers: authHeaders(),
@@ -998,6 +1043,9 @@ export default function VehiculoPage() {
           cliente:        rest.cliente.trim() || null,
           tipoOperacion:  `${pctPavimento}-${100 - pctPavimento}`,
           configuracion:  configuracion || null,
+          // "" clears the override → report falls back to the 100–120 default.
+          presionMin:     presionMin === "" ? null : Number(presionMin),
+          presionMax:     presionMax === "" ? null : Number(presionMax),
         }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? "Error al editar");

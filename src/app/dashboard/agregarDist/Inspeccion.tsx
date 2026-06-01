@@ -1462,35 +1462,6 @@ export default function InspeccionPage({ language }: { language?: string }) {
   // Optimistic per-tire save fired by the inspection modal so the user
   // isn't stuck at the end of a session waiting on a batch submit.
   async function submitSingleInspection(tireId: string, draft: InspectionDraft) {
-    const tire = [...tires, ...unionTires].find((t) => t.id === tireId);
-    if (!tire) throw new Error("Tire not found");
-    const kmDelta = Math.max(Number(newKilometraje) - (vehicle?.kilometrajeActual ?? 0), 0);
-    const todayStr = new Date().toISOString().split("T")[0];
-    const payload: Record<string, unknown> = {
-      profundidadInt: Number(draft.profundidadInt),
-      profundidadCen: Number(draft.profundidadCen),
-      profundidadExt: Number(draft.profundidadExt),
-      newKilometraje: Number(newKilometraje) || undefined,
-      kmDelta: kmDelta > 0 ? kmDelta : undefined,
-      imageUrls: draft.imageUrls.slice(0, 3),
-    };
-    if (inspectionDate !== todayStr) payload.fecha = inspectionDate;
-    if (draft.presionPsi !== "") payload.presionPsi = Number(draft.presionPsi);
-    if (inspectorName.trim()) {
-      payload.inspeccionadoPorNombre = inspectorName.trim();
-      if (user?.id && inspectorName.trim() === (user.name ?? "").trim()) {
-        payload.inspeccionadoPorId = user.id;
-      }
-    }
-    const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
-      method: "PATCH",
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.message ?? "Error al guardar inspección");
-    }
     setTireUpdates((prev) => ({
       ...prev,
       [tireId]: {
@@ -1539,10 +1510,8 @@ export default function InspeccionPage({ language }: { language?: string }) {
       return;
     }
 
-    // Set of tires we'll actually persist — anything fully filled and not
-    // already PATCH'd via the optimistic modal save.
     const inspectionTires = allTires.filter(
-      (t) => isFull(safeUpdate(t.id)) && !inspectedIds.has(t.id),
+      (t) => isFull(safeUpdate(t.id)),
     );
 
     // Detect whether a position rotation happened. Used together with

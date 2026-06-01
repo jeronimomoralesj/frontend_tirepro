@@ -2,6 +2,53 @@
 @import "tw-animate-css";
 @import "@xyflow/react/dist/style.css";
 
+/* ReactFlow overrides — Tailwind v4 preflight resets box-sizing/position
+   which breaks ReactFlow's internal layout on Safari/Firefox. These
+   restore the styles ReactFlow expects. */
+.react-flow {
+  width: 100% !important;
+  height: 100% !important;
+}
+.react-flow__node {
+  position: absolute !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.react-flow__handle {
+  position: absolute !important;
+  pointer-events: all;
+}
+.react-flow__renderer,
+.react-flow__viewport {
+  overflow: visible !important;
+}
+.react-flow__edges {
+  overflow: visible !important;
+}
+.react-flow__minimap {
+  z-index: 5;
+}
+.react-flow__controls {
+  z-index: 5;
+}
+.react-flow__controls button {
+  background: rgba(255,255,255,0.7) !important;
+  border: 1px solid rgba(10,24,58,0.1) !important;
+  color: rgba(10,24,58,0.5) !important;
+  fill: rgba(10,24,58,0.5) !important;
+}
+.react-flow__controls button:hover {
+  background: rgba(255,255,255,0.95) !important;
+  color: rgba(10,24,58,0.8) !important;
+  fill: rgba(10,24,58,0.8) !important;
+}
+.react-flow__controls button svg {
+  fill: inherit !important;
+}
+.react-flow__background {
+  z-index: 0;
+}
+
 /* Tailwind v4 ignores tailwind.config.js — declare content sources here so
    the JIT scanner always sees every file in src/ regardless of auto-detect
    heuristics. Without these, classes added in newly-created routes
@@ -532,6 +579,10 @@
 @keyframes dash-flow {
   to { stroke-dashoffset: -20; }
 }
+@-webkit-keyframes dash-flow {
+  to { stroke-dashoffset: -20; }
+}
 .animated-edge {
+  -webkit-animation: dash-flow 0.8s linear infinite;
   animation: dash-flow 0.8s linear infinite;
 }

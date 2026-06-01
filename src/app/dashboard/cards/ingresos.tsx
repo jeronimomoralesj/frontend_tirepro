@@ -229,9 +229,12 @@ export default function IncomeCard() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+    <div
+      className="bg-white rounded-2xl overflow-hidden transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Card Header */}
-      <div className="bg-gradient-to-r from-slate-50 to-blue-50 border-b border-gray-200 p-6">
+      <div className="bg-gradient-to-r from-slate-50 to-blue-50 p-6" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">

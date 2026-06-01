@@ -2,13 +2,13 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  Search, Car, X, Info, ChevronDown, Eye, Circle, BarChart3,
+  Search, Car, X, Info, ChevronDown, Circle, BarChart3,
   Calendar, Ruler, Repeat, Trash2, Pencil, CheckCircle, Check,
   AlertCircle, Loader2, Activity, DollarSign, Gauge,
-  AlertTriangle, Shield, ChevronRight, Zap, Layers,
+  Shield, ChevronRight, Layers,
   CheckCircle2, Timer, AlertOctagon, RotateCcw,
 } from "lucide-react";
-import AgentCardHeader from "../../../components/AgentCardHeader";
+import MetricCard from "../components/MetricCard";
 import { VehicleTireGrid, TireGridLegend } from "../components/VehicleTireGrid";
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement,
@@ -576,211 +576,58 @@ function CpkChart({ inspecciones }: { inspecciones: Inspection[] }) {
 // =============================================================================
 // Vehicle Fleet Overview
 // =============================================================================
-// SENTINEL vehicle-level quick verdict
-// =============================================================================
-
-function VehicleVerdict({ tires, stats }: { tires: Tire[]; stats: ReturnType<typeof calcFleetStats> }) {
-  const verdict = useMemo(() => {
-    if (tires.length === 0) return null;
-
-    const withInsp = tires.filter((t) => t.inspecciones.length > 0);
-    if (withInsp.length === 0) return null;
-
-    // Overall grade
-    const h = stats.avgHealth ?? 0;
-    let grade: { label: string; color: string; emoji: string };
-    if (h >= 70) grade = { label: "Buen estado", color: "#22c55e", emoji: "✅" };
-    else if (h >= 45) grade = { label: "Requiere atencion", color: "#f97316", emoji: "⚠️" };
-    else grade = { label: "Estado critico", color: "#ef4444", emoji: "🔴" };
-
-    // Scan every tire for issues
-    const issues: string[] = [];
-    const posLabel = (t: Tire) => `P${t.posicion}`;
-    const posLabels = (arr: Tire[]) => arr.map(posLabel).join(", ");
-
-    // Alignment check — shoulder delta >= 1.5mm
-    const alignmentProblems = withInsp.filter((t) => {
-      const l = t.inspecciones[t.inspecciones.length - 1];
-      return Math.abs(l.profundidadInt - l.profundidadExt) >= 1.5;
-    });
-    if (alignmentProblems.length > 0) {
-      issues.push(`Desgaste desigual entre hombros (${posLabels(alignmentProblems)}) — revisar alineacion`);
-    }
-
-    // Center vs edges — over/under inflation wear pattern
-    const overInflated = withInsp.filter((t) => {
-      const l = t.inspecciones[t.inspecciones.length - 1];
-      return l.profundidadCen - ((l.profundidadInt + l.profundidadExt) / 2) > 1.5;
-    });
-    const underInflated = withInsp.filter((t) => {
-      const l = t.inspecciones[t.inspecciones.length - 1];
-      return ((l.profundidadInt + l.profundidadExt) / 2) - l.profundidadCen > 1.5;
-    });
-    if (underInflated.length > 0) {
-      issues.push(`Desgaste en hombros excesivo (${posLabels(underInflated)}) — indica baja presion`);
-    }
-    if (overInflated.length > 0) {
-      issues.push(`Desgaste central excesivo (${posLabels(overInflated)}) — indica sobreinflado`);
-    }
-
-    // Pressure reading problems
-    const pressureProblems = withInsp.filter((t) => {
-      const l = t.inspecciones[t.inspecciones.length - 1];
-      return l.presionDelta != null && Math.abs(l.presionDelta) > 10;
-    });
-    if (pressureProblems.length > 0) {
-      issues.push(`Presion fuera de rango (${posLabels(pressureProblems)})`);
-    }
-
-    // Urgent replacements
-    const urgentTires = tires.filter((t) => getSemaforoCondition(t) === "cambioInmediato");
-    const soonTires = tires.filter((t) => getSemaforoCondition(t) === "dias30");
-    if (urgentTires.length > 0) {
-      issues.push(`Cambio inmediato requerido (${posLabels(urgentTires)})`);
-    } else if (soonTires.length > 0) {
-      issues.push(`A 30 dias de retiro (${posLabels(soonTires)})`);
-    }
-
-    // High wear rate on any tire
-    const highWearTires = withInsp.filter((t) => {
-      if (t.inspecciones.length < 2) return false;
-      const sorted = [...t.inspecciones].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-      const first = sorted[0];
-      const last = sorted[sorted.length - 1];
-      const firstMin = Math.min(first.profundidadInt, first.profundidadCen, first.profundidadExt);
-      const lastMin = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
-      const months = (new Date(last.fecha).getTime() - new Date(first.fecha).getTime()) / (1000 * 60 * 60 * 24 * 30);
-      return months >= 1 && (firstMin - lastMin) / months > 1.5;
-    });
-    if (highWearTires.length > 0) {
-      issues.push(`Desgaste acelerado >1.5mm/mes (${posLabels(highWearTires)})`);
-    }
-
-    // CPK assessment
-    if (stats.avgCpk != null && stats.avgCpk > 150) {
-      issues.push(`CPK alto ($${Math.round(stats.avgCpk).toLocaleString("es-CO")}/km) — evaluar marcas o condiciones`);
-    }
-
-    // Recalculate grade based on actual issues found
-    if (urgentTires.length > 0) grade = { label: "Estado critico", color: "#ef4444", emoji: "🔴" };
-    else if (issues.length > 0) grade = { label: "Requiere atencion", color: "#f97316", emoji: "⚠️" };
-
-    // Top recommendation — prioritized
-    let recommendation = "";
-    if (urgentTires.length > 0) {
-      recommendation = "Prioridad: retirar las llantas urgentes antes de que se pierdan los cascos para reencauche.";
-    } else if (underInflated.length > 0 || overInflated.length > 0) {
-      recommendation = "Corregir presiones de inflado. Desgaste irregular en hombros o centro reduce vida util y aumenta costos.";
-    } else if (alignmentProblems.length > 0) {
-      recommendation = "Programar revision de alineacion para evitar desgaste prematuro y preservar cascos.";
-    } else if (highWearTires.length > 0) {
-      recommendation = "Investigar causa de desgaste acelerado: sobrecarga, velocidad excesiva, o condiciones de ruta.";
-    } else if (pressureProblems.length > 0) {
-      recommendation = "Ajustar presiones a los valores recomendados para optimizar vida util.";
-    } else if (soonTires.length > 0) {
-      recommendation = "Cotizar reencauches o reemplazos para las llantas que se acercan a retiro optimo.";
-    } else if (issues.length === 0) {
-      recommendation = "Vehiculo en buen estado. Mantener frecuencia de inspeccion actual.";
-    } else {
-      recommendation = "Monitorear de cerca y aumentar frecuencia de inspeccion.";
-    }
-
-    return { grade, issues, recommendation };
-  }, [tires, stats]);
-
-  if (!verdict) return null;
-
-  return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${verdict.grade.color}25` }}>
-      <div className="px-4 py-3 flex items-center gap-3" style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
-        <AgentCardHeader agent="sentinel" insight={
-          `Vehiculo con ${tires.length} llantas — ${verdict.grade.label}.\n\n` +
-          (verdict.issues.length > 0 ? verdict.issues.map((i) => `• ${i}`).join("\n") + "\n\n" : "") +
-          `Recomendacion: ${verdict.recommendation}`
-        } />
-        <span className="text-sm font-black text-white">Diagnostico Rapido</span>
-        <span className="ml-auto text-base">{verdict.grade.emoji}</span>
-      </div>
-      <div className="px-4 py-3 flex items-start gap-3" style={{ background: `${verdict.grade.color}06` }}>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-black" style={{ color: verdict.grade.color }}>{verdict.grade.label}</p>
-          {verdict.issues.length > 0 ? (
-            <div className="mt-1.5 space-y-1">
-              {verdict.issues.map((issue, i) => (
-                <p key={i} className="text-[11px] text-gray-600 flex items-start gap-1.5">
-                  <span className="text-[9px] mt-0.5">•</span> {issue}
-                </p>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[11px] text-gray-500 mt-0.5">Sin problemas detectados.</p>
-          )}
-          <p className="text-[11px] font-bold text-[#173D68] mt-2 pt-2" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
-            {verdict.recommendation}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
 function VehicleFleetOverview({ tires }: { tires: Tire[] }) {
   const stats = useMemo(() => calcFleetStats(tires), [tires]);
 
+  const kpis = [
+    { label: "CPK Promedio",      value: stats.avgCpk  ? `$${Math.round(stats.avgCpk).toLocaleString("es-CO")}` : "--", sub: "por kilómetro" },
+    { label: "Profundidad Prom.", value: stats.avgDepth ? `${stats.avgDepth.toFixed(1)} mm` : "--",                     sub: "banda de rodamiento" },
+    { label: "Salud Flota",       value: stats.avgHealth != null ? `${stats.avgHealth}%` : "--",                        sub: "mm restantes" },
+    { label: "Inversión Total",   value: stats.totalCost > 0 ? `$${(stats.totalCost / 1_000_000).toFixed(1)}M` : "--",  sub: "costo acumulado" },
+  ];
+
   return (
     <div className="space-y-4">
-      {/* Hero */}
-      <div className="rounded-2xl overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)", boxShadow: "0 8px 32px rgba(10,24,58,0.2)" }}>
-        <div className="p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Car className="w-5 h-5 text-white/70" />
-            <span className="text-white font-black text-base">Análisis de Flota</span>
-            <span className="ml-auto text-white/50 text-xs">{tires.length} llantas</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: "CPK Promedio", value: stats.avgCpk ? `$${Math.round(stats.avgCpk).toLocaleString("es-CO")}` : "N/A", sub: "por kilómetro", icon: DollarSign },
-              { label: "Profundidad Prom.", value: stats.avgDepth ? `${stats.avgDepth.toFixed(1)} mm` : "N/A", sub: "banda de rodamiento", icon: Gauge },
-              { label: "Salud Flota", value: stats.avgHealth != null ? `${stats.avgHealth}%` : "N/A", sub: "mm restantes vs inicial", icon: Activity },
-              { label: "Inversión Total", value: stats.totalCost > 0 ? `$${(stats.totalCost / 1_000_000).toFixed(1)}M` : "N/A", sub: "costo acumulado", icon: DollarSign },
-            ].map(s => (
-              <div key={s.label} className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.08)" }}>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <s.icon className="w-3.5 h-3.5 text-white/50" />
-                  <span className="text-[10px] text-white/50 font-bold uppercase tracking-wider">{s.label}</span>
-                </div>
-                <p className="text-lg font-black text-white leading-none">{s.value}</p>
-                <p className="text-[10px] text-white/40 mt-0.5">{s.sub}</p>
-              </div>
-            ))}
-          </div>
+      {/* KPI cards — clean light treatment matching the resumen dashboard */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {kpis.map(k => (
+          <MetricCard key={k.label} label={k.label} value={k.value} subtitle={k.sub} />
+        ))}
+      </div>
+
+      {/* Semaforo distribution */}
+      <div
+        className="bg-white rounded-2xl p-4 sm:p-5"
+        style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-1 h-4 rounded-full" style={{ background: "linear-gradient(180deg, #1E76B6, #A374FF)" }} />
+          <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Estado de la flota</p>
+          <span className="ml-auto text-[11px] text-gray-400 tabular-nums">{tires.length} llantas</span>
         </div>
-        {/* Semaforo counts */}
-        <div className="px-4 sm:px-6 pb-4 grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {(["buenEstado", "dias60", "dias30", "cambioInmediato"] as SemaforoCondition[]).map(key => {
             const m = SEMAFORO_META[key];
             return (
-              <div key={key} className="rounded-xl p-2 text-center" style={{ background: `${m.color}22` }}>
-                <p className="text-xl font-black" style={{ color: m.color }}>{stats.counts[key]}</p>
-                <p className="text-[10px] font-bold" style={{ color: m.color, opacity: 0.85 }}>{m.label}</p>
+              <div key={key} className="rounded-xl px-3 py-3 text-center" style={{ background: `${m.color}0F` }}>
+                <p className="text-2xl font-black tabular-nums" style={{ color: m.color }}>{stats.counts[key]}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: m.color }}>{m.label}</p>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* SENTINEL vehicle verdict */}
-      <VehicleVerdict tires={tires} stats={stats} />
-
       {/* Urgent tires */}
       {stats.urgent.length > 0 && (
-        <div className="rounded-2xl p-4" style={{ border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.03)" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            <span className="text-sm font-black text-red-700">Requieren Acción</span>
-            <span className="ml-auto text-xs font-bold text-red-500">
+        <div
+          className="bg-white rounded-2xl p-4 sm:p-5"
+          style={{ border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1 h-4 rounded-full" style={{ background: "#ef4444" }} />
+            <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Requieren acción</p>
+            <span className="ml-auto text-[11px] font-bold text-red-500 tabular-nums">
               {stats.urgent.length} llanta{stats.urgent.length > 1 ? "s" : ""}
             </span>
           </div>
@@ -791,8 +638,8 @@ function VehicleFleetOverview({ tires }: { tires: Tire[] }) {
               const last = getLatestInsp(t);
               const minD = last ? Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt) : null;
               return (
-                <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-white"
-                  style={{ border: "1px solid rgba(239,68,68,0.12)" }}>
+                <div key={t.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-[#F8FAFC]"
+                  style={{ border: "1px solid rgba(10,24,58,0.05)" }}>
                   <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: m?.color ?? "#94a3b8" }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-[#0A183A] truncate">{t.placa.toUpperCase()} · Pos. {t.posicion}</p>
@@ -1139,10 +986,10 @@ function CostoEditor({ tire, onUpdated }: { tire: Tire; onUpdated: (t: Tire) => 
           </div>
         );
       })}
-      <div className="flex items-center justify-between p-3 rounded-xl mt-2"
-        style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}>
-        <span className="text-white font-bold text-sm">Total Invertido</span>
-        <span className="text-white font-black text-lg">${totalCost.toLocaleString("es-CO")}</span>
+      <div className="flex items-center justify-between px-3 py-3 rounded-xl mt-2"
+        style={{ background: "#F8FAFC", border: "1px solid rgba(10,24,58,0.06)" }}>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Total Invertido</span>
+        <span className="text-[#0A183A] font-black text-lg tabular-nums">${totalCost.toLocaleString("es-CO")}</span>
       </div>
     </div>
   );
@@ -1391,200 +1238,6 @@ function InspectionTable({ tire, onDelete, onEdit }: { tire: Tire; onDelete: (fe
 }
 
 // =============================================================================
-// SENTINEL Analysis — per-tire deep analysis with recommendations
-// =============================================================================
-
-function SentinelAnalysis({ tire }: { tire: Tire }) {
-  const analysis = useMemo(() => {
-    const findings: { icon: string; title: string; detail: string; severity: "ok" | "warn" | "critical" | "info" }[] = [];
-    const recommendations: string[] = [];
-    const insps = tire.inspecciones;
-
-    if (insps.length === 0) return { findings, recommendations, insight: "" };
-
-    const last = insps[insps.length - 1];
-    const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
-    const maxDepth = Math.max(last.profundidadInt, last.profundidadCen, last.profundidadExt);
-    const shoulderDelta = Math.abs(last.profundidadInt - last.profundidadExt);
-    const centerVsEdge = last.profundidadCen - ((last.profundidadInt + last.profundidadExt) / 2);
-    const health = calcMmHealthScore(tire);
-
-    // 1. Shoulder delta → alignment
-    if (shoulderDelta >= 1.5) {
-      findings.push({
-        icon: "⚠️", title: "Desgaste desigual detectado",
-        detail: `Diferencia de ${shoulderDelta.toFixed(1)}mm entre hombros (Int: ${last.profundidadInt}mm, Ext: ${last.profundidadExt}mm). Umbral: 1.5mm.`,
-        severity: shoulderDelta >= 2.5 ? "critical" : "warn",
-      });
-      recommendations.push(
-        shoulderDelta >= 2.5
-          ? "URGENTE: Revisar alineacion del vehiculo inmediatamente. Desgaste severo en un hombro indica desalineacion que destruye el casco."
-          : "Programar revision de alineacion. La diferencia entre hombros sugiere un angulo incorrecto."
-      );
-    } else {
-      findings.push({ icon: "✅", title: "Desgaste uniforme entre hombros", detail: `Delta: ${shoulderDelta.toFixed(1)}mm — dentro del rango aceptable (<1.5mm).`, severity: "ok" });
-    }
-
-    // 2. Center vs edges → pressure
-    if (centerVsEdge > 1.5) {
-      findings.push({
-        icon: "🔴", title: "Desgaste central excesivo",
-        detail: `Centro ${centerVsEdge.toFixed(1)}mm por encima de los hombros. Indica sobreinflado cronico.`,
-        severity: "warn",
-      });
-      recommendations.push("Reducir la presion de inflado. El centro se desgasta mas rapido cuando hay sobreinflado, lo cual reduce la huella de contacto y acorta la vida util.");
-    } else if (centerVsEdge < -1.5) {
-      findings.push({
-        icon: "🔴", title: "Desgaste en hombros excesivo",
-        detail: `Hombros ${Math.abs(centerVsEdge).toFixed(1)}mm por encima del centro. Indica baja presion cronica.`,
-        severity: "warn",
-      });
-      recommendations.push("Aumentar la presion de inflado a la recomendada. Baja presion causa desgaste excesivo en los hombros, mayor consumo de combustible y riesgo de falla.");
-    } else {
-      findings.push({ icon: "✅", title: "Perfil de presion correcto", detail: "Desgaste equilibrado entre centro y hombros.", severity: "ok" });
-    }
-
-    // 3. Wear rate trend
-    if (insps.length >= 2) {
-      const sorted = [...insps].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-      const first = sorted[0];
-      const firstMin = Math.min(first.profundidadInt, first.profundidadCen, first.profundidadExt);
-      const months = (new Date(last.fecha).getTime() - new Date(first.fecha).getTime()) / (1000 * 60 * 60 * 24 * 30);
-      if (months >= 1) {
-        const rate = (firstMin - minDepth) / months;
-        findings.push({
-          icon: "📉", title: "Tasa de desgaste",
-          detail: `${rate.toFixed(2)}mm/mes en ${months.toFixed(0)} meses (${insps.length} inspecciones).`,
-          severity: rate > 1.5 ? "warn" : "info",
-        });
-        if (rate > 1.5) {
-          recommendations.push(`Tasa de desgaste alta (${rate.toFixed(2)}mm/mes). Normal: 0.5-1.2mm/mes. Revisar condiciones de operacion, peso de carga, velocidad y presion.`);
-        }
-        // Projected retirement
-        const mmToRetire = minDepth - 3;
-        if (mmToRetire > 0 && rate > 0) {
-          const monthsLeft = mmToRetire / rate;
-          const retireDate = new Date(Date.now() + monthsLeft * 30 * 24 * 60 * 60 * 1000);
-          findings.push({
-            icon: "📅", title: "Retiro proyectado",
-            detail: `~${Math.round(monthsLeft)} meses (${retireDate.toLocaleDateString("es-CO", { month: "short", year: "numeric" })}) a 3mm optimo para preservar casco.`,
-            severity: monthsLeft < 2 ? "critical" : monthsLeft < 4 ? "warn" : "info",
-          });
-          if (monthsLeft < 2) {
-            recommendations.push("Esta llanta llegara a retiro optimo en menos de 2 meses. Solicita cotizacion de reencauche o reemplazo ahora.");
-          }
-        }
-      }
-    }
-
-    // 4. Pressure check
-    if (last.presionPsi != null && last.presionRecomendadaPsi != null) {
-      const delta = last.presionPsi - last.presionRecomendadaPsi;
-      if (Math.abs(delta) > 10) {
-        findings.push({
-          icon: delta < 0 ? "🔽" : "🔼",
-          title: delta < 0 ? "Presion baja" : "Presion alta",
-          detail: `${last.presionPsi} PSI vs ${last.presionRecomendadaPsi} PSI recomendada (${delta > 0 ? "+" : ""}${delta.toFixed(0)} PSI).`,
-          severity: Math.abs(delta) > 20 ? "critical" : "warn",
-        });
-        recommendations.push(
-          delta < 0
-            ? `Inflar a ${last.presionRecomendadaPsi} PSI. Baja presion aumenta consumo de combustible ~3% y reduce vida util hasta 25%.`
-            : `Reducir a ${last.presionRecomendadaPsi} PSI. Sobreinflado reduce area de contacto y causa desgaste central acelerado.`
-        );
-      }
-    }
-
-    // 5. CPK trend
-    const cpkValues = insps.filter((i) => i.cpk != null && i.cpk > 0).map((i) => i.cpk!);
-    if (cpkValues.length >= 3) {
-      const recentCpk = cpkValues.slice(-2).reduce((a, b) => a + b, 0) / 2;
-      const olderCpk = cpkValues.slice(0, -2).reduce((a, b) => a + b, 0) / Math.max(1, cpkValues.length - 2);
-      if (recentCpk > olderCpk * 1.15) {
-        findings.push({ icon: "💰", title: "CPK en aumento", detail: `CPK reciente: $${Math.round(recentCpk).toLocaleString("es-CO")} vs historico: $${Math.round(olderCpk).toLocaleString("es-CO")}. Rendimiento economico deteriorandose.`, severity: "warn" });
-        recommendations.push("El costo por kilometro esta subiendo. Evalua si la llanta esta cerca de su vida util optima y si vale la pena continuar o retirar.");
-      }
-    }
-
-    // 6. Reencauche opportunity
-    const currentVida = tire.vida.length ? tire.vida[tire.vida.length - 1].valor : "nueva";
-    if (minDepth <= 4 && minDepth > 2 && currentVida !== "reencauche3" && currentVida !== "fin") {
-      const vidaNum = currentVida === "nueva" ? 0 : currentVida === "reencauche1" ? 1 : currentVida === "reencauche2" ? 2 : 3;
-      if (vidaNum < 3 && shoulderDelta < 2) {
-        findings.push({ icon: "♻️", title: "Candidata a reencauche", detail: `Profundidad ${minDepth.toFixed(1)}mm con desgaste uniforme. Casco en condiciones de ser reencauchado (vida actual: ${currentVida}).`, severity: "info" });
-        recommendations.push("Retirar a 3mm para preservar el casco y enviar a reencauche. Esperar mas alla de 3mm puede dañar el casco e impedir el reencauche.");
-      }
-    }
-
-    // Build insight string
-    const lines: string[] = [];
-    lines.push(`Analisis de llanta ${tire.placa.toUpperCase()} — ${insps.length} inspecciones, salud ${health}%.`);
-    const critCount = findings.filter((f) => f.severity === "critical").length;
-    const warnCount = findings.filter((f) => f.severity === "warn").length;
-    if (critCount > 0) lines.push(`${critCount} hallazgo${critCount > 1 ? "s" : ""} critico${critCount > 1 ? "s" : ""} detectado${critCount > 1 ? "s" : ""}.`);
-    if (warnCount > 0) lines.push(`${warnCount} advertencia${warnCount > 1 ? "s" : ""}.`);
-    if (recommendations.length > 0) lines.push(`Recomendaciones:\n${recommendations.map((r, i) => `${i + 1}. ${r}`).join("\n")}`);
-
-    return { findings, recommendations, insight: lines.join("\n\n") };
-  }, [tire]);
-
-  if (tire.inspecciones.length === 0) return null;
-
-  const sevColors = {
-    ok: { bg: "rgba(34,197,94,0.06)", border: "rgba(34,197,94,0.15)", text: "#22c55e" },
-    warn: { bg: "rgba(249,115,22,0.06)", border: "rgba(249,115,22,0.15)", text: "#f97316" },
-    critical: { bg: "rgba(239,68,68,0.06)", border: "rgba(239,68,68,0.15)", text: "#ef4444" },
-    info: { bg: "rgba(52,140,203,0.06)", border: "rgba(52,140,203,0.15)", text: "#348CCB" },
-  };
-
-  return (
-    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(239,68,68,0.1)", background: "white" }}>
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-3" style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}>
-        <AgentCardHeader agent="sentinel" insight={analysis.insight} />
-        <div>
-          <p className="text-sm font-black text-white">Analisis SENTINEL</p>
-          <p className="text-[10px] text-white/50">
-            {analysis.findings.length} hallazgos &middot; {analysis.recommendations.length} recomendaciones
-          </p>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-3">
-        {/* Findings */}
-        {analysis.findings.map((f, i) => {
-          const c = sevColors[f.severity];
-          return (
-            <div key={i} className="flex items-start gap-3 rounded-xl px-3 py-2.5" style={{ background: c.bg, border: `1px solid ${c.border}` }}>
-              <span className="text-base flex-shrink-0 mt-0.5">{f.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-black" style={{ color: c.text }}>{f.title}</p>
-                <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">{f.detail}</p>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Recommendations */}
-        {analysis.recommendations.length > 0 && (
-          <div className="mt-2 rounded-xl px-4 py-3" style={{ background: "rgba(10,24,58,0.03)", border: "1px solid rgba(10,24,58,0.06)" }}>
-            <p className="text-[10px] font-black uppercase tracking-widest text-[#0A183A] mb-2">Recomendaciones</p>
-            <div className="space-y-2">
-              {analysis.recommendations.map((rec, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className="text-[10px] font-black text-[#1E76B6] mt-0.5 flex-shrink-0">{i + 1}.</span>
-                  <p className="text-[11px] text-gray-700 leading-relaxed">{rec}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
 // TIRE DETAIL MODAL — all tabs fully rendered, no conditional short-circuit
 // =============================================================================
 type ModalTab = "overview" | "inspecciones" | "costos" | "vida";
@@ -1658,20 +1311,17 @@ function TireDetailModal({
         style={{ background: "#f8fafc", boxShadow: "0 32px 80px rgba(10,24,58,0.35)" }}>
 
         {/* Header */}
-        <div className="relative overflow-hidden"
-          style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)" }}>
-          <div className="absolute inset-0 pointer-events-none"
-            style={{ backgroundImage: "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
-          <div className="relative px-4 sm:px-6 py-5">
+        <div className="bg-white" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
+          <div className="px-4 sm:px-6 py-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)" }}>
-                  <Circle className="w-6 h-6 text-white" />
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(10,24,58,0.04)", border: "1px solid rgba(10,24,58,0.08)" }}>
+                  <Circle className="w-5 h-5 text-[#1E76B6]" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-white font-black text-xl leading-none">{tire.placa.toUpperCase()}</h2>
+                    <h2 className="text-[#0A183A] font-black text-xl leading-none tracking-tight">{tire.placa.toUpperCase()}</h2>
                     {condMeta && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                         style={{ background: condMeta.bg, color: condMeta.color }}>
@@ -1679,62 +1329,65 @@ function TireDetailModal({
                       </span>
                     )}
                   </div>
-                  <p className="text-white/60 text-sm mt-0.5">{tire.marca} {tire.diseno} · {tire.dimension}</p>
+                  <p className="text-gray-500 text-sm mt-1">{tire.marca} {tire.diseno} · {tire.dimension}</p>
                   {showOriginalBrand && (
-                    <p className="text-[11px] text-white/50 mt-0.5">
-                      Casco original: <span className="font-bold text-white/80">{originalBrand}</span>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Casco original: <span className="font-bold text-[#173D68]">{originalBrand}</span>
                     </p>
                   )}
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <VidaBadge valor={currentVida} />
-                    <span className="text-white/40 text-[11px]">Posición {tire.posicion} · Eje {tire.eje}</span>
+                    <span className="text-gray-400 text-[11px]">Posición {tire.posicion} · Eje {tire.eje}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button onClick={() => { setEditMode(!editMode); setEditSuccess(""); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
-                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "white" }}>
+                  className={[
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors",
+                    editMode
+                      ? "bg-[#0A183A] text-white"
+                      : "text-[#173D68]/60 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68]",
+                  ].join(" ")}>
                   {editMode ? <><X className="w-3.5 h-3.5" />Cancelar</> : <><Pencil className="w-3.5 h-3.5" />Editar</>}
                 </button>
-                <button onClick={onClose} className="p-1.5 rounded-xl"
-                  style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
-                  <X className="w-4 h-4 text-white" />
+                <button onClick={onClose}
+                  className="p-1.5 rounded-lg text-[#173D68]/50 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68] transition-colors">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4">
               {[
-                { label: "Profundidad Prom.", value: avgDepth ? `${avgDepth.toFixed(1)} mm` : "N/A", color: avgDepth ? depthColor(avgDepth) : "#94a3b8" },
-                { label: "CPK Actual",  value: last?.cpk ? `$${Math.round(last.cpk).toLocaleString("es-CO")}` : "N/A", color: "#60a5fa" },
-                { label: "Km Recorridos", value: tire.kilometrosRecorridos.toLocaleString("es-CO"), color: "#a78bfa" },
-                { label: "Km Proyectados", value: projKm, color: "#34d399" },
+                { label: "Profundidad Prom.", value: avgDepth ? `${avgDepth.toFixed(1)} mm` : "--", color: avgDepth ? depthColor(avgDepth) : "#0A183A" },
+                { label: "CPK Actual",        value: last?.cpk ? `$${Math.round(last.cpk).toLocaleString("es-CO")}` : "--", color: "#0A183A" },
+                { label: "Km Recorridos",     value: tire.kilometrosRecorridos.toLocaleString("es-CO"), color: "#0A183A" },
+                { label: "Km Proyectados",    value: projKm, color: "#0A183A" },
               ].map(k => (
-                <div key={k.label} className="rounded-xl p-2.5 text-center" style={{ background: "rgba(255,255,255,0.07)" }}>
-                  <p className="text-base font-black" style={{ color: k.color }}>{k.value}</p>
-                  <p className="text-[10px] text-white/50 font-semibold mt-0.5">{k.label}</p>
+                <div key={k.label} className="rounded-xl px-3 py-2.5 text-center" style={{ background: "#F8FAFC", border: "1px solid rgba(10,24,58,0.05)" }}>
+                  <p className="text-base font-black tabular-nums" style={{ color: k.color }}>{k.value}</p>
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">{k.label}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex border-t border-white/10">
+          <div className="flex px-2 sm:px-4" style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
                 className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-bold transition-all"
                 style={{
-                  color: activeTab === t.id ? "white" : "rgba(255,255,255,0.45)",
-                  borderBottom: activeTab === t.id ? "2px solid white" : "2px solid transparent",
-                  background: activeTab === t.id ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: activeTab === t.id ? "#0A183A" : "#94a3b8",
+                  borderBottom: activeTab === t.id ? "2px solid #1E76B6" : "2px solid transparent",
                 }}>
                 <t.icon className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="hidden sm:inline">{t.label}</span>
                 {t.count != null && t.count > 0 && (
                   <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full font-black"
-                    style={{ background: activeTab === t.id ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)", color: "white" }}>
+                    style={{ background: activeTab === t.id ? "rgba(30,118,182,0.1)" : "rgba(10,24,58,0.05)", color: activeTab === t.id ? "#1E76B6" : "#94a3b8" }}>
                     {t.count}
                   </span>
                 )}
@@ -1890,9 +1543,6 @@ function TireDetailModal({
                 <WearChart inspecciones={tire.inspecciones} />
                 <CpkChart inspecciones={tire.inspecciones} />
               </div>
-
-              {/* SENTINEL analysis & recommendations */}
-              <SentinelAnalysis tire={tire} />
             </div>
           )}
 
@@ -2102,24 +1752,25 @@ const BuscarPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "#ffff" }}>
+    <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
       {/* Header */}
-      <div className="sticky top-0 z-40 px-3 sm:px-6 py-3 sm:py-4 flex items-center gap-3"
-        style={{ background: "rgba(241,245,249,0.95)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(10,24,58,0.08)" }}>
-        <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}>
-          <Search className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <h1 className="font-black text-[#0A183A] text-base sm:text-lg leading-none tracking-tight">Buscar Llanta</h1>
-          <p className="text-xs text-[#1E76B6] mt-0.5">Análisis por placa de vehículo o ID de llanta</p>
-        </div>
+      <div
+        className="sticky top-0 z-40 px-4 sm:px-6 py-4"
+        style={{
+          background: "rgba(248,250,252,0.85)",
+          backdropFilter: "saturate(180%) blur(14px)",
+          WebkitBackdropFilter: "saturate(180%) blur(14px)",
+          borderBottom: "1px solid rgba(10,24,58,0.06)",
+        }}
+      >
+        <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Buscar Llanta</h1>
+        <p className="text-xs text-[#173D68]/50 mt-1">Análisis por placa de vehículo o ID de llanta</p>
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-5">
         {/* Search */}
         <div className="rounded-2xl p-4 sm:p-5"
-          style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 4px 20px rgba(10,24,58,0.04)" }}>
+          style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}>
           <form onSubmit={handleSearch}>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative sm:w-56 flex-shrink-0">
@@ -2191,7 +1842,7 @@ const BuscarPage: React.FC = () => {
                 const unpositioned = tires.filter((t) => !t.posicion || t.posicion <= 0);
                 return (
                   <div className="rounded-2xl p-4 sm:p-6"
-                    style={{ background: "white", border: "1px solid rgba(52,140,203,0.15)" }}>
+                    style={{ background: "white", border: "1px solid rgba(10,24,58,0.08)", boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)" }}>
                     <VehicleTireGrid
                       tires={tires}
                       configuracion={vehicle.configuracion}

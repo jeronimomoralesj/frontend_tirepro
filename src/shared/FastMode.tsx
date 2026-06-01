@@ -29,6 +29,15 @@ const VEHICLE_TYPES: Record<string, string> = {
   "3_ejes_trailer": "Trailer 3 ejes",
   "1_eje_cabezote": "Cabezote 1 eje",
   furgon: "Furgón",
+  volqueta: "Volqueta",
+  camion_sencillo: "Camión sencillo",
+  doble_troque: "Doble troque",
+  tractomula: "Tractomula",
+  minimula: "Minimula",
+  camioneta: "Camioneta",
+  bus: "Bus",
+  buseta: "Buseta",
+  turbo: "Turbo",
 };
 
 const EJE_OPTIONS = [

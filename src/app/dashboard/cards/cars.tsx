@@ -230,13 +230,20 @@ const CarsPage: React.FC = () => {
   const isCurrentExtrasLoading = currentVehicle ? extrasLoading[currentVehicle.id] || false : false;
 
   return (
-    <div className="w-full bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+    <div
+      className="w-full bg-white rounded-2xl overflow-hidden transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Header */}
-      <div className="bg-[#173D68] text-white p-3 sm:p-4 lg:p-5 flex items-center justify-between">
-        <h2 className="text-lg sm:text-xl font-bold">Vehículos</h2>
+      <div
+        className="p-3 sm:p-4 lg:p-5 flex items-center justify-between"
+        style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}
+      >
+        <h2 className="text-sm font-bold text-[#0A183A]">Vehículos</h2>
         <button
           onClick={() => setIsAddCarOpen(true)}
-          className="bg-[#1E76B6] hover:bg-[#348CCB] text-white p-2 rounded-lg transition-colors duration-200 flex items-center justify-center shrink-0"
+          className="text-[#0A183A] p-2 rounded-lg transition-all duration-200 hover:bg-[#F8FAFC] flex items-center justify-center shrink-0"
+          style={{ background: 'rgba(10,24,58,0.04)', border: '1px solid rgba(10,24,58,0.08)' }}
           title="Añadir Vehículo"
         >
           <Plus size={18} className="sm:w-5 sm:h-5" />

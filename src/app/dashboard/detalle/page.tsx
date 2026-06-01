@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useDeferredValue, startTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, BarChart3, Calendar } from "lucide-react";
+import { Loader2, Calendar, Pencil, ChevronUp, ChevronDown, EyeOff, Eye, RotateCcw } from "lucide-react";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 import LazyMount from "@/shared/LazyMount";
@@ -485,35 +485,88 @@ export default function DetallePage() {
       .filter((v) => v.tireCount > 0);
   }, [vehicles, filtered]);
 
+  // ===========================================================================
+  // Widget layout system — same pattern as resumen
+  // ===========================================================================
+
+  type WidgetDef = { id: string; label: string; fullWidth?: boolean };
+
+  const ALL_WIDGETS: WidgetDef[] = [
+    { id: "semaforo_pie",        label: "Semáforo" },
+    { id: "semaforo_tabla",      label: "Semáforo por Posición", fullWidth: true },
+    { id: "tabla_cpk",           label: "Ranking CPK",          fullWidth: true },
+    { id: "por_marca",           label: "Llantas por Marca" },
+    { id: "por_banda",           label: "Llantas por Banda" },
+    { id: "por_dimension",       label: "Llantas por Dimensión" },
+    { id: "por_vida",            label: "Llantas por Vida" },
+    { id: "promedio_eje",        label: "Profundidad por Eje" },
+    { id: "tipo_vehiculo",       label: "Tipo de Vehículo" },
+    { id: "historic_chart",      label: "Histórico Inspecciones" },
+    { id: "reencauche_hist",     label: "Reencauche Histórico" },
+    { id: "tanque_milimetro",    label: "Tanque Milimétrico" },
+    { id: "proyeccion_vida",     label: "Proyección de Vida" },
+  ];
+
+  const STORAGE_KEY = "tirepro_detalle_layout";
+  type LayoutState = { order: string[]; hidden: string[] };
+  const defaultLayout: LayoutState = { order: ALL_WIDGETS.map((w) => w.id), hidden: [] };
+
+  function loadLayout(): LayoutState {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultLayout;
+      const parsed = JSON.parse(raw) as Partial<LayoutState>;
+      const allIds = new Set(ALL_WIDGETS.map((w) => w.id));
+      const order = (parsed.order ?? []).filter((id: string) => allIds.has(id));
+      ALL_WIDGETS.forEach((w) => { if (!order.includes(w.id)) order.push(w.id); });
+      return { order, hidden: (parsed.hidden ?? []).filter((id: string) => allIds.has(id)) };
+    } catch { return defaultLayout; }
+  }
+
+  const [layout, setLayout] = useState<LayoutState>(defaultLayout);
+  const [editMode, setEditMode] = useState(false);
+  useEffect(() => { setLayout(loadLayout()); }, []);
+
+  function saveLayout(next: LayoutState) { setLayout(next); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {} }
+  function moveWidget(id: string, dir: -1 | 1) { const idx = layout.order.indexOf(id); if (idx < 0) return; const t = idx + dir; if (t < 0 || t >= layout.order.length) return; const n = [...layout.order]; [n[idx], n[t]] = [n[t], n[idx]]; saveLayout({ ...layout, order: n }); }
+  function toggleHidden(id: string) { const h = layout.hidden.includes(id); saveLayout({ ...layout, hidden: h ? layout.hidden.filter((x) => x !== id) : [...layout.hidden, id] }); }
+  function resetLayout() { saveLayout(defaultLayout); }
+
+  const visibleWidgets = layout.order.filter((id) => !layout.hidden.includes(id));
+  const hiddenWidgets = layout.order.filter((id) => layout.hidden.includes(id));
+
   /* -- Render -------------------------------------------------------------- */
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
       {/* -- Header ---------------------------------------------------------- */}
       <div
-        className="sticky top-0 z-40 px-4 sm:px-6 py-4 flex items-center justify-between gap-3"
+        className="sticky top-0 z-40 px-4 sm:px-6 py-4"
         style={{
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(52,140,203,0.15)",
+          background: "rgba(248,250,252,0.85)",
+          backdropFilter: "saturate(180%) blur(14px)",
+          WebkitBackdropFilter: "saturate(180%) blur(14px)",
+          borderBottom: "1px solid rgba(10,24,58,0.06)",
         }}
       >
-        <div className="flex items-center gap-3">
-          <div
-            className="p-2 rounded-xl"
-            style={{ background: "linear-gradient(135deg, #1E76B6, #173D68)" }}
-          >
-            <BarChart3 className="w-5 h-5 text-white" />
-          </div>
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div>
-            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
-              Detalle de Flota
-            </h1>
-            <p className="text-xs text-[#348CCB] mt-0.5 flex items-center gap-1">
+            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">Detalle</h1>
+            <p className="text-xs text-[#173D68]/50 mt-0.5 flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              Actualizado: {new Date().toLocaleDateString("es-CO")}
+              {new Date().toLocaleDateString("es-CO")}
             </p>
           </div>
+          <button
+            onClick={() => setEditMode((v) => !v)}
+            className={[
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors",
+              editMode ? "bg-[#0A183A] text-white" : "text-[#173D68]/60 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68]",
+            ].join(" ")}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{editMode ? "Listo" : "Editar"}</span>
+          </button>
         </div>
       </div>
 
@@ -576,78 +629,72 @@ export default function DetallePage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-10">
-            {/* Each section is wrapped in <LazyMount> so the 12-card tree
-                doesn't all re-aggregate on every filter click. Only the
-                first section paints eagerly; the rest mount as the user
-                scrolls toward them (400px pre-mount margin). For a
-                16k-tire filter toggle, this drops the re-compute from
-                ~300k iterations down to the ~50-80k the visible cards
-                actually need. */}
-
-            <LazyMount eager minHeight={420}>
-              <section>
-                <SectionHeader title="Semaforo" />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <SemaforoPie tires={filtered} language="es" />
-                  <SemaforoTabla vehicles={vehicles} tires={filtered} />
+          <>
+            {/* Hidden widgets restore panel */}
+            {editMode && hiddenWidgets.length > 0 && (
+              <div className="mb-5 rounded-2xl p-4" style={{ border: '1px dashed rgba(10,24,58,0.15)', background: 'rgba(10,24,58,0.02)' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <EyeOff className="w-3.5 h-3.5 text-[#173D68]/40" />
+                  <p className="text-[11px] font-medium text-[#173D68]/50 uppercase tracking-wider">Widgets ocultos</p>
+                  <button onClick={resetLayout} className="ml-auto flex items-center gap-1 text-[11px] font-medium text-[#A374FF] hover:text-[#0A183A] transition-colors">
+                    <RotateCcw className="w-3 h-3" /> Restablecer
+                  </button>
                 </div>
-              </section>
-            </LazyMount>
-
-            <LazyMount minHeight={520}>
-              <section>
-                <SectionHeader title="Analisis CPK" />
-                <TablaCpk tires={filtered as any} />
-              </section>
-            </LazyMount>
-
-            <LazyMount minHeight={360}>
-              <section>
-                <SectionHeader title="Distribucion" />
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  <PorMarca groupData={marcaData} />
-                  <PorBanda groupData={bandaData} />
-                  <PorDimension groupData={dimensionData} />
-                  <PorVida tires={filtered} />
+                <div className="flex flex-wrap gap-2">
+                  {hiddenWidgets.map((id) => { const w = ALL_WIDGETS.find((w) => w.id === id); return w ? (
+                    <button key={id} onClick={() => toggleHidden(id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-[#173D68]/60 hover:text-[#0A183A] hover:bg-white transition-colors" style={{ border: '1px solid rgba(10,24,58,0.08)' }}>
+                      <Eye className="w-3 h-3" /> {w.label}
+                    </button>
+                  ) : null; })}
                 </div>
-              </section>
-            </LazyMount>
+              </div>
+            )}
 
-            <LazyMount minHeight={380}>
-              <section>
-                <SectionHeader title="Analisis por Eje y Vehiculo" />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <PromedioEje
-                    tires={filtered}
-                    onSelectEje={(eje: string | null) => setSelectedEje(eje ?? "")}
-                    selectedEje={selectedEje}
-                  />
-                  <TipoVehiculo vehicles={vehiclesWithCount as any} />
-                </div>
-              </section>
-            </LazyMount>
+            {/* Widget grid */}
+            <div className={`grid grid-cols-1 lg:grid-cols-2 gap-5 ${editMode ? "pt-3" : ""}`} style={editMode ? { overflow: 'visible' } : undefined}>
+              {visibleWidgets.map((id, idx) => {
+                const def = ALL_WIDGETS.find((w) => w.id === id);
+                if (!def) return null;
+                const isFirst = idx === 0;
+                const isLast = idx === visibleWidgets.length - 1;
 
-            <LazyMount minHeight={360}>
-              <section>
-                <SectionHeader title="Tendencias" />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <HistoricChart tires={filtered} language="es" />
-                  <ReencaucheHistorico tires={filtered} language="es" />
-                </div>
-              </section>
-            </LazyMount>
+                const widgetContent = (() => {
+                  switch (id) {
+                    case "semaforo_pie":     return <SemaforoPie tires={filtered} language="es" />;
+                    case "semaforo_tabla":   return <SemaforoTabla vehicles={vehicles} tires={filtered} />;
+                    case "tabla_cpk":        return <TablaCpk tires={filtered as any} />;
+                    case "por_marca":        return <PorMarca groupData={marcaData} />;
+                    case "por_banda":        return <PorBanda groupData={bandaData} />;
+                    case "por_dimension":    return <PorDimension groupData={dimensionData} />;
+                    case "por_vida":         return <PorVida tires={filtered} />;
+                    case "promedio_eje":     return <PromedioEje tires={filtered} onSelectEje={(eje: string | null) => setSelectedEje(eje ?? "")} selectedEje={selectedEje} />;
+                    case "tipo_vehiculo":    return <TipoVehiculo vehicles={vehiclesWithCount as any} />;
+                    case "historic_chart":   return <HistoricChart tires={filtered} language="es" />;
+                    case "reencauche_hist":  return <ReencaucheHistorico tires={filtered} language="es" />;
+                    case "tanque_milimetro": return <TanqueMilimetro tires={filtered} language="es" />;
+                    case "proyeccion_vida":  return <ProyeccionVida tires={filtered} />;
+                    default: return null;
+                  }
+                })();
+                if (!widgetContent) return null;
 
-            <LazyMount minHeight={360}>
-              <section>
-                <SectionHeader title="Profundidad y Proyeccion" />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <TanqueMilimetro tires={filtered} language="es" />
-                  <ProyeccionVida tires={filtered} />
-                </div>
-              </section>
-            </LazyMount>
-          </div>
+                return (
+                  <div key={id} className={`${def.fullWidth ? "lg:col-span-2" : ""} ${editMode ? "relative z-0" : ""}`} style={editMode ? { overflow: 'visible' } : undefined}>
+                    {editMode && (
+                      <div className="absolute flex items-center gap-0.5 rounded-lg p-0.5" style={{ top: -10, right: -4, zIndex: 30, background: 'white', border: '1px solid rgba(10,24,58,0.1)', boxShadow: '0 4px 12px rgba(10,24,58,0.12)' }}>
+                        <button onClick={() => moveWidget(id, -1)} disabled={isFirst} className="p-1.5 rounded-md hover:bg-[#F8FAFC] disabled:opacity-20 transition-colors" title="Mover arriba"><ChevronUp className="w-3.5 h-3.5 text-[#0A183A]" /></button>
+                        <button onClick={() => moveWidget(id, 1)} disabled={isLast} className="p-1.5 rounded-md hover:bg-[#F8FAFC] disabled:opacity-20 transition-colors" title="Mover abajo"><ChevronDown className="w-3.5 h-3.5 text-[#0A183A]" /></button>
+                        <div className="w-px h-4 bg-[#0A183A]/10 mx-0.5" />
+                        <button onClick={() => toggleHidden(id)} className="p-1.5 rounded-md hover:bg-red-50 transition-colors" title="Ocultar"><EyeOff className="w-3.5 h-3.5 text-red-400" /></button>
+                      </div>
+                    )}
+                    {editMode && <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ border: '2px dashed rgba(163,116,255,0.3)', zIndex: 20 }} />}
+                    {widgetContent}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 

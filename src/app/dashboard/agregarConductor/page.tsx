@@ -457,7 +457,7 @@ const UserPlateInspection: React.FC = () => {
       const kmDelta = Math.max(Number(newKilometraje) - vehicleStartingKm, 0);
 
       const conductorTodayStr = new Date().toISOString().split("T")[0];
-      for (const tire of toSubmit) {
+      const payloads = await Promise.all(toSubmit.map(async (tire) => {
         const u = tireUpdates[tire.id];
         const payload: Record<string, unknown> = {
           profundidadInt: Number(u.profundidadInt),
@@ -474,7 +474,10 @@ const UserPlateInspection: React.FC = () => {
           payload.inspeccionadoPorNombre = user.name.trim();
           payload.inspeccionadoPorId = user.id;
         }
+        return { tire, payload };
+      }));
 
+      await Promise.all(payloads.map(async ({ tire, payload }) => {
         const res = await fetch(`${API_BASE}/tires/${tire.id}/inspection`, {
           method: "PATCH",
           headers: authHeaders(),
@@ -484,7 +487,7 @@ const UserPlateInspection: React.FC = () => {
           const b = await res.json().catch(() => ({}));
           throw new Error(b.message ?? `Error al actualizar ${tire.placa}`);
         }
-      }
+      }));
 
       setSuccess(`${toSubmit.length} inspección${toSubmit.length > 1 ? "es" : ""} guardada${toSubmit.length > 1 ? "s" : ""} exitosamente`);
       setSelectedPlate(""); setVehicle(null); setTires([]); setUnionVehiclePlaca(null); setUnionTires([]); setNewKilometraje(0);

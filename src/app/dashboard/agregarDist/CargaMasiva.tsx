@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
-  FilePlus, Upload, Download, Info, ChevronDown, Search,
-  X, AlertTriangle, CheckCircle, Loader2, Layers,
+  Upload, Download, Info, ChevronDown, Search,
+  X, AlertTriangle, CheckCircle, Loader2, Sparkles,
 } from "lucide-react";
-import * as XLSX from "xlsx";
 import RecentBulkUploads from "@/components/RecentBulkUploads";
+import MappingReview from "@/components/bulk/MappingReview";
+import { analyzeBulkFile, uploadBulkFile, type AnalyzeResult } from "@/components/bulk/bulkMapping";
 
 // =============================================================================
 // Types
@@ -49,108 +50,6 @@ const FIELDS = [
 // =============================================================================
 // Helpers
 // =============================================================================
-
-// =============================================================================
-// Header normalisation — mirrors HEADER_MAP_A / HEADER_MAP_B in tire.service.ts
-// so the preview shows OUR canonical column names instead of whatever the user
-// typed in their spreadsheet (e.g. "Pro Cent" → "profundidad_cen").
-// =============================================================================
-
-const HEADER_MAP_A: Record<string, string> = {
-  "llanta": "llanta",
-  "numero de llanta": "llanta",
-  "id": "llanta",
-  "placa vehiculo": "placa_vehiculo",
-  "placa": "placa_vehiculo",
-  "marca": "marca",
-  "diseno": "diseno_original",
-  "diseño": "diseno_original",
-  "dimension": "dimension",
-  "dimensión": "dimension",
-  "eje": "eje",
-  "posicion": "posicion",
-  "vida": "vida",
-  "kilometros llanta": "kilometros_llanta",
-  "kilometraje vehiculo": "kilometros_vehiculo",
-  "profundidad int": "profundidad_int",
-  "profundidad cen": "profundidad_cen",
-  "profundidad ext": "profundidad_ext",
-  "profundidad inicial": "profundidad_inicial",
-  "costo": "costo",
-  "cost": "costo",
-  "precio": "costo",
-  "costo furgon": "costo",
-  "fecha instalacion": "fecha_instalacion",
-  "fecha montaje": "fecha_instalacion",
-  "fecha de montaje": "fecha_instalacion",
-  "fecha inspeccion": "fecha_inspeccion",
-  "fecha ult ins": "fecha_inspeccion",
-  "fecha ult. ins": "fecha_inspeccion",
-  "fecha ultima inspeccion": "fecha_inspeccion",
-  "imageurl": "imageurl",
-  "tipovhc": "tipovhc",
-  "tipo de vehiculo": "tipovhc",
-  "tipo vhc": "tipovhc",
-  "presion psi": "presion_psi",
-  "presión psi": "presion_psi",
-  "presion": "presion_psi",
-};
-
-const HEADER_MAP_B: Record<string, string> = {
-  "tipo de equipo": "tipovhc",
-  "placa": "placa_vehiculo",
-  "km actual": "kilometros_vehiculo",
-  "pos": "posicion",
-  "posicion": "posicion",
-  "# numero de llanta": "llanta",
-  "numero de llanta": "llanta",
-  "diseño": "diseno_original",
-  "diseno": "diseno_original",
-  "marca": "marca",
-  "marca band": "marca_banda",
-  "banda": "banda_name",
-  "dimensión": "dimension",
-  "dimension": "dimension",
-  "prf int": "profundidad_int",
-  "pro cent": "profundidad_cen",
-  "pro ext": "profundidad_ext",
-  "profundidad inicial": "profundidad_inicial",
-  "tipo llanta": "tipollanta",
-  "tipo de llanta": "tipollanta",
-  "eje": "tipollanta",
-  "vida": "vida_override",
-  "fecha ult ins": "fecha_inspeccion",
-  "fecha ult. ins": "fecha_inspeccion",
-  "fecha ultima inspeccion": "fecha_inspeccion",
-  "presion psi": "presion_psi",
-  "presión psi": "presion_psi",
-  "novedad": "novedad",
-  "serie": "serie",
-};
-
-function normaliseKey(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function isFormatB(headers: string[]): boolean {
-  return headers.some((k) => {
-    const n = k.toLowerCase();
-    return n.includes("numero de llanta") || n.includes("tipo de equipo");
-  });
-}
-
-/** Map a raw spreadsheet header to TirePro's canonical field name. */
-function canonicalHeader(raw: string, headers: string[]): string {
-  const map = isFormatB(headers) ? HEADER_MAP_B : HEADER_MAP_A;
-  const key = normaliseKey(raw);
-  return map[key] ?? key.replace(/\s+/g, "_");
-}
-
 
 function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") ?? "" : "";
@@ -213,8 +112,8 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
   const [clientSearch,      setClientSearch]      = useState("");
   const [showInstructions,  setShowInstructions]  = useState(false);
   const [dragging,          setDragging]          = useState(false);
-  const [previewRows,       setPreviewRows]       = useState<Record<string, any>[]>([]);
-  const [previewHeaders,    setPreviewHeaders]    = useState<string[]>([]);
+  const [analyzing,         setAnalyzing]         = useState(false);
+  const [analysis,          setAnalysis]          = useState<AnalyzeResult | null>(null);
   const [recentsVersion,    setRecentsVersion]    = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -253,41 +152,41 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
   }, []);
 
   // -- File handling ----------------------------------------------------------
-  function pickFile(f: File | null) {
+  async function pickFile(f: File | null) {
     if (!f) return;
-    if (!f.name.match(/\.(xlsx|xls)$/i)) {
-      setMessage("Solo se permiten archivos .xlsx o .xls");
+    if (!f.name.match(/\.(xlsx|xls|csv)$/i)) {
+      setMessage("Solo se permiten archivos .xlsx, .xls o .csv");
       setMessageType("error");
       return;
     }
     setFile(f);
     setMessage(undefined);
-    // Parse client-side for preview
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = new Uint8Array(ev.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        if (!ws) { setPreviewRows([]); setPreviewHeaders([]); return; }
-        const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
-        const headers = rows.length ? Object.keys(rows[0]) : [];
-        setPreviewRows(rows);
-        setPreviewHeaders(headers);
-      } catch (err) {
-        console.error("Error parsing xlsx", err);
-        setPreviewRows([]); setPreviewHeaders([]);
-        setMessage("No se pudo leer el archivo. Revisa que sea un .xlsx válido.");
+    setAnalysis(null);
+    setAnalyzing(true);
+    // Send to the backend so the AI maps the columns and flags data errors
+    // before anything is committed.
+    try {
+      const res = await analyzeBulkFile(f);
+      if (!res.headers.length) {
+        setMessage("El archivo está vacío o no se pudo leer.");
         setMessageType("error");
+        setFile(null);
+      } else {
+        setAnalysis(res);
       }
-    };
-    reader.readAsArrayBuffer(f);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "No se pudo analizar el archivo.");
+      setMessageType("error");
+      setFile(null);
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   function clearFile() {
     setFile(null);
-    setPreviewRows([]);
-    setPreviewHeaders([]);
+    setAnalysis(null);
+    setAnalyzing(false);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -312,8 +211,8 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
   }
 
   // -- Submit -----------------------------------------------------------------
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // Called from MappingReview once the distributor confirms the AI mapping.
+  async function handleSubmit(columnMapping: Record<string, string | null>) {
     setMessage(undefined);
 
     if (!file) {
@@ -342,13 +241,7 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
 
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await authFetch(
-        `${API_BASE}/tires/bulk-upload?companyId=${companyId}`,
-        { method: "POST", body: formData }
-      );
+      const res = await uploadBulkFile(file, companyId, { columnMapping });
 
       if (!res.ok) {
         let errMsg = `Error ${res.status} en la carga masiva`;
@@ -591,10 +484,11 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
           )}
         </Card>
 
-        {/* -- Upload form ------------------------------------------------- */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* -- Upload flow ------------------------------------------------- */}
+        <div className="space-y-4">
+          {!analyzing && !analysis && (
           <Card className="p-4 sm:p-5">
-            <CardTitle icon={Upload} title="Archivo Excel" sub="Arrastra o selecciona tu archivo .xlsx / .xls" />
+            <CardTitle icon={Sparkles} title="Sube tu archivo — la IA hace el resto" sub="Cualquier estructura de columnas: la IA detecta y mapea los datos por ti" />
 
             {/* Drop zone */}
             <div
@@ -612,118 +506,52 @@ export default function CargaMasiva({ language = "es" }: CargaMasivaProps) {
               <input
                 ref={inputRef}
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 className="hidden"
                 onChange={e => pickFile(e.target.files?.[0] ?? null)}
               />
 
-              <div
-                className="p-4 rounded-2xl"
-                style={{ background: file ? "rgba(22,163,74,0.1)" : "rgba(30,118,182,0.08)" }}
-              >
-                <Upload
-                  className="w-8 h-8"
-                  style={{ color: file ? "#16a34a" : "#1E76B6" }}
-                />
+              <div className="p-4 rounded-2xl" style={{ background: "rgba(30,118,182,0.08)" }}>
+                <Upload className="w-8 h-8" style={{ color: "#1E76B6" }} />
               </div>
 
-              {file ? (
-                <div className="text-center">
-                  <p className="text-sm font-black text-[#0A183A]">{file.name}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    {(file.size / 1024).toFixed(1)} KB · listo para subir
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <p className="text-sm font-black text-[#0A183A]">Seleccione un archivo Excel</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">o arrastre y suelte aquí</p>
-                </div>
-              )}
+              <div className="text-center">
+                <p className="text-sm font-black text-[#0A183A]">Seleccione un archivo</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">o arrastre y suelte aquí</p>
+              </div>
 
-              <p className="text-[10px] text-gray-400">Formatos permitidos: .xlsx, .xls</p>
+              <p className="text-[10px] text-gray-400">Formatos permitidos: .xlsx, .xls, .csv</p>
             </div>
-
-            {/* Clear file */}
-            {file && (
-              <button
-                type="button"
-                onClick={clearFile}
-                className="mt-3 flex items-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-600 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-                Quitar archivo
-              </button>
-            )}
           </Card>
+          )}
 
-          {/* -- Preview of parsed rows ------------------------------------ */}
-          {previewRows.length > 0 && (
+          {/* Analyzing */}
+          {analyzing && (
             <Card className="p-4 sm:p-5">
-              <CardTitle
-                icon={Layers}
-                title={`Vista previa (${previewRows.length} fila${previewRows.length !== 1 ? "s" : ""})`}
-                sub="Revisa que las columnas y los valores se vean correctos antes de cargar"
-              />
-              <div
-                className="overflow-auto rounded-xl"
-                style={{ border: "1px solid rgba(52,140,203,0.15)", maxHeight: "24rem" }}
-              >
-                <table className="min-w-full text-[11px]">
-                  <thead className="sticky top-0 z-10" style={{ background: "rgba(30,118,182,0.1)", backdropFilter: "blur(4px)" }}>
-                    <tr>
-                      <th className="px-2 py-2 text-left font-black text-[#0A183A] uppercase tracking-wide">#</th>
-                      {previewHeaders.map((h) => {
-                        const canon = canonicalHeader(h, previewHeaders);
-                        return (
-                          <th
-                            key={h}
-                            className="px-2 py-2 text-left font-black text-[#1E76B6] whitespace-nowrap"
-                            title={`Columna original: "${h}"`}
-                          >
-                            {canon}
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewRows.map((r, i) => (
-                      <tr key={i} style={{ borderTop: "1px solid rgba(52,140,203,0.08)" }}>
-                        <td className="px-2 py-1.5 text-gray-400">{i + 1}</td>
-                        {previewHeaders.map((h) => (
-                          <td key={h} className="px-2 py-1.5 text-[#0A183A] whitespace-nowrap">
-                            {String(r[h] ?? "")}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex flex-col items-center justify-center gap-3 py-10">
+                <Loader2 className="w-8 h-8 animate-spin text-[#A374FF]" />
+                <div className="text-center">
+                  <p className="text-sm font-black text-[#0A183A]">Analizando tu archivo con IA…</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Detectando columnas y validando datos</p>
+                </div>
+                {file && <p className="text-[10px] text-gray-400">{file.name}</p>}
               </div>
-              <p className="text-[11px] text-gray-400 mt-2 text-center">
-                Mostrando las {previewRows.length} fila{previewRows.length !== 1 ? "s" : ""} del archivo · pasa el cursor sobre una columna para ver el nombre original
-              </p>
             </Card>
           )}
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading || !file}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
-          >
-            {loading
-              ? <><Loader2 className="w-4 h-4 animate-spin" />Procesando…</>
-              : <><FilePlus className="w-4 h-4" />
-                  {previewRows.length > 0
-                    ? `Confirmar y cargar ${previewRows.length} llanta${previewRows.length !== 1 ? "s" : ""}`
-                    : "Cargar Masivamente"}
-                </>
-            }
-          </button>
-        </form>
+          {/* Mapping review + confirm */}
+          {analysis && !analyzing && (
+            <Card className="p-4 sm:p-5">
+              <MappingReview
+                result={analysis}
+                loading={loading}
+                confirmLabel={`Confirmar y cargar ${analysis.totalRows} llanta${analysis.totalRows !== 1 ? "s" : ""}`}
+                onBack={clearFile}
+                onConfirm={handleSubmit}
+              />
+            </Card>
+          )}
+        </div>
 
         {/* -- Cargas recientes (server-backed, scoped to selected client) -- */}
         {currentCompanyId && (

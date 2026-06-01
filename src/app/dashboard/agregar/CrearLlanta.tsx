@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Circle,
   Search,
   ChevronDown,
   X,
@@ -26,10 +25,6 @@ import {
 import CatalogAutocomplete from "../../../components/CatalogAutocomplete";
 import { VehicleTireGrid } from "../../../components/dashboard/VehicleTireGrid";
 
-// =============================================================================
-// Constants
-// =============================================================================
-
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? `${process.env.NEXT_PUBLIC_API_URL}/api`
   : "https://api.tirepro.com.co/api";
@@ -41,10 +36,6 @@ function authHeaders(): HeadersInit {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
-
-// =============================================================================
-// Types
-// =============================================================================
 
 type Vehicle = {
   id: string;
@@ -100,10 +91,6 @@ const VIDA_OPTIONS = [
   { value: "reencauche3", label: "Tercer Reencauche"  },
 ];
 
-// =============================================================================
-// Helpers
-// =============================================================================
-
 function generateRandomString(length: number): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
@@ -111,7 +98,6 @@ function generateRandomString(length: number): string {
   return result;
 }
 
-/** Fire-and-forget: enrich the catalog with crowdsourced data from this tire */
 async function crowdsourceEnrich(data: {
   marca: string;
   dimension: string;
@@ -130,14 +116,14 @@ async function crowdsourceEnrich(data: {
 }
 
 // =============================================================================
-// Shared primitives — consistent with vehicle page
+// Shared primitives — matches Resumen card style
 // =============================================================================
 
 const inputCls =
-  "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] placeholder-[#93b8d4] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all";
+  "w-full px-3 py-2.5 rounded-lg text-sm text-[#0A183A] bg-white border border-[#0A183A]/[0.08] placeholder-[#0A183A]/30 focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/10 transition-all";
 
 const selectCls =
-  "w-full px-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all appearance-none pr-8";
+  "w-full px-3 py-2.5 rounded-lg text-sm text-[#0A183A] bg-white border border-[#0A183A]/[0.08] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/10 transition-all appearance-none pr-8";
 
 function FieldLabel({
   icon: Icon,
@@ -149,10 +135,10 @@ function FieldLabel({
   required?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-1.5 text-xs font-semibold text-[#173D68] uppercase tracking-wider mb-1.5">
-      <Icon className="w-3.5 h-3.5 text-[#1E76B6]" />
+    <label className="flex items-center gap-1.5 text-[11px] font-semibold text-[#0A183A]/50 uppercase tracking-wider mb-1.5">
+      <Icon className="w-3 h-3 text-[#1E76B6]/50" />
       {label}
-      {required && <span className="text-[#348CCB] font-bold">*</span>}
+      {required && <span className="text-[#1E76B6]">*</span>}
     </label>
   );
 }
@@ -161,54 +147,45 @@ function SelectWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative">
       {children}
-      <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-[#1E76B6]" />
+      <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-[#0A183A]/25" />
     </div>
   );
 }
 
 // =============================================================================
-// Section header
+// Card — matches Resumen CardWrap
 // =============================================================================
 
-function SectionHeader({
-  icon: Icon,
+function Card({
   title,
   subtitle,
+  icon: Icon,
+  children,
 }: {
-  icon: React.ElementType;
   title: string;
   subtitle?: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 mb-5">
+    <div
+      className="bg-white rounded-2xl"
+      style={{
+        border: "1px solid rgba(10,24,58,0.08)",
+        boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)",
+      }}
+    >
       <div
-        className="p-2 rounded-xl flex-shrink-0"
-        style={{ background: "rgba(30,118,182,0.12)" }}
+        className="px-5 py-3.5 flex items-center gap-3"
+        style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}
       >
         <Icon className="w-4 h-4 text-[#1E76B6]" />
+        <div>
+          <h3 className="text-sm font-bold text-[#0A183A]">{title}</h3>
+          {subtitle && <p className="text-[11px] text-[#0A183A]/40 mt-0.5">{subtitle}</p>}
+        </div>
       </div>
-      <div>
-        <p className="text-sm font-bold text-[#0A183A] leading-none">{title}</p>
-        {subtitle && (
-          <p className="text-xs text-[#348CCB] mt-0.5">{subtitle}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// Divider
-// =============================================================================
-
-function SectionDivider({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3 py-1">
-      <div className="flex-1 h-px" style={{ background: "rgba(52,140,203,0.18)" }} />
-      <span className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-[0.15em] whitespace-nowrap">
-        {label}
-      </span>
-      <div className="flex-1 h-px" style={{ background: "rgba(52,140,203,0.18)" }} />
+      <div className="p-5 overflow-visible">{children}</div>
     </div>
   );
 }
@@ -234,7 +211,6 @@ function VehicleSearchDropdown({
   const [open, setOpen]   = useState(false);
   const ref               = useRef<HTMLDivElement>(null);
 
-  // Sync display when external clear is called
   useEffect(() => {
     if (!selected) setQuery("");
   }, [selected]);
@@ -268,7 +244,7 @@ function VehicleSearchDropdown({
   return (
     <div ref={ref} className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-3 w-4 h-4 text-[#1E76B6] pointer-events-none" />
+        <Search className="absolute left-3 top-3 w-4 h-4 text-[#0A183A]/25 pointer-events-none" />
         <input
           type="text"
           value={query}
@@ -289,58 +265,55 @@ function VehicleSearchDropdown({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 top-3 text-[#348CCB] hover:text-[#0A183A] transition-colors"
+            className="absolute right-3 top-3 text-[#0A183A]/30 hover:text-[#0A183A]/60 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         )}
         {!loading && !selected && (
-          <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-[#1E76B6] pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-[#0A183A]/25 pointer-events-none" />
         )}
       </div>
 
-      {/* Selected badge */}
       {selected && (
         <div
-          className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl text-sm"
+          className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
           style={{
-            background: "rgba(30,118,182,0.08)",
-            border: "1px solid rgba(30,118,182,0.25)",
+            background: "rgba(30,118,182,0.06)",
+            border: "1px solid rgba(30,118,182,0.15)",
           }}
         >
           <CheckCircle2 className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
-          <span className="font-black tracking-widest text-[#0A183A] text-sm">
+          <span className="font-bold tracking-widest text-[#0A183A] text-sm">
             {selected.placa.toUpperCase()}
           </span>
-          <span className="text-[#348CCB] text-xs">— {selected.tipovhc}</span>
+          <span className="text-[#0A183A]/40 text-xs">— {selected.tipovhc}</span>
         </div>
       )}
 
-      {/* Dropdown */}
       {open && !loading && (
         <div
-          className="absolute z-50 w-full mt-1.5 rounded-2xl overflow-hidden"
+          className="absolute z-50 w-full mt-1.5 rounded-xl overflow-hidden"
           style={{
             background: "white",
-            border: "1px solid rgba(52,140,203,0.25)",
+            border: "1px solid rgba(10,24,58,0.1)",
             boxShadow: "0 8px 32px rgba(10,24,58,0.12)",
             maxHeight: "240px",
             overflowY: "auto",
           }}
         >
-          {/* No vehicle option */}
           <button
             type="button"
             onClick={handleClear}
-            className="w-full text-left px-4 py-3 text-sm text-[#348CCB] font-medium hover:bg-[#F0F7FF] transition-colors border-b border-[#348CCB]/10"
+            className="w-full text-left px-4 py-3 text-sm text-[#0A183A]/40 font-medium hover:bg-[#0A183A]/[0.02] transition-colors border-b border-[#0A183A]/[0.06]"
           >
             — Sin vehículo (opcional)
           </button>
 
           {filtered.length === 0 ? (
             <div className="px-4 py-6 text-center">
-              <Truck className="w-8 h-8 text-[#348CCB]/30 mx-auto mb-2" />
-              <p className="text-sm text-[#348CCB]">No se encontraron vehículos</p>
+              <Truck className="w-8 h-8 text-[#0A183A]/15 mx-auto mb-2" />
+              <p className="text-sm text-[#0A183A]/35">No se encontraron vehículos</p>
             </div>
           ) : (
             filtered.map((v) => (
@@ -348,12 +321,12 @@ function VehicleSearchDropdown({
                 key={v.id}
                 type="button"
                 onClick={() => handleSelect(v)}
-                className="w-full text-left px-4 py-3 transition-colors border-b border-[#348CCB]/08 last:border-0 hover:bg-[#F0F7FF]"
+                className="w-full text-left px-4 py-3 transition-colors border-b border-[#0A183A]/[0.04] last:border-0 hover:bg-[#1E76B6]/[0.03]"
               >
-                <p className="font-black tracking-widest text-[#0A183A] text-sm">
+                <p className="font-bold tracking-widest text-[#0A183A] text-sm">
                   {v.placa.toUpperCase()}
                 </p>
-                <p className="text-xs text-[#348CCB] mt-0.5">
+                <p className="text-xs text-[#0A183A]/40 mt-0.5">
                   {v.tipovhc} · {v.carga || "sin carga"}
                 </p>
               </button>
@@ -366,7 +339,7 @@ function VehicleSearchDropdown({
 }
 
 // =============================================================================
-// Toast notification
+// Toast
 // =============================================================================
 
 function Toast({
@@ -383,20 +356,18 @@ function Toast({
     <div
       className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium"
       style={{
-        background: isError ? "rgba(10,24,58,0.06)" : "rgba(30,118,182,0.08)",
-        border: isError
-          ? "1px solid rgba(10,24,58,0.2)"
-          : "1px solid rgba(30,118,182,0.3)",
+        background: isError ? "rgba(239,68,68,0.06)" : "rgba(30,118,182,0.06)",
+        border: isError ? "1px solid rgba(239,68,68,0.15)" : "1px solid rgba(30,118,182,0.15)",
         color: "#0A183A",
       }}
     >
       {isError ? (
-        <AlertCircle className="w-4 h-4 text-[#173D68] flex-shrink-0 mt-0.5" />
+        <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
       ) : (
         <CheckCircle2 className="w-4 h-4 text-[#1E76B6] flex-shrink-0 mt-0.5" />
       )}
       <span className="flex-1">{message}</span>
-      <button onClick={onDismiss} className="text-[#348CCB] hover:text-[#0A183A] transition-colors">
+      <button onClick={onDismiss} className="text-[#0A183A]/30 hover:text-[#0A183A]/60 transition-colors">
         <X className="w-4 h-4" />
       </button>
     </div>
@@ -427,10 +398,6 @@ export default function TirePage() {
   };
 } | null>(null);
 
-  // ===========================================================================
-  // Bootstrap
-  // ===========================================================================
-
   useEffect(() => {
     const raw = localStorage.getItem("user");
     if (!raw) { router.push("/login"); return; }
@@ -460,10 +427,6 @@ export default function TirePage() {
     }
   }
 
-  // ===========================================================================
-  // Form helpers
-  // ===========================================================================
-
   function set(field: keyof TireFormData) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { value, type } = e.target as HTMLInputElement;
@@ -478,10 +441,6 @@ export default function TirePage() {
       }));
     };
   }
-
-  // ===========================================================================
-  // Submit
-  // ===========================================================================
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -526,14 +485,12 @@ export default function TirePage() {
       if (!res.ok) {
         throw new Error(body.message ?? "Error al crear llanta");
       }
-      // Duplicate detected — show modal instead of completing
       if (body.duplicate) {
         setDuplicateInfo({ existingTire: body.existingTire });
-        return; // don't reset form, user will confirm
+        return;
       }
       setSuccess("Llanta creada exitosamente");
 
-      // Enrich catalog with this tire's data (fire-and-forget)
       crowdsourceEnrich({
         marca: form.marca.trim(),
         dimension: form.dimension.trim(),
@@ -556,8 +513,7 @@ export default function TirePage() {
   if (!duplicateInfo) return;
   const suggestedPlaca = duplicateInfo.existingTire.suggestedPlaca.toUpperCase();
   setDuplicateInfo(null);
-  
-  // Build and submit directly — don't rely on state flush timing
+
   setError("");
   setSuccess("");
   setSubmitting(true);
@@ -596,7 +552,6 @@ export default function TirePage() {
     if (!res.ok) throw new Error(body.message ?? "Error al crear llanta");
     setSuccess(`Llanta creada como ${suggestedPlaca}`);
 
-    // Enrich catalog with this tire's data (fire-and-forget)
     crowdsourceEnrich({
       marca: form.marca.trim(),
       dimension: form.dimension.trim(),
@@ -615,151 +570,130 @@ export default function TirePage() {
   }
 }
 
-  // ===========================================================================
-  // JSX
-  // ===========================================================================
-
-
   return (
-    <div className="min-h-screen antialiased" style={{ background: "#fff", color: "#0A183A" }}>
-
+    <>
+      {/* Duplicate modal */}
       {duplicateInfo && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-    style={{ background: "rgba(10,24,58,0.55)", backdropFilter: "blur(4px)" }}>
-    <div className="w-full max-w-md rounded-2xl p-6 space-y-5"
-      style={{
-        background: "white",
-        border: "1px solid rgba(52,140,203,0.25)",
-        boxShadow: "0 20px 60px rgba(10,24,58,0.2)",
-      }}>
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="p-2 rounded-xl flex-shrink-0"
-          style={{ background: "rgba(251,191,36,0.15)" }}>
-          <AlertCircle className="w-5 h-5 text-amber-500" />
-        </div>
-        <div>
-          <p className="font-bold text-[#0A183A] text-base">ID de llanta duplicado</p>
-          <p className="text-xs text-[#348CCB] mt-0.5">
-            Ya existe una llanta con este ID en su empresa
-          </p>
-        </div>
-      </div>
-
-      {/* Existing tire card */}
-      <div className="rounded-xl p-4 space-y-2"
-        style={{ background: "#F0F7FF", border: "1px solid rgba(52,140,203,0.2)" }}>
-        <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">
-          Llanta existente
-        </p>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>
-            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">ID</p>
-            <p className="font-black tracking-widest text-[#0A183A]">
-              {duplicateInfo.existingTire.placa.toUpperCase()}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Posición</p>
-            <p className="font-semibold text-[#0A183A]">{duplicateInfo.existingTire.posicion}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Marca</p>
-            <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.marca}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Diseño</p>
-            <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.diseno}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Dimensión</p>
-            <p className="font-semibold text-[#0A183A]">{duplicateInfo.existingTire.dimension}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-[#348CCB] uppercase font-semibold">Eje</p>
-            <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.eje}</p>
-          </div>
-        </div>
-        {/* Vehicle badge */}
-        <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(52,140,203,0.15)" }}>
-          <p className="text-[10px] text-[#348CCB] uppercase font-semibold mb-1">Vehículo asignado</p>
-          {duplicateInfo.existingTire.vehicle ? (
-            <div className="flex items-center gap-2">
-              <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
-              <span className="font-black tracking-widest text-[#0A183A] text-sm">
-                {duplicateInfo.existingTire.vehicle.placa.toUpperCase()}
-              </span>
-              <span className="text-xs text-[#348CCB]">
-                — {duplicateInfo.existingTire.vehicle.tipovhc}
-              </span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(10,24,58,0.45)", backdropFilter: "blur(4px)" }}>
+          <div
+            className="w-full max-w-md rounded-2xl p-6 space-y-5 bg-white"
+            style={{
+              border: "1px solid rgba(10,24,58,0.1)",
+              boxShadow: "0 20px 60px rgba(10,24,58,0.18)",
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl flex-shrink-0 bg-amber-50">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="font-bold text-[#0A183A] text-base">ID de llanta duplicado</p>
+                <p className="text-xs text-[#0A183A]/40 mt-0.5">
+                  Ya existe una llanta con este ID en su empresa
+                </p>
+              </div>
             </div>
-          ) : (
-            <p className="text-sm text-[#348CCB] italic">Sin vehículo asignado</p>
-          )}
+
+            <div
+              className="rounded-xl p-4 space-y-2"
+              style={{ background: "rgba(30,118,182,0.04)", border: "1px solid rgba(10,24,58,0.06)" }}
+            >
+              <p className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-2">
+                Llanta existente
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-[10px] text-[#0A183A]/35 uppercase font-semibold">ID</p>
+                  <p className="font-bold tracking-widest text-[#0A183A]">
+                    {duplicateInfo.existingTire.placa.toUpperCase()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#0A183A]/35 uppercase font-semibold">Posición</p>
+                  <p className="font-semibold text-[#0A183A]">{duplicateInfo.existingTire.posicion}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#0A183A]/35 uppercase font-semibold">Marca</p>
+                  <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.marca}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#0A183A]/35 uppercase font-semibold">Diseño</p>
+                  <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.diseno}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#0A183A]/35 uppercase font-semibold">Dimensión</p>
+                  <p className="font-semibold text-[#0A183A]">{duplicateInfo.existingTire.dimension}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#0A183A]/35 uppercase font-semibold">Eje</p>
+                  <p className="font-semibold text-[#0A183A] capitalize">{duplicateInfo.existingTire.eje}</p>
+                </div>
+              </div>
+              <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(10,24,58,0.06)" }}>
+                <p className="text-[10px] text-[#0A183A]/35 uppercase font-semibold mb-1">Vehículo asignado</p>
+                {duplicateInfo.existingTire.vehicle ? (
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-3.5 h-3.5 text-[#1E76B6]" />
+                    <span className="font-bold tracking-widest text-[#0A183A] text-sm">
+                      {duplicateInfo.existingTire.vehicle.placa.toUpperCase()}
+                    </span>
+                    <span className="text-xs text-[#0A183A]/40">
+                      — {duplicateInfo.existingTire.vehicle.tipovhc}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#0A183A]/35 italic">Sin vehículo asignado</p>
+                )}
+              </div>
+            </div>
+
+            <div
+              className="rounded-xl p-3 flex items-center gap-3"
+              style={{ background: "rgba(30,118,182,0.06)", border: "1px solid rgba(30,118,182,0.12)" }}
+            >
+              <CheckCircle2 className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
+              <p className="text-xs text-[#0A183A]/70">
+                La nueva llanta se guardará con el ID{" "}
+                <span className="font-bold tracking-wider text-[#0A183A]">
+                  {duplicateInfo.existingTire.suggestedPlaca.toUpperCase()}
+                </span>
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDuplicateInfo(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#0A183A]/60 transition-all hover:bg-[#0A183A]/[0.03]"
+                style={{ border: "1px solid rgba(10,24,58,0.1)" }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmDuplicate}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
+                style={{
+                  background: "#0A183A",
+                  boxShadow: "0 2px 8px rgba(10,24,58,0.2)",
+                }}
+              >
+                Guardar como {duplicateInfo.existingTire.suggestedPlaca.toUpperCase()}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Suggested resolution */}
-      <div className="rounded-xl p-3 flex items-center gap-3"
-        style={{ background: "rgba(30,118,182,0.07)", border: "1px solid rgba(30,118,182,0.2)" }}>
-        <CheckCircle2 className="w-4 h-4 text-[#1E76B6] flex-shrink-0" />
-        <p className="text-xs text-[#173D68]">
-          La nueva llanta se guardará con el ID{" "}
-          <span className="font-black tracking-wider">
-            {duplicateInfo.existingTire.suggestedPlaca.toUpperCase()}
-          </span>
-        </p>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={() => setDuplicateInfo(null)}
-          className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[#173D68] transition-all hover:bg-[#F0F7FF]"
-          style={{ border: "1px solid rgba(52,140,203,0.3)" }}>
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={confirmDuplicate}
-          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-          style={{
-            background: "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)",
-            boxShadow: "0 4px 16px rgba(30,118,182,0.3)",
-          }}>
-          Guardar como {duplicateInfo.existingTire.suggestedPlaca.toUpperCase()}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-      {/* Content */}
-      <div className="px-4 py-8 max-w-3xl mx-auto">
-
-        {/* Notifications */}
-        <div className="space-y-3 mb-6">
-          {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
-          {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
-        </div>
+      {/* Main form */}
+      <div className="space-y-3">
+        {error   && <Toast type="error"   message={error}   onDismiss={() => setError("")}   />}
+        {success && <Toast type="success" message={success} onDismiss={() => setSuccess("")} />}
 
         <form id="tire-form" onSubmit={handleSubmit} className="space-y-4">
 
-          {/* -- Vehicle selector --------------------------------------------- */}
-          <div
-            className="rounded-2xl p-5"
-            style={{
-              background: "white",
-              border: "1px solid rgba(52,140,203,0.18)",
-              boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
-            }}
-          >
-            <SectionHeader
-              icon={Truck}
-              title="Vehículo"
-              subtitle="Seleccione el vehículo para asociar la llanta (opcional)"
-            />
+          <Card icon={Truck} title="Vehículo" subtitle="Asociar llanta a un vehículo (opcional)">
             <VehicleSearchDropdown
               vehicles={vehicles}
               loading={loadingVehicles}
@@ -767,49 +701,26 @@ export default function TirePage() {
               onSelect={setSelected}
               onClear={() => setSelected(null)}
             />
-            {/* Visual position picker — shows occupied (green) vs missing
-                (dashed grey) positions for the chosen vehicle so the
-                operator can see at a glance where this new tire should
-                go. Clicking a position fills the form's posicion field;
-                clicking an occupied one prompts to move that tire to
-                inventory before claiming the spot. */}
             <VehicleTireGrid
               vehicle={selectedVehicle}
               selectedPosition={form.posicion}
               onSelectPosition={(pos) => setForm((f) => ({ ...f, posicion: pos }))}
             />
-          </div>
+          </Card>
 
-          {/* -- Identification ----------------------------------------------- */}
-          <div
-            className="rounded-2xl p-5 space-y-4"
-            style={{
-              background: "white",
-              border: "1px solid rgba(52,140,203,0.18)",
-              boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
-            }}
-          >
-            <SectionHeader
-              icon={Hash}
-              title="Identificación"
-              subtitle="Datos de identidad de la llanta"
-            />
-
+          <Card icon={Hash} title="Identificación" subtitle="Datos de identidad de la llanta">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Tire ID */}
               <div>
                 <FieldLabel icon={Hash} label="ID de la Llanta" />
                 <input
                   type="text"
                   value={form.tirePlaca}
                   onChange={set("tirePlaca")}
-                  placeholder="Dejar vacío para generar automático"
+                  placeholder="Auto-generado si vacío"
                   className={inputCls}
                   style={{ textTransform: "uppercase" }}
                 />
               </div>
-
-              {/* Posición */}
               <div>
                 <FieldLabel icon={MapPin} label="Posición" required />
                 <input
@@ -822,8 +733,6 @@ export default function TirePage() {
                   className={inputCls}
                 />
               </div>
-
-              {/* Marca */}
               <div>
                 <FieldLabel icon={Tag} label="Marca" required />
                 <CatalogAutocomplete
@@ -844,8 +753,6 @@ export default function TirePage() {
                   className={inputCls}
                 />
               </div>
-
-              {/* Diseño */}
               <div>
                 <FieldLabel icon={Layers} label="Diseño / Banda" required />
                 <CatalogAutocomplete
@@ -880,25 +787,10 @@ export default function TirePage() {
                 />
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* -- Technical specs ---------------------------------------------- */}
-          <div
-            className="rounded-2xl p-5 space-y-4"
-            style={{
-              background: "white",
-              border: "1px solid rgba(52,140,203,0.18)",
-              boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
-            }}
-          >
-            <SectionHeader
-              icon={Gauge}
-              title="Especificaciones Técnicas"
-              subtitle="Medidas y configuración del eje"
-            />
-
+          <Card icon={Gauge} title="Especificaciones" subtitle="Medidas y configuración del eje">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Profundidad Inicial */}
               <div>
                 <FieldLabel icon={Gauge} label="Profundidad Inicial (mm)" required />
                 <input
@@ -912,8 +804,6 @@ export default function TirePage() {
                   className={inputCls}
                 />
               </div>
-
-              {/* Dimensión */}
               <div>
                 <FieldLabel icon={Ruler} label="Dimensión" required />
                 <CatalogAutocomplete
@@ -947,8 +837,6 @@ export default function TirePage() {
                   className={inputCls}
                 />
               </div>
-
-              {/* Eje */}
               <div>
                 <FieldLabel icon={Navigation} label="Eje" required />
                 <SelectWrapper>
@@ -964,8 +852,6 @@ export default function TirePage() {
                   </select>
                 </SelectWrapper>
               </div>
-
-              {/* Vida */}
               <div>
                 <FieldLabel icon={RefreshCw} label="Vida" required />
                 <SelectWrapper>
@@ -982,25 +868,10 @@ export default function TirePage() {
                 </SelectWrapper>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* -- Operational data --------------------------------------------- */}
-          <div
-            className="rounded-2xl p-5 space-y-4"
-            style={{
-              background: "white",
-              border: "1px solid rgba(52,140,203,0.18)",
-              boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
-            }}
-          >
-            <SectionHeader
-              icon={Milestone}
-              title="Datos Operacionales"
-              subtitle="Kilometraje y costo de la llanta"
-            />
-
+          <Card icon={Milestone} title="Datos Operacionales" subtitle="Kilometraje y costo">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Kilómetros */}
               <div>
                 <FieldLabel icon={Milestone} label="Kilómetros Recorridos" />
                 <input
@@ -1012,8 +883,6 @@ export default function TirePage() {
                   className={inputCls}
                 />
               </div>
-
-              {/* Costo */}
               <div>
                 <FieldLabel icon={DollarSign} label="Costo" required />
                 <input
@@ -1028,22 +897,21 @@ export default function TirePage() {
                 />
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* -- Submit ------------------------------------------------------- */}
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              background: "linear-gradient(135deg, #1E76B6 0%, #173D68 100%)",
-              boxShadow: "0 4px 20px rgba(30,118,182,0.35)",
+              background: "#0A183A",
+              boxShadow: "0 2px 8px rgba(10,24,58,0.2)",
             }}
           >
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Creando Llanta…
+                Creando Llanta...
               </>
             ) : (
               <>
@@ -1055,6 +923,6 @@ export default function TirePage() {
 
         </form>
       </div>
-    </div>
+    </>
   );
 }

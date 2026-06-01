@@ -8,18 +8,19 @@ import {
 } from "./inspectionsDayReportPdf";
 
 // -----------------------------------------------------------------------------
-// Inspections-of-the-day report card
+// Inspections report card
 //
 // Drop-in section for /dashboard/resumen (and the distribuidor view) — picks a
-// date, calls the aggregating endpoint, and pipes the result to the shared
-// client-side PDF generator. Changing the date triggers a debounced preview
-// fetch so the user sees the headline counts (vehicles inspected, tires)
-// before deciding whether to commit to a PDF.
+// date RANGE, calls the aggregating endpoint, and pipes the result to the
+// shared client-side PDF generator. Changing either date triggers a debounced
+// preview fetch so the user sees the headline counts (vehicles, tires) before
+// committing to a PDF.
 //
 // `companyId` is the report's scope. For pro accounts that's the user's own
-// company; for distribuidores it's the picked client (or their own — backend
-// expands DistributorAccess either way, so we just pass whatever the host
-// currently has selected).
+// company; for distribuidores it's the picked client. When the logged-in
+// user's own company differs from the report scope, we pass it as
+// `distributorId` so the backend can co-brand the PDF with the distributor's
+// logo (it independently validates the access before honoring the hint).
 // -----------------------------------------------------------------------------
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL
@@ -44,6 +45,17 @@ function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Own company id from the stored user — used as the distributor branding hint. */
+function ownCompanyId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const u = JSON.parse(localStorage.getItem("user") ?? "{}");
+    return typeof u?.companyId === "string" ? u.companyId : null;
+  } catch {
+    return null;
+  }
+}
+
 type Preview = {
   vehicles: number;
   tires: number;
@@ -55,7 +67,8 @@ export default function InspectionsDayReportCard({
 }: {
   companyId: string | null | undefined;
 }) {
-  const [date, setDate]                = useState<string>(todayIso());
+  const [from, setFrom]                = useState<string>(todayIso());
+  const [to, setTo]                    = useState<string>(todayIso());
   // Cache the last fetched report so "Descargar" doesn't re-hit the API
   // immediately after the preview just hit it.
   const [report, setReport]            = useState<InspectionsDayReport | null>(null);
@@ -65,11 +78,11 @@ export default function InspectionsDayReportCard({
   const [error, setError]              = useState<string>("");
   const [info, setInfo]                = useState<string>("");
 
-  // Debounced preview fetch — fires whenever the user picks a new date or
-  // the company changes. We keep the response in state so the download
-  // button can reuse it without a second round-trip.
+  // Debounced preview fetch — fires whenever the user changes either date or
+  // the company. We keep the response in state so the download button can
+  // reuse it without a second round-trip.
   useEffect(() => {
-    if (!companyId || !date) {
+    if (!companyId || !from || !to) {
       setReport(null);
       setPreview(null);
       return;
@@ -82,8 +95,11 @@ export default function InspectionsDayReportCard({
     setPreviewing(true);
     const t = setTimeout(async () => {
       try {
+        const distId = ownCompanyId();
+        const params = new URLSearchParams({ companyId, from, to });
+        if (distId && distId !== companyId) params.set("distributorId", distId);
         const res = await authFetch(
-          `${API_BASE}/tires/inspections-day-report?companyId=${encodeURIComponent(companyId)}&date=${encodeURIComponent(date)}`,
+          `${API_BASE}/tires/inspections-day-report?${params.toString()}`,
         );
         if (!res.ok) {
           const body = await res.json().catch(() => ({} as { message?: string }));
@@ -93,7 +109,7 @@ export default function InspectionsDayReportCard({
         if (cancelled) return;
         setReport(data);
         if (data.totals.totalTires === 0) {
-          setInfo("No hay inspecciones registradas en esa fecha");
+          setInfo("No hay inspecciones registradas en ese rango de fechas");
           setPreview(null);
         } else {
           setPreview({
@@ -109,7 +125,7 @@ export default function InspectionsDayReportCard({
       }
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [companyId, date]);
+  }, [companyId, from, to]);
 
   async function handleDownload() {
     if (!report || report.totals.totalTires === 0) return;
@@ -126,46 +142,57 @@ export default function InspectionsDayReportCard({
   const canDownload = !!report && report.totals.totalTires > 0 && !previewing && !downloading;
 
   return (
-    <div className="relative w-full bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="bg-[#173D68] text-white p-4 sm:p-5 flex items-center gap-3">
-        <FileText className="w-5 h-5 flex-shrink-0" />
-        <div>
-          <h2 className="text-base sm:text-lg font-bold">Reporte de inspecciones del día</h2>
-          <p className="text-xs text-blue-100 mt-0.5">
-            Selecciona una fecha para ver el resumen y descargar el PDF.
+    <div
+      className="w-full bg-white rounded-2xl overflow-hidden transition-all duration-200"
+      style={{
+        border: "1px solid rgba(10,24,58,0.08)",
+        boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)",
+      }}
+    >
+      {/* Header — matches the dashboard card design system */}
+      <div
+        className="flex items-center gap-2.5 px-4 sm:px-5 py-3.5"
+        style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}
+      >
+        <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(163,116,255,0.08)" }}>
+          <FileText className="h-3.5 w-3.5 text-[#A374FF]" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold text-[#0A183A] leading-none">Reporte de inspecciones</h2>
+          <p className="text-[11px] text-[#0A183A]/40 mt-1">
+            Elige un rango de fechas y descarga el PDF
           </p>
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-end gap-3">
-        <div className="flex-1 min-w-0">
-          <label className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1.5 block">
-            Fecha
-          </label>
-          <div className="relative">
-            <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="date"
-              value={date}
-              max={todayIso()}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 border border-[#348CCB]/30 rounded-xl text-sm text-[#0A183A] bg-[#F0F7FF] focus:outline-none focus:border-[#1E76B6] focus:ring-2 focus:ring-[#1E76B6]/20 transition-all"
-            />
-          </div>
-        </div>
+      {/* Date range + download */}
+      <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-end gap-3">
+        <DateField
+          label="Desde"
+          value={from}
+          max={to || todayIso()}
+          onChange={(v) => setFrom(v)}
+        />
+        <DateField
+          label="Hasta"
+          value={to}
+          min={from || undefined}
+          max={todayIso()}
+          onChange={(v) => setTo(v)}
+        />
         <button
           type="button"
           disabled={!canDownload}
           onClick={handleDownload}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all hover:opacity-90"
-          style={{ background: "linear-gradient(135deg,#1E76B6,#173D68)" }}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all hover:opacity-90 active:scale-[0.99] shrink-0"
+          style={{ background: "linear-gradient(135deg,#1E76B6,#0A183A)" }}
         >
           {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {downloading ? "Generando…" : "Descargar PDF"}
         </button>
       </div>
 
-      <div className="px-4 sm:px-6 pb-4 min-h-[36px]">
+      <div className="px-4 sm:px-5 pb-4 min-h-[36px]">
         {previewing && (
           <p className="text-xs text-gray-400 flex items-center gap-1.5">
             <Loader2 className="w-3 h-3 animate-spin" /> Cargando resumen…
@@ -183,8 +210,8 @@ export default function InspectionsDayReportCard({
           <p className="text-xs text-gray-500 italic">{info}</p>
         )}
 
-        {/* Preview chips — give the user a "we have data for this day"
-            confirmation before they commit to generating the full PDF. */}
+        {/* Preview chips — confirm there's data for the range before
+            committing to the full PDF. */}
         {!previewing && !error && preview && (
           <div className="flex flex-wrap gap-2">
             <Stat
@@ -213,6 +240,40 @@ export default function InspectionsDayReportCard({
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  min?: string;
+  max?: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex-1 min-w-0">
+      <label className="text-[10px] font-bold text-[#1E76B6] uppercase tracking-wider mb-1.5 block">
+        {label}
+      </label>
+      <div className="relative">
+        <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <input
+          type="date"
+          value={value}
+          min={min}
+          max={max}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm text-[#0A183A] bg-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#1E76B6]/20 transition-all"
+          style={{ border: "1px solid rgba(10,24,58,0.1)" }}
+        />
       </div>
     </div>
   );

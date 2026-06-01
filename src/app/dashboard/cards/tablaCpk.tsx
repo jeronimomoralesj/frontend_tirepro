@@ -354,33 +354,32 @@ const TablaCpk: React.FC<TablaCpkProps> = ({ tires }) => {
   }
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden w-full"
-      style={{ borderColor: "rgba(10,24,58,0.09)", boxShadow: "0 2px 12px rgba(10,24,58,0.05)" }}>
-
+    <div
+      className="bg-white rounded-2xl overflow-hidden w-full transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Header */}
-      <div className="px-4 py-4"
-        style={{ background: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)" }}>
+      <div className="px-4 py-4" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
         <div className="flex items-center justify-between gap-2 mb-4">
           <div>
-            <h2 className="text-white font-black text-base tracking-tight">Ranking CPK</h2>
-            <p className="text-white/50 text-xs mt-0.5">
+            <h2 className="text-sm font-bold text-[#0A183A] tracking-tight">Ranking CPK</h2>
+            <p className="text-[#173D68]/40 text-[11px] mt-0.5">
               {activeVida === "nueva"
                 ? "Agrupado por marca · dimensión · diseño"
                 : "Agrupado por marca · dimensión · banda"}
             </p>
           </div>
           <div className="relative sm:w-52">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#173D68]/30 pointer-events-none" />
             <input
               type="text"
               placeholder="Buscar…"
               value={search}
               onChange={e => { setSearch(e.target.value); setExpanded(null); }}
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl focus:outline-none focus:ring-1"
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl text-[#0A183A] focus:outline-none focus:ring-2 focus:ring-[#0A183A]/[0.06]"
               style={{
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "white",
+                background: "#F8FAFC",
+                border: "1px solid rgba(10,24,58,0.08)",
               }}
             />
           </div>

@@ -192,22 +192,19 @@ const DetallesLlantas: React.FC<DetallesLlantasProps> = ({ tires, vehicles }) =>
 
   return (
     <div
-      className="bg-white rounded-2xl border border-gray-100 w-full min-w-0"
-      style={{
-        boxShadow: "0 4px 24px rgba(10,24,58,0.06)",
-        overflow: "hidden",
-      }}
+      className="bg-white rounded-2xl w-full min-w-0 overflow-hidden transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
     >
       {/* Header */}
       <div
-        className="px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2"
-        style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)" }}
+        className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2"
+        style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
-            <Table2 size={16} className="text-white" />
+          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(163,116,255,0.08)" }}>
+            <Table2 size={14} className="text-[#A374FF]" />
           </div>
-          <h2 className="text-sm sm:text-base lg:text-lg font-bold text-white truncate">{T.title}</h2>
+          <h2 className="text-sm font-bold text-[#0A183A] truncate">{T.title}</h2>
         </div>
         <button
           onClick={exportToExcel}
@@ -417,7 +414,7 @@ function TireCard({ tire, vehiclePlaca }: { tire: Tire; vehiclePlaca: string }) 
           {/* Position badge */}
           <div
             className="w-10 h-10 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #0A183A, #1E76B6)" }}
+            style={{ background: "linear-gradient(135deg, #0A183A, #173D68)" }}
           >
             <span className="text-[8px] text-white/70 uppercase font-bold leading-none">Pos</span>
             <span className="text-sm font-black text-white leading-tight">{tire.posicion}</span>

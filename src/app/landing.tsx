@@ -9,7 +9,6 @@ import {
   Download,
   ArrowRight,
   Check,
-  ChevronDown,
   Zap,
   DollarSign,
   Target,
@@ -24,15 +23,13 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import PublicNav from '../components/PublicNav'
-import AxonTeaser from '../components/axon/AxonTeaser'
 import phoneImage from '../../public/phoneImg.png'
-import feature1 from '../../public/feat1.png'
-import feature2 from '../../public/feat1.png'
 import Link from 'next/link'
 import ScrollFlow from '../components/ScrollFlow'
 import { productHref } from './marketplace/product/_lib/url'
 import HeroVisual from '../components/HeroVisual'
-import { RecomendacionesMock, BodegaMock } from '../components/FeatureMockups'
+import TireProAIDemo from '../components/TireProAIDemo'
+import TireProFlowDemo from '../components/TireProFlowDemo'
 
 interface Article {
   id: string | number
@@ -64,282 +61,6 @@ function useInView(threshold = 0.15) {
   return { ref, visible }
 }
 
-// --- Feature data --------------------------------------------------------------
-const SHOWCASE_FEATURES = [
-  {
-    id:       'recomendaciones',
-    tag:      'Decisiones inteligentes',
-    heading:  'Sabe exactamente qué llanta cambiar, cuándo y por qué',
-    body:     'TirePro clasifica automáticamente cada neumático por prioridad: reencauche, llanta nueva o seguimiento. Para cada caso encuentra la llanta óptima según marca, diseño, posición en el vehículo y el historial de desgaste de esa misma posición. Cero subjetividad.',
-    bullets:  [
-      'Semáforo de condición: crítico, precaución o apto',
-      'Recomendación individual por llanta y posición',
-      'Sugerencia de llanta óptima de reemplazo o reencauche',
-      'Ahorro estimado por cada decisión, en pesos COP',
-    ],
-    // ← Replace feat1.png in /public with your actual screenshot
-    image:    feature1,
-    imageAlt: 'Pantalla de recomendaciones de TirePro mostrando clasificación de llantas por prioridad de reemplazo o reencauche para flotas de camiones en Colombia',
-    accent:   '#1E76B6',
-  },
-  {
-    id:       'bodega',
-    tag:      'Gestión de inventario',
-    heading:  'Compara tus llantas en uso con lo que tienes en bodega',
-    body:     'TirePro cruza las necesidades de reemplazo de tu flota con el inventario disponible en tu bodega. Sabe al instante si puedes cubrir tus demandas con stock propio o si necesitas comprar llantas adicionales — y cuántas.',
-    bullets:  [
-      'Inventario de llantas en bodega centralizado',
-      'Cruce automático con necesidades de reemplazo activas',
-      'Alerta de déficit: cuántas llantas necesitas comprar',
-      'Historial de entradas y salidas de bodega',
-    ],
-    // ← Replace feat2.png in /public with your actual screenshot
-    image:    feature2,
-    imageAlt: 'Módulo de bodega de TirePro comparando inventario de llantas disponibles contra necesidades de reemplazo de la flota colombiana',
-    accent:   '#173D68',
-  },
-]
-
-// --- FeatureShowcase component -------------------------------------------------
-function FeatureShowcase() {
-  const [activeTab, setActiveTab] = useState(0)
-  const { ref, visible } = useInView(0.1)
-
-  const feature = SHOWCASE_FEATURES[activeTab]
-
-  return (
-    <section
-      id="beneficios"
-      ref={ref}
-      className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #0A183A 0%, #0d2244 100%)' }}
-      aria-labelledby="showcase-heading"
-    >
-      <div className="max-w-6xl mx-auto">
-
-        {/* Header */}
-        <div
-          className="text-center mb-14 sm:mb-18 transition-all duration-700"
-          style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(24px)' }}
-        >
-          <p
-            className="text-xs font-semibold tracking-widest uppercase mb-4"
-            style={{ color: '#1E76B6', letterSpacing: '0.16em' }}
-          >
-            Funcionalidades clave
-          </p>
-          <h2
-            id="showcase-heading"
-            className="font-bold leading-tight mb-5 text-white"
-            style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)' }}
-          >
-            Decisiones de llantas basadas
-            <br />
-            <span style={{ color: '#62b8f0' }}>en datos, no en intuición</span>
-          </h2>
-          <p className="text-base max-w-2xl mx-auto" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Desde la recomendación de reemplazo hasta el control de bodega — TirePro centraliza cada decisión de neumáticos para tu flota de camiones, buses y tractocamiones en Colombia.
-          </p>
-        </div>
-
-        {/* Tab switcher */}
-        <div
-          className="flex justify-center mb-10 transition-all duration-700"
-          style={{
-            opacity:   visible ? 1 : 0,
-            transform: visible ? 'translateY(0)' : 'translateY(16px)',
-            transitionDelay: '100ms',
-          }}
-        >
-          <div
-            className="inline-flex rounded-full p-1 gap-1"
-            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
-            role="tablist"
-            aria-label="Funcionalidades de TirePro"
-          >
-            {SHOWCASE_FEATURES.map((f, i) => (
-              <button
-                key={f.id}
-                role="tab"
-                aria-selected={activeTab === i}
-                onClick={() => setActiveTab(i)}
-                className="px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300"
-                style={{
-                  background:   activeTab === i ? '#1E76B6' : 'transparent',
-                  color:        activeTab === i ? '#ffffff' : 'rgba(255,255,255,0.5)',
-                  boxShadow:    activeTab === i ? '0 4px 16px rgba(30,118,182,0.4)' : 'none',
-                }}
-              >
-                {f.tag}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Main feature card */}
-        <div
-          className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center transition-all duration-700"
-          style={{
-            opacity:   visible ? 1 : 0,
-            transform: visible ? 'translateY(0)' : 'translateY(32px)',
-            transitionDelay: '200ms',
-          }}
-        >
-          {/* Text side */}
-          <div
-            className="transition-all duration-500"
-            style={{ opacity: 1 }}
-            key={activeTab + '-text'}
-          >
-            {/* Animated accent line */}
-            <div
-              className="w-10 h-1 rounded-full mb-6"
-              style={{ background: 'linear-gradient(90deg, #1E76B6, #62b8f0)' }}
-              aria-hidden="true"
-            />
-            <h3
-              className="font-bold leading-tight mb-5 text-white"
-              style={{ fontSize: 'clamp(1.4rem, 2.5vw, 2rem)' }}
-            >
-              {feature.heading}
-            </h3>
-            <p className="text-base leading-relaxed mb-7" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              {feature.body}
-            </p>
-            <ul className="space-y-3 mb-10">
-              {feature.bullets.map((b, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-3 transition-all duration-300"
-                  style={{
-                    transitionDelay: `${i * 60}ms`,
-                    opacity: visible ? 1 : 0,
-                    transform: visible ? 'translateX(0)' : 'translateX(-12px)',
-                  }}
-                >
-                  <div
-                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: '#1E76B6' }}
-                  >
-                    <Check size={11} className="text-white" />
-                  </div>
-                  <span className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>{b}</span>
-                </li>
-              ))}
-            </ul>
-            <a href="/signup">
-              <button
-                className="text-white px-7 py-3.5 rounded-full font-semibold text-sm transition-all inline-flex items-center gap-2"
-                style={{ background: '#1E76B6', boxShadow: '0 4px 20px rgba(30,118,182,0.35)' }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#173D68'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = '#1E76B6'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                }}
-              >
-                Ver demo gratis <ArrowRight size={16} />
-              </button>
-            </a>
-          </div>
-
-          {/* Image side */}
-          <figure
-            className="relative transition-all duration-500"
-            key={activeTab + '-image'}
-          >
-            {/* Glow behind image */}
-            <div
-              className="absolute -inset-4 rounded-3xl pointer-events-none"
-              style={{ background: 'radial-gradient(ellipse at center, rgba(30,118,182,0.22) 0%, transparent 70%)' }}
-              aria-hidden="true"
-            />
-
-            {/* Browser chrome frame */}
-            <div
-              className="relative rounded-2xl overflow-hidden"
-              style={{
-                border:     '1px solid rgba(30,118,182,0.25)',
-                boxShadow:  '0 32px 80px rgba(0,0,0,0.55)',
-                background: '#0A183A',
-              }}
-            >
-              {/* Top bar */}
-              <div
-                className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
-                style={{ background: 'rgba(10,24,58,0.95)', borderBottom: '1px solid rgba(30,118,182,0.12)' }}
-              >
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/70"   aria-hidden="true" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" aria-hidden="true" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/70"  aria-hidden="true" />
-                <div
-                  className="ml-3 text-xs font-mono flex-1"
-                  style={{ color: 'rgba(255,255,255,0.25)' }}
-                >
-                  tirepro.com.co — {feature.tag}
-                </div>
-              </div>
-
-              {/* Live mockup of the actual product UI */}
-              <div className="w-full" style={{ aspectRatio: '16/11' }}>
-                {activeTab === 0 ? <RecomendacionesMock /> : <BodegaMock />}
-              </div>
-            </div>
-
-            <figcaption className="sr-only">{feature.imageAlt}</figcaption>
-          </figure>
-        </div>
-
-        {/* Bottom mini-cards — quick stats for each feature */}
-        <div
-          className="mt-14 grid sm:grid-cols-3 gap-4 transition-all duration-700"
-          style={{
-            opacity:   visible ? 1 : 0,
-            transform: visible ? 'translateY(0)' : 'translateY(20px)',
-            transitionDelay: '400ms',
-          }}
-        >
-          {[
-            { stat: '2 min', label: 'Para generar recomendaciones de toda la flota', icon: Zap },
-            { stat: '100%', label: 'De llantas clasificadas con prioridad de acción', icon: Target },
-            { stat: '$0',   label: 'Costo de decisiones incorrectas con TirePro', icon: DollarSign },
-          ].map((item, i) => (
-            <div
-              key={i}
-              className="p-5 rounded-2xl flex items-center gap-4 transition-all duration-200"
-              style={{
-                background:  'rgba(255,255,255,0.04)',
-                border:      '1px solid rgba(255,255,255,0.07)',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLDivElement).style.background = 'rgba(30,118,182,0.1)'
-                ;(e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(30,118,182,0.3)'
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'
-                ;(e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)'
-              }}
-            >
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(30,118,182,0.2)' }}
-              >
-                <item.icon size={18} style={{ color: '#62b8f0' }} />
-              </div>
-              <div>
-                <div className="text-xl font-black text-white" style={{ letterSpacing: '-0.02em' }}>{item.stat}</div>
-                <div className="text-xs leading-snug" style={{ color: 'rgba(255,255,255,0.4)' }}>{item.label}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-      </div>
-    </section>
-  )
-}
 
 // =============================================================================
 // Plate Search — find tires by license plate
@@ -580,7 +301,6 @@ function BestSellers({ items }: { items: any[] }) {
 const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [activeQuestion, setActiveQuestion] = useState<number | null>(null)
   const [activePlan, setActivePlan] = useState(1)
   const [countersStarted, setCountersStarted] = useState(false)
   const [counter1, setCounter1] = useState(0)
@@ -723,33 +443,6 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
       ],
       cta: 'Contactar ventas',
       popular: false,
-    },
-  ]
-
-  const faqs = [
-    {
-      q: '¿Cómo reduce TirePro mis costos de llantas y mantenimiento?',
-      a: 'TirePro analiza miles de datos históricos de llantas para detectar el momento óptimo de reemplazo y maximizar la vida útil de cada neumático. Nuestros clientes reportan ahorros del 20-28% en costos de llantas en los primeros 6 meses.',
-    },
-    {
-      q: '¿Cómo se realizan las inspecciones en TirePro?',
-      a: 'Las inspecciones se hacen directamente desde la app móvil o el sitio web de forma muy sencilla e intuitiva. Registras las medidas de profundidad, presión y estado de cada llanta en segundos. La app funciona offline y sincroniza automáticamente cuando hay conexión.',
-    },
-    {
-      q: '¿Qué necesito para empezar a usar TirePro?',
-      a: 'Solo necesitas un smartphone o computador. La app móvil funciona offline y sincroniza cuando hay conexión. La configuración toma menos de 10 minutos. Registra tus vehículos y comienza a hacer inspecciones de inmediato.',
-    },
-    {
-      q: '¿Cómo genera TirePro sus recomendaciones de reemplazo?',
-      a: 'TirePro analiza miles de datos históricos de llantas — patrones de desgaste, CPK por marca y diseño, condiciones de operación — para calcular el momento óptimo de reemplazo. Cada recomendación está personalizada para tu tipo de vehículo y operación.',
-    },
-    {
-      q: '¿Puedo cambiar de plan después o cancelar?',
-      a: 'Sí, puedes cambiar de plan en cualquier momento sin penalizaciones. No hay contratos de permanencia. El cambio es instantáneo y mantienes toda tu información histórica.',
-    },
-    {
-      q: '¿Los datos de mi flota están seguros en TirePro?',
-      a: 'Todos los datos están encriptados con estándares bancarios y almacenados en servidores seguros en la nube. Cumplimos con todas las normativas de protección de datos de Colombia. Tu información nunca se comparte con terceros.',
     },
   ]
 
@@ -961,8 +654,37 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
       {/* -- SCROLL FLOW (interactive process visualization) ------------------- */}
       <ScrollFlow />
 
-      {/* -- FEATURE SHOWCASE ---------------------------------------------------- */}
-      <FeatureShowcase />
+      {/* -- AI DEMO + FLOW DEMO (side by side on desktop) ---------------------- */}
+      <section
+        className="relative isolate overflow-hidden py-24 text-white sm:py-32"
+        style={{ background: 'linear-gradient(180deg, #0A183A 0%, #0d2244 100%)' }}
+      >
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div
+            className="absolute inset-0 opacity-40"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(163,116,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(163,116,255,0.06) 1px, transparent 1px)',
+              backgroundSize: '40px 40px',
+            }}
+          />
+          <div className="absolute -top-32 left-1/4 h-[440px] w-[440px] rounded-full blur-2xl" style={{ background: 'rgba(163,116,255,0.15)' }} />
+          <div className="absolute -bottom-20 right-1/4 h-[380px] w-[380px] rounded-full blur-2xl" style={{ background: 'rgba(23,61,104,0.4)' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[360px] w-[360px] rounded-full blur-2xl" style={{ background: 'rgba(37,211,102,0.07)' }} />
+          <div className="absolute inset-x-0 top-0 h-px" style={{ background: 'linear-gradient(to right, transparent, rgba(163,116,255,0.4), transparent)' }} />
+        </div>
+
+        <div className="relative mx-auto max-w-7xl px-5 sm:px-6 lg:px-10">
+          <div className="flex flex-col items-start gap-20 lg:flex-row lg:gap-10 xl:gap-14">
+            <div className="w-full min-w-0 flex-1">
+              <TireProAIDemo embedded />
+            </div>
+            <div className="w-full min-w-0 flex-1">
+              <TireProFlowDemo embedded />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* -- PLATFORM POWER ---------------------------------------------------- */}
       <section
@@ -1070,18 +792,18 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
       >
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.16em' }}>
-              Por qué TirePro
+            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#A374FF', letterSpacing: '0.16em' }}>
+              Ana + Agentes vs. lo de siempre
             </p>
             <h2
               id="comparison-heading"
               className="font-bold leading-tight"
               style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)', color: '#0A183A' }}
             >
-              TirePro vs. gestión manual de llantas
+              TirePro con IA vs. gestión manual
             </h2>
             <p className="text-lg text-gray-500 max-w-xl mx-auto mt-4">
-              El segundo mayor costo operativo de tu flota merece algo mejor que Excel.
+              Ana analiza, recomienda y actúa. Tus agentes automatizan lo que antes requería llamadas, correos y Excel.
             </p>
           </div>
 
@@ -1092,16 +814,17 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
               style={{ background: '#0A183A', color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em' }}
             >
               <div className="p-4 border-r" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>Función</div>
-              <div className="p-4 border-r" style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#62b8f0' }}>TirePro</div>
+              <div className="p-4 border-r" style={{ borderColor: 'rgba(255,255,255,0.08)', color: '#A374FF' }}>TirePro + Ana</div>
               <div className="p-4">Gestión manual / Excel</div>
             </div>
             {[
+              ['Análisis de flota', 'Pídele a Ana gráficos, reportes y PDFs en lenguaje natural', 'Exportar, filtrar, armar a mano'],
+              ['Predicción de reemplazo', 'IA proyecta fecha exacta y ahorro en COP', 'Estimación visual subjetiva'],
+              ['Recomendación de llantas', 'Ana sugiere marca, diseño y proveedor óptimo por posición', 'Intuición del mecánico'],
+              ['Agentes automatizados', 'Agendan llamadas, crean reuniones y disparan alertas ante errores', 'No disponible'],
+              ['Alertas de falla', 'Predictivas, automáticas y con acción del agente', 'Reactivas (tras la falla)'],
               ['Inspección de llantas', 'Digital, en segundos, desde app o web', 'Manual, horas de trabajo'],
-              ['Análisis de CPK', 'Automático con benchmarks nacionales', 'Cálculo manual, sin contexto'],
-              ['Predicción de reemplazo', 'IA con fecha exacta en COP', 'Estimación visual subjetiva'],
-              ['Análisis de datos históricos', 'Miles de datos de llantas para mejores decisiones', 'No disponible'],
-              ['Alertas de falla', 'Predictivas y automáticas', 'Reactivas (tras la falla)'],
-              ['Reportes de ahorro', 'En pesos colombianos, automáticos', 'No disponible'],
+              ['Reportes de ahorro', 'Generados por Ana en PDF, en pesos colombianos', 'No disponible'],
             ].map(([feature, tirepro, manual], i) => (
               <div
                 key={i}
@@ -1112,7 +835,7 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
                 }}
               >
                 <div className="p-4 font-medium border-r" style={{ borderColor: 'rgba(10,24,58,0.06)', color: '#0A183A' }}>{feature}</div>
-                <div className="p-4 border-r flex items-center gap-2" style={{ borderColor: 'rgba(10,24,58,0.06)', color: '#1E76B6', fontWeight: 600 }}>
+                <div className="p-4 border-r flex items-center gap-2" style={{ borderColor: 'rgba(10,24,58,0.06)', color: '#A374FF', fontWeight: 600 }}>
                   <Check size={14} style={{ flexShrink: 0 }} />
                   {tirepro}
                 </div>
@@ -1236,79 +959,6 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
         </div>
       </section>
 
-      {/* -- FAQ ----------------------------------------------------------------- */}
-      <section
-        id="preguntas"
-        className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full"
-        style={{ background: 'linear-gradient(180deg, #f7fafd 0%, #ffffff 100%)' }}
-        aria-labelledby="faq-heading"
-      >
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: '#1E76B6', letterSpacing: '0.16em' }}>
-              Preguntas frecuentes
-            </p>
-            <h2
-              id="faq-heading"
-              className="font-bold leading-tight"
-              style={{ fontSize: 'clamp(1.8rem, 4vw, 3.5rem)', color: '#0A183A' }}
-            >
-              Preguntas sobre gestión de llantas
-              <br />y control de CPK con TirePro
-            </h2>
-          </div>
-
-          <div className="space-y-2">
-            {faqs.map((faq, index) => (
-              <article
-                key={index}
-                className="border rounded-2xl overflow-hidden transition-all duration-200 bg-white"
-                style={{
-                  borderColor: activeQuestion === index ? 'rgba(30,118,182,0.3)' : 'rgba(10,24,58,0.07)',
-                  boxShadow: activeQuestion === index ? '0 4px 20px rgba(30,118,182,0.08)' : 'none',
-                }}
-              >
-                <button
-                  className="w-full p-5 sm:p-6 text-left flex items-center justify-between transition-all"
-                  onClick={() => setActiveQuestion(activeQuestion === index ? null : index)}
-                  aria-expanded={activeQuestion === index}
-                >
-                  <span
-                    className="font-semibold pr-6 text-sm sm:text-base"
-                    style={{ color: '#0A183A' }}
-                  >
-                    {faq.q}
-                  </span>
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-                    style={{
-                      background: activeQuestion === index ? '#1E76B6' : 'rgba(30,118,182,0.08)',
-                    }}
-                  >
-                    <ChevronDown
-                      size={15}
-                      style={{
-                        color: activeQuestion === index ? 'white' : '#1E76B6',
-                        transform: activeQuestion === index ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.2s',
-                      }}
-                      aria-hidden="true"
-                    />
-                  </div>
-                </button>
-                <div
-                  className={`overflow-hidden transition-all duration-300 ${activeQuestion === index ? 'max-h-96' : 'max-h-0'}`}
-                >
-                  <div className="px-5 sm:px-6 pb-5 sm:pb-6">
-                    <p className="text-sm text-gray-600 leading-relaxed">{faq.a}</p>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* -- FINAL CTA ----------------------------------------------------------- */}
       <section
         className="py-20 sm:py-28 md:py-36 px-4 sm:px-6 lg:px-8 w-full bg-white"
@@ -1394,11 +1044,6 @@ const TireProLanding = ({ bestSellers = [] }: { bestSellers?: any[] }) => {
           </div>
         </div>
       </section>
-
-      {/* -- AXON PRE-LAUNCH TEASER ------------------------------------------ */}
-      {/* Closing announcement — after the TirePro CTA, before the SEO copy
-          and footer. Last thing a visitor sees on the way out. */}
-      <AxonTeaser variant="hero" />
 
       {/* -- JSON-LD STRUCTURED DATA --------------------------------------------- */}
       <script

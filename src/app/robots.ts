@@ -20,7 +20,7 @@ import { MetadataRoute } from 'next'
 // =============================================================================
 
 const PRIVATE_PATHS = [
-  '/dashboard/', '/api/', '/driver-action/', '/login', '/registeruser',
+  '/dashboard/', '/api/', '/driver-action/', '/registeruser',
   '/verify', '/delete', '/blog/admin/', '/_next/', '/settings',
   '/marketplace/cart', '/marketplace/order/',
   '/*?*sortBy=', '/*?*page=', '/*?*limit=',

@@ -100,14 +100,17 @@ const AddCar: React.FC<AddCarProps> = ({ isOpen, onClose, onAddVehicle, apiBase 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+      <div
+        className="bg-white rounded-2xl max-w-md w-full overflow-hidden"
+        style={{ boxShadow: '0 24px 60px -18px rgba(10,24,58,0.35)', border: '1px solid rgba(10,24,58,0.08)' }}
+      >
         {/* Header */}
-        <div className="bg-[#173D68] text-white p-5 flex justify-between items-center">
-          <h2 className="text-xl font-bold">Añadir Vehículo</h2>
+        <div className="px-5 py-4 flex justify-between items-center" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+          <h2 className="text-sm font-bold text-[#0A183A]">Añadir Vehículo</h2>
           <button 
             onClick={onClose}
-            className="text-white hover:text-gray-200 transition-colors duration-200"
+            className="text-[#173D68]/40 hover:text-[#173D68] transition-colors duration-200"
           >
             <X size={24} />
           </button>

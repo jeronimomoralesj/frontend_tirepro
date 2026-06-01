@@ -28,17 +28,20 @@ const AddTires: React.FC<AddTiresProps> = ({ isOpen, onClose, vehicle, apiBase }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+      <div
+        className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        style={{ boxShadow: '0 24px 60px -18px rgba(10,24,58,0.35)', border: '1px solid rgba(10,24,58,0.08)' }}
+      >
         {/* Header */}
-        <div className="bg-[#173D68] text-white p-5 flex justify-between items-center flex-shrink-0">
+        <div className="px-5 py-4 flex justify-between items-center flex-shrink-0" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
           <div>
-            <h2 className="text-xl font-bold">Agregar Llanta</h2>
-            <p className="text-sm text-gray-300">Vehículo: {vehicle.placa.toUpperCase()}</p>
+            <h2 className="text-sm font-bold text-[#0A183A]">Agregar Llanta</h2>
+            <p className="text-[11px] text-[#173D68]/40">Vehículo: {vehicle.placa.toUpperCase()}</p>
           </div>
           <button 
             onClick={onClose}
-            className="text-white hover:text-gray-200 transition-colors duration-200 flex-shrink-0"
+            className="text-[#173D68]/40 hover:text-[#173D68] transition-colors duration-200 flex-shrink-0"
           >
             <X size={24} />
           </button>

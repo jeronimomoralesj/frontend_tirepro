@@ -18,7 +18,7 @@ export default function DashboardLayout({ children }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen" style={{ background: '#F8FAFC' }}>
       {/* Sidebar */}
       <Sidebar
         collapsed={collapsed}
@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }) {
         `}
         style={{ maxWidth: "100%", boxSizing: "border-box" }}
       >
-        <div className="pt-16 lg:pt-4 px-4 md:px-6">
+        <div className="pt-16 lg:pt-6 px-4 md:px-6 pb-8">
           <RouteGuard>{children}</RouteGuard>
         </div>
       </main>

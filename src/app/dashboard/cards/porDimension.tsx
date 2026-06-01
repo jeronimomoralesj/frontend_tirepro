@@ -60,32 +60,31 @@ const PorDimension: React.FC<PorDimensionProps> = ({ groupData }) => {
   ];
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden w-full"
-         style={{ boxShadow: "0 4px 24px rgba(10,24,58,0.06)" }}>
+    <div
+      className="bg-white rounded-2xl overflow-hidden w-full transition-all duration-200"
+      style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+    >
       {/* Header */}
-      <div
-        className="text-white px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between gap-2"
-        style={{ background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)" }}
-      >
+      <div className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1.5 rounded-lg flex-shrink-0"
-               style={{ background: "rgba(255,255,255,0.14)" }}>
-            <Ruler size={16} className="text-white" />
+          <div className="p-1.5 rounded-lg flex-shrink-0" style={{ background: "rgba(163,116,255,0.08)" }}>
+            <Ruler size={14} className="text-[#A374FF]" />
           </div>
-          <h2 className="text-sm sm:text-base lg:text-lg font-bold truncate">{t.title}</h2>
+          <h2 className="text-sm font-bold text-[#0A183A] truncate">{t.title}</h2>
         </div>
         <div className="group relative cursor-pointer flex-shrink-0">
-          <HelpCircle className="text-white/80 hover:text-white transition-colors" size={18} />
-          <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity w-56 pointer-events-none shadow-xl">
+          <HelpCircle className="text-[#173D68]/40 hover:text-[#173D68] transition-colors" size={18} />
+          <div className="absolute z-20 top-full mt-2 right-0 bg-[#0A183A] text-white text-xs p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 w-56 pointer-events-none shadow-xl"
+               style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
             {t.tooltip}
           </div>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="px-3 sm:px-5 py-3 flex items-center gap-1.5 border-b border-gray-100">
-        <div className="flex gap-1 bg-gray-50 rounded-xl p-1 overflow-x-auto"
-             style={{ border: "1px solid rgba(52,140,203,0.12)" }}>
+      <div className="px-3 sm:px-5 py-3 flex items-center gap-1.5" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+        <div className="flex gap-1 bg-gray-50/60 rounded-xl p-1 overflow-x-auto"
+             style={{ border: "1px solid rgba(10,24,58,0.06)" }}>
           {sortOptions.map(({ mode, label, icon }) => {
             const active = sortMode === mode;
             return (
@@ -95,7 +94,7 @@ const PorDimension: React.FC<PorDimensionProps> = ({ groupData }) => {
                 aria-pressed={active}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all whitespace-nowrap"
                 style={{
-                  background: active ? "linear-gradient(135deg, #0A183A, #1E76B6)" : "transparent",
+                  background: active ? "linear-gradient(135deg, #0A183A, #173D68)" : "transparent",
                   color: active ? "white" : "#64748b",
                 }}
               >

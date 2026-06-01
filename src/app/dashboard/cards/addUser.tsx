@@ -123,14 +123,14 @@ export default function AddUser() {
   };
 
   return (
-    <div className="min-h-screen bg-white p-4 md:p-8">
+    <div className="min-h-screen p-4 md:p-8" style={{ background: '#F8FAFC' }}>
       <div className="max-w-4xl mx-auto">
         {/* Barra de navegación/Encabezado */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl md:text-3xl font-bold text-[#0A183A]">Agregar Usuario</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-[#0A183A]">Agregar Usuario</h1>
           </div>
-          <div className="hidden md:flex items-center gap-3 text-[#348CCB]">
+          <div className="hidden md:flex items-center gap-3 text-[#173D68]/50">
             <Building2 className="h-5 w-5" />
             <span className="text-[#0A183A] text-sm font-medium">{companyInfo?.name || "Mi Empresa"}</span>
           </div>
@@ -139,13 +139,16 @@ export default function AddUser() {
         {/* Contenido Principal */}
         <div className="grid md:grid-cols-3 gap-6">
           {/* Panel izquierdo - Información */}
-          
-          
+
+
           {/* Panel derecho - Formulario */}
-          <div className="md:col-span-3 bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
-            <div className="bg-gradient-to-r from-[#0A183A] to-[#173D68] p-6">
-              <h2 className="text-xl font-semibold text-white">Registro de Usuario</h2>
-              <p className="text-[#348CCB]/90 mt-1 text-sm">Añade un nuevo miembro a tu equipo</p>
+          <div
+            className="md:col-span-3 bg-white rounded-2xl overflow-hidden transition-all duration-200"
+            style={{ border: '1px solid rgba(10,24,58,0.08)', boxShadow: '0 2px 12px -4px rgba(10,24,58,0.08)' }}
+          >
+            <div className="p-5 sm:p-6" style={{ borderBottom: '1px solid rgba(10,24,58,0.06)' }}>
+              <h2 className="text-sm font-bold text-[#0A183A]">Registro de Usuario</h2>
+              <p className="text-[#173D68]/40 mt-1 text-[13px]">Añade un nuevo miembro a tu equipo</p>
             </div>
 
             {/* Mensajes de Notificación */}

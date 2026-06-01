@@ -21,7 +21,6 @@ import {
   Calendar,
   Target,
   Download,
-  Filter,
   Trash2,
   BarChart3,
   ChevronDown,
@@ -39,8 +38,7 @@ import {
 import FastModeDesechos from "./FastModeDesechos";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
-import AgentCardHeader from "../../../components/AgentCardHeader";
-import { AGENTS } from "../../../lib/agents";
+import MetricCard from "../components/MetricCard";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend);
 
@@ -144,22 +142,11 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
       className={`rounded-2xl ${className}`}
       style={{
         background: "white",
-        border: "1px solid rgba(52,140,203,0.15)",
-        boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
+        border: "1px solid rgba(10,24,58,0.08)",
+        boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)",
       }}
     >
       {children}
-    </div>
-  );
-}
-
-function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
-  return (
-    <div className="flex items-center gap-2 mb-4">
-      <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
-        <Icon className="w-4 h-4 text-[#1E76B6]" />
-      </div>
-      <h2 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h2>
     </div>
   );
 }
@@ -168,37 +155,6 @@ function fmtCompact(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1).replace(".0", "")}M`;
   if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
   return `$${n.toLocaleString("es-CO")}`;
-}
-
-function MetricCard({
-  icon: Icon, title, value, sub, variant = "primary",
-}: {
-  icon: React.ElementType; title: string; value: string | number;
-  sub?: string; variant?: "primary" | "secondary" | "accent" | "mid";
-}) {
-  const bgs: Record<string, string> = {
-    primary:   "linear-gradient(135deg, #0A183A 0%, #173D68 100%)",
-    secondary: "linear-gradient(135deg, #173D68 0%, #1E76B6 100%)",
-    mid:       "linear-gradient(135deg, #1E76B6 0%, #348CCB 100%)",
-    accent:    "linear-gradient(135deg, #348CCB 0%, #1E76B6 100%)",
-  };
-  const strVal = String(value);
-  const textSize = strVal.length > 10 ? "text-lg" : strVal.length > 7 ? "text-xl" : "text-2xl";
-  return (
-    <div
-      className="rounded-2xl p-4 sm:p-5 flex flex-col justify-between overflow-hidden"
-      style={{ background: bgs[variant], minHeight: 110, boxShadow: "0 4px 20px rgba(10,24,58,0.18)" }}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <div className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.15)" }}>
-          <Icon className="w-3.5 h-3.5 text-white" />
-        </div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">{title}</p>
-      </div>
-      <p className={`${textSize} font-black text-white tracking-tight leading-none truncate`}>{value}</p>
-      {sub && <p className="text-[10px] font-medium text-white/50 mt-1.5 truncate">{sub}</p>}
-    </div>
-  );
 }
 
 // =============================================================================
@@ -294,7 +250,7 @@ function DoughnutCard({ title, icon: Icon, data }: { title: string; icon: React.
 
   return (
     <Card className="overflow-hidden">
-      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
         <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}><Icon className="w-4 h-4 text-[#1E76B6]" /></div>
         <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
       </div>
@@ -337,7 +293,7 @@ function ChartCard({ title, icon: Icon, data, formatValue }: { title: string; ic
 
   return (
     <Card className="overflow-hidden">
-      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+      <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
         <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}><Icon className="w-4 h-4 text-[#1E76B6]" /></div>
         <h3 className="text-sm font-black text-[#0A183A] tracking-tight">{title}</h3>
       </div>
@@ -379,7 +335,7 @@ function LineChartCard({ title, icon: Icon, data, formatValue, color = "#1E76B6"
   const fmt = formatValue ?? ((n: number) => String(n));
 
   const chartHeader = (
-    <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+    <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
       <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
         <Icon className="w-4 h-4 text-[#1E76B6]" />
       </div>
@@ -482,63 +438,6 @@ function LineChartCard({ title, icon: Icon, data, formatValue, color = "#1E76B6"
         />
       </div>
     </Card>
-  );
-}
-
-// =============================================================================
-// Summary insight cards (3)
-// =============================================================================
-
-function SummaryCards({
-  filtered,
-  dataCausales,
-}: {
-  filtered: EnrichedDesecho[];
-  dataCausales: Record<string, number>;
-}) {
-  const topCausal = useMemo(() => {
-    const entries = Object.entries(dataCausales);
-    if (!entries.length) return { name: "—", count: 0 };
-    const [name, count] = entries.sort((a, b) => b[1] - a[1])[0];
-    return { name, count };
-  }, [dataCausales]);
-
-  const avgMm = useMemo(
-    () =>
-      filtered.length
-        ? (filtered.reduce((a, d) => a + d.milimetrosDesechados, 0) / filtered.length).toFixed(1)
-        : "0",
-    [filtered]
-  );
-
-  const withImages = useMemo(
-    () => filtered.filter((d) => d.imageUrls && d.imageUrls.length > 0).length,
-    [filtered]
-  );
-
-  const cards = [
-    { gradient: "linear-gradient(135deg, #0A183A 0%, #1E76B6 100%)", icon: "🔴", label: "Causal más frecuente", value: topCausal.name, sub: `${topCausal.count} neumáticos` },
-    { gradient: "linear-gradient(135deg, #173D68 0%, #348CCB 100%)", icon: "📏", label: "Prom. mm desechados", value: `${avgMm} mm`, sub: "por neumático retirado" },
-    { gradient: "linear-gradient(135deg, #1E76B6 0%, #0A183A 100%)", icon: "📷", label: "Registros con fotos", value: withImages, sub: `de ${filtered.length} total` },
-  ];
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {cards.map((card, i) => (
-        <div
-          key={i}
-          className="rounded-2xl p-5 relative overflow-hidden"
-          style={{ background: card.gradient, boxShadow: "0 6px 28px rgba(10,24,58,0.22)", minHeight: 130 }}
-        >
-          <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-10" style={{ background: "white" }} />
-          <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full opacity-10" style={{ background: "white" }} />
-          <span className="text-2xl">{card.icon}</span>
-          <p className="text-[11px] font-bold uppercase tracking-widest text-white/50 mt-3">{card.label}</p>
-          <p className="text-xl font-black text-white mt-1 leading-tight truncate">{card.value}</p>
-          <p className="text-xs text-white/60 mt-0.5">{card.sub}</p>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -783,140 +682,6 @@ const DesechosPage: React.FC = () => {
     [filtered]
   );
 
-  // -- LINEX deep analysis -----------------------------------------------------
-  const linexAnalysis = useMemo(() => {
-    if (filtered.length === 0) return { insight: "", cards: [] as { icon: string; title: string; value: string; detail: string; color: string }[] };
-
-    const lines: string[] = [];
-    const cards: { icon: string; title: string; value: string; detail: string; color: string }[] = [];
-
-    // 1. Top causals breakdown
-    const sortedCausales = Object.entries(dataCausales).sort((a, b) => b[1] - a[1]);
-    const topCausal = sortedCausales[0];
-    const top3 = sortedCausales.slice(0, 3);
-    if (topCausal) {
-      const pct = Math.round((topCausal[1] / filtered.length) * 100);
-      lines.push(`Causal #1: "${topCausal[0]}" representa el ${pct}% de todos los desechos (${topCausal[1]} de ${filtered.length}).${pct > 40 ? " Esta concentracion es alta — un programa preventivo enfocado en esta causal podria reducir desechos significativamente." : ""}`);
-    }
-
-    // 2. Remanente analysis — money left on the table
-    const avg = parseFloat(avgGeneral);
-    const totalMm = parseFloat(totalMilimetros);
-    if (avg > 0) {
-      if (avg > 4) {
-        lines.push(`Remanente promedio: ${avgGeneral} mm. Esto es CRITICO — se estan desechando llantas con ${avg.toFixed(1)}mm de profundidad restante. A 3mm de retiro optimo, se desperdician ~${(avg - 3).toFixed(1)}mm por llanta. Revisa si los operadores estan retirando prematuramente.`);
-        cards.push({ icon: "🔴", title: "Desperdicio Alto", value: `${avg.toFixed(1)} mm`, detail: `${(avg - 3).toFixed(1)}mm sobre el retiro optimo por llanta`, color: "#ef4444" });
-      } else if (avg > 3) {
-        lines.push(`Remanente promedio: ${avgGeneral} mm. Hay margen de mejora — cada mm de mas que se desecha es dinero perdido. Objetivo: acercarse a 3mm.`);
-        cards.push({ icon: "🟡", title: "Desperdicio Moderado", value: `${avg.toFixed(1)} mm`, detail: "Cerca del optimo pero aun hay oportunidad", color: "#eab308" });
-      } else {
-        lines.push(`Remanente promedio: ${avgGeneral} mm. Excelente control — las llantas se retiran cerca del punto optimo de 3mm.`);
-        cards.push({ icon: "🟢", title: "Retiro Eficiente", value: `${avg.toFixed(1)} mm`, detail: "Llantas retiradas cerca del optimo", color: "#22c55e" });
-      }
-    }
-
-    // 3. Brand analysis — which brands waste more
-    const byBrand: Record<string, { count: number; totalRem: number; totalMm: number }> = {};
-    filtered.forEach((d) => {
-      if (!byBrand[d.marca]) byBrand[d.marca] = { count: 0, totalRem: 0, totalMm: 0 };
-      byBrand[d.marca].count++;
-      byBrand[d.marca].totalRem += d.remanenteCop;
-      byBrand[d.marca].totalMm += d.milimetrosDesechados;
-    });
-    const brandEntries = Object.entries(byBrand).filter(([, v]) => v.count >= 2).sort((a, b) => (b[1].totalRem / b[1].count) - (a[1].totalRem / a[1].count));
-    if (brandEntries.length > 0) {
-      const worst = brandEntries[0];
-      const worstAvg = (worst[1].totalRem / worst[1].count).toFixed(1);
-      const best = brandEntries[brandEntries.length - 1];
-      const bestAvg = (best[1].totalRem / best[1].count).toFixed(1);
-      if (brandEntries.length >= 2 && worst[0] !== best[0]) {
-        lines.push(`Marca con mas desperdicio: ${worst[0]} (${worstAvg} mm prom. remanente en ${worst[1].count} desechos). Marca mas eficiente: ${best[0]} (${bestAvg} mm). Evalua si el problema es la marca o el uso.`);
-      }
-      cards.push({ icon: "📊", title: "Marca + Desperdicio", value: worst[0], detail: `${worstAvg} mm remanente prom. en ${worst[1].count} desechos`, color: "#8b5cf6" });
-    }
-
-    // 4. Axle analysis — which axle generates most waste
-    const byEje: Record<string, { count: number; totalRem: number }> = {};
-    filtered.forEach((d) => {
-      if (!byEje[d.eje]) byEje[d.eje] = { count: 0, totalRem: 0 };
-      byEje[d.eje].count++;
-      byEje[d.eje].totalRem += d.remanenteCop;
-    });
-    const ejeEntries = Object.entries(byEje).sort((a, b) => b[1].count - a[1].count);
-    if (ejeEntries.length > 0) {
-      const topEje = ejeEntries[0];
-      const ejePct = Math.round((topEje[1].count / filtered.length) * 100);
-      lines.push(`Eje con mas desechos: ${topEje[0]} (${ejePct}% del total, ${topEje[1].count} llantas). ${ejePct > 50 ? "Concentracion alta en este eje — revisa alineacion, presion o condiciones de operacion." : ""}`);
-      cards.push({ icon: "🛞", title: "Eje Critico", value: topEje[0], detail: `${topEje[1].count} desechos (${ejePct}% del total)`, color: "#f97316" });
-    }
-
-    // 5. Trend analysis — is waste increasing or decreasing?
-    const monthKeys = Object.keys(avgRemanenteByMonth).sort();
-    if (monthKeys.length >= 3) {
-      const recent3 = monthKeys.slice(-3);
-      const older3 = monthKeys.slice(-6, -3);
-      if (older3.length >= 2) {
-        const recentAvg = recent3.reduce((s, k) => s + (avgRemanenteByMonth[k] ?? 0), 0) / recent3.length;
-        const olderAvg = older3.reduce((s, k) => s + (avgRemanenteByMonth[k] ?? 0), 0) / older3.length;
-        const diff = recentAvg - olderAvg;
-        if (Math.abs(diff) > 0.3) {
-          lines.push(diff > 0
-            ? `Tendencia negativa: el remanente promedio subio ${diff.toFixed(1)}mm en los ultimos 3 meses vs los 3 anteriores. Se esta desperdiciando mas vida util. Investiga cambios en operacion o personal.`
-            : `Tendencia positiva: el remanente promedio bajo ${Math.abs(diff).toFixed(1)}mm en los ultimos 3 meses. Las llantas se estan retirando de forma mas eficiente.`
-          );
-        }
-      }
-    }
-
-    // 6. Causal + eje cross-analysis
-    const causalEje: Record<string, Record<string, number>> = {};
-    filtered.forEach((d) => {
-      const c = d.causales.trim();
-      if (!causalEje[c]) causalEje[c] = {};
-      causalEje[c][d.eje] = (causalEje[c][d.eje] ?? 0) + 1;
-    });
-    if (topCausal) {
-      const ejesForTop = Object.entries(causalEje[topCausal[0]] ?? {}).sort((a, b) => b[1] - a[1]);
-      if (ejesForTop.length > 0 && ejesForTop[0][1] > 1) {
-        const dominantEje = ejesForTop[0];
-        const crossPct = Math.round((dominantEje[1] / topCausal[1]) * 100);
-        if (crossPct > 50) {
-          lines.push(`Patron detectado: "${topCausal[0]}" ocurre ${crossPct}% en eje ${dominantEje[0]}. Esto sugiere un problema especifico de esa posicion — no solo desgaste general.`);
-        }
-      }
-    }
-
-    // 7. Dimension analysis
-    const byDim: Record<string, number> = {};
-    filtered.forEach((d) => { byDim[d.dimension] = (byDim[d.dimension] ?? 0) + 1; });
-    const dimEntries = Object.entries(byDim).sort((a, b) => b[1] - a[1]);
-    if (dimEntries.length > 0 && dimEntries[0][1] >= 3) {
-      cards.push({ icon: "📐", title: "Dimension + Desechos", value: dimEntries[0][0], detail: `${dimEntries[0][1]} desechos en esta medida`, color: "#06b6d4" });
-    }
-
-    // 8. Photo coverage
-    const withImages = filtered.filter((d) => d.imageUrls && d.imageUrls.length > 0).length;
-    const photoPct = Math.round((withImages / filtered.length) * 100);
-    if (photoPct < 50) {
-      lines.push(`Solo ${photoPct}% de los desechos tienen fotos. Las fotos son evidencia clave para reclamos y analisis de causales. Meta: >80%.`);
-    }
-    cards.push({ icon: "📷", title: "Cobertura de Fotos", value: `${photoPct}%`, detail: `${withImages} de ${filtered.length} con evidencia`, color: photoPct >= 80 ? "#22c55e" : photoPct >= 50 ? "#eab308" : "#ef4444" });
-
-    // 9. Preventability score
-    const PREVENTABLE = new Set(["baja presion", "sobrecarga", "desalineacion", "mala rotacion", "golpe", "pinchadura", "pinchazo", "corte lateral", "desgaste irregular"]);
-    const preventable = filtered.filter((d) => {
-      const c = d.causales.trim().toLowerCase();
-      return [...PREVENTABLE].some((p) => c.includes(p));
-    }).length;
-    if (preventable > 0) {
-      const prevPct = Math.round((preventable / filtered.length) * 100);
-      lines.push(`${prevPct}% de los desechos (${preventable}) son potencialmente prevenibles (baja presion, desalineacion, golpes, etc). Un programa de mantenimiento preventivo podria evitar estos retiros prematuros.`);
-      cards.push({ icon: "🛡️", title: "Prevenibles", value: `${prevPct}%`, detail: `${preventable} desechos evitables con mantenimiento`, color: prevPct > 30 ? "#ef4444" : "#eab308" });
-    }
-
-    return { insight: lines.join("\n\n"), cards };
-  }, [filtered, dataCausales, avgGeneral, totalMilimetros, avgRemanenteByMonth]);
-
   const hasActiveFilters = Object.values(fv).some((v) => v && v !== "Todos") || searchQuery.trim() !== "";
 
   const clearFilters = () => {
@@ -977,7 +742,7 @@ const DesechosPage: React.FC = () => {
   </style>
 </head>
 <body>
-  <div class="header"><h1>📊 Reporte de Desechos</h1><p>Generado el ${now} · TirePro</p></div>
+  <div class="header"><h1>Reporte de Desechos</h1><p>Generado el ${now} · TirePro</p></div>
   <div class="kpis">
     <div class="kpi"><div class="label">Total Desechos</div><div class="value">${filtered.length}</div></div>
     <div class="kpi"><div class="label">Prom. Dinero Perdido</div><div class="value">${fmtCompact(parseFloat(avgGeneral) || 0)}</div></div>
@@ -1029,7 +794,7 @@ const DesechosPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "white" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#F8FAFC" }}>
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-[#1E76B6] animate-spin mx-auto mb-4" />
           <p className="text-sm font-medium text-[#0A183A]">Cargando desechos…</p>
@@ -1040,7 +805,7 @@ const DesechosPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "white" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#F8FAFC" }}>
         <div
           className="flex items-center gap-3 px-5 py-4 rounded-2xl text-sm"
           style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)" }}
@@ -1057,52 +822,38 @@ const DesechosPage: React.FC = () => {
   // ==========================================================================
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden" style={{ background: "white" }}>
+    <div className="min-h-screen w-full overflow-x-hidden" style={{ background: "#F8FAFC" }}>
       <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6" style={{ minWidth: 0 }}>
 
         {/* -- Page header --------------------------------------------------- */}
-        <div
-          className="px-4 sm:px-6 py-5 sm:py-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-          style={{
-            background: "linear-gradient(135deg, #0A183A 0%, #173D68 60%, #1E76B6 100%)",
-            boxShadow: "0 8px 32px rgba(10,24,58,0.22)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <AgentCardHeader agent="linex" insight={linexAnalysis.insight} />
-            <div>
-              <h1 className="font-black text-white text-lg leading-none tracking-tight">
-                Estadísticas de Desechos
-              </h1>
-              <div className="flex items-center gap-3 mt-1 text-white/60 text-xs">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {new Date().toLocaleDateString("es-CO")}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Hash className="w-3 h-3" />
-                  {allDesechos.length} neumáticos retirados
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: AGENTS.linex.color }} />
-                  <span className="font-bold" style={{ color: AGENTS.linex.color }}>{AGENTS.linex.codename}</span>
-                </span>
-              </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-black text-[#0A183A] text-lg leading-none tracking-tight">
+              Estadísticas de Desechos
+            </h1>
+            <div className="flex items-center gap-3 mt-1.5 text-[#173D68]/50 text-xs">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {new Date().toLocaleDateString("es-CO")}
+              </span>
+              <span className="flex items-center gap-1">
+                <Hash className="w-3 h-3" />
+                {allDesechos.length} neumáticos retirados
+              </span>
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={downloadCSV}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-90"
-              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", color: "white" }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-[#173D68]/60 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68] transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
               CSV
             </button>
             <button
               onClick={downloadReport}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:opacity-90"
-              style={{ background: "rgba(255,255,255,0.95)", color: "#0A183A" }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white transition-all hover:opacity-90"
+              style={{ background: "#0A183A" }}
             >
               <FileText className="w-3.5 h-3.5" />
               Reporte
@@ -1111,16 +862,20 @@ const DesechosPage: React.FC = () => {
         </div>
 
         {/* Mode toggle */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {(["stats", "fast"] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-              style={{ background: mode === m ? "linear-gradient(135deg, #0A183A, #173D68)" : "white", color: mode === m ? "#fff" : "#173D68", border: mode === m ? "1px solid #0A183A" : "1px solid rgba(52,140,203,0.2)" }}>
+              className={[
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+                mode === m
+                  ? "bg-[#0A183A] text-white"
+                  : "text-[#173D68]/60 hover:bg-[#0A183A]/[0.04] hover:text-[#173D68]",
+              ].join(" ")}>
               {m === "fast" && <Zap className="w-3.5 h-3.5" />}
               {m === "stats" ? "Estadísticas" : "Modo Rápido"}
             </button>
           ))}
-          {mode === "fast" && <span className="text-[10px] text-[#348CCB] ml-1">Busque y deseche llantas masivamente</span>}
+          {mode === "fast" && <span className="text-[11px] text-[#173D68]/50 ml-1">Busque y deseche llantas masivamente</span>}
         </div>
 
         {mode === "fast" ? (
@@ -1138,30 +893,12 @@ const DesechosPage: React.FC = () => {
         />
 
         {/* -- KPI Cards ----------------------------------------------------- */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MetricCard icon={Trash2}     title="Total Desechos"  value={filtered.length.toLocaleString("es-CO")} sub={`de ${allDesechos.length} totales`} variant="primary"   />
-          <MetricCard icon={Target}     title="Prom. Dinero Perdido" value={fmtCompact(parseFloat(avgGeneral) || 0)} sub="por desecho con remanente" variant="secondary" />
-          <MetricCard icon={TrendingUp} title="mm Desechados"   value={`${parseFloat(totalMilimetros).toLocaleString("es-CO")} mm`} sub="profundidad total descartada" variant="mid"       />
-          <MetricCard icon={BarChart3}  title="Causales"         value={Object.keys(dataCausales).length} sub={`tipos en ${filtered.length} registros`} variant="accent"    />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <MetricCard label="Total Desechos"       value={filtered.length.toLocaleString("es-CO")} subtitle={`de ${allDesechos.length} totales`} />
+          <MetricCard label="Prom. Dinero Perdido" value={fmtCompact(parseFloat(avgGeneral) || 0)} subtitle="por desecho con remanente" />
+          <MetricCard label="mm Desechados"        value={`${parseFloat(totalMilimetros).toLocaleString("es-CO")} mm`} subtitle="profundidad total descartada" />
+          <MetricCard label="Causales"             value={Object.keys(dataCausales).length} subtitle={`tipos en ${filtered.length} registros`} />
         </div>
-
-        {/* -- LINEX deep analysis cards ---------------------------------------- */}
-        {linexAnalysis.cards.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {linexAnalysis.cards.map((card, i) => (
-              <div
-                key={i}
-                className="rounded-xl p-4 relative overflow-hidden"
-                style={{ background: "white", border: `1px solid ${card.color}20`, boxShadow: `0 2px 12px ${card.color}08` }}
-              >
-                <span className="text-lg">{card.icon}</span>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-2">{card.title}</p>
-                <p className="text-lg font-black mt-0.5 truncate" style={{ color: card.color }}>{card.value}</p>
-                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{card.detail}</p>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* -- Charts -------------------------------------------------------- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1176,15 +913,15 @@ const DesechosPage: React.FC = () => {
           className="rounded-2xl"
           style={{
             background: "white",
-            border: "1px solid rgba(52,140,203,0.15)",
-            boxShadow: "0 4px 24px rgba(10,24,58,0.05)",
+            border: "1px solid rgba(10,24,58,0.08)",
+            boxShadow: "0 2px 12px -4px rgba(10,24,58,0.08)",
             overflow: "hidden",
             minWidth: 0,
           }}
         >
           <div
             className="px-4 py-3 flex items-center justify-between"
-            style={{ borderBottom: "1px solid rgba(52,140,203,0.12)" }}
+            style={{ borderBottom: "1px solid rgba(10,24,58,0.06)" }}
           >
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg" style={{ background: "rgba(30,118,182,0.1)" }}>
@@ -1204,7 +941,7 @@ const DesechosPage: React.FC = () => {
           <div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
             <table className="text-xs border-collapse" style={{ minWidth: 640, width: "100%" }}>
               <thead>
-                <tr style={{ background: "rgba(10,24,58,0.03)", borderBottom: "1px solid rgba(52,140,203,0.12)" }}>
+                <tr style={{ background: "rgba(10,24,58,0.03)", borderBottom: "1px solid rgba(10,24,58,0.06)" }}>
                   <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">Fecha</th>
                   <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">Placa</th>
                   <th className="px-3 py-2.5 text-left font-black text-[#0A183A] uppercase tracking-wide whitespace-nowrap text-[10px]">ID Neumático</th>
