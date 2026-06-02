@@ -210,53 +210,6 @@ export default function MarketplaceLayout({ children }: { children: React.ReactN
       <Script src="https://checkout.bold.co/library/boldPaymentButton.js" strategy="afterInteractive" />
 
       {children}
-
-      {/* Visible server-rendered content for crawlers and users */}
-      <section
-        style={{
-          background: '#F1F5F9',
-          padding: '3rem 1.5rem',
-          color: '#0A183A',
-          lineHeight: 1.7,
-        }}
-      >
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-            TirePro Marketplace — Compra llantas online en Colombia
-          </h2>
-          <p style={{ marginBottom: '1.25rem', color: '#334155' }}>
-            TirePro Marketplace es la plataforma para comprar llantas nuevas y reencauchadas
-            de distribuidores verificados en Colombia. Encuentra llantas para tu auto, camioneta, SUV,
-            camión, bus o tractomula. Compara precios en tiempo real, busca por dimensión
-            o por placa, y recibe en cualquier ciudad del país.
-          </p>
-
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-            Marcas disponibles
-          </h3>
-          <p style={{ marginBottom: '1.25rem', color: '#334155' }}>
-            Michelin, Bridgestone, Continental, Goodyear, Pirelli, Hankook, Firestone, Yokohama,
-            BFGoodrich, Cooper, Maxxis, Triangle, Linglong y más marcas disponibles en Colombia.
-          </p>
-
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-            Cobertura nacional
-          </h3>
-          <p style={{ marginBottom: '1.25rem', color: '#334155' }}>
-            Entrega de llantas en Bogotá, Medellín, Cali, Barranquilla, Cartagena, Bucaramanga,
-            Pereira, Manizales, Cúcuta, Ibagué, Santa Marta, Villavicencio y todo el territorio colombiano.
-          </p>
-
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-            ¿Por qué TirePro?
-          </h3>
-          <p style={{ color: '#334155' }}>
-            Distribuidores verificados, comparación de precios en tiempo real, búsqueda por placa,
-            catálogo de 2.500+ referencias de llantas, pago en línea y envío a toda Colombia.
-            Para flotas: integración con el software de gestión TirePro con IA.
-          </p>
-        </div>
-      </section>
     </>
   );
 }
