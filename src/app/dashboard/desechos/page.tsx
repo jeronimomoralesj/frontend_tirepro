@@ -110,7 +110,14 @@ const ROWS_PER_PAGE = 20;
 function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const token =
     typeof window !== "undefined" ? (localStorage.getItem("token") ?? "") : "";
+  // `cache: 'no-store'` bypasses the browser/edge HTTP cache. Without it,
+  // re-mounting this tab after setting a tire to "fin" (in agregar /
+  // agregarDist) served the prior GET from the disk cache even though the
+  // backend already invalidated its Redis cache — so a freshly-retired
+  // tire never showed up in Desechos. Mirrors the same fix in
+  // shared/fetchTiresPaged.
   return fetch(url, {
+    cache: "no-store",
     ...init,
     headers: {
       "Content-Type": "application/json",
