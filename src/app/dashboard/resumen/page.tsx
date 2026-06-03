@@ -58,6 +58,7 @@ import { AdvancedCondition, passAllAdvanced } from "@/shared/advancedFilters";
 import InspectionsDayReportCard from "@/shared/InspectionsDayReportCard";
 import ExportModal from "./ExportModal";
 import { buildResumenReportData, type ReportFilterOpts } from "@/shared/buildResumenReport";
+import { tireDineroPerdido } from "@/shared/dineroPerdido";
 
 // -- Chart.js registration ----------------------------------------------------
 
@@ -605,10 +606,7 @@ export default function ResumenPage() {
   const dineroPerdido = useMemo(() => {
     const byMonth: Record<string, number> = {};
     finTires.forEach((t) => {
-      const depth = t.projectedProfundidad ?? t.currentProfundidad;
-      if (!depth || !t.profundidadInicial || t.profundidadInicial <= 0) return;
-      const totalCost = (t.costos ?? []).reduce((s, c) => s + c.valor, 0);
-      const waste = (depth / t.profundidadInicial) * totalCost;
+      const waste = tireDineroPerdido(t);
       if (waste <= 0) return;
       const lastCosto = [...(t.costos ?? [])].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
       byMonth[lastCosto ? toMonthKey(lastCosto.fecha) : currentMonth] = (byMonth[lastCosto ? toMonthKey(lastCosto.fecha) : currentMonth] || 0) + waste;

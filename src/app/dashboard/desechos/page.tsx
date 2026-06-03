@@ -36,6 +36,7 @@ import {
   Zap,
 } from "lucide-react";
 import FastModeDesechos from "./FastModeDesechos";
+import { tireDineroPerdido } from "@/shared/dineroPerdido";
 import FilterFab from "../components/FilterFab";
 import type { FilterOption } from "../components/FilterFab";
 import MetricCard from "../components/MetricCard";
@@ -66,6 +67,8 @@ interface TireWithDesecho {
   eje?: string;
   dimension?: string;
   profundidadInicial?: number;
+  currentProfundidad?: number | null;
+  projectedProfundidad?: number | null;
   costos?: Array<{ valor: number }> | null;
 }
 
@@ -565,20 +568,17 @@ const DesechosPage: React.FC = () => {
       const desechos: EnrichedDesecho[] = [];
       tires.forEach((tire) => {
         if (tire.desechos) {
-          // Prefer the server-persisted dineroPerdido
-          //   = mm_remaining × (costo_vida / profundidad_inicial_vida).
-          // Fall back to a client-side estimate for legacy rows written
-          // before the fix landed.
+          // "Dinero perdido" is computed with the SAME formula as the resumen
+          // card (shared/dineroPerdido): (projected ?? current depth /
+          // profundidadInicial) × Σ all costos — so the Desechos tab and the
+          // resumen dashboard always show identical figures. We no longer use
+          // the server `desechos.dineroPerdido` (different cpk×km×mm formula)
+          // or the last-cost-only fallback.
           const profundidadInicial = Number(tire.profundidadInicial) || 0;
-          const lastCosto = Array.isArray(tire.costos) && tire.costos.length > 0
-            ? Number(tire.costos[tire.costos.length - 1]?.valor) || 0
+          const totalCost = Array.isArray(tire.costos)
+            ? tire.costos.reduce((s, c) => s + (Number(c?.valor) || 0), 0)
             : 0;
-          const serverDineroPerdido = Number(tire.desechos.dineroPerdido);
-          const remanenteCop = Number.isFinite(serverDineroPerdido) && serverDineroPerdido > 0
-            ? serverDineroPerdido
-            : profundidadInicial > 0 && lastCosto > 0
-            ? (Number(tire.desechos.remanente) / profundidadInicial) * lastCosto
-            : 0;
+          const remanenteCop = tireDineroPerdido(tire);
           desechos.push({
             ...tire.desechos,
             tireId: tire.id,
@@ -587,7 +587,7 @@ const DesechosPage: React.FC = () => {
             eje: tire.eje ?? "—",
             dimension: tire.dimension ?? "—",
             remanenteCop,
-            tireCost: lastCosto,
+            tireCost: totalCost,
             profundidadInicial,
           });
         }

@@ -17,6 +17,7 @@
 // -----------------------------------------------------------------------------
 
 import type { ResumenReportData, Distribution } from "./resumenReportPdf";
+import { tireDineroPerdido } from "./dineroPerdido";
 
 export type RawCosto = { valor: number; fecha: string | Date; concepto?: string | null };
 export type RawInspeccion = {
@@ -294,10 +295,7 @@ export function buildResumenReportData(
   // 6) Dinero perdido — wasted tread value of scrapped tires, bucketed by last cost month.
   const perdidoByMonth: Record<string, number> = {};
   finTires.forEach((t) => {
-    const depth = t.projectedProfundidad ?? t.currentProfundidad;
-    if (!depth || !t.profundidadInicial || t.profundidadInicial <= 0) return;
-    const totalCost = (t.costos ?? []).reduce((s, c) => s + c.valor, 0);
-    const waste = (depth / t.profundidadInicial) * totalCost;
+    const waste = tireDineroPerdido(t);
     if (waste <= 0) return;
     const lastCosto = [...(t.costos ?? [])].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
     const k = lastCosto ? toMonthKey(lastCosto.fecha) : lastKey;
