@@ -47,26 +47,55 @@ export type ResumenReportData = {
   porMarca: Distribution[];
   porVida: Distribution[];
   porDimension: Distribution[];
+  porBanda: Distribution[];
+  tipoVehiculo: Distribution[];
   mejoresCpk: Array<{ marca: string; diseno: string; dimension: string; avgCpk: number; count: number }>;
+  // Operational / condition analytics (mirror the on-screen detalle cards).
+  semaforo: {
+    buenEstado: number;       // > 7 mm
+    dias60: number;           // 6–7 mm
+    dias30: number;           // 3–6 mm
+    cambioInmediato: number;  // ≤ 3 mm
+    total: number;            // tires with an inspection
+  };
+  promedioEje: Array<{ eje: string; avg: number; count: number }>;
+  proyeccionVida: {
+    critical: number; soon: number; plan: number; stable: number;
+    unknown: number; avgDays: number; total: number;
+  };
+  // Per-vehicle position map for the colour-coded semáforo table.
+  semaforoPosicion: {
+    positions: number[]; // active position columns (1..17)
+    rows: Array<{ placa: string; depths: Record<number, number | null>; worst: number | null; count: number }>;
+  };
 };
 
 export type ResumenSection =
   | "kpis" | "cpk" | "inversion" | "dinero_perdido"
-  | "marca" | "vida" | "dimension" | "mejores_cpk";
+  | "semaforo" | "semaforo_posicion" | "promedio_eje" | "proyeccion_vida"
+  | "marca" | "vida" | "por_banda" | "dimension" | "tipo_vehiculo" | "mejores_cpk";
 
 export const SECTION_ORDER: ResumenSection[] = [
-  "kpis", "cpk", "inversion", "dinero_perdido", "marca", "vida", "dimension", "mejores_cpk",
+  "kpis", "cpk", "inversion", "dinero_perdido",
+  "semaforo", "semaforo_posicion", "promedio_eje", "proyeccion_vida",
+  "marca", "vida", "por_banda", "dimension", "tipo_vehiculo", "mejores_cpk",
 ];
 
 export const SECTION_LABELS: Record<ResumenSection, string> = {
-  kpis:           "Indicadores (KPIs)",
-  cpk:            "CPK Proyectado",
-  inversion:      "Inversión y por categoría",
-  dinero_perdido: "Dinero perdido por desecho",
-  marca:          "Distribución por marca",
-  vida:           "Distribución por vida",
-  dimension:      "Distribución por dimensión",
-  mejores_cpk:    "Mejores combinaciones CPK",
+  kpis:             "Indicadores (KPIs)",
+  cpk:              "CPK Proyectado",
+  inversion:        "Inversión y por categoría",
+  dinero_perdido:   "Dinero perdido por desecho",
+  semaforo:         "Semáforo (estado actual)",
+  semaforo_posicion:"Semáforo por posición (tabla)",
+  promedio_eje:     "Profundidad media por eje",
+  proyeccion_vida:  "Proyección de vida",
+  marca:            "Distribución por marca",
+  vida:             "Distribución por vida",
+  por_banda:        "Llantas por banda",
+  dimension:        "Distribución por dimensión",
+  tipo_vehiculo:    "Llantas por tipo de vehículo",
+  mejores_cpk:      "Mejores combinaciones CPK",
 };
 
 export type ResumenReportOptions = {
@@ -362,6 +391,246 @@ function drawHBarList(doc: jsPDF, x: number, y: number, w: number, data: Distrib
   });
 }
 
+// -- Value bar list (mm / non-percentage metrics) ----------------------------
+
+// Like drawHBarList but the right-hand label is a raw value + unit (e.g. "8.4 mm")
+// instead of a share-of-total percentage. Used for "profundidad media por eje".
+function drawValueBars(
+  doc: jsPDF, x: number, y: number, w: number,
+  data: Array<{ label: string; value: number; color?: string }>, accent: string, unit: string,
+) {
+  const rowH = 7.6;
+  const max = Math.max(...data.map((d) => d.value), 1);
+  const labelW = Math.min(46, w * 0.36);
+  const valW = 22;
+  const barX = x + labelW + 2;
+  const barW = w - labelW - valW - 4;
+
+  data.forEach((d, i) => {
+    const ry = y + i * rowH;
+    if (i % 2 === 1) { setFill(doc, "#fafbfd"); doc.rect(x - 2, ry - 1.6, w + 4, rowH, "F"); }
+    setText(doc, COLOR_TEXT);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.8);
+    doc.text(fitText(doc, d.label || "—", labelW), x, ry + 3.4);
+    setFill(doc, COLOR_TRACK);
+    doc.roundedRect(barX, ry + 0.6, barW, 3.6, 1.2, 1.2, "F");
+    const bw = Math.max(0.8, (d.value / max) * barW);
+    setFill(doc, d.color ?? accent);
+    doc.roundedRect(barX, ry + 0.6, bw, 3.6, 1.2, 1.2, "F");
+    setText(doc, COLOR_TEXT);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.6);
+    doc.text(`${d.value} ${unit}`, x + w, ry + 3.4, { align: "right" });
+  });
+}
+
+// -- Semáforo summary (4 condition tiles) ------------------------------------
+
+function drawSemaforoCard(
+  doc: jsPDF, x: number, y: number, w: number, accent: string, s: ResumenReportData["semaforo"],
+): number {
+  const items = [
+    { label: "Óptimo",  value: s.buenEstado,      color: "#22c55e" },
+    { label: "60 Días", value: s.dias60,          color: "#2D95FF" },
+    { label: "30 Días", value: s.dias30,          color: "#f97316" },
+    { label: "Urgente", value: s.cambioInmediato, color: "#ef4444" },
+  ];
+  const H = 34;
+  cardFrame(doc, x, y, w, H, "Semáforo — estado actual", accent, `${fmtInt(s.total)} llantas con inspección`);
+  const gap = 4, innerX = x + 6, innerW = w - 12;
+  const bw = (innerW - gap * 3) / 4;
+  const by = y + 13, bh = 16;
+  items.forEach((it, i) => {
+    const bx = innerX + i * (bw + gap);
+    setFill(doc, lighten(it.color, 0.82));
+    doc.roundedRect(bx, by, bw, bh, 1.6, 1.6, "F");
+    setFill(doc, it.color);
+    doc.roundedRect(bx, by, 1.8, bh, 1, 1, "F");
+    setText(doc, darken(it.color, 0.28));
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.4);
+    doc.text(it.label.toUpperCase(), bx + 5, by + 6);
+    setText(doc, COLOR_TEXT);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(fmtInt(it.value), bx + 5, by + 13);
+    const pct = s.total > 0 ? Math.round((it.value / s.total) * 100) : 0;
+    setText(doc, COLOR_MUTED);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.4);
+    doc.text(`${pct}%`, bx + bw - 3.5, by + 13, { align: "right" });
+  });
+  return y + H;
+}
+
+// -- Proyección de vida (4 urgency buckets + avg) ----------------------------
+
+function drawProyeccionCard(
+  doc: jsPDF, x: number, y: number, w: number, accent: string, p: ResumenReportData["proyeccionVida"],
+): number {
+  const bars = [
+    { label: "< 30 días",  value: p.critical, color: "#ef4444" },
+    { label: "30–60 días", value: p.soon,     color: "#f97316" },
+    { label: "60–90 días", value: p.plan,     color: "#eab308" },
+    { label: "> 90 días",  value: p.stable,   color: "#22c55e" },
+  ];
+  const H = 16 + bars.length * 7.6 + 7;
+  cardFrame(doc, x, y, w, H, "Proyección de vida", accent,
+    p.avgDays > 0 ? `Vida promedio: ${p.avgDays} días` : "Vida promedio: --");
+  const max = Math.max(...bars.map((b) => b.value), 1);
+  const innerX = x + 6, innerW = w - 12;
+  const labelW = 26, valW = 18;
+  const barX = innerX + labelW + 2, barW = innerW - labelW - valW - 4;
+  bars.forEach((b, i) => {
+    const ry = y + 15 + i * 7.6;
+    setText(doc, COLOR_TEXT);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.6);
+    doc.text(b.label, innerX, ry + 3.2);
+    setFill(doc, COLOR_TRACK);
+    doc.roundedRect(barX, ry + 0.6, barW, 3.6, 1.2, 1.2, "F");
+    const bw = Math.max(b.value > 0 ? 1.2 : 0, (b.value / max) * barW);
+    setFill(doc, b.color);
+    doc.roundedRect(barX, ry + 0.6, bw, 3.6, 1.2, 1.2, "F");
+    setText(doc, COLOR_TEXT);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.6);
+    doc.text(fmtInt(b.value), innerX + innerW, ry + 3.4, { align: "right" });
+  });
+  if (p.unknown > 0) {
+    setText(doc, COLOR_MUTED);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(6.4);
+    doc.text(`${fmtInt(p.unknown)} llantas sin datos suficientes para proyectar`, innerX, y + H - 3.5);
+  }
+  return y + H;
+}
+
+// -- Semáforo por posición — paginated colour-coded table --------------------
+
+// Cell colours match the on-screen semáforo table thresholds (legal limit 2 mm):
+// > 4 mm green, 2–4 mm amber, ≤ 2 mm red, no data grey.
+function depthCellColor(v: number | null): { bg: string; fg: string } {
+  if (v === null) return { bg: "#f3f4f6", fg: "#9ca3af" };
+  if (v <= 2)     return { bg: "#fee2e2", fg: "#991b1b" };
+  if (v <= 4)     return { bg: "#fef3c7", fg: "#92400e" };
+  return            { bg: "#d1fae5", fg: "#065f46" };
+}
+
+// Draws the whole table, spilling onto as many pages as needed (the column
+// header repeats at the top of every page). Returns the Y after the last row.
+function drawSemaforoTable(
+  doc: jsPDF, x: number, w: number, yStart: number, bottom: number, accent: string,
+  sp: ResumenReportData["semaforoPosicion"], runningHeader: () => number,
+): number {
+  let y = yStart;
+  const { positions, rows } = sp;
+
+  // Section heading
+  setFill(doc, accent);
+  doc.roundedRect(x, y, 2, 4.2, 0.8, 0.8, "F");
+  setText(doc, COLOR_TEXT);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10.5);
+  doc.text("Semáforo por posición", x + 4.5, y + 4);
+  setText(doc, COLOR_MUTED);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.6);
+  doc.text(`${fmtInt(rows.length)} vehículos · profundidad mínima (mm)`, x + w, y + 4, { align: "right" });
+  y += 8;
+
+  // Legend
+  const legend = [
+    { t: "> 4 mm", bg: "#d1fae5", fg: "#065f46" },
+    { t: "2–4 mm", bg: "#fef3c7", fg: "#92400e" },
+    { t: "≤ 2 mm", bg: "#fee2e2", fg: "#991b1b" },
+    { t: "Sin dato", bg: "#f3f4f6", fg: "#9ca3af" },
+  ];
+  let lx = x;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6);
+  legend.forEach((l) => {
+    const lw = doc.getTextWidth(l.t) + 8;
+    setFill(doc, l.bg);
+    doc.roundedRect(lx, y, lw, 4.8, 1.2, 1.2, "F");
+    setText(doc, l.fg);
+    doc.text(l.t, lx + 4, y + 3.3);
+    lx += lw + 3;
+  });
+  y += 8.5;
+
+  if (rows.length === 0 || positions.length === 0) {
+    setText(doc, COLOR_MUTED);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.text("Sin datos de posición para el filtro actual.", x, y + 3);
+    return y + 6;
+  }
+
+  const placaW = 26;
+  const posW = (w - placaW) / positions.length;
+  const headH = 6.5;
+  const rowH = 6.2;
+  const headFont = positions.length > 12 ? 5.4 : 6.2;
+  const cellFont = positions.length > 12 ? 5.4 : 6.2;
+
+  const drawHead = () => {
+    setFill(doc, "#f1f5f9");
+    doc.rect(x, y, w, headH, "F");
+    setText(doc, COLOR_TEXT);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.4);
+    doc.text("PLACA", x + 2, y + headH - 2);
+    doc.setFontSize(headFont);
+    positions.forEach((p, i) => {
+      doc.text(`P${p}`, x + placaW + i * posW + posW / 2, y + headH - 2, { align: "center" });
+    });
+    setDraw(doc, COLOR_BORDER);
+    doc.setLineWidth(0.2);
+    doc.line(x, y + headH, x + w, y + headH);
+    y += headH;
+  };
+
+  drawHead();
+
+  rows.forEach((r, idx) => {
+    if (y + rowH > bottom) {
+      doc.addPage();
+      y = runningHeader();
+      drawHead();
+    }
+    if (idx % 2 === 1) { setFill(doc, "#fafbfd"); doc.rect(x, y, w, rowH, "F"); }
+    // placa + worst dot
+    setText(doc, COLOR_TEXT);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.6);
+    doc.text(fitText(doc, (r.placa || "—").toUpperCase(), placaW - 5), x + 2, y + rowH - 1.9);
+    if (r.worst !== null) {
+      setFill(doc, depthCellColor(r.worst).fg);
+      doc.circle(x + placaW - 2.4, y + rowH / 2, 0.9, "F");
+    }
+    // position cells
+    positions.forEach((p, i) => {
+      const v = r.depths[p];
+      const cx = x + placaW + i * posW;
+      const c = depthCellColor(v);
+      const pad = 0.8;
+      setFill(doc, c.bg);
+      doc.roundedRect(cx + pad, y + 0.7, posW - pad * 2, rowH - 1.4, 0.8, 0.8, "F");
+      setText(doc, c.fg);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(cellFont);
+      doc.text(v === null ? "–" : String(v), cx + posW / 2, y + rowH - 1.9, { align: "center" });
+    });
+    y += rowH;
+  });
+  setDraw(doc, COLOR_BORDER);
+  doc.setLineWidth(0.2);
+  doc.line(x, y, x + w, y);
+  return y;
+}
+
 // -- KPI strip ----------------------------------------------------------------
 
 function drawKpiStrip(doc: jsPDF, x: number, y: number, w: number, accent: string, k: ResumenReportData["kpis"], periodLabel: string): number {
@@ -560,6 +829,52 @@ export async function generateResumenReportPdf(
         ensure(66);
         y = trendCard(doc, M, y, CW, "Dinero perdido por desecho", "Banda desechada con vida remanente",
           data.dineroPerdido, "bar", COLOR_ORANGE, (v) => fmtCOPCompact(v), (v) => fmtCOPCompact(v));
+        y += 6;
+        break;
+
+      case "semaforo":
+        ensure(38);
+        y = drawSemaforoCard(doc, M, y, CW, accent, data.semaforo);
+        y += 6;
+        break;
+
+      case "semaforo_posicion":
+        // The table paginates internally; just make sure the heading + a few
+        // rows won't be orphaned at the very bottom of the current page.
+        ensure(42);
+        y = drawSemaforoTable(doc, M, CW, y, BOTTOM, accent, data.semaforoPosicion, runningHeader);
+        y += 6;
+        break;
+
+      case "promedio_eje": {
+        const ejes = data.promedioEje;
+        const H = 13 + Math.max(1, ejes.length) * 7.6 + 4;
+        ensure(H);
+        cardFrame(doc, M, y, CW, H, "Profundidad media por eje", accent,
+          `${ejes.length} ${ejes.length === 1 ? "eje" : "ejes"} · profundidad mínima promedio`);
+        if (ejes.length === 0) {
+          setText(doc, COLOR_MUTED); doc.setFont("helvetica", "italic"); doc.setFontSize(8);
+          doc.text("Sin datos para el filtro actual.", M + 6, y + 16);
+        } else {
+          drawValueBars(doc, M + 6, y + 13, CW - 12,
+            ejes.map((e) => ({ label: e.eje, value: e.avg })), accent, "mm");
+        }
+        y += H + 6;
+        break;
+      }
+
+      case "proyeccion_vida":
+        ensure(56);
+        y = drawProyeccionCard(doc, M, y, CW, accent, data.proyeccionVida);
+        y += 6;
+        break;
+
+      case "por_banda":
+        y = distributionCard(doc, M, CW, "Llantas por banda", data.porBanda, accent, ensure, () => y);
+        y += 6;
+        break;
+      case "tipo_vehiculo":
+        y = distributionCard(doc, M, CW, "Llantas por tipo de vehículo", data.tipoVehiculo, accent, ensure, () => y);
         y += 6;
         break;
 

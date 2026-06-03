@@ -75,7 +75,11 @@ const SemaforoTabla: React.FC<SemaforoTablaProps> = ({ vehicles, tires }) => {
       if (!tire.vehicleId) continue;
       vehicleHasTire.add(tire.vehicleId);
       if (!tire.inspecciones || tire.inspecciones.length === 0) continue;
-      const last = tire.inspecciones[tire.inspecciones.length - 1];
+      // Backend returns inspecciones newest-first (orderBy fecha desc), so the
+      // most recent is the one with the max fecha — not the last array element.
+      const last = tire.inspecciones.reduce((a, b) =>
+        new Date(b.fecha).getTime() >= new Date(a.fecha).getTime() ? b : a
+      );
       const depth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
 
       let posMap = minDepthByVehiclePos.get(tire.vehicleId);

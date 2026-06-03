@@ -34,7 +34,11 @@ const TEMPLATES: Template[] = [
     name: "Completo",
     desc: "Todos los indicadores, tendencias y distribuciones.",
     accent: "#0A183A",
-    sections: ["kpis", "cpk", "inversion", "dinero_perdido", "marca", "vida", "dimension", "mejores_cpk"],
+    sections: [
+      "kpis", "cpk", "inversion", "dinero_perdido",
+      "semaforo", "semaforo_posicion", "promedio_eje", "proyeccion_vida",
+      "marca", "vida", "por_banda", "dimension", "tipo_vehiculo", "mejores_cpk",
+    ],
   },
   {
     id: "financiero",
@@ -44,11 +48,18 @@ const TEMPLATES: Template[] = [
     sections: ["kpis", "inversion", "dinero_perdido", "mejores_cpk"],
   },
   {
+    id: "tecnico",
+    name: "Técnico",
+    desc: "Estado de la flota: semáforo, posiciones, profundidad y proyección.",
+    accent: "#0891b2",
+    sections: ["kpis", "semaforo", "semaforo_posicion", "promedio_eje", "proyeccion_vida", "por_banda", "tipo_vehiculo"],
+  },
+  {
     id: "operativo",
     name: "Operativo",
-    desc: "Composición de la flota: marca, vida, dimensión y CPK.",
+    desc: "Composición de la flota: marca, vida, banda, dimensión y CPK.",
     accent: "#7c3aed",
-    sections: ["kpis", "marca", "vida", "dimension", "cpk"],
+    sections: ["kpis", "marca", "vida", "por_banda", "dimension", "tipo_vehiculo", "cpk"],
   },
 ];
 

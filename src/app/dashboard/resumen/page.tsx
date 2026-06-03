@@ -818,8 +818,8 @@ export default function ResumenPage() {
 
   const buildExportData = useCallback(
     (opts: ReportFilterOpts) =>
-      buildResumenReportData(tires, opts, { name: companyName, logo: companyLogo }, tires.length),
-    [tires, companyName, companyLogo],
+      buildResumenReportData(tires, opts, { name: companyName, logo: companyLogo }, tires.length, vehicles),
+    [tires, companyName, companyLogo, vehicles],
   );
 
   const rankColors = ["#D4AF37", "#94A3B8", "#CD7F32", "#348CCB", "#348CCB"];

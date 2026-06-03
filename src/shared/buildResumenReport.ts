@@ -24,6 +24,11 @@ export type RawInspeccion = {
   cpkProyectado: number | null;
   cpk?: number | null;
   lifetimeCpk?: number | null;
+  // Tread depths — present at runtime, used by the semáforo / eje / proyección
+  // analytics. Optional so the leaner dashboard RawTire type stays assignable.
+  profundidadInt?: number | null;
+  profundidadCen?: number | null;
+  profundidadExt?: number | null;
 };
 export type ReportTire = {
   id: string;
@@ -32,6 +37,7 @@ export type ReportTire = {
   diseno: string;
   dimension: string;
   eje: string;
+  posicion?: number | null;
   vehicleId: string | null;
   profundidadInicial: number;
   kilometrosRecorridos: number;
@@ -39,10 +45,32 @@ export type ReportTire = {
   lifetimeCpk?: number | null;
   currentProfundidad: number | null;
   projectedProfundidad?: number | null;
+  projectedDateEOL?: string | null;
   vidaActual: string;
   costos: RawCosto[];
   inspecciones: RawInspeccion[];
 };
+
+export type ReportVehicle = { id: string; placa: string; tipovhc?: string | null };
+
+const POSITIONS = Array.from({ length: 17 }, (_, i) => i + 1);
+
+// Most recent inspection by fecha. After date-range narrowing the array is a
+// single element, but raw arrays arrive newest-first; sort defensively either way.
+function latestInspeccion(t: ReportTire): RawInspeccion | null {
+  if (!t.inspecciones?.length) return null;
+  return [...t.inspecciones].sort(
+    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+  )[0];
+}
+
+// Worst (minimum) tread depth of an inspection — null when any band is missing.
+function minDepthOf(i: RawInspeccion | null): number | null {
+  if (!i) return null;
+  const a = i.profundidadInt, b = i.profundidadCen, c = i.profundidadExt;
+  if (a == null || b == null || c == null) return null;
+  return Math.min(a, b, c);
+}
 
 export type ReportFilterOpts = {
   marca: string; // "Todos" or a brand
@@ -134,6 +162,7 @@ export function buildResumenReportData(
   f: ReportFilterOpts,
   company: { name: string; logo: string | null },
   totalFleet: number,
+  vehicles: ReportVehicle[] = [],
 ): ResumenReportData {
   const { months, periodLabel } = buildWindow(f.dateFrom, f.dateTo);
   const windowKeys = new Set(months.map((m) => m.key));
@@ -284,6 +313,126 @@ export function buildResumenReportData(
   };
   const porMarca = countBy((t) => t.marca);
   const porDimension = countBy((t) => t.dimension?.trim());
+  const porBanda = countBy((t) => t.diseno?.trim());
+
+  // 7b) Semáforo — current condition from the latest inspection's min depth.
+  //     Thresholds mirror the on-screen SemaforoPie card.
+  const semaforo = { buenEstado: 0, dias60: 0, dias30: 0, cambioInmediato: 0, total: 0 };
+  filtered.forEach((t) => {
+    const d = minDepthOf(latestInspeccion(t));
+    if (d == null) return;
+    if (d > 7) semaforo.buenEstado++;
+    else if (d > 6) semaforo.dias60++;
+    else if (d > 3) semaforo.dias30++;
+    else semaforo.cambioInmediato++;
+    semaforo.total++;
+  });
+
+  // 7c) Profundidad media por eje — average of each tire's latest min depth.
+  const ejeAgg: Record<string, { sum: number; count: number }> = {};
+  filtered.forEach((t) => {
+    const d = minDepthOf(latestInspeccion(t));
+    if (d == null) return;
+    const eje = (t.eje || "Desconocido").trim() || "Desconocido";
+    if (!ejeAgg[eje]) ejeAgg[eje] = { sum: 0, count: 0 };
+    ejeAgg[eje].sum += d;
+    ejeAgg[eje].count++;
+  });
+  const promedioEje = Object.entries(ejeAgg)
+    .map(([eje, v]) => ({ eje, avg: +(v.sum / v.count).toFixed(2), count: v.count }))
+    .sort((a, b) => a.eje.localeCompare(b.eje, "es"));
+
+  // 7d) Proyección de vida — days-to-3mm from the per-tire wear trend (or the
+  //     cached projectedDateEOL). Mirrors the ProyeccionVida card.
+  const OPTIMAL_MM = 3;
+  const proy = { critical: 0, soon: 0, plan: 0, stable: 0, unknown: 0 };
+  const proyDays: number[] = [];
+  filtered.forEach((t) => {
+    const insps = t.inspecciones ?? [];
+    if (insps.length === 0) { proy.unknown++; return; }
+    let daysUntilEOL: number | null = null;
+    if (t.projectedDateEOL) {
+      const d = new Date(t.projectedDateEOL);
+      daysUntilEOL = Math.max(0, Math.round((d.getTime() - Date.now()) / 86_400_000));
+    } else if (insps.length >= 2) {
+      const sorted = [...insps].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+      const first = sorted[0], last = sorted[sorted.length - 1];
+      const fMin = minDepthOf(first), lMin = minDepthOf(last);
+      if (fMin != null && lMin != null) {
+        const months = (new Date(last.fecha).getTime() - new Date(first.fecha).getTime()) / (86_400_000 * 30);
+        if (months >= 0.5 && fMin > lMin) {
+          const rate = (fMin - lMin) / months;
+          const remaining = lMin - OPTIMAL_MM;
+          if (remaining > 0 && rate > 0) daysUntilEOL = Math.max(0, Math.round((remaining / rate) * 30));
+        }
+      }
+    }
+    if (daysUntilEOL == null) { proy.unknown++; return; }
+    proyDays.push(daysUntilEOL);
+    if (daysUntilEOL <= 30) proy.critical++;
+    else if (daysUntilEOL <= 60) proy.soon++;
+    else if (daysUntilEOL <= 90) proy.plan++;
+    else proy.stable++;
+  });
+  const proyeccionVida = {
+    ...proy,
+    total: proyDays.length,
+    avgDays: proyDays.length ? Math.round(proyDays.reduce((a, b) => a + b, 0) / proyDays.length) : 0,
+  };
+
+  // 7e) Llantas por tipo de vehículo — tire counts joined to vehicle.tipovhc.
+  const countByVehicle: Record<string, number> = {};
+  filtered.forEach((t) => {
+    if (t.vehicleId) countByVehicle[t.vehicleId] = (countByVehicle[t.vehicleId] ?? 0) + 1;
+  });
+  const tipoAgg: Record<string, number> = {};
+  vehicles.forEach((v) => {
+    const c = countByVehicle[v.id] ?? 0;
+    if (c <= 0) return;
+    const raw = (v.tipovhc ?? "").trim() || "Desconocido";
+    const label = raw.charAt(0).toUpperCase() + raw.slice(1);
+    tipoAgg[label] = (tipoAgg[label] ?? 0) + c;
+  });
+  const tipoVehiculo: Distribution[] = Object.entries(tipoAgg)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+
+  // 7f) Semáforo por posición — per-vehicle × position min-depth grid. Mirrors
+  //     the on-screen SemaforoTabla; rows are sorted worst-first for the report.
+  const minByVehPos = new Map<string, Map<number, number>>();
+  const vehHasTire = new Set<string>();
+  filtered.forEach((t) => {
+    if (!t.vehicleId) return;
+    vehHasTire.add(t.vehicleId);
+    const d = minDepthOf(latestInspeccion(t));
+    if (d == null || t.posicion == null) return;
+    let pm = minByVehPos.get(t.vehicleId);
+    if (!pm) { pm = new Map(); minByVehPos.set(t.vehicleId, pm); }
+    const ex = pm.get(t.posicion);
+    pm.set(t.posicion, ex !== undefined ? Math.min(ex, d) : d);
+  });
+  const semRows = vehicles
+    .filter((v) => (v.placa ?? "").toLowerCase() !== "fin" && vehHasTire.has(v.id))
+    .map((v) => {
+      const pm = minByVehPos.get(v.id);
+      const depths: Record<number, number | null> = {};
+      let worst: number | null = null;
+      let count = 0;
+      for (const p of POSITIONS) {
+        const m = pm?.get(p);
+        if (m !== undefined) {
+          depths[p] = m; count++;
+          if (worst === null || m < worst) worst = m;
+        } else {
+          depths[p] = null;
+        }
+      }
+      return { placa: v.placa, depths, worst, count };
+    })
+    .filter((r) => r.count > 0)
+    .sort((a, b) => (a.worst ?? Infinity) - (b.worst ?? Infinity));
+  const activePositions = POSITIONS.filter((p) => semRows.some((r) => r.depths[p] !== null));
+  const semaforoPosicion = { positions: activePositions, rows: semRows };
 
   const VIDA_LABELS: Record<string, string> = {
     nueva: "Nueva", reencauche1: "Reencauche 1", reencauche2: "Reencauche 2", reencauche3: "Reencauche 3", fin: "Fin de vida",
@@ -332,6 +481,12 @@ export function buildResumenReportData(
     porMarca,
     porVida,
     porDimension,
+    porBanda,
+    tipoVehiculo,
     mejoresCpk,
+    semaforo,
+    promedioEje,
+    proyeccionVida,
+    semaforoPosicion,
   };
 }

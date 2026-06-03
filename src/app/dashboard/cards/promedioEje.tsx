@@ -19,6 +19,7 @@ interface Inspeccion {
   profundidadInt: number;
   profundidadCen: number;
   profundidadExt: number;
+  fecha: string;
 }
 
 interface Tire {
@@ -60,7 +61,11 @@ const PromedioEje: React.FC<PromedioEjeProps> = ({ tires, onSelectEje, selectedE
 
     tires.forEach((tire) => {
       if (!tire.inspecciones || tire.inspecciones.length === 0) return;
-      const latestInspection = tire.inspecciones[tire.inspecciones.length - 1];
+      // Backend returns inspecciones newest-first (orderBy fecha desc), so the
+      // most recent is the one with the max fecha — not the last array element.
+      const latestInspection = tire.inspecciones.reduce((a, b) =>
+        new Date(b.fecha).getTime() >= new Date(a.fecha).getTime() ? b : a
+      );
       if (!latestInspection) return;
       const minDepth = Math.min(
         latestInspection.profundidadInt,

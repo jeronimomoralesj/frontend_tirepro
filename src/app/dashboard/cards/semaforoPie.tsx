@@ -65,7 +65,11 @@ const SemaforoPie: React.FC<SemaforoPieProps> = ({
 
     tires.forEach((tire) => {
       if (!tire.inspecciones || tire.inspecciones.length === 0) return;
-      const last = tire.inspecciones.at(-1);
+      // Backend returns inspecciones newest-first (orderBy fecha desc), so the
+      // most recent is the one with the max fecha — not the last array element.
+      const last = tire.inspecciones.reduce((a, b) =>
+        new Date(b.fecha).getTime() >= new Date(a.fecha).getTime() ? b : a
+      );
       if (!last) return;
 
       const minDepth = Math.min(last.profundidadInt, last.profundidadCen, last.profundidadExt);
