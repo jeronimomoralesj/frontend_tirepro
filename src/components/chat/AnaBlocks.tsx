@@ -20,7 +20,7 @@ function authHeaders(): Record<string, string> {
 export type AnaTone = 'good' | 'warn' | 'bad' | 'neutral' | 'info';
 
 type KpisBlock = { kind: 'kpis'; title?: string; items: { label: string; value: string; hint?: string; tone?: AnaTone }[] };
-type BarBlock = { kind: 'bar'; title?: string; unit?: string; orientation?: 'vertical' | 'horizontal'; data: { label: string; value: number; color?: string }[] };
+type BarBlock = { kind: 'bar'; title?: string; unit?: string; xLabel?: string; yLabel?: string; orientation?: 'vertical' | 'horizontal'; data: { label: string; value: number; color?: string }[] };
 type LineBlock = { kind: 'line'; title?: string; unit?: string; area?: boolean; data: { label: string; value: number }[] };
 type PieBlock = { kind: 'pie'; title?: string; donut?: boolean; data: { label: string; value: number; color?: string }[] };
 type TableBlock = { kind: 'table'; title?: string; columns: string[]; rows: (string | number)[][] };
@@ -103,23 +103,29 @@ function BarBlockView({ block }: { block: BarBlock }) {
   if (!data.length) return null;
   const horizontal = block.orientation === 'horizontal' || data.length > 5;
   const unit = block.unit || '';
+  // Axis titles: the value axis shows what the number means, the category axis what each bar is.
+  const valueTitle = block.yLabel || unit;
+  const catTitle = block.xLabel || '';
+  const axisTitleStyle = { fontSize: 11, fill: '#6b7280', fontWeight: 500 } as const;
   const longestLabel = Math.max(...data.map(d => (d.label || '').length));
-  const yAxisWidth = horizontal ? Math.min(Math.max(longestLabel * 7, 64), 140) : (unit ? 64 : 52);
+  const yAxisWidth = horizontal ? Math.min(Math.max(longestLabel * 7, 64), 140) + (catTitle ? 16 : 0) : (valueTitle ? 64 : 52);
   const needsAngle = !horizontal && (data.length > 4 || longestLabel > 8);
-  const xAxisHeight = needsAngle ? Math.min(longestLabel * 4 + 16, 80) : 36;
+  const xAxisHeight = (needsAngle ? Math.min(longestLabel * 4 + 16, 80) : 36) + (!horizontal && catTitle ? 18 : 0);
   const chartHeight = horizontal ? Math.max(240, data.length * 38 + 60) : Math.max(260, 240 + (needsAngle ? 20 : 0));
   return (
     <Card title={block.title} subtitle={unit}>
       <div style={{ height: chartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ top: 8, right: 28, bottom: horizontal ? 12 : xAxisHeight > 36 ? 12 : 8, left: horizontal ? 4 : 8 }}>
+          <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ top: 8, right: 28, bottom: horizontal ? (valueTitle ? 24 : 12) : xAxisHeight > 36 ? 12 : 8, left: horizontal ? 4 : 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={!horizontal} horizontal={horizontal} />
             {horizontal ? (
               <>
                 <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }}>
-                  {unit && <Label value={unit} position="insideBottomRight" offset={-4} style={{ fontSize: 10, fill: '#9ca3af' }} />}
+                  {valueTitle && <Label value={valueTitle} position="insideBottom" offset={-12} style={axisTitleStyle} />}
                 </XAxis>
-                <YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: '#374151' }} width={yAxisWidth} tickLine={false} axisLine={false} interval={0} />
+                <YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: '#374151' }} width={yAxisWidth} tickLine={false} axisLine={false} interval={0}>
+                  {catTitle && <Label value={catTitle} angle={-90} position="insideLeft" offset={0} style={{ ...axisTitleStyle, textAnchor: 'middle' }} />}
+                </YAxis>
               </>
             ) : (
               <>
@@ -133,9 +139,11 @@ function BarBlockView({ block }: { block: BarBlock }) {
                   axisLine={{ stroke: '#e5e7eb' }}
                   height={xAxisHeight}
                   dy={4}
-                />
+                >
+                  {catTitle && <Label value={catTitle} position="insideBottom" offset={0} style={axisTitleStyle} />}
+                </XAxis>
                 <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickLine={false} axisLine={false} width={yAxisWidth}>
-                  {unit && <Label value={unit} angle={-90} position="insideLeft" offset={4} style={{ fontSize: 10, fill: '#9ca3af', textAnchor: 'middle' }} />}
+                  {valueTitle && <Label value={valueTitle} angle={-90} position="insideLeft" offset={4} style={{ ...axisTitleStyle, textAnchor: 'middle' }} />}
                 </YAxis>
               </>
             )}
